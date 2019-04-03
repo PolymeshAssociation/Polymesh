@@ -8,7 +8,10 @@
 /// For more guidance on Substrate modules, see the example module
 /// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
 
-use support::{decl_module, decl_storage, decl_event, StorageValue, dispatch::Result};
+use rstd::prelude::*;
+use runtime_io;
+use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, Hash};
+use support::{decl_module, decl_storage, decl_event, StorageMap, StorageValue, dispatch::Result};
 use system::ensure_signed;
 
 /// The module's configuration trait.
@@ -26,6 +29,8 @@ decl_storage! {
 		// Here we are declaring a StorageValue, `Something` as a Option<u32>
 		// `get(something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
 		Something get(something): Option<u32>;
+        Value: u64;
+        Symbol: Vec<u8>;
 	}
 }
 
@@ -51,6 +56,26 @@ decl_module! {
 			Self::deposit_event(RawEvent::SomethingStored(something, who));
 			Ok(())
 		}
+
+        fn set_value(origin, value: u64) -> Result {
+            let _sender = ensure_signed(origin)?;
+
+            <Value<T>>::put(value);
+
+            Ok(())
+        }  
+
+        fn set_symbol(origin, value: Vec<u8>) -> Result {
+            let _sender = ensure_signed(origin)?;
+
+            <Symbol<T>>::put(value);
+
+            // some bytes, in a vector
+            let polymesh = vec![80, 111, 108, 121, 109, 101, 115, 104];
+            <Symbol<T>>::put(polymesh);
+
+            Ok(())
+        }   
 	}
 }
 
