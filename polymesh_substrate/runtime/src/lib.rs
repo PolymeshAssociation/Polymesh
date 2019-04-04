@@ -198,6 +198,7 @@ impl template::Trait for Runtime {
 
 impl asset::Trait for Runtime {
         type Event = Event;
+        type TokenBalance = u128;
 }
 
 impl jurisdiction::Trait for Runtime {

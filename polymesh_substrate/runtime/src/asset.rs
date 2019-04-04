@@ -9,9 +9,10 @@
 /// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
 
 use rstd::prelude::*;
+use parity_codec::Codec;
 use runtime_io;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, Hash};
-use support::{decl_module, decl_storage, decl_event, StorageMap, StorageValue, dispatch::Result};
+use runtime_primitives::traits::{As, Member,SimpleArithmetic, CheckedAdd, CheckedDiv, CheckedMul, Hash};
+use support::{Parameter,decl_module, decl_storage, decl_event, StorageMap, StorageValue, dispatch::Result, ensure};
 use system::ensure_signed;
 
 /// The module's configuration trait.
@@ -19,7 +20,8 @@ pub trait Trait: system::Trait {
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>;
 }
 
 /// This module's storage items.
@@ -29,9 +31,17 @@ decl_storage! {
 		// Here we are declaring a StorageValue, `Something` as a Option<u32>
 		// `get(something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
 		Something get(something): Option<u32>;
+
+        Init get(is_init): bool;
         Value: u64;
         Symbol: Vec<u8>;
-	}
+        // total supply of the token
+        //TotalSupply get(total_supply): T::TokenBalance;
+        TotalSupply: u128;
+        // mapping of balances to accounts
+        //BalanceOf get(balance_of): map T::AccountId => T::TokenBalance;
+        BalanceOf get(balance_of): map T::AccountId => u128;
+    }
 }
 
 decl_module! {
@@ -40,6 +50,17 @@ decl_module! {
 		// Initializing events
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
+
+        pub fn init(origin, sender: T::AccountId, total_supply:u128) -> Result {
+            let who = ensure_signed(origin)?;
+
+            ensure!(Self::is_init() == false, "Token already initialized.");
+
+            <BalanceOf<T>>::insert(sender, total_supply);
+            <Init<T>>::put(true);
+
+            Ok(())
+        }
 
 		// Just a dummy entry point.
 		// function that can be called by the external world as an extrinsics call
