@@ -11,7 +11,7 @@
 use rstd::prelude::*;
 use parity_codec::Codec;
 use runtime_io;
-use runtime_primitives::traits::{As, Member,SimpleArithmetic, CheckedAdd, CheckedDiv, CheckedMul, Hash};
+use runtime_primitives::traits::{As, Member,SimpleArithmetic, CheckedSub, CheckedAdd, CheckedDiv, CheckedMul, Hash};
 use support::{Parameter,decl_module, decl_storage, decl_event, StorageMap, StorageValue, dispatch::Result, ensure};
 use system::ensure_signed;
 
@@ -26,21 +26,16 @@ pub trait Trait: system::Trait {
 
 /// This module's storage items.
 decl_storage! {
-	trait Store for Module<T: Trait> as asset {
-		// Just a dummy storage item. 
-		// Here we are declaring a StorageValue, `Something` as a Option<u32>
-		// `get(something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
-		Something get(something): Option<u32>;
-
+	trait Store for Module<T: Trait> as Asset {
         Init get(is_init): bool;
-        Value: u64;
+       
         Symbol: Vec<u8>;
         // total supply of the token
         //TotalSupply get(total_supply): T::TokenBalance;
-        TotalSupply: u128;
+        TotalSupply get(total_supply): T::TokenBalance;
         // mapping of balances to accounts
         //BalanceOf get(balance_of): map T::AccountId => T::TokenBalance;
-        BalanceOf get(balance_of): map T::AccountId => u128;
+        BalanceOf get(balance_of): map T::AccountId => T::TokenBalance;
     }
 }
 
@@ -51,42 +46,31 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
-        pub fn init(origin, sender: T::AccountId, total_supply:u128) -> Result {
-            let who = ensure_signed(origin)?;
-
+        // initialize the token
+        // transfers the total_supply amout to the caller
+        // the token becomes usable
+        // not part of ERC20 standard interface
+        // similar to the ERC20 smart contract constructor
+        pub fn init(origin, sender: T::AccountId, initial_supply: T::TokenBalance) -> Result {
+            let _sender = ensure_signed(origin)?;
             ensure!(Self::is_init() == false, "Token already initialized.");
 
-            <BalanceOf<T>>::insert(sender, total_supply);
+            <BalanceOf<T>>::insert(sender, initial_supply);
             <Init<T>>::put(true);
+            <TotalSupply<T>>::put(initial_supply);
+
+            runtime_io::print("Initialized!!!");
 
             Ok(())
         }
 
-		// Just a dummy entry point.
-		// function that can be called by the external world as an extrinsics call
-		// takes a parameter of the type `AccountId`, stores it and emits an event
-		pub fn do_something(origin, something: u32) -> Result {
-			// TODO: You only need this if you want to check it was signed.
-			let who = ensure_signed(origin)?;
-
-			// TODO: Code to execute when something calls this.
-			// For example: the following line stores the passed in u32 in the storage
-			<Something<T>>::put(something);
-
-			// here we are raising the Something event
-			Self::deposit_event(RawEvent::SomethingStored(something, who));
-			Ok(())
-		}
-
-        fn set_value(origin, value: u64) -> Result {
+        // transfer tokens from one account to another
+        pub fn transfer(origin, to: T::AccountId, #[compact] value: T::TokenBalance) -> Result {
             let _sender = ensure_signed(origin)?;
+            Self::_transfer(_sender, to, value)
+        }
 
-            <Value<T>>::put(value);
-
-            Ok(())
-        }  
-
-        fn set_symbol(origin, value: Vec<u8>) -> Result {
+        pub fn set_symbol(origin, value: Vec<u8>) -> Result {
             let _sender = ensure_signed(origin)?;
 
             <Symbol<T>>::put(value);
@@ -101,13 +85,47 @@ decl_module! {
 }
 
 decl_event!(
-	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
-		// Just a dummy event.
-		// Event `Something` is declared with a parameter of the type `u32` and `AccountId`
-		// To emit this event, we call the deposit funtion, from our runtime funtions
-		SomethingStored(u32, AccountId),
-	}
+    pub enum Event<T> where AccountId = <T as system::Trait>::AccountId, TokenBalance = <T as self::Trait>::TokenBalance {
+        // event for transfer of tokens
+        // from, to, value
+        Transfer(AccountId, AccountId, TokenBalance),
+        // event when an approval is made
+        // owner, spender, value
+        //Approval(AccountId, AccountId, TokenBalance),
+    }
 );
+
+/// All functions in the decl_module macro become part of the public interface of the module
+/// If they are there, they are accessible via extrinsics calls whether they are public or not
+/// However, in the impl module section (this, below) the functions can be public and private
+/// Private functions are internal to this module e.g.: _transfer
+/// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
+/// All functions in the impl module section are not part of public interface because they are not part of the Call enum
+impl<T: Trait> Module<T> {
+
+    // internal transfer function for ERC20 interface
+    fn _transfer(
+        from: T::AccountId,
+        to: T::AccountId,
+        value: T::TokenBalance,
+    ) -> Result {
+        ensure!(<BalanceOf<T>>::exists(from.clone()), "Account does not own this token");
+        let sender_balance = Self::balance_of(from.clone());
+        ensure!(sender_balance >= value, "Not enough balance.");
+        let updated_from_balance = sender_balance.checked_sub(&value).ok_or("overflow in calculating balance")?;
+        let receiver_balance = Self::balance_of(to.clone());
+        let updated_to_balance = receiver_balance.checked_add(&value).ok_or("overflow in calculating balance")?;
+        
+        // reduce sender's balance
+        <BalanceOf<T>>::insert(from.clone(), updated_from_balance);
+
+        // increase receiver's balance
+        <BalanceOf<T>>::insert(to.clone(), updated_to_balance);
+
+        Self::deposit_event(RawEvent::Transfer(from, to, value));
+        Ok(())
+    }
+}
 
 /// tests for this module
 #[cfg(test)]
@@ -156,14 +174,14 @@ mod tests {
 		system::GenesisConfig::<Test>::default().build_storage().unwrap().0.into()
 	}
 
-	#[test]
-	fn it_works_for_default_value() {
-		with_externalities(&mut new_test_ext(), || {
-			// Just a dummy test for the dummy funtion `do_something`
-			// calling the `do_something` function with a value 42
-			assert_ok!(asset::do_something(Origin::signed(1), 42));
-			// asserting that the stored value is equal to what we stored
-			assert_eq!(asset::something(), Some(42));
-		});
-	}
+	//#[test]
+	// fn it_works_for_default_value() {
+	// 	with_externalities(&mut new_test_ext(), || {
+	// 		// Just a dummy test for the dummy funtion `do_something`
+	// 		// calling the `do_something` function with a value 42
+	// 		assert_ok!(asset::do_something(Origin::signed(1), 42));
+	// 		// asserting that the stored value is equal to what we stored
+	// 		assert_eq!(asset::something(), Some(42));
+	// 	});
+	// }
 }
