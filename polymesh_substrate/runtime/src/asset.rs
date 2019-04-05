@@ -78,6 +78,8 @@ decl_module! {
           <Tokens<T>>::insert(token_id, token);
           <BalanceOf<T>>::insert((token_id, sender), total_supply);
 
+          runtime_io::print("Initialized!!!");
+
           Ok(())
       }
 
