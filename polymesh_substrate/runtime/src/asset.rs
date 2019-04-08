@@ -139,22 +139,24 @@ impl<T: Trait> Module<T>{
         from: T::AccountId,
         to: T::AccountId,
         value: T::TokenBalance,
-    ) -> bool {
+    ) -> (bool, &'static str) {
 
-        let mut _can_transfer = true;
-        let mut restrictions_for_token = <transfer_validation::Module<T>>::restriction_by_token(token_id);
+        // let mut _can_transfer = true;
+        // let mut restrictions_for_token = <transfer_validation::Module<T>>::restriction_by_token(token_id);
 
-        //Pablo: TBD Replace with For loop 
-        if restrictions_for_token.len()>0 {
-            let firstRestriction = &restrictions_for_token[0];
-            if firstRestriction.can_transfer {
-                runtime_io::print("CAN TRANSFER");
-            }else{
-                runtime_io::print("CAN NOT TRANSFER");
-            }
-            _can_transfer = firstRestriction.can_transfer;
-        }
-        _can_transfer
+        // //Pablo: TBD Replace with For loop 
+        // if restrictions_for_token.len()>0 {
+        //     let firstRestriction = &restrictions_for_token[0];
+        //     if firstRestriction.can_transfer {
+        //         runtime_io::print("CAN TRANSFER");
+        //     }else{
+        //         runtime_io::print("CAN NOT TRANSFER");
+        //     }
+        //     _can_transfer = firstRestriction.can_transfer;
+        // }
+        // _can_transfer
+
+        <transfer_validation::Module<T>>::verifyRestrictions(token_id, from, to)
     }
 
     // the ERC20 standard transfer function
@@ -165,7 +167,8 @@ impl<T: Trait> Module<T>{
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        ensure!(Self::_isValidTransfer(token_id, from.clone(), to.clone(), value),"Can't transfer due to restriction");
+        let verify = Self::_isValidTransfer(token_id, from.clone(), to.clone(), value);
+        ensure!(verify.0,verify.1);
         ensure!(<BalanceOf<T>>::exists((token_id, from.clone())), "Account does not own this token");
         let sender_balance = Self::balance_of((token_id, from.clone()));
         ensure!(sender_balance >= value, "Not enough balance.");
