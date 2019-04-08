@@ -38,7 +38,7 @@ decl_storage! {
         Restrictions get(transfer_restrictions): map u32 => Restriction<>;
         RestrictionsByToken get(restriction_by_token): map u32 => Vec<Restriction>;
         
-        //WhitelistForRestriction get(whitelist_for_restriction): map u32 => T::AccountId => Vec<Whitelist<T::Moment>>;
+        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (u32,T::AccountId) => Whitelist<T::Moment>;
 	}
 }
 
@@ -74,6 +74,22 @@ decl_module! {
 
             Ok(())
         }
+
+        fn add_to_whitelist(origin, token_id:u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
+            let sender = ensure_signed(origin)?;
+            //let mut now = <timestamp::Module<T>>::get();
+
+            let whitelist = Whitelist {
+                canSendAfter:expiry.clone(),
+                canReceiveAfter:expiry
+            };
+
+            <WhitelistForTokenAndAddress<T>>::insert((token_id,_investor),whitelist);
+
+            runtime_io::print("Created restriction!!!");
+
+            Ok(())
+        }
         
 	}
 }
@@ -91,6 +107,17 @@ impl<T: Trait> Module<T> {
             let restrictions_for_token = Self::restriction_by_token(token_id);
             for i in 0..restrictions_for_token.len() {
                 if !restrictions_for_token[i].can_transfer {_can_transfer = false;}
+            }
+            (_can_transfer, "Transfer failed: simple restriction in place")
+        }
+
+        pub fn verifyWhitelistRestriction(token_id: u32, from: T::AccountId, to: T::AccountId) -> (bool,&'static str) {
+            let mut _can_transfer = false;
+            let now = <timestamp::Module<T>>::get();
+            let whitelistForFrom = Self::whitelist_for_restriction((token_id,from));
+            let whitelistForTo = Self::whitelist_for_restriction((token_id,to));
+            if (whitelistForFrom.canSendAfter > T::Moment::sa(0) && now >= whitelistForFrom.canSendAfter) && (whitelistForTo.canReceiveAfter > T::Moment::sa(0) && now > whitelistForTo.canReceiveAfter) {
+                _can_transfer = true;
             }
             (_can_transfer, "Transfer failed: simple restriction in place")
         }

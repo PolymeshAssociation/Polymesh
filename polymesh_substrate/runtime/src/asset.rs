@@ -156,7 +156,7 @@ impl<T: Trait> Module<T>{
         // }
         // _can_transfer
 
-        <transfer_validation::Module<T>>::verifyRestrictions(token_id, from, to)
+        <transfer_validation::Module<T>>::verifyWhitelistRestriction(token_id, from, to)
     }
 
     // the ERC20 standard transfer function
