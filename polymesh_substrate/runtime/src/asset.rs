@@ -1,13 +1,4 @@
-/// A runtime module template with necessary imports
-
-/// Feel free to remove or edit this file as needed.
-/// If you change the name of this file, make sure to update its references in runtime/src/lib.rs
-/// If you remove this file, you can remove those references
-
-
-/// For more guidance on Substrate modules, see the example module
-/// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
-
+use crate::transfer_validation;
 use rstd::prelude::*;
 use parity_codec::Codec;
 use support::{dispatch::Result, Parameter, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
@@ -15,12 +6,12 @@ use runtime_primitives::traits::{CheckedSub, CheckedAdd, Member, SimpleArithmeti
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + transfer_validation::Trait  {
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>;
+    type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>; 
 }
 
 // struct to store the token details
@@ -87,7 +78,7 @@ decl_module! {
       // origin is assumed as sender
       fn transfer(_origin, token_id: u32, to: T::AccountId, value: T::TokenBalance) -> Result {
           let sender = ensure_signed(_origin)?;
-          let validTransfer = Self::_isValidTransfer(token_id, sender.clone(), to.clone(), value);
+          //Self::_isValidTransfer(token_id, sender.clone(), to.clone(), value);
           Self::_transfer(token_id, sender, to, value)
       }
 
@@ -141,15 +132,29 @@ decl_event!(
 /// Private functions are internal to this module e.g.: _transfer
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
 /// All functions in the impl module section are not part of public interface because they are not part of the Call enum
-impl<T: Trait> Module<T> {
+impl<T: Trait> Module<T>{
 
     fn _isValidTransfer(
         token_id: u32,
         from: T::AccountId,
         to: T::AccountId,
         value: T::TokenBalance,
-    ) -> Result {
-        Ok(())
+    ) -> bool {
+
+        let mut _can_transfer = true;
+        let mut restrictions_for_token = <transfer_validation::Module<T>>::restriction_by_token(token_id);
+
+        //Pablo: TBD Replace with For loop 
+        if restrictions_for_token.len()>0 {
+            let firstRestriction = &restrictions_for_token[0];
+            if firstRestriction.can_transfer {
+                runtime_io::print("CAN TRANSFER");
+            }else{
+                runtime_io::print("CAN NOT TRANSFER");
+            }
+            _can_transfer = firstRestriction.can_transfer;
+        }
+        _can_transfer
     }
 
     // the ERC20 standard transfer function
@@ -160,6 +165,7 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
+        ensure!(Self::_isValidTransfer(token_id, from.clone(), to.clone(), value),"Can't transfer due to restriction");
         ensure!(<BalanceOf<T>>::exists((token_id, from.clone())), "Account does not own this token");
         let sender_balance = Self::balance_of((token_id, from.clone()));
         ensure!(sender_balance >= value, "Not enough balance.");
