@@ -13,6 +13,13 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+pub struct Restriction {
+    name: Vec<u8>,
+    restriction_type: u16,
+    active: bool
+}
+
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Whitelist<U,V> {
     investor: V,
     can_send_after: U,
@@ -22,9 +29,14 @@ pub struct Whitelist<U,V> {
 decl_storage! {
 	trait Store for Module<T: Trait> as TransferValidation {
 
+        //PABLO: TODO: Idea here is to have a mapping/array of restrictions with a type and then loop through them applying their type of restriction. Whitelist would be associated to restriction instead of token.
+        //RestrictionsForToken get(restrictions_for_token): map u32 => Vec<Restriction>;
+
         WhitelistsByToken get(whitelists_by_token): map u32 => Vec<Whitelist<T::Moment, T::AccountId>>;
         
         WhitelistForTokenAndAddress get(whitelist_for_restriction): map (u32,T::AccountId) => Whitelist<T::Moment, T::AccountId>;
+
+        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map u32 => (bool,u16);
 	}
 }
 
@@ -66,6 +78,18 @@ impl<T: Trait> Module<T> {
             runtime_io::print("Created restriction!!!");
         }
 
+        pub fn toggle_maximum_percentage_restriction(token_id:u32, enable:bool, max_percentage: u16) {
+            <MaximumPercentageEnabledForToken<T>>::insert(token_id,(enable,max_percentage));
+
+            if enable{
+                runtime_io::print("Maximum percentage restriction enabled!");
+            }else{ 
+                runtime_io::print("Maximum percentage restriction disabled!");
+            }
+        }
+
+        // Transfer restriction verification logic
+
         pub fn verify_whitelist_restriction(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> (bool,&'static str) {
             let mut _can_transfer = false;
             let now = <timestamp::Module<T>>::get();
@@ -75,6 +99,19 @@ impl<T: Trait> Module<T> {
                 _can_transfer = true;
             }
             (_can_transfer, "Transfer failed: simple restriction in place")
+        }
+
+        pub fn verify_totalsupply_percentage(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance, totalSupply: T::TokenBalance) -> (bool,&'static str) {
+            let mut _can_transfer = Self::maximum_percentage_enabled_for_token(token_id);
+            let enabled = _can_transfer.0;
+            // If the restriction is enabled, then we need to make the calculations, otherwise all good
+            if enabled {
+                (false, "Transfer failed: percentage of total supply surpassed")
+            }else{
+                (true,"") 
+            }
+            
+            
         }
 }
 

@@ -143,7 +143,12 @@ impl<T: Trait> Module<T>{
         value: T::TokenBalance,
     ) -> (bool, &'static str) {
 
-        <transfer_validation::Module<T>>::verify_whitelist_restriction(token_id, from, to, value)
+        let verification_whitelist = <transfer_validation::Module<T>>::verify_whitelist_restriction(token_id, from.clone(), to.clone(), value);
+        let verification_percentage = <transfer_validation::Module<T>>::verify_totalsupply_percentage(token_id, from, to, value, Self::token_details(token_id).total_supply);
+        
+        if !verification_whitelist.0 {verification_whitelist}
+        else if !verification_percentage.0 {verification_percentage}
+        else {(true,"")}
     }
 
     // the ERC20 standard transfer function

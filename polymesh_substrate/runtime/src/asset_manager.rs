@@ -22,7 +22,6 @@ pub trait Trait: system::Trait + asset::Trait + transfer_validation::Trait  {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
-/// This module's storage items.
 decl_storage! {
 	trait Store for Module<T: Trait> as AssetManager {
 		
@@ -41,6 +40,17 @@ decl_module! {
             ensure!(Self::is_owner(token_id,sender.clone()),"Sender must be the token owner");
 
             <transfer_validation::Module<T>>::add_to_whitelist(sender,token_id,_investor,expiry);
+
+            Ok(())
+
+        }
+
+        pub fn toggle_maximum_percentage_restriction(origin, token_id:u32, enable:bool, max_percentage: u16) -> Result  {
+            let sender = ensure_signed(origin)?;
+            ensure!(Self::is_owner(token_id,sender.clone()),"Sender must be the token owner");
+
+            //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
+            <transfer_validation::Module<T>>::toggle_maximum_percentage_restriction(token_id,enable,max_percentage);
 
             Ok(())
 
