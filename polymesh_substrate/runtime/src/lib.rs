@@ -250,7 +250,7 @@ construct_runtime!(
 		Sudo: sudo,
 		// Used for the module template in `./template.rs`
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
-        Asset: asset::{Module, Call, Storage, Event<T>},
+        Asset: asset::{Module, Call, Storage, Event<T>, Config<T>},
         Utils: utils::{Module, Call, Storage},
         AssetManager: asset_manager::{Module, Call, Storage, Event<T>},
         Organisation: organisation::{Module, Call, Storage, Event<T>},

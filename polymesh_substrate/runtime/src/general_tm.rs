@@ -27,7 +27,7 @@ pub struct Whitelist<U,V> {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as TransferValidation {
+	trait Store for Module<T: Trait> as GeneralTM {
 
         //PABLO: TODO: Idea here is to have a mapping/array of restrictions with a type and then loop through them applying their type of restriction. Whitelist would be associated to restriction instead of token.
         //RestrictionsForToken get(restrictions_for_token): map u32 => Vec<Restriction>;
