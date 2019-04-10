@@ -1,14 +1,15 @@
 use crate::general_tm;
 use crate::percentage_tm;
 use crate::utils;
+use crate::identity;
 use rstd::prelude::*;
 //use parity_codec::Codec;
 use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure, traits::Currency};
-use runtime_primitives::traits::{CheckedSub, CheckedAdd, As, StaticLookup};
+use runtime_primitives::traits::{CheckedSub, CheckedAdd, As};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + general_tm::Trait + percentage_tm::Trait + utils::Trait + balances::Trait {
+pub trait Trait: system::Trait + general_tm::Trait + percentage_tm::Trait + utils::Trait + balances::Trait + identity::Trait {
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
@@ -54,6 +55,7 @@ decl_module! {
       // the balance of the owner is set to total supply
       fn issue_token(origin, name: Vec<u8>, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
           let sender = ensure_signed(origin)?;
+          ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
           let my_fee = <T::Balance as As<u64>>::sa(1337);
           <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
 

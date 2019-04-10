@@ -1,15 +1,15 @@
-/// A runtime module template with necessary imports
+use rstd::prelude::*;
+//use parity_codec::Codec;
+use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
+use runtime_primitives::traits::{CheckedSub, CheckedAdd, As};
+use system::{self, ensure_signed};
 
-/// Feel free to remove or edit this file as needed.
-/// If you change the name of this file, make sure to update its references in runtime/src/lib.rs
-/// If you remove this file, you can remove those references
-
-
-/// For more guidance on Substrate modules, see the example module
-/// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
-
-use support::{decl_module, decl_storage, decl_event, StorageValue, dispatch::Result};
-use system::ensure_signed;
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+pub struct Issuer<U> {
+    account: U,
+    access_level: u16,
+    active: bool,
+}
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
@@ -21,10 +21,11 @@ pub trait Trait: system::Trait {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as identity {
-		// Just a dummy storage item. 
-		// Here we are declaring a StorageValue, `Something` as a Option<u32>
-		// `get(something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
-		Something get(something): Option<u32>;
+		
+        Owner get(owner) config(): T::AccountId;  
+
+        IssuerList get(issuer_list): map T::AccountId => Issuer<T::AccountId>;
+
 	}
 }
 
@@ -35,22 +36,21 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
-		// Just a dummy entry point.
-		// function that can be called by the external world as an extrinsics call
-		// takes a parameter of the type `AccountId`, stores it and emits an event
-		pub fn do_something(origin, something: u32) -> Result {
-			// TODO: You only need this if you want to check it was signed.
-			let who = ensure_signed(origin)?;
+        fn create_issuer(origin,_issuer: T::AccountId) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-			// TODO: Code to execute when something calls this.
-			// For example: the following line stores the passed in u32 in the storage
-			<Something<T>>::put(something);
+            let new_issuer = Issuer {
+                account:_issuer.clone(),
+                access_level:1,
+                active: true,
+            };
 
-			// here we are raising the Something event
-			Self::deposit_event(RawEvent::SomethingStored(something, who));
-			Ok(())
-		}
-	}
+            <IssuerList<T>>::insert(_issuer, new_issuer);
+            Ok(())
+
+        }
+    }
 }
 
 decl_event!(
@@ -61,6 +61,14 @@ decl_event!(
 		SomethingStored(u32, AccountId),
 	}
 );
+
+impl<T: Trait> Module<T>{
+
+    pub fn is_issuer(_user: T::AccountId) -> bool{
+        let user = Self::issuer_list(_user.clone());
+        user.account == _user && user.access_level == 1 && user.active
+    }
+}
 
 /// tests for this module
 #[cfg(test)]

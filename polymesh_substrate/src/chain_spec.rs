@@ -1,7 +1,7 @@
 use primitives::{ed25519, sr25519, Pair};
 use node_template_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
-	SudoConfig, IndicesConfig, AssetConfig
+	SudoConfig, IndicesConfig, AssetConfig, IdentityConfig
 };
 use substrate_service;
 
@@ -46,7 +46,8 @@ impl Alternative {
 				|| testnet_genesis(vec![
 					authority_key("Alice")
 				], vec![
-					account_key("Alice")
+					account_key("Alice"),
+                    account_key("Dave")
 				],
 					account_key("Alice")
 				),
@@ -117,6 +118,9 @@ fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<
 		}),
         asset: Some(AssetConfig {
 			fee_collector: account_key("Dave"),
+		}),
+        identity: Some(IdentityConfig {
+			owner: account_key("Dave"),
 		})
 	}
 }
