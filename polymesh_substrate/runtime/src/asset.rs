@@ -1,4 +1,5 @@
-use crate::transfer_validation;
+use crate::general_tm;
+use crate::percentage_tm;
 use crate::utils;
 use rstd::prelude::*;
 //use parity_codec::Codec;
@@ -7,7 +8,7 @@ use runtime_primitives::traits::{CheckedSub, CheckedAdd};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + transfer_validation::Trait + utils::Trait {
+pub trait Trait: system::Trait + general_tm::Trait + percentage_tm::Trait + utils::Trait {
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
@@ -143,8 +144,8 @@ impl<T: Trait> Module<T>{
         value: T::TokenBalance,
     ) -> (bool, &'static str) {
 
-        let verification_whitelist = <transfer_validation::Module<T>>::verify_whitelist_restriction(token_id, from.clone(), to.clone(), value);
-        let verification_percentage = <transfer_validation::Module<T>>::verify_totalsupply_percentage(token_id, from, to, value, Self::token_details(token_id).total_supply);
+        let verification_whitelist = <general_tm::Module<T>>::verify_whitelist_restriction(token_id, from.clone(), to.clone(), value);
+        let verification_percentage = <percentage_tm::Module<T>>::verify_totalsupply_percentage(token_id, from, to, value, Self::token_details(token_id).total_supply);
         
         if !verification_whitelist.0 {verification_whitelist}
         else if !verification_percentage.0 {verification_percentage}

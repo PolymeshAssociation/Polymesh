@@ -9,13 +9,14 @@
 /// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
 
 use crate::asset;
-use crate::transfer_validation;
+use crate::general_tm;
+use crate::percentage_tm;
 use rstd::prelude::*;
 use support::{dispatch::Result,decl_storage, decl_module, decl_event, ensure};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + asset::Trait + transfer_validation::Trait  {
+pub trait Trait: system::Trait + asset::Trait + general_tm::Trait + percentage_tm::Trait {
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
@@ -39,7 +40,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(Self::is_owner(token_id,sender.clone()),"Sender must be the token owner");
 
-            <transfer_validation::Module<T>>::add_to_whitelist(sender,token_id,_investor,expiry);
+            <general_tm::Module<T>>::add_to_whitelist(sender,token_id,_investor,expiry);
 
             Ok(())
 
@@ -50,7 +51,7 @@ decl_module! {
             ensure!(Self::is_owner(token_id,sender.clone()),"Sender must be the token owner");
 
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
-            <transfer_validation::Module<T>>::toggle_maximum_percentage_restriction(token_id,enable,max_percentage);
+            <percentage_tm::Module<T>>::toggle_maximum_percentage_restriction(token_id,enable,max_percentage);
 
             Ok(())
 

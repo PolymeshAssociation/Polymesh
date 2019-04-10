@@ -62,7 +62,8 @@ mod asset_manager;
 mod identity;
 mod organisation;
 mod jurisdiction;
-mod transfer_validation;
+mod general_tm;
+mod percentage_tm;
 mod utils;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -213,7 +214,11 @@ impl asset_manager::Trait for Runtime {
 }
 
 
-impl transfer_validation::Trait for Runtime {
+impl general_tm::Trait for Runtime {
+        type Event = Event;
+}
+
+impl percentage_tm::Trait for Runtime {
         type Event = Event;
 }
 
@@ -251,7 +256,8 @@ construct_runtime!(
         Organisation: organisation::{Module, Call, Storage, Event<T>},
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>},
-        TransferValidation: transfer_validation::{Module, Call, Storage, Event<T>},
+        GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
+        PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
 
 	}
 );
