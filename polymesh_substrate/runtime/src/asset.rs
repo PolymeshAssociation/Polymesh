@@ -1,11 +1,11 @@
 use crate::general_tm;
 use crate::percentage_tm;
 use crate::utils;
-
+use crate::identity;
 use rstd::prelude::*;
 //use parity_codec::Codec;
 use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
-use runtime_primitives::traits::{CheckedSub, CheckedAdd};
+use runtime_primitives::traits::{CheckedSub, CheckedAdd, As};
 use system::{self, ensure_signed};
 use support::traits::{Currency, Imbalance, OnUnbalanced, WithdrawReason, ExistenceRequirement};
 
@@ -13,7 +13,7 @@ type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::Accoun
 type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + general_tm::Trait + percentage_tm::Trait + utils::Trait {
+pub trait Trait: system::Trait + general_tm::Trait + percentage_tm::Trait + utils::Trait + balances::Trait + identity::Trait {
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
@@ -36,6 +36,8 @@ pub struct Erc20Token<U,V> {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Asset {
+
+      FeeCollector get(fee_collector) config(): T::AccountId;  
       // token id nonce for storing the next token id available for token initialization
       // inspired by the AssetId in the SRML assets module
       TokenId get(token_id): u32;
@@ -63,8 +65,16 @@ decl_module! {
       // the balance of the owner is set to total supply
       fn issue_token(origin, name: Vec<u8>, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
           let sender = ensure_signed(origin)?;
+
+          // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
           let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
           T::TokenFeeCharge::on_unbalanced(imbalance);
+          ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
+
+          // Alternative way to take a fee - fee is paid to `fee_collector`
+          let my_fee = <T::Balance as As<u64>>::sa(1337);
+          <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
+
           // checking max size for name and ticker
           // byte arrays (vecs) with no max size should be avoided
           ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");

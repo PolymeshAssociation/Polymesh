@@ -257,7 +257,7 @@ construct_runtime!(
         AssetManager: asset_manager::{Module, Call, Storage, Event<T>},
         Organisation: organisation::{Module, Call, Storage, Event<T>},
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
-        Identity: identity::{Module, Call, Storage, Event<T>},
+        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
 
