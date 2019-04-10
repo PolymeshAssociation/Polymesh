@@ -1,11 +1,16 @@
 use crate::general_tm;
 use crate::percentage_tm;
 use crate::utils;
+
 use rstd::prelude::*;
 //use parity_codec::Codec;
 use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
 use runtime_primitives::traits::{CheckedSub, CheckedAdd};
 use system::{self, ensure_signed};
+use support::traits::{Currency, Imbalance, OnUnbalanced, WithdrawReason, ExistenceRequirement};
+
+type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + general_tm::Trait + percentage_tm::Trait + utils::Trait {
@@ -13,7 +18,11 @@ pub trait Trait: system::Trait + general_tm::Trait + percentage_tm::Trait + util
 
 	/// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    //type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>; 
+    //type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>;
+    type Currency: Currency<Self::AccountId>;
+    // Handler for the unbalanced decrease when charging fee
+    type TokenFeeCharge: OnUnbalanced<NegativeImbalanceOf<Self>>;
+
 }
 
 // struct to store the token details
@@ -36,6 +45,8 @@ decl_storage! {
       BalanceOf get(balance_of): map (u32, T::AccountId) => T::TokenBalance;
       // allowance for an account and token
       Allowance get(allowance): map (u32, T::AccountId, T::AccountId) => T::TokenBalance;
+      // cost in base currency to create a token
+      AssetCreationFee get(asset_creation_fee) config(): FeeOf<T>;
     }
 }
 
@@ -52,12 +63,14 @@ decl_module! {
       // the balance of the owner is set to total supply
       fn issue_token(origin, name: Vec<u8>, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
           let sender = ensure_signed(origin)?;
-
+          let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+          T::TokenFeeCharge::on_unbalanced(imbalance);
           // checking max size for name and ticker
           // byte arrays (vecs) with no max size should be avoided
           ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
           ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
+          // take fee for creating asset
           let token_id = Self::token_id();
           let next_token_id = token_id.checked_add(1).ok_or("overflow in calculating next token id")?;
           <TokenId<T>>::put(next_token_id);

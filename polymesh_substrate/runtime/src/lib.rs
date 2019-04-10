@@ -203,6 +203,8 @@ impl template::Trait for Runtime {
 impl asset::Trait for Runtime {
         type Event = Event;
         //type TokenBalance = u128;
+		type Currency = Balances;
+		type TokenFeeCharge = ();
 }
 
 impl utils::Trait for Runtime {
@@ -250,7 +252,7 @@ construct_runtime!(
 		Sudo: sudo,
 		// Used for the module template in `./template.rs`
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
-        Asset: asset::{Module, Call, Storage, Event<T>},
+        Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Utils: utils::{Module, Call, Storage},
         AssetManager: asset_manager::{Module, Call, Storage, Event<T>},
         Organisation: organisation::{Module, Call, Storage, Event<T>},

@@ -1,7 +1,7 @@
 use primitives::{ed25519, sr25519, Pair};
 use node_template_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
-	SudoConfig, IndicesConfig,
+	SudoConfig, IndicesConfig, AssetConfig,
 };
 use substrate_service;
 
@@ -103,13 +103,16 @@ fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),
 		}),
+		asset: Some(AssetConfig {
+			asset_creation_fee: 250,
+		}),
 		balances: Some(BalancesConfig {
 			transaction_base_fee: 1,
 			transaction_byte_fee: 0,
 			existential_deposit: 500,
 			transfer_fee: 0,
 			creation_fee: 0,
-			balances: endowed_accounts.iter().cloned().map(|k|(k, 1 << 60)).collect(),
+			balances: endowed_accounts.iter().cloned().map(|k|(k, 10000)).collect(),
 			vesting: vec![],
 		}),
 		sudo: Some(SudoConfig {
