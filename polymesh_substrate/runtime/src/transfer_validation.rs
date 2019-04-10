@@ -1,12 +1,11 @@
-use crate::asset_manager;
+use crate::utils;
 use rstd::prelude::*;
-use parity_codec::Codec;
-use support::{dispatch::Result, Parameter, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
-use runtime_primitives::traits::{CheckedSub, CheckedAdd, Member, SimpleArithmetic, As};
-use system::{self, ensure_signed};
+use support::{StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
+use runtime_primitives::traits::{As};
+use system::{self};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait {
+pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
@@ -16,11 +15,10 @@ pub trait Trait: timestamp::Trait + system::Trait {
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Whitelist<U,V> {
     investor: V,
-    canSendAfter: U,
-    canReceiveAfter: U
+    can_send_after: U,
+    can_receive_after: U
 }
 
-/// This module's storage items.
 decl_storage! {
 	trait Store for Module<T: Trait> as TransferValidation {
 
@@ -53,8 +51,8 @@ impl<T: Trait> Module<T> {
 
             let whitelist = Whitelist {
                 investor: _investor.clone(),
-                canSendAfter:expiry.clone(),
-                canReceiveAfter:expiry
+                can_send_after:expiry.clone(),
+                can_receive_after:expiry
             };
 
             let mut whitelists_for_token = Self::whitelists_by_token(token_id);
@@ -68,12 +66,12 @@ impl<T: Trait> Module<T> {
             runtime_io::print("Created restriction!!!");
         }
 
-        pub fn verifyWhitelistRestriction(token_id: u32, from: T::AccountId, to: T::AccountId) -> (bool,&'static str) {
+        pub fn verify_whitelist_restriction(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> (bool,&'static str) {
             let mut _can_transfer = false;
             let now = <timestamp::Module<T>>::get();
-            let whitelistForFrom = Self::whitelist_for_restriction((token_id,from));
-            let whitelistForTo = Self::whitelist_for_restriction((token_id,to));
-            if (whitelistForFrom.canSendAfter > T::Moment::sa(0) && now >= whitelistForFrom.canSendAfter) && (whitelistForTo.canReceiveAfter > T::Moment::sa(0) && now > whitelistForTo.canReceiveAfter) {
+            let whitelist_for_from = Self::whitelist_for_restriction((token_id,from));
+            let whitelist_for_to = Self::whitelist_for_restriction((token_id,to));
+            if (whitelist_for_from.can_send_after > T::Moment::sa(0) && now >= whitelist_for_from.can_send_after) && (whitelist_for_to.can_receive_after > T::Moment::sa(0) && now > whitelist_for_to.can_receive_after) {
                 _can_transfer = true;
             }
             (_can_transfer, "Transfer failed: simple restriction in place")

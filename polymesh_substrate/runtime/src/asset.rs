@@ -1,17 +1,18 @@
 use crate::transfer_validation;
+use crate::utils;
 use rstd::prelude::*;
-use parity_codec::Codec;
-use support::{dispatch::Result, Parameter, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
-use runtime_primitives::traits::{CheckedSub, CheckedAdd, Member, SimpleArithmetic, As};
+//use parity_codec::Codec;
+use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
+use runtime_primitives::traits::{CheckedSub, CheckedAdd};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + transfer_validation::Trait  {
+pub trait Trait: system::Trait + transfer_validation::Trait + utils::Trait {
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>; 
+    //type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>; 
 }
 
 // struct to store the token details
@@ -23,7 +24,6 @@ pub struct Erc20Token<U,V> {
     pub owner: V
 }
 
-/// This module's storage items.
 decl_storage! {
 	trait Store for Module<T: Trait> as Asset {
       // token id nonce for storing the next token id available for token initialization
@@ -49,7 +49,7 @@ decl_module! {
       // takes a name, ticker, total supply for the token
       // makes the initiating account the owner of the token
       // the balance of the owner is set to total supply
-      fn init(origin, name: Vec<u8>, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+      fn issue_token(origin, name: Vec<u8>, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
           let sender = ensure_signed(origin)?;
 
           // checking max size for name and ticker
@@ -118,7 +118,7 @@ decl_module! {
 }
 
 decl_event!(
-    pub enum Event<T> where AccountId = <T as system::Trait>::AccountId, Balance = <T as self::Trait>::TokenBalance {
+    pub enum Event<T> where AccountId = <T as system::Trait>::AccountId, Balance = <T as utils::Trait>::TokenBalance {
         // event for transfer of tokens
         // tokenid, from, to, value
         Transfer(u32, AccountId, AccountId, Balance),
@@ -136,29 +136,14 @@ decl_event!(
 /// All functions in the impl module section are not part of public interface because they are not part of the Call enum
 impl<T: Trait> Module<T>{
 
-    fn _isValidTransfer(
+    fn _is_valid_transfer(
         token_id: u32,
         from: T::AccountId,
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> (bool, &'static str) {
 
-        // let mut _can_transfer = true;
-        // let mut restrictions_for_token = <transfer_validation::Module<T>>::restriction_by_token(token_id);
-
-        // //Pablo: TBD Replace with For loop 
-        // if restrictions_for_token.len()>0 {
-        //     let firstRestriction = &restrictions_for_token[0];
-        //     if firstRestriction.can_transfer {
-        //         runtime_io::print("CAN TRANSFER");
-        //     }else{
-        //         runtime_io::print("CAN NOT TRANSFER");
-        //     }
-        //     _can_transfer = firstRestriction.can_transfer;
-        // }
-        // _can_transfer
-
-        <transfer_validation::Module<T>>::verifyWhitelistRestriction(token_id, from, to)
+        <transfer_validation::Module<T>>::verify_whitelist_restriction(token_id, from, to, value)
     }
 
     // the ERC20 standard transfer function
@@ -169,7 +154,7 @@ impl<T: Trait> Module<T>{
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let verify = Self::_isValidTransfer(token_id, from.clone(), to.clone(), value);
+        let verify = Self::_is_valid_transfer(token_id, from.clone(), to.clone(), value);
         ensure!(verify.0,verify.1);
         ensure!(<BalanceOf<T>>::exists((token_id, from.clone())), "Account does not own this token");
         let sender_balance = Self::balance_of((token_id, from.clone()));

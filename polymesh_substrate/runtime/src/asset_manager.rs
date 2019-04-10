@@ -11,9 +11,7 @@
 use crate::asset;
 use crate::transfer_validation;
 use rstd::prelude::*;
-use parity_codec::Codec;
-use support::{dispatch::Result, Parameter, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
-use runtime_primitives::traits::{CheckedSub, CheckedAdd, Member, SimpleArithmetic, As};
+use support::{dispatch::Result,decl_storage, decl_module, decl_event, ensure};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.

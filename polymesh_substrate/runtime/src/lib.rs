@@ -63,6 +63,7 @@ mod identity;
 mod organisation;
 mod jurisdiction;
 mod transfer_validation;
+mod utils;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -200,6 +201,10 @@ impl template::Trait for Runtime {
 
 impl asset::Trait for Runtime {
         type Event = Event;
+        //type TokenBalance = u128;
+}
+
+impl utils::Trait for Runtime {
         type TokenBalance = u128;
 }
 
@@ -241,6 +246,7 @@ construct_runtime!(
 		// Used for the module template in `./template.rs`
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
         Asset: asset::{Module, Call, Storage, Event<T>},
+        Utils: utils::{Module, Call, Storage},
         AssetManager: asset_manager::{Module, Call, Storage, Event<T>},
         Organisation: organisation::{Module, Call, Storage, Event<T>},
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
