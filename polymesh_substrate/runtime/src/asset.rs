@@ -16,10 +16,11 @@ pub trait Trait: system::Trait + transfer_validation::Trait  {
 
 // struct to store the token details
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Erc20Token<U> {
+pub struct Erc20Token<U,V> {
     name: Vec<u8>,
     ticker: Vec<u8>,
     total_supply: U,
+    pub owner: V
 }
 
 /// This module's storage items.
@@ -29,7 +30,7 @@ decl_storage! {
       // inspired by the AssetId in the SRML assets module
       TokenId get(token_id): u32;
       // details of the token corresponding to a token id
-      Tokens get(token_details): map u32 => Erc20Token<T::TokenBalance>;
+      Tokens get(token_details): map u32 => Erc20Token<T::TokenBalance, T::AccountId>;
       // balances mapping for an account and token
       BalanceOf get(balance_of): map (u32, T::AccountId) => T::TokenBalance;
       // allowance for an account and token
@@ -64,6 +65,7 @@ decl_module! {
               name,
               ticker,
               total_supply,
+              owner:sender.clone()
           };
 
           <Tokens<T>>::insert(token_id, token);

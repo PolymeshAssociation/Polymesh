@@ -1,4 +1,4 @@
-use crate::asset;
+use crate::asset_manager;
 use rstd::prelude::*;
 use parity_codec::Codec;
 use support::{dispatch::Result, Parameter, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
@@ -13,16 +13,9 @@ pub trait Trait: timestamp::Trait + system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
-// struct to store the token details
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Restriction {
-    name: Vec<u8>,
-    token_id: u32,
-    can_transfer: bool
-}
-
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Whitelist<U> {
+pub struct Whitelist<U,V> {
+    investor: V,
     canSendAfter: U,
     canReceiveAfter: U
 }
@@ -30,15 +23,10 @@ pub struct Whitelist<U> {
 /// This module's storage items.
 decl_storage! {
 	trait Store for Module<T: Trait> as TransferValidation {
-		// Just a dummy storage item. 
-		// Here we are declaring a StorageValue, `Something` as a Option<u32>
-		// `get(something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
-        RestrictionId get(restriction_id): u32;
-		Something get(something): Option<u32>;
-        Restrictions get(transfer_restrictions): map u32 => Restriction<>;
-        RestrictionsByToken get(restriction_by_token): map u32 => Vec<Restriction>;
+
+        WhitelistsByToken get(whitelists_by_token): map u32 => Vec<Whitelist<T::Moment, T::AccountId>>;
         
-        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (u32,T::AccountId) => Whitelist<T::Moment>;
+        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (u32,T::AccountId) => Whitelist<T::Moment, T::AccountId>;
 	}
 }
 
@@ -49,48 +37,6 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
-        //Creates a new restriction for a token
-        //Can only be done by token owner TBD
-        fn create_restriction(origin, name:Vec<u8>, token_id:u32) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            let restriction_id = Self::restriction_id();
-            let next_restriction_id = restriction_id.checked_add(1).ok_or("overflow in calculating next restriction id")?;
-            <RestrictionId<T>>::put(next_restriction_id);
-
-            let restriction = Restriction {
-                name,
-                token_id,
-                can_transfer:false,
-            };
-
-            let mut restrictions_for_token = Self::restriction_by_token(token_id);
-            restrictions_for_token.push(restriction.clone());
-
-            <Restrictions<T>>::insert(restriction_id, restriction);
-            <RestrictionsByToken<T>>::insert(token_id,restrictions_for_token);
-
-            runtime_io::print("Created restriction!!!");
-
-            Ok(())
-        }
-
-        fn add_to_whitelist(origin, token_id:u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
-            let sender = ensure_signed(origin)?;
-            //let mut now = <timestamp::Module<T>>::get();
-
-            let whitelist = Whitelist {
-                canSendAfter:expiry.clone(),
-                canReceiveAfter:expiry
-            };
-
-            <WhitelistForTokenAndAddress<T>>::insert((token_id,_investor),whitelist);
-
-            runtime_io::print("Created restriction!!!");
-
-            Ok(())
-        }
-        
 	}
 }
 
@@ -102,13 +48,24 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
 
-        pub fn verifyRestrictions(token_id: u32, from: T::AccountId, to: T::AccountId) -> (bool,&'static str) {
-            let mut _can_transfer = true;
-            let restrictions_for_token = Self::restriction_by_token(token_id);
-            for i in 0..restrictions_for_token.len() {
-                if !restrictions_for_token[i].can_transfer {_can_transfer = false;}
-            }
-            (_can_transfer, "Transfer failed: simple restriction in place")
+        pub fn add_to_whitelist(sender: T::AccountId, token_id:u32, _investor: T::AccountId, expiry: T::Moment){
+            //let mut now = <timestamp::Module<T>>::get();
+
+            let whitelist = Whitelist {
+                investor: _investor.clone(),
+                canSendAfter:expiry.clone(),
+                canReceiveAfter:expiry
+            };
+
+            let mut whitelists_for_token = Self::whitelists_by_token(token_id);
+            whitelists_for_token.push(whitelist.clone());
+
+            //PABLO: TODO: don't add the restriction to the array if it already exists
+            <WhitelistsByToken<T>>::insert(token_id,whitelists_for_token);
+
+            <WhitelistForTokenAndAddress<T>>::insert((token_id,_investor),whitelist);
+
+            runtime_io::print("Created restriction!!!");
         }
 
         pub fn verifyWhitelistRestriction(token_id: u32, from: T::AccountId, to: T::AccountId) -> (bool,&'static str) {

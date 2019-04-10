@@ -58,6 +58,7 @@ pub type Nonce = u64;
 /// Used for the module template in `./template.rs`
 mod template;
 mod asset;
+mod asset_manager;
 mod identity;
 mod organisation;
 mod jurisdiction;
@@ -202,6 +203,11 @@ impl asset::Trait for Runtime {
         type TokenBalance = u128;
 }
 
+impl asset_manager::Trait for Runtime {
+        type Event = Event;
+}
+
+
 impl transfer_validation::Trait for Runtime {
         type Event = Event;
 }
@@ -235,6 +241,7 @@ construct_runtime!(
 		// Used for the module template in `./template.rs`
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
         Asset: asset::{Module, Call, Storage, Event<T>},
+        AssetManager: asset_manager::{Module, Call, Storage, Event<T>},
         Organisation: organisation::{Module, Call, Storage, Event<T>},
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>},
