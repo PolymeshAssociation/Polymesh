@@ -49,6 +49,10 @@ decl_storage! {
       Allowance get(allowance): map (u32, T::AccountId, T::AccountId) => T::TokenBalance;
       // cost in base currency to create a token
       AssetCreationFee get(asset_creation_fee) config(): FeeOf<T>;
+      // Checkpoints created per token
+      TotalCheckpoints get(total_checkpoints_of): map (u32) => u32;
+      // Balance of a user at a checkpoint
+      CheckpointBalance get(balance_at_checkpoint): map (u32, T::AccountId, u32) => T::TokenBalance;
     }
 }
 
@@ -138,6 +142,15 @@ decl_module! {
         Self::deposit_event(RawEvent::Approval(token_id, from.clone(), to.clone(), value));
         Self::_transfer(token_id, from, to, value)
       }
+
+      // called by issuer to create checkpoints
+      fn createCheckpoint(_origin, token_id: u32) -> Result {
+          let sender = ensure_signed(_origin)?;
+
+          ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
+          
+          Self::_createCheckpoint(token_id)
+      }
   }
 }
 
@@ -188,11 +201,13 @@ impl<T: Trait> Module<T>{
         ensure!(<BalanceOf<T>>::exists((token_id, from.clone())), "Account does not own this token");
         let sender_balance = Self::balance_of((token_id, from.clone()));
         ensure!(sender_balance >= value, "Not enough balance.");
-
+        
         let updated_from_balance = sender_balance.checked_sub(&value).ok_or("overflow in calculating balance")?;
         let receiver_balance = Self::balance_of((token_id, to.clone()));
         let updated_to_balance = receiver_balance.checked_add(&value).ok_or("overflow in calculating balance")?;
-        
+
+        Self::_updateCheckpoints(token_id, from.clone(), sender_balance);
+        Self::_updateCheckpoints(token_id, to.clone(), receiver_balance);
         // reduce sender's balance
         <BalanceOf<T>>::insert((token_id, from.clone()), updated_from_balance);
 
@@ -200,6 +215,31 @@ impl<T: Trait> Module<T>{
         <BalanceOf<T>>::insert((token_id, to.clone()), updated_to_balance);
 
         Self::deposit_event(RawEvent::Transfer(token_id, from, to, value));
+        Ok(())
+    }
+
+    fn _createCheckpoint(token_id: u32) -> Result {
+        if <TotalCheckpoints<T>>::exists(token_id) {
+            let mut checkpoint_count = Self::total_checkpoints_of(token_id);
+            checkpoint_count = checkpoint_count.checked_add(1).ok_or("overflow in adding checkpoint")?;
+            <TotalCheckpoints<T>>::insert(token_id, checkpoint_count);
+        } else {
+            <TotalCheckpoints<T>>::insert(token_id, 1);
+        }
+        Ok(())
+    }
+
+    fn _updateCheckpoints(
+        token_id: u32,
+        user: T::AccountId,
+        user_balance: T::TokenBalance,
+    ) -> Result {
+        if <TotalCheckpoints<T>>::exists(token_id) {
+            let checkpoint_count = Self::total_checkpoints_of(token_id);
+            if !<CheckpointBalance<T>>::exists((token_id, user.clone(), checkpoint_count)) {
+                <CheckpointBalance<T>>::insert((token_id, user, checkpoint_count), user_balance);
+            } 
+        }
         Ok(())
     }
 }
