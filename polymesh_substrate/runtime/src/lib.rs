@@ -58,13 +58,14 @@ pub type Nonce = u64;
 /// Used for the module template in `./template.rs`
 mod template;
 mod asset;
-mod asset_manager;
 mod identity;
 mod organisation;
 mod jurisdiction;
 mod general_tm;
 mod percentage_tm;
 mod utils;
+mod tm;
+
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -211,10 +212,9 @@ impl utils::Trait for Runtime {
         type TokenBalance = u128;
 }
 
-impl asset_manager::Trait for Runtime {
-        type Event = Event;
+impl tm::Trait for Runtime {
+        type Asset = Asset;
 }
-
 
 impl general_tm::Trait for Runtime {
         type Event = Event;
@@ -254,7 +254,7 @@ construct_runtime!(
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Utils: utils::{Module, Call, Storage},
-        AssetManager: asset_manager::{Module, Call, Storage, Event<T>},
+		Tm: tm::{Module, Call, Storage},
         Organisation: organisation::{Module, Call, Storage, Event<T>},
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},

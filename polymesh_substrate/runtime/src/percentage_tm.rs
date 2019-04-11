@@ -1,21 +1,23 @@
 use crate::utils;
+use crate::tm;
+
 use rstd::prelude::*;
-use support::{StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
+use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
 use runtime_primitives::traits::{As};
-use system::{self};
+use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
+pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + tm::Trait {
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+
 }
 
 
 decl_storage! {
 	trait Store for Module<T: Trait> as PercentageTM {
-
         MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map u32 => (bool,u16);
 	}
 }
@@ -27,7 +29,25 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
+		fn toggle_maximum_percentage_restriction(origin, token_id:u32, enable:bool, max_percentage: u16) -> Result  {
+			let sender = ensure_signed(origin)?;
+			ensure!(Self::is_owner(token_id, sender.clone()),"Sender must be the token owner");
+
+			//PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
+			<MaximumPercentageEnabledForToken<T>>::insert(token_id,(enable,max_percentage));
+
+			if enable{
+				runtime_io::print("Maximum percentage restriction enabled!");
+			}else{ 
+				runtime_io::print("Maximum percentage restriction disabled!");
+			}
+
+//			<percentage_tm::Module<T>>::toggle_maximum_percentage_restriction(token_id,enable,max_percentage);
+
+			Ok(())
+		}
 	}
+
 }
 
 decl_event!(
@@ -36,32 +56,25 @@ decl_event!(
 	}
 );
 
-impl<T: Trait> Module<T> {
+impl<T: Trait> Module<T>{
+    pub fn is_owner(token_id:u32, sender: T::AccountId) -> bool {
+        let token = T::Asset::token_details(token_id);
+        token.owner == sender
+    }
 
-        pub fn toggle_maximum_percentage_restriction(token_id:u32, enable:bool, max_percentage: u16) {
-            <MaximumPercentageEnabledForToken<T>>::insert(token_id,(enable,max_percentage));
+	// Transfer restriction verification logic
+	pub fn verify_restriction(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
+		let mut _can_transfer = Self::maximum_percentage_enabled_for_token(token_id);
+		let enabled = _can_transfer.0;
+		// If the restriction is enabled, then we need to make the calculations, otherwise all good
+		if enabled {
+			return Err("Invalid");
+		}else{
+			Ok(())
+		}                    
+	}
 
-            if enable{
-                runtime_io::print("Maximum percentage restriction enabled!");
-            }else{ 
-                runtime_io::print("Maximum percentage restriction disabled!");
-            }
-        }
 
-        // Transfer restriction verification logic
-
-        pub fn verify_totalsupply_percentage(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance, totalSupply: T::TokenBalance) -> (bool,&'static str) {
-            let mut _can_transfer = Self::maximum_percentage_enabled_for_token(token_id);
-            let enabled = _can_transfer.0;
-            // If the restriction is enabled, then we need to make the calculations, otherwise all good
-            if enabled {
-                (false, "Transfer failed: percentage of total supply surpassed")
-            }else{
-                (true,"") 
-            }
-            
-            
-        }
 }
 
 /// tests for this module

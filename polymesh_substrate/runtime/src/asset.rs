@@ -65,15 +65,15 @@ decl_module! {
       // the balance of the owner is set to total supply
       fn issue_token(origin, name: Vec<u8>, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
           let sender = ensure_signed(origin)?;
+          ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
 
           // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
           let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
-          T::TokenFeeCharge::on_unbalanced(imbalance);
-          ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
 
           // Alternative way to take a fee - fee is paid to `fee_collector`
           let my_fee = <T::Balance as As<u64>>::sa(1337);
           <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
+          T::TokenFeeCharge::on_unbalanced(imbalance);
 
           // checking max size for name and ticker
           // byte arrays (vecs) with no max size should be avoided
@@ -165,14 +165,14 @@ impl<T: Trait> Module<T>{
         from: T::AccountId,
         to: T::AccountId,
         value: T::TokenBalance,
-    ) -> (bool, &'static str) {
+    ) -> Result {
 
-        let verification_whitelist = <general_tm::Module<T>>::verify_whitelist_restriction(token_id, from.clone(), to.clone(), value);
-        let verification_percentage = <percentage_tm::Module<T>>::verify_totalsupply_percentage(token_id, from, to, value, Self::token_details(token_id).total_supply);
-        
-        if !verification_whitelist.0 {verification_whitelist}
-        else if !verification_percentage.0 {verification_percentage}
-        else {(true,"")}
+        let verification_whitelist = <general_tm::Module<T>>::verify_restriction(token_id, from.clone(), to.clone(), value)?;
+        let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(token_id, from.clone(), to.clone(), value)?;
+        Ok(());
+        // if !verification_whitelist.0 {verification_whitelist}
+        // else if !verification_percentage.0 {verification_percentage}
+        // else {(true,"")}
     }
 
     // the ERC20 standard transfer function
@@ -183,8 +183,7 @@ impl<T: Trait> Module<T>{
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let verify = Self::_is_valid_transfer(token_id, from.clone(), to.clone(), value);
-        ensure!(verify.0,verify.1);
+        Self::_is_valid_transfer(token_id, from.clone(), to.clone(), value)?;
         ensure!(<BalanceOf<T>>::exists((token_id, from.clone())), "Account does not own this token");
         let sender_balance = Self::balance_of((token_id, from.clone()));
         ensure!(sender_balance >= value, "Not enough balance.");
