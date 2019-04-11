@@ -66,19 +66,19 @@ decl_module! {
       fn issue_token(origin, name: Vec<u8>, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
           let sender = ensure_signed(origin)?;
 
-          // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
-          let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
-          T::TokenFeeCharge::on_unbalanced(imbalance);
           ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
-
-          // Alternative way to take a fee - fee is paid to `fee_collector`
-          let my_fee = <T::Balance as As<u64>>::sa(1337);
-          <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
-
           // checking max size for name and ticker
           // byte arrays (vecs) with no max size should be avoided
           ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
           ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
+
+          // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
+          let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+          T::TokenFeeCharge::on_unbalanced(imbalance);
+
+          // Alternative way to take a fee - fee is paid to `fee_collector`
+          let my_fee = <T::Balance as As<u64>>::sa(1337);
+          <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
 
           // take fee for creating asset
           let token_id = Self::token_id();
