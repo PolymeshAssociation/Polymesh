@@ -60,6 +60,8 @@ decl_storage! {
         AssetCreationFee get(asset_creation_fee) config(): FeeOf<T>;
         // Checkpoints created per token
         TotalCheckpoints get(total_checkpoints_of): map (u32) => u32;
+        // Total supply of the token at the checkpoint
+        CheckpointTotalSupply get(total_supply_at): map (u32, u32) => T::TokenBalance;
         // Balance of a user at a checkpoint
         CheckpointBalance get(balance_at_checkpoint): map (u32, T::AccountId, u32) => T::TokenBalance;
     }
@@ -156,10 +158,27 @@ decl_module! {
         fn createCheckpoint(_origin, token_id: u32) -> Result {
             let sender = ensure_signed(_origin)?;
 
-            ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
+            ensure!(Self::is_owner(token_id.clone(), sender.clone()), "user is not authorized");
 
             Self::_createCheckpoint(token_id)
         }
+
+        // pub fn getBalanceAt(token_id: u32, _of: T::AccountId, mut _at: u32) -> T::TokenBalance {
+        //     let max = Self::total_checkpoints_of(token_id);
+
+        //     if _at > max {
+        //         _at = max;
+        //     }
+
+        //     while _at > 0u32 {
+        //         if <CheckpointBalance<T>>::exists((token_id, _of.clone(), _at)) {
+        //             return Self::balance_at_checkpoint((token_id, _of.clone(), _at));
+        //         }
+        //         _at -= 1;
+        //     }
+
+        //     return Self::balance_of((token_id, _of.clone()));
+        // }
     }
 }
 
@@ -258,8 +277,10 @@ impl<T: Trait> Module<T> {
                 .checked_add(1)
                 .ok_or("overflow in adding checkpoint")?;
             <TotalCheckpoints<T>>::insert(token_id, checkpoint_count);
+            <CheckpointTotalSupply<T>>::insert((token_id, checkpoint_count), Self::token_details(token_id).total_supply);
         } else {
             <TotalCheckpoints<T>>::insert(token_id, 1);
+            <CheckpointTotalSupply<T>>::insert((token_id, 1), Self::token_details(token_id).total_supply);
         }
         Ok(())
     }
@@ -278,21 +299,9 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn getBalanceAt(token_id: u32, _of: T::AccountId, mut _at: u32) -> T::TokenBalance {
-        let max = Self::total_checkpoints_of(token_id);
-
-        if _at > max {
-            _at = max;
-        }
-
-        while _at > 0u32 {
-            if <CheckpointBalance<T>>::exists((token_id, _of.clone(), _at)) {
-                return Self::balance_at_checkpoint((token_id, _of.clone(), _at));
-            }
-            _at -= 1;
-        }
-
-        return Self::balance_of((token_id, _of.clone()));
+    fn is_owner(token_id:u32, sender: T::AccountId) -> bool {
+        let token = Self::token_details(token_id);
+        token.owner == sender
     }
 }
 
