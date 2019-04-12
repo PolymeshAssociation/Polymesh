@@ -16,7 +16,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 decl_storage! {
 	trait Store for Module<T: Trait> as PercentageTM {
 
-        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map u32 => (bool,u16);
+        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map Vec<u8> => (bool,u16);
 	}
 }
 
@@ -38,30 +38,40 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
 
-        pub fn toggle_maximum_percentage_restriction(token_id:u32, enable:bool, max_percentage: u16) {
-            <MaximumPercentageEnabledForToken<T>>::insert(token_id,(enable,max_percentage));
+        pub fn toggle_maximum_percentage_restriction(_ticker: Vec<u8>, enable:bool, max_percentage: u16) {
+					  let ticker = Self::_toUpper(_ticker);
+            <MaximumPercentageEnabledForToken<T>>::insert(ticker.clone(),(enable,max_percentage));
 
             if enable{
                 runtime_io::print("Maximum percentage restriction enabled!");
-            }else{ 
+            }else{
                 runtime_io::print("Maximum percentage restriction disabled!");
             }
         }
 
         // Transfer restriction verification logic
 
-        pub fn verify_totalsupply_percentage(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance, totalSupply: T::TokenBalance) -> (bool,&'static str) {
-            let mut _can_transfer = Self::maximum_percentage_enabled_for_token(token_id);
+        pub fn verify_totalsupply_percentage(_ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance, totalSupply: T::TokenBalance) -> (bool,&'static str) {
+            let ticker = Self::_toUpper(_ticker);
+						let mut _can_transfer = Self::maximum_percentage_enabled_for_token(ticker.clone());
             let enabled = _can_transfer.0;
             // If the restriction is enabled, then we need to make the calculations, otherwise all good
             if enabled {
                 (false, "Transfer failed: percentage of total supply surpassed")
             }else{
-                (true,"") 
+                (true,"")
             }
-            
-            
         }
+
+				fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
+					let mut hexArray = _hexArray.clone();
+					for i in &mut hexArray {
+							if *i >= 97 && *i <= 122 {
+									*i -= 32;
+							}
+					}
+					return hexArray;
+			}
 }
 
 /// tests for this module

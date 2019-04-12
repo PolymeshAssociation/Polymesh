@@ -25,7 +25,7 @@ pub trait Trait: system::Trait + asset::Trait + general_tm::Trait + percentage_t
 
 decl_storage! {
 	trait Store for Module<T: Trait> as AssetManager {
-		
+
 	}
 }
 
@@ -36,27 +36,29 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
-        fn add_to_whitelist(origin, token_id:u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
+        fn add_to_whitelist(origin, _ticker: Vec<u8>, _investor: T::AccountId, expiry: T::Moment) -> Result {
+					  let ticker = Self::_toUpper(_ticker);
             let sender = ensure_signed(origin)?;
-            ensure!(Self::is_owner(token_id,sender.clone()),"Sender must be the token owner");
+            ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
-            <general_tm::Module<T>>::add_to_whitelist(sender,token_id,_investor,expiry);
+            <general_tm::Module<T>>::add_to_whitelist(sender,ticker.clone(),_investor,expiry);
 
             Ok(())
 
         }
 
-        pub fn toggle_maximum_percentage_restriction(origin, token_id:u32, enable:bool, max_percentage: u16) -> Result  {
+        pub fn toggle_maximum_percentage_restriction(origin, _ticker: Vec<u8>, enable:bool, max_percentage: u16) -> Result  {
+						let ticker = Self::_toUpper(_ticker);
             let sender = ensure_signed(origin)?;
-            ensure!(Self::is_owner(token_id,sender.clone()),"Sender must be the token owner");
+            ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
-            <percentage_tm::Module<T>>::toggle_maximum_percentage_restriction(token_id,enable,max_percentage);
+            <percentage_tm::Module<T>>::toggle_maximum_percentage_restriction(ticker.clone(),enable,max_percentage);
 
             Ok(())
 
         }
-		
+
 	}
 }
 
@@ -71,9 +73,20 @@ decl_event!(
 
 impl<T: Trait> Module<T>{
 
-    pub fn is_owner(token_id:u32, sender: T::AccountId) -> bool {
-        let token = <asset::Module<T>>::token_details(token_id);
+    pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+				let ticker = Self::_toUpper(_ticker);
+        let token = <asset::Module<T>>::token_details(ticker.clone());
         token.owner == sender
+    }
+
+		fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
+        let mut hexArray = _hexArray.clone();
+        for i in &mut hexArray {
+            if *i >= 97 && *i <= 122 {
+                *i -= 32;
+            }
+        }
+        return hexArray;
     }
 }
 

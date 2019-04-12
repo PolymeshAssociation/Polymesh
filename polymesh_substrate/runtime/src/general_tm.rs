@@ -32,9 +32,9 @@ decl_storage! {
         //PABLO: TODO: Idea here is to have a mapping/array of restrictions with a type and then loop through them applying their type of restriction. Whitelist would be associated to restriction instead of token.
         //RestrictionsForToken get(restrictions_for_token): map u32 => Vec<Restriction>;
 
-        WhitelistsByToken get(whitelists_by_token): map u32 => Vec<Whitelist<T::Moment, T::AccountId>>;
-        
-        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (u32,T::AccountId) => Whitelist<T::Moment, T::AccountId>;
+        WhitelistsByToken get(whitelists_by_token): map Vec<u8> => Vec<Whitelist<T::Moment, T::AccountId>>;
+
+        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (Vec<u8>,T::AccountId) => Whitelist<T::Moment, T::AccountId>;
 
 	}
 }
@@ -57,7 +57,8 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
 
-        pub fn add_to_whitelist(sender: T::AccountId, token_id:u32, _investor: T::AccountId, expiry: T::Moment){
+        pub fn add_to_whitelist(sender: T::AccountId, _ticker: Vec<u8>, _investor: T::AccountId, expiry: T::Moment){
+					  let ticker = Self::_toUpper(_ticker);
             //let mut now = <timestamp::Module<T>>::get();
 
             let whitelist = Whitelist {
@@ -66,29 +67,40 @@ impl<T: Trait> Module<T> {
                 can_receive_after:expiry
             };
 
-            let mut whitelists_for_token = Self::whitelists_by_token(token_id);
+            let mut whitelists_for_token = Self::whitelists_by_token(ticker.clone());
             whitelists_for_token.push(whitelist.clone());
 
             //PABLO: TODO: don't add the restriction to the array if it already exists
-            <WhitelistsByToken<T>>::insert(token_id,whitelists_for_token);
+            <WhitelistsByToken<T>>::insert(ticker.clone(),whitelists_for_token);
 
-            <WhitelistForTokenAndAddress<T>>::insert((token_id,_investor),whitelist);
+            <WhitelistForTokenAndAddress<T>>::insert((ticker.clone(),_investor),whitelist);
 
             runtime_io::print("Created restriction!!!");
         }
 
         // Transfer restriction verification logic
 
-        pub fn verify_whitelist_restriction(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> (bool,&'static str) {
+        pub fn verify_whitelist_restriction(_ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> (bool,&'static str) {
+					  let ticker = Self::_toUpper(_ticker);
             let mut _can_transfer = false;
             let now = <timestamp::Module<T>>::get();
-            let whitelist_for_from = Self::whitelist_for_restriction((token_id,from));
-            let whitelist_for_to = Self::whitelist_for_restriction((token_id,to));
+            let whitelist_for_from = Self::whitelist_for_restriction((ticker.clone(),from));
+            let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(),to));
             if (whitelist_for_from.can_send_after > T::Moment::sa(0) && now >= whitelist_for_from.can_send_after) && (whitelist_for_to.can_receive_after > T::Moment::sa(0) && now > whitelist_for_to.can_receive_after) {
                 _can_transfer = true;
             }
             (_can_transfer, "Transfer failed: simple restriction in place")
         }
+
+				fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
+					let mut hexArray = _hexArray.clone();
+					for i in &mut hexArray {
+							if *i >= 97 && *i <= 122 {
+									*i -= 32;
+							}
+					}
+					return hexArray;
+			}
 
 }
 
