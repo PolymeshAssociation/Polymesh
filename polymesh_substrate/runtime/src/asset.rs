@@ -204,6 +204,19 @@ decl_event!(
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
 /// All functions in the impl module section are not part of public interface because they are not part of the Call enum
 impl<T: Trait> Module<T> {
+
+	// Public immutables
+
+	/// Get the asset `id` balance of `who`.
+	pub fn balance(token_id: u32, who: T::AccountId) -> T::TokenBalance {
+        Self::balance_of((token_id, who))
+	}
+
+	// Get the total supply of an asset `id`
+	pub fn total_supply(token_id: u32) -> T::TokenBalance {
+        Self::token_details(token_id).total_supply
+	}
+
     fn _is_valid_transfer(
         token_id: u32,
         from: T::AccountId,
