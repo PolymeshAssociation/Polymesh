@@ -43,8 +43,6 @@ decl_module! {
 				runtime_io::print("Maximum percentage restriction disabled!");
 			}
 
-//			<percentage_tm::Module<T>>::toggle_maximum_percentage_restriction(token_id,enable,max_percentage);
-
 			Ok(())
 		}
 	}

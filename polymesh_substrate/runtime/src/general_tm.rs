@@ -94,16 +94,13 @@ impl<T: Trait> Module<T> {
 
 	// Transfer restriction verification logic
 	pub fn verify_restriction(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
-		let mut _can_transfer = false;
 		let now = <timestamp::Module<T>>::get();
 		let whitelist_for_from = Self::whitelist_for_restriction((token_id,from));
 		let whitelist_for_to = Self::whitelist_for_restriction((token_id,to));
 		if (whitelist_for_from.can_send_after > T::Moment::sa(0) && now >= whitelist_for_from.can_send_after) && (whitelist_for_to.can_receive_after > T::Moment::sa(0) && now > whitelist_for_to.can_receive_after) {
-			_can_transfer = true;
 			return Ok(());
 		}
 		Err("Cannot Transfer")
-		// (_can_transfer, "Transfer failed: simple restriction in place")
 	}
 
 }
