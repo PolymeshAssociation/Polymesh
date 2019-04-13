@@ -1,5 +1,7 @@
 use crate::utils;
 use crate::asset;
+use crate::asset::HasOwner;
+
 use rstd::prelude::*;
 use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
 use runtime_primitives::traits::{As};
@@ -11,7 +13,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-	type Asset: asset::Trait;
+	type Asset: asset::HasOwner<Self::AccountId>;
 
 }
 
@@ -85,8 +87,9 @@ decl_event!(
 impl<T: Trait> Module<T> {
 
     pub fn is_owner(token_id:u32, sender: T::AccountId) -> bool {
-        let token = T::Asset::token_details(token_id);
-        token.owner == sender
+		T::Asset::is_owner(token_id, sender)
+        // let token = T::Asset::token_details(token_id);
+        // token.owner == sender
 	}
 
 	// Transfer restriction verification logic

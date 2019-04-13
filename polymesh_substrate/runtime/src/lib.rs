@@ -64,7 +64,7 @@ mod jurisdiction;
 mod general_tm;
 mod percentage_tm;
 mod utils;
-mod tm;
+// mod tm;
 
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -212,16 +212,18 @@ impl utils::Trait for Runtime {
         type TokenBalance = u128;
 }
 
-impl tm::Trait for Runtime {
-        type Asset = Asset;
-}
+// impl tm::Trait for Runtime {
+//         type Asset = Asset;
+// }
 
 impl general_tm::Trait for Runtime {
         type Event = Event;
+        type Asset = Asset;
 }
 
 impl percentage_tm::Trait for Runtime {
         type Event = Event;
+        type Asset = Asset;
 }
 
 impl jurisdiction::Trait for Runtime {
@@ -254,7 +256,7 @@ construct_runtime!(
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Utils: utils::{Module, Call, Storage},
-		Tm: tm::{Module, Call, Storage},
+		// Tm: tm::{Module, Call, Storage},
         Organisation: organisation::{Module, Call, Storage, Event<T>},
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},

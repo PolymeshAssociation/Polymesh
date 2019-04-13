@@ -152,6 +152,23 @@ decl_event!(
     }
 );
 
+pub trait HasOwner<T> {
+    fn is_owner(
+        token_id: u32,
+        who: T,
+    ) -> bool;
+}
+
+impl<T: Trait> HasOwner<T::AccountId> for Module<T> {
+    fn is_owner(
+        token_id: u32,
+        who: T::AccountId,
+    ) -> bool {
+        let erc20 = Self::token_details(token_id);
+        erc20.owner == who
+    }
+}
+
 /// All functions in the decl_module macro become part of the public interface of the module
 /// If they are there, they are accessible via extrinsics calls whether they are public or not
 /// However, in the impl module section (this, below) the functions can be public and private
@@ -169,7 +186,7 @@ impl<T: Trait> Module<T>{
 
         let verification_whitelist = <general_tm::Module<T>>::verify_restriction(token_id, from.clone(), to.clone(), value)?;
         let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(token_id, from.clone(), to.clone(), value)?;
-        Ok(());
+        Ok(())
         // if !verification_whitelist.0 {verification_whitelist}
         // else if !verification_percentage.0 {verification_percentage}
         // else {(true,"")}
