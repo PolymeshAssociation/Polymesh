@@ -155,30 +155,21 @@ decl_module! {
         }
 
         // called by issuer to create checkpoints
-        fn createCheckpoint(_origin, token_id: u32) -> Result {
+        pub fn create_checkpoint(_origin, token_id: u32) -> Result {
             let sender = ensure_signed(_origin)?;
 
             ensure!(Self::is_owner(token_id.clone(), sender.clone()), "user is not authorized");
 
-            Self::_createCheckpoint(token_id)
+            Self::_create_checkpoint(token_id)
         }
 
-        // pub fn getBalanceAt(token_id: u32, _of: T::AccountId, mut _at: u32) -> T::TokenBalance {
-        //     let max = Self::total_checkpoints_of(token_id);
+        // called by issuer to create checkpoints
+        pub fn balance_at(_origin, token_id: u32, owner: T::AccountId, checkpoint: u32) -> Result {
+            ensure_signed(_origin)?; //not needed
+            Self::deposit_event(RawEvent::BalanceAt(token_id, owner.clone(), checkpoint, Self::get_balance_at(token_id, owner, checkpoint)));
+            Ok(())
+        }
 
-        //     if _at > max {
-        //         _at = max;
-        //     }
-
-        //     while _at > 0u32 {
-        //         if <CheckpointBalance<T>>::exists((token_id, _of.clone(), _at)) {
-        //             return Self::balance_at_checkpoint((token_id, _of.clone(), _at));
-        //         }
-        //         _at -= 1;
-        //     }
-
-        //     return Self::balance_of((token_id, _of.clone()));
-        // }
     }
 }
 
@@ -194,6 +185,9 @@ decl_event!(
         // event when an approval is made
         // tokenid, owner, spender, value
         Approval(u32, AccountId, AccountId, Balance),
+        // event - used for testing in the absence of custom getters
+        // tokenid, owner, checkpoint, balance
+        BalanceAt(u32, AccountId, u32, Balance),
     }
 );
 
@@ -216,6 +210,24 @@ impl<T: Trait> Module<T> {
 	pub fn total_supply(token_id: u32) -> T::TokenBalance {
         Self::token_details(token_id).total_supply
 	}
+
+    pub fn get_balance_at(token_id: u32, _of: T::AccountId, mut _at: u32) -> T::TokenBalance {
+        let max = Self::total_checkpoints_of(token_id);
+
+        if _at > max {
+            _at = max;
+        }
+
+        while _at > 0u32 {
+            if <CheckpointBalance<T>>::exists((token_id, _of.clone(), _at)) {
+                return Self::balance_at_checkpoint((token_id, _of.clone(), _at));
+            }
+            _at -= 1;
+        }
+
+        return Self::balance_of((token_id, _of.clone()));
+    }
+
 
     fn _is_valid_transfer(
         token_id: u32,
@@ -271,8 +283,8 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
 
-        Self::_updateCheckpoints(token_id, from.clone(), sender_balance);
-        Self::_updateCheckpoints(token_id, to.clone(), receiver_balance);
+        Self::_update_checkpoint(token_id, from.clone(), sender_balance)?;
+        Self::_update_checkpoint(token_id, to.clone(), receiver_balance)?;
         // reduce sender's balance
         <BalanceOf<T>>::insert((token_id, from.clone()), updated_from_balance);
 
@@ -283,7 +295,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn _createCheckpoint(token_id: u32) -> Result {
+    fn _create_checkpoint(token_id: u32) -> Result {
         if <TotalCheckpoints<T>>::exists(token_id) {
             let mut checkpoint_count = Self::total_checkpoints_of(token_id);
             checkpoint_count = checkpoint_count
@@ -298,7 +310,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn _updateCheckpoints(
+    fn _update_checkpoint(
         token_id: u32,
         user: T::AccountId,
         user_balance: T::TokenBalance,
