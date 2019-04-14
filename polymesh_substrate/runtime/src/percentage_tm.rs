@@ -19,7 +19,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as PercentageTM {
-        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map u32 => (bool,u16);
+        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map Vec<u8> => (bool,u16);
 	}
 }
 
@@ -30,16 +30,17 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
-		fn toggle_maximum_percentage_restriction(origin, token_id:u32, enable:bool, max_percentage: u16) -> Result  {
+		fn toggle_maximum_percentage_restriction(origin, _ticker: Vec<u8>, enable:bool, max_percentage: u16) -> Result  {
+			let ticker = Self::_toUpper(_ticker);
 			let sender = ensure_signed(origin)?;
-			ensure!(Self::is_owner(token_id, sender.clone()),"Sender must be the token owner");
+			ensure!(Self::is_owner(ticker.clone(), sender.clone()),"Sender must be the token owner");
 
 			//PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
-			<MaximumPercentageEnabledForToken<T>>::insert(token_id,(enable,max_percentage));
+			<MaximumPercentageEnabledForToken<T>>::insert(ticker.clone(),(enable,max_percentage));
 
 			if enable{
 				runtime_io::print("Maximum percentage restriction enabled!");
-			}else{ 
+			}else{
 				runtime_io::print("Maximum percentage restriction disabled!");
 			}
 
@@ -56,22 +57,34 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T>{
-    pub fn is_owner(token_id:u32, sender: T::AccountId) -> bool {
-		T::Asset::is_owner(token_id, sender)
+    pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+			let ticker = Self::_toUpper(_ticker);
+			T::Asset::is_owner(ticker.clone(), sender)
         // let token = T::Asset::token_details(token_id);
         // token.owner == sender
     }
 
 	// Transfer restriction verification logic
-	pub fn verify_restriction(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
-		let mut _can_transfer = Self::maximum_percentage_enabled_for_token(token_id);
+	pub fn verify_restriction(_ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
+		let ticker = Self::_toUpper(_ticker);
+		let mut _can_transfer = Self::maximum_percentage_enabled_for_token(ticker.clone());
 		let enabled = _can_transfer.0;
 		// If the restriction is enabled, then we need to make the calculations, otherwise all good
 		if enabled {
 			Err("Cannot Transfer: Percentage TM restrictions not satisfied")
 		}else{
 			Ok(())
-		}                    
+		}
+	}
+
+	fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
+			let mut hexArray = _hexArray.clone();
+			for i in &mut hexArray {
+					if *i >= 97 && *i <= 122 {
+							*i -= 32;
+					}
+			}
+			return hexArray;
 	}
 
 

@@ -38,32 +38,27 @@ pub trait Trait:
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Erc20Token<U, V> {
     name: Vec<u8>,
-    ticker: Vec<u8>,
     total_supply: U,
     pub owner: V,
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
-
         FeeCollector get(fee_collector) config(): T::AccountId;
-        // token id nonce for storing the next token id available for token initialization
-        // inspired by the AssetId in the SRML assets module
-        TokenId get(token_id): u32;
-        // details of the token corresponding to a token id
-        Tokens get(token_details): map u32 => Erc20Token<T::TokenBalance, T::AccountId>;
+        // details of the token corresponding to the token ticker
+        Tokens get(token_details): map Vec<u8> => Erc20Token<T::TokenBalance, T::AccountId>;
         // balances mapping for an account and token
-        BalanceOf get(balance_of): map (u32, T::AccountId) => T::TokenBalance;
+        BalanceOf get(balance_of): map (Vec<u8>, T::AccountId) => T::TokenBalance;
         // allowance for an account and token
-        Allowance get(allowance): map (u32, T::AccountId, T::AccountId) => T::TokenBalance;
+        Allowance get(allowance): map (Vec<u8>, T::AccountId, T::AccountId) => T::TokenBalance;
         // cost in base currency to create a token
         AssetCreationFee get(asset_creation_fee) config(): FeeOf<T>;
         // Checkpoints created per token
-        TotalCheckpoints get(total_checkpoints_of): map (u32) => u32;
+        TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u32;
         // Total supply of the token at the checkpoint
-        CheckpointTotalSupply get(total_supply_at): map (u32, u32) => T::TokenBalance;
+        CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u32) => T::TokenBalance;
         // Balance of a user at a checkpoint
-        CheckpointBalance get(balance_at_checkpoint): map (u32, T::AccountId, u32) => T::TokenBalance;
+        CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, T::AccountId, u32) => T::TokenBalance;
     }
 }
 
@@ -74,11 +69,11 @@ decl_module! {
       fn deposit_event<T>() = default;
 
       // initializes a new token
-      // generates an integer token_id so that all tokens are unique
       // takes a name, ticker, total supply for the token
       // makes the initiating account the owner of the token
       // the balance of the owner is set to total supply
-      fn issue_token(origin, name: Vec<u8>, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+      fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+          let ticker = Self::_toUpper(_ticker);
           let sender = ensure_signed(origin)?;
           ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
 
@@ -96,19 +91,15 @@ decl_module! {
           ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
           // take fee for creating asset
-          let token_id = Self::token_id();
-          let next_token_id = token_id.checked_add(1).ok_or("overflow in calculating next token id")?;
-          <TokenId<T>>::put(next_token_id);
 
           let token = Erc20Token {
               name,
-              ticker,
               total_supply,
               owner:sender.clone()
           };
 
-          <Tokens<T>>::insert(token_id, token);
-          <BalanceOf<T>>::insert((token_id, sender), total_supply);
+          <Tokens<T>>::insert(ticker.clone(), token);
+          <BalanceOf<T>>::insert((ticker.clone(), sender), total_supply);
 
           runtime_io::print("Initialized!!!");
 
@@ -117,23 +108,25 @@ decl_module! {
 
       // transfer tokens from one account to another
       // origin is assumed as sender
-      fn transfer(_origin, token_id: u32, to: T::AccountId, value: T::TokenBalance) -> Result {
+      fn transfer(_origin, _ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
+          let ticker = Self::_toUpper(_ticker);
           let sender = ensure_signed(_origin)?;
-          //Self::_isValidTransfer(token_id, sender.clone(), to.clone(), value);
-          Self::_transfer(token_id, sender, to, value)
+          //Self::_isValidTransfer(ticker.clone(), sender.clone(), to.clone(), value);
+          Self::_transfer(ticker.clone(), sender, to, value)
       }
 
       // approve token transfer from one account to another
       // once this is done, transfer_from can be called with corresponding values
-      fn approve(_origin, token_id: u32, spender: T::AccountId, value: T::TokenBalance) -> Result {
+      fn approve(_origin, _ticker: Vec<u8>, spender: T::AccountId, value: T::TokenBalance) -> Result {
+          let ticker = Self::_toUpper(_ticker);
           let sender = ensure_signed(_origin)?;
-          ensure!(<BalanceOf<T>>::exists((token_id, sender.clone())), "Account does not own this token");
+          ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
 
-          let allowance = Self::allowance((token_id, sender.clone(), spender.clone()));
+          let allowance = Self::allowance((ticker.clone(), sender.clone(), spender.clone()));
           let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
-          <Allowance<T>>::insert((token_id, sender.clone(), spender.clone()), updated_allowance);
+          <Allowance<T>>::insert((ticker.clone(), sender.clone(), spender.clone()), updated_allowance);
 
-          Self::deposit_event(RawEvent::Approval(token_id, sender.clone(), spender.clone(), value));
+          Self::deposit_event(RawEvent::Approval(ticker.clone(), sender.clone(), spender.clone(), value));
 
           Ok(())
       }
@@ -141,18 +134,36 @@ decl_module! {
       // the ERC20 standard transfer_from function
       // implemented in the open-zeppelin way - increase/decrease allownace
       // if approved, transfer from an account to another account without owner's signature
-      pub fn transfer_from(_origin, token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
-        ensure!(<Allowance<T>>::exists((token_id, from.clone(), to.clone())), "Allowance does not exist.");
-        let allowance = Self::allowance((token_id, from.clone(), to.clone()));
+      pub fn transfer_from(_origin, _ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
+        let ticker = Self::_toUpper(_ticker);
+        ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), to.clone())), "Allowance does not exist.");
+        let allowance = Self::allowance((ticker.clone(), from.clone(), to.clone()));
         ensure!(allowance >= value, "Not enough allowance.");
-          
+
         // using checked_sub (safe math) to avoid overflow
         let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
-        <Allowance<T>>::insert((token_id, from.clone(), to.clone()), updated_allowance);
+        <Allowance<T>>::insert((ticker.clone(), from.clone(), to.clone()), updated_allowance);
 
-        Self::deposit_event(RawEvent::Approval(token_id, from.clone(), to.clone(), value));
-        Self::_transfer(token_id, from, to, value)
+        Self::deposit_event(RawEvent::Approval(ticker.clone(), from.clone(), to.clone(), value));
+        Self::_transfer(ticker.clone(), from, to, value)
       }
+
+      // called by issuer to create checkpoints
+        pub fn create_checkpoint(_origin, _ticker: Vec<u8>) -> Result {
+            let ticker = Self::_toUpper(_ticker);
+            let sender = ensure_signed(_origin)?;
+
+            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
+            Self::_create_checkpoint(ticker.clone())
+        }
+
+        // called by issuer to create checkpoints
+        pub fn balance_at(_origin, _ticker: Vec<u8>, owner: T::AccountId, checkpoint: u32) -> Result {
+            ensure_signed(_origin)?; //not needed
+            let ticker = Self::_toUpper(_ticker);
+            Self::deposit_event(RawEvent::BalanceAt(ticker.clone(), owner.clone(), checkpoint, Self::get_balance_at(ticker.clone(), owner, checkpoint)));
+            Ok(())
+        }
   }
 }
 
@@ -163,31 +174,28 @@ decl_event!(
         Balance = <T as utils::Trait>::TokenBalance,
     {
         // event for transfer of tokens
-        // tokenid, from, to, value
-        Transfer(u32, AccountId, AccountId, Balance),
+        // ticker, from, to, value
+        Transfer(Vec<u8>, AccountId, AccountId, Balance),
         // event when an approval is made
-        // tokenid, owner, spender, value
-        Approval(u32, AccountId, AccountId, Balance),
+        // ticker, owner, spender, value
+        Approval(Vec<u8>, AccountId, AccountId, Balance),
         // event - used for testing in the absence of custom getters
-        // tokenid, owner, checkpoint, balance
-        BalanceAt(u32, AccountId, u32, Balance),
+        // ticker, owner, checkpoint, balance
+        BalanceAt(Vec<u8>, AccountId, u32, Balance),
     }
 );
 
 pub trait HasOwner<T> {
     fn is_owner(
-        token_id: u32,
+        _ticker: Vec<u8>,
         who: T,
     ) -> bool;
 }
 
 impl<T: Trait> HasOwner<T::AccountId> for Module<T> {
-    fn is_owner(
-        token_id: u32,
-        who: T::AccountId,
-    ) -> bool {
-        let erc20 = Self::token_details(token_id);
-        erc20.owner == who
+    fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+        let token = Self::token_details(_ticker);
+        token.owner == sender
     }
 }
 
@@ -202,41 +210,45 @@ impl<T: Trait> Module<T> {
 	// Public immutables
 
 	/// Get the asset `id` balance of `who`.
-	pub fn balance(token_id: u32, who: T::AccountId) -> T::TokenBalance {
-        Self::balance_of((token_id, who))
+	pub fn balance(_ticker: Vec<u8>, who: T::AccountId) -> T::TokenBalance {
+        let ticker = Self::_toUpper(_ticker);
+        Self::balance_of((ticker, who))
 	}
 
 	// Get the total supply of an asset `id`
-	pub fn total_supply(token_id: u32) -> T::TokenBalance {
-        Self::token_details(token_id).total_supply
+	pub fn total_supply(_ticker: Vec<u8>) -> T::TokenBalance {
+        let ticker = Self::_toUpper(_ticker);
+        Self::token_details(ticker).total_supply
 	}
 
-    pub fn get_balance_at(token_id: u32, _of: T::AccountId, mut _at: u32) -> T::TokenBalance {
-        let max = Self::total_checkpoints_of(token_id);
+    pub fn get_balance_at(_ticker: Vec<u8>, _of: T::AccountId, mut _at: u32) -> T::TokenBalance {
+        let ticker = Self::_toUpper(_ticker);
+        let max = Self::total_checkpoints_of(ticker.clone());
 
         if _at > max {
             _at = max;
         }
 
         while _at > 0u32 {
-            if <CheckpointBalance<T>>::exists((token_id, _of.clone(), _at)) {
-                return Self::balance_at_checkpoint((token_id, _of.clone(), _at));
+            if <CheckpointBalance<T>>::exists((ticker.clone(), _of.clone(), _at)) {
+                return Self::balance_at_checkpoint((ticker.clone(), _of.clone(), _at));
             }
             _at -= 1;
         }
 
-        return Self::balance_of((token_id, _of.clone()));
+        return Self::balance_of((ticker.clone(), _of.clone()));
     }
 
 
     fn _is_valid_transfer(
-        token_id: u32,
+        _ticker: Vec<u8>,
         from: T::AccountId,
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let verification_whitelist = <general_tm::Module<T>>::verify_restriction(token_id, from.clone(), to.clone(), value)?;
-        let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(token_id, from.clone(), to.clone(), value)?;
+        let ticker = Self::_toUpper(_ticker);
+        let verification_whitelist = <general_tm::Module<T>>::verify_restriction(ticker.clone(), from.clone(), to.clone(), value)?;
+        let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(ticker.clone(), from.clone(), to.clone(), value)?;
         Ok(())
         // if !verification_whitelist.0 {verification_whitelist}
         // else if !verification_percentage.0 {verification_percentage}
@@ -246,67 +258,80 @@ impl<T: Trait> Module<T> {
     // the ERC20 standard transfer function
     // internal
     fn _transfer(
-        token_id: u32,
+        _ticker: Vec<u8>,
         from: T::AccountId,
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        Self::_is_valid_transfer(token_id, from.clone(), to.clone(), value)?;
-        ensure!(<BalanceOf<T>>::exists((token_id, from.clone())), "Account does not own this token");
-        let sender_balance = Self::balance_of((token_id, from.clone()));
+        let ticker = Self::_toUpper(_ticker);
+        Self::_is_valid_transfer(ticker.clone(), from.clone(), to.clone(), value)?;
+        ensure!(<BalanceOf<T>>::exists((ticker.clone(), from.clone())), "Account does not own this token");
+        let sender_balance = Self::balance_of((ticker.clone(), from.clone()));
         ensure!(sender_balance >= value, "Not enough balance.");
 
         let updated_from_balance = sender_balance
             .checked_sub(&value)
             .ok_or("overflow in calculating balance")?;
-        let receiver_balance = Self::balance_of((token_id, to.clone()));
+        let receiver_balance = Self::balance_of((ticker.clone(), to.clone()));
         let updated_to_balance = receiver_balance
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
 
-        Self::_update_checkpoint(token_id, from.clone(), sender_balance)?;
-        Self::_update_checkpoint(token_id, to.clone(), receiver_balance)?;
+        Self::_update_checkpoint(ticker.clone(), from.clone(), sender_balance);
+        Self::_update_checkpoint(ticker.clone(), to.clone(), receiver_balance);
         // reduce sender's balance
-        <BalanceOf<T>>::insert((token_id, from.clone()), updated_from_balance);
+        <BalanceOf<T>>::insert((ticker.clone(), from.clone()), updated_from_balance);
 
         // increase receiver's balance
-        <BalanceOf<T>>::insert((token_id, to.clone()), updated_to_balance);
+        <BalanceOf<T>>::insert((ticker.clone(), to.clone()), updated_to_balance);
 
-        Self::deposit_event(RawEvent::Transfer(token_id, from, to, value));
+        Self::deposit_event(RawEvent::Transfer(ticker.clone(), from, to, value));
         Ok(())
     }
 
-    fn _create_checkpoint(token_id: u32) -> Result {
-        if <TotalCheckpoints<T>>::exists(token_id) {
-            let mut checkpoint_count = Self::total_checkpoints_of(token_id);
+    fn _create_checkpoint(_ticker: Vec<u8>) -> Result {
+        let ticker = Self::_toUpper(_ticker);
+        if <TotalCheckpoints<T>>::exists(ticker.clone()) {
+            let mut checkpoint_count = Self::total_checkpoints_of(ticker.clone());
             checkpoint_count = checkpoint_count
                 .checked_add(1)
                 .ok_or("overflow in adding checkpoint")?;
-            <TotalCheckpoints<T>>::insert(token_id, checkpoint_count);
-            <CheckpointTotalSupply<T>>::insert((token_id, checkpoint_count), Self::token_details(token_id).total_supply);
+            <TotalCheckpoints<T>>::insert(ticker.clone(), checkpoint_count);
+            <CheckpointTotalSupply<T>>::insert((ticker.clone(), checkpoint_count), Self::token_details(ticker.clone()).total_supply);
         } else {
-            <TotalCheckpoints<T>>::insert(token_id, 1);
-            <CheckpointTotalSupply<T>>::insert((token_id, 1), Self::token_details(token_id).total_supply);
+            <TotalCheckpoints<T>>::insert(ticker.clone(), 1);
+            <CheckpointTotalSupply<T>>::insert((ticker.clone(), 1), Self::token_details(ticker.clone()).total_supply);
         }
         Ok(())
     }
 
     fn _update_checkpoint(
-        token_id: u32,
+        _ticker: Vec<u8>,
         user: T::AccountId,
         user_balance: T::TokenBalance,
     ) -> Result {
-        if <TotalCheckpoints<T>>::exists(token_id) {
-            let checkpoint_count = Self::total_checkpoints_of(token_id);
-            if !<CheckpointBalance<T>>::exists((token_id, user.clone(), checkpoint_count)) {
-                <CheckpointBalance<T>>::insert((token_id, user, checkpoint_count), user_balance);
+        let ticker = Self::_toUpper(_ticker);
+        if <TotalCheckpoints<T>>::exists(ticker.clone()) {
+            let checkpoint_count = Self::total_checkpoints_of(ticker.clone());
+            if !<CheckpointBalance<T>>::exists((ticker.clone(), user.clone(), checkpoint_count)) {
+                <CheckpointBalance<T>>::insert((ticker.clone(), user, checkpoint_count), user_balance);
             }
         }
         Ok(())
     }
 
-    fn is_owner(token_id:u32, sender: T::AccountId) -> bool {
-        let token = Self::token_details(token_id);
+    pub fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
+        let mut hexArray = _hexArray.clone();
+        for i in &mut hexArray {
+            if *i >= 97 && *i <= 122 {
+                *i -= 32;
+            }
+        }
+        return hexArray;
+    }
+
+    fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+        let token = Self::token_details(_ticker);
         token.owner == sender
     }
 }

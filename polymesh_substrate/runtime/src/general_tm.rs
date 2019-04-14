@@ -37,9 +37,9 @@ decl_storage! {
         //PABLO: TODO: Idea here is to have a mapping/array of restrictions with a type and then loop through them applying their type of restriction. Whitelist would be associated to restriction instead of token.
         //RestrictionsForToken get(restrictions_for_token): map u32 => Vec<Restriction>;
 
-        WhitelistsByToken get(whitelists_by_token): map u32 => Vec<Whitelist<T::Moment, T::AccountId>>;
-        
-        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (u32,T::AccountId) => Whitelist<T::Moment, T::AccountId>;
+        WhitelistsByToken get(whitelists_by_token): map Vec<u8> => Vec<Whitelist<T::Moment, T::AccountId>>;
+
+        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (Vec<u8>,T::AccountId) => Whitelist<T::Moment, T::AccountId>;
 
 	}
 }
@@ -51,9 +51,10 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
-		pub fn add_to_whitelist(origin, token_id:u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
+		pub fn add_to_whitelist(origin, _ticker: Vec<u8>, _investor: T::AccountId, expiry: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
-            ensure!(Self::is_owner(token_id,sender.clone()),"Sender must be the token owner");
+						let ticker = Self::_toUpper(_ticker);
+            ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
             let whitelist = Whitelist {
                 investor: _investor.clone(),
@@ -61,19 +62,18 @@ decl_module! {
                 can_receive_after:expiry
             };
 
-            let mut whitelists_for_token = Self::whitelists_by_token(token_id);
+            let mut whitelists_for_token = Self::whitelists_by_token(ticker.clone());
             whitelists_for_token.push(whitelist.clone());
 
             //PABLO: TODO: don't add the restriction to the array if it already exists
-            <WhitelistsByToken<T>>::insert(token_id,whitelists_for_token);
+            <WhitelistsByToken<T>>::insert(ticker.clone(),whitelists_for_token);
 
-            <WhitelistForTokenAndAddress<T>>::insert((token_id,_investor),whitelist);
+            <WhitelistForTokenAndAddress<T>>::insert((ticker.clone(),_investor),whitelist);
 
             runtime_io::print("Created restriction!!!");
             //<general_tm::Module<T>>::add_to_whitelist(sender,token_id,_investor,expiry);
 
             Ok(())
-
         }
 	}
 }
@@ -86,22 +86,34 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
 
-    pub fn is_owner(token_id:u32, sender: T::AccountId) -> bool {
-		T::Asset::is_owner(token_id, sender)
+    pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+			let ticker = Self::_toUpper(_ticker);
+			T::Asset::is_owner(ticker.clone(), sender)
         // let token = T::Asset::token_details(token_id);
         // token.owner == sender
-	}
+		}
 
 	// Transfer restriction verification logic
-	pub fn verify_restriction(token_id: u32, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
+	pub fn verify_restriction(_ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
+		let ticker = Self::_toUpper(_ticker);
 		let now = <timestamp::Module<T>>::get();
-		let whitelist_for_from = Self::whitelist_for_restriction((token_id,from));
-		let whitelist_for_to = Self::whitelist_for_restriction((token_id,to));
+		let whitelist_for_from = Self::whitelist_for_restriction((ticker.clone(),from));
+		let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(),to));
 		if (whitelist_for_from.can_send_after > T::Moment::sa(0) && now >= whitelist_for_from.can_send_after) && (whitelist_for_to.can_receive_after > T::Moment::sa(0) && now > whitelist_for_to.can_receive_after) {
 			return Ok(());
 		}
 		Err("Cannot Transfer: General TM restrictions not satisfied")
 	}
+
+				fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
+					let mut hexArray = _hexArray.clone();
+					for i in &mut hexArray {
+							if *i >= 97 && *i <= 122 {
+									*i -= 32;
+							}
+					}
+					return hexArray;
+			}
 
 }
 
