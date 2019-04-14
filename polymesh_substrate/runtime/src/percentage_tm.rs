@@ -68,7 +68,7 @@ impl<T: Trait> Module<T>{
 		let enabled = _can_transfer.0;
 		// If the restriction is enabled, then we need to make the calculations, otherwise all good
 		if enabled {
-			return Err("Invalid");
+			Err("Cannot Transfer: Percentage TM restrictions not satisfied")
 		}else{
 			Ok(())
 		}                    

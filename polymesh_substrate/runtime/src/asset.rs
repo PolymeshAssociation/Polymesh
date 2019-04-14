@@ -251,6 +251,7 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
+        Self::_is_valid_transfer(token_id, from.clone(), to.clone(), value)?;
         ensure!(<BalanceOf<T>>::exists((token_id, from.clone())), "Account does not own this token");
         let sender_balance = Self::balance_of((token_id, from.clone()));
         ensure!(sender_balance >= value, "Not enough balance.");

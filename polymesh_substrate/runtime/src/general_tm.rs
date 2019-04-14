@@ -100,7 +100,7 @@ impl<T: Trait> Module<T> {
 		if (whitelist_for_from.can_send_after > T::Moment::sa(0) && now >= whitelist_for_from.can_send_after) && (whitelist_for_to.can_receive_after > T::Moment::sa(0) && now > whitelist_for_to.can_receive_after) {
 			return Ok(());
 		}
-		Err("Cannot Transfer")
+		Err("Cannot Transfer: General TM restrictions not satisfied")
 	}
 
 }
