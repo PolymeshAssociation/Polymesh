@@ -1,8 +1,11 @@
 use crate::utils;
+use crate::asset;
+use crate::asset::HasOwner;
+
 use rstd::prelude::*;
-use support::{StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
+use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
 use runtime_primitives::traits::{As};
-use system::{self};
+use system::{self, ensure_signed};
 
 /// The module's configuration trait.
 pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
@@ -10,6 +13,8 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+	type Asset: asset::HasOwner<Self::AccountId>;
+
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
@@ -46,20 +51,10 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
-	}
-}
-
-decl_event!(
-	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
-        Example(u32, AccountId, AccountId),
-	}
-);
-
-impl<T: Trait> Module<T> {
-
-        pub fn add_to_whitelist(sender: T::AccountId, _ticker: Vec<u8>, _investor: T::AccountId, expiry: T::Moment){
-					  let ticker = Self::_toUpper(_ticker);
-            //let mut now = <timestamp::Module<T>>::get();
+		pub fn add_to_whitelist(origin, _ticker: Vec<u8>, _investor: T::AccountId, expiry: T::Moment) -> Result {
+            let sender = ensure_signed(origin)?;
+						let ticker = Self::_toUpper(_ticker);
+            ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
             let whitelist = Whitelist {
                 investor: _investor.clone(),
@@ -76,21 +71,39 @@ impl<T: Trait> Module<T> {
             <WhitelistForTokenAndAddress<T>>::insert((ticker.clone(),_investor),whitelist);
 
             runtime_io::print("Created restriction!!!");
-        }
+            //<general_tm::Module<T>>::add_to_whitelist(sender,token_id,_investor,expiry);
 
-        // Transfer restriction verification logic
-
-        pub fn verify_whitelist_restriction(_ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> (bool,&'static str) {
-					  let ticker = Self::_toUpper(_ticker);
-            let mut _can_transfer = false;
-            let now = <timestamp::Module<T>>::get();
-            let whitelist_for_from = Self::whitelist_for_restriction((ticker.clone(),from));
-            let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(),to));
-            if (whitelist_for_from.can_send_after > T::Moment::sa(0) && now >= whitelist_for_from.can_send_after) && (whitelist_for_to.can_receive_after > T::Moment::sa(0) && now > whitelist_for_to.can_receive_after) {
-                _can_transfer = true;
-            }
-            (_can_transfer, "Transfer failed: simple restriction in place")
+            Ok(())
         }
+	}
+}
+
+decl_event!(
+	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
+        Example(u32, AccountId, AccountId),
+	}
+);
+
+impl<T: Trait> Module<T> {
+
+    pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+			let ticker = Self::_toUpper(_ticker);
+			T::Asset::is_owner(ticker.clone(), sender)
+        // let token = T::Asset::token_details(token_id);
+        // token.owner == sender
+		}
+
+	// Transfer restriction verification logic
+	pub fn verify_restriction(_ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
+		let ticker = Self::_toUpper(_ticker);
+		let now = <timestamp::Module<T>>::get();
+		let whitelist_for_from = Self::whitelist_for_restriction((ticker.clone(),from));
+		let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(),to));
+		if (whitelist_for_from.can_send_after > T::Moment::sa(0) && now >= whitelist_for_from.can_send_after) && (whitelist_for_to.can_receive_after > T::Moment::sa(0) && now > whitelist_for_to.can_receive_after) {
+			return Ok(());
+		}
+		Err("Cannot Transfer: General TM restrictions not satisfied")
+	}
 
 				fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
 					let mut hexArray = _hexArray.clone();
