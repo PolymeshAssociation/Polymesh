@@ -1,0 +1,17 @@
+{
+  "name": "substrate-listener",
+  "version": "0.1.0",
+  "description": "Websocket listener for substrate events.",
+  "main": "server.js",
+  "scripts": {
+    "test": "test"
+  },
+  "author": "Gautam Dhameja",
+  "license": "ISC",
+  "dependencies": {
+    "@polkadot/api": "^0.42.2",
+    "dotenv": "^6.2.0",
+    "mongodb": "^3.1.13",
+    "rxjs": "^6.4.0"
+  }
+}

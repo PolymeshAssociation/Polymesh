@@ -1,0 +1,38 @@
+.validator-balances {
+	flex-direction: row;
+	flex-wrap: wrap;
+	justify-content: space-evenly;
+	align-items: stretch;
+	align-content: flex-start;
+	display: flex;
+}
+
+.validator-balance {
+	margin: 6px;
+	padding: 12px;
+	width: 150px;
+	background: #fcfcfc;
+	border-radius: 8px;
+}
+
+.validator {
+	float: left;
+}
+
+.AccountId {
+	clear: both;
+	font-family: 'Courier New', Courier, monospace;
+}
+
+.paren {
+	font-size: small;
+	color: #666;
+}
+
+.value {
+	font-weight: bold;
+}
+
+.ui.basic.label {
+	background: none #FFFFFF !important;
+}
