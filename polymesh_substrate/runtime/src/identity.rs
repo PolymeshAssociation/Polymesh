@@ -11,6 +11,14 @@ pub struct Issuer<U> {
     active: bool,
 }
 
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+pub struct Investor<U> {
+    pub account: U,
+    pub access_level: u16,
+    pub active: bool,
+    pub jurisdiction: u16,
+}
+
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
 	// TODO: Add other types and constants required configure this module.
@@ -25,6 +33,7 @@ decl_storage! {
         Owner get(owner) config(): T::AccountId;  
 
         IssuerList get(issuer_list): map T::AccountId => Issuer<T::AccountId>;
+        InvestorList get(investor_list): map T::AccountId => Investor<T::AccountId>;
 
 	}
 }
@@ -50,6 +59,22 @@ decl_module! {
             Ok(())
 
         }
+
+        fn create_investor(origin,_investor: T::AccountId) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(Self::owner() == sender,"Sender must be the identity module owner");
+
+            let new_investor = Investor {
+                account:_investor.clone(),
+                access_level:1,
+                active: true,
+                jurisdiction:1
+            };
+
+            <InvestorList<T>>::insert(_investor, new_investor);
+            Ok(())
+
+        }
     }
 }
 
@@ -62,10 +87,28 @@ decl_event!(
 	}
 );
 
+pub trait IdentityTrait<T> {
+    fn investor_data(
+        who: T,
+    ) -> Investor<T>;
+}
+
+impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
+    fn investor_data(sender: T::AccountId) -> Investor<T::AccountId> {
+        let _investor = Self::investor_list(sender);
+        _investor
+    }
+}
+
 impl<T: Trait> Module<T>{
 
     pub fn is_issuer(_user: T::AccountId) -> bool{
         let user = Self::issuer_list(_user.clone());
+        user.account == _user && user.access_level == 1 && user.active
+    }
+
+    pub fn is_investor(_user: T::AccountId) -> bool{
+        let user = Self::investor_list(_user.clone());
         user.account == _user && user.access_level == 1 && user.active
     }
 }
