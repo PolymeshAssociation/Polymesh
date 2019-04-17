@@ -22,6 +22,7 @@ pub enum Alternative {
 	Development,
 	/// Whatever the current runtime is, with simple Alice/Bob auths.
 	LocalTestnet,
+    Local,
 }
 
 fn authority_key(s: &str) -> AuthorityId {
@@ -43,6 +44,27 @@ impl Alternative {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
 				"dev",
+				|| testnet_genesis(vec![
+					authority_key("Alice"),
+                    authority_key("Bob"),
+                    authority_key("Charlie")
+				], vec![
+					account_key("Alice"),
+                    account_key("Bob"),
+                    account_key("Charlie"),
+                    account_key("Dave")
+				],
+					account_key("Alice")
+				),
+				vec![],
+				None,
+				None,
+				None,
+				None
+			),
+            Alternative::Local => ChainSpec::from_genesis(
+				"Local",
+				"local",
 				|| testnet_genesis(vec![
 					authority_key("Alice")
 				], vec![
