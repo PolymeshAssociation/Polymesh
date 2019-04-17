@@ -219,6 +219,7 @@ impl utils::Trait for Runtime {
 impl general_tm::Trait for Runtime {
         type Event = Event;
         type Asset = Asset;
+        type Identity = Identity;
 }
 
 impl percentage_tm::Trait for Runtime {

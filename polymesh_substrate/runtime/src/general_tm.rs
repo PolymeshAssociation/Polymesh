@@ -1,6 +1,8 @@
 use crate::utils;
 use crate::asset;
 use crate::asset::HasOwner;
+use crate::identity;
+use crate::identity::IdentityTrait;
 
 use rstd::prelude::*;
 use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
@@ -14,6 +16,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 	type Asset: asset::HasOwner<Self::AccountId>;
+    type Identity: identity::IdentityTrait<Self::AccountId>;
 
 }
 
@@ -57,7 +60,7 @@ decl_module! {
 
 		pub fn add_to_whitelist(origin, _ticker: Vec<u8>, _whitelistId: u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
-						let ticker = Self::_toUpper(_ticker);
+			let ticker = Self::_toUpper(_ticker);
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
             let whitelist = Whitelist {
@@ -118,6 +121,9 @@ impl<T: Trait> Module<T> {
 		let ticker = Self::_toUpper(_ticker);
 		let now = <timestamp::Module<T>>::get();
 
+        let investorFrom = T::Identity::investor_data(from.clone());
+        ensure!(investorFrom.active && investorFrom.access_level == 1, "From account is not active");
+
         // loop through existing whitelists
         let whitelist_count = Self::whitelist_count();
 
@@ -129,20 +135,18 @@ impl<T: Trait> Module<T> {
             }
         }
 
-        Err("Cannot Transfer: General TM restrictions not satisfied")
-
-		
+        Err("Cannot Transfer: General TM restrictions not satisfied")	
 	}
 
-				fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
-					let mut hexArray = _hexArray.clone();
-					for i in &mut hexArray {
-							if *i >= 97 && *i <= 122 {
-									*i -= 32;
-							}
-					}
-					return hexArray;
-			}
+    fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
+        let mut hexArray = _hexArray.clone();
+        for i in &mut hexArray {
+                if *i >= 97 && *i <= 122 {
+                        *i -= 32;
+                }
+        }
+        return hexArray;
+    }
 
 }
 
