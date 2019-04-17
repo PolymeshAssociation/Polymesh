@@ -36,7 +36,7 @@ pub trait Trait:
 
 // struct to store the token details
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Erc20Token<U, V> {
+pub struct SecurityToken<U, V> {
     name: Vec<u8>,
     total_supply: U,
     pub owner: V,
@@ -46,7 +46,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         FeeCollector get(fee_collector) config(): T::AccountId;
         // details of the token corresponding to the token ticker
-        Tokens get(token_details): map Vec<u8> => Erc20Token<T::TokenBalance, T::AccountId>;
+        Tokens get(token_details): map Vec<u8> => SecurityToken<T::TokenBalance, T::AccountId>;
         // balances mapping for an account and token
         BalanceOf get(balance_of): map (Vec<u8>, T::AccountId) => T::TokenBalance;
         // allowance for an account and token
@@ -92,7 +92,7 @@ decl_module! {
 
           // take fee for creating asset
 
-          let token = Erc20Token {
+          let token = SecurityToken {
               name,
               total_supply,
               owner:sender.clone()

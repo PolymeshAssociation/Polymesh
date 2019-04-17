@@ -1,0 +1,29 @@
+{
+    "TokenBalance": "u128",
+    "SecurityToken": {
+      "name": "Vec<u8>",
+      "total_supply": "TokenBalance",
+      "owner": "AccountId"
+    },
+    "Restriction": {
+      "name": "Vec<u8>",
+      "token_id": "u32",
+      "can_transfer": "bool"
+    },
+    "Whitelist": {
+      "investor": "AccountId",
+      "canSendAfter": "Moment",
+      "canReceiveAfter": "Moment"
+    },
+    "Issuer": {
+      "account": "AccountId",
+      "access_level": "u16",
+      "active": "bool"
+    },
+    "Investor": {
+      "account": "AccountId",
+      "access_level": "u16",
+      "active": "bool",
+      "jurisdiction": "u16"
+    }
+  }
