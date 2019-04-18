@@ -6,15 +6,17 @@ PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 export CARGO_INCREMENTAL=0
 
-bold=$(tput bold)
-normal=$(tput sgr0)
+# These don't work on CircleCI unfortunately
+#bold=$(tput bold)
+#normal=$(tput sgr0)
 
 # Save current directory.
 pushd . >/dev/null
 
 for SRC in runtime/wasm
 do
-  echo "${bold}Building webassembly binary in $SRC...${normal}"
+  #echo "${bold}Building webassembly binary in $SRC...${normal}"
+  echo "Building webassembly binary in $SRC..."
   cd "$PROJECT_ROOT/$SRC"
 
   ./build.sh
