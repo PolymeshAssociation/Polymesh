@@ -21,6 +21,9 @@ jobs:
             rustup install nightly
             rustup component add rustfmt --toolchain nightly
             rustup default stable
+            curl https://getsubstrate.io -sSf > ~/substrate.sh
+            chmod a+x ~/substrate.sh
+            ~/substrate.sh
       - run:
           name: Init Polymesh
           command: ./init.sh
