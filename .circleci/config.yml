@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: debian:stretch
+      - image: ubuntu:bionic
 
     environment:
       BASH_ENV: "~/.cargo/env"
@@ -21,9 +21,6 @@ jobs:
             rustup install nightly
             rustup component add rustfmt --toolchain nightly
             rustup default stable
-            curl https://getsubstrate.io -sSf > ~/substrate.sh
-            chmod a+x ~/substrate.sh
-            ~/substrate.sh
       - run:
           name: Init Polymesh
           command: ./init.sh
