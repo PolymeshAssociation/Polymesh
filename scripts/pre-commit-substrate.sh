@@ -1,15 +1,10 @@
-#!/usr/bin/env sh
-# pre-commit checks for polymesh_substrate Rust code
-
+#!/usr/bin/env bash
+# Aggregated pre-commit checks of polymesh_substrate Rust code
 set -e
 
-worktree=${GIT_WORK_TREE:=$PWD}
+# This particular script needs to work in and out of git context
+#script_dir=${GIT_WORK_TREE:=$(dirname $0)/..}
+root_dir=$(git rev-parse --git-dir)/..
 
-# rustfmt all top-level, non-artifact `src` dirs, all of *.rs inside
-find polymesh_substrate -type d -name "src" -not -path "*/target/*" | xargs -i find {} -type f -name "*.rs" | xargs rustfmt +nightly --check
-
-pushd $GIT_WORK_TREE/polymesh_substrate
-	# Do linting, has to account for wasm gimmicks
-	./check.sh
-	echo cargo-check OK
-popd
+$root_dir/scripts/cargo-check.sh
+$root_dir/scripts/rustfmt.sh
