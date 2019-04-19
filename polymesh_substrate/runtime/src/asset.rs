@@ -164,6 +164,29 @@ decl_module! {
             Self::deposit_event(RawEvent::BalanceAt(ticker.clone(), owner.clone(), checkpoint, Self::get_balance_at(ticker.clone(), owner, checkpoint)));
             Ok(())
         }
+
+        pub fn mint(_origin, _ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
+            let ticker = Self::_toUpper(_ticker);
+            let sender = ensure_signed(_origin)?;
+
+            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
+
+            //Increase receiver balance
+            let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
+            let updated_to_balance = current_to_balance.checked_add(&value).ok_or("overflow in calculating balance")?;
+            <BalanceOf<T>>::insert((ticker.clone(), to.clone()), updated_to_balance);
+
+            //Increase total suply
+            let mut token = Self::token_details(ticker.clone());
+            token.total_supply = token.total_supply.checked_add(&value).ok_or("overflow in calculating balance")?;
+
+            <Tokens<T>>::insert(ticker.clone(), token);
+
+            //PABLO: TODO: Update checkpoint for receiver and total supply at checkpoint
+            
+            Ok(())
+            
+        }
   }
 }
 

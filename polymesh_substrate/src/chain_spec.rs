@@ -107,7 +107,8 @@ impl Alternative {
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
 			"dev" => Some(Alternative::Development),
-			"" | "local" => Some(Alternative::LocalTestnet),
+			"local2" => Some(Alternative::LocalTestnet),
+			"" | "local" => Some(Alternative::Local),
 			_ => None,
 		}
 	}
