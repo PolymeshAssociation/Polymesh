@@ -174,21 +174,18 @@ decl_module! {
             //Increase receiver balance
             let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
             let updated_to_balance = current_to_balance.checked_add(&value).ok_or("overflow in calculating balance")?;
-            <BalanceOf<T>>::insert((ticker.clone(), to.clone()), updated_to_balance);
 
-            //PABLO: TODO: Review if I'm correctly updating balance + total supply for checkpoint
-            Self::_update_checkpoint(ticker.clone(), to.clone(), current_to_balance);
-
-            //Increase total suply
+             //Increase total suply
             let mut token = Self::token_details(ticker.clone());
             token.total_supply = token.total_supply.checked_add(&value).ok_or("overflow in calculating balance")?;
 
+            Self::_update_checkpoint(ticker.clone(), to.clone(), current_to_balance);
+
+            <BalanceOf<T>>::insert((ticker.clone(), to.clone()), updated_to_balance);
             <Tokens<T>>::insert(ticker.clone(), token);
 
-            //PABLO: TODO: Missing event
             Self::deposit_event(RawEvent::Minted(ticker.clone(), to, value));
 
- 
             Ok(())
             
         }
@@ -205,15 +202,14 @@ decl_module! {
             let updated_burner_balance = burner_balance
             .checked_sub(&value)
             .ok_or("overflow in calculating balance")?;
-            <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), updated_burner_balance);
-
-            //PABLO: TODO: Review if I'm correctly updating balance + total supply for checkpoint
-            Self::_update_checkpoint(ticker.clone(), sender.clone(), burner_balance);
 
             //Decrease total suply
             let mut token = Self::token_details(ticker.clone());
             token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
 
+            Self::_update_checkpoint(ticker.clone(), sender.clone(), burner_balance);
+
+            <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), updated_burner_balance);
             <Tokens<T>>::insert(ticker.clone(), token);
 
             Self::deposit_event(RawEvent::Burned(ticker.clone(), sender, value));
@@ -378,7 +374,6 @@ impl<T: Trait> Module<T> {
             let checkpoint_count = Self::total_checkpoints_of(ticker.clone());
             if !<CheckpointBalance<T>>::exists((ticker.clone(), user.clone(), checkpoint_count)) {
                 <CheckpointBalance<T>>::insert((ticker.clone(), user, checkpoint_count), user_balance);
-                <CheckpointTotalSupply<T>>::insert((ticker.clone(), checkpoint_count), Self::token_details(ticker.clone()).total_supply);
             }
         }
         Ok(())
