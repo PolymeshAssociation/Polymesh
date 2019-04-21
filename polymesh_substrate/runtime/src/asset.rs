@@ -164,6 +164,59 @@ decl_module! {
             Self::deposit_event(RawEvent::BalanceAt(ticker.clone(), owner.clone(), checkpoint, Self::get_balance_at(ticker.clone(), owner, checkpoint)));
             Ok(())
         }
+
+        pub fn mint(_origin, _ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
+            let ticker = Self::_toUpper(_ticker);
+            let sender = ensure_signed(_origin)?;
+
+            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
+
+            //Increase receiver balance
+            let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
+            let updated_to_balance = current_to_balance.checked_add(&value).ok_or("overflow in calculating balance")?;
+
+             //Increase total suply
+            let mut token = Self::token_details(ticker.clone());
+            token.total_supply = token.total_supply.checked_add(&value).ok_or("overflow in calculating balance")?;
+
+            Self::_update_checkpoint(ticker.clone(), to.clone(), current_to_balance);
+
+            <BalanceOf<T>>::insert((ticker.clone(), to.clone()), updated_to_balance);
+            <Tokens<T>>::insert(ticker.clone(), token);
+
+            Self::deposit_event(RawEvent::Minted(ticker.clone(), to, value));
+
+            Ok(())
+            
+        }
+
+        pub fn burn(_origin, _ticker: Vec<u8>, value: T::TokenBalance) -> Result {
+            let ticker = Self::_toUpper(_ticker);
+            let sender = ensure_signed(_origin)?;
+
+            ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
+            let burner_balance = Self::balance_of((ticker.clone(), sender.clone()));
+            ensure!(burner_balance >= value, "Not enough balance.");
+
+            // Reduce sender's balance
+            let updated_burner_balance = burner_balance
+            .checked_sub(&value)
+            .ok_or("overflow in calculating balance")?;
+
+            //Decrease total suply
+            let mut token = Self::token_details(ticker.clone());
+            token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
+
+            Self::_update_checkpoint(ticker.clone(), sender.clone(), burner_balance);
+
+            <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), updated_burner_balance);
+            <Tokens<T>>::insert(ticker.clone(), token);
+
+            Self::deposit_event(RawEvent::Burned(ticker.clone(), sender, value));
+ 
+            Ok(())
+            
+        }
   }
 }
 
@@ -182,6 +235,12 @@ decl_event!(
         // event - used for testing in the absence of custom getters
         // ticker, owner, checkpoint, balance
         BalanceAt(Vec<u8>, AccountId, u32, Balance),
+        // event mint
+        // ticker, account, value
+        Minted(Vec<u8>, AccountId, Balance),
+        // event burn
+        // ticker, account, value
+        Burned(Vec<u8>, AccountId, Balance),
     }
 );
 
