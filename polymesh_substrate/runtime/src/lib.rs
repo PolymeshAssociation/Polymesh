@@ -62,6 +62,7 @@ mod identity;
 mod organisation;
 mod jurisdiction;
 mod general_tm;
+mod sto_capped;
 mod percentage_tm;
 mod utils;
 // mod tm;
@@ -222,6 +223,12 @@ impl general_tm::Trait for Runtime {
         type Identity = Identity;
 }
 
+impl sto_capped::Trait for Runtime {
+        type Event = Event;
+        type Asset = Asset;
+        type Identity = Identity;
+}
+
 impl percentage_tm::Trait for Runtime {
         type Event = Event;
         type Asset = Asset;
@@ -262,6 +269,7 @@ construct_runtime!(
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
+        STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
 
 	}

@@ -21,13 +21,6 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Restriction {
-    name: Vec<u8>,
-    restriction_type: u16,
-    active: bool
-}
-
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Whitelist<U,V> {
     investor: V,
     can_send_after: U,
@@ -36,9 +29,6 @@ pub struct Whitelist<U,V> {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as GeneralTM {
-
-        //PABLO: TODO: Idea here is to have a mapping/array of restrictions with a type and then loop through them applying their type of restriction. Whitelist would be associated to restriction instead of token.
-        //RestrictionsForToken get(restrictions_for_token): map u32 => Vec<Restriction>;
 
         // Tokens can have multiple whitelists that (for now) check entries individually within each other
         WhitelistsByToken get(whitelists_by_token): map (Vec<u8>, u32) => Vec<Whitelist<T::Moment, T::AccountId>>;
