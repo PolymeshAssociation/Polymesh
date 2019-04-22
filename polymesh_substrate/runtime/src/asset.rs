@@ -58,7 +58,7 @@ decl_storage! {
         // Total supply of the token at the checkpoint
         CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u32) => T::TokenBalance;
         // Balance of a user at a checkpoint
-        CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, T::AccountId, u32) => T::TokenBalance;
+        CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, T::AccountId, u32) => Option<T::TokenBalance>;
     }
 }
 
@@ -187,7 +187,7 @@ decl_module! {
             Self::deposit_event(RawEvent::Minted(ticker.clone(), to, value));
 
             Ok(())
-            
+
         }
 
         pub fn burn(_origin, _ticker: Vec<u8>, value: T::TokenBalance) -> Result {
@@ -213,9 +213,9 @@ decl_module! {
             <Tokens<T>>::insert(ticker.clone(), token);
 
             Self::deposit_event(RawEvent::Burned(ticker.clone(), sender, value));
- 
+
             Ok(())
-            
+
         }
   }
 }
@@ -282,17 +282,27 @@ impl<T: Trait> Module<T> {
 
     pub fn get_balance_at(_ticker: Vec<u8>, _of: T::AccountId, mut _at: u32) -> T::TokenBalance {
         let ticker = Self::_toUpper(_ticker);
-        let max = Self::total_checkpoints_of(ticker.clone());
+        let mut max = Self::total_checkpoints_of(ticker.clone());
+        let mut requestedOldbalance = false;
 
         if _at > max {
             _at = max;
         }
 
-        while _at > 0u32 {
-            if <CheckpointBalance<T>>::exists((ticker.clone(), _of.clone(), _at)) {
-                return Self::balance_at_checkpoint((ticker.clone(), _of.clone(), _at));
+        while max >= _at {
+            match Self::balance_at_checkpoint((ticker.clone(), _of.clone(), max)) {
+                Some(x) => requestedOldbalance = true,
+                None => max -= 1,
             }
-            _at -= 1;
+        }
+
+        if requestedOldbalance {
+            while _at > 0u32 {
+                match Self::balance_at_checkpoint((ticker.clone(), _of.clone(), _at)) {
+                    Some(x) => return x,
+                    None => _at -= 1,
+                }
+            }
         }
 
         return Self::balance_of((ticker.clone(), _of.clone()));
