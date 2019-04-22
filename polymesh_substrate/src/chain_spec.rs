@@ -22,7 +22,7 @@ pub enum Alternative {
 	Development,
 	/// Whatever the current runtime is, with simple Alice/Bob auths.
 	LocalTestnet,
-    Local,
+    Aws,
 }
 
 fn authority_key(s: &str) -> AuthorityId {
@@ -41,9 +41,9 @@ impl Alternative {
 	/// Get an actual chain config from one of the alternatives.
 	pub(crate) fn load(self) -> Result<ChainSpec, String> {
 		Ok(match self {
-			Alternative::Development => ChainSpec::from_genesis(
-				"Development",
-				"dev",
+			Alternative::Aws => ChainSpec::from_genesis(
+				"AWS",
+				"aws",
 				|| testnet_genesis(vec![
 					authority_key("Alice"),
                     authority_key("Bob"),
@@ -62,9 +62,9 @@ impl Alternative {
 				None,
 				None
 			),
-            Alternative::Local => ChainSpec::from_genesis(
-				"Local",
-				"local",
+            Alternative::Development => ChainSpec::from_genesis(
+				"Development",
+				"dev",
 				|| testnet_genesis(vec![
 					authority_key("Alice")
 				], vec![
@@ -108,7 +108,7 @@ impl Alternative {
 		match s {
 			"dev" => Some(Alternative::Development),
 			"local2" => Some(Alternative::LocalTestnet),
-			"" | "local" => Some(Alternative::Local),
+			"" | "aws" => Some(Alternative::Aws),
 			_ => None,
 		}
 	}
