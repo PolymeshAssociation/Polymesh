@@ -9,6 +9,9 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - project-cache
       - run:
           name: Install system-wide dependencies
           command: |
