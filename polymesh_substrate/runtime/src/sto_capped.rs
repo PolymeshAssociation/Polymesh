@@ -1,12 +1,12 @@
 use crate::utils;
 use crate::asset;
-use crate::asset::HasOwner;
+use crate::asset::AssetTrait;
 use crate::identity;
 use crate::identity::IdentityTrait;
 
 use rstd::prelude::*;
+use runtime_primitives::traits::{As, CheckedAdd, CheckedSub};
 use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
-use runtime_primitives::traits::{As};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
@@ -15,7 +15,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-	type Asset: asset::HasOwner<Self::AccountId>;
+    type Asset: asset::AssetTrait<Self::AccountId,Self::TokenBalance>;
     type Identity: identity::IdentityTrait<Self::AccountId>;
 
 }
@@ -24,17 +24,26 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 pub struct STO<U,V,W> {
     beneficiary: U,
     cap: V,
+    sold: V,
     rate: u32,
     start_date: W,
     end_date: W,
     active: bool
 }
 
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+pub struct Investment<U,V,W> {
+    investor: U,
+    amount_payed: V,
+    tokens_purchased: V,
+    purchase_date: W
+}
+
 decl_storage! {
 	trait Store for Module<T: Trait> as STOCapped {
 
         // Tokens can have multiple whitelists that (for now) check entries individually within each other
-        StosByToken get(stos_by_token): map (Vec<u8>) => Vec<STO<T::AccountId,T::TokenBalance,T::Moment>>;
+        StosByToken get(stos_by_token): map (Vec<u8>, u32) => STO<T::AccountId,T::TokenBalance,T::Moment>;
 
         StoCount get(sto_count): map (Vec<u8>) => u32;
 	}
@@ -55,6 +64,7 @@ decl_module! {
             let sto = STO {
                 beneficiary,
                 cap,
+                sold:<T::TokenBalance as As<u64>>::sa(0),
                 rate,
                 start_date,
                 end_date,
@@ -64,14 +74,29 @@ decl_module! {
             let sto_count = Self::sto_count(ticker.clone());
             let new_sto_count = sto_count.checked_add(1).ok_or("overflow in calculating next sto count")?;
 
-            let mut stos_by_token = Self::stos_by_token(ticker.clone());
-            stos_by_token.push(sto.clone());
-
-            <StosByToken<T>>::insert(ticker.clone(), stos_by_token.clone());
+            <StosByToken<T>>::insert((ticker.clone(),sto_count), sto);
             <StoCount<T>>::insert(ticker.clone(),new_sto_count);
 
-
             runtime_io::print("Capped STOlaunched!!!");
+
+            Ok(())
+        }
+
+        pub fn buy_tokens(origin, _ticker: Vec<u8>, sto_id: u32) -> Result {
+            let sender = ensure_signed(origin)?;
+			let ticker = Self::_toUpper(_ticker);
+            //ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
+            //PABLO: TODO: Validate that buyer is whitelisted for primary issuance.
+
+            let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
+            let tokens_purchased = <T::TokenBalance as As<u64>>::sa(1000);
+
+            selected_sto.sold = selected_sto.sold.checked_add(&tokens_purchased).ok_or("overflow while calculating tokens sold")?;
+
+            T::Asset::_mint_from_sto(ticker.clone(), sender, tokens_purchased);
+            <StosByToken<T>>::insert((ticker.clone(),sto_id), selected_sto);
+
+            runtime_io::print("Invested in STO");
 
             Ok(())
         }

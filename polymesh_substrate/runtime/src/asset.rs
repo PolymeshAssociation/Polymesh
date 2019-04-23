@@ -166,27 +166,12 @@ decl_module! {
         }
 
         pub fn mint(_origin, _ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = Self::_toUpper(_ticker.clone());
             let sender = ensure_signed(_origin)?;
 
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
 
-            //Increase receiver balance
-            let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
-            let updated_to_balance = current_to_balance.checked_add(&value).ok_or("overflow in calculating balance")?;
-
-             //Increase total suply
-            let mut token = Self::token_details(ticker.clone());
-            token.total_supply = token.total_supply.checked_add(&value).ok_or("overflow in calculating balance")?;
-
-            Self::_update_checkpoint(ticker.clone(), to.clone(), current_to_balance);
-
-            <BalanceOf<T>>::insert((ticker.clone(), to.clone()), updated_to_balance);
-            <Tokens<T>>::insert(ticker.clone(), token);
-
-            Self::deposit_event(RawEvent::Minted(ticker.clone(), to, value));
-
-            Ok(())
+            Self::_mint(_ticker,to,value)
             
         }
 
@@ -252,6 +237,30 @@ pub trait HasOwner<T> {
 }
 
 impl<T: Trait> HasOwner<T::AccountId> for Module<T> {
+    fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+        let token = Self::token_details(_ticker);
+        token.owner == sender
+    }
+}
+
+pub trait AssetTrait<T,V> {
+    fn _mint_from_sto(
+        ticker: Vec<u8>,
+        sender: T,
+        tokens_purchased:V
+    ) -> Result;
+
+    fn is_owner(
+        _ticker: Vec<u8>,
+        who: T,
+    ) -> bool;
+}
+
+impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
+    fn _mint_from_sto(ticker:Vec<u8>, sender: T::AccountId, tokens_purchased: T::TokenBalance) -> Result {
+        Self::_mint(ticker, sender, tokens_purchased)
+    }
+
     fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
         let token = Self::token_details(_ticker);
         token.owner == sender
@@ -392,6 +401,28 @@ impl<T: Trait> Module<T> {
     fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
         let token = Self::token_details(_ticker);
         token.owner == sender
+    }
+
+    pub fn _mint(_ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
+        let ticker = Self::_toUpper(_ticker);
+
+        //Increase receiver balance
+        let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
+        let updated_to_balance = current_to_balance.checked_add(&value).ok_or("overflow in calculating balance")?;
+
+            //Increase total suply
+        let mut token = Self::token_details(ticker.clone());
+        token.total_supply = token.total_supply.checked_add(&value).ok_or("overflow in calculating balance")?;
+
+        Self::_update_checkpoint(ticker.clone(), to.clone(), current_to_balance);
+
+        <BalanceOf<T>>::insert((ticker.clone(), to.clone()), updated_to_balance);
+        <Tokens<T>>::insert(ticker.clone(), token);
+
+        Self::deposit_event(RawEvent::Minted(ticker.clone(), to, value));
+
+        Ok(())
+        
     }
 }
 
