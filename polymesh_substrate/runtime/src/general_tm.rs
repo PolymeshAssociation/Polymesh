@@ -1,41 +1,42 @@
-use crate::utils;
 use crate::asset;
 use crate::asset::HasOwner;
 use crate::identity;
 use crate::identity::IdentityTrait;
+use crate::utils;
 
 use rstd::prelude::*;
-use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
-use runtime_primitives::traits::{As};
+use runtime_primitives::traits::As;
+use support::{
+    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
+};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
 pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
-	// TODO: Add other types and constants required configure this module.
+    // TODO: Add other types and constants required configure this module.
 
-	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-	type Asset: asset::HasOwner<Self::AccountId>;
+    /// The overarching event type.
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Asset: asset::HasOwner<Self::AccountId>;
     type Identity: identity::IdentityTrait<Self::AccountId>;
-
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Restriction {
     name: Vec<u8>,
     restriction_type: u16,
-    active: bool
+    active: bool,
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Whitelist<U,V> {
+pub struct Whitelist<U, V> {
     investor: V,
     can_send_after: U,
-    can_receive_after: U
+    can_receive_after: U,
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as GeneralTM {
+    trait Store for Module<T: Trait> as GeneralTM {
 
         //PABLO: TODO: Idea here is to have a mapping/array of restrictions with a type and then loop through them applying their type of restriction. Whitelist would be associated to restriction instead of token.
         //RestrictionsForToken get(restrictions_for_token): map u32 => Vec<Restriction>;
@@ -48,19 +49,19 @@ decl_storage! {
         WhitelistEntriesCount get(whitelist_entries_count): map (Vec<u8>,u32) => u64;
         WhitelistCount get(whitelist_count): u32;
 
-	}
+    }
 }
 
 decl_module! {
-	/// The module declaration.
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		// Initializing events
-		// this is needed only if you are using events in your module
-		fn deposit_event<T>() = default;
+    /// The module declaration.
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Initializing events
+        // this is needed only if you are using events in your module
+        fn deposit_event<T>() = default;
 
-		pub fn add_to_whitelist(origin, _ticker: Vec<u8>, _whitelistId: u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
+        pub fn add_to_whitelist(origin, _ticker: Vec<u8>, _whitelistId: u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
-			let ticker = Self::_toUpper(_ticker);
+            let ticker = Self::_toUpper(_ticker);
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
             let whitelist = Whitelist {
@@ -74,7 +75,7 @@ decl_module! {
 
             //Get how many entries this whiteslist has and increase it if we are adding a new entry
             let entries_count = Self::whitelist_entries_count((ticker.clone(),_whitelistId.clone()));
-            
+
             // TODO: Make sure we are only increasing the count if it's a new entry and not just an update of an existing entry
             let new_entries_count = entries_count.checked_add(1).ok_or("overflow in calculating next entry count")?;
             <WhitelistEntriesCount<T>>::insert((ticker.clone(), _whitelistId),new_entries_count);
@@ -98,102 +99,120 @@ decl_module! {
 
             Ok(())
         }
-	}
+    }
 }
 
 decl_event!(
-	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
+    pub enum Event<T>
+    where
+        AccountId = <T as system::Trait>::AccountId,
+    {
         Example(u32, AccountId, AccountId),
-	}
+    }
 );
 
 impl<T: Trait> Module<T> {
-
     pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-			let ticker = Self::_toUpper(_ticker);
-			T::Asset::is_owner(ticker.clone(), sender)
+        let ticker = Self::_toUpper(_ticker);
+        T::Asset::is_owner(ticker.clone(), sender)
         // let token = T::Asset::token_details(token_id);
         // token.owner == sender
-		}
+    }
 
-	// Transfer restriction verification logic
-	pub fn verify_restriction(_ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
-		let ticker = Self::_toUpper(_ticker);
-		let now = <timestamp::Module<T>>::get();
+    // Transfer restriction verification logic
+    pub fn verify_restriction(
+        _ticker: Vec<u8>,
+        from: T::AccountId,
+        to: T::AccountId,
+        value: T::TokenBalance,
+    ) -> Result {
+        let ticker = Self::_toUpper(_ticker);
+        let now = <timestamp::Module<T>>::get();
 
         let investorFrom = T::Identity::investor_data(from.clone());
-        ensure!(investorFrom.active && investorFrom.access_level == 1, "From account is not active");
+        ensure!(
+            investorFrom.active && investorFrom.access_level == 1,
+            "From account is not active"
+        );
 
         // loop through existing whitelists
         let whitelist_count = Self::whitelist_count();
 
         for x in 0..whitelist_count {
-            let whitelist_for_from = Self::whitelist_for_restriction((ticker.clone(),x,from.clone()));
-            let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(),x,to.clone()));
-            if (whitelist_for_from.can_send_after > T::Moment::sa(0) && now >= whitelist_for_from.can_send_after) && (whitelist_for_to.can_receive_after > T::Moment::sa(0) && now > whitelist_for_to.can_receive_after) {
+            let whitelist_for_from =
+                Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
+            let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
+            if (whitelist_for_from.can_send_after > T::Moment::sa(0)
+                && now >= whitelist_for_from.can_send_after)
+                && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
+                    && now > whitelist_for_to.can_receive_after)
+            {
                 return Ok(());
             }
         }
 
-        Err("Cannot Transfer: General TM restrictions not satisfied")	
-	}
+        Err("Cannot Transfer: General TM restrictions not satisfied")
+    }
 
     fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
         let mut hexArray = _hexArray.clone();
         for i in &mut hexArray {
-                if *i >= 97 && *i <= 122 {
-                        *i -= 32;
-                }
+            if *i >= 97 && *i <= 122 {
+                *i -= 32;
+            }
         }
         return hexArray;
     }
-
 }
 
 /// tests for this module
 #[cfg(test)]
 mod tests {
-	use super::*;
+    use super::*;
 
-	use runtime_io::with_externalities;
-	use primitives::{H256, Blake2Hasher};
-	use support::{impl_outer_origin, assert_ok};
-	use runtime_primitives::{
-		BuildStorage,
-		traits::{BlakeTwo256, IdentityLookup},
-		testing::{Digest, DigestItem, Header}
-	};
+    use primitives::{Blake2Hasher, H256};
+    use runtime_io::with_externalities;
+    use runtime_primitives::{
+        testing::{Digest, DigestItem, Header},
+        traits::{BlakeTwo256, IdentityLookup},
+        BuildStorage,
+    };
+    use support::{assert_ok, impl_outer_origin};
 
-	impl_outer_origin! {
-		pub enum Origin for Test {}
-	}
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
 
-	// For testing the module, we construct most of a mock runtime. This means
-	// first constructing a configuration type (`Test`) which `impl`s each of the
-	// configuration traits of modules we want to use.
-	#[derive(Clone, Eq, PartialEq)]
-	pub struct Test;
-	impl system::Trait for Test {
-		type Origin = Origin;
-		type Index = u64;
-		type BlockNumber = u64;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type Digest = Digest;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
-		type Header = Header;
-		type Event = ();
-		type Log = DigestItem;
-	}
-	impl Trait for Test {
-		type Event = ();
-	}
-	type TransferValidationModule = Module<Test>;
+    // For testing the module, we construct most of a mock runtime. This means
+    // first constructing a configuration type (`Test`) which `impl`s each of the
+    // configuration traits of modules we want to use.
+    #[derive(Clone, Eq, PartialEq)]
+    pub struct Test;
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type Digest = Digest;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+        type Log = DigestItem;
+    }
+    impl Trait for Test {
+        type Event = ();
+    }
+    type TransferValidationModule = Module<Test>;
 
-	// This function basically just builds a genesis storage key/value store according to
-	// our desired mockup.
-	fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
-		system::GenesisConfig::<Test>::default().build_storage().unwrap().0.into()
-	}
+    // This function basically just builds a genesis storage key/value store according to
+    // our desired mockup.
+    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+        system::GenesisConfig::<Test>::default()
+            .build_storage()
+            .unwrap()
+            .0
+            .into()
+    }
 }
