@@ -66,36 +66,34 @@ async function main (answers) {
     provider: wsProvider
   });
   const tickerUpper = answers.ticker.toUpperCase();
+  let maxCheckpoint = new BN(await api.query.asset.totalCheckpoints(tickerUpper)).toNumber();
+  if (answers.checkpoint > maxCheckpoint || answers.checkpoint < 0) {
+    throw new RangeError("Checkpoint does not exist");
+  }
   const tickerInfo = JSON.parse((await api.query.asset.tokens(tickerUpper)).toString());
   const cpTotalSupply =  await api.query.asset.checkpointTotalSupply([tickerUpper, answers.checkpoint]);
-  console.log(`Total supply of ${new Buffer(tickerInfo.name).toString()} token at checkpoint ${answers.checkpoint} was ${cpTotalSupply}`);
+  console.log(`Total supply of ${Buffer.from(tickerInfo.name).toString()} token at checkpoint ${answers.checkpoint} was ${cpTotalSupply}`);
   const input = await inquirer.prompt(userAddress);
   if (input.address != '0') {
     let userBalance;
-    let maxCheckpoint = new BN(await api.query.asset.totalCheckpoints(tickerUpper)).toNumber();
     let fetchingOldBalance = false;
-    if (answers.checkpoint < maxCheckpoint) {
-      while (maxCheckpoint >= answers.checkpoint) {
+    while (maxCheckpoint >= answers.checkpoint) {
+      let bal: Option<u128> = await api.query.asset.checkpointBalance([tickerUpper, input.address, maxCheckpoint]) as unknown as Option<u128>;
+      if (bal.isSome) {
+        fetchingOldBalance = true;
+        break;
+      }
+      maxCheckpoint--;
+    }
+    if (fetchingOldBalance) {
+      maxCheckpoint = answers.checkpoint;
+      while (maxCheckpoint > 0) {
         let bal: Option<u128> = await api.query.asset.checkpointBalance([tickerUpper, input.address, maxCheckpoint]) as unknown as Option<u128>;
         if (bal.isSome) {
-          fetchingOldBalance = true;
+          userBalance = bal.value;
           break;
         }
         maxCheckpoint--;
-      }
-      if (fetchingOldBalance) {
-        maxCheckpoint = answers.checkpoint;
-        while (maxCheckpoint > 0) {
-          console.log(maxCheckpoint);
-          let bal: Option<u128> = await api.query.asset.checkpointBalance([tickerUpper, input.address, maxCheckpoint]) as unknown as Option<u128>;
-          if (bal.isSome) {
-            userBalance = bal.value;
-            break;
-          }
-          maxCheckpoint--;
-        }
-      } else {
-        maxCheckpoint = 0;
       }
     } else {
       maxCheckpoint = 0;
@@ -108,4 +106,7 @@ async function main (answers) {
   process.exit();
 }
 
-inquirer.prompt(initialQuestions).then(answers => main(answers).catch(console.error));
+inquirer.prompt(initialQuestions).then(answers => main(answers).catch(err => {
+  console.error(err);
+  process.exit();
+}));

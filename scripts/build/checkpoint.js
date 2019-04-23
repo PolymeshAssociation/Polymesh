@@ -98,7 +98,7 @@ var userAddress = [
 ];
 function main(answers) {
     return __awaiter(this, void 0, void 0, function () {
-        var wsProvider, api, tickerUpper, tickerInfo, _a, _b, cpTotalSupply, input, userBalance, maxCheckpoint, _c, fetchingOldBalance, bal, bal, _d;
+        var wsProvider, api, tickerUpper, maxCheckpoint, _a, tickerInfo, _b, _c, cpTotalSupply, input, userBalance, fetchingOldBalance, bal, bal, _d;
         return __generator(this, function (_e) {
             switch (_e.label) {
                 case 0:
@@ -110,25 +110,27 @@ function main(answers) {
                 case 1:
                     api = _e.sent();
                     tickerUpper = answers.ticker.toUpperCase();
-                    _b = (_a = JSON).parse;
-                    return [4 /*yield*/, api.query.asset.tokens(tickerUpper)];
-                case 2:
-                    tickerInfo = _b.apply(_a, [(_e.sent()).toString()]);
-                    return [4 /*yield*/, api.query.asset.checkpointTotalSupply([tickerUpper, answers.checkpoint])];
-                case 3:
-                    cpTotalSupply = _e.sent();
-                    console.log("Total supply of " + new Buffer(tickerInfo.name).toString() + " token at checkpoint " + answers.checkpoint + " was " + cpTotalSupply);
-                    return [4 /*yield*/, inquirer_1.default.prompt(userAddress)];
-                case 4:
-                    input = _e.sent();
-                    if (!(input.address != '0')) return [3 /*break*/, 18];
-                    userBalance = void 0;
-                    _c = bn_js_1.default.bind;
+                    _a = bn_js_1.default.bind;
                     return [4 /*yield*/, api.query.asset.totalCheckpoints(tickerUpper)];
+                case 2:
+                    maxCheckpoint = new (_a.apply(bn_js_1.default, [void 0, _e.sent()]))().toNumber();
+                    if (answers.checkpoint > maxCheckpoint || answers.checkpoint < 0) {
+                        throw new RangeError("Checkpoint does not exist");
+                    }
+                    _c = (_b = JSON).parse;
+                    return [4 /*yield*/, api.query.asset.tokens(tickerUpper)];
+                case 3:
+                    tickerInfo = _c.apply(_b, [(_e.sent()).toString()]);
+                    return [4 /*yield*/, api.query.asset.checkpointTotalSupply([tickerUpper, answers.checkpoint])];
+                case 4:
+                    cpTotalSupply = _e.sent();
+                    console.log("Total supply of " + Buffer.from(tickerInfo.name).toString() + " token at checkpoint " + answers.checkpoint + " was " + cpTotalSupply);
+                    return [4 /*yield*/, inquirer_1.default.prompt(userAddress)];
                 case 5:
-                    maxCheckpoint = new (_c.apply(bn_js_1.default, [void 0, _e.sent()]))().toNumber();
+                    input = _e.sent();
+                    if (!(input.address != '0')) return [3 /*break*/, 16];
+                    userBalance = void 0;
                     fetchingOldBalance = false;
-                    if (!(answers.checkpoint < maxCheckpoint)) return [3 /*break*/, 14];
                     _e.label = 6;
                 case 6:
                     if (!(maxCheckpoint >= answers.checkpoint)) return [3 /*break*/, 8];
@@ -147,7 +149,6 @@ function main(answers) {
                     _e.label = 9;
                 case 9:
                     if (!(maxCheckpoint > 0)) return [3 /*break*/, 11];
-                    console.log(maxCheckpoint);
                     return [4 /*yield*/, api.query.asset.checkpointBalance([tickerUpper, input.address, maxCheckpoint])];
                 case 10:
                     bal = _e.sent();
@@ -161,25 +162,24 @@ function main(answers) {
                 case 12:
                     maxCheckpoint = 0;
                     _e.label = 13;
-                case 13: return [3 /*break*/, 15];
-                case 14:
-                    maxCheckpoint = 0;
-                    _e.label = 15;
-                case 15:
-                    if (!(maxCheckpoint == 0)) return [3 /*break*/, 17];
+                case 13:
+                    if (!(maxCheckpoint == 0)) return [3 /*break*/, 15];
                     _d = bn_js_1.default.bind;
                     return [4 /*yield*/, api.query.asset.balanceOf([tickerUpper, input.address])];
-                case 16:
+                case 14:
                     userBalance = new (_d.apply(bn_js_1.default, [void 0, _e.sent()]))().toNumber();
-                    _e.label = 17;
-                case 17:
+                    _e.label = 15;
+                case 15:
                     console.log("Balance of " + input.address + " at checkpoint " + answers.checkpoint + " was " + userBalance);
-                    _e.label = 18;
-                case 18:
+                    _e.label = 16;
+                case 16:
                     process.exit();
                     return [2 /*return*/];
             }
         });
     });
 }
-inquirer_1.default.prompt(initialQuestions).then(function (answers) { return main(answers).catch(console.error); });
+inquirer_1.default.prompt(initialQuestions).then(function (answers) { return main(answers).catch(function (err) {
+    console.error(err);
+    process.exit();
+}); });
