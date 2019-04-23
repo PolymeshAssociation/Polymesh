@@ -47,16 +47,29 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
-        pub fn launch_sto(origin, _ticker: Vec<u8>, start_date: T::Moment, end_date: T::Moment) -> Result {
+        pub fn launch_sto(origin, _ticker: Vec<u8>, beneficiary: T::AccountId, cap: T::TokenBalance, rate: u32, start_date: T::Moment, end_date: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
 			let ticker = Self::_toUpper(_ticker);
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
-            // let whitelist = Whitelist {
-            //     investor: _investor.clone(),
-            //     can_send_after:expiry.clone(),
-            //     can_receive_after:expiry
-            // };
+            let sto = STO {
+                beneficiary,
+                cap,
+                rate,
+                start_date,
+                end_date,
+                active: true
+            };
+
+            let sto_count = Self::sto_count(ticker.clone());
+            let new_sto_count = sto_count.checked_add(1).ok_or("overflow in calculating next sto count")?;
+
+            let mut stos_by_token = Self::stos_by_token(ticker.clone());
+            stos_by_token.push(sto.clone());
+
+            <StosByToken<T>>::insert(ticker.clone(), stos_by_token.clone());
+            <StoCount<T>>::insert(ticker.clone(),new_sto_count);
+
 
             runtime_io::print("Capped STOlaunched!!!");
 

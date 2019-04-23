@@ -25,5 +25,14 @@
       "access_level": "u16",
       "active": "bool",
       "jurisdiction": "u16"
+    },
+    "STO": {
+        "beneficiary": "AccountId",
+        "cap": "TokenBalance",
+        "rate": "u32",
+        "start_date": "Moment",
+        "end_date": "Moment",
+        "active": "bool"
     }
-  }
+
+}
