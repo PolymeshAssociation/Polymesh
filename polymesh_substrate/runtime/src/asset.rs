@@ -59,6 +59,8 @@ decl_storage! {
         CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u32) => T::TokenBalance;
         // Balance of a user at a checkpoint
         CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, T::AccountId, u32) => Option<T::TokenBalance>;
+        // Last checkpoint updated for user balance
+        LatestUserCheckpoint get(latest_user_checkpoint): map (Vec<u8>, T::AccountId) => u32;
     }
 }
 
@@ -282,30 +284,25 @@ impl<T: Trait> Module<T> {
 
     pub fn get_balance_at(_ticker: Vec<u8>, _of: T::AccountId, mut _at: u32) -> T::TokenBalance {
         let ticker = Self::_toUpper(_ticker);
-        let mut max = Self::total_checkpoints_of(ticker.clone());
-        let mut requestedOldbalance = false;
+        let max = Self::total_checkpoints_of(ticker.clone());
 
         if _at > max {
             _at = max;
         }
 
-        while max >= _at {
-            match Self::balance_at_checkpoint((ticker.clone(), _of.clone(), max)) {
-                Some(x) => requestedOldbalance = true,
-                None => max -= 1,
-            }
-        }
-
-        if requestedOldbalance {
-            while _at > 0u32 {
-                match Self::balance_at_checkpoint((ticker.clone(), _of.clone(), _at)) {
-                    Some(x) => return x,
-                    None => _at -= 1,
+        if <LatestUserCheckpoint<T>>::exists((ticker.clone(), _of.clone())) {
+            let latest_checkpoint = Self::latest_user_checkpoint((ticker.clone(), _of.clone()));
+            if _at <= latest_checkpoint {
+                while _at > 0u32 {
+                    match Self::balance_at_checkpoint((ticker.clone(), _of.clone(), _at)) {
+                        Some(x) => return x,
+                        None => _at -= 1,
+                    }
                 }
             }
         }
 
-        return Self::balance_of((ticker.clone(), _of.clone()));
+        return Self::balance_of((ticker, _of));
     }
 
 
@@ -383,7 +380,8 @@ impl<T: Trait> Module<T> {
         if <TotalCheckpoints<T>>::exists(ticker.clone()) {
             let checkpoint_count = Self::total_checkpoints_of(ticker.clone());
             if !<CheckpointBalance<T>>::exists((ticker.clone(), user.clone(), checkpoint_count)) {
-                <CheckpointBalance<T>>::insert((ticker.clone(), user, checkpoint_count), user_balance);
+                <CheckpointBalance<T>>::insert((ticker.clone(), user.clone(), checkpoint_count), user_balance);
+                <LatestUserCheckpoint<T>>::insert((ticker, user), checkpoint_count);
             }
         }
         Ok(())

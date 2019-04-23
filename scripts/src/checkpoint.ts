@@ -67,7 +67,7 @@ async function main (answers) {
   });
   const tickerUpper = answers.ticker.toUpperCase();
   let maxCheckpoint = new BN(await api.query.asset.totalCheckpoints(tickerUpper)).toNumber();
-  if (answers.checkpoint > maxCheckpoint || answers.checkpoint < 0) {
+  if (answers.checkpoint > maxCheckpoint || answers.checkpoint <= 0) {
     throw new RangeError("Checkpoint does not exist");
   }
   const tickerInfo = JSON.parse((await api.query.asset.tokens(tickerUpper)).toString());
@@ -76,17 +76,11 @@ async function main (answers) {
   const input = await inquirer.prompt(userAddress);
   if (input.address != '0') {
     let userBalance;
-    let fetchingOldBalance = false;
-    while (maxCheckpoint >= answers.checkpoint) {
-      let bal: Option<u128> = await api.query.asset.checkpointBalance([tickerUpper, input.address, maxCheckpoint]) as unknown as Option<u128>;
-      if (bal.isSome) {
-        fetchingOldBalance = true;
-        break;
-      }
-      maxCheckpoint--;
-    }
-    if (fetchingOldBalance) {
+    let latestUserCheckpoint = new BN(await api.query.asset.latestUserCheckpoint([tickerUpper, input.address])).toNumber();
+    if (answers.checkpoint <= latestUserCheckpoint) {
       maxCheckpoint = answers.checkpoint;
+      // Looing through all checkpoints from n to 0 to return balance.
+      // According to the logic, Balance at n and n-1 is same if we didn't explicitly store balance for n.
       while (maxCheckpoint > 0) {
         let bal: Option<u128> = await api.query.asset.checkpointBalance([tickerUpper, input.address, maxCheckpoint]) as unknown as Option<u128>;
         if (bal.isSome) {
@@ -96,9 +90,7 @@ async function main (answers) {
         maxCheckpoint--;
       }
     } else {
-      maxCheckpoint = 0;
-    }
-    if (maxCheckpoint == 0) {
+      // No checkpoint balance stored for user. We should return latest balance.
       userBalance = new BN(await api.query.asset.balanceOf([tickerUpper, input.address])).toNumber();
     }
     console.log(`Balance of ${input.address} at checkpoint ${answers.checkpoint} was ${userBalance}`);

@@ -98,9 +98,9 @@ var userAddress = [
 ];
 function main(answers) {
     return __awaiter(this, void 0, void 0, function () {
-        var wsProvider, api, tickerUpper, maxCheckpoint, _a, tickerInfo, _b, _c, cpTotalSupply, input, userBalance, fetchingOldBalance, bal, bal, _d;
-        return __generator(this, function (_e) {
-            switch (_e.label) {
+        var wsProvider, api, tickerUpper, maxCheckpoint, _a, tickerInfo, _b, _c, cpTotalSupply, input, userBalance, latestUserCheckpoint, _d, bal, _e;
+        return __generator(this, function (_f) {
+            switch (_f.label) {
                 case 0:
                     wsProvider = new api_1.WsProvider('ws://127.0.0.1:9944');
                     return [4 /*yield*/, api_1.ApiPromise.create({
@@ -108,71 +108,58 @@ function main(answers) {
                             provider: wsProvider
                         })];
                 case 1:
-                    api = _e.sent();
+                    api = _f.sent();
                     tickerUpper = answers.ticker.toUpperCase();
                     _a = bn_js_1.default.bind;
                     return [4 /*yield*/, api.query.asset.totalCheckpoints(tickerUpper)];
                 case 2:
-                    maxCheckpoint = new (_a.apply(bn_js_1.default, [void 0, _e.sent()]))().toNumber();
-                    if (answers.checkpoint > maxCheckpoint || answers.checkpoint < 0) {
+                    maxCheckpoint = new (_a.apply(bn_js_1.default, [void 0, _f.sent()]))().toNumber();
+                    if (answers.checkpoint > maxCheckpoint || answers.checkpoint <= 0) {
                         throw new RangeError("Checkpoint does not exist");
                     }
                     _c = (_b = JSON).parse;
                     return [4 /*yield*/, api.query.asset.tokens(tickerUpper)];
                 case 3:
-                    tickerInfo = _c.apply(_b, [(_e.sent()).toString()]);
+                    tickerInfo = _c.apply(_b, [(_f.sent()).toString()]);
                     return [4 /*yield*/, api.query.asset.checkpointTotalSupply([tickerUpper, answers.checkpoint])];
                 case 4:
-                    cpTotalSupply = _e.sent();
+                    cpTotalSupply = _f.sent();
                     console.log("Total supply of " + Buffer.from(tickerInfo.name).toString() + " token at checkpoint " + answers.checkpoint + " was " + cpTotalSupply);
                     return [4 /*yield*/, inquirer_1.default.prompt(userAddress)];
                 case 5:
-                    input = _e.sent();
-                    if (!(input.address != '0')) return [3 /*break*/, 16];
+                    input = _f.sent();
+                    if (!(input.address != '0')) return [3 /*break*/, 13];
                     userBalance = void 0;
-                    fetchingOldBalance = false;
-                    _e.label = 6;
+                    _d = bn_js_1.default.bind;
+                    return [4 /*yield*/, api.query.asset.latestUserCheckpoint([tickerUpper, input.address])];
                 case 6:
-                    if (!(maxCheckpoint >= answers.checkpoint)) return [3 /*break*/, 8];
-                    return [4 /*yield*/, api.query.asset.checkpointBalance([tickerUpper, input.address, maxCheckpoint])];
-                case 7:
-                    bal = _e.sent();
-                    if (bal.isSome) {
-                        fetchingOldBalance = true;
-                        return [3 /*break*/, 8];
-                    }
-                    maxCheckpoint--;
-                    return [3 /*break*/, 6];
-                case 8:
-                    if (!fetchingOldBalance) return [3 /*break*/, 12];
+                    latestUserCheckpoint = new (_d.apply(bn_js_1.default, [void 0, _f.sent()]))().toNumber();
+                    if (!(answers.checkpoint <= latestUserCheckpoint)) return [3 /*break*/, 10];
                     maxCheckpoint = answers.checkpoint;
-                    _e.label = 9;
-                case 9:
-                    if (!(maxCheckpoint > 0)) return [3 /*break*/, 11];
+                    _f.label = 7;
+                case 7:
+                    if (!(maxCheckpoint > 0)) return [3 /*break*/, 9];
                     return [4 /*yield*/, api.query.asset.checkpointBalance([tickerUpper, input.address, maxCheckpoint])];
-                case 10:
-                    bal = _e.sent();
+                case 8:
+                    bal = _f.sent();
                     if (bal.isSome) {
                         userBalance = bal.value;
-                        return [3 /*break*/, 11];
+                        return [3 /*break*/, 9];
                     }
                     maxCheckpoint--;
-                    return [3 /*break*/, 9];
-                case 11: return [3 /*break*/, 13];
-                case 12:
-                    maxCheckpoint = 0;
-                    _e.label = 13;
-                case 13:
-                    if (!(maxCheckpoint == 0)) return [3 /*break*/, 15];
-                    _d = bn_js_1.default.bind;
+                    return [3 /*break*/, 7];
+                case 9: return [3 /*break*/, 12];
+                case 10:
+                    _e = bn_js_1.default.bind;
                     return [4 /*yield*/, api.query.asset.balanceOf([tickerUpper, input.address])];
-                case 14:
-                    userBalance = new (_d.apply(bn_js_1.default, [void 0, _e.sent()]))().toNumber();
-                    _e.label = 15;
-                case 15:
+                case 11:
+                    // No checkpoint balance stored for user. We should return latest balance.
+                    userBalance = new (_e.apply(bn_js_1.default, [void 0, _f.sent()]))().toNumber();
+                    _f.label = 12;
+                case 12:
                     console.log("Balance of " + input.address + " at checkpoint " + answers.checkpoint + " was " + userBalance);
-                    _e.label = 16;
-                case 16:
+                    _f.label = 13;
+                case 13:
                     process.exit();
                     return [2 /*return*/];
             }
