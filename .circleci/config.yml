@@ -2,15 +2,48 @@ version: 2
 jobs:
   build:
     docker:
-      - image: debian:stretch
+      - image: ubuntu:bionic
 
+    environment:
+      BASH_ENV: "~/.cargo/env"
+      VERBOSE: "1"
     steps:
       - checkout
-
+      - restore_cache:
+          keys:
+            - project-cache
       - run:
-          name: Greeting
-          command: echo Hello, world.
-
+          name: Install system-wide dependencies
+          command: |
+            apt-get update
+            apt-get install -y build-essential curl
+            curl https://sh.rustup.rs -sSf > ~/rustup.sh
+            chmod a+x ~/rustup.sh
+            ~/rustup.sh -y
+            source ~/.cargo/env
+            rustup install nightly
+            rustup component add rustfmt --toolchain nightly
+            rustup default stable
       - run:
-          name: Print the Current Time
-          command: date
+          name: Init Polymesh
+          command: ./init.sh
+          working_directory: ./polymesh_substrate
+      - run:
+          name: Run cargo-check
+          command: ./check.sh
+          working_directory: ./polymesh_substrate
+      - run:
+          name: Check formatting
+          command: ./scripts/rustfmt.sh
+          working_directory: .
+      - run:
+          name: Compile everything
+          command: ./build.sh
+          working_directory: ./polymesh_substrate
+      - save_cache:
+          key: project-cache
+          paths:
+            - "~/.cargo"
+            - "./polymesh_substrate/target"
+            - "./polymesh_substrate/runtime/target"
+            - "./polymesh_substrate/runtime/wasm/target"

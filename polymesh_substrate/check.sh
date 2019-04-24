@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
 
+#!/usr/bin/env bash
 set -e
 
 PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
@@ -15,11 +15,11 @@ pushd . >/dev/null
 
 for SRC in runtime/wasm
 do
-  #echo "${bold}Building webassembly binary in $SRC...${normal}"
-  echo "Building webassembly binary in $SRC..."
+  #echo "${bold}Checking webassembly binary in $SRC...${normal}"
+  echo "Checking webassembly binary in $SRC..."
   cd "$PROJECT_ROOT/$SRC"
 
-  ./build.sh
+  ./check.sh
 
   cd - >> /dev/null
 done
