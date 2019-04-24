@@ -3,14 +3,15 @@ use crate::asset;
 use crate::asset::AssetTrait;
 use crate::identity;
 use crate::identity::IdentityTrait;
+use support::traits::Currency;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, CheckedMul, CheckedDiv};
 use support::{dispatch::Result, StorageMap, StorageValue, decl_storage, decl_module, decl_event, ensure};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
+pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + balances::Trait{
 	// TODO: Add other types and constants required configure this module.
 
 	/// The overarching event type.
@@ -25,7 +26,7 @@ pub struct STO<U,V,W> {
     beneficiary: U,
     cap: V,
     sold: V,
-    rate: u32,
+    rate: u64,
     start_date: W,
     end_date: W,
     active: bool
@@ -82,18 +83,23 @@ decl_module! {
             Ok(())
         }
 
-        pub fn buy_tokens(origin, _ticker: Vec<u8>, sto_id: u32) -> Result {
+        pub fn buy_tokens(origin, _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> Result {
             let sender = ensure_signed(origin)?;
 			let ticker = Self::_toUpper(_ticker);
             //ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
             //PABLO: TODO: Validate that buyer is whitelisted for primary issuance.
 
             let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
-            let tokens_purchased = <T::TokenBalance as As<u64>>::sa(1000);
 
-            selected_sto.sold = selected_sto.sold.checked_add(&tokens_purchased).ok_or("overflow while calculating tokens sold")?;
+            let sender_balance = <balances::Module<T> as Currency<_>>::free_balance(&sender);
+            ensure!(value >= sender_balance,"Inssuficient funds");
+            let token_conversion = value.checked_mul(&<T::Balance as As<u64>>::sa(selected_sto.rate)).ok_or("overflow in calculating tokens")?;
 
-            T::Asset::_mint_from_sto(ticker.clone(), sender, tokens_purchased);
+            selected_sto.sold = selected_sto.sold.checked_add(&token_conversion).ok_or("overflow while calculating tokens sold")?;
+
+            <balances::Module<T> as Currency<_>>::transfer(&sender, &selected_sto.beneficiary, value)?;
+
+            T::Asset::_mint_from_sto(ticker.clone(), sender, token_conversion);
             <StosByToken<T>>::insert((ticker.clone(),sto_id), selected_sto);
 
             runtime_io::print("Invested in STO");
