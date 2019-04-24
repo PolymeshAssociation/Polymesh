@@ -27,12 +27,12 @@
       "jurisdiction": "u16"
     },
     "STO": {
-        "beneficiary": "AccountId",
-        "cap": "TokenBalance",
-        "rate": "u32",
-        "start_date": "Moment",
-        "end_date": "Moment",
-        "active": "bool"
+      "beneficiary": "AccountId",
+      "cap": "TokenBalance",
+      "sold": "TokenBalance",
+      "rate": "u64",
+      "start_date": "Moment",
+      "end_date": "Moment",
+      "active": "bool"
     }
-
 }

@@ -57,7 +57,7 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event<T>() = default;
 
-        pub fn launch_sto(origin, _ticker: Vec<u8>, beneficiary: T::AccountId, cap: T::TokenBalance, rate: u32, start_date: T::Moment, end_date: T::Moment) -> Result {
+        pub fn launch_sto(origin, _ticker: Vec<u8>, beneficiary: T::AccountId, cap: T::TokenBalance, rate: u64, start_date: T::Moment, end_date: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
 			let ticker = Self::_toUpper(_ticker);
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
@@ -83,24 +83,39 @@ decl_module! {
             Ok(())
         }
 
-        pub fn buy_tokens(origin, _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> Result {
+        pub fn buy_tokens(origin, _ticker: Vec<u8>, sto_id: u32, value: u64 ) -> Result {
             let sender = ensure_signed(origin)?;
 			let ticker = Self::_toUpper(_ticker);
-            //ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
+            
             //PABLO: TODO: Validate that buyer is whitelisted for primary issuance.
+            //PABLO: TODO: Validate we are within the STO start time and end time
 
             let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
 
+            // Make sure sender has enough balance
             let sender_balance = <balances::Module<T> as Currency<_>>::free_balance(&sender);
-            ensure!(value >= sender_balance,"Inssuficient funds");
-            let token_conversion = value.checked_mul(&<T::Balance as As<u64>>::sa(selected_sto.rate)).ok_or("overflow in calculating tokens")?;
-
+            ensure!(sender_balance >= <T::Balance as As<u64>>::sa(value),"Insufficient funds");
+            
+            //  Calculate tokens to min
+            let token_conversion = <T::TokenBalance as As<u64>>::sa(value).checked_mul(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate)).ok_or("overflow in calculating tokens")?;
             selected_sto.sold = selected_sto.sold.checked_add(&token_conversion).ok_or("overflow while calculating tokens sold")?;
 
-            <balances::Module<T> as Currency<_>>::transfer(&sender, &selected_sto.beneficiary, value)?;
+            // Make sure there's still an allocation
+            ensure!(selected_sto.sold <= selected_sto.cap, "There's not enough tokens");
 
+            // Transfer poly to token owner
+            <balances::Module<T> as Currency<_>>::transfer(
+                &sender, 
+                &selected_sto.beneficiary,
+                <T::Balance as As<u64>>::sa(value)
+                )?;
+
+            // Mint tokens and update STO
             T::Asset::_mint_from_sto(ticker.clone(), sender, token_conversion);
             <StosByToken<T>>::insert((ticker.clone(),sto_id), selected_sto);
+            // PABLO: TODO: Store Investment DATA
+
+            // PABLO: TODO: Emit event
 
             runtime_io::print("Invested in STO");
 
