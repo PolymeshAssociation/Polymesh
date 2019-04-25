@@ -18,11 +18,11 @@ pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
 /// from a string (`--chain=...`) into a `ChainSpec`.
 #[derive(Clone, Debug)]
 pub enum Alternative {
-	/// Whatever the current runtime is, with just Alice as an auth.
-	Development,
-	/// Whatever the current runtime is, with simple Alice/Bob auths.
-	LocalTestnet,
-  Aws,
+    /// Whatever the current runtime is, with just Alice as an auth.
+    Development,
+    /// Whatever the current runtime is, with simple Alice/Bob auths.
+    LocalTestnet,
+    Aws,
 }
 
 fn authority_key(s: &str) -> AuthorityId {
@@ -38,80 +38,84 @@ fn account_key(s: &str) -> AccountId {
 }
 
 impl Alternative {
-	/// Get an actual chain config from one of the alternatives.
-	pub(crate) fn load(self) -> Result<ChainSpec, String> {
-		Ok(match self {
-			Alternative::Aws => ChainSpec::from_genesis(
-				"AWS",
-				"aws",
-				|| testnet_genesis(vec![
-					authority_key("Alice"),
-                    authority_key("Bob"),
-                    authority_key("Charlie")
-				], vec![
-					account_key("Alice"),
-                    account_key("Bob"),
-                    account_key("Charlie"),
-                    account_key("Dave")
-				],
-					account_key("Alice")
-				),
-				vec![],
-				None,
-				None,
-				None,
-				None
-			),
+    /// Get an actual chain config from one of the alternatives.
+    pub(crate) fn load(self) -> Result<ChainSpec, String> {
+        Ok(match self {
+            Alternative::Aws => ChainSpec::from_genesis(
+                "AWS",
+                "aws",
+                || {
+                    testnet_genesis(
+                        vec![
+                            authority_key("Alice"),
+                            authority_key("Bob"),
+                            authority_key("Charlie"),
+                        ],
+                        vec![
+                            account_key("Alice"),
+                            account_key("Bob"),
+                            account_key("Charlie"),
+                            account_key("Dave"),
+                        ],
+                        account_key("Alice"),
+                    )
+                },
+                vec![],
+                None,
+                None,
+                None,
+                None,
+            ),
             Alternative::Development => ChainSpec::from_genesis(
-				"Development",
-				"dev",
-				|| testnet_genesis(vec![
-					authority_key("Alice")
-				], vec![
-					account_key("Alice"),
-                    account_key("Dave")
-				],
-					account_key("Alice")
-				),
-				vec![],
-				None,
-				None,
-				None,
-				None
-			),
-			Alternative::LocalTestnet => ChainSpec::from_genesis(
-				"Local Testnet",
-				"local_testnet",
-				|| testnet_genesis(vec![
-					authority_key("Alice"),
-					authority_key("Bob"),
-				], vec![
-					account_key("Alice"),
-					account_key("Bob"),
-					account_key("Charlie"),
-					account_key("Dave"),
-					account_key("Eve"),
-					account_key("Ferdie"),
-				],
-					account_key("Alice"),
-				),
-				vec![],
-				None,
-				None,
-				None,
-				None
-			),
-		})
-	}
+                "Development",
+                "dev",
+                || {
+                    testnet_genesis(
+                        vec![authority_key("Alice")],
+                        vec![account_key("Alice"), account_key("Dave")],
+                        account_key("Alice"),
+                    )
+                },
+                vec![],
+                None,
+                None,
+                None,
+                None,
+            ),
+            Alternative::LocalTestnet => ChainSpec::from_genesis(
+                "Local Testnet",
+                "local_testnet",
+                || {
+                    testnet_genesis(
+                        vec![authority_key("Alice"), authority_key("Bob")],
+                        vec![
+                            account_key("Alice"),
+                            account_key("Bob"),
+                            account_key("Charlie"),
+                            account_key("Dave"),
+                            account_key("Eve"),
+                            account_key("Ferdie"),
+                        ],
+                        account_key("Alice"),
+                    )
+                },
+                vec![],
+                None,
+                None,
+                None,
+                None,
+            ),
+        })
+    }
 
-	pub(crate) fn from(s: &str) -> Option<Self> {
-		match s {
-			"dev" => Some(Alternative::Development),
-			"local2" => Some(Alternative::LocalTestnet),
-			"" | "aws" => Some(Alternative::Aws),
-			_ => None,
-		}
-	}
+    pub(crate) fn from(s: &str) -> Option<Self> {
+        match s {
+            "dev" => Some(Alternative::Development),
+            "local2" => Some(Alternative::LocalTestnet),
+            "" | "aws" => Some(Alternative::Aws),
+            _ => None,
+        }
+    }
 }
 
 fn testnet_genesis(

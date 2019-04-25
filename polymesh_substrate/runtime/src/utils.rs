@@ -4,7 +4,7 @@ use support::{decl_event, decl_module, decl_storage, ensure, Parameter, StorageM
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + balances::Trait {
     type TokenBalance: Parameter
         + Member
         + SimpleArithmetic
@@ -12,7 +12,8 @@ pub trait Trait: system::Trait {
         + Default
         + Copy
         + As<usize>
-        + As<u64>;
+        + As<u64>
+        + As<<Self as balances::Trait>::Balance>;
 }
 
 decl_storage! {

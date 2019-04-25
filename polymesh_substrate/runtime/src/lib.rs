@@ -61,9 +61,9 @@ mod asset;
 mod general_tm;
 mod identity;
 mod jurisdiction;
-mod sto_capped;
 mod organisation;
 mod percentage_tm;
+mod sto_capped;
 mod template;
 mod utils;
 
@@ -227,9 +227,9 @@ impl general_tm::Trait for Runtime {
 }
 
 impl sto_capped::Trait for Runtime {
-        type Event = Event;
-        type Asset = Asset;
-        type Identity = Identity;
+    type Event = Event;
+    type Asset = Asset;
+    type Identity = Identity;
 }
 
 impl percentage_tm::Trait for Runtime {
