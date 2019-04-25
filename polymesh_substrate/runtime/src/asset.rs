@@ -61,10 +61,6 @@ decl_storage! {
         CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, T::AccountId, u32) => Option<T::TokenBalance>;
         // Last checkpoint updated for user balance
         LatestUserCheckpoint get(latest_user_checkpoint): map (Vec<u8>, T::AccountId) => u32;
-        // Keep the track of all tickers
-        TickersList get(ticker_index): map (Vec<u8>) => u64;
-        // Keep the total count of tickers
-        TotalTickerCount get(ticker_count): u64;
     }
 }
 
@@ -84,8 +80,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
 
             // Ensure the uniqueness of the ticker
-            ensure!(!<TickersList<T>>::exists(ticker.clone()), "ticker is already issued");
-            let newTickerCount = Self::ticker_count().checked_add(1).ok_or("ticker count gets overflowed")?;
+            ensure!(!<Tokens<T>>::exists(ticker.clone()), "ticker is already issued");
 
             // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
             let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
@@ -110,9 +105,7 @@ decl_module! {
 
             <Tokens<T>>::insert(ticker.clone(), token);
             <BalanceOf<T>>::insert((ticker.clone(), sender), total_supply);
-            <TickersList<T>>::insert(ticker.clone(), newTickerCount);
-            <TotalTickerCount<T>>::put(newTickerCount);
-            
+
             runtime_io::print("Initialized!!!");
 
             Ok(())
