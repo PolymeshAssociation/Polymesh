@@ -188,6 +188,8 @@ decl_module! {
             .checked_sub(&value)
             .ok_or("overflow in calculating balance")?;
 
+            //PABLO: TODO: Add verify transfer check
+
             //Decrease total suply
             let mut token = Self::token_details(ticker.clone());
             token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
@@ -438,6 +440,8 @@ impl<T: Trait> Module<T> {
             .total_supply
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
+
+        //PABLO: TODO: Add verify transfer check
 
         Self::_update_checkpoint(ticker.clone(), to.clone(), current_to_balance);
 
