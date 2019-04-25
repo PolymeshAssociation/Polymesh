@@ -73,7 +73,9 @@ decl_module! {
             };
 
             let sto_count = Self::sto_count(ticker.clone());
-            let new_sto_count = sto_count.checked_add(1).ok_or("overflow in calculating next sto count")?;
+            let new_sto_count = sto_count
+                .checked_add(1)
+                .ok_or("overflow in calculating next sto count")?;
 
             <StosByToken<T>>::insert((ticker.clone(),sto_count), sto);
             <StoCount<T>>::insert(ticker.clone(),new_sto_count);
@@ -88,9 +90,11 @@ decl_module! {
 			let ticker = Self::_toUpper(_ticker);
             
             //PABLO: TODO: Validate that buyer is whitelisted for primary issuance.
-            //PABLO: TODO: Validate we are within the STO start time and end time
 
             let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
+
+            let now = <timestamp::Module<T>>::get();
+            ensure!(now >= selected_sto.start_date && now <= selected_sto.end_date,"STO has not started or already ended");
 
             // Make sure sender has enough balance
             let sender_balance = <balances::Module<T> as Currency<_>>::free_balance(&sender);
@@ -98,10 +102,16 @@ decl_module! {
             
             //  Calculate tokens to min
             let token_conversion = <T::TokenBalance as As<u64>>::sa(value).checked_mul(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate)).ok_or("overflow in calculating tokens")?;
-            selected_sto.sold = selected_sto.sold.checked_add(&token_conversion).ok_or("overflow while calculating tokens sold")?;
+            selected_sto.sold = selected_sto.sold
+                .checked_add(&token_conversion)
+                .ok_or("overflow while calculating tokens sold")?;
 
             // Make sure there's still an allocation
+            // PABLO: TODO: Instead of reverting, buy up to the max and refund excess of poly.
             ensure!(selected_sto.sold <= selected_sto.cap, "There's not enough tokens");
+
+            // Mint tokens and update STO
+            T::Asset::_mint_from_sto(ticker.clone(), sender.clone(), token_conversion);
 
             // Transfer poly to token owner
             <balances::Module<T> as Currency<_>>::transfer(
@@ -110,8 +120,6 @@ decl_module! {
                 <T::Balance as As<u64>>::sa(value)
                 )?;
 
-            // Mint tokens and update STO
-            T::Asset::_mint_from_sto(ticker.clone(), sender, token_conversion);
             <StosByToken<T>>::insert((ticker.clone(),sto_id), selected_sto);
             // PABLO: TODO: Store Investment DATA
 
