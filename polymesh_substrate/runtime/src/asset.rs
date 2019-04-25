@@ -242,21 +242,18 @@ impl<T: Trait> HasOwner<T::AccountId> for Module<T> {
     }
 }
 
-pub trait AssetTrait<T,V> {
-    fn _mint_from_sto(
-        ticker: Vec<u8>,
-        sender: T,
-        tokens_purchased:V
-    ) -> Result;
+pub trait AssetTrait<T, V> {
+    fn _mint_from_sto(ticker: Vec<u8>, sender: T, tokens_purchased: V) -> Result;
 
-    fn is_owner(
-        _ticker: Vec<u8>,
-        who: T,
-    ) -> bool;
+    fn is_owner(_ticker: Vec<u8>, who: T) -> bool;
 }
 
 impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
-    fn _mint_from_sto(ticker:Vec<u8>, sender: T::AccountId, tokens_purchased: T::TokenBalance) -> Result {
+    fn _mint_from_sto(
+        ticker: Vec<u8>,
+        sender: T::AccountId,
+        tokens_purchased: T::TokenBalance,
+    ) -> Result {
         Self::_mint(ticker, sender, tokens_purchased)
     }
 
@@ -437,9 +434,11 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
 
-            //Increase total suply
+        //Increase total suply
         let mut token = Self::token_details(ticker.clone());
-        token.total_supply = token.total_supply
+
+        token.total_supply = token
+            .total_supply
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
 
@@ -453,7 +452,6 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Minted(ticker.clone(), to, value));
 
         Ok(())
-        
     }
 }
 

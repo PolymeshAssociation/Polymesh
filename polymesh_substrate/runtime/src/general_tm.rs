@@ -22,7 +22,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Whitelist<U,V> {
+pub struct Whitelist<U, V> {
     investor: V,
     can_send_after: U,
     can_receive_after: U,
