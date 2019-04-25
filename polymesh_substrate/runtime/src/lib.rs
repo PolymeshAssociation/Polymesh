@@ -63,10 +63,9 @@ mod identity;
 mod jurisdiction;
 mod organisation;
 mod percentage_tm;
-/// Used for the module template in `./template.rs`
+mod sto_capped;
 mod template;
 mod utils;
-// mod tm;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -227,6 +226,12 @@ impl general_tm::Trait for Runtime {
     type Identity = Identity;
 }
 
+impl sto_capped::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+    type Identity = Identity;
+}
+
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
@@ -266,6 +271,7 @@ construct_runtime!(
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
+        STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
 
 	}
