@@ -39,6 +39,7 @@ pub use runtime_primitives::{Perbill, Permill};
 pub use support::{construct_runtime, StorageValue};
 pub use timestamp::BlockPeriod;
 pub use timestamp::Call as TimestampCall;
+pub use staking::StakerStatus;
 
 /// The type that is used for identifying authorities.
 pub type AuthorityId = <AuthoritySignature as Verify>::Signer;

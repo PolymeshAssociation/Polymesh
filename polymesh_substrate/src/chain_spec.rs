@@ -2,7 +2,7 @@ use node_template_runtime::{
     AccountId, AssetConfig, GenesisConfig, IdentityConfig,
     ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	SessionConfig, StakingConfig, StakerStatus, TimestampConfig, BalancesConfig, TreasuryConfig,
-	SudoConfig, ContractConfig, GrandpaConfig, IndicesConfig, Permill, Perbill
+	SudoConfig, GrandpaConfig, IndicesConfig, Permill, Perbill
 };
 use primitives::{ed25519, sr25519, Pair};
 use substrate_service;
@@ -25,18 +25,6 @@ pub enum Alternative {
     /// Whatever the current runtime is, with simple Alice/Bob auths.
     LocalTestnet,
     Aws,
-}
-
-fn authority_key(s: &str) -> AuthorityId {
-    ed25519::Pair::from_string(&format!("//{}", s), None)
-        .expect("static values are valid; qed")
-        .public()
-}
-
-fn account_key(s: &str) -> AccountId {
-    sr25519::Pair::from_string(&format!("//{}", s), None)
-        .expect("static values are valid; qed")
-        .public()
 }
 
 impl Alternative {
@@ -205,6 +193,13 @@ pub fn testnet_genesis(
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),
 		}),
+        asset: Some(AssetConfig {
+            asset_creation_fee: 250,
+            fee_collector: get_account_id_from_seed("Dave"),
+	    }),
+        identity: Some(IdentityConfig {
+            owner: get_account_id_from_seed("Dave"),
+        }),
 		balances: Some(BalancesConfig {
 			transaction_base_fee: 1,
 			transaction_byte_fee: 0,
