@@ -10,13 +10,14 @@ use client::{
     impl_runtime_apis, runtime_api,
 };
 use parity_codec::{Decode, Encode};
+use primitives::u32_trait::{_2, _4};
 #[cfg(feature = "std")]
 use primitives::bytes;
 use primitives::{ed25519, sr25519, OpaqueMetadata};
 use rstd::prelude::*;
 use runtime_primitives::{
     create_runtime_str, generic,
-    traits::{self, BlakeTwo256, Block as BlockT, NumberFor, StaticLookup, Verify},
+    traits::{self, BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup, CurrencyToVoteHandler, Verify, AuthorityIdFor},
     transaction_validity::TransactionValidity,
     ApplyResult,
 };
@@ -25,7 +26,10 @@ use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use version::NativeVersion;
 use version::RuntimeVersion;
-
+pub use grandpa::fg_primitives::{self, ScheduledChange};
+pub use council::{motions as council_motions, voting as council_voting};
+#[cfg(feature = "std")]
+use council::seats as council_seats;
 // A few exports that help ease life for downstream crates.
 pub use balances::Call as BalancesCall;
 pub use consensus::Call as ConsensusCall;
@@ -161,6 +165,62 @@ impl consensus::Trait for Runtime {
     type Log = Log;
 }
 
+impl treasury::Trait for Runtime {
+	type Currency = Balances;
+	type ApproveOrigin = council_motions::EnsureMembers<_4>;
+	type RejectOrigin = council_motions::EnsureMembers<_2>;
+	type Event = Event;
+	type MintedForSpending = ();
+	type ProposalRejection = ();
+}
+
+impl session::Trait for Runtime {
+	type ConvertAccountIdToSessionKey = ();
+	type OnSessionChange = (Staking, grandpa::SyncedAuthorities<Runtime>);
+	type Event = Event;
+}
+
+impl staking::Trait for Runtime {
+	type Currency = Balances;
+	type CurrencyToVote = CurrencyToVoteHandler;
+	type OnRewardMinted = Treasury;
+	type Event = Event;
+	type Slash = ();
+	type Reward = ();
+}
+
+impl democracy::Trait for Runtime {
+	type Currency = Balances;
+	type Proposal = Call;
+	type Event = Event;
+}
+
+impl council::Trait for Runtime {
+	type Event = Event;
+	type BadPresentation = ();
+	type BadReaper = ();
+}
+
+impl council::voting::Trait for Runtime {
+	type Event = Event;
+}
+
+impl council::motions::Trait for Runtime {
+	type Origin = Origin;
+	type Proposal = Call;
+	type Event = Event;
+}
+
+impl grandpa::Trait for Runtime {
+	type SessionKey = AuthorityId;
+	type Log = Log;
+	type Event = Event;
+}
+
+impl finality_tracker::Trait for Runtime {
+	type OnFinalizationStalled = grandpa::SyncedAuthorities<Runtime>;
+}
+
 impl indices::Trait for Runtime {
     /// The type for recording indexing into the account enumeration. If this ever overflows, there
     /// will be problems!
@@ -273,7 +333,16 @@ construct_runtime!(
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
-
+        Session: session,
+		Staking: staking::{default, OfflineWorker},
+		Democracy: democracy,
+		Council: council::{Module, Call, Storage, Event<T>},
+		CouncilVoting: council_voting,
+		CouncilMotions: council_motions::{Module, Call, Storage, Event<T>, Origin},
+		CouncilSeats: council_seats::{Config<T>},
+		FinalityTracker: finality_tracker::{Module, Call, Inherent},
+		Grandpa: grandpa::{Module, Call, Storage, Config<T>, Log(), Event<T>},
+		Treasury: treasury,
 	}
 );
 
@@ -361,9 +430,43 @@ impl_runtime_apis! {
         }
     }
 
+    impl fg_primitives::GrandpaApi<Block> for Runtime {
+		fn grandpa_pending_change(digest: &DigestFor<Block>)
+			-> Option<ScheduledChange<NumberFor<Block>>>
+		{
+			for log in digest.logs.iter().filter_map(|l| match l {
+				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+				_ => None
+			}) {
+				if let Some(change) = Grandpa::scrape_digest_change(log) {
+					return Some(change);
+				}
+			}
+			None
+		}
+
+		fn grandpa_forced_change(digest: &DigestFor<Block>)
+			-> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>
+		{
+			for log in digest.logs.iter().filter_map(|l| match l {
+				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+				_ => None
+			}) {
+				if let Some(change) = Grandpa::scrape_digest_forced_change(log) {
+					return Some(change);
+				}
+			}
+			None
+		}
+
+		fn grandpa_authorities() -> Vec<(AuthorityId, u64)> {
+			Grandpa::grandpa_authorities()
+		}
+	}
+
     impl consensus_authorities::AuthoritiesApi<Block> for Runtime {
-        fn authorities() -> Vec<AuthorityId> {
-            Consensus::authorities()
-        }
-    }
+		fn authorities() -> Vec<AuthorityIdFor<Block>> {
+			Consensus::authorities()
+		}
+	}
 }
