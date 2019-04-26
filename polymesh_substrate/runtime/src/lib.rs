@@ -7,7 +7,7 @@
 
 use client::{
     block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
-    impl_runtime_apis, runtime_api,
+    impl_runtime_apis, runtime_api as client_api,
 };
 use parity_codec::{Decode, Encode};
 use primitives::u32_trait::{_2, _4};
@@ -153,7 +153,7 @@ impl system::Trait for Runtime {
 }
 
 impl aura::Trait for Runtime {
-    type HandleReport = ();
+	type HandleReport = aura::StakingSlasher<Runtime>;
 }
 
 impl consensus::Trait for Runtime {
@@ -319,7 +319,7 @@ construct_runtime!(
 		System: system::{default, Log(ChangesTrieRoot)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Aura: aura::{Module},
+		Aura: aura::{Module, Inherent(Timestamp)},
 		Indices: indices,
 		Balances: balances,
 		Sudo: sudo,
@@ -367,71 +367,65 @@ pub type Executive = executive::Executive<Runtime, Block, Context, Balances, All
 
 // Implement our runtime API endpoints. This is just a bunch of proxying.
 impl_runtime_apis! {
-    impl runtime_api::Core<Block> for Runtime {
-        fn version() -> RuntimeVersion {
-            VERSION
-        }
+    impl client_api::Core<Block> for Runtime {
+		fn version() -> RuntimeVersion {
+			VERSION
+		}
 
-        fn execute_block(block: Block) {
-            Executive::execute_block(block)
-        }
+		fn execute_block(block: Block) {
+			Executive::execute_block(block)
+		}
 
-        fn initialize_block(header: &<Block as BlockT>::Header) {
-            Executive::initialize_block(header)
-        }
+		fn initialize_block(header: &<Block as BlockT>::Header) {
+			Executive::initialize_block(header)
+		}
 
-        fn authorities() -> Vec<AuthorityId> {
-            panic!("Deprecated, please use `AuthoritiesApi`.")
-        }
-    }
+		fn authorities() -> Vec<AuthorityIdFor<Block>> {
+			panic!("Deprecated, please use `AuthoritiesApi`.")
+		}
+	}
 
-    impl runtime_api::Metadata<Block> for Runtime {
-        fn metadata() -> OpaqueMetadata {
-            Runtime::metadata().into()
-        }
-    }
+	impl client_api::Metadata<Block> for Runtime {
+		fn metadata() -> OpaqueMetadata {
+			Runtime::metadata().into()
+		}
+	}
 
-    impl block_builder_api::BlockBuilder<Block> for Runtime {
-        fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyResult {
-            Executive::apply_extrinsic(extrinsic)
-        }
+	impl block_builder_api::BlockBuilder<Block> for Runtime {
+		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyResult {
+			Executive::apply_extrinsic(extrinsic)
+		}
 
-        fn finalize_block() -> <Block as BlockT>::Header {
-            Executive::finalize_block()
-        }
+		fn finalize_block() -> <Block as BlockT>::Header {
+			Executive::finalize_block()
+		}
 
-        fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
-            data.create_extrinsics()
-        }
+		fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+			data.create_extrinsics()
+		}
 
-        fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
-            data.check_extrinsics(&block)
-        }
+		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
+			data.check_extrinsics(&block)
+		}
 
-        fn random_seed() -> <Block as BlockT>::Hash {
-            System::random_seed()
-        }
-    }
+		fn random_seed() -> <Block as BlockT>::Hash {
+			System::random_seed()
+		}
+	}
 
-    impl runtime_api::TaggedTransactionQueue<Block> for Runtime {
-        fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
-            Executive::validate_transaction(tx)
-        }
-    }
+	impl client_api::TaggedTransactionQueue<Block> for Runtime {
+		fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
+			Executive::validate_transaction(tx)
+		}
+	}
 
-    impl consensus_aura::AuraApi<Block> for Runtime {
-        fn slot_duration() -> u64 {
-            Aura::slot_duration()
-        }
-    }
+	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
+		fn offchain_worker(number: NumberFor<Block>) {
+			Executive::offchain_worker(number)
+		}
+	}
 
-    impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
-        fn offchain_worker(n: NumberFor<Block>) {
-            Executive::offchain_worker(n)
-        }
-    }
-
-    impl fg_primitives::GrandpaApi<Block> for Runtime {
+	impl fg_primitives::GrandpaApi<Block> for Runtime {
 		fn grandpa_pending_change(digest: &DigestFor<Block>)
 			-> Option<ScheduledChange<NumberFor<Block>>>
 		{
@@ -465,7 +459,13 @@ impl_runtime_apis! {
 		}
 	}
 
-    impl consensus_authorities::AuthoritiesApi<Block> for Runtime {
+	impl consensus_aura::AuraApi<Block> for Runtime {
+		fn slot_duration() -> u64 {
+			Aura::slot_duration()
+		}
+	}
+
+	impl consensus_authorities::AuthoritiesApi<Block> for Runtime {
 		fn authorities() -> Vec<AuthorityIdFor<Block>> {
 			Consensus::authorities()
 		}

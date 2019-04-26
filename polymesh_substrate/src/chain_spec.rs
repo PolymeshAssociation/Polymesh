@@ -42,7 +42,6 @@ impl Alternative {
                             get_authority_keys_from_seed("Charlie"),
                         ],
                         get_account_id_from_seed("Alice"),
-                        None,
                     )
                 },
                 vec![],
@@ -60,7 +59,6 @@ impl Alternative {
                             get_authority_keys_from_seed("Alice"),
                         ],
                         get_account_id_from_seed("Alice"),
-                        None,
                     )
                 },
                 vec![],
@@ -80,7 +78,6 @@ impl Alternative {
                             get_authority_keys_from_seed("Charlie"),
                         ],
                         get_account_id_from_seed("Alice"),
-                        None,
                     )
                 },
                 vec![],
@@ -162,24 +159,21 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Author
 pub fn testnet_genesis(
 	initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
 	root_key: AccountId,
-	endowed_accounts: Option<Vec<AccountId>>,
 ) -> GenesisConfig {
-	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
-		vec![
-			get_account_id_from_seed("Alice"),
-			get_account_id_from_seed("Bob"),
-			get_account_id_from_seed("Charlie"),
-			get_account_id_from_seed("Dave"),
-			get_account_id_from_seed("Eve"),
-			get_account_id_from_seed("Ferdie"),
-			get_account_id_from_seed("Alice//stash"),
-			get_account_id_from_seed("Bob//stash"),
-			get_account_id_from_seed("Charlie//stash"),
-			get_account_id_from_seed("Dave//stash"),
-			get_account_id_from_seed("Eve//stash"),
-			get_account_id_from_seed("Ferdie//stash"),
-		]
-	});
+	let endowed_accounts: Vec<AccountId> = vec![
+        get_account_id_from_seed("Alice"),
+        get_account_id_from_seed("Bob"),
+        get_account_id_from_seed("Charlie"),
+        get_account_id_from_seed("Dave"),
+        get_account_id_from_seed("Eve"),
+        get_account_id_from_seed("Ferdie"),
+        get_account_id_from_seed("Alice//stash"),
+        get_account_id_from_seed("Bob//stash"),
+        get_account_id_from_seed("Charlie//stash"),
+        get_account_id_from_seed("Dave//stash"),
+        get_account_id_from_seed("Eve//stash"),
+        get_account_id_from_seed("Ferdie//stash"),
+    ];
 
 	const STASH: u128 = 1 << 20;
 	const ENDOWMENT: u128 = 1 << 20;
@@ -254,7 +248,7 @@ pub fn testnet_genesis(
 			enact_delay_period: 0,
 		}),
 		timestamp: Some(TimestampConfig {
-			minimum_period: 5,                    // 5*2=10 second block time.
+			minimum_period: 2,                    // 2*2=4 second block time.
 		}),
 		treasury: Some(TreasuryConfig {
 			proposal_bond: Permill::from_percent(5),
