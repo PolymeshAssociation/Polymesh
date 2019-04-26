@@ -128,7 +128,11 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
 
-            Self::_transfer(ticker.clone(), from, to, value)
+            Self::_transfer(ticker.clone(), from.clone(), to.clone(), value.clone());
+
+            Self::deposit_event(RawEvent::ForcedTransfer(ticker.clone(), from, to, value));
+
+            Ok(())
         }
 
         // approve token transfer from one account to another
@@ -242,6 +246,9 @@ decl_event!(
         // event burn
         // ticker, account, value
         Burned(Vec<u8>, AccountId, Balance),
+        // event for forced transfer of tokens
+        // ticker, from, to, value
+        ForcedTransfer(Vec<u8>, AccountId, AccountId, Balance),
     }
 );
 
