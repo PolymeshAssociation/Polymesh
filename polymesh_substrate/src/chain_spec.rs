@@ -251,7 +251,7 @@ pub fn testnet_genesis(
 			enact_delay_period: 0,
 		}),
 		timestamp: Some(TimestampConfig {
-			minimum_period: 2,                    // 2*2=4 second block time.
+			minimum_period: 5,                    // 5*2=10 second block time.
 		}),
 		treasury: Some(TreasuryConfig {
 			proposal_bond: Permill::from_percent(5),
