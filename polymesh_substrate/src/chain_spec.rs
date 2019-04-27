@@ -1,12 +1,12 @@
-use node_template_runtime::{
-    AccountId, AssetConfig, IdentityConfig,
-    ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
-	SessionConfig, StakingConfig, StakerStatus, TimestampConfig, BalancesConfig, TreasuryConfig,
-	SudoConfig, GrandpaConfig, IndicesConfig, Permill, Perbill
-};
-pub use node_template_runtime::GenesisConfig;
-use primitives::{ed25519::Public as AuthorityId, ed25519, sr25519, Pair, crypto::UncheckedInto};
 use hex_literal::{hex, hex_impl};
+pub use node_template_runtime::GenesisConfig;
+use node_template_runtime::{
+    AccountId, AssetConfig, BalancesConfig, ConsensusConfig, CouncilSeatsConfig,
+    CouncilVotingConfig, DemocracyConfig, GrandpaConfig, IdentityConfig, IndicesConfig, Perbill,
+    Permill, SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig,
+    TreasuryConfig,
+};
+use primitives::{crypto::UncheckedInto, ed25519, ed25519::Public as AuthorityId, sr25519, Pair};
 use substrate_service;
 
 // Note this is the URL for the telemetry server
@@ -31,11 +31,12 @@ impl Alternative {
     /// Get an actual chain config from one of the alternatives.
     pub(crate) fn load(self) -> Result<ChainSpec, String> {
         Ok(match self {
-            Alternative::Aws => ChainSpec::from_genesis(
-                "AWS",
-                "aws",
-                || {
-                    testnet_genesis(
+            Alternative::Aws => {
+                ChainSpec::from_genesis(
+                    "AWS",
+                    "aws",
+                    || {
+                        testnet_genesis(
                         vec![(
                             hex!["f8c3fe049c7ce8ad7387ec7ee31aa28790e1aa742e9b4d2b15b983dfb51cce29"].unchecked_into(),
                             hex!["ae7f9412cb860d27303ed3296ddca201cdb3b24c9cf68bbf78923c99bb71e961"].unchecked_into(),
@@ -43,21 +44,20 @@ impl Alternative {
                         )],
                         get_account_id_from_seed("Alice"),
                     )
-                },
-                vec![],
-                None,
-                None,
-                None,
-                None,
-            ),
+                    },
+                    vec![],
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+            }
             Alternative::Development => ChainSpec::from_genesis(
                 "Development",
                 "dev",
                 || {
                     testnet_genesis(
-                        vec![
-                            get_authority_keys_from_seed("Alice"),
-                        ],
+                        vec![get_authority_keys_from_seed("Alice")],
                         get_account_id_from_seed("Alice"),
                     )
                 },
@@ -131,36 +131,35 @@ impl Alternative {
 // 	)
 // }
 
-
 /// Helper function to generate AccountId from seed
 pub fn get_account_id_from_seed(seed: &str) -> AccountId {
-	sr25519::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
+    sr25519::Pair::from_string(&format!("//{}", seed), None)
+        .expect("static values are valid; qed")
+        .public()
 }
 
 /// Helper function to generate AuthorityId from seed
 pub fn get_session_key_from_seed(seed: &str) -> AuthorityId {
-	ed25519::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
+    ed25519::Pair::from_string(&format!("//{}", seed), None)
+        .expect("static values are valid; qed")
+        .public()
 }
 
 /// Helper function to generate stash, controller and session key from seed
 pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, AuthorityId) {
-	(
-		get_account_id_from_seed(&format!("{}//stash", seed)),
-		get_account_id_from_seed(seed),
-		get_session_key_from_seed(seed)
-	)
+    (
+        get_account_id_from_seed(&format!("{}//stash", seed)),
+        get_account_id_from_seed(seed),
+        get_session_key_from_seed(seed),
+    )
 }
 
 /// Helper function to create GenesisConfig for testing
 pub fn testnet_genesis(
-	initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
-	root_key: AccountId,
+    initial_authorities: Vec<(AccountId, AccountId, AuthorityId)>,
+    root_key: AccountId,
 ) -> GenesisConfig {
-	let endowed_accounts: Vec<AccountId> = vec![
+    let endowed_accounts: Vec<AccountId> = vec![
         // hex!["687f80444e7a32d6dd9cd7e8c8229cec5c9a504634f0f83a0572234826a95024"].unchecked_into(),
         // hex!["f8c3fe049c7ce8ad7387ec7ee31aa28790e1aa742e9b4d2b15b983dfb51cce29"].unchecked_into(),
         // hex!["ae7f9412cb860d27303ed3296ddca201cdb3b24c9cf68bbf78923c99bb71e961"].unchecked_into(),
@@ -179,10 +178,10 @@ pub fn testnet_genesis(
         get_account_id_from_seed("Ferdie//stash"),
     ];
 
-	const STASH: u128 = 1 << 20;
-	const ENDOWMENT: u128 = 1 << 20;
+    const STASH: u128 = 1 << 20;
+    const ENDOWMENT: u128 = 1 << 20;
 
-	GenesisConfig {
+    GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/node_template_runtime_wasm.compact.wasm").to_vec(),
 			authorities: initial_authorities.iter().map(|x| x.2.clone()).collect(),
