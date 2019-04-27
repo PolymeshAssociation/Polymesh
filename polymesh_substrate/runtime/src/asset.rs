@@ -116,8 +116,23 @@ decl_module! {
         fn transfer(_origin, _ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
             let ticker = Self::_toUpper(_ticker);
             let sender = ensure_signed(_origin)?;
-            //Self::_isValidTransfer(ticker.clone(), sender.clone(), to.clone(), value);
+            Self::_is_valid_transfer(ticker.clone(), sender.clone(), to.clone(), value)?;
+
             Self::_transfer(ticker.clone(), sender, to, value)
+        }
+
+        // transfer tokens from one account to another
+        // origin is assumed as sender
+        fn force_transfer(_origin, _ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
+            let ticker = Self::_toUpper(_ticker);
+            let sender = ensure_signed(_origin)?;
+            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
+
+            Self::_transfer(ticker.clone(), from.clone(), to.clone(), value.clone());
+
+            Self::deposit_event(RawEvent::ForcedTransfer(ticker.clone(), from, to, value));
+
+            Ok(())
         }
 
         // approve token transfer from one account to another
@@ -231,6 +246,9 @@ decl_event!(
         // event burn
         // ticker, account, value
         Burned(Vec<u8>, AccountId, Balance),
+        // event for forced transfer of tokens
+        // ticker, from, to, value
+        ForcedTransfer(Vec<u8>, AccountId, AccountId, Balance),
     }
 );
 
@@ -344,7 +362,6 @@ impl<T: Trait> Module<T> {
         value: T::TokenBalance,
     ) -> Result {
         let ticker = Self::_toUpper(_ticker);
-        Self::_is_valid_transfer(ticker.clone(), from.clone(), to.clone(), value)?;
         ensure!(
             <BalanceOf<T>>::exists((ticker.clone(), from.clone())),
             "Account does not own this token"
