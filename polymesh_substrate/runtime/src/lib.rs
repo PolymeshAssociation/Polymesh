@@ -9,15 +9,22 @@ use client::{
     block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
     impl_runtime_apis, runtime_api as client_api,
 };
+#[cfg(feature = "std")]
+use council::seats as council_seats;
+pub use council::{motions as council_motions, voting as council_voting};
+pub use grandpa::fg_primitives::{self, ScheduledChange};
 use parity_codec::{Decode, Encode};
-use primitives::u32_trait::{_2, _4};
 #[cfg(feature = "std")]
 use primitives::bytes;
+use primitives::u32_trait::{_2, _4};
 use primitives::{ed25519, sr25519, OpaqueMetadata};
 use rstd::prelude::*;
 use runtime_primitives::{
     create_runtime_str, generic,
-    traits::{self, BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup, Verify, AuthorityIdFor, Convert},
+    traits::{
+        self, AuthorityIdFor, BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor,
+        StaticLookup, Verify,
+    },
     transaction_validity::TransactionValidity,
     ApplyResult,
 };
@@ -26,20 +33,16 @@ use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use version::NativeVersion;
 use version::RuntimeVersion;
-pub use grandpa::fg_primitives::{self, ScheduledChange};
-pub use council::{motions as council_motions, voting as council_voting};
-#[cfg(feature = "std")]
-use council::seats as council_seats;
 // A few exports that help ease life for downstream crates.
 pub use balances::Call as BalancesCall;
 pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
 pub use runtime_primitives::{Perbill, Permill};
+pub use staking::StakerStatus;
 pub use support::{construct_runtime, StorageValue};
 pub use timestamp::BlockPeriod;
 pub use timestamp::Call as TimestampCall;
-pub use staking::StakerStatus;
 
 /// The type that is used for identifying authorities.
 pub type AuthorityId = <AuthoritySignature as Verify>::Signer;
@@ -75,15 +78,21 @@ mod utils;
 pub struct CurrencyToVoteHandler;
 
 impl CurrencyToVoteHandler {
-	fn factor() -> u128 { (Balances::total_issuance() / u64::max_value() as u128).max(1) }
+    fn factor() -> u128 {
+        (Balances::total_issuance() / u64::max_value() as u128).max(1)
+    }
 }
 
 impl Convert<u128, u64> for CurrencyToVoteHandler {
-	fn convert(x: u128) -> u64 { (x / Self::factor()) as u64 }
+    fn convert(x: u128) -> u64 {
+        (x / Self::factor()) as u64
+    }
 }
 
 impl Convert<u128, u128> for CurrencyToVoteHandler {
-	fn convert(x: u128) -> u128 { x * Self::factor() }
+    fn convert(x: u128) -> u128 {
+        x * Self::factor()
+    }
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -167,7 +176,7 @@ impl system::Trait for Runtime {
 }
 
 impl aura::Trait for Runtime {
-	type HandleReport = aura::StakingSlasher<Runtime>;
+    type HandleReport = aura::StakingSlasher<Runtime>;
 }
 
 impl consensus::Trait for Runtime {
@@ -181,59 +190,59 @@ impl consensus::Trait for Runtime {
 }
 
 impl treasury::Trait for Runtime {
-	type Currency = Balances;
-	type ApproveOrigin = council_motions::EnsureMembers<_4>;
-	type RejectOrigin = council_motions::EnsureMembers<_2>;
-	type Event = Event;
-	type MintedForSpending = ();
-	type ProposalRejection = ();
+    type Currency = Balances;
+    type ApproveOrigin = council_motions::EnsureMembers<_4>;
+    type RejectOrigin = council_motions::EnsureMembers<_2>;
+    type Event = Event;
+    type MintedForSpending = ();
+    type ProposalRejection = ();
 }
 
 impl session::Trait for Runtime {
-	type ConvertAccountIdToSessionKey = ();
-	type OnSessionChange = (Staking, grandpa::SyncedAuthorities<Runtime>);
-	type Event = Event;
+    type ConvertAccountIdToSessionKey = ();
+    type OnSessionChange = (Staking, grandpa::SyncedAuthorities<Runtime>);
+    type Event = Event;
 }
 
 impl staking::Trait for Runtime {
-	type Currency = Balances;
-	type CurrencyToVote = CurrencyToVoteHandler;
-	type OnRewardMinted = Treasury;
-	type Event = Event;
-	type Slash = ();
-	type Reward = ();
+    type Currency = Balances;
+    type CurrencyToVote = CurrencyToVoteHandler;
+    type OnRewardMinted = Treasury;
+    type Event = Event;
+    type Slash = ();
+    type Reward = ();
 }
 
 impl democracy::Trait for Runtime {
-	type Currency = Balances;
-	type Proposal = Call;
-	type Event = Event;
+    type Currency = Balances;
+    type Proposal = Call;
+    type Event = Event;
 }
 
 impl council::Trait for Runtime {
-	type Event = Event;
-	type BadPresentation = ();
-	type BadReaper = ();
+    type Event = Event;
+    type BadPresentation = ();
+    type BadReaper = ();
 }
 
 impl council::voting::Trait for Runtime {
-	type Event = Event;
+    type Event = Event;
 }
 
 impl council::motions::Trait for Runtime {
-	type Origin = Origin;
-	type Proposal = Call;
-	type Event = Event;
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
 }
 
 impl grandpa::Trait for Runtime {
-	type SessionKey = AuthorityId;
-	type Log = Log;
-	type Event = Event;
+    type SessionKey = AuthorityId;
+    type Log = Log;
+    type Event = Event;
 }
 
 impl finality_tracker::Trait for Runtime {
-	type OnFinalizationStalled = grandpa::SyncedAuthorities<Runtime>;
+    type OnFinalizationStalled = grandpa::SyncedAuthorities<Runtime>;
 }
 
 impl indices::Trait for Runtime {
@@ -382,106 +391,106 @@ pub type Executive = executive::Executive<Runtime, Block, Context, Balances, All
 // Implement our runtime API endpoints. This is just a bunch of proxying.
 impl_runtime_apis! {
     impl client_api::Core<Block> for Runtime {
-		fn version() -> RuntimeVersion {
-			VERSION
-		}
+        fn version() -> RuntimeVersion {
+            VERSION
+        }
 
-		fn execute_block(block: Block) {
-			Executive::execute_block(block)
-		}
+        fn execute_block(block: Block) {
+            Executive::execute_block(block)
+        }
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
-			Executive::initialize_block(header)
-		}
+        fn initialize_block(header: &<Block as BlockT>::Header) {
+            Executive::initialize_block(header)
+        }
 
-		fn authorities() -> Vec<AuthorityIdFor<Block>> {
-			panic!("Deprecated, please use `AuthoritiesApi`.")
-		}
-	}
+        fn authorities() -> Vec<AuthorityIdFor<Block>> {
+            panic!("Deprecated, please use `AuthoritiesApi`.")
+        }
+    }
 
-	impl client_api::Metadata<Block> for Runtime {
-		fn metadata() -> OpaqueMetadata {
-			Runtime::metadata().into()
-		}
-	}
+    impl client_api::Metadata<Block> for Runtime {
+        fn metadata() -> OpaqueMetadata {
+            Runtime::metadata().into()
+        }
+    }
 
-	impl block_builder_api::BlockBuilder<Block> for Runtime {
-		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyResult {
-			Executive::apply_extrinsic(extrinsic)
-		}
+    impl block_builder_api::BlockBuilder<Block> for Runtime {
+        fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyResult {
+            Executive::apply_extrinsic(extrinsic)
+        }
 
-		fn finalize_block() -> <Block as BlockT>::Header {
-			Executive::finalize_block()
-		}
+        fn finalize_block() -> <Block as BlockT>::Header {
+            Executive::finalize_block()
+        }
 
-		fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
-			data.create_extrinsics()
-		}
+        fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+            data.create_extrinsics()
+        }
 
-		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
-			data.check_extrinsics(&block)
-		}
+        fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
+            data.check_extrinsics(&block)
+        }
 
-		fn random_seed() -> <Block as BlockT>::Hash {
-			System::random_seed()
-		}
-	}
+        fn random_seed() -> <Block as BlockT>::Hash {
+            System::random_seed()
+        }
+    }
 
-	impl client_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
-			Executive::validate_transaction(tx)
-		}
-	}
+    impl client_api::TaggedTransactionQueue<Block> for Runtime {
+        fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
+            Executive::validate_transaction(tx)
+        }
+    }
 
-	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(number: NumberFor<Block>) {
-			Executive::offchain_worker(number)
-		}
-	}
+    impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
+        fn offchain_worker(number: NumberFor<Block>) {
+            Executive::offchain_worker(number)
+        }
+    }
 
-	impl fg_primitives::GrandpaApi<Block> for Runtime {
-		fn grandpa_pending_change(digest: &DigestFor<Block>)
-			-> Option<ScheduledChange<NumberFor<Block>>>
-		{
-			for log in digest.logs.iter().filter_map(|l| match l {
-				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
-				_ => None
-			}) {
-				if let Some(change) = Grandpa::scrape_digest_change(log) {
-					return Some(change);
-				}
-			}
-			None
-		}
+    impl fg_primitives::GrandpaApi<Block> for Runtime {
+        fn grandpa_pending_change(digest: &DigestFor<Block>)
+            -> Option<ScheduledChange<NumberFor<Block>>>
+        {
+            for log in digest.logs.iter().filter_map(|l| match l {
+                Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+                _ => None
+            }) {
+                if let Some(change) = Grandpa::scrape_digest_change(log) {
+                    return Some(change);
+                }
+            }
+            None
+        }
 
-		fn grandpa_forced_change(digest: &DigestFor<Block>)
-			-> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>
-		{
-			for log in digest.logs.iter().filter_map(|l| match l {
-				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
-				_ => None
-			}) {
-				if let Some(change) = Grandpa::scrape_digest_forced_change(log) {
-					return Some(change);
-				}
-			}
-			None
-		}
+        fn grandpa_forced_change(digest: &DigestFor<Block>)
+            -> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>
+        {
+            for log in digest.logs.iter().filter_map(|l| match l {
+                Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+                _ => None
+            }) {
+                if let Some(change) = Grandpa::scrape_digest_forced_change(log) {
+                    return Some(change);
+                }
+            }
+            None
+        }
 
-		fn grandpa_authorities() -> Vec<(AuthorityId, u64)> {
-			Grandpa::grandpa_authorities()
-		}
-	}
+        fn grandpa_authorities() -> Vec<(AuthorityId, u64)> {
+            Grandpa::grandpa_authorities()
+        }
+    }
 
-	impl consensus_aura::AuraApi<Block> for Runtime {
-		fn slot_duration() -> u64 {
-			Aura::slot_duration()
-		}
-	}
+    impl consensus_aura::AuraApi<Block> for Runtime {
+        fn slot_duration() -> u64 {
+            Aura::slot_duration()
+        }
+    }
 
-	impl consensus_authorities::AuthoritiesApi<Block> for Runtime {
-		fn authorities() -> Vec<AuthorityIdFor<Block>> {
-			Consensus::authorities()
-		}
-	}
+    impl consensus_authorities::AuthoritiesApi<Block> for Runtime {
+        fn authorities() -> Vec<AuthorityIdFor<Block>> {
+            Consensus::authorities()
+        }
+    }
 }
