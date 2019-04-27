@@ -1,13 +1,13 @@
 use node_template_runtime::{
-    AccountId, AssetConfig, GenesisConfig, IdentityConfig,
+    AccountId, AssetConfig, IdentityConfig,
     ConsensusConfig, CouncilSeatsConfig, CouncilVotingConfig, DemocracyConfig,
 	SessionConfig, StakingConfig, StakerStatus, TimestampConfig, BalancesConfig, TreasuryConfig,
 	SudoConfig, GrandpaConfig, IndicesConfig, Permill, Perbill
 };
-use primitives::{ed25519, sr25519, Pair};
+pub use node_template_runtime::GenesisConfig;
+use primitives::{ed25519::Public as AuthorityId, ed25519, sr25519, Pair, crypto::UncheckedInto};
+use hex_literal::{hex, hex_impl};
 use substrate_service;
-
-use ed25519::Public as AuthorityId;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -36,11 +36,11 @@ impl Alternative {
                 "aws",
                 || {
                     testnet_genesis(
-                        vec![
-                            get_authority_keys_from_seed("Alice"),
-                            get_authority_keys_from_seed("Bob"),
-                            get_authority_keys_from_seed("Charlie"),
-                        ],
+                        vec![(
+                            hex!["f8c3fe049c7ce8ad7387ec7ee31aa28790e1aa742e9b4d2b15b983dfb51cce29"].unchecked_into(),
+                            hex!["ae7f9412cb860d27303ed3296ddca201cdb3b24c9cf68bbf78923c99bb71e961"].unchecked_into(),
+                            hex!["11ed3fc1bd16dd030b695fb1a7a51cbd844bdc8465de856fb4e545e73e94d666"].unchecked_into(),
+                        )],
                         get_account_id_from_seed("Alice"),
                     )
                 },
@@ -161,6 +161,10 @@ pub fn testnet_genesis(
 	root_key: AccountId,
 ) -> GenesisConfig {
 	let endowed_accounts: Vec<AccountId> = vec![
+        // hex!["687f80444e7a32d6dd9cd7e8c8229cec5c9a504634f0f83a0572234826a95024"].unchecked_into(),
+        // hex!["f8c3fe049c7ce8ad7387ec7ee31aa28790e1aa742e9b4d2b15b983dfb51cce29"].unchecked_into(),
+        // hex!["ae7f9412cb860d27303ed3296ddca201cdb3b24c9cf68bbf78923c99bb71e961"].unchecked_into(),
+        // hex!["11ed3fc1bd16dd030b695fb1a7a51cbd844bdc8465de856fb4e545e73e94d666"].unchecked_into(),
         get_account_id_from_seed("Alice"),
         get_account_id_from_seed("Bob"),
         get_account_id_from_seed("Charlie"),

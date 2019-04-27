@@ -17,7 +17,7 @@ use primitives::{ed25519, sr25519, OpaqueMetadata};
 use rstd::prelude::*;
 use runtime_primitives::{
     create_runtime_str, generic,
-    traits::{self, BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup, CurrencyToVoteHandler, Verify, AuthorityIdFor},
+    traits::{self, BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup, Verify, AuthorityIdFor, Convert},
     transaction_validity::TransactionValidity,
     ApplyResult,
 };
@@ -71,6 +71,20 @@ mod percentage_tm;
 mod sto_capped;
 mod template;
 mod utils;
+
+pub struct CurrencyToVoteHandler;
+
+impl CurrencyToVoteHandler {
+	fn factor() -> u128 { (Balances::total_issuance() / u64::max_value() as u128).max(1) }
+}
+
+impl Convert<u128, u64> for CurrencyToVoteHandler {
+	fn convert(x: u128) -> u64 { (x / Self::factor()) as u64 }
+}
+
+impl Convert<u128, u128> for CurrencyToVoteHandler {
+	fn convert(x: u128) -> u128 { x * Self::factor() }
+}
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
