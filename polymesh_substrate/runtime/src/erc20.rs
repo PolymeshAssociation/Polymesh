@@ -41,15 +41,13 @@ pub struct ERC20Token<U, V> {
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as ERC20 {
-        // Just a dummy storage item.
-        // Here we are declaring a StorageValue, `Something` as a Option<u32>
-        // `get(something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
-        //
-        // balances mapping for an account and its tokens
-        Tokens get(tokens): map Vec<u8> => ERC20Token<T::TokenBalance, T::AccountId>;
+        // How much Alice (first address) allows Bob (second address) to spend from her account
+        Allowance get(allowance): map (Vec<u8>, T::AccountId, T::AccountId) => T::TokenBalance;
         BalanceOf get(balance_of): map (Vec<u8>, T::AccountId) => T::TokenBalance;
         // How much creating a new ERC20 token costs in base currency
         CreationFee get(creation_fee) config(): FeeOf<T>;
+        // Token Details
+        Tokens get(tokens): map Vec<u8> => ERC20Token<T::TokenBalance, T::AccountId>;
     }
 }
 
@@ -84,7 +82,7 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         };
 
         <Tokens<T>>::insert(ticker.clone(), new_token);
-        // Let the owner to distribute the whole supply of the token
+        // Let the owner distribute the whole supply of the token
         <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), total_supply);
 
         runtime_io::print("Initialized a new token");
@@ -94,10 +92,37 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         Ok(())
     }
 
+    fn approve(origin, ticker: Vec<u8>, spender: T::AccountId, value: T::TokenBalance) -> Result {
+        let sender = ensure_signed(origin)?;
+        ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
+
+        let allowance = Self::allowance((ticker.clone(), sender.clone(), spender.clone()));
+        let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
+        <Allowance<T>>::insert((ticker.clone(), sender.clone(), spender.clone()), updated_allowance);
+
+        Self::deposit_event(RawEvent::Approval(ticker.clone(), sender.clone(), spender.clone(), value));
+
+        Ok(())
+    }
+
     fn transfer(origin, ticker: Vec<u8>, to: T::AccountId, amount: T::TokenBalance) -> Result {
         let sender = ensure_signed(origin)?;
 
         Self::_transfer(ticker.clone(), sender, to, amount)
+    }
+
+    fn transfer_from(origin, ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, amount: T::TokenBalance) -> Result {
+
+            ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), to.clone())), "Allowance does not exist.");
+            let allowance = Self::allowance((ticker.clone(), from.clone(), to.clone()));
+            ensure!(allowance >= amount, "Not enough allowance.");
+
+            // using checked_sub (safe math) to avoid overflow
+            let updated_allowance = allowance.checked_sub(&amount).ok_or("overflow in calculating allowance")?;
+            <Allowance<T>>::insert((ticker.clone(), from.clone(), to.clone()), updated_allowance);
+
+            Self::deposit_event(RawEvent::Approval(ticker.clone(), from.clone(), to.clone(), amount));
+            Self::_transfer(ticker.clone(), from, to, amount)
     }
 }
 }
@@ -108,8 +133,7 @@ decl_event!(
         AccountId = <T as system::Trait>::AccountId,
         TokenBalance = <T as utils::Trait>::TokenBalance,
     {
-        // Balance lookup
-        Balance(Vec<u8>, AccountId, TokenBalance),
+        Approval(Vec<u8>, AccountId, AccountId, TokenBalance),
         TokenCreated(Vec<u8>, AccountId, TokenBalance),
         Transfer(Vec<u8>, AccountId, AccountId, TokenBalance),
     }
