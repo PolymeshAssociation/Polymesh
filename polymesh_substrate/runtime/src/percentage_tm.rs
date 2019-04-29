@@ -1,26 +1,37 @@
 use crate::asset;
 use crate::asset::HasOwner;
 use crate::utils;
+use crate::exemption;
+use crate::exemption::ExemptionTrait;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::As;
+use runtime_primitives::traits::{As, CheckedAdd, CheckedSub};
 use support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
+    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue
 };
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
 pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
-    // TODO: Add other types and constants required configure this module.
-
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::HasOwner<Self::AccountId>;
+    type Exemption: exemption::ExemptionTrait<Self::AccountId>;
 }
+
+decl_event!(
+    pub enum Event<T>
+    where
+        <T as system::Trait>::AccountId,
+    {
+        TogglePercentageRestriction(Vec<u8>, u16, bool),
+        DoSomething(AccountId),
+    }
+);
 
 decl_storage! {
     trait Store for Module<T: Trait> as PercentageTM {
-        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map Vec<u8> => (bool,u16);
+        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map Vec<u8> => u16;
     }
 }
 
@@ -31,41 +42,35 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event<T>() = default;
 
-        fn toggle_maximum_percentage_restriction(origin, _ticker: Vec<u8>, enable:bool, max_percentage: u16) -> Result  {
+        fn toggle_maximum_percentage_restriction(origin, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
             let ticker = Self::_toUpper(_ticker);
             let sender = ensure_signed(origin)?;
             ensure!(Self::is_owner(ticker.clone(), sender.clone()),"Sender must be the token owner");
-
+            // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
+            
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
-            <MaximumPercentageEnabledForToken<T>>::insert(ticker.clone(),(enable,max_percentage));
-
-            if enable{
+            <MaximumPercentageEnabledForToken<T>>::insert(ticker.clone(), max_percentage);
+            // Emit an event with values (Ticker of asset, max percentage, restriction enabled or not)
+            Self::deposit_event(RawEvent::TogglePercentageRestriction(ticker, max_percentage, max_percentage != 0));
+            
+            if max_percentage != 0 {
                 runtime_io::print("Maximum percentage restriction enabled!");
-            }else{
+            } else {
                 runtime_io::print("Maximum percentage restriction disabled!");
             }
 
             Ok(())
         }
-    }
 
+        
+    }
 }
 
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as system::Trait>::AccountId,
-    {
-        Example(u32, AccountId, AccountId),
-    }
-);
-
 impl<T: Trait> Module<T> {
+
     pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
         let ticker = Self::_toUpper(_ticker);
         T::Asset::is_owner(ticker.clone(), sender)
-        // let token = T::Asset::token_details(token_id);
-        // token.owner == sender
     }
 
     // Transfer restriction verification logic
@@ -76,14 +81,16 @@ impl<T: Trait> Module<T> {
         value: T::TokenBalance,
     ) -> Result {
         let ticker = Self::_toUpper(_ticker);
-        let mut _can_transfer = Self::maximum_percentage_enabled_for_token(ticker.clone());
-        let enabled = _can_transfer.0;
-        // If the restriction is enabled, then we need to make the calculations, otherwise all good
-        if enabled {
-            Err("Cannot Transfer: Percentage TM restrictions not satisfied")
-        } else {
-            Ok(())
+        let max_percentage = Self::maximum_percentage_enabled_for_token(ticker.clone());
+        // check whether the to address is in the exemption list or not
+        let is_exempted = T::Exemption::is_exempted(ticker.clone(), 2, to.clone());
+        if max_percentage != 0 && !is_exempted {
+            let newBalance = <asset::Module<T>>::balance(ticker, &to).checked_Add(value).ok_or("Balance of to will get overflow");
+            if (newBalance.checked_div(<asset::Module<T>>::total_supply(ticker))).checked_mul(100) > max_percentage {
+                Err("Cannot Transfer: Percentage TM restrictions not satisfied");
+            }
         }
+        Ok(())
     }
 
     fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {

@@ -266,6 +266,10 @@ impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
     }
 }
 
+// impl<T: Trait> ERC20Trait<T::AccountId, T::TokenBalance> for module<T> {
+//     fn balanceOf()
+// }
+
 /// All functions in the decl_module macro become part of the public interface of the module
 /// If they are there, they are accessible via extrinsics calls whether they are public or not
 /// However, in the impl module section (this, below) the functions can be public and private

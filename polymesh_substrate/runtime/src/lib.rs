@@ -66,6 +66,7 @@ mod percentage_tm;
 mod sto_capped;
 mod template;
 mod utils;
+mod exemption;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -235,6 +236,7 @@ impl sto_capped::Trait for Runtime {
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
+    type Exemption = Exemption;
 }
 
 impl jurisdiction::Trait for Runtime {
@@ -247,6 +249,11 @@ impl organisation::Trait for Runtime {
 
 impl identity::Trait for Runtime {
     type Event = Event;
+}
+
+impl exemption::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
 }
 
 construct_runtime!(
@@ -273,6 +280,7 @@ construct_runtime!(
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
+        Exemption: exemption::{Module, Call, Storage, Event<T>},
 
 	}
 );
