@@ -34,6 +34,7 @@ decl_storage! {
 
         Owner get(owner) config(): T::AccountId;
 
+        ERC20IssuerList get(erc20_issuer_list): map T::AccountId => Issuer<T::AccountId>;
         IssuerList get(issuer_list): map T::AccountId => Issuer<T::AccountId>;
         InvestorList get(investor_list): map T::AccountId => Investor<T::AccountId>;
 
@@ -52,6 +53,13 @@ decl_module! {
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
             Self::do_create_issuer(_issuer)
+        }
+
+        fn create_erc20_issuer(origin,_issuer: T::AccountId) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(Self::owner() == sender,"Sender must be the identity module owner");
+
+            Self::do_create_erc20_issuer(_issuer)
         }
 
         fn create_investor(origin,_investor: T::AccountId) -> Result {
@@ -99,6 +107,18 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Add a new ERC20 issuer. Warning: No identity module ownership checks are performed
+    pub fn do_create_erc20_issuer(_erc20_issuer: T::AccountId) -> Result {
+        let new_erc20_issuer = Issuer {
+            account: _erc20_issuer.clone(),
+            access_level: 1,
+            active: true,
+        };
+
+        <ERC20IssuerList<T>>::insert(_erc20_issuer, new_erc20_issuer);
+        Ok(())
+    }
+
     /// Add a new investor. Warning: No identity module ownership checks are performed
     pub fn do_create_investor(_investor: T::AccountId) -> Result {
         let new_investor = Investor {
@@ -111,8 +131,14 @@ impl<T: Trait> Module<T> {
         <InvestorList<T>>::insert(_investor, new_investor);
         Ok(())
     }
+
     pub fn is_issuer(_user: T::AccountId) -> bool {
         let user = Self::issuer_list(_user.clone());
+        user.account == _user && user.access_level == 1 && user.active
+    }
+
+    pub fn is_erc20_issuer(_user: T::AccountId) -> bool {
+        let user = Self::erc20_issuer_list(_user.clone());
         user.account == _user && user.access_level == 1 && user.active
     }
 
