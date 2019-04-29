@@ -92,15 +92,6 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         Ok(())
     }
 
-    fn get_balance_of(origin, who: T::AccountId, ticker: Vec<u8>) -> Result {
-        ensure!(<Tokens<T>>::exists(ticker.clone()), "Ticker not found");
-        ensure!(<BalanceOf<T>>::exists((ticker.clone(), who.clone())), "Account does not own this token");
-
-        Self::deposit_event(RawEvent::Balance(ticker.clone(), who.clone(), Self::balance_of((ticker.clone(), who.clone()))));
-
-        Ok(())
-    }
-
     fn transfer(origin, ticker: Vec<u8>, to: T::AccountId, amount: T::TokenBalance) -> Result {
         let sender = ensure_signed(origin)?;
 
