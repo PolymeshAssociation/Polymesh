@@ -2,6 +2,7 @@
 //!
 //! This module implements a simple ERC20 API on top of Polymesh.
 use crate::asset;
+use crate::identity;
 use crate::utils;
 
 use rstd::prelude::*;
@@ -21,7 +22,7 @@ type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + utils::Trait {
+pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trait {
     // TODO: Add other types and constants required configure this module.
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -63,6 +64,7 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
     fn create_token(origin, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
         let sender = ensure_signed(origin)?;
         ensure!(!<Tokens<T>>::exists(ticker.clone()), "Ticker with this name already exists");
+        ensure!(<identity::Module<T>>::is_issuer(sender.clone()), "Sender is not an issuer");
 
         // Charge the creation fee
         let imbalance = T::Currency::withdraw(
