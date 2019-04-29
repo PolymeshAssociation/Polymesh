@@ -63,6 +63,8 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         let sender = ensure_signed(origin)?;
         ensure!(!<Tokens<T>>::exists(ticker.clone()), "Ticker with this name already exists");
         ensure!(<identity::Module<T>>::is_issuer(sender.clone()), "Sender is not an issuer");
+        ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
+
 
         // Charge the creation fee
         let imbalance = T::Currency::withdraw(
@@ -72,8 +74,6 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
             ExistenceRequirement::KeepAlive
             )?;
         T::TokenFeeCharge::on_unbalanced(imbalance);
-
-        ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
         let new_token = ERC20Token {
             ticker: ticker.clone(),
@@ -112,17 +112,23 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
     }
 
     fn transfer_from(origin, ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, amount: T::TokenBalance) -> Result {
+        ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), to.clone())), "Allowance does not exist.");
+        let allowance = Self::allowance((ticker.clone(), from.clone(), to.clone()));
+        ensure!(allowance >= amount, "Not enough allowance.");
 
-            ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), to.clone())), "Allowance does not exist.");
-            let allowance = Self::allowance((ticker.clone(), from.clone(), to.clone()));
-            ensure!(allowance >= amount, "Not enough allowance.");
+        // using checked_sub (safe math) to avoid overflow
+        let updated_allowance = allowance.checked_sub(&amount).ok_or("overflow in calculating allowance")?;
+        <Allowance<T>>::insert((ticker.clone(), from.clone(), to.clone()), updated_allowance);
 
-            // using checked_sub (safe math) to avoid overflow
-            let updated_allowance = allowance.checked_sub(&amount).ok_or("overflow in calculating allowance")?;
-            <Allowance<T>>::insert((ticker.clone(), from.clone(), to.clone()), updated_allowance);
+        Self::deposit_event(RawEvent::Approval(ticker.clone(), from.clone(), to.clone(), amount));
+        Self::_transfer(ticker.clone(), from, to, amount)
+    }
 
-            Self::deposit_event(RawEvent::Approval(ticker.clone(), from.clone(), to.clone(), amount));
-            Self::_transfer(ticker.clone(), from, to, amount)
+    fn create_issuer(origin,_issuer: T::AccountId) -> Result {
+        let sender = ensure_signed(origin)?;
+        ensure!(<identity::Module<T>>::owner() == sender,"Sender must be the identity module owner");
+
+        <identity::Module<T>>::do_create_issuer(_issuer)
     }
 }
 }

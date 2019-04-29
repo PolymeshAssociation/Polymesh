@@ -51,31 +51,14 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-            let new_issuer = Issuer {
-                account:_issuer.clone(),
-                access_level:1,
-                active: true,
-            };
-
-            <IssuerList<T>>::insert(_issuer, new_issuer);
-            Ok(())
-
+            Self::do_create_issuer(_issuer)
         }
 
         fn create_investor(origin,_investor: T::AccountId) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-            let new_investor = Investor {
-                account:_investor.clone(),
-                access_level:1,
-                active: true,
-                jurisdiction:1
-            };
-
-            <InvestorList<T>>::insert(_investor, new_investor);
-            Ok(())
-
+            Self::do_create_investor(_investor)
         }
     }
 }
@@ -104,6 +87,30 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    /// Add a new issuer. Warning: No identity module ownership checks are performed
+    pub fn do_create_issuer(_issuer: T::AccountId) -> Result {
+        let new_issuer = Issuer {
+            account: _issuer.clone(),
+            access_level: 1,
+            active: true,
+        };
+
+        <IssuerList<T>>::insert(_issuer, new_issuer);
+        Ok(())
+    }
+
+    /// Add a new investor. Warning: No identity module ownership checks are performed
+    pub fn do_create_investor(_investor: T::AccountId) -> Result {
+        let new_investor = Investor {
+            account: _investor.clone(),
+            access_level: 1,
+            active: true,
+            jurisdiction: 1,
+        };
+
+        <InvestorList<T>>::insert(_investor, new_investor);
+        Ok(())
+    }
     pub fn is_issuer(_user: T::AccountId) -> bool {
         let user = Self::issuer_list(_user.clone());
         user.account == _user && user.access_level == 1 && user.active
