@@ -37,13 +37,13 @@ impl Alternative {
                     "aws",
                     || {
                         testnet_genesis(
-                        vec![(
-                            hex!["f8c3fe049c7ce8ad7387ec7ee31aa28790e1aa742e9b4d2b15b983dfb51cce29"].unchecked_into(),
-                            hex!["ae7f9412cb860d27303ed3296ddca201cdb3b24c9cf68bbf78923c99bb71e961"].unchecked_into(),
-                            hex!["11ed3fc1bd16dd030b695fb1a7a51cbd844bdc8465de856fb4e545e73e94d666"].unchecked_into(),
-                        )],
-                        get_account_id_from_seed("Alice"),
-                    )
+                            vec![
+                                get_authority_keys_from_seed("Alice"),
+                                get_authority_keys_from_seed("Bob"),
+                                get_authority_keys_from_seed("Charlie"),
+                            ],
+                            get_account_id_from_seed("Alice"),
+                        )
                     },
                     vec![],
                     None,
