@@ -105,7 +105,7 @@ decl_module! {
             //  Calculate tokens to mint
             let token_conversion = <T::TokenBalance as As<T::Balance>>::sa(value).checked_mul(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
                 .ok_or("overflow in calculating tokens")?;
-                
+
             selected_sto.sold = selected_sto.sold
                 .checked_add(&token_conversion)
                 .ok_or("overflow while calculating tokens sold")?;

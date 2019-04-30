@@ -58,6 +58,7 @@ pub type BlockNumber = u64;
 pub type Nonce = u64;
 
 mod asset;
+mod erc20;
 mod general_tm;
 mod identity;
 mod jurisdiction;
@@ -217,6 +218,12 @@ impl utils::Trait for Runtime {
     type TokenBalance = u128;
 }
 
+impl erc20::Trait for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type TokenFeeCharge = ();
+}
+
 // impl tm::Trait for Runtime {
 //         type Asset = Asset;
 // }
@@ -282,6 +289,7 @@ construct_runtime!(
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event<T>},
+        ERC20: erc20::{Module, Call, Storage, Event<T>, Config<T>},
 
 	}
 );
