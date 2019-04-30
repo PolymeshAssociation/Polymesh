@@ -9,6 +9,7 @@ use support::traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, W
 use support::{
     decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
 };
+use session;
 use system::{self, ensure_signed};
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
@@ -23,6 +24,7 @@ pub trait Trait:
     + utils::Trait
     + balances::Trait
     + identity::Trait
+    + session::Trait
 {
     // TODO: Add other types and constants required configure this module.
 
@@ -82,13 +84,20 @@ decl_module! {
             // Ensure the uniqueness of the ticker
             ensure!(!<Tokens<T>>::exists(ticker.clone()), "ticker is already issued");
 
-            // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
-            let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+            // // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
+            // let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
-            // Alternative way to take a fee - fee is paid to `fee_collector`
+            // // Alternative way to take a fee - fee is paid to `fee_collector`
+            // let my_fee = <T::Balance as As<u64>>::sa(1337);
+            // <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
+            // T::TokenFeeCharge::on_unbalanced(imbalance);
+
+            // Alternative way to take a fee - fee is paid to the validators
             let my_fee = <T::Balance as As<u64>>::sa(1337);
-            <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
-            T::TokenFeeCharge::on_unbalanced(imbalance);
+            let validators = <session::Module<T>>::validators();
+            for i in 0..validators.len() {
+                <balances::Module<T> as Currency<_>>::transfer(&sender, &validators[i], my_fee/<T::Balance as As<usize>>::sa(validators.len()))?;
+            }
 
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
