@@ -1,38 +1,43 @@
 {
     "TokenBalance": "u128",
     "SecurityToken": {
-      "name": "Vec<u8>",
-      "total_supply": "TokenBalance",
-      "owner": "AccountId"
+        "name": "Vec<u8>",
+        "total_supply": "TokenBalance",
+        "owner": "AccountId"
     },
     "Restriction": {
-      "name": "Vec<u8>",
-      "token_id": "u32",
-      "can_transfer": "bool"
+        "name": "Vec<u8>",
+        "token_id": "u32",
+        "can_transfer": "bool"
     },
     "Whitelist": {
-      "investor": "AccountId",
-      "canSendAfter": "Moment",
-      "canReceiveAfter": "Moment"
+        "investor": "AccountId",
+        "canSendAfter": "Moment",
+        "canReceiveAfter": "Moment"
     },
     "Issuer": {
-      "account": "AccountId",
-      "access_level": "u16",
-      "active": "bool"
+        "account": "AccountId",
+        "access_level": "u16",
+        "active": "bool"
     },
     "Investor": {
-      "account": "AccountId",
-      "access_level": "u16",
-      "active": "bool",
-      "jurisdiction": "u16"
+        "account": "AccountId",
+        "access_level": "u16",
+        "active": "bool",
+        "jurisdiction": "u16"
     },
     "STO": {
-      "beneficiary": "AccountId",
-      "cap": "TokenBalance",
-      "sold": "TokenBalance",
-      "rate": "u64",
-      "start_date": "Moment",
-      "end_date": "Moment",
-      "active": "bool"
+        "beneficiary": "AccountId",
+        "cap": "TokenBalance",
+        "sold": "TokenBalance",
+        "rate": "u64",
+        "start_date": "Moment",
+        "end_date": "Moment",
+        "active": "bool"
+    },
+    "ERC20Token": {
+        "ticker": "Vec<u8>",
+        "total_supply": "TokenBalance",
+        "owner": "AccountId"
     }
 }
