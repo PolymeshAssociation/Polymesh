@@ -33,10 +33,10 @@ decl_module! {
             let ticker = Self::_toUpper(_ticker);
             let sender = ensure_signed(origin)?;
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "Sender must be the token owner");
-            let isExempted = Self::exemption_list((ticker, _tm, asset_holder));
+            let isExempted = Self::exemption_list((ticker.clone(), _tm, asset_holder.clone()));
 			ensure!(isExempted != exempted, "No change in the state");
 
-            <ExemptionList<T>>::insert((ticker.clone(), _tm, asset_holder), exempted);
+            <ExemptionList<T>>::insert((ticker.clone(), _tm, asset_holder.clone()), exempted);
             Self::deposit_event(RawEvent::ModifyExemptionList(ticker, _tm, asset_holder, exempted));
 
             Ok(())
@@ -57,7 +57,7 @@ pub trait ExemptionTrait<T> {
 	fn is_exempted(_ticker: Vec<u8>, _tm: u16, who: T) -> bool;
 }
 
-impl<T: Trait> ExemptionTrait<T::AccountId> for Module<T> {
+impl<T: Trait> ExemptionTrait <T::AccountId> for Module<T> {
 	fn is_exempted(_ticker: Vec<u8>, _tm: u16, who: T::AccountId) -> bool {
 		let ticker = Self::_toUpper(_ticker);
 		Self::exemption_list((ticker, _tm, who))

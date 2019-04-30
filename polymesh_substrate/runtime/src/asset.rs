@@ -234,6 +234,25 @@ decl_event!(
     }
 );
 
+pub trait IERC20<T, V> {
+    fn total_supply(_ticker: Vec<u8>) -> T;
+    fn balance(_ticker: Vec<u8>, who: V) -> T;
+}
+
+impl<T: Trait> IERC20<T::TokenBalance, T::AccountId> for Module<T>{
+    /// Get the asset `id` balance of `who`.
+    fn balance(_ticker: Vec<u8>, who: T::AccountId) -> T::TokenBalance {
+        let ticker = Self::_toUpper(_ticker);
+        Self::balance_of((ticker, who))
+    }
+
+    // Get the total supply of an asset `id`
+    fn total_supply(_ticker: Vec<u8>) -> T::TokenBalance {
+        let ticker = Self::_toUpper(_ticker);
+        Self::token_details(ticker).total_supply
+    }
+}
+
 pub trait HasOwner<T> {
     fn is_owner(_ticker: Vec<u8>, who: T) -> bool;
 }

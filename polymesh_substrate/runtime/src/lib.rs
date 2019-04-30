@@ -236,7 +236,8 @@ impl sto_capped::Trait for Runtime {
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type Exemption = Exemption;
+    type IERC20 = Asset;
+    type ExemptionTrait = Exemption;
 }
 
 impl jurisdiction::Trait for Runtime {

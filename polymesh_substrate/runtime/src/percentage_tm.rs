@@ -1,11 +1,12 @@
 use crate::asset;
 use crate::asset::HasOwner;
+use crate::asset::IERC20;
 use crate::utils;
 use crate::exemption;
 use crate::exemption::ExemptionTrait;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, CheckedMul, CheckedDiv};
 use support::{
     decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue
 };
@@ -16,7 +17,8 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::HasOwner<Self::AccountId>;
-    type Exemption: exemption::ExemptionTrait<Self::AccountId>;
+    type IERC20: asset::IERC20<Self::TokenBalance, Self::AccountId>;
+    type ExemptionTrait: exemption::ExemptionTrait<Self::AccountId>;
 }
 
 decl_event!(
@@ -83,11 +85,20 @@ impl<T: Trait> Module<T> {
         let ticker = Self::_toUpper(_ticker);
         let max_percentage = Self::maximum_percentage_enabled_for_token(ticker.clone());
         // check whether the to address is in the exemption list or not
-        let is_exempted = T::Exemption::is_exempted(ticker.clone(), 2, to.clone());
+        // 2 refers to percentageTM
+        let is_exempted = T::ExemptionTrait::is_exempted(ticker.clone(), 2, to.clone());
         if max_percentage != 0 && !is_exempted {
-            let newBalance = <asset::Module<T>>::balance(ticker, &to).checked_Add(value).ok_or("Balance of to will get overflow");
-            if (newBalance.checked_div(<asset::Module<T>>::total_supply(ticker))).checked_mul(100) > max_percentage {
-                Err("Cannot Transfer: Percentage TM restrictions not satisfied");
+            let newBalance = (T::IERC20::balance(ticker.clone(), to.clone())).checked_add(&value).ok_or("Balance of to will get overflow")?;
+            let totalSupply = T::IERC20::total_supply(ticker);
+            let percentageBalance = (
+                    newBalance.checked_div(&totalSupply)
+                    .ok_or("unsafe division")?
+                )
+                .checked_mul(&<T:: TokenBalance as As<u64>>::sa(100))
+                .ok_or("unsafe multiplication")?;
+            let _max_percentage = <T:: TokenBalance as As<u64>>::sa((max_percentage as u64));
+            if percentageBalance > _max_percentage {
+                return Err("Cannot Transfer: Percentage TM restrictions not satisfied")
             }
         }
         Ok(())
