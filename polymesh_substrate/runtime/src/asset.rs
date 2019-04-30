@@ -155,14 +155,15 @@ decl_module! {
         // implemented in the open-zeppelin way - increase/decrease allownace
         // if approved, transfer from an account to another account without owner's signature
         pub fn transfer_from(_origin, _ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
-            let ticker = Self::_toUpper(_ticker);
             let spender = ensure_signed(_origin)?;
+            let ticker = Self::_toUpper(_ticker);
             ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), spender.clone())), "Allowance does not exist");
             let allowance = Self::allowance((ticker.clone(), from.clone(), spender.clone()));
             ensure!(allowance >= value, "Not enough allowance");
 
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
+
             Self::_is_valid_transfer(ticker.clone(), from.clone(), to.clone(), value)?;
 
             Self::_transfer(ticker.clone(), from.clone(), to.clone(), value)

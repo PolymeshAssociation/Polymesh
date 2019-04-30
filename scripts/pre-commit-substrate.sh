@@ -6,5 +6,5 @@ set -e
 #script_dir=${GIT_WORK_TREE:=$(dirname $0)/..}
 root_dir=$(git rev-parse --git-dir)/..
 
-$root_dir/scripts/cargo-check.sh
 $root_dir/scripts/rustfmt.sh
+$root_dir/scripts/cargo-check.sh
