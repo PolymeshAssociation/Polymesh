@@ -1,8 +1,20 @@
 version: 2
 jobs:
+  lint:
+    docker:
+      - image: PolymathNetwork/polymesh
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Check formatting
+          command: ./scripts/rustfmt.sh
+          working_directory: .
+jobs:
   build:
     docker:
-      - image: PolymathNetwork:polymesh
+      - image: PolymathNetwork/polymesh
     environment:
       VERBOSE: "1"
     steps:
@@ -10,14 +22,6 @@ jobs:
       - restore_cache:
           keys:
             - dependency-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
-      - run:
-          name: Run cargo-check
-          command: ./check.sh
-          working_directory: ./polymesh_substrate
-      - run:
-          name: Check formatting
-          command: ./scripts/rustfmt.sh
-          working_directory: .
       - run:
           name: Compile everything
           command: ./build.sh
@@ -32,3 +36,19 @@ jobs:
             - "./polymesh_substrate/target"
             - "./polymesh_substrate/runtime/target"
             - "./polymesh_substrate/runtime/wasm/target"
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - build
+      - lint
+  daily-builds:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - build

@@ -23,5 +23,6 @@ ENV PATH=/root/.cargo/bin:$PATH
 RUN cargo --version && \
     rustc --version && \
     rustup --version && \
+    rustup component add rustfmt --toolchain nightly && \
     rustup target add wasm32-unknown-unknown --toolchain nightly && \
     cargo +nightly install --git https://github.com/alexcrichton/wasm-gc --force
