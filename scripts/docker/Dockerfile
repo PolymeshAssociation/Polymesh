@@ -18,11 +18,11 @@ RUN apt update && \
 RUN curl https://sh.rustup.rs -sSf | \
     sh -s -- --default-toolchain nightly -y
 
+# Stuff below only for testing. Delete before release.
+
 ADD ../../polymesh_substrate $HOME/polymesh_substrate
 
 RUN cd $HOME/polymesh_substrate && \
-    rm -rf target && \
-    rm -rf runtime/target && \
     source ~/.cargo/env && \
     ./init.sh && \
     ./build.sh && \
