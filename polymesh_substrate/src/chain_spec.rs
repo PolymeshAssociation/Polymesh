@@ -2,9 +2,9 @@ use hex_literal::{hex, hex_impl};
 pub use node_template_runtime::GenesisConfig;
 use node_template_runtime::{
     AccountId, AssetConfig, BalancesConfig, ConsensusConfig, CouncilSeatsConfig,
-    CouncilVotingConfig, DemocracyConfig, GrandpaConfig, IdentityConfig, IndicesConfig, Perbill,
-    Permill, SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig,
-    TreasuryConfig,
+    CouncilVotingConfig, DemocracyConfig, ERC20Config, GrandpaConfig, IdentityConfig,
+    IndicesConfig, Perbill, Permill, SessionConfig, StakerStatus, StakingConfig, SudoConfig,
+    TimestampConfig, TreasuryConfig,
 };
 use primitives::{crypto::UncheckedInto, ed25519, ed25519::Public as AuthorityId, sr25519, Pair};
 use substrate_service;
@@ -194,6 +194,9 @@ pub fn testnet_genesis(
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed("Dave"),
+        }),
+        erc20: Some(ERC20Config {
+            creation_fee: 1000
         }),
         balances: Some(BalancesConfig {
             transaction_base_fee: 1,

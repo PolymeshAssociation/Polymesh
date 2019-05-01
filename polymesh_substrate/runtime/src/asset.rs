@@ -155,17 +155,28 @@ decl_module! {
         // implemented in the open-zeppelin way - increase/decrease allownace
         // if approved, transfer from an account to another account without owner's signature
         pub fn transfer_from(_origin, _ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
+            let spender = ensure_signed(_origin)?;
             let ticker = Self::_toUpper(_ticker);
-            ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), to.clone())), "Allowance does not exist.");
-            let allowance = Self::allowance((ticker.clone(), from.clone(), to.clone()));
-            ensure!(allowance >= value, "Not enough allowance.");
+            ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), spender.clone())), "Allowance does not exist");
+            let allowance = Self::allowance((ticker.clone(), from.clone(), spender.clone()));
+            ensure!(allowance >= value, "Not enough allowance");
 
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
-            <Allowance<T>>::insert((ticker.clone(), from.clone(), to.clone()), updated_allowance);
 
-            Self::deposit_event(RawEvent::Approval(ticker.clone(), from.clone(), to.clone(), value));
-            Self::_transfer(ticker.clone(), from, to, value)
+            Self::_is_valid_transfer(ticker.clone(), from.clone(), to.clone(), value)?;
+
+            Self::_transfer(ticker.clone(), from.clone(), to.clone(), value)
+                    .expect(
+                        "`from` should have the sufficient balance to transact; /
+                        Balance doesn't go beyond the overlimit;"
+                    );
+
+            // Change allowance afterwards
+            <Allowance<T>>::insert((ticker.clone(), from.clone(), spender.clone()), updated_allowance);
+
+            Self::deposit_event(RawEvent::Approval(ticker.clone(), from.clone(), spender.clone(), value));
+            Ok(())
         }
 
       // called by issuer to create checkpoints
@@ -275,7 +286,8 @@ impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
         sender: T::AccountId,
         tokens_purchased: T::TokenBalance,
     ) -> Result {
-        Self::_mint(ticker, sender, tokens_purchased)
+        let _ticker = Self::_toUpper(ticker);
+        Self::_mint(_ticker, sender, tokens_purchased)
     }
 
     fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
@@ -334,15 +346,14 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let ticker = Self::_toUpper(_ticker);
         let verification_whitelist = <general_tm::Module<T>>::verify_restriction(
-            ticker.clone(),
+            _ticker.clone(),
             from.clone(),
             to.clone(),
             value,
         )?;
         let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(
-            ticker.clone(),
+            _ticker.clone(),
             from.clone(),
             to.clone(),
             value,
@@ -361,36 +372,34 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let ticker = Self::_toUpper(_ticker);
         ensure!(
-            <BalanceOf<T>>::exists((ticker.clone(), from.clone())),
+            <BalanceOf<T>>::exists((_ticker.clone(), from.clone())),
             "Account does not own this token"
         );
-        let sender_balance = Self::balance_of((ticker.clone(), from.clone()));
+        let sender_balance = Self::balance_of((_ticker.clone(), from.clone()));
         ensure!(sender_balance >= value, "Not enough balance.");
 
         let updated_from_balance = sender_balance
             .checked_sub(&value)
             .ok_or("overflow in calculating balance")?;
-        let receiver_balance = Self::balance_of((ticker.clone(), to.clone()));
+        let receiver_balance = Self::balance_of((_ticker.clone(), to.clone()));
         let updated_to_balance = receiver_balance
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
 
-        Self::_update_checkpoint(ticker.clone(), from.clone(), sender_balance);
-        Self::_update_checkpoint(ticker.clone(), to.clone(), receiver_balance);
+        Self::_update_checkpoint(_ticker.clone(), from.clone(), sender_balance);
+        Self::_update_checkpoint(_ticker.clone(), to.clone(), receiver_balance);
         // reduce sender's balance
-        <BalanceOf<T>>::insert((ticker.clone(), from.clone()), updated_from_balance);
+        <BalanceOf<T>>::insert((_ticker.clone(), from.clone()), updated_from_balance);
 
         // increase receiver's balance
-        <BalanceOf<T>>::insert((ticker.clone(), to.clone()), updated_to_balance);
+        <BalanceOf<T>>::insert((_ticker.clone(), to.clone()), updated_to_balance);
 
-        Self::deposit_event(RawEvent::Transfer(ticker.clone(), from, to, value));
+        Self::deposit_event(RawEvent::Transfer(_ticker.clone(), from, to, value));
         Ok(())
     }
 
-    fn _create_checkpoint(_ticker: Vec<u8>) -> Result {
-        let ticker = Self::_toUpper(_ticker);
+    fn _create_checkpoint(ticker: Vec<u8>) -> Result {
         if <TotalCheckpoints<T>>::exists(ticker.clone()) {
             let mut checkpoint_count = Self::total_checkpoints_of(ticker.clone());
             checkpoint_count = checkpoint_count
@@ -412,11 +421,10 @@ impl<T: Trait> Module<T> {
     }
 
     fn _update_checkpoint(
-        _ticker: Vec<u8>,
+        ticker: Vec<u8>,
         user: T::AccountId,
         user_balance: T::TokenBalance,
     ) -> Result {
-        let ticker = Self::_toUpper(_ticker);
         if <TotalCheckpoints<T>>::exists(ticker.clone()) {
             let checkpoint_count = Self::total_checkpoints_of(ticker.clone());
             if !<CheckpointBalance<T>>::exists((ticker.clone(), user.clone(), checkpoint_count)) {
@@ -430,7 +438,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
+    fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
         let mut hexArray = _hexArray.clone();
         for i in &mut hexArray {
             if *i >= 97 && *i <= 122 {
@@ -445,14 +453,14 @@ impl<T: Trait> Module<T> {
         token.owner == sender
     }
 
-    pub fn _mint(_ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
-        let ticker = Self::_toUpper(_ticker);
-
+    pub fn _mint(ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
         //Increase receiver balance
         let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
         let updated_to_balance = current_to_balance
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
+
+        //PABLO: TODO: Add verify transfer check
 
         //Increase total suply
         let mut token = Self::token_details(ticker.clone());
@@ -461,8 +469,6 @@ impl<T: Trait> Module<T> {
             .total_supply
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
-
-        //PABLO: TODO: Add verify transfer check
 
         Self::_update_checkpoint(ticker.clone(), to.clone(), current_to_balance);
 
