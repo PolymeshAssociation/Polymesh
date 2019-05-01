@@ -36,6 +36,7 @@ jobs:
       - save_cache:
           key: dependency-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
           paths:
+            - "~/.cargo"
             - "./polymesh_substrate/target"
             - "./polymesh_substrate/runtime/target"
             - "./polymesh_substrate/runtime/wasm/target"
