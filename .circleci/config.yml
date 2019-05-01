@@ -11,10 +11,6 @@ jobs:
           keys:
             - dependency-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
       - run:
-          name: Init Polymesh
-          command: ./init.sh
-          working_directory: ./polymesh_substrate
-      - run:
           name: Run cargo-check
           command: ./check.sh
           working_directory: ./polymesh_substrate
