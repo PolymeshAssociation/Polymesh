@@ -25,11 +25,10 @@ jobs:
           name: Compile everything
           command: ./build.sh
           working_directory: ./polymesh_substrate
+      - run: cargo build -p rocksdb --release
       - run:
           name: Build release
-          command:
-            - cargo build -p rocksdb --release
-            - cargo build --release
+          command: cargo build --release
           working_directory: ./polymesh_substrate
       - save_cache:
           key: dependency-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
