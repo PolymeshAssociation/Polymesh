@@ -25,7 +25,10 @@ jobs:
           name: Compile everything
           command: ./build.sh
           working_directory: ./polymesh_substrate
-      - run: cargo build -p rocksdb --release
+      - run:
+          name: Build rocksdb
+          command: cargo build -p rocksdb --release
+          working_directory: ./polymesh_substrate
       - run:
           name: Build release
           command: cargo build --release
