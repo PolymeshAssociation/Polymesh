@@ -7,8 +7,8 @@ LABEL version="latest"
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt update && \
-    apt upgrade && \
-    apt install --no-install-recommends autoconf automake autotools-dev \
+    apt upgrade -y && \
+    apt install autoconf automake autotools-dev \
         build-essential ca-certificates clang cmake curl file git gcc \
         libclang-dev libssl1.1 libssl-dev libtool pkg-config xutils-dev -y && \
     apt-get autoremove -y && \
@@ -18,15 +18,10 @@ RUN apt update && \
 RUN curl https://sh.rustup.rs -sSf | \
     sh -s -- --default-toolchain nightly -y
 
-# Stuff below only for testing. Delete before release.
+ENV PATH=/root/.cargo/bin:$PATH
 
-ADD ../../polymesh_substrate $HOME/polymesh_substrate
-
-RUN cd $HOME/polymesh_substrate && \
-    source ~/.cargo/env && \
-    ./init.sh && \
-    ./build.sh && \
-    cargo build --release && \
-    ./target/release/polymesh-substrate --version
-
-
+RUN cargo --version && \
+    rustc --version && \
+    rustup --version && \
+    rustup target add wasm32-unknown-unknown --toolchain nightly && \
+    cargo +nightly install --git https://github.com/alexcrichton/wasm-gc --force
