@@ -2,28 +2,14 @@ version: 2
 jobs:
   build:
     docker:
-      - image: ubuntu:bionic
-
+      - image: PolymathNetwork:polymesh
     environment:
-      BASH_ENV: "~/.cargo/env"
       VERBOSE: "1"
     steps:
       - checkout
       - restore_cache:
           keys:
-            - project-cache
-      - run:
-          name: Install system-wide dependencies
-          command: |
-            apt-get update
-            apt-get install -y build-essential curl
-            curl https://sh.rustup.rs -sSf > ~/rustup.sh
-            chmod a+x ~/rustup.sh
-            ~/rustup.sh -y
-            source ~/.cargo/env
-            rustup install nightly
-            rustup component add rustfmt --toolchain nightly
-            rustup default stable
+            - dependency-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
       - run:
           name: Init Polymesh
           command: ./init.sh
@@ -40,10 +26,13 @@ jobs:
           name: Compile everything
           command: ./build.sh
           working_directory: ./polymesh_substrate
+      - run:
+          name: Build release
+          command: cargo build --release
+          working_directory: ./polymesh_substrate
       - save_cache:
-          key: project-cache
+          key: dependency-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
           paths:
-            - "~/.cargo"
             - "./polymesh_substrate/target"
             - "./polymesh_substrate/runtime/target"
             - "./polymesh_substrate/runtime/wasm/target"
