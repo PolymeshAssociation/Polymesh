@@ -201,7 +201,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
-            Self::_mint(_ticker,to,value)
+            Self::_mint(ticker, to, value)
         }
 
         pub fn burn(_origin, _ticker: Vec<u8>, value: T::TokenBalance) -> Result {
@@ -272,13 +272,13 @@ impl<T: Trait> IERC20<T::TokenBalance, T::AccountId> for Module<T>{
     /// Get the asset `id` balance of `who`.
     fn balance(_ticker: Vec<u8>, who: T::AccountId) -> T::TokenBalance {
         let ticker = Self::_toUpper(_ticker);
-        Self::balance_of((ticker, who))
+        return Self::balance_of((ticker, who));
     }
 
     // Get the total supply of an asset `id`
     fn total_supply(_ticker: Vec<u8>) -> T::TokenBalance {
         let ticker = Self::_toUpper(_ticker);
-        Self::token_details(ticker).total_supply
+        return Self::token_details(ticker).total_supply;
     }
 }
 

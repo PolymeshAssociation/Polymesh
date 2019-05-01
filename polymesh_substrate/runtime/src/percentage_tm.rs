@@ -24,10 +24,10 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 decl_event!(
     pub enum Event<T>
     where
-        <T as system::Trait>::AccountId,
+        Balance = <T as utils::Trait>::TokenBalance,
     {
         TogglePercentageRestriction(Vec<u8>, u16, bool),
-        DoSomething(AccountId),
+        DoSomething(Balance),
     }
 );
 
@@ -63,7 +63,6 @@ decl_module! {
 
             Ok(())
         }
-
         
     }
 }
@@ -86,6 +85,7 @@ impl<T: Trait> Module<T> {
         let max_percentage = Self::maximum_percentage_enabled_for_token(ticker.clone());
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
+        // TODO: Mould the integer into the module identity
         let is_exempted = T::ExemptionTrait::is_exempted(ticker.clone(), 2, to.clone());
         if max_percentage != 0 && !is_exempted {
             let newBalance = (T::IERC20::balance(ticker.clone(), to.clone())).checked_add(&value).ok_or("Balance of to will get overflow")?;
@@ -101,6 +101,7 @@ impl<T: Trait> Module<T> {
                 return Err("Cannot Transfer: Percentage TM restrictions not satisfied")
             }
         }
+        runtime_io::print("It is passing thorugh the PercentageTM");
         Ok(())
     }
 
