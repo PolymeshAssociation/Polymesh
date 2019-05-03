@@ -167,10 +167,10 @@ decl_module! {
             Self::_is_valid_transfer(ticker.clone(), from.clone(), to.clone(), value)?;
 
             Self::_transfer(ticker.clone(), from.clone(), to.clone(), value)
-                    .expect(
-                        "`from` should have the sufficient balance to transact; /
+                .expect(
+                    "`from` should have the sufficient balance to transact; /
                         Balance doesn't go beyond the overlimit;"
-                    );
+                       );
 
             // Change allowance afterwards
             <Allowance<T>>::insert((ticker.clone(), from.clone(), spender.clone()), updated_allowance);
@@ -179,7 +179,7 @@ decl_module! {
             Ok(())
         }
 
-      // called by issuer to create checkpoints
+        // called by issuer to create checkpoints
         pub fn create_checkpoint(_origin, _ticker: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
@@ -214,8 +214,8 @@ decl_module! {
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
-            .checked_sub(&value)
-            .ok_or("overflow in calculating balance")?;
+                .checked_sub(&value)
+                .ok_or("overflow in calculating balance")?;
 
             //PABLO: TODO: Add verify transfer check
 
@@ -474,64 +474,180 @@ impl<T: Trait> Module<T> {
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    /*
-     *    use super::*;
-     *
-     *    use primitives::{Blake2Hasher, H256};
-     *    use runtime_io::with_externalities;
-     *    use runtime_primitives::{
-     *        testing::{Digest, DigestItem, Header},
-     *        traits::{BlakeTwo256, IdentityLookup},
-     *        BuildStorage,
-     *    };
-     *    use support::{assert_ok, impl_outer_origin};
-     *
-     *    impl_outer_origin! {
-     *        pub enum Origin for Test {}
-     *    }
-     *
-     *    // For testing the module, we construct most of a mock runtime. This means
-     *    // first constructing a configuration type (`Test`) which `impl`s each of the
-     *    // configuration traits of modules we want to use.
-     *    #[derive(Clone, Eq, PartialEq)]
-     *    pub struct Test;
-     *    impl system::Trait for Test {
-     *        type Origin = Origin;
-     *        type Index = u64;
-     *        type BlockNumber = u64;
-     *        type Hash = H256;
-     *        type Hashing = BlakeTwo256;
-     *        type Digest = Digest;
-     *        type AccountId = u64;
-     *        type Lookup = IdentityLookup<Self::AccountId>;
-     *        type Header = Header;
-     *        type Event = ();
-     *        type Log = DigestItem;
-     *    }
-     *    impl Trait for Test {
-     *        type Event = ();
-     *    }
-     *    type asset = Module<Test>;
-     *
-     *    // This function basically just builds a genesis storage key/value store according to
-     *    // our desired mockup.
-     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::<Test>::default()
-     *            .build_storage()
-     *            .unwrap()
-     *            .0
-     *            .into()
-     *    }
-     *
-     *    //#[test]
-     *    //fn it_works_for_default_value() {
-     *        //with_externalities(&mut new_test_ext(), || {
-     *            //// Just a dummy test for the dummy funtion `do_something`
-     *            //// calling the `do_something` function with a value 42
-     *            //assert_ok!(asset::do_something(Origin::signed(1), 42));
-     *            //// asserting that the stored value is equal to what we stored
-     *            //assert_eq!(asset::something(), Some(42));
-     *        //});
-     *    //}
-     */
+    use super::*;
+
+    use lazy_static::lazy_static;
+    use primitives::{Blake2Hasher, H256};
+    use runtime_io::with_externalities;
+    use runtime_primitives::{
+        testing::{Digest, DigestItem, Header},
+        traits::{BlakeTwo256, IdentityLookup},
+        BuildStorage,
+    };
+    use support::{assert_noop, assert_ok, impl_outer_origin};
+
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+    };
+
+    use crate::identity::{IdentityTrait, Investor};
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    // For testing the module, we construct most of a mock runtime. This means
+    // first constructing a configuration type (`Test`) which `impl`s each of the
+    // configuration traits of modules we want to use.
+    #[derive(Clone, Eq, PartialEq)]
+    pub struct Test;
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type Digest = Digest;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+        type Log = DigestItem;
+    }
+    impl balances::Trait for Test {
+        type Balance = u128;
+        type DustRemoval = ();
+        type Event = ();
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type TransactionPayment = ();
+        type TransferPayment = ();
+    }
+    impl general_tm::Trait for Test {
+        type Event = ();
+        type Asset = Module<Test>;
+        type Identity = Module<Test>;
+    }
+    impl identity::Trait for Test {
+        type Event = ();
+    }
+    impl percentage_tm::Trait for Test {
+        type Event = ();
+        type Asset = Module<Test>;
+    }
+    impl timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+    }
+    impl utils::Trait for Test {
+        type TokenBalance = u128;
+    }
+    impl Trait for Test {
+        type Event = ();
+        type Currency = balances::Module<Test>;
+        type TokenFeeCharge = ();
+    }
+    type asset = Module<Test>;
+
+    type Balances = balances::Module<Test>;
+
+    lazy_static! {
+        static ref INVESTOR_MAP: Arc<
+            Mutex<
+                HashMap<
+                    <Test as system::Trait>::AccountId,
+                    Investor<<Test as system::Trait>::AccountId>,
+                >,
+            >,
+        > = Arc::new(Mutex::new(HashMap::new()));
+        static ref INVESTOR_MAP_OUTER_LOCK: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
+    }
+
+    impl IdentityTrait<<Test as system::Trait>::AccountId> for Module<Test> {
+        fn investor_data(
+            sender: <Test as system::Trait>::AccountId,
+        ) -> Investor<<Test as system::Trait>::AccountId> {
+            INVESTOR_MAP
+                .lock()
+                .unwrap()
+                .get(&sender)
+                .unwrap_or(&Investor::default())
+                .clone()
+        }
+    }
+
+    // This function basically just builds a genesis storage key/value store according to
+    // our desired mockup.
+    fn identity_owned_by_1() -> runtime_io::TestExternalities<Blake2Hasher> {
+        let mut t = system::GenesisConfig::<Test>::default()
+            .build_storage()
+            .unwrap()
+            .0;
+        t.extend(
+            identity::GenesisConfig::<Test> { owner: 1 }
+                .build_storage()
+                .unwrap()
+                .0,
+        );
+        t.into()
+    }
+
+    #[test]
+    fn issuers_can_create_tokens() {
+        with_externalities(&mut identity_owned_by_1(), || {
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner: 1,
+                total_supply: 1_000_000,
+            };
+
+            // Raise the owner's base currency balance
+            Balances::make_free_balance_be(&token.owner, 1_000_000);
+
+            identity::Module::<Test>::do_create_issuer(token.owner);
+
+            // Issuance is successful
+            assert_ok!(asset::issue_token(
+                Origin::signed(token.owner),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply
+            ));
+
+            // A correct entry is added
+            assert_eq!(asset::token_details(token.name.clone()), token);
+        });
+    }
+
+    #[test]
+    fn non_issuers_cant_create_tokens() {
+        with_externalities(&mut identity_owned_by_1(), || {
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner: 1,
+                total_supply: 1_000_000,
+            };
+
+            Balances::make_free_balance_be(&token.owner, 1_000_000);
+
+            Balances::make_free_balance_be(&token.owner, 1_000_000);
+
+            // Issuance is unsuccessful
+            assert_noop!(
+                asset::issue_token(
+                    Origin::signed(token.owner + 1),
+                    token.name.clone(),
+                    token.name.clone(),
+                    token.total_supply
+                ),
+                "user is not authorized"
+            );
+
+            // A correct entry is added
+            assert_ne!(asset::token_details(token.name.clone()), token);
+        });
+    }
 }
