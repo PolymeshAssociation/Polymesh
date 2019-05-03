@@ -7,16 +7,24 @@
 
 use client::{
     block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
-    impl_runtime_apis, runtime_api,
+    impl_runtime_apis, runtime_api as client_api,
 };
+#[cfg(feature = "std")]
+use council::seats as council_seats;
+pub use council::{motions as council_motions, voting as council_voting};
+pub use grandpa::fg_primitives::{self, ScheduledChange};
 use parity_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use primitives::bytes;
+use primitives::u32_trait::{_2, _4};
 use primitives::{ed25519, sr25519, OpaqueMetadata};
 use rstd::prelude::*;
 use runtime_primitives::{
     create_runtime_str, generic,
-    traits::{self, BlakeTwo256, Block as BlockT, NumberFor, StaticLookup, Verify},
+    traits::{
+        self, AuthorityIdFor, BlakeTwo256, Block as BlockT, Convert, DigestFor, NumberFor,
+        StaticLookup, Verify,
+    },
     transaction_validity::TransactionValidity,
     ApplyResult,
 };
@@ -25,13 +33,13 @@ use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use version::NativeVersion;
 use version::RuntimeVersion;
-
 // A few exports that help ease life for downstream crates.
 pub use balances::Call as BalancesCall;
 pub use consensus::Call as ConsensusCall;
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
 pub use runtime_primitives::{Perbill, Permill};
+pub use staking::StakerStatus;
 pub use support::{construct_runtime, StorageValue};
 pub use timestamp::BlockPeriod;
 pub use timestamp::Call as TimestampCall;
@@ -68,6 +76,26 @@ mod sto_capped;
 mod template;
 mod utils;
 mod exemption;
+
+pub struct CurrencyToVoteHandler;
+
+impl CurrencyToVoteHandler {
+    fn factor() -> u128 {
+        (Balances::total_issuance() / u64::max_value() as u128).max(1)
+    }
+}
+
+impl Convert<u128, u64> for CurrencyToVoteHandler {
+    fn convert(x: u128) -> u64 {
+        (x / Self::factor()) as u64
+    }
+}
+
+impl Convert<u128, u128> for CurrencyToVoteHandler {
+    fn convert(x: u128) -> u128 {
+        x * Self::factor()
+    }
+}
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -150,7 +178,7 @@ impl system::Trait for Runtime {
 }
 
 impl aura::Trait for Runtime {
-    type HandleReport = ();
+    type HandleReport = aura::StakingSlasher<Runtime>;
 }
 
 impl consensus::Trait for Runtime {
@@ -161,6 +189,62 @@ impl consensus::Trait for Runtime {
     type InherentOfflineReport = ();
     /// The ubiquitous log type.
     type Log = Log;
+}
+
+impl treasury::Trait for Runtime {
+    type Currency = Balances;
+    type ApproveOrigin = council_motions::EnsureMembers<_4>;
+    type RejectOrigin = council_motions::EnsureMembers<_2>;
+    type Event = Event;
+    type MintedForSpending = ();
+    type ProposalRejection = ();
+}
+
+impl session::Trait for Runtime {
+    type ConvertAccountIdToSessionKey = ();
+    type OnSessionChange = (Staking, grandpa::SyncedAuthorities<Runtime>);
+    type Event = Event;
+}
+
+impl staking::Trait for Runtime {
+    type Currency = Balances;
+    type CurrencyToVote = CurrencyToVoteHandler;
+    type OnRewardMinted = Treasury;
+    type Event = Event;
+    type Slash = ();
+    type Reward = ();
+}
+
+impl democracy::Trait for Runtime {
+    type Currency = Balances;
+    type Proposal = Call;
+    type Event = Event;
+}
+
+impl council::Trait for Runtime {
+    type Event = Event;
+    type BadPresentation = ();
+    type BadReaper = ();
+}
+
+impl council::voting::Trait for Runtime {
+    type Event = Event;
+}
+
+impl council::motions::Trait for Runtime {
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
+}
+
+impl grandpa::Trait for Runtime {
+    type SessionKey = AuthorityId;
+    type Log = Log;
+    type Event = Event;
+}
+
+impl finality_tracker::Trait for Runtime {
+    type OnFinalizationStalled = grandpa::SyncedAuthorities<Runtime>;
 }
 
 impl indices::Trait for Runtime {
@@ -265,23 +349,23 @@ impl exemption::Trait for Runtime {
 }
 
 construct_runtime!(
-	pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
-		Block = Block,
-		NodeBlock = opaque::Block,
-		UncheckedExtrinsic = UncheckedExtrinsic
-	{
-		System: system::{default, Log(ChangesTrieRoot)},
-		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
-		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Aura: aura::{Module},
-		Indices: indices,
-		Balances: balances,
-		Sudo: sudo,
-		// Used for the module template in `./template.rs`
-		TemplateModule: template::{Module, Call, Storage, Event<T>},
+    pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
+        Block = Block,
+        NodeBlock = opaque::Block,
+        UncheckedExtrinsic = UncheckedExtrinsic
+    {
+        System: system::{default, Log(ChangesTrieRoot)},
+        Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
+        Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
+        Aura: aura::{Module, Inherent(Timestamp)},
+        Indices: indices,
+        Balances: balances,
+        Sudo: sudo,
+        // Used for the module template in `./template.rs`
+        TemplateModule: template::{Module, Call, Storage, Event<T>},
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Utils: utils::{Module, Call, Storage},
-		// Tm: tm::{Module, Call, Storage},
+        // Tm: tm::{Module, Call, Storage},
         Organisation: organisation::{Module, Call, Storage, Event<T>},
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
@@ -289,9 +373,18 @@ construct_runtime!(
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event<T>},
+        Session: session,
+        Staking: staking::{default, OfflineWorker},
+        Democracy: democracy,
+        Council: council::{Module, Call, Storage, Event<T>},
+        CouncilVoting: council_voting,
+        CouncilMotions: council_motions::{Module, Call, Storage, Event<T>, Origin},
+        CouncilSeats: council_seats::{Config<T>},
+        FinalityTracker: finality_tracker::{Module, Call, Inherent},
+        Grandpa: grandpa::{Module, Call, Storage, Config<T>, Log(), Event<T>},
+        Treasury: treasury,
         ERC20: erc20::{Module, Call, Storage, Event<T>, Config<T>},
-
-	}
+    }
 );
 
 /// The type used as a helper for interpreting the sender of transactions.
@@ -314,7 +407,7 @@ pub type Executive = executive::Executive<Runtime, Block, Context, Balances, All
 
 // Implement our runtime API endpoints. This is just a bunch of proxying.
 impl_runtime_apis! {
-    impl runtime_api::Core<Block> for Runtime {
+    impl client_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
             VERSION
         }
@@ -327,12 +420,12 @@ impl_runtime_apis! {
             Executive::initialize_block(header)
         }
 
-        fn authorities() -> Vec<AuthorityId> {
+        fn authorities() -> Vec<AuthorityIdFor<Block>> {
             panic!("Deprecated, please use `AuthoritiesApi`.")
         }
     }
 
-    impl runtime_api::Metadata<Block> for Runtime {
+    impl client_api::Metadata<Block> for Runtime {
         fn metadata() -> OpaqueMetadata {
             Runtime::metadata().into()
         }
@@ -360,9 +453,49 @@ impl_runtime_apis! {
         }
     }
 
-    impl runtime_api::TaggedTransactionQueue<Block> for Runtime {
+    impl client_api::TaggedTransactionQueue<Block> for Runtime {
         fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
             Executive::validate_transaction(tx)
+        }
+    }
+
+    impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
+        fn offchain_worker(number: NumberFor<Block>) {
+            Executive::offchain_worker(number)
+        }
+    }
+
+    impl fg_primitives::GrandpaApi<Block> for Runtime {
+        fn grandpa_pending_change(digest: &DigestFor<Block>)
+            -> Option<ScheduledChange<NumberFor<Block>>>
+        {
+            for log in digest.logs.iter().filter_map(|l| match l {
+                Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+                _ => None
+            }) {
+                if let Some(change) = Grandpa::scrape_digest_change(log) {
+                    return Some(change);
+                }
+            }
+            None
+        }
+
+        fn grandpa_forced_change(digest: &DigestFor<Block>)
+            -> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>
+        {
+            for log in digest.logs.iter().filter_map(|l| match l {
+                Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+                _ => None
+            }) {
+                if let Some(change) = Grandpa::scrape_digest_forced_change(log) {
+                    return Some(change);
+                }
+            }
+            None
+        }
+
+        fn grandpa_authorities() -> Vec<(AuthorityId, u64)> {
+            Grandpa::grandpa_authorities()
         }
     }
 
@@ -372,14 +505,8 @@ impl_runtime_apis! {
         }
     }
 
-    impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
-        fn offchain_worker(n: NumberFor<Block>) {
-            Executive::offchain_worker(n)
-        }
-    }
-
     impl consensus_authorities::AuthoritiesApi<Block> for Runtime {
-        fn authorities() -> Vec<AuthorityId> {
+        fn authorities() -> Vec<AuthorityIdFor<Block>> {
             Consensus::authorities()
         }
     }
