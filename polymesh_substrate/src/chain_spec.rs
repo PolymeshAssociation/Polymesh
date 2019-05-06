@@ -2,9 +2,9 @@ use hex_literal::{hex, hex_impl};
 pub use node_template_runtime::GenesisConfig;
 use node_template_runtime::{
     AccountId, AssetConfig, BalancesConfig, ConsensusConfig, CouncilSeatsConfig,
-    CouncilVotingConfig, DemocracyConfig, GrandpaConfig, IdentityConfig, IndicesConfig, Perbill,
-    Permill, SessionConfig, StakerStatus, StakingConfig, SudoConfig, TimestampConfig,
-    TreasuryConfig,
+    CouncilVotingConfig, DemocracyConfig, ERC20Config, GrandpaConfig, IdentityConfig,
+    IndicesConfig, Perbill, Permill, SessionConfig, StakerStatus, StakingConfig, SudoConfig,
+    TimestampConfig, TreasuryConfig,
 };
 use primitives::{crypto::UncheckedInto, ed25519, ed25519::Public as AuthorityId, sr25519, Pair};
 use substrate_service;
@@ -31,27 +31,25 @@ impl Alternative {
     /// Get an actual chain config from one of the alternatives.
     pub(crate) fn load(self) -> Result<ChainSpec, String> {
         Ok(match self {
-            Alternative::Aws => {
-                ChainSpec::from_genesis(
-                    "AWS",
-                    "aws",
-                    || {
-                        testnet_genesis(
-                        vec![(
-                            hex!["f8c3fe049c7ce8ad7387ec7ee31aa28790e1aa742e9b4d2b15b983dfb51cce29"].unchecked_into(),
-                            hex!["ae7f9412cb860d27303ed3296ddca201cdb3b24c9cf68bbf78923c99bb71e961"].unchecked_into(),
-                            hex!["11ed3fc1bd16dd030b695fb1a7a51cbd844bdc8465de856fb4e545e73e94d666"].unchecked_into(),
-                        )],
+            Alternative::Aws => ChainSpec::from_genesis(
+                "AWS",
+                "aws",
+                || {
+                    testnet_genesis(
+                        vec![
+                            get_authority_keys_from_seed("Alice"),
+                            get_authority_keys_from_seed("Bob"),
+                            get_authority_keys_from_seed("Charlie"),
+                        ],
                         get_account_id_from_seed("Alice"),
                     )
-                    },
-                    vec![],
-                    None,
-                    None,
-                    None,
-                    None,
-                )
-            }
+                },
+                vec![],
+                None,
+                None,
+                None,
+                None,
+            ),
             Alternative::Development => ChainSpec::from_genesis(
                 "Development",
                 "dev",
@@ -182,88 +180,91 @@ pub fn testnet_genesis(
     const ENDOWMENT: u128 = 1 << 20;
 
     GenesisConfig {
-		consensus: Some(ConsensusConfig {
-			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/node_template_runtime_wasm.compact.wasm").to_vec(),
-			authorities: initial_authorities.iter().map(|x| x.2.clone()).collect(),
-		}),
-		system: None,
-		indices: Some(IndicesConfig {
-			ids: endowed_accounts.clone(),
-		}),
+        consensus: Some(ConsensusConfig {
+            code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/node_template_runtime_wasm.compact.wasm").to_vec(),
+            authorities: initial_authorities.iter().map(|x| x.2.clone()).collect(),
+        }),
+        system: None,
+        indices: Some(IndicesConfig {
+            ids: endowed_accounts.clone(),
+        }),
         asset: Some(AssetConfig {
             asset_creation_fee: 250,
             fee_collector: get_account_id_from_seed("Dave"),
-	    }),
+        }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed("Dave"),
         }),
-		balances: Some(BalancesConfig {
-			transaction_base_fee: 1,
-			transaction_byte_fee: 0,
-			existential_deposit: 500,
-			transfer_fee: 0,
-			creation_fee: 0,
-			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
-			vesting: vec![],
-		}),
-		session: Some(SessionConfig {
-			validators: initial_authorities.iter().map(|x| x.1.clone()).collect(),
-			session_length: 10,
-			keys: initial_authorities.iter().map(|x| (x.1.clone(), x.2.clone())).collect::<Vec<_>>(),
-		}),
-		staking: Some(StakingConfig {
-			current_era: 0,
-			minimum_validator_count: 1,
-			validator_count: 2,
-			sessions_per_era: 5,
-			bonding_duration: 2 * 60 * 12,
-			offline_slash: Perbill::zero(),
-			session_reward: Perbill::zero(),
-			current_session_reward: 0,
-			offline_slash_grace: 0,
-			stakers: initial_authorities.iter().map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator)).collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.1.clone()).collect(),
-		}),
-		democracy: Some(DemocracyConfig {
-			launch_period: 9,
-			voting_period: 18,
-			minimum_deposit: 10,
-			public_delay: 0,
-			max_lock_periods: 6,
-		}),
-		council_seats: Some(CouncilSeatsConfig {
-			active_council: endowed_accounts.iter()
-				.filter(|&endowed| initial_authorities.iter().find(|&(_, controller, _)| controller == endowed).is_none())
-				.map(|a| (a.clone(), 1000000)).collect(),
-			candidacy_bond: 10,
-			voter_bond: 2,
-			present_slash_per_voter: 1,
-			carry_count: 4,
-			presentation_duration: 10,
-			approval_voting_period: 20,
-			term_duration: 1000000,
-			desired_seats: (endowed_accounts.len() / 2 - initial_authorities.len()) as u32,
-			inactive_grace_period: 1,
-		}),
-		council_voting: Some(CouncilVotingConfig {
-			cooloff_period: 75,
-			voting_period: 20,
-			enact_delay_period: 0,
-		}),
-		timestamp: Some(TimestampConfig {
-			minimum_period: 5,                    // 5*2=10 second block time.
-		}),
-		treasury: Some(TreasuryConfig {
-			proposal_bond: Permill::from_percent(5),
-			proposal_bond_minimum: 1_000_000,
-			spend_period: 12 * 60 * 24,
-			burn: Permill::from_percent(50),
-		}),
-		sudo: Some(SudoConfig {
-			key: root_key,
-		}),
-		grandpa: Some(GrandpaConfig {
-			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
-		}),
-	}
+        erc20: Some(ERC20Config {
+            creation_fee: 1000
+        }),
+        balances: Some(BalancesConfig {
+            transaction_base_fee: 1,
+            transaction_byte_fee: 0,
+            existential_deposit: 500,
+            transfer_fee: 0,
+            creation_fee: 0,
+            balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+            vesting: vec![],
+        }),
+        session: Some(SessionConfig {
+            validators: initial_authorities.iter().map(|x| x.1.clone()).collect(),
+            session_length: 10,
+            keys: initial_authorities.iter().map(|x| (x.1.clone(), x.2.clone())).collect::<Vec<_>>(),
+        }),
+        staking: Some(StakingConfig {
+            current_era: 0,
+            minimum_validator_count: 1,
+            validator_count: 2,
+            sessions_per_era: 5,
+            bonding_duration: 2 * 60 * 12,
+            offline_slash: Perbill::zero(),
+            session_reward: Perbill::zero(),
+            current_session_reward: 0,
+            offline_slash_grace: 0,
+            stakers: initial_authorities.iter().map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator)).collect(),
+            invulnerables: initial_authorities.iter().map(|x| x.1.clone()).collect(),
+        }),
+        democracy: Some(DemocracyConfig {
+            launch_period: 9,
+            voting_period: 18,
+            minimum_deposit: 10,
+            public_delay: 0,
+            max_lock_periods: 6,
+        }),
+        council_seats: Some(CouncilSeatsConfig {
+            active_council: endowed_accounts.iter()
+                .filter(|&endowed| initial_authorities.iter().find(|&(_, controller, _)| controller == endowed).is_none())
+                .map(|a| (a.clone(), 1000000)).collect(),
+            candidacy_bond: 10,
+            voter_bond: 2,
+            present_slash_per_voter: 1,
+            carry_count: 4,
+            presentation_duration: 10,
+            approval_voting_period: 20,
+            term_duration: 1000000,
+            desired_seats: (endowed_accounts.len() / 2 - initial_authorities.len()) as u32,
+            inactive_grace_period: 1,
+        }),
+        council_voting: Some(CouncilVotingConfig {
+            cooloff_period: 75,
+            voting_period: 20,
+            enact_delay_period: 0,
+        }),
+        timestamp: Some(TimestampConfig {
+            minimum_period: 5,                    // 5*2=10 second block time.
+        }),
+        treasury: Some(TreasuryConfig {
+            proposal_bond: Permill::from_percent(5),
+            proposal_bond_minimum: 1_000_000,
+            spend_period: 12 * 60 * 24,
+            burn: Permill::from_percent(50),
+        }),
+        sudo: Some(SudoConfig {
+            key: root_key,
+        }),
+        grandpa: Some(GrandpaConfig {
+            authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
+        }),
+    }
 }

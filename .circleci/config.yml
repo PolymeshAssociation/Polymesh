@@ -1,49 +1,58 @@
 version: 2
 jobs:
+  lint:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Check formatting
+          command: ./scripts/rustfmt.sh
+          working_directory: .
   build:
     docker:
-      - image: ubuntu:bionic
-
+      - image: maxsam4/rust
     environment:
-      BASH_ENV: "~/.cargo/env"
       VERBOSE: "1"
     steps:
       - checkout
       - restore_cache:
           keys:
-            - project-cache
-      - run:
-          name: Install system-wide dependencies
-          command: |
-            apt-get update
-            apt-get install -y build-essential curl
-            curl https://sh.rustup.rs -sSf > ~/rustup.sh
-            chmod a+x ~/rustup.sh
-            ~/rustup.sh -y
-            source ~/.cargo/env
-            rustup install nightly
-            rustup component add rustfmt --toolchain nightly
-            rustup default stable
-      - run:
-          name: Init Polymesh
-          command: ./init.sh
-          working_directory: ./polymesh_substrate
-      - run:
-          name: Run cargo-check
-          command: ./check.sh
-          working_directory: ./polymesh_substrate
-      - run:
-          name: Check formatting
-          command: ./scripts/rustfmt.sh
-          working_directory: .
+            - build-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
       - run:
           name: Compile everything
           command: ./build.sh
           working_directory: ./polymesh_substrate
+      - run:
+          name: Build rocksdb
+          command: cargo build -p rocksdb -j 1
+          working_directory: ./polymesh_substrate
+      - run:
+          name: Build release
+          command: cargo build -j 1
+          working_directory: ./polymesh_substrate
       - save_cache:
-          key: project-cache
+          key: build-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./polymesh_substrate/target"
             - "./polymesh_substrate/runtime/target"
             - "./polymesh_substrate/runtime/wasm/target"
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - build
+      - lint
+  daily-builds:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - build

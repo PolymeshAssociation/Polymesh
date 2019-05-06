@@ -66,6 +66,7 @@ pub type BlockNumber = u64;
 pub type Nonce = u64;
 
 mod asset;
+mod erc20;
 mod general_tm;
 mod identity;
 mod jurisdiction;
@@ -300,6 +301,12 @@ impl utils::Trait for Runtime {
     type TokenBalance = u128;
 }
 
+impl erc20::Trait for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type TokenFeeCharge = ();
+}
+
 // impl tm::Trait for Runtime {
 //         type Asset = Asset;
 // }
@@ -334,23 +341,23 @@ impl identity::Trait for Runtime {
 }
 
 construct_runtime!(
-	pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
-		Block = Block,
-		NodeBlock = opaque::Block,
-		UncheckedExtrinsic = UncheckedExtrinsic
-	{
-		System: system::{default, Log(ChangesTrieRoot)},
-		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
-		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Aura: aura::{Module, Inherent(Timestamp)},
-		Indices: indices,
-		Balances: balances,
-		Sudo: sudo,
-		// Used for the module template in `./template.rs`
-		TemplateModule: template::{Module, Call, Storage, Event<T>},
+    pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
+        Block = Block,
+        NodeBlock = opaque::Block,
+        UncheckedExtrinsic = UncheckedExtrinsic
+    {
+        System: system::{default, Log(ChangesTrieRoot)},
+        Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
+        Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
+        Aura: aura::{Module, Inherent(Timestamp)},
+        Indices: indices,
+        Balances: balances,
+        Sudo: sudo,
+        // Used for the module template in `./template.rs`
+        TemplateModule: template::{Module, Call, Storage, Event<T>},
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Utils: utils::{Module, Call, Storage},
-		// Tm: tm::{Module, Call, Storage},
+        // Tm: tm::{Module, Call, Storage},
         Organisation: organisation::{Module, Call, Storage, Event<T>},
         Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
@@ -358,16 +365,17 @@ construct_runtime!(
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Session: session,
-		Staking: staking::{default, OfflineWorker},
-		Democracy: democracy,
-		Council: council::{Module, Call, Storage, Event<T>},
-		CouncilVoting: council_voting,
-		CouncilMotions: council_motions::{Module, Call, Storage, Event<T>, Origin},
-		CouncilSeats: council_seats::{Config<T>},
-		FinalityTracker: finality_tracker::{Module, Call, Inherent},
-		Grandpa: grandpa::{Module, Call, Storage, Config<T>, Log(), Event<T>},
-		Treasury: treasury,
-	}
+        Staking: staking::{default, OfflineWorker},
+        Democracy: democracy,
+        Council: council::{Module, Call, Storage, Event<T>},
+        CouncilVoting: council_voting,
+        CouncilMotions: council_motions::{Module, Call, Storage, Event<T>, Origin},
+        CouncilSeats: council_seats::{Config<T>},
+        FinalityTracker: finality_tracker::{Module, Call, Inherent},
+        Grandpa: grandpa::{Module, Call, Storage, Config<T>, Log(), Event<T>},
+        Treasury: treasury,
+        ERC20: erc20::{Module, Call, Storage, Event<T>, Config<T>},
+    }
 );
 
 /// The type used as a helper for interpreting the sender of transactions.
