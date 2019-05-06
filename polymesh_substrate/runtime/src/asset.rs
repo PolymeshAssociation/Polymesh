@@ -4,12 +4,12 @@ use crate::percentage_tm;
 use crate::utils;
 use rstd::prelude::*;
 //use parity_codec::Codec;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
+use session;
 use support::traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason};
 use support::{
     decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
 };
-use session;
 use system::{self, ensure_signed};
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
@@ -34,6 +34,7 @@ pub trait Trait:
     type Currency: Currency<Self::AccountId>;
     // Handler for the unbalanced decrease when charging fee
     type TokenFeeCharge: OnUnbalanced<NegativeImbalanceOf<Self>>;
+    type CurrencyToBalance: Convert<FeeOf<Self>, <Self as balances::Trait>::Balance>;
 }
 
 // struct to store the token details
@@ -92,12 +93,17 @@ decl_module! {
             // <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
             // T::TokenFeeCharge::on_unbalanced(imbalance);
 
-            // Alternative way to take a fee - fee is paid to the validators
-            let my_fee = <T::Balance as As<u64>>::sa(1337);
+            // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
-            for i in 0..validators.len() {
-                <balances::Module<T> as Currency<_>>::transfer(&sender, &validators[i], my_fee/<T::Balance as As<usize>>::sa(validators.len()))?;
+            let fee = Self::asset_creation_fee();
+            let proportional_fee = fee / <FeeOf<T> as As<usize>>::sa(validators.len());
+            let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
+            for v in &validators {
+                <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
             }
+            let remainder_fee = fee - (proportional_fee * <FeeOf<T> as As<usize>>::sa(validators.len()));
+            let imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+            T::TokenFeeCharge::on_unbalanced(imbalance);
 
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
