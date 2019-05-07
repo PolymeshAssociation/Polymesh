@@ -263,25 +263,6 @@ decl_event!(
     }
 );
 
-pub trait IERC20<T, V> {
-    fn total_supply(_ticker: Vec<u8>) -> T;
-    fn balance(_ticker: Vec<u8>, who: V) -> T;
-}
-
-impl<T: Trait> IERC20<T::TokenBalance, T::AccountId> for Module<T>{
-    /// Get the asset `id` balance of `who`.
-    fn balance(_ticker: Vec<u8>, who: T::AccountId) -> T::TokenBalance {
-        let ticker = Self::_toUpper(_ticker);
-        return Self::balance_of((ticker, who));
-    }
-
-    // Get the total supply of an asset `id`
-    fn total_supply(_ticker: Vec<u8>) -> T::TokenBalance {
-        let ticker = Self::_toUpper(_ticker);
-        return Self::token_details(ticker).total_supply;
-    }
-}
-
 pub trait HasOwner<T> {
     fn is_owner(_ticker: Vec<u8>, who: T) -> bool;
 }
@@ -294,8 +275,9 @@ impl<T: Trait> HasOwner<T::AccountId> for Module<T> {
 }
 
 pub trait AssetTrait<T, V> {
+    fn total_supply(_ticker: Vec<u8>) -> V;
+    fn balance(_ticker: Vec<u8>, who: T) -> V;
     fn _mint_from_sto(ticker: Vec<u8>, sender: T, tokens_purchased: V) -> Result;
-
     fn is_owner(_ticker: Vec<u8>, who: T) -> bool;
 }
 
@@ -313,11 +295,19 @@ impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
         let token = Self::token_details(_ticker);
         token.owner == sender
     }
-}
 
-// impl<T: Trait> ERC20Trait<T::AccountId, T::TokenBalance> for module<T> {
-//     fn balanceOf()
-// }
+    /// Get the asset `id` balance of `who`.
+    fn balance(_ticker: Vec<u8>, who: T::AccountId) -> T::TokenBalance {
+        let ticker = Self::_toUpper(_ticker);
+        return Self::balance_of((ticker, who));
+    }
+
+    // Get the total supply of an asset `id`
+    fn total_supply(_ticker: Vec<u8>) -> T::TokenBalance {
+        let ticker = Self::_toUpper(_ticker);
+        return Self::token_details(ticker).total_supply;
+    }
+}
 
 /// All functions in the decl_module macro become part of the public interface of the module
 /// If they are there, they are accessible via extrinsics calls whether they are public or not
@@ -381,7 +371,10 @@ impl<T: Trait> Module<T> {
             to.clone(),
             value,
         );
-        ensure!(verification_whitelist.is_ok() && verification_percentage.is_ok(), "Restriction get invalidated");
+        ensure!(
+            verification_whitelist.is_ok() && verification_percentage.is_ok(),
+            "Restriction get invalidated"
+        );
         Ok(())
     }
 

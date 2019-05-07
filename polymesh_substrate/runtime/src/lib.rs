@@ -67,6 +67,7 @@ pub type Nonce = u64;
 
 mod asset;
 mod erc20;
+mod exemption;
 mod general_tm;
 mod identity;
 mod jurisdiction;
@@ -75,7 +76,6 @@ mod percentage_tm;
 mod sto_capped;
 mod template;
 mod utils;
-mod exemption;
 
 pub struct CurrencyToVoteHandler;
 
@@ -333,7 +333,7 @@ impl sto_capped::Trait for Runtime {
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type IERC20 = Asset;
+    type AssetTrait = Asset;
     type ExemptionTrait = Exemption;
 }
 

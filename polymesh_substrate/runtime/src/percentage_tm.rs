@@ -1,14 +1,14 @@
 use crate::asset;
+use crate::asset::AssetTrait;
 use crate::asset::HasOwner;
-use crate::asset::IERC20;
-use crate::utils;
 use crate::exemption;
 use crate::exemption::ExemptionTrait;
+use crate::utils;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, CheckedMul, CheckedDiv};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue
+    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
 };
 use system::{self, ensure_signed};
 
@@ -17,7 +17,7 @@ pub trait Trait: system::Trait + utils::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::HasOwner<Self::AccountId>;
-    type IERC20: asset::IERC20<Self::TokenBalance, Self::AccountId>;
+    type AssetTrait: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
     type ExemptionTrait: exemption::ExemptionTrait<Self::AccountId>;
 }
 
@@ -49,13 +49,13 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(Self::is_owner(ticker.clone(), sender.clone()),"Sender must be the token owner");
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
-            
+
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
             //SATYAM: TODO: Add the decimal restriction
             <MaximumPercentageEnabledForToken<T>>::insert(ticker.clone(), max_percentage);
             // Emit an event with values (Ticker of asset, max percentage, restriction enabled or not)
             Self::deposit_event(RawEvent::TogglePercentageRestriction(ticker, max_percentage, max_percentage != 0));
-            
+
             if max_percentage != 0 {
                 runtime_io::print("Maximum percentage restriction enabled!");
             } else {
@@ -64,12 +64,11 @@ decl_module! {
 
             Ok(())
         }
-        
+
     }
 }
 
 impl<T: Trait> Module<T> {
-
     pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
         let ticker = Self::_toUpper(_ticker);
         T::Asset::is_owner(ticker.clone(), sender)
@@ -89,28 +88,25 @@ impl<T: Trait> Module<T> {
         // TODO: Mould the integer into the module identity
         let is_exempted = T::ExemptionTrait::is_exempted(ticker.clone(), 2, to.clone());
         if max_percentage != 0 && !is_exempted {
-            let newBalance = (T::IERC20::balance(
-                    ticker.clone(), to.clone()
-                ))
+            let newBalance = (T::AssetTrait::balance(ticker.clone(), to.clone()))
                 .checked_add(&value)
                 .ok_or("Balance of to will get overflow")?;
-            let totalSupply = T::IERC20::total_supply(ticker);
+            let totalSupply = T::AssetTrait::total_supply(ticker);
 
-            let percentageBalance = (
-                newBalance.checked_mul(
-                    &(<T as utils::Trait>::as_tb((10 as u128).pow(18)))
-                    ).ok_or("unsafe multiplication")?
-                ).checked_div(&totalSupply)
-                .ok_or("unsafe division")?;
+            let percentageBalance = (newBalance
+                .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(18))))
+                .ok_or("unsafe multiplication")?)
+            .checked_div(&totalSupply)
+            .ok_or("unsafe division")?;
 
-            let allowed_token_amount = (
-                <T as utils::Trait>::as_tb(max_percentage as u128)
-                ).checked_mul(
-                    &(<T as utils::Trait>::as_tb((10 as u128).pow(16)))
-                ).ok_or("unsafe percentage multiplication")?;
+            let allowed_token_amount = (<T as utils::Trait>::as_tb(max_percentage as u128))
+                .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(16))))
+                .ok_or("unsafe percentage multiplication")?;
 
             if percentageBalance > allowed_token_amount {
-                runtime_io::print("It is failing because it is not validating the PercentageTM restrictions");
+                runtime_io::print(
+                    "It is failing because it is not validating the PercentageTM restrictions",
+                );
                 return Err("Cannot Transfer: Percentage TM restrictions not satisfied");
             }
         }
@@ -166,9 +162,6 @@ mod tests {
         type Log = DigestItem;
     }
 
-    impl utils:: Trait for test {
-        type TokenBalance = u64;
-    }
     impl Trait for Test {
         type Event = ();
     }
@@ -176,5 +169,4 @@ mod tests {
 
     type PercentageTM = Module<Test>;
 
-    
 }
