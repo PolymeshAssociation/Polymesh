@@ -482,7 +482,7 @@ impl<T: Trait> Module<T> {
             .ok_or("overflow in calculating balance")?;
 
         //PABLO: TODO: Add verify transfer check
-        
+
         //Increase total suply
         let mut token = Self::token_details(ticker.clone());
 
