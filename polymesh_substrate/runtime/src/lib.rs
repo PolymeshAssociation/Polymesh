@@ -216,6 +216,12 @@ impl asset::Trait for Runtime {
 
 impl utils::Trait for Runtime {
     type TokenBalance = u128;
+    fn as_u128(v: Self::TokenBalance) -> u128 {
+        v
+    }
+    fn as_tb(v: u128) -> Self::TokenBalance {
+        v
+    }
 }
 
 impl erc20::Trait for Runtime {

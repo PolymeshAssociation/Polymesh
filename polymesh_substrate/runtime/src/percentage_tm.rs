@@ -13,7 +13,7 @@ use support::{
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
+pub trait Trait: system::Trait + utils::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::HasOwner<Self::AccountId>;
@@ -51,6 +51,7 @@ decl_module! {
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
             
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
+            //SATYAM: TODO: Add the decimal restriction
             <MaximumPercentageEnabledForToken<T>>::insert(ticker.clone(), max_percentage);
             // Emit an event with values (Ticker of asset, max percentage, restriction enabled or not)
             Self::deposit_event(RawEvent::TogglePercentageRestriction(ticker, max_percentage, max_percentage != 0));
@@ -88,17 +89,29 @@ impl<T: Trait> Module<T> {
         // TODO: Mould the integer into the module identity
         let is_exempted = T::ExemptionTrait::is_exempted(ticker.clone(), 2, to.clone());
         if max_percentage != 0 && !is_exempted {
-            let newBalance = (T::IERC20::balance(ticker.clone(), to.clone())).checked_add(&value).ok_or("Balance of to will get overflow")?;
+            let newBalance = (T::IERC20::balance(
+                    ticker.clone(), to.clone()
+                ))
+                .checked_add(&value)
+                .ok_or("Balance of to will get overflow")?;
             let totalSupply = T::IERC20::total_supply(ticker);
+
             let percentageBalance = (
-                    newBalance.checked_div(&totalSupply)
-                    .ok_or("unsafe division")?
-                )
-                .checked_mul(&<T:: TokenBalance as As<u64>>::sa(100))
-                .ok_or("unsafe multiplication")?;
-            let _max_percentage = <T:: TokenBalance as As<u64>>::sa((max_percentage as u64));
-            if percentageBalance > _max_percentage {
-                return Err("Cannot Transfer: Percentage TM restrictions not satisfied")
+                newBalance.checked_mul(
+                    &(<T as utils::Trait>::as_tb((10 as u128).pow(18)))
+                    ).ok_or("unsafe multiplication")?
+                ).checked_div(&totalSupply)
+                .ok_or("unsafe division")?;
+
+            let allowed_token_amount = (
+                <T as utils::Trait>::as_tb(max_percentage as u128)
+                ).checked_mul(
+                    &(<T as utils::Trait>::as_tb((10 as u128).pow(16)))
+                ).ok_or("unsafe percentage multiplication")?;
+
+            if percentageBalance > allowed_token_amount {
+                runtime_io::print("It is failing because it is not validating the PercentageTM restrictions");
+                return Err("Cannot Transfer: Percentage TM restrictions not satisfied");
             }
         }
         runtime_io::print("It is passing thorugh the PercentageTM");
@@ -152,18 +165,16 @@ mod tests {
         type Event = ();
         type Log = DigestItem;
     }
+
+    impl utils:: Trait for test {
+        type TokenBalance = u64;
+    }
     impl Trait for Test {
         type Event = ();
     }
-    type TransferValidationModule = Module<Test>;
+    type Tcr = Module<Test>;
 
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
-        system::GenesisConfig::<Test>::default()
-            .build_storage()
-            .unwrap()
-            .0
-            .into()
-    }
+    type PercentageTM = Module<Test>;
+
+    
 }

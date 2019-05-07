@@ -374,17 +374,15 @@ impl<T: Trait> Module<T> {
             from.clone(),
             to.clone(),
             value,
-        )?;
+        );
         let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(
             _ticker.clone(),
             from.clone(),
             to.clone(),
             value,
-        )?;
+        );
+        ensure!(verification_whitelist.is_ok() && verification_percentage.is_ok(), "Restriction get invalidated");
         Ok(())
-        // if !verification_whitelist.0 {verification_whitelist}
-        // else if !verification_percentage.0 {verification_percentage}
-        // else {(true,"")}
     }
 
     // the ERC20 standard transfer function
