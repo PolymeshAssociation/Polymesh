@@ -2,7 +2,9 @@
   "name": "AWS",
   "id": "aws",
   "bootNodes": [
-    "/ip4/13.58.164.249/tcp/30333/p2p/QmSMSsMfmKVgzNi6yKi2BmzDA3M4no8gZFXLQyghBwGfPs"
+    "/ip4/52.66.243.128/tcp/30333/p2p/QmexZDfcmYoEc88ZKk8vyg2Qe7DXj52Kaus32NJBPjTr7Y",
+    "/ip4/13.58.164.249/tcp/30333/p2p/QmQyFHpu6GhhYANyrmbT9Yxs2PG9RT2jBxgCxT6314h5a2",
+    "/ip4/18.130.30.17/tcp/30333/p2p/QmdB73ndjqsmzLj3EVv1eatUaAgW2JxncdPiC95sppeSod"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
