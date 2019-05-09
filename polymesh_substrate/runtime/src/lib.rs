@@ -314,7 +314,6 @@ impl erc20::Trait for Runtime {
 impl general_tm::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type Identity = Identity;
 }
 
 impl sto_capped::Trait for Runtime {

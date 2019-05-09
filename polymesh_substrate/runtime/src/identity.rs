@@ -36,7 +36,7 @@ decl_storage! {
 
         ERC20IssuerList get(erc20_issuer_list): map T::AccountId => Issuer<T::AccountId>;
         IssuerList get(issuer_list): map T::AccountId => Issuer<T::AccountId>;
-        InvestorList get(investor_list): map T::AccountId => Investor<T::AccountId>;
+        pub InvestorList get(investor_list): map T::AccountId => Investor<T::AccountId>;
 
     }
 }

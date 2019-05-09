@@ -1,0 +1,81 @@
+# Asset module transfer test cases
+test_cases:
+- # Two simple, valid transfers
+  named_accounts: # Accounts participating in this testcase. IDs must be unique
+    identity-owner: # Special account able to add issuers and investors in the identity module
+      id: 1
+      balance: 1000000 # One million
+      issuer: true
+      investor: true
+    alice:
+      id: 2
+      balance: 10000000
+      issuer: true
+      investor: true
+    bob:
+      id: 3
+      balance: 1000000
+      issuer: true
+      investor: true
+  tokens: # Each entry key is also the ticker and name
+    A:
+      total_supply: 1000000
+      owner: alice
+      issuance_succeeds: true
+      whitelist_entries:
+        -
+          whitelist_id: 0
+          investor: alice
+          # Expiration time is expressed in hours relative to the moment of testing
+          expiry: -1
+        -
+          whitelist_id: 0
+          investor: bob
+          expiry: -1
+        -
+          whitelist_id: 0
+          investor: identity-owner
+          expiry: -1
+  allowances:
+    -
+      sender: alice
+      spender: bob
+      amount: 42
+      ticker: A
+      succeeds: true
+  transfers:
+    -
+      from: alice
+      to: bob
+      amount: 12
+      ticker: A
+      succeeds: true # The expected result of the operation
+  transfer_froms:
+    -
+      from: alice
+      to: identity-owner
+      spender: bob
+      amount: 15
+      ticker: A
+      succeeds: true
+- # Alice as a non-issuer expectedly can't create a token
+  named_accounts:
+    identity-owner:
+      id: 1
+      balance: 1000000
+      issuer: true
+      investor: true
+    alice:
+      id: 2
+      balance: 10000000
+      issuer: false
+      investor: true
+  tokens:
+    A:
+      total_supply: 1000000
+      owner: alice
+      issuance_succeeds: false
+      whitelist_entries: []
+  allowances: []
+  transfers: []
+  transfer_froms: []

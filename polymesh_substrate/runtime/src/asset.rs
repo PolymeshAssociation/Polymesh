@@ -1,5 +1,5 @@
 use crate::general_tm;
-use crate::identity;
+use crate::identity::{self, InvestorList};
 use crate::percentage_tm;
 use crate::utils;
 use rstd::prelude::*;
@@ -166,11 +166,7 @@ decl_module! {
 
             Self::_is_valid_transfer(ticker.clone(), from.clone(), to.clone(), value)?;
 
-            Self::_transfer(ticker.clone(), from.clone(), to.clone(), value)
-                .expect(
-                    "`from` should have the sufficient balance to transact; /
-                        Balance doesn't go beyond the overlimit;"
-                       );
+            Self::_transfer(ticker.clone(), from.clone(), to.clone(), value)?;
 
             // Change allowance afterwards
             <Allowance<T>>::insert((ticker.clone(), from.clone(), spender.clone()), updated_allowance);
@@ -269,7 +265,7 @@ pub trait HasOwner<T> {
 
 impl<T: Trait> HasOwner<T::AccountId> for Module<T> {
     fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let token = Self::token_details(_ticker);
+        let token = Self::token_details(_ticker.clone());
         token.owner == sender
     }
 }
@@ -387,8 +383,8 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
 
-        Self::_update_checkpoint(_ticker.clone(), from.clone(), sender_balance);
-        Self::_update_checkpoint(_ticker.clone(), to.clone(), receiver_balance);
+        Self::_update_checkpoint(_ticker.clone(), from.clone(), sender_balance)?;
+        Self::_update_checkpoint(_ticker.clone(), to.clone(), receiver_balance)?;
         // reduce sender's balance
         <BalanceOf<T>>::insert((_ticker.clone(), from.clone()), updated_from_balance);
 
@@ -476,6 +472,7 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
+    use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
     use primitives::{Blake2Hasher, H256};
     use runtime_io::with_externalities;
@@ -485,13 +482,16 @@ mod tests {
         BuildStorage,
     };
     use support::{assert_noop, assert_ok, impl_outer_origin};
+    use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
     use std::{
         collections::HashMap,
+        fs::read_to_string,
+        path::PathBuf,
         sync::{Arc, Mutex},
     };
 
-    use crate::identity::{IdentityTrait, Investor};
+    use crate::identity::Investor;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -527,7 +527,6 @@ mod tests {
     impl general_tm::Trait for Test {
         type Event = ();
         type Asset = Module<Test>;
-        type Identity = Module<Test>;
     }
     impl identity::Trait for Test {
         type Event = ();
@@ -564,22 +563,23 @@ mod tests {
         static ref INVESTOR_MAP_OUTER_LOCK: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
     }
 
-    impl IdentityTrait<<Test as system::Trait>::AccountId> for Module<Test> {
-        fn investor_data(
-            sender: <Test as system::Trait>::AccountId,
-        ) -> Investor<<Test as system::Trait>::AccountId> {
-            INVESTOR_MAP
-                .lock()
+    /// Build a genesis identity instance owned by account No. 1
+    fn identity_owned_by_1() -> runtime_io::TestExternalities<Blake2Hasher> {
+        let mut t = system::GenesisConfig::<Test>::default()
+            .build_storage()
+            .unwrap()
+            .0;
+        t.extend(
+            identity::GenesisConfig::<Test> { owner: 1 }
+                .build_storage()
                 .unwrap()
-                .get(&sender)
-                .unwrap_or(&Investor::default())
-                .clone()
-        }
+                .0,
+        );
+        t.into()
     }
 
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn identity_owned_by_1() -> runtime_io::TestExternalities<Blake2Hasher> {
+    /// Build a genesis identity instance owned by the specified account
+    fn identity_owned_by(id: u64) -> runtime_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::<Test>::default()
             .build_storage()
             .unwrap()
@@ -606,7 +606,8 @@ mod tests {
             // Raise the owner's base currency balance
             Balances::make_free_balance_be(&token.owner, 1_000_000);
 
-            identity::Module::<Test>::do_create_issuer(token.owner);
+            identity::Module::<Test>::do_create_issuer(token.owner)
+                .expect("Could not make token.owner an issuer");
 
             // Issuance is successful
             assert_ok!(asset::issue_token(
@@ -646,8 +647,369 @@ mod tests {
                 "user is not authorized"
             );
 
-            // A correct entry is added
+            // Entry is not added
             assert_ne!(asset::token_details(token.name.clone()), token);
         });
+    }
+
+    #[test]
+    /// This test loads up a YAML of testcases and checks each of them
+    fn transfer_scenarios_external() {
+        let mut yaml_path_buf = PathBuf::new();
+        yaml_path_buf.push(env!("CARGO_MANIFEST_DIR")); // This package's root
+        yaml_path_buf.push("tests/asset_transfers.yml");
+
+        println!("Loading YAML from {:?}", yaml_path_buf);
+
+        let yaml_string = read_to_string(yaml_path_buf.as_path())
+            .expect("Could not load the YAML file to a string");
+
+        // Parse the YAML
+        let yaml = YamlLoader::load_from_str(&yaml_string).expect("Could not parse the YAML file");
+
+        let yaml = &yaml[0];
+
+        let now = Utc::now();
+
+        for case in yaml["test_cases"]
+            .as_vec()
+            .expect("Could not reach test_cases")
+        {
+            println!("Case: {:#?}", case);
+
+            let accounts = case["named_accounts"]
+                .as_hash()
+                .expect("Could not view named_accounts as a hashmap");
+
+            let mut externalities = if let Some(identity_owner) =
+                accounts.get(&Yaml::String("identity-owner".to_owned()))
+            {
+                identity_owned_by(
+                    identity_owner["id"]
+                        .as_i64()
+                        .expect("Could not get identity owner's ID") as u64,
+                )
+            } else {
+                system::GenesisConfig::<Test>::default()
+                    .build_storage()
+                    .unwrap()
+                    .0
+                    .into()
+            };
+
+            with_externalities(&mut externalities, || {
+                // Instantiate accounts
+                for (name, account) in accounts {
+                    <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+                    let name = name
+                        .as_str()
+                        .expect("Could not take named_accounts key as string");
+                    let id = account["id"].as_i64().expect("id is not a number") as u64;
+                    let balance = account["balance"]
+                        .as_i64()
+                        .expect("balance is not a number");
+
+                    println!("Preparing account {}", name);
+
+                    Balances::make_free_balance_be(&id, balance.clone() as u128);
+                    println!("{}: gets {} initial balance", name, balance);
+                    if account["issuer"]
+                        .as_bool()
+                        .expect("Could not check if account is an issuer")
+                    {
+                        assert_ok!(identity::Module::<Test>::do_create_issuer(id));
+                        println!("{}: becomes issuer", name);
+                    }
+                    if account["investor"]
+                        .as_bool()
+                        .expect("Could not check if account is an investor")
+                    {
+                        assert_ok!(identity::Module::<Test>::do_create_investor(id));
+                        println!("{}: becomes investor", name);
+                    }
+                }
+
+                // Issue tokens
+                let tokens = case["tokens"]
+                    .as_hash()
+                    .expect("Could not view tokens as a hashmap");
+
+                for (ticker, token) in tokens {
+                    let ticker = ticker.as_str().expect("Can't parse ticker as string");
+                    println!("Preparing token {}:", ticker);
+
+                    let owner = token["owner"]
+                        .as_str()
+                        .expect("Can't parse owner as string");
+
+                    let owner_id = accounts
+                        .get(&Yaml::String(owner.to_owned()))
+                        .expect("Can't get owner record")["id"]
+                        .as_i64()
+                        .expect("Can't parse owner id as i64")
+                        as u64;
+                    let total_supply = token["total_supply"]
+                        .as_i64()
+                        .expect("Can't parse the total supply as i64")
+                        as u128;
+
+                    let token_struct = SecurityToken {
+                        name: ticker.to_owned().into_bytes(),
+                        owner: owner_id,
+                        total_supply,
+                    };
+                    println!("{:#?}", token_struct);
+
+                    // Check that issuing succeeds/fails as expected
+                    if token["issuance_succeeds"]
+                        .as_bool()
+                        .expect("Could not check if issuance should succeed")
+                    {
+                        assert_ok!(asset::issue_token(
+                            Origin::signed(token_struct.owner),
+                            token_struct.name.clone(),
+                            token_struct.name.clone(),
+                            token_struct.total_supply,
+                        ));
+
+                        // Also check that the new token matches what we asked to create
+                        assert_eq!(
+                            asset::token_details(token_struct.name.clone()),
+                            token_struct
+                        );
+
+                        // Check that the issuer's balance corresponds to total supply
+                        assert_eq!(
+                            asset::balance_of((token_struct.name, token_struct.owner)),
+                            token_struct.total_supply
+                        );
+
+                        // Add specified whitelist entries
+                        if let Some(identity_owner) =
+                            accounts.get(&Yaml::String("identity-owner".to_owned()))
+                        {
+                            let whitelists = token["whitelist_entries"]
+                                .as_vec()
+                                .expect("Could not view token whitelist entries as vec");
+
+                            for wl_entry in whitelists {
+                                let investor = wl_entry["investor"]
+                                    .as_str()
+                                    .expect("Can't parse investor as string");
+                                let investor_id = accounts
+                                    .get(&Yaml::String(investor.to_owned()))
+                                    .expect("Can't get investor account record")["id"]
+                                    .as_i64()
+                                    .expect("Can't parse investor id as i64")
+                                    as u64;
+
+                                let expiry = wl_entry["expiry"]
+                                    .as_i64()
+                                    .expect("Can't parse expiry as i64");
+
+                                let wl_id = wl_entry["whitelist_id"]
+                                    .as_i64()
+                                    .expect("Could not parse whitelist_id as i64")
+                                    as u32;
+
+                                println!(
+                                    "Token {}: processing whitelist entry for {}",
+                                    ticker, investor
+                                );
+
+                                general_tm::Module::<Test>::add_to_whitelist(
+                                    Origin::signed(owner_id),
+                                    ticker.to_owned().into_bytes(),
+                                    wl_id,
+                                    investor_id,
+                                    (now + Duration::hours(expiry)).timestamp() as u64,
+                                )
+                                .expect("Could not create whitelist entry");
+                            }
+                        }
+                    } else {
+                        assert!(asset::issue_token(
+                            Origin::signed(token_struct.owner),
+                            token_struct.name.clone(),
+                            token_struct.name.clone(),
+                            token_struct.total_supply,
+                        )
+                        .is_err());
+                    }
+                }
+
+                // Set up allowances
+                let allowances = case["allowances"]
+                    .as_vec()
+                    .expect("Could not view allowances as a vec");
+
+                for allowance in allowances {
+                    let sender = allowance["sender"]
+                        .as_str()
+                        .expect("Could not view sender as str");
+                    let sender_id = case["named_accounts"][sender]["id"]
+                        .as_i64()
+                        .expect("Could not view sender id as i64")
+                        as u64;
+                    let spender = allowance["spender"]
+                        .as_str()
+                        .expect("Could not view spender as str");
+                    let spender_id = case["named_accounts"][spender]["id"]
+                        .as_i64()
+                        .expect("Could not view sender id as i64")
+                        as u64;
+                    let amount = allowance["amount"]
+                        .as_i64()
+                        .expect("Could not view amount as i64")
+                        as u128;
+                    let ticker = allowance["ticker"]
+                        .as_str()
+                        .expect("Could not view ticker as str");
+                    let succeeds = allowance["succeeds"]
+                        .as_bool()
+                        .expect("Could not determine if allowance should succeed");
+
+                    if succeeds {
+                        assert_ok!(asset::approve(
+                            Origin::signed(sender_id),
+                            ticker.to_owned().into_bytes(),
+                            spender_id,
+                            amount,
+                        ));
+                    } else {
+                        assert!(asset::approve(
+                            Origin::signed(sender_id),
+                            ticker.to_owned().into_bytes(),
+                            spender_id,
+                            amount,
+                        )
+                        .is_err())
+                    }
+                }
+
+                println!("Transfers:");
+                // Perform regular transfers
+                let transfers = case["transfers"]
+                    .as_vec()
+                    .expect("Could not view transfers as vec");
+                for transfer in transfers {
+                    let from = transfer["from"]
+                        .as_str()
+                        .expect("Could not view from as str");
+                    let from_id = case["named_accounts"][from]["id"]
+                        .as_i64()
+                        .expect("Could not view from_id as i64")
+                        as u64;
+                    let to = transfer["to"].as_str().expect("Could not view to as str");
+                    let to_id = case["named_accounts"][to]["id"]
+                        .as_i64()
+                        .expect("Could not view to_id as i64")
+                        as u64;
+                    let amount = transfer["amount"]
+                        .as_i64()
+                        .expect("Could not view amount as i64")
+                        as u128;
+                    let ticker = transfer["ticker"]
+                        .as_str()
+                        .expect("Coule not view ticker as str")
+                        .to_owned();
+                    let succeeds = transfer["succeeds"]
+                        .as_bool()
+                        .expect("Could not view succeeds as bool");
+
+                    println!("{} of token {} from {} to {}", amount, ticker, from, to);
+                    let ticker = ticker.into_bytes();
+
+                    // Get sender's investor data
+                    let investor_data = <InvestorList<Test>>::get(from_id);
+
+                    println!("{}'s investor data: {:#?}", from, investor_data);
+
+                    if succeeds {
+                        assert_ok!(asset::transfer(
+                            Origin::signed(from_id),
+                            ticker,
+                            to_id,
+                            amount
+                        ));
+                    } else {
+                        assert!(
+                            asset::transfer(Origin::signed(from_id), ticker, to_id, amount)
+                                .is_err()
+                        );
+                    }
+                }
+
+                println!("Approval-basedt transfers:");
+                // Perform regular transfers
+                let transfer_froms = case["transfer_froms"]
+                    .as_vec()
+                    .expect("Could not view transfer_froms as vec");
+                for transfer_from in transfer_froms {
+                    let from = transfer_from["from"]
+                        .as_str()
+                        .expect("Could not view from as str");
+                    let from_id = case["named_accounts"][from]["id"]
+                        .as_i64()
+                        .expect("Could not view from_id as i64")
+                        as u64;
+                    let spender = transfer_from["spender"]
+                        .as_str()
+                        .expect("Could not view spender as str");
+                    let spender_id = case["named_accounts"][spender]["id"]
+                        .as_i64()
+                        .expect("Could not view spender_id as i64")
+                        as u64;
+                    let to = transfer_from["to"]
+                        .as_str()
+                        .expect("Could not view to as str");
+                    let to_id = case["named_accounts"][to]["id"]
+                        .as_i64()
+                        .expect("Could not view to_id as i64")
+                        as u64;
+                    let amount = transfer_from["amount"]
+                        .as_i64()
+                        .expect("Could not view amount as i64")
+                        as u128;
+                    let ticker = transfer_from["ticker"]
+                        .as_str()
+                        .expect("Coule not view ticker as str")
+                        .to_owned();
+                    let succeeds = transfer_from["succeeds"]
+                        .as_bool()
+                        .expect("Could not view succeeds as bool");
+
+                    println!(
+                        "{} of token {} from {} to {} spent by {}",
+                        amount, ticker, from, to, spender
+                    );
+                    let ticker = ticker.into_bytes();
+
+                    // Get sender's investor data
+                    let investor_data = <InvestorList<Test>>::get(spender_id);
+
+                    println!("{}'s investor data: {:#?}", from, investor_data);
+
+                    if succeeds {
+                        assert_ok!(asset::transfer_from(
+                            Origin::signed(spender_id),
+                            ticker,
+                            from_id,
+                            to_id,
+                            amount
+                        ));
+                    } else {
+                        assert!(asset::transfer_from(
+                            Origin::signed(from_id),
+                            ticker,
+                            from_id,
+                            to_id,
+                            amount
+                        )
+                        .is_err());
+                    }
+                }
+            });
+        }
     }
 }

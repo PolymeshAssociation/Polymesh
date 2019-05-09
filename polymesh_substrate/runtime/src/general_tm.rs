@@ -1,7 +1,7 @@
 use crate::asset;
 use crate::asset::HasOwner;
-use crate::identity;
 use crate::identity::IdentityTrait;
+use crate::identity::{self, InvestorList};
 use crate::utils;
 
 use rstd::prelude::*;
@@ -12,13 +12,12 @@ use support::{
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
+pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
     // TODO: Add other types and constants required configure this module.
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::HasOwner<Self::AccountId>;
-    type Identity: identity::IdentityTrait<Self::AccountId>;
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
@@ -119,7 +118,7 @@ impl<T: Trait> Module<T> {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let now = <timestamp::Module<T>>::get();
 
-        let investorFrom = T::Identity::investor_data(from.clone());
+        let investorFrom = <InvestorList<T>>::get(from.clone());
         ensure!(
             investorFrom.active && investorFrom.access_level == 1,
             "From account is not active"
@@ -132,6 +131,7 @@ impl<T: Trait> Module<T> {
             let whitelist_for_from =
                 Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
             let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
+
             if (whitelist_for_from.can_send_after > T::Moment::sa(0)
                 && now >= whitelist_for_from.can_send_after)
                 && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
