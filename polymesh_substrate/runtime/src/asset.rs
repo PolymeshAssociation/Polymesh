@@ -75,7 +75,7 @@ decl_module! {
         // makes the initiating account the owner of the token
         // the balance of the owner is set to total supply
         fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
 
@@ -114,7 +114,7 @@ decl_module! {
         // transfer tokens from one account to another
         // origin is assumed as sender
         fn transfer(_origin, _ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             Self::_is_valid_transfer(ticker.clone(), sender.clone(), to.clone(), value)?;
 
@@ -124,7 +124,7 @@ decl_module! {
         // transfer tokens from one account to another
         // origin is assumed as sender
         fn force_transfer(_origin, _ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
 
@@ -138,7 +138,7 @@ decl_module! {
         // approve token transfer from one account to another
         // once this is done, transfer_from can be called with corresponding values
         fn approve(_origin, _ticker: Vec<u8>, spender: T::AccountId, value: T::TokenBalance) -> Result {
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
 
@@ -156,7 +156,7 @@ decl_module! {
         // if approved, transfer from an account to another account without owner's signature
         pub fn transfer_from(_origin, _ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, value: T::TokenBalance) -> Result {
             let spender = ensure_signed(_origin)?;
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), spender.clone())), "Allowance does not exist");
             let allowance = Self::allowance((ticker.clone(), from.clone(), spender.clone()));
             ensure!(allowance >= value, "Not enough allowance");
@@ -181,7 +181,7 @@ decl_module! {
 
       // called by issuer to create checkpoints
         pub fn create_checkpoint(_origin, _ticker: Vec<u8>) -> Result {
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
@@ -191,13 +191,13 @@ decl_module! {
         // called by issuer to create checkpoints
         pub fn balance_at(_origin, _ticker: Vec<u8>, owner: T::AccountId, checkpoint: u32) -> Result {
             ensure_signed(_origin)?; //not needed
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             Self::deposit_event(RawEvent::BalanceAt(ticker.clone(), owner.clone(), checkpoint, Self::get_balance_at(ticker.clone(), owner, checkpoint)));
             Ok(())
         }
 
         pub fn mint(_origin, _ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
-            let ticker = Self::_toUpper(_ticker.clone());
+            let ticker = utils::bytes_to_upper(_ticker.clone().as_slice());
             let sender = ensure_signed(_origin)?;
 
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
@@ -205,7 +205,7 @@ decl_module! {
         }
 
         pub fn burn(_origin, _ticker: Vec<u8>, value: T::TokenBalance) -> Result {
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
@@ -286,7 +286,7 @@ impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
         sender: T::AccountId,
         tokens_purchased: T::TokenBalance,
     ) -> Result {
-        let _ticker = Self::_toUpper(ticker);
+        let _ticker = utils::bytes_to_upper(ticker.as_slice());
         Self::_mint(_ticker, sender, tokens_purchased)
     }
 
@@ -307,18 +307,18 @@ impl<T: Trait> Module<T> {
 
     /// Get the asset `id` balance of `who`.
     pub fn balance(_ticker: Vec<u8>, who: T::AccountId) -> T::TokenBalance {
-        let ticker = Self::_toUpper(_ticker);
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
         Self::balance_of((ticker, who))
     }
 
     // Get the total supply of an asset `id`
     pub fn total_supply(_ticker: Vec<u8>) -> T::TokenBalance {
-        let ticker = Self::_toUpper(_ticker);
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
         Self::token_details(ticker).total_supply
     }
 
     pub fn get_balance_at(_ticker: Vec<u8>, _of: T::AccountId, mut _at: u32) -> T::TokenBalance {
-        let ticker = Self::_toUpper(_ticker);
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let max = Self::total_checkpoints_of(ticker.clone());
 
         if _at > max {
@@ -436,16 +436,6 @@ impl<T: Trait> Module<T> {
             }
         }
         Ok(())
-    }
-
-    fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
-        let mut hexArray = _hexArray.clone();
-        for i in &mut hexArray {
-            if *i >= 97 && *i <= 122 {
-                *i -= 32;
-            }
-        }
-        return hexArray;
     }
 
     fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {

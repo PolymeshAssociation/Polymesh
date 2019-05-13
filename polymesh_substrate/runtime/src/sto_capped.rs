@@ -60,7 +60,7 @@ decl_module! {
 
         pub fn launch_sto(origin, _ticker: Vec<u8>, beneficiary: T::AccountId, cap: T::TokenBalance, rate: u64, start_date: T::Moment, end_date: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
             let sto = STO {
@@ -88,7 +88,7 @@ decl_module! {
 
         pub fn buy_tokens(origin, _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> Result {
             let sender = ensure_signed(origin)?;
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
             //PABLO: TODO: Validate that buyer is whitelisted for primary issuance.
 
@@ -148,18 +148,8 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
     pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let ticker = Self::_toUpper(_ticker);
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
         T::Asset::is_owner(ticker.clone(), sender)
-    }
-
-    fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
-        let mut hexArray = _hexArray.clone();
-        for i in &mut hexArray {
-            if *i >= 97 && *i <= 122 {
-                *i -= 32;
-            }
-        }
-        return hexArray;
     }
 }
 

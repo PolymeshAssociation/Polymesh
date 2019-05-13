@@ -51,7 +51,7 @@ decl_module! {
 
         pub fn add_to_whitelist(origin, _ticker: Vec<u8>, _whitelistId: u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
             let whitelist = Whitelist {
@@ -103,7 +103,7 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
     pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let ticker = Self::_toUpper(_ticker);
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
         T::Asset::is_owner(ticker.clone(), sender)
         // let token = T::Asset::token_details(token_id);
         // token.owner == sender
@@ -116,7 +116,7 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let ticker = Self::_toUpper(_ticker);
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let now = <timestamp::Module<T>>::get();
 
         let investorFrom = T::Identity::investor_data(from.clone());
@@ -142,16 +142,6 @@ impl<T: Trait> Module<T> {
         }
 
         Err("Cannot Transfer: General TM restrictions not satisfied")
-    }
-
-    fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
-        let mut hexArray = _hexArray.clone();
-        for i in &mut hexArray {
-            if *i >= 97 && *i <= 122 {
-                *i -= 32;
-            }
-        }
-        return hexArray;
     }
 }
 
