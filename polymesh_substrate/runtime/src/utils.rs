@@ -1,4 +1,5 @@
 use parity_codec::Codec;
+use rstd::prelude::*;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Member, SimpleArithmetic};
 use support::{decl_event, decl_module, decl_storage, ensure, Parameter, StorageMap, StorageValue};
 use system::{self, ensure_signed};
@@ -27,4 +28,16 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
     }
+}
+
+// Other utility functions
+#[inline]
+/// Convert all letter characters of a slice to their upper case counterparts.
+pub fn bytes_to_upper(v: &[u8]) -> Vec<u8> {
+    v.iter()
+        .map(|chr| match chr {
+            97..=122 => chr - 32,
+            other => *other,
+        })
+        .collect()
 }

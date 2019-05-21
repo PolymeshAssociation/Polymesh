@@ -32,7 +32,7 @@ decl_module! {
         fn deposit_event<T>() = default;
 
         fn toggle_maximum_percentage_restriction(origin, _ticker: Vec<u8>, enable:bool, max_percentage: u16) -> Result  {
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             ensure!(Self::is_owner(ticker.clone(), sender.clone()),"Sender must be the token owner");
 
@@ -62,7 +62,7 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
     pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let ticker = Self::_toUpper(_ticker);
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
         T::Asset::is_owner(ticker.clone(), sender)
         // let token = T::Asset::token_details(token_id);
         // token.owner == sender
@@ -75,7 +75,7 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let ticker = Self::_toUpper(_ticker);
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let mut _can_transfer = Self::maximum_percentage_enabled_for_token(ticker.clone());
         let enabled = _can_transfer.0;
         // If the restriction is enabled, then we need to make the calculations, otherwise all good
@@ -84,16 +84,6 @@ impl<T: Trait> Module<T> {
         } else {
             Ok(())
         }
-    }
-
-    fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
-        let mut hexArray = _hexArray.clone();
-        for i in &mut hexArray {
-            if *i >= 97 && *i <= 122 {
-                *i -= 32;
-            }
-        }
-        return hexArray;
     }
 }
 
