@@ -37,8 +37,8 @@ pub trait Trait:
 // struct to store the token details
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U, V> {
-    name: Vec<u8>,
-    total_supply: U,
+    pub name: Vec<u8>,
+    pub total_supply: U,
     pub owner: V,
 }
 
