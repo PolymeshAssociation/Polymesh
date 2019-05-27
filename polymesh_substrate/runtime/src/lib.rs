@@ -66,6 +66,7 @@ pub type BlockNumber = u64;
 pub type Nonce = u64;
 
 mod asset;
+mod dividend;
 mod erc20;
 mod exemption;
 mod general_tm;
@@ -343,6 +344,10 @@ impl exemption::Trait for Runtime {
     type Asset = Asset;
 }
 
+impl dividend::Trait for Runtime {
+    type Event = Event;
+}
+
 construct_runtime!(
     pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
         Block = Block,
@@ -360,6 +365,7 @@ construct_runtime!(
         TemplateModule: template::{Module, Call, Storage, Event<T>},
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Utils: utils::{Module, Call, Storage},
+        Dividend: dividend::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},

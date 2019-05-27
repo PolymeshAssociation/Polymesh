@@ -45,9 +45,9 @@ decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         FeeCollector get(fee_collector) config(): T::AccountId;
         // details of the token corresponding to the token ticker
-        Tokens get(token_details): map Vec<u8> => SecurityToken<T::TokenBalance, T::AccountId>;
+        pub Tokens get(token_details): map Vec<u8> => SecurityToken<T::TokenBalance, T::AccountId>;
         // balances mapping for an account and token
-        BalanceOf get(balance_of): map (Vec<u8>, T::AccountId) => T::TokenBalance;
+        pub BalanceOf get(balance_of): map (Vec<u8>, T::AccountId) => T::TokenBalance;
         // allowance for an account and token
         Allowance get(allowance): map (Vec<u8>, T::AccountId, T::AccountId) => T::TokenBalance;
         // cost in base currency to create a token
@@ -293,8 +293,7 @@ impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
     }
 
     fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let token = Self::token_details(_ticker);
-        token.owner == sender
+        Self::_is_owner(_ticker, sender)
     }
 
     /// Get the asset `id` balance of `who`.
@@ -318,6 +317,10 @@ impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
 /// All functions in the impl module section are not part of public interface because they are not part of the Call enum
 impl<T: Trait> Module<T> {
     // Public immutables
+    pub fn _is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+        let token = Self::token_details(_ticker);
+        token.owner == sender
+    }
 
     /// Get the asset `id` balance of `who`.
     pub fn balance(_ticker: Vec<u8>, who: T::AccountId) -> T::TokenBalance {
@@ -454,8 +457,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let token = Self::token_details(_ticker);
-        token.owner == sender
+        Self::_is_owner(_ticker, sender)
     }
 
     pub fn _mint(ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
