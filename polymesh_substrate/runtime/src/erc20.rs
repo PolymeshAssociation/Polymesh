@@ -146,6 +146,31 @@ decl_event!(
     }
 );
 
+pub trait ERC20Trait<T, V> {
+    //pub fn approve(sender: T, ticker: Vec<u8>, spender: T, value: V) -> Result ;
+
+    fn transfer(sender: T, ticker: Vec<u8>, to: T, amount: V) -> Result;
+
+    fn balanceOf(ticker: Vec<u8>, owner: T) -> V;
+
+    //pub fn transfer_from(sender: T, ticker: Vec<u8>, from: T, to: T, amount: V) -> Result;
+}
+
+impl<T: Trait> ERC20Trait<T::AccountId, T::TokenBalance> for Module<T> {
+    fn transfer(
+        sender: T::AccountId,
+        ticker: Vec<u8>,
+        to: T::AccountId,
+        amount: T::TokenBalance,
+    ) -> Result {
+        Self::_transfer(ticker.clone(), sender, to, amount)
+    }
+
+    fn balanceOf(ticker: Vec<u8>, owner: T::AccountId) -> T::TokenBalance {
+        Self::balance_of((ticker, owner))
+    }
+}
+
 impl<T: Trait> Module<T> {
     fn _transfer(
         ticker: Vec<u8>,

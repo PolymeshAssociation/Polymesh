@@ -1,5 +1,7 @@
 use crate::asset;
 use crate::asset::AssetTrait;
+use crate::erc20;
+use crate::erc20::ERC20Trait;
 use crate::identity;
 use crate::identity::IdentityTrait;
 use crate::utils;
@@ -20,6 +22,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + balances::Tra
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
     type Identity: identity::IdentityTrait<Self::AccountId>;
+    type ERC20Trait: erc20::ERC20Trait<Self::AccountId, Self::TokenBalance>;
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
@@ -48,6 +51,16 @@ decl_storage! {
         StosByToken get(stos_by_token): map (Vec<u8>, u32) => STO<T::AccountId,T::TokenBalance,T::Moment>;
 
         StoCount get(sto_count): map (Vec<u8>) => u32;
+
+        // List of ERC20 tokens which will be accepted as the investment currency for the STO
+        // [asset_ticker][sto_id][index] => erc20_ticker
+        AllowedTokens get(allowed_tokens): map(Vec<u8>, u32, u32) => Vec<u8>;
+        // To track the index of the token address for the given STO
+        // [Asset_ticker][sto_id][erc20_ticker] => index
+        TokenIndexForSTO get(token_index_for_sto): map(Vec<u8>, u32, Vec<u8>) => Option<u32>;
+        // To track the no of different tokens allowed as investment currency for the given STO
+        // [asset_ticker][sto_id] => count
+        TokensCountForSto get(tokens_count_for_sto): map(Vec<u8>, u32) => u32;
     }
 }
 
@@ -134,6 +147,80 @@ decl_module! {
             Ok(())
         }
 
+        pub fn modify_allowed_tokens(origin, _ticker: Vec<u8>, sto_id: u32, erc20_ticker: Vec<u8>, modify_status: bool) -> Result {
+            let sender = ensure_signed(origin)?;
+            let ticker = Self::_toUpper(_ticker);
+
+            let selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
+            let now = <timestamp::Module<T>>::get();
+            // Right now we are only allowing the issuer to change the configuration only before the STO start not after the start
+            // or STO should be in non-active stage
+            ensure!(now < selected_sto.start_date || !selected_sto.active, "STO is already started");
+
+            ensure!(Self::is_owner(ticker.clone(),sender), "Not authorised to execute this function");
+
+            let token_index = Self::token_index_for_sto((ticker.clone(), sto_id, erc20_ticker.clone()));
+            let token_count = Self::tokens_count_for_sto((ticker.clone(), sto_id));
+
+            let current_status = match token_index == None {
+                true => false,
+                false => true,
+            };
+
+            ensure!(current_status != modify_status, "Already in that state");
+
+            if modify_status {
+                let new_count = token_count.checked_add(1).ok_or("overflow new token count value")?;
+                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_id, erc20_ticker.clone()), new_count);
+                <AllowedTokens<T>>::insert((ticker.clone(), sto_id, new_count), erc20_ticker.clone());
+                <TokensCountForSto<T>>::insert((ticker.clone(), sto_id), new_count);
+            } else {
+                let new_count = token_count.checked_sub(1).ok_or("underflow new token count value")?;
+                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_id, erc20_ticker.clone()), new_count);
+                <AllowedTokens<T>>::insert((ticker.clone(), sto_id, new_count), vec![]);
+                <TokensCountForSto<T>>::insert((ticker.clone(), sto_id), new_count);
+            }
+
+            Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, erc20_ticker, sto_id, modify_status));
+
+            Ok(())
+
+        }
+
+        pub fn buy_tokens_by_erc20(origin, _ticker: Vec<u8>, sto_id: u32, value: T::TokenBalance, erc20_ticker: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let ticker = Self::_toUpper(_ticker);
+
+            // Check whether given token is allowed as investment currency or not
+            ensure!(Self::token_index_for_sto((ticker.clone(), sto_id, erc20_ticker.clone())) != None, "Given token is not a permitted investment currency");
+            let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
+
+            let now = <timestamp::Module<T>>::get();
+            ensure!(now >= selected_sto.start_date && now <= selected_sto.end_date, "STO has not started or already ended");
+            ensure!(selected_sto.active, "STO is not active at the moment");
+            ensure!(T::ERC20Trait::balanceOf(erc20_ticker.clone(), sender.clone()) >= value, "Insufficient balance");
+
+            //  Calculate tokens to mint
+            let token_conversion = value.checked_mul(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
+                .ok_or("overflow in calculating tokens")?;
+
+            selected_sto.sold = selected_sto.sold
+                .checked_add(&token_conversion)
+                .ok_or("overflow while calculating tokens sold")?;
+
+            ensure!(selected_sto.sold <= selected_sto.cap, "There's not enough tokens");
+
+            // Mint tokens and update STO
+            T::Asset::_mint_from_sto(ticker.clone(), sender.clone(), token_conversion);
+
+            T::ERC20Trait::transfer(sender, erc20_ticker.clone(), selected_sto.beneficiary.clone(), value)?;
+
+            <StosByToken<T>>::insert((ticker.clone(),sto_id), selected_sto);
+            runtime_io::print("Invested in STO");
+
+            Ok(())
+        }
+
     }
 }
 
@@ -143,6 +230,7 @@ decl_event!(
         AccountId = <T as system::Trait>::AccountId,
     {
         Example(u32, AccountId, AccountId),
+        ModifyAllowedTokens(Vec<u8>, Vec<u8>, u32, bool),
     }
 );
 
