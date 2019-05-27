@@ -60,7 +60,7 @@ decl_module! {
 
         pub fn launch_sto(origin, _ticker: Vec<u8>, beneficiary: T::AccountId, cap: T::TokenBalance, rate: u64, start_date: T::Moment, end_date: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
 
             let sto = STO {
@@ -88,7 +88,7 @@ decl_module! {
 
         pub fn buy_tokens(origin, _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> Result {
             let sender = ensure_signed(origin)?;
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
             //PABLO: TODO: Validate that buyer is whitelisted for primary issuance.
 
@@ -148,69 +148,61 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
     pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let ticker = Self::_toUpper(_ticker);
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
         T::Asset::is_owner(ticker.clone(), sender)
-    }
-
-    fn _toUpper(_hexArray: Vec<u8>) -> Vec<u8> {
-        let mut hexArray = _hexArray.clone();
-        for i in &mut hexArray {
-            if *i >= 97 && *i <= 122 {
-                *i -= 32;
-            }
-        }
-        return hexArray;
     }
 }
 
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use primitives::{Blake2Hasher, H256};
-    use runtime_io::with_externalities;
-    use runtime_primitives::{
-        testing::{Digest, DigestItem, Header},
-        traits::{BlakeTwo256, IdentityLookup},
-        BuildStorage,
-    };
-    use support::{assert_ok, impl_outer_origin};
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
-
-    // For testing the module, we construct most of a mock runtime. This means
-    // first constructing a configuration type (`Test`) which `impl`s each of the
-    // configuration traits of modules we want to use.
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
-    impl system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type Digest = Digest;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type Log = DigestItem;
-    }
-    impl Trait for Test {
-        type Event = ();
-    }
-    type TransferValidationModule = Module<Test>;
-
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
-        system::GenesisConfig::<Test>::default()
-            .build_storage()
-            .unwrap()
-            .0
-            .into()
-    }
+    /*
+     *    use super::*;
+     *
+     *    use primitives::{Blake2Hasher, H256};
+     *    use runtime_io::with_externalities;
+     *    use runtime_primitives::{
+     *        testing::{Digest, DigestItem, Header},
+     *        traits::{BlakeTwo256, IdentityLookup},
+     *        BuildStorage,
+     *    };
+     *    use support::{assert_ok, impl_outer_origin};
+     *
+     *    impl_outer_origin! {
+     *        pub enum Origin for Test {}
+     *    }
+     *
+     *    // For testing the module, we construct most of a mock runtime. This means
+     *    // first constructing a configuration type (`Test`) which `impl`s each of the
+     *    // configuration traits of modules we want to use.
+     *    #[derive(Clone, Eq, PartialEq)]
+     *    pub struct Test;
+     *    impl system::Trait for Test {
+     *        type Origin = Origin;
+     *        type Index = u64;
+     *        type BlockNumber = u64;
+     *        type Hash = H256;
+     *        type Hashing = BlakeTwo256;
+     *        type Digest = Digest;
+     *        type AccountId = u64;
+     *        type Lookup = IdentityLookup<Self::AccountId>;
+     *        type Header = Header;
+     *        type Event = ();
+     *        type Log = DigestItem;
+     *    }
+     *    impl Trait for Test {
+     *        type Event = ();
+     *    }
+     *    type TransferValidationModule = Module<Test>;
+     *
+     *    // This function basically just builds a genesis storage key/value store according to
+     *    // our desired mockup.
+     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+     *        system::GenesisConfig::<Test>::default()
+     *            .build_storage()
+     *            .unwrap()
+     *            .0
+     *            .into()
+     *    }
+     */
 }
