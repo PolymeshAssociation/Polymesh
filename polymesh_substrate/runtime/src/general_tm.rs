@@ -1,7 +1,7 @@
 use crate::asset;
 use crate::asset::HasOwner;
-use crate::identity;
 use crate::identity::IdentityTrait;
+use crate::identity::{self, InvestorList};
 use crate::utils;
 
 use rstd::prelude::*;
@@ -12,13 +12,12 @@ use support::{
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
+pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
     // TODO: Add other types and constants required configure this module.
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::HasOwner<Self::AccountId>;
-    type Identity: identity::IdentityTrait<Self::AccountId>;
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
@@ -119,7 +118,7 @@ impl<T: Trait> Module<T> {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let now = <timestamp::Module<T>>::get();
 
-        let investorFrom = T::Identity::investor_data(from.clone());
+        let investorFrom = <InvestorList<T>>::get(from.clone());
         ensure!(
             investorFrom.active && investorFrom.access_level == 1,
             "From account is not active"
@@ -132,6 +131,7 @@ impl<T: Trait> Module<T> {
             let whitelist_for_from =
                 Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
             let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
+
             if (whitelist_for_from.can_send_after > T::Moment::sa(0)
                 && now >= whitelist_for_from.can_send_after)
                 && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
@@ -148,51 +148,53 @@ impl<T: Trait> Module<T> {
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use primitives::{Blake2Hasher, H256};
-    use runtime_io::with_externalities;
-    use runtime_primitives::{
-        testing::{Digest, DigestItem, Header},
-        traits::{BlakeTwo256, IdentityLookup},
-        BuildStorage,
-    };
-    use support::{assert_ok, impl_outer_origin};
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
-
-    // For testing the module, we construct most of a mock runtime. This means
-    // first constructing a configuration type (`Test`) which `impl`s each of the
-    // configuration traits of modules we want to use.
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
-    impl system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type Digest = Digest;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type Log = DigestItem;
-    }
-    impl Trait for Test {
-        type Event = ();
-    }
-    type TransferValidationModule = Module<Test>;
-
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
-        system::GenesisConfig::<Test>::default()
-            .build_storage()
-            .unwrap()
-            .0
-            .into()
-    }
+    /*
+     *    use super::*;
+     *
+     *    use primitives::{Blake2Hasher, H256};
+     *    use runtime_io::with_externalities;
+     *    use runtime_primitives::{
+     *        testing::{Digest, DigestItem, Header},
+     *        traits::{BlakeTwo256, IdentityLookup},
+     *        BuildStorage,
+     *    };
+     *    use support::{assert_ok, impl_outer_origin};
+     *
+     *    impl_outer_origin! {
+     *        pub enum Origin for Test {}
+     *    }
+     *
+     *    // For testing the module, we construct most of a mock runtime. This means
+     *    // first constructing a configuration type (`Test`) which `impl`s each of the
+     *    // configuration traits of modules we want to use.
+     *    #[derive(Clone, Eq, PartialEq)]
+     *    pub struct Test;
+     *    impl system::Trait for Test {
+     *        type Origin = Origin;
+     *        type Index = u64;
+     *        type BlockNumber = u64;
+     *        type Hash = H256;
+     *        type Hashing = BlakeTwo256;
+     *        type Digest = Digest;
+     *        type AccountId = u64;
+     *        type Lookup = IdentityLookup<Self::AccountId>;
+     *        type Header = Header;
+     *        type Event = ();
+     *        type Log = DigestItem;
+     *    }
+     *    impl Trait for Test {
+     *        type Event = ();
+     *    }
+     *    type TransferValidationModule = Module<Test>;
+     *
+     *    // This function basically just builds a genesis storage key/value store according to
+     *    // our desired mockup.
+     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+     *        system::GenesisConfig::<Test>::default()
+     *            .build_storage()
+     *            .unwrap()
+     *            .0
+     *            .into()
+     *    }
+     */
 }
