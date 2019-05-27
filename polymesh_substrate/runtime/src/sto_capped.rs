@@ -3,15 +3,13 @@ use crate::asset::AssetTrait;
 use crate::erc20;
 use crate::erc20::ERC20Trait;
 use crate::identity;
-use crate::identity::IdentityTrait;
+
 use crate::utils;
 use support::traits::Currency;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
-};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedMul};
+use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
@@ -128,7 +126,7 @@ decl_module! {
             ensure!(selected_sto.sold <= selected_sto.cap, "There's not enough tokens");
 
             // Mint tokens and update STO
-            T::Asset::_mint_from_sto(ticker.clone(), sender.clone(), token_conversion);
+            T::Asset::_mint_from_sto(ticker.clone(), sender.clone(), token_conversion)?;
 
             // Transfer poly to token owner
             <balances::Module<T> as Currency<_>>::transfer(

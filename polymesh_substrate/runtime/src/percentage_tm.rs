@@ -3,10 +3,8 @@ use crate::asset::HasOwner;
 use crate::utils;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::As;
-use support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
-};
+
+use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
@@ -71,9 +69,9 @@ impl<T: Trait> Module<T> {
     // Transfer restriction verification logic
     pub fn verify_restriction(
         _ticker: Vec<u8>,
-        from: T::AccountId,
-        to: T::AccountId,
-        value: T::TokenBalance,
+        _from: T::AccountId,
+        _to: T::AccountId,
+        _value: T::TokenBalance,
     ) -> Result {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let mut _can_transfer = Self::maximum_percentage_enabled_for_token(ticker.clone());
@@ -165,8 +163,6 @@ mod tests {
         type Event = ();
         type Asset = Module<Test>;
     }
-    type TransferValidationModule = Module<Test>;
-
     // This function basically just builds a genesis storage key/value store according to
     // our desired mockup.
     fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
@@ -176,7 +172,7 @@ mod tests {
             .0
             .into()
     }
-    type percentage_tm = Module<Test>;
+    type PercentageTM = Module<Test>;
 
     lazy_static! {
         static ref TOKEN_MAP: Arc<
@@ -216,7 +212,7 @@ mod tests {
 
             // But look up against 1
             assert_noop!(
-                percentage_tm::toggle_maximum_percentage_restriction(
+                PercentageTM::toggle_maximum_percentage_restriction(
                     Origin::signed(1),
                     ticker,
                     true,
@@ -248,14 +244,14 @@ mod tests {
                 map
             };
 
-            assert_ok!(percentage_tm::toggle_maximum_percentage_restriction(
+            assert_ok!(PercentageTM::toggle_maximum_percentage_restriction(
                 Origin::signed(matching_owner),
                 ticker.clone(),
                 true,
                 15
             ));
             assert_eq!(
-                percentage_tm::maximum_percentage_enabled_for_token(ticker.clone()),
+                PercentageTM::maximum_percentage_enabled_for_token(ticker.clone()),
                 (true, 15)
             );
             drop(outer);

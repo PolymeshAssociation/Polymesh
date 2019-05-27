@@ -1,14 +1,12 @@
 use crate::general_tm;
-use crate::identity::{self, InvestorList};
+use crate::identity;
 use crate::percentage_tm;
 use crate::utils;
 use rstd::prelude::*;
 //use parity_codec::Codec;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedSub};
-use support::traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason};
-use support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
-};
+use support::traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason};
+use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
@@ -128,7 +126,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
 
-            Self::_transfer(ticker.clone(), from.clone(), to.clone(), value.clone());
+            Self::_transfer(ticker.clone(), from.clone(), to.clone(), value.clone())?;
 
             Self::deposit_event(RawEvent::ForcedTransfer(ticker.clone(), from, to, value));
 
@@ -219,7 +217,7 @@ decl_module! {
             let mut token = Self::token_details(ticker.clone());
             token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
 
-            Self::_update_checkpoint(ticker.clone(), sender.clone(), burner_balance);
+            Self::_update_checkpoint(ticker.clone(), sender.clone(), burner_balance)?;
 
             <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), updated_burner_balance);
             <Tokens<T>>::insert(ticker.clone(), token);
@@ -342,13 +340,13 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let verification_whitelist = <general_tm::Module<T>>::verify_restriction(
+        let _verification_whitelist = <general_tm::Module<T>>::verify_restriction(
             _ticker.clone(),
             from.clone(),
             to.clone(),
             value,
         )?;
-        let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(
+        let _verification_percentage = <percentage_tm::Module<T>>::verify_restriction(
             _ticker.clone(),
             from.clone(),
             to.clone(),
@@ -456,7 +454,7 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
 
-        Self::_update_checkpoint(ticker.clone(), to.clone(), current_to_balance);
+        Self::_update_checkpoint(ticker.clone(), to.clone(), current_to_balance)?;
 
         <BalanceOf<T>>::insert((ticker.clone(), to.clone()), updated_to_balance);
         <Tokens<T>>::insert(ticker.clone(), token);
@@ -482,7 +480,7 @@ mod tests {
         BuildStorage,
     };
     use support::{assert_noop, assert_ok, impl_outer_origin};
-    use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
+    use yaml_rust::{Yaml, YamlLoader};
 
     use std::{
         collections::HashMap,
@@ -491,7 +489,7 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use crate::identity::Investor;
+    use crate::identity::{Investor, InvestorList};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -547,7 +545,7 @@ mod tests {
         type Currency = balances::Module<Test>;
         type TokenFeeCharge = ();
     }
-    type asset = Module<Test>;
+    type Asset = Module<Test>;
 
     type Balances = balances::Module<Test>;
 
@@ -585,7 +583,7 @@ mod tests {
             .unwrap()
             .0;
         t.extend(
-            identity::GenesisConfig::<Test> { owner: 1 }
+            identity::GenesisConfig::<Test> { owner: id }
                 .build_storage()
                 .unwrap()
                 .0,
@@ -610,7 +608,7 @@ mod tests {
                 .expect("Could not make token.owner an issuer");
 
             // Issuance is successful
-            assert_ok!(asset::issue_token(
+            assert_ok!(Asset::issue_token(
                 Origin::signed(token.owner),
                 token.name.clone(),
                 token.name.clone(),
@@ -618,7 +616,7 @@ mod tests {
             ));
 
             // A correct entry is added
-            assert_eq!(asset::token_details(token.name.clone()), token);
+            assert_eq!(Asset::token_details(token.name.clone()), token);
         });
     }
 
@@ -638,7 +636,7 @@ mod tests {
 
             // Issuance is unsuccessful
             assert_noop!(
-                asset::issue_token(
+                Asset::issue_token(
                     Origin::signed(token.owner + 1),
                     token.name.clone(),
                     token.name.clone(),
@@ -648,7 +646,7 @@ mod tests {
             );
 
             // Entry is not added
-            assert_ne!(asset::token_details(token.name.clone()), token);
+            assert_ne!(Asset::token_details(token.name.clone()), token);
         });
     }
 
@@ -765,7 +763,7 @@ mod tests {
                         .as_bool()
                         .expect("Could not check if issuance should succeed")
                     {
-                        assert_ok!(asset::issue_token(
+                        assert_ok!(Asset::issue_token(
                             Origin::signed(token_struct.owner),
                             token_struct.name.clone(),
                             token_struct.name.clone(),
@@ -774,61 +772,57 @@ mod tests {
 
                         // Also check that the new token matches what we asked to create
                         assert_eq!(
-                            asset::token_details(token_struct.name.clone()),
+                            Asset::token_details(token_struct.name.clone()),
                             token_struct
                         );
 
                         // Check that the issuer's balance corresponds to total supply
                         assert_eq!(
-                            asset::balance_of((token_struct.name, token_struct.owner)),
+                            Asset::balance_of((token_struct.name, token_struct.owner)),
                             token_struct.total_supply
                         );
 
                         // Add specified whitelist entries
-                        if let Some(identity_owner) =
-                            accounts.get(&Yaml::String("identity-owner".to_owned()))
-                        {
-                            let whitelists = token["whitelist_entries"]
-                                .as_vec()
-                                .expect("Could not view token whitelist entries as vec");
+                        let whitelists = token["whitelist_entries"]
+                            .as_vec()
+                            .expect("Could not view token whitelist entries as vec");
 
-                            for wl_entry in whitelists {
-                                let investor = wl_entry["investor"]
-                                    .as_str()
-                                    .expect("Can't parse investor as string");
-                                let investor_id = accounts
-                                    .get(&Yaml::String(investor.to_owned()))
-                                    .expect("Can't get investor account record")["id"]
-                                    .as_i64()
-                                    .expect("Can't parse investor id as i64")
-                                    as u64;
+                        for wl_entry in whitelists {
+                            let investor = wl_entry["investor"]
+                                .as_str()
+                                .expect("Can't parse investor as string");
+                            let investor_id = accounts
+                                .get(&Yaml::String(investor.to_owned()))
+                                .expect("Can't get investor account record")["id"]
+                                .as_i64()
+                                .expect("Can't parse investor id as i64")
+                                as u64;
 
-                                let expiry = wl_entry["expiry"]
-                                    .as_i64()
-                                    .expect("Can't parse expiry as i64");
+                            let expiry = wl_entry["expiry"]
+                                .as_i64()
+                                .expect("Can't parse expiry as i64");
 
-                                let wl_id = wl_entry["whitelist_id"]
-                                    .as_i64()
-                                    .expect("Could not parse whitelist_id as i64")
-                                    as u32;
+                            let wl_id = wl_entry["whitelist_id"]
+                                .as_i64()
+                                .expect("Could not parse whitelist_id as i64")
+                                as u32;
 
-                                println!(
-                                    "Token {}: processing whitelist entry for {}",
-                                    ticker, investor
-                                );
+                            println!(
+                                "Token {}: processing whitelist entry for {}",
+                                ticker, investor
+                            );
 
-                                general_tm::Module::<Test>::add_to_whitelist(
-                                    Origin::signed(owner_id),
-                                    ticker.to_owned().into_bytes(),
-                                    wl_id,
-                                    investor_id,
-                                    (now + Duration::hours(expiry)).timestamp() as u64,
-                                )
-                                .expect("Could not create whitelist entry");
-                            }
+                            general_tm::Module::<Test>::add_to_whitelist(
+                                Origin::signed(owner_id),
+                                ticker.to_owned().into_bytes(),
+                                wl_id,
+                                investor_id,
+                                (now + Duration::hours(expiry)).timestamp() as u64,
+                            )
+                            .expect("Could not create whitelist entry");
                         }
                     } else {
-                        assert!(asset::issue_token(
+                        assert!(Asset::issue_token(
                             Origin::signed(token_struct.owner),
                             token_struct.name.clone(),
                             token_struct.name.clone(),
@@ -870,14 +864,14 @@ mod tests {
                         .expect("Could not determine if allowance should succeed");
 
                     if succeeds {
-                        assert_ok!(asset::approve(
+                        assert_ok!(Asset::approve(
                             Origin::signed(sender_id),
                             ticker.to_owned().into_bytes(),
                             spender_id,
                             amount,
                         ));
                     } else {
-                        assert!(asset::approve(
+                        assert!(Asset::approve(
                             Origin::signed(sender_id),
                             ticker.to_owned().into_bytes(),
                             spender_id,
@@ -926,7 +920,7 @@ mod tests {
                     println!("{}'s investor data: {:#?}", from, investor_data);
 
                     if succeeds {
-                        assert_ok!(asset::transfer(
+                        assert_ok!(Asset::transfer(
                             Origin::signed(from_id),
                             ticker,
                             to_id,
@@ -934,7 +928,7 @@ mod tests {
                         ));
                     } else {
                         assert!(
-                            asset::transfer(Origin::signed(from_id), ticker, to_id, amount)
+                            Asset::transfer(Origin::signed(from_id), ticker, to_id, amount)
                                 .is_err()
                         );
                     }
@@ -991,7 +985,7 @@ mod tests {
                     println!("{}'s investor data: {:#?}", from, investor_data);
 
                     if succeeds {
-                        assert_ok!(asset::transfer_from(
+                        assert_ok!(Asset::transfer_from(
                             Origin::signed(spender_id),
                             ticker,
                             from_id,
@@ -999,7 +993,7 @@ mod tests {
                             amount
                         ));
                     } else {
-                        assert!(asset::transfer_from(
+                        assert!(Asset::transfer_from(
                             Origin::signed(from_id),
                             ticker,
                             from_id,

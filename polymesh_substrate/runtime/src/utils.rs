@@ -1,8 +1,8 @@
 use parity_codec::Codec;
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Member, SimpleArithmetic};
-use support::{decl_event, decl_module, decl_storage, ensure, Parameter, StorageMap, StorageValue};
-use system::{self, ensure_signed};
+use runtime_primitives::traits::{As, Member, SimpleArithmetic};
+use support::{decl_module, decl_storage, Parameter};
+use system;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait {
