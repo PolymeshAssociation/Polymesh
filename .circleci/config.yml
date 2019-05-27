@@ -33,6 +33,10 @@ jobs:
           name: Build release
           command: cargo build -j 1
           working_directory: ./polymesh_substrate
+      - run:
+          name: Run unit tests
+          command: cargo test
+          working_directory: ./polymesh_substrate/runtime
       - save_cache:
           key: build-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
           paths:

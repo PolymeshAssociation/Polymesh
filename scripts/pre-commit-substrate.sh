@@ -8,3 +8,4 @@ root_dir=$(git rev-parse --git-dir)/..
 
 $root_dir/scripts/rustfmt.sh
 $root_dir/scripts/cargo-check.sh
+$root_dir/scripts/cargo-test.sh
