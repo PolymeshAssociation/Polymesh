@@ -149,7 +149,7 @@ decl_module! {
 
         pub fn modify_allowed_tokens(origin, _ticker: Vec<u8>, sto_id: u32, erc20_ticker: Vec<u8>, modify_status: bool) -> Result {
             let sender = ensure_signed(origin)?;
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
             let selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
             let now = <timestamp::Module<T>>::get();
@@ -189,7 +189,7 @@ decl_module! {
 
         pub fn buy_tokens_by_erc20(origin, _ticker: Vec<u8>, sto_id: u32, value: T::TokenBalance, erc20_ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
-            let ticker = Self::_toUpper(_ticker);
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
             // Check whether given token is allowed as investment currency or not
             ensure!(Self::token_index_for_sto((ticker.clone(), sto_id, erc20_ticker.clone())) != None, "Given token is not a permitted investment currency");
