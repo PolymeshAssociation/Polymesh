@@ -329,6 +329,7 @@ impl sto_capped::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type Identity = Identity;
+    type ERC20Trait = ERC20;
 }
 
 impl percentage_tm::Trait for Runtime {
