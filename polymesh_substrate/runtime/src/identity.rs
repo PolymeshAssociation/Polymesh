@@ -1,9 +1,7 @@
 use rstd::prelude::*;
 //use parity_codec::Codec;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub};
-use support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
-};
+
+use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]

@@ -1,6 +1,5 @@
 use crate::asset;
 use crate::asset::HasOwner;
-use crate::identity::IdentityTrait;
 use crate::identity::{self, InvestorList};
 use crate::utils;
 
@@ -48,7 +47,7 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event<T>() = default;
 
-        pub fn add_to_whitelist(origin, _ticker: Vec<u8>, _whitelistId: u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
+        pub fn add_to_whitelist(origin, _ticker: Vec<u8>, whitelist_id: u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
@@ -60,14 +59,14 @@ decl_module! {
             };
 
             //Get whitelist entries for this token + whitelistId
-            let mut whitelists_for_token = Self::whitelists_by_token((ticker.clone(), _whitelistId.clone()));
+            let mut whitelists_for_token = Self::whitelists_by_token((ticker.clone(), whitelist_id.clone()));
 
             //Get how many entries this whiteslist has and increase it if we are adding a new entry
-            let entries_count = Self::whitelist_entries_count((ticker.clone(),_whitelistId.clone()));
+            let entries_count = Self::whitelist_entries_count((ticker.clone(), whitelist_id.clone()));
 
             // TODO: Make sure we are only increasing the count if it's a new entry and not just an update of an existing entry
             let new_entries_count = entries_count.checked_add(1).ok_or("overflow in calculating next entry count")?;
-            <WhitelistEntriesCount<T>>::insert((ticker.clone(), _whitelistId),new_entries_count);
+            <WhitelistEntriesCount<T>>::insert((ticker.clone(), whitelist_id),new_entries_count);
 
             // If this is the first entry for this whitelist, increase the whitelists count so then we can loop through them.
             if new_entries_count == 1 {
@@ -79,9 +78,9 @@ decl_module! {
             whitelists_for_token.push(whitelist.clone());
 
             //PABLO: TODO: don't add the restriction to the array if it already exists
-            <WhitelistsByToken<T>>::insert((ticker.clone(), _whitelistId.clone()), whitelists_for_token);
+            <WhitelistsByToken<T>>::insert((ticker.clone(), whitelist_id.clone()), whitelists_for_token);
 
-            <WhitelistForTokenAndAddress<T>>::insert((ticker.clone(), _whitelistId, _investor),whitelist);
+            <WhitelistForTokenAndAddress<T>>::insert((ticker.clone(), whitelist_id, _investor),whitelist);
 
             runtime_io::print("Created restriction!!!");
             //<general_tm::Module<T>>::add_to_whitelist(sender,token_id,_investor,expiry);
@@ -113,14 +112,14 @@ impl<T: Trait> Module<T> {
         _ticker: Vec<u8>,
         from: T::AccountId,
         to: T::AccountId,
-        value: T::TokenBalance,
+        _value: T::TokenBalance,
     ) -> Result {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let now = <timestamp::Module<T>>::get();
 
-        let investorFrom = <InvestorList<T>>::get(from.clone());
+        let investor_from = <InvestorList<T>>::get(from.clone());
         ensure!(
-            investorFrom.active && investorFrom.access_level == 1,
+            investor_from.active && investor_from.access_level == 1,
             "From account is not active"
         );
 

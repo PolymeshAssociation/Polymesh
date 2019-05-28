@@ -1,4 +1,3 @@
-use hex_literal::{hex, hex_impl};
 pub use node_template_runtime::GenesisConfig;
 use node_template_runtime::{
     AccountId, AssetConfig, BalancesConfig, ConsensusConfig, CouncilSeatsConfig,
@@ -6,7 +5,7 @@ use node_template_runtime::{
     IndicesConfig, Perbill, Permill, SessionConfig, StakerStatus, StakingConfig, SudoConfig,
     TimestampConfig, TreasuryConfig,
 };
-use primitives::{crypto::UncheckedInto, ed25519, ed25519::Public as AuthorityId, sr25519, Pair};
+use primitives::{ed25519, ed25519::Public as AuthorityId, sr25519, Pair};
 use substrate_service;
 
 // Note this is the URL for the telemetry server
