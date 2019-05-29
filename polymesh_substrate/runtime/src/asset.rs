@@ -73,7 +73,7 @@ decl_module! {
         // takes a name, ticker, total supply for the token
         // makes the initiating account the owner of the token
         // the balance of the owner is set to total supply
-        fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+        pub fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
@@ -129,7 +129,7 @@ decl_module! {
 
         // transfer tokens from one account to another
         // origin is assumed as sender
-        fn transfer(_origin, _ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
+        pub fn transfer(_origin, _ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             Self::_is_valid_transfer(ticker.clone(), sender.clone(), to.clone(), value)?;
@@ -988,7 +988,7 @@ mod tests {
                 }
 
                 println!("Approval-basedt transfers:");
-                // Perform regular transfers
+                // Perform allowance transfers
                 let transfer_froms = case["transfer_froms"]
                     .as_vec()
                     .expect("Could not view transfer_froms as vec");

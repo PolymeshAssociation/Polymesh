@@ -7,7 +7,7 @@ use rstd::prelude::*;
 
 /// For more guidance on Substrate modules, see the example module
 /// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
-use runtime_primitives::traits::{As, CheckedDiv, CheckedMul, CheckedSub};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
@@ -79,7 +79,7 @@ decl_module! {
 
             // Check if checkpoint exists
             ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) > checkpoint_id,
-                    "Checkpoint for dividend does not exist");
+            "Checkpoint for dividend does not exist");
 
             // Subtract the amount
             if let Some(payout_ticker) = payout_currency.as_ref() {
@@ -137,16 +137,14 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        pub fn claim_payout(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
+        pub fn claim(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check if sender wasn't already paid their share
             ensure!(!<PayoutCompleted<T>>::get((sender.clone(), ticker.clone(), checkpoint_id, dividend_id)), "User was already paid their share");
 
-            // Check if sender owned the token at checkpoint
             let balance_at_checkpoint =
-                <asset::Module<T>>::balance_at_checkpoint((ticker.clone(), sender.clone(), checkpoint_id))
-                .ok_or("Sender did not own the token at checkpoint")?;
+                <asset::Module<T>>::get_balance_at(ticker.clone(), sender.clone(), checkpoint_id);
 
             // Look dividend entry up
             let dividend = Self::get_dividend(ticker.clone(), checkpoint_id, dividend_id).ok_or("Dividend not found")?;
@@ -165,7 +163,15 @@ decl_module! {
 
             // Perform the payout in designated tokens or base currency depending on setting
             if let Some(payout_ticker) = dividend.payout_currency.as_ref() {
-                <asset::Module<T>>::_mint(payout_ticker.clone(), sender.clone(), share)?;
+                <asset::BalanceOf<T>>::mutate(
+                    (payout_ticker.clone(), sender.clone()),
+                    |balance| -> Result {
+                        *balance = balance
+                            .checked_add(&share)
+                            .ok_or("Could not add share to sender balance")?;
+                        Ok(())
+                    })?;
+
             } else {
                 // Convert to balances::Trait::Balance
                 let share = <T::TokenBalance as As<T::Balance>>::as_(share);
@@ -227,64 +233,305 @@ impl<T: Trait> Module<T> {
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    /*
-     *    use super::*;
-     *
-     *    use primitives::{Blake2Hasher, H256};
-     *    use runtime_io::with_externalities;
-     *    use runtime_primitives::{
-     *        testing::{Digest, DigestItem, Header},
-     *        traits::{BlakeTwo256, IdentityLookup},
-     *        BuildStorage,
-     *    };
-     *    use support::{assert_ok, impl_outer_origin};
-     *
-     *    impl_outer_origin! {
-     *        pub enum Origin for Test {}
-     *    }
-     *
-     *    // For testing the module, we construct most of a mock runtime. This means
-     *    // first constructing a configuration type (`Test`) which `impl`s each of the
-     *    // configuration traits of modules we want to use.
-     *    #[derive(Clone, Eq, PartialEq)]
-     *    pub struct Test;
-     *    impl system::Trait for Test {
-     *        type Origin = Origin;
-     *        type Index = u64;
-     *        type BlockNumber = u64;
-     *        type Hash = H256;
-     *        type Hashing = BlakeTwo256;
-     *        type Digest = Digest;
-     *        type AccountId = u64;
-     *        type Lookup = IdentityLookup<Self::AccountId>;
-     *        type Header = Header;
-     *        type Event = ();
-     *        type Log = DigestItem;
-     *    }
-     *    impl Trait for Test {
-     *        type Event = ();
-     *    }
-     *    type dividend = Module<Test>;
-     *
-     *    // This function basically just builds a genesis storage key/value store according to
-     *    // our desired mockup.
-     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::<Test>::default()
-     *            .build_storage()
-     *            .unwrap()
-     *            .0
-     *            .into()
-     *    }
-     *
-     *    #[test]
-     *    fn it_works_for_default_value() {
-     *        with_externalities(&mut new_test_ext(), || {
-     *            // Just a dummy test for the dummy funtion `do_something`
-     *            // calling the `do_something` function with a value 42
-     *            assert_ok!(dividend::do_something(Origin::signed(1), 42));
-     *            // asserting that the stored value is equal to what we stored
-     *            assert_eq!(dividend::something(), Some(42));
-     *        });
-     *    }
-     */
+    use super::*;
+
+    use chrono::{prelude::*, Duration};
+    use lazy_static::lazy_static;
+    use primitives::{Blake2Hasher, H256};
+    use runtime_io::with_externalities;
+    use runtime_primitives::{
+        testing::{Digest, DigestItem, Header},
+        traits::{BlakeTwo256, IdentityLookup},
+        BuildStorage,
+    };
+    use support::{assert_ok, impl_outer_origin};
+
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+    };
+
+    use crate::{asset::SecurityToken, general_tm, identity, percentage_tm};
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    // For testing the module, we construct most of a mock runtime. This means
+    // first constructing a configuration type (`Test`) which `impl`s each of the
+    // configuration traits of modules we want to use.
+    #[derive(Clone, Eq, PartialEq)]
+    pub struct Test;
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type Digest = Digest;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+        type Log = DigestItem;
+    }
+
+    impl asset::Trait for Test {
+        type Event = ();
+        type Currency = balances::Module<Test>;
+        type TokenFeeCharge = ();
+    }
+
+    impl balances::Trait for Test {
+        type Balance = u128;
+        type DustRemoval = ();
+        type Event = ();
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type TransactionPayment = ();
+        type TransferPayment = ();
+    }
+    impl general_tm::Trait for Test {
+        type Event = ();
+        type Asset = Module<Test>;
+    }
+
+    impl identity::Trait for Test {
+        type Event = ();
+    }
+
+    impl percentage_tm::Trait for Test {
+        type Event = ();
+        type Asset = Module<Test>;
+    }
+
+    impl timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+    }
+
+    impl utils::Trait for Test {
+        type TokenBalance = u128;
+    }
+
+    impl Trait for Test {
+        type Event = ();
+    }
+    impl asset::HasOwner<<Test as system::Trait>::AccountId> for Module<Test> {
+        fn is_owner(_ticker: Vec<u8>, sender: <Test as system::Trait>::AccountId) -> bool {
+            if let Some(token) = TOKEN_MAP.lock().unwrap().get(&_ticker) {
+                token.owner == sender
+            } else {
+                false
+            }
+        }
+    }
+
+    lazy_static! {
+        static ref TOKEN_MAP: Arc<
+            Mutex<
+            HashMap<
+            Vec<u8>,
+            SecurityToken<
+                <Test as utils::Trait>::TokenBalance,
+                <Test as system::Trait>::AccountId,
+                >,
+                >,
+                >,
+                > = Arc::new(Mutex::new(HashMap::new()));
+        /// Because Rust's Mutex is not recursive a second symbolic lock is necessary
+        static ref TOKEN_MAP_OUTER_LOCK: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
+    }
+
+    type DividendModule = Module<Test>;
+    type Balances = balances::Module<Test>;
+    type Asset = asset::Module<Test>;
+
+    /// Build a genesis identity instance owned by the specified account
+    fn identity_owned_by(id: u64) -> runtime_io::TestExternalities<Blake2Hasher> {
+        let mut t = system::GenesisConfig::<Test>::default()
+            .build_storage()
+            .unwrap()
+            .0;
+        t.extend(
+            identity::GenesisConfig::<Test> { owner: id }
+                .build_storage()
+                .unwrap()
+                .0,
+        );
+        t.into()
+    }
+
+    #[test]
+    fn correct_dividend_must_work() {
+        let identity_owner_id = 1;
+        with_externalities(&mut identity_owned_by(identity_owner_id), || {
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner: 1,
+                total_supply: 1_000_000,
+            };
+
+            // A token used for payout
+            let payout_token = SecurityToken {
+                name: vec![0x02],
+                owner: 2,
+                total_supply: 200_000_000,
+            };
+
+            // Raise the owners' base currency balance
+            Balances::make_free_balance_be(&token.owner, 1_000_000);
+            Balances::make_free_balance_be(&payout_token.owner, 1_000_000);
+
+            identity::Module::<Test>::do_create_issuer(token.owner)
+                .expect("Could not make token.owner an issuer");
+            identity::Module::<Test>::do_create_issuer(payout_token.owner)
+                .expect("Could not make payout_token.owner an issuer");
+            identity::Module::<Test>::do_create_investor(token.owner)
+                .expect("Could not make token.owner an investor");
+            identity::Module::<Test>::do_create_investor(payout_token.owner)
+                .expect("Could not make payout_token.owner an investor");
+
+            // Share issuance is successful
+            assert_ok!(Asset::issue_token(
+                Origin::signed(token.owner),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply
+            ));
+
+            // Issuance for payout token is successful
+            assert_ok!(Asset::issue_token(
+                Origin::signed(payout_token.owner),
+                payout_token.name.clone(),
+                payout_token.name.clone(),
+                payout_token.total_supply
+            ));
+
+            // Prepare a whitelisted investor
+            let investor_id = 3;
+            let amount_invested = 50_000;
+            Balances::make_free_balance_be(&investor_id, 1_000_000);
+
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            // We need a lock to exist till assertions are done
+            let outer = TOKEN_MAP_OUTER_LOCK.lock().unwrap();
+            *TOKEN_MAP.lock().unwrap() = {
+                let mut map = HashMap::new();
+                map.insert(token.name.clone(), token.clone());
+                map.insert(payout_token.name.clone(), payout_token.clone());
+                map
+            };
+
+            // Add all whitelist entries for investor, token owner and payout_token owner
+            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(token.owner),
+                token.name.clone(),
+                0,
+                investor_id,
+                (now - Duration::hours(1)).timestamp() as u64,
+            ));
+            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(token.owner),
+                token.name.clone(),
+                0,
+                token.owner,
+                (now - Duration::hours(1)).timestamp() as u64,
+            ));
+            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(payout_token.owner),
+                payout_token.name.clone(),
+                0,
+                investor_id,
+                (now - Duration::hours(1)).timestamp() as u64,
+            ));
+            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(payout_token.owner),
+                payout_token.name.clone(),
+                0,
+                token.owner,
+                (now - Duration::hours(1)).timestamp() as u64,
+            ));
+            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(payout_token.owner),
+                payout_token.name.clone(),
+                0,
+                payout_token.owner,
+                (now - Duration::hours(1)).timestamp() as u64,
+            ));
+            drop(outer);
+
+            // Create checkpoint for token
+            assert_ok!(Asset::create_checkpoint(
+                Origin::signed(token.owner),
+                token.name.clone()
+            ));
+
+            // Transfer tokens to investor
+            assert_ok!(Asset::transfer(
+                Origin::signed(token.owner),
+                token.name.clone(),
+                investor_id,
+                amount_invested
+            ));
+
+            let checkpoint_id = 0;
+
+            let dividend = Dividend {
+                amount: 500_000,
+                payout_started: false,
+                payout_currency: Some(payout_token.name.clone()),
+                checkpoint_id,
+            };
+
+            // Transfer payout tokens to token owner
+            assert_ok!(Asset::transfer(
+                Origin::signed(payout_token.owner),
+                payout_token.name.clone(),
+                token.owner,
+                dividend.amount
+            ));
+
+            // Create the dividend for token
+            assert_ok!(DividendModule::new(
+                Origin::signed(token.owner),
+                dividend.amount,
+                token.name.clone(),
+                dividend.payout_currency.clone(),
+                dividend.checkpoint_id
+            ));
+
+            // Compare created dividend with the expected structure
+            assert_eq!(
+                DividendModule::dividends((token.name.clone(), dividend.checkpoint_id))[0],
+                dividend
+            );
+
+            // Start payout
+            assert_ok!(DividendModule::start_payout(
+                Origin::signed(token.owner),
+                token.name.clone(),
+                dividend.checkpoint_id,
+                0
+            ));
+
+            // Claim investor's share
+            assert_ok!(DividendModule::claim(
+                Origin::signed(investor_id),
+                token.name.clone(),
+                dividend.checkpoint_id,
+                0
+            ));
+
+            // Check if the correct amount was added to investor balance
+            let share = dividend.amount * amount_invested / token.total_supply;
+            assert_eq!(
+                Asset::balance_of((payout_token.name.clone(), investor_id)),
+                share
+            );
+        });
+    }
 }
