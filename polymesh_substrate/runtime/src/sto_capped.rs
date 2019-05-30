@@ -50,13 +50,13 @@ decl_storage! {
 
         StoCount get(sto_count): map (Vec<u8>) => u32;
 
-        // List of ERC20 tokens which will be accepted as the investment currency for the STO
+        // List of ERC20 tokens which will be accepted as the fund raised type for the STO
         // [asset_ticker][sto_id][index] => erc20_ticker
         AllowedTokens get(allowed_tokens): map(Vec<u8>, u32, u32) => Vec<u8>;
         // To track the index of the token address for the given STO
         // [Asset_ticker][sto_id][erc20_ticker] => index
         TokenIndexForSTO get(token_index_for_sto): map(Vec<u8>, u32, Vec<u8>) => Option<u32>;
-        // To track the no of different tokens allowed as investment currency for the given STO
+        // To track the no of different tokens allowed as fund raised type for the given STO
         // [asset_ticker][sto_id] => count
         TokensCountForSto get(tokens_count_for_sto): map(Vec<u8>, u32) => u32;
     }
@@ -69,7 +69,15 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event<T>() = default;
 
-        pub fn launch_sto(origin, _ticker: Vec<u8>, beneficiary: T::AccountId, cap: T::TokenBalance, rate: u64, start_date: T::Moment, end_date: T::Moment) -> Result {
+        pub fn launch_sto(
+            origin, _ticker: Vec<u8>,
+            beneficiary: T::AccountId,
+            cap: T::TokenBalance,
+            rate: u64,
+            start_date: T::Moment,
+            end_date: T::Moment,
+            erc20_ticker: Vec<u8>
+        ) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
@@ -88,10 +96,18 @@ decl_module! {
             let new_sto_count = sto_count
                 .checked_add(1)
                 .ok_or("overflow in calculating next sto count")?;
+            let token_count = Self::tokens_count_for_sto((ticker.clone(), sto_count));
+            let new_token_count = token_count.checked_add(1).ok_or("overflow new token count value")?;
 
             <StosByToken<T>>::insert((ticker.clone(),sto_count), sto);
             <StoCount<T>>::insert(ticker.clone(),new_sto_count);
 
+            // Addition of the ERC20 token as the fund raised type.
+            <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_count, erc20_ticker.clone()), new_token_count);
+            <AllowedTokens<T>>::insert((ticker.clone(), sto_count, new_token_count), erc20_ticker.clone());
+            <TokensCountForSto<T>>::insert((ticker.clone(), sto_count), new_token_count);
+
+            Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, erc20_ticker, sto_count, true));
             runtime_io::print("Capped STOlaunched!!!");
 
             Ok(())
