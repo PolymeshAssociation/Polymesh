@@ -96,18 +96,21 @@ decl_module! {
             let new_sto_count = sto_count
                 .checked_add(1)
                 .ok_or("overflow in calculating next sto count")?;
+
             let token_count = Self::tokens_count_for_sto((ticker.clone(), sto_count));
             let new_token_count = token_count.checked_add(1).ok_or("overflow new token count value")?;
 
             <StosByToken<T>>::insert((ticker.clone(),sto_count), sto);
             <StoCount<T>>::insert(ticker.clone(),new_sto_count);
 
-            // Addition of the ERC20 token as the fund raised type.
-            <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_count, erc20_ticker.clone()), new_token_count);
-            <AllowedTokens<T>>::insert((ticker.clone(), sto_count, new_token_count), erc20_ticker.clone());
-            <TokensCountForSto<T>>::insert((ticker.clone(), sto_count), new_token_count);
+            if erc20_ticker.len() > 0 {
+                // Addition of the ERC20 token as the fund raised type.
+                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_count, erc20_ticker.clone()), new_token_count);
+                <AllowedTokens<T>>::insert((ticker.clone(), sto_count, new_token_count), erc20_ticker.clone());
+                <TokensCountForSto<T>>::insert((ticker.clone(), sto_count), new_token_count);
 
-            Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, erc20_ticker, sto_count, true));
+                Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, erc20_ticker, sto_count, true));
+            }
             runtime_io::print("Capped STOlaunched!!!");
 
             Ok(())
