@@ -20,16 +20,22 @@ use system::ensure_signed;
 use crate::{asset, utils};
 
 /// The module's configuration trait.
-pub trait Trait: asset::Trait + balances::Trait + system::Trait + utils::Trait {
+pub trait Trait:
+    asset::Trait + balances::Trait + system::Trait + utils::Trait + timestamp::Trait
+{
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Dividend<U> {
+pub struct Dividend<U, V> {
     /// Total amount to be distributed
     amount: U,
-    /// Whether claiming dividends is already enabled
-    payout_started: bool,
+    /// Whether claiming dividends is enabled
+    active: bool,
+    /// An optional timestamp of payout start
+    maturates_at: Option<V>,
+    /// An optional timestamp for payout end
+    expires_at: Option<V>,
     /// The payout currency ticker. None means POLY
     payout_currency: Option<Vec<u8>>,
     /// The checkpoint
@@ -40,7 +46,7 @@ pub struct Dividend<U> {
 decl_storage! {
     trait Store for Module<T: Trait> as dividend {
         // Dividend records; (ticker, checkpoint ID) => dividend entries, index is dividend ID
-        Dividends get(dividends): map (Vec<u8>, u32) => Vec<Dividend<T::TokenBalance>>;
+        Dividends get(dividends): map (Vec<u8>, u32) => Vec<Dividend<T::TokenBalance, T::Moment>>;
         // Payout flags, decide whether a user already was paid their dividend
         // (who, ticker, checkpoint_id, dividend_id)
         PayoutCompleted get(payout_completed): map (T::AccountId, Vec<u8>, u32, u32) => bool;
@@ -59,6 +65,8 @@ decl_module! {
         pub fn new(origin,
                    amount: T::TokenBalance,
                    ticker: Vec<u8>,
+                   maturates_at: Option<T::Moment>,
+                   expires_at: Option<T::Moment>,
                    payout_currency: Option<Vec<u8>>,
                    checkpoint_id: u32
                   ) -> Result {
@@ -81,6 +89,25 @@ decl_module! {
             ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) > checkpoint_id,
             "Checkpoint for dividend does not exist");
 
+            let now = <timestamp::Module<T>>::get();
+
+            // Check maturation/expiration dates
+            match (maturates_at.as_ref(), expires_at.as_ref()) {
+                (Some(start), Some(end))=> {
+                    // Ends in the future
+                    ensure!(*end > now, "Dividend payout should end in the future");
+                    // Ends after start
+                    ensure!(*end > *start, "Dividend payout must end after it starts");
+                },
+                (Some(_start), None) => {
+                },
+                (None, Some(end)) => {
+                    // Ends in the future
+                    ensure!(*end > now, "Dividend payout should end in the future");
+                },
+                (None, None) => {}
+            }
+
             // Subtract the amount
             if let Some(payout_ticker) = payout_currency.as_ref() {
                 let new_balance = balance.checked_sub(&amount).ok_or("Overflow calculating new owner balance")?;
@@ -96,7 +123,9 @@ decl_module! {
             // Insert dividend entry into storage
             let new_dividend = Dividend {
                 amount,
-                payout_started: false,
+                active: false,
+                maturates_at,
+                expires_at,
                 payout_currency: payout_currency.clone(),
                 checkpoint_id,
             };
@@ -110,7 +139,7 @@ decl_module! {
         }
 
         /// Enables withdrawal of dividend funds for asset `ticker`.
-        pub fn start_payout(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
+        pub fn activate(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender owns the asset token
@@ -119,10 +148,10 @@ decl_module! {
             // Check that the dividend exists
             ensure!(<Dividends<T>>::exists((ticker.clone(), checkpoint_id)), "No dividend entries for supplied ticker and checkpoint");
 
-            // Flip `payout_started`
+            // Flip `active`
             <Dividends<T>>::mutate((ticker.clone(), checkpoint_id), |entries| {
                 if let Some(entry) = entries.get_mut(dividend_id as usize) {
-                    entry.payout_started = true;
+                    entry.active = true;
                     Ok(())
                 } else {
                     Err("No dividend entry for supplied dividend id")
@@ -148,6 +177,20 @@ decl_module! {
 
             // Look dividend entry up
             let dividend = Self::get_dividend(ticker.clone(), checkpoint_id, dividend_id).ok_or("Dividend not found")?;
+
+            // Check if the dividend is active
+            ensure!(dividend.active, "Dividend not active");
+
+            let now = <timestamp::Module<T>>::get();
+
+            // Check if the current time is within maturation/expiration bounds
+            if let Some(start) = dividend.maturates_at.as_ref() {
+                ensure!(now > *start, "Attempted payout before maturation");
+            }
+
+            if let Some(end) = dividend.expires_at.as_ref() {
+                ensure!(*end > now, "Attempted payout after expiration");
+            }
 
             // Compute the share
             ensure!(<asset::Tokens<T>>::exists(ticker.clone()), "Dividend token entry not found");
@@ -211,7 +254,7 @@ impl<T: Trait> Module<T> {
     #[inline]
     fn add_dividend_entry(
         key: (Vec<u8>, u32),
-        d: Dividend<T::TokenBalance>,
+        d: Dividend<T::TokenBalance, T::Moment>,
     ) -> core::result::Result<u32, &'static str> {
         <Dividends<T>>::mutate(key, |entries| {
             entries.push(d);
@@ -223,7 +266,7 @@ impl<T: Trait> Module<T> {
         ticker: Vec<u8>,
         checkpoint_id: u32,
         dividend_id: u32,
-    ) -> Option<Dividend<T::TokenBalance>> {
+    ) -> Option<Dividend<T::TokenBalance, T::Moment>> {
         let entries = <Dividends<T>>::get((ticker, checkpoint_id));
 
         entries.get(dividend_id as usize).map(|d| d.clone())
@@ -482,7 +525,9 @@ mod tests {
 
             let dividend = Dividend {
                 amount: 500_000,
-                payout_started: false,
+                active: false,
+                maturates_at: Some((now - Duration::hours(1)).timestamp() as u64),
+                expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
                 payout_currency: Some(payout_token.name.clone()),
                 checkpoint_id,
             };
@@ -500,6 +545,8 @@ mod tests {
                 Origin::signed(token.owner),
                 dividend.amount,
                 token.name.clone(),
+                dividend.maturates_at.clone(),
+                dividend.expires_at.clone(),
                 dividend.payout_currency.clone(),
                 dividend.checkpoint_id
             ));
@@ -511,7 +558,7 @@ mod tests {
             );
 
             // Start payout
-            assert_ok!(DividendModule::start_payout(
+            assert_ok!(DividendModule::activate(
                 Origin::signed(token.owner),
                 token.name.clone(),
                 dividend.checkpoint_id,
