@@ -2,9 +2,7 @@ use crate::asset;
 use crate::asset::HasOwner;
 
 use rstd::prelude::*;
-use support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap,
-};
+use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::ensure_signed;
 
 /// The module's configuration trait.

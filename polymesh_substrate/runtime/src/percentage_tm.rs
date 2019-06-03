@@ -143,39 +143,39 @@ mod tests {
     // For testing the module, we construct most of a mock runtime. This means
     // first constructing a configuration type (`Test`) which `impl`s each of the
     // configuration traits of modules we want to use.
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
+    // #[derive(Clone, Eq, PartialEq)]
+    // pub struct Test;
 
-    impl system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type Digest = Digest;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type Log = DigestItem;
-    }
+    // impl system::Trait for Test {
+    //     type Origin = Origin;
+    //     type Index = u64;
+    //     type BlockNumber = u64;
+    //     type Hash = H256;
+    //     type Hashing = BlakeTwo256;
+    //     type Digest = Digest;
+    //     type AccountId = u64;
+    //     type Lookup = IdentityLookup<Self::AccountId>;
+    //     type Header = Header;
+    //     type Event = ();
+    //     type Log = DigestItem;
+    // }
 
-    impl Trait for Test {
-        type Event = ();
-        type OnFreeBalanceZero = ();
-        type OnNewAccount = ();
-        type TransactionPayment = ();
-        type TransferPayment = ();
-    }
+    // impl Trait for Test {
+    //     type Event = ();
+    //     type OnFreeBalanceZero = ();
+    //     type OnNewAccount = ();
+    //     type TransactionPayment = ();
+    //     type TransferPayment = ();
+    // }
 
-    impl utils::Trait for Test {
-        type TokenBalance = u128;
-    }
+    // impl utils::Trait for Test {
+    //     type TokenBalance = u128;
+    // }
 
-    impl timestamp::Trait for Test {
-        type Moment = u64;
-        type OnTimestampSet = ();
-    }
+    // impl timestamp::Trait for Test {
+    //     type Moment = u64;
+    //     type OnTimestampSet = ();
+    // }
 
     // impl asset::HasOwner<<Test as system::Trait>::AccountId> for Module<Test> {
     //     fn is_owner(_ticker: Vec<u8>, sender: <Test as system::Trait>::AccountId) -> bool {
