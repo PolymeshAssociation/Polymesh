@@ -1,5 +1,5 @@
 use crate::general_tm;
-use crate::identity::{self};
+use crate::identity;
 use crate::percentage_tm;
 use crate::utils;
 use rstd::prelude::*;
