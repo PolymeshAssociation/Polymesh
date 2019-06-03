@@ -515,6 +515,15 @@ mod tests {
     // configuration traits of modules we want to use.
     #[derive(Clone, Eq, PartialEq)]
     pub struct Test;
+
+    pub struct CurrencyToBalanceHandler;
+
+    impl Convert<u128, u128> for CurrencyToBalanceHandler {
+        fn convert(x: u128) -> u128 {
+            x
+        }
+    }
+
     impl system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
@@ -555,10 +564,16 @@ mod tests {
     impl utils::Trait for Test {
         type TokenBalance = u128;
     }
+    impl session::Trait for Test {
+        type ConvertAccountIdToSessionKey = ();
+        type OnSessionChange = ();
+        type Event = ();
+    }
     impl Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
         type TokenFeeCharge = ();
+        type CurrencyToBalance = CurrencyToBalanceHandler;
     }
     type Asset = Module<Test>;
 
