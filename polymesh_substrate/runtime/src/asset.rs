@@ -94,12 +94,18 @@ decl_module! {
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
-            let proportional_fee = fee / <FeeOf<T> as As<usize>>::sa(validators.len());
+            let validatorLen;
+            if validators.len() < 1 {
+                validatorLen = <FeeOf<T> as As<usize>>::sa(1);
+            } else {
+                validatorLen = <FeeOf<T> as As<usize>>::sa(validators.len());
+            }
+            let proportional_fee = fee / validatorLen;
             let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
             for v in &validators {
                 <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
             }
-            let remainder_fee = fee - (proportional_fee * <FeeOf<T> as As<usize>>::sa(validators.len()));
+            let remainder_fee = fee - (proportional_fee * validatorLen);
             let imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
             T::TokenFeeCharge::on_unbalanced(imbalance);
 
