@@ -490,7 +490,7 @@ mod tests {
     use primitives::{Blake2Hasher, H256};
     use runtime_io::with_externalities;
     use runtime_primitives::{
-        testing::{Digest, DigestItem, Header},
+        testing::{Digest, DigestItem, Header, UintAuthorityId},
         traits::{BlakeTwo256, IdentityLookup},
         BuildStorage,
     };
@@ -565,9 +565,9 @@ mod tests {
         type TokenBalance = u128;
     }
     impl consensus::Trait for Test {
-        type SessionKey = ();
+        type SessionKey = UintAuthorityId;
         type InherentOfflineReport = ();
-        type Log = ();
+        type Log = DigestItem;
     }
     impl session::Trait for Test {
         type ConvertAccountIdToSessionKey = ();
