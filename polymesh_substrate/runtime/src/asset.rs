@@ -4,7 +4,8 @@ use crate::percentage_tm;
 use crate::utils;
 use rstd::prelude::*;
 //use parity_codec::Codec;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
+use session;
 use support::traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
@@ -21,6 +22,7 @@ pub trait Trait:
     + utils::Trait
     + balances::Trait
     + identity::Trait
+    + session::Trait
 {
     // TODO: Add other types and constants required configure this module.
 
@@ -30,6 +32,7 @@ pub trait Trait:
     type Currency: Currency<Self::AccountId>;
     // Handler for the unbalanced decrease when charging fee
     type TokenFeeCharge: OnUnbalanced<NegativeImbalanceOf<Self>>;
+    type CurrencyToBalance: Convert<FeeOf<Self>, <Self as balances::Trait>::Balance>;
 }
 
 // struct to store the token details
@@ -80,12 +83,30 @@ decl_module! {
             // Ensure the uniqueness of the ticker
             ensure!(!<Tokens<T>>::exists(ticker.clone()), "ticker is already issued");
 
-            // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
-            let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+            // // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
+            // let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
-            // Alternative way to take a fee - fee is paid to `fee_collector`
-            let my_fee = <T::Balance as As<u64>>::sa(1337);
-            <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
+            // // Alternative way to take a fee - fee is paid to `fee_collector`
+            // let my_fee = <T::Balance as As<u64>>::sa(1337);
+            // <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
+            // T::TokenFeeCharge::on_unbalanced(imbalance);
+
+            // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
+            let validators = <session::Module<T>>::validators();
+            let fee = Self::asset_creation_fee();
+            let validatorLen;
+            if validators.len() < 1 {
+                validatorLen = <FeeOf<T> as As<usize>>::sa(1);
+            } else {
+                validatorLen = <FeeOf<T> as As<usize>>::sa(validators.len());
+            }
+            let proportional_fee = fee / validatorLen;
+            let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
+            for v in &validators {
+                <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
+            }
+            let remainder_fee = fee - (proportional_fee * validatorLen);
+            let imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
             T::TokenFeeCharge::on_unbalanced(imbalance);
 
             // checking max size for name and ticker
@@ -475,7 +496,7 @@ mod tests {
     use primitives::{Blake2Hasher, H256};
     use runtime_io::with_externalities;
     use runtime_primitives::{
-        testing::{Digest, DigestItem, Header},
+        testing::{Digest, DigestItem, Header, UintAuthorityId},
         traits::{BlakeTwo256, IdentityLookup},
         BuildStorage,
     };
@@ -500,6 +521,15 @@ mod tests {
     // configuration traits of modules we want to use.
     #[derive(Clone, Eq, PartialEq)]
     pub struct Test;
+
+    pub struct CurrencyToBalanceHandler;
+
+    impl Convert<u128, u128> for CurrencyToBalanceHandler {
+        fn convert(x: u128) -> u128 {
+            x
+        }
+    }
+
     impl system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
@@ -540,10 +570,21 @@ mod tests {
     impl utils::Trait for Test {
         type TokenBalance = u128;
     }
+    impl consensus::Trait for Test {
+        type SessionKey = UintAuthorityId;
+        type InherentOfflineReport = ();
+        type Log = DigestItem;
+    }
+    impl session::Trait for Test {
+        type ConvertAccountIdToSessionKey = ();
+        type OnSessionChange = ();
+        type Event = ();
+    }
     impl Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
         type TokenFeeCharge = ();
+        type CurrencyToBalance = CurrencyToBalanceHandler;
     }
     type Asset = Module<Test>;
 

@@ -96,6 +96,14 @@ impl Convert<u128, u128> for CurrencyToVoteHandler {
     }
 }
 
+pub struct CurrencyToBalanceHandler;
+
+impl Convert<u128, u128> for CurrencyToBalanceHandler {
+    fn convert(x: u128) -> u128 {
+        x
+    }
+}
+
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
 /// of data like extrinsics, allowing for them to continue syncing the network through upgrades
@@ -295,6 +303,7 @@ impl asset::Trait for Runtime {
     //type TokenBalance = u128;
     type Currency = Balances;
     type TokenFeeCharge = ();
+    type CurrencyToBalance = CurrencyToBalanceHandler;
 }
 
 impl utils::Trait for Runtime {
