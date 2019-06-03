@@ -1,7 +1,6 @@
 use crate::asset;
-use crate::asset::HasOwner;
+use crate::asset::AssetTrait;
 use crate::utils;
-
 use rstd::prelude::*;
 
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
@@ -13,7 +12,8 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type Asset: asset::HasOwner<Self::AccountId>;
+    //type Asset: asset::HasOwner<Self::AccountId>;
+    type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
 }
 
 decl_storage! {
@@ -149,7 +149,7 @@ mod tests {
         type OnTimestampSet = ();
     }
 
-    impl asset::HasOwner<<Test as system::Trait>::AccountId> for Module<Test> {
+    impl asset::AssetTrait<T::AccountId, T::TokenBalance>  for Module<Test> {
         fn is_owner(_ticker: Vec<u8>, sender: <Test as system::Trait>::AccountId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(&_ticker) {
                 token.owner == sender
