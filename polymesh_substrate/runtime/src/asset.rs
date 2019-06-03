@@ -564,6 +564,11 @@ mod tests {
     impl utils::Trait for Test {
         type TokenBalance = u128;
     }
+    impl consensus::Trait for Test {
+        type SessionKey = ();
+        type InherentOfflineReport = ();
+        type Log = ();
+    }
     impl session::Trait for Test {
         type ConvertAccountIdToSessionKey = ();
         type OnSessionChange = ();
