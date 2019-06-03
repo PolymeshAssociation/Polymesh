@@ -283,8 +283,8 @@ mod tests {
     use primitives::{Blake2Hasher, H256};
     use runtime_io::with_externalities;
     use runtime_primitives::{
-        testing::{Digest, DigestItem, Header},
-        traits::{BlakeTwo256, IdentityLookup},
+        testing::{Digest, DigestItem, Header, UintAuthorityId},
+        traits::{BlakeTwo256, Convert, IdentityLookup},
         BuildStorage,
     };
     use support::{assert_ok, impl_outer_origin};
@@ -298,6 +298,14 @@ mod tests {
 
     impl_outer_origin! {
         pub enum Origin for Test {}
+    }
+
+    pub struct CurrencyToBalanceHandler;
+
+    impl Convert<u128, u128> for CurrencyToBalanceHandler {
+        fn convert(x: u128) -> u128 {
+            x
+        }
     }
 
     // For testing the module, we construct most of a mock runtime. This means
@@ -323,6 +331,7 @@ mod tests {
         type Event = ();
         type Currency = balances::Module<Test>;
         type TokenFeeCharge = ();
+        type CurrencyToBalance = CurrencyToBalanceHandler;
     }
 
     impl balances::Trait for Test {
@@ -333,6 +342,12 @@ mod tests {
         type OnNewAccount = ();
         type TransactionPayment = ();
         type TransferPayment = ();
+    }
+
+    impl consensus::Trait for Test {
+        type Log = DigestItem;
+        type SessionKey = UintAuthorityId;
+        type InherentOfflineReport = ();
     }
     impl general_tm::Trait for Test {
         type Event = ();
@@ -346,6 +361,12 @@ mod tests {
     impl percentage_tm::Trait for Test {
         type Event = ();
         type Asset = Module<Test>;
+    }
+
+    impl session::Trait for Test {
+        type ConvertAccountIdToSessionKey = ();
+        type Event = ();
+        type OnSessionChange = ();
     }
 
     impl timestamp::Trait for Test {
