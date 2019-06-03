@@ -278,17 +278,6 @@ decl_event!(
     }
 );
 
-pub trait HasOwner<T> {
-    fn is_owner(_ticker: Vec<u8>, who: T) -> bool;
-}
-
-impl<T: Trait> HasOwner<T::AccountId> for Module<T> {
-    fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let token = Self::token_details(_ticker.clone());
-        token.owner == sender
-    }
-}
-
 pub trait AssetTrait<T, V> {
     fn _mint_from_sto(ticker: Vec<u8>, sender: T, tokens_purchased: V) -> Result;
 
