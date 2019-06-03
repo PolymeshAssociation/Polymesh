@@ -1,7 +1,7 @@
 //! ERC20
 //!
 //! This module implements a simple ERC20 API on top of Polymesh.
-use crate::asset;
+
 use crate::identity;
 use crate::utils;
 
@@ -13,7 +13,7 @@ use support::{
     dispatch::Result,
     ensure,
     traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
-    StorageMap, StorageValue,
+    StorageMap,
 };
 use system::ensure_signed;
 
@@ -53,82 +53,82 @@ decl_storage! {
 
 // The module's dispatchable functions.
 decl_module! {
-/// The module declaration.
-pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-    // Initializing events
-    // this is needed only if you are using events in your module
-    fn deposit_event<T>() = default;
+    /// The module declaration.
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Initializing events
+        // this is needed only if you are using events in your module
+        fn deposit_event<T>() = default;
 
-    fn create_token(origin, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
-        let sender = ensure_signed(origin)?;
-        ensure!(!<Tokens<T>>::exists(ticker.clone()), "Ticker with this name already exists");
-        ensure!(<identity::Module<T>>::is_erc20_issuer(sender.clone()), "Sender is not an issuer");
-        ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
+        fn create_token(origin, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(!<Tokens<T>>::exists(ticker.clone()), "Ticker with this name already exists");
+            ensure!(<identity::Module<T>>::is_erc20_issuer(sender.clone()), "Sender is not an issuer");
+            ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
 
-        // Charge the creation fee
-        let imbalance = T::Currency::withdraw(
-            &sender,
-            Self::creation_fee(),
-            WithdrawReason::Fee,
-            ExistenceRequirement::KeepAlive
-            )?;
-        T::TokenFeeCharge::on_unbalanced(imbalance);
+            // Charge the creation fee
+            let imbalance = T::Currency::withdraw(
+                &sender,
+                Self::creation_fee(),
+                WithdrawReason::Fee,
+                ExistenceRequirement::KeepAlive
+                )?;
+            T::TokenFeeCharge::on_unbalanced(imbalance);
 
-        let new_token = ERC20Token {
-            ticker: ticker.clone(),
-            total_supply: total_supply.clone(),
-            owner: sender.clone(),
-        };
+            let new_token = ERC20Token {
+                ticker: ticker.clone(),
+                total_supply: total_supply.clone(),
+                owner: sender.clone(),
+            };
 
-        <Tokens<T>>::insert(ticker.clone(), new_token);
-        // Let the owner distribute the whole supply of the token
-        <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), total_supply);
+            <Tokens<T>>::insert(ticker.clone(), new_token);
+            // Let the owner distribute the whole supply of the token
+            <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), total_supply);
 
-        runtime_io::print("Initialized a new token");
+            runtime_io::print("Initialized a new token");
 
-        Self::deposit_event(RawEvent::TokenCreated(ticker.clone(), sender, total_supply));
+            Self::deposit_event(RawEvent::TokenCreated(ticker.clone(), sender, total_supply));
 
-        Ok(())
+            Ok(())
+        }
+
+        fn approve(origin, ticker: Vec<u8>, spender: T::AccountId, value: T::TokenBalance) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
+
+            let allowance = Self::allowance((ticker.clone(), sender.clone(), spender.clone()));
+            let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
+            <Allowance<T>>::insert((ticker.clone(), sender.clone(), spender.clone()), updated_allowance);
+
+            Self::deposit_event(RawEvent::Approval(ticker.clone(), sender.clone(), spender.clone(), value));
+
+            Ok(())
+        }
+
+        fn transfer(origin, ticker: Vec<u8>, to: T::AccountId, amount: T::TokenBalance) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            Self::_transfer(ticker.clone(), sender, to, amount)
+        }
+
+        fn transfer_from(origin, ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, amount: T::TokenBalance) -> Result {
+            let spender = ensure_signed(origin)?;
+            ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), spender.clone())), "Allowance does not exist.");
+            let allowance = Self::allowance((ticker.clone(), from.clone(), spender.clone()));
+            ensure!(allowance >= amount, "Not enough allowance.");
+
+            // Needs to happen before allowance subtraction so that the from balance is checked in _transfer
+            Self::_transfer(ticker.clone(), from.clone(), to, amount)?;
+
+            // using checked_sub (safe math) to avoid overflow
+            let updated_allowance = allowance.checked_sub(&amount).ok_or("overflow in calculating allowance")?;
+            <Allowance<T>>::insert((ticker.clone(), from.clone(), spender.clone()), updated_allowance);
+
+            Self::deposit_event(RawEvent::Approval(ticker.clone(), from.clone(), spender.clone(), updated_allowance));
+
+            Ok(())
+        }
     }
-
-    fn approve(origin, ticker: Vec<u8>, spender: T::AccountId, value: T::TokenBalance) -> Result {
-        let sender = ensure_signed(origin)?;
-        ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
-
-        let allowance = Self::allowance((ticker.clone(), sender.clone(), spender.clone()));
-        let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
-        <Allowance<T>>::insert((ticker.clone(), sender.clone(), spender.clone()), updated_allowance);
-
-        Self::deposit_event(RawEvent::Approval(ticker.clone(), sender.clone(), spender.clone(), value));
-
-        Ok(())
-    }
-
-    fn transfer(origin, ticker: Vec<u8>, to: T::AccountId, amount: T::TokenBalance) -> Result {
-        let sender = ensure_signed(origin)?;
-
-        Self::_transfer(ticker.clone(), sender, to, amount)
-    }
-
-    fn transfer_from(origin, ticker: Vec<u8>, from: T::AccountId, to: T::AccountId, amount: T::TokenBalance) -> Result {
-        let spender = ensure_signed(origin)?;
-        ensure!(<Allowance<T>>::exists((ticker.clone(), from.clone(), spender.clone())), "Allowance does not exist.");
-        let allowance = Self::allowance((ticker.clone(), from.clone(), spender.clone()));
-        ensure!(allowance >= amount, "Not enough allowance.");
-
-        // Needs to happen before allowance subtraction so that the from balance is checked in _transfer
-        Self::_transfer(ticker.clone(), from.clone(), to, amount)?;
-
-        // using checked_sub (safe math) to avoid overflow
-        let updated_allowance = allowance.checked_sub(&amount).ok_or("overflow in calculating allowance")?;
-        <Allowance<T>>::insert((ticker.clone(), from.clone(), spender.clone()), updated_allowance);
-
-        Self::deposit_event(RawEvent::Approval(ticker.clone(), from.clone(), spender.clone(), updated_allowance));
-
-        Ok(())
-    }
-}
 }
 
 decl_event!(
