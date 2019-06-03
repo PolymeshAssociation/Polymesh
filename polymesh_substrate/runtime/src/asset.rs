@@ -1,10 +1,10 @@
 use crate::general_tm;
-use crate::identity;
+use crate::identity::{self};
 use crate::percentage_tm;
 use crate::utils;
 use rstd::prelude::*;
 //use parity_codec::Codec;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
 use session;
 use support::traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
