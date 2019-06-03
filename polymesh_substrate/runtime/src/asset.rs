@@ -388,7 +388,7 @@ impl<T: Trait> Module<T> {
         );
         ensure!(
             verification_whitelist.is_ok() && verification_percentage.is_ok(),
-            "Restriction get invalidated"
+            "Transfer Verification failed. Review imposed transfer restrictions."
         );
         Ok(())
     }
