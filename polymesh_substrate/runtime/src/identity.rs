@@ -81,17 +81,6 @@ decl_event!(
     }
 );
 
-pub trait IdentityTrait<T> {
-    fn investor_data(who: T) -> Investor<T>;
-}
-
-impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
-    fn investor_data(sender: T::AccountId) -> Investor<T::AccountId> {
-        let _investor = Self::investor_list(sender);
-        _investor
-    }
-}
-
 impl<T: Trait> Module<T> {
     /// Add a new issuer. Warning: No identity module ownership checks are performed
     pub fn do_create_issuer(_issuer: T::AccountId) -> Result {
