@@ -55,7 +55,7 @@ decl_storage! {
         // Checkpoints created per token
         TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u32;
         // Total supply of the token at the checkpoint
-        CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u32) => T::TokenBalance;
+        pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u32) => T::TokenBalance;
         // Balance of a user at a checkpoint
         CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, T::AccountId, u32) => Option<T::TokenBalance>;
         // Last checkpoint updated for user balance

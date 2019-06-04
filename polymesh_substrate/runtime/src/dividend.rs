@@ -46,6 +46,7 @@ pub struct Dividend<U, V> {
 decl_storage! {
     trait Store for Module<T: Trait> as dividend {
         // Dividend records; (ticker, checkpoint ID) => dividend entries, index is dividend ID
+        // Note: conntrary to checkpoint IDs, dividend IDs are 0-indexed.
         Dividends get(dividends): map (Vec<u8>, u32) => Vec<Dividend<T::TokenBalance, T::Moment>>;
         // Payout flags, decide whether a user already was paid their dividend
         // (who, ticker, checkpoint_id, dividend_id)
@@ -86,7 +87,7 @@ decl_module! {
             ensure!(balance >= amount, "Insufficient funds for payout");
 
             // Check if checkpoint exists
-            ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) > checkpoint_id,
+            ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) >= checkpoint_id,
             "Checkpoint for dividend does not exist");
 
             let now = <timestamp::Module<T>>::get();
@@ -194,14 +195,14 @@ decl_module! {
 
             // Compute the share
             ensure!(<asset::Tokens<T>>::exists(ticker.clone()), "Dividend token entry not found");
-            let token = <asset::Tokens<T>>::get(ticker.clone());
+            let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker.clone(), checkpoint_id));
 
             let balance_amount_product = balance_at_checkpoint
                 .checked_mul(&dividend.amount)
                 .ok_or("multiplying balance and total payout amount failed")?;
 
             let share = balance_amount_product
-                .checked_div(&token.total_supply)
+                .checked_div(&supply_at_checkpoint)
                 .ok_or("balance_amount_product division failed")?;
 
             // Perform the payout in designated tokens or base currency depending on setting
@@ -528,12 +529,6 @@ mod tests {
             ));
             drop(outer);
 
-            // Create checkpoint for token
-            assert_ok!(Asset::create_checkpoint(
-                Origin::signed(token.owner),
-                token.name.clone()
-            ));
-
             // Transfer tokens to investor
             assert_ok!(Asset::transfer(
                 Origin::signed(token.owner),
@@ -542,7 +537,14 @@ mod tests {
                 amount_invested
             ));
 
-            let checkpoint_id = 0;
+            // Create checkpoint for token
+            assert_ok!(Asset::create_checkpoint(
+                Origin::signed(token.owner),
+                token.name.clone()
+            ));
+
+            // Checkpoints are 1-indexed
+            let checkpoint_id = 1;
 
             let dividend = Dividend {
                 amount: 500_000,
