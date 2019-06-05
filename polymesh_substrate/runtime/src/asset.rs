@@ -53,7 +53,7 @@ decl_storage! {
         // cost in base currency to create a token
         AssetCreationFee get(asset_creation_fee) config(): FeeOf<T>;
         // Checkpoints created per token
-        TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u32;
+        pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u32;
         // Total supply of the token at the checkpoint
         pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u32) => T::TokenBalance;
         // Balance of a user at a checkpoint

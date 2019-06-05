@@ -56,39 +56,51 @@ decl_storage! {
 
 // The module's dispatchable functions.
 decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        // Initializing events
-        // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
+/// The module declaration.
+pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    // Initializing events
+    // this is needed only if you are using events in your module
+    fn deposit_event<T>() = default;
 
-        /// Creates a new dividend entry without payout
-        pub fn new(origin,
-                   amount: T::TokenBalance,
-                   ticker: Vec<u8>,
-                   matures_at: Option<T::Moment>,
-                   expires_at: Option<T::Moment>,
-                   payout_currency: Option<Vec<u8>>,
-                   checkpoint_id: u32
-                  ) -> Result {
-            let sender = ensure_signed(origin)?;
+    /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
+    /// None in payout_currency means POLY payout.
+    pub fn new(origin,
+               amount: T::TokenBalance,
+               ticker: Vec<u8>,
+               matures_at: Option<T::Moment>,
+               expires_at: Option<T::Moment>,
+               payout_currency: Option<Vec<u8>>,
+               checkpoint_id: Option<u32>
+              ) -> Result {
+        let sender = ensure_signed(origin)?;
 
-            // Check that sender owns the asset token
-            ensure!(<asset::Module<T>>::_is_owner(ticker.clone(), sender.clone()), "User is not the owner of the asset");
+        // Check that sender owns the asset token
+        ensure!(<asset::Module<T>>::_is_owner(ticker.clone(), sender.clone()), "User is not the owner of the asset");
 
-            // Check if sender has enough funds in payout currency
-            let balance = if let Some(payout_ticker) = payout_currency.as_ref() {
-                // Check for token
-                <asset::BalanceOf<T>>::get((payout_ticker.clone(), sender.clone()))
-            } else {
-                // Check for POLY
-                <T::TokenBalance as As<T::Balance>>::sa(<balances::FreeBalance<T>>::get(sender.clone()))
-            };
-            ensure!(balance >= amount, "Insufficient funds for payout");
+        // Check if sender has enough funds in payout currency
+        let balance = if let Some(payout_ticker) = payout_currency.as_ref() {
+            // Check for token
+            <asset::BalanceOf<T>>::get((payout_ticker.clone(), sender.clone()))
+        } else {
+            // Check for POLY
+            <T::TokenBalance as As<T::Balance>>::sa(<balances::FreeBalance<T>>::get(sender.clone()))
+        };
+        ensure!(balance >= amount, "Insufficient funds for payout");
 
-            // Check if checkpoint exists
-            ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) >= checkpoint_id,
-            "Checkpoint for dividend does not exist");
+        // Unpack the checkpoint ID or use the latest
+        let checkpoint_id = if let Some(id) = checkpoint_id {
+            id
+        } else {
+            let count = <asset::TotalCheckpoints<T>>::get(ticker.clone());
+            ensure!(
+                count > 0,
+                "Implicit checkpoint_id needs at least one checkpoint to exist in dividend token"
+            );
+            count
+        };
+                // Check if checkpoint exists
+                ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) >= checkpoint_id,
+                "Checkpoint for dividend does not exist");
 
             let now = <timestamp::Module<T>>::get();
 
@@ -571,7 +583,7 @@ mod tests {
                 dividend.matures_at.clone(),
                 dividend.expires_at.clone(),
                 dividend.payout_currency.clone(),
-                dividend.checkpoint_id
+                Some(dividend.checkpoint_id)
             ));
 
             // Compare created dividend with the expected structure
