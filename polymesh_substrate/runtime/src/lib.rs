@@ -302,7 +302,6 @@ impl asset::Trait for Runtime {
     type Event = Event;
     //type TokenBalance = u128;
     type Currency = Balances;
-    type TokenFeeCharge = ();
     type CurrencyToBalance = CurrencyToBalanceHandler;
 }
 
@@ -313,7 +312,6 @@ impl utils::Trait for Runtime {
 impl erc20::Trait for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type TokenFeeCharge = ();
 }
 
 // impl tm::Trait for Runtime {

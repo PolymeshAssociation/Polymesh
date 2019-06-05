@@ -11,8 +11,6 @@ use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, S
 use system::{self, ensure_signed};
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -31,7 +29,6 @@ pub trait Trait:
     //type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>;
     type Currency: Currency<Self::AccountId>;
     // Handler for the unbalanced decrease when charging fee
-    type TokenFeeCharge: OnUnbalanced<NegativeImbalanceOf<Self>>;
     type CurrencyToBalance: Convert<FeeOf<Self>, <Self as balances::Trait>::Balance>;
 }
 
@@ -106,8 +103,7 @@ decl_module! {
                 <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
             }
             let remainder_fee = fee - (proportional_fee * validatorLen);
-            let imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
-            T::TokenFeeCharge::on_unbalanced(imbalance);
+            let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
@@ -572,7 +568,6 @@ mod tests {
     impl Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
-        type TokenFeeCharge = ();
         type CurrencyToBalance = CurrencyToBalanceHandler;
     }
     type Asset = Module<Test>;

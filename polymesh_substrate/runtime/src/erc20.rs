@@ -18,8 +18,6 @@ use support::{
 use system::ensure_signed;
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trait {
@@ -27,7 +25,6 @@ pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trai
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type Currency: Currency<Self::AccountId>;
-    type TokenFeeCharge: OnUnbalanced<NegativeImbalanceOf<Self>>;
 }
 
 // struct to store the token details
@@ -67,13 +64,12 @@ decl_module! {
 
 
             // Charge the creation fee
-            let imbalance = T::Currency::withdraw(
+            let _imbalance = T::Currency::withdraw(
                 &sender,
                 Self::creation_fee(),
                 WithdrawReason::Fee,
                 ExistenceRequirement::KeepAlive
                 )?;
-            T::TokenFeeCharge::on_unbalanced(imbalance);
 
             let new_token = ERC20Token {
                 ticker: ticker.clone(),
