@@ -33,7 +33,7 @@ pub struct Dividend<U, V> {
     /// Whether claiming dividends is enabled
     active: bool,
     /// An optional timestamp of payout start
-    maturates_at: Option<V>,
+    matures_at: Option<V>,
     /// An optional timestamp for payout end
     expires_at: Option<V>,
     /// The payout currency ticker. None means POLY
@@ -66,7 +66,7 @@ decl_module! {
         pub fn new(origin,
                    amount: T::TokenBalance,
                    ticker: Vec<u8>,
-                   maturates_at: Option<T::Moment>,
+                   matures_at: Option<T::Moment>,
                    expires_at: Option<T::Moment>,
                    payout_currency: Option<Vec<u8>>,
                    checkpoint_id: u32
@@ -92,8 +92,8 @@ decl_module! {
 
             let now = <timestamp::Module<T>>::get();
 
-            // Check maturation/expiration dates
-            match (maturates_at.as_ref(), expires_at.as_ref()) {
+            // Check maturity/expiration dates
+            match (matures_at.as_ref(), expires_at.as_ref()) {
                 (Some(start), Some(end))=> {
                     // Ends in the future
                     ensure!(*end > now, "Dividend payout should end in the future");
@@ -125,7 +125,7 @@ decl_module! {
             let new_dividend = Dividend {
                 amount,
                 active: false,
-                maturates_at,
+                matures_at,
                 expires_at,
                 payout_currency: payout_currency.clone(),
                 checkpoint_id,
@@ -184,9 +184,9 @@ decl_module! {
 
             let now = <timestamp::Module<T>>::get();
 
-            // Check if the current time is within maturation/expiration bounds
-            if let Some(start) = dividend.maturates_at.as_ref() {
-                ensure!(now > *start, "Attempted payout before maturation");
+            // Check if the current time is within maturity/expiration bounds
+            if let Some(start) = dividend.matures_at.as_ref() {
+                ensure!(now > *start, "Attempted payout before maturity");
             }
 
             if let Some(end) = dividend.expires_at.as_ref() {
@@ -549,7 +549,7 @@ mod tests {
             let dividend = Dividend {
                 amount: 500_000,
                 active: false,
-                maturates_at: Some((now - Duration::hours(1)).timestamp() as u64),
+                matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
                 expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
                 payout_currency: Some(payout_token.name.clone()),
                 checkpoint_id,
@@ -568,7 +568,7 @@ mod tests {
                 Origin::signed(token.owner),
                 dividend.amount,
                 token.name.clone(),
-                dividend.maturates_at.clone(),
+                dividend.matures_at.clone(),
                 dividend.expires_at.clone(),
                 dividend.payout_currency.clone(),
                 dividend.checkpoint_id
