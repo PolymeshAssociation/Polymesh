@@ -6,7 +6,7 @@ use rstd::prelude::*;
 //use parity_codec::Codec;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
 use session;
-use support::traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason};
+use support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 

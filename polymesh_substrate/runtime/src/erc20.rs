@@ -12,7 +12,7 @@ use support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
     ensure,
-    traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
+    traits::{Currency, ExistenceRequirement, WithdrawReason},
     StorageMap,
 };
 use system::ensure_signed;

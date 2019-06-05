@@ -159,9 +159,9 @@ mod tests {
             }
         }
         fn _mint_from_sto(
-            ticker: Vec<u8>,
-            sender: <Test as system::Trait>::AccountId,
-            tokens_purchased: <Test as utils::Trait>::TokenBalance,
+            _ticker: Vec<u8>,
+            _sender: <Test as system::Trait>::AccountId,
+            _tokens_purchased: <Test as utils::Trait>::TokenBalance,
         ) -> Result {
             Err("_mint_from_sto() was not expected to be used in this test!")
         }

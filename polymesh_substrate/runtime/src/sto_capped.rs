@@ -2,7 +2,6 @@ use crate::asset;
 use crate::asset::AssetTrait;
 use crate::erc20;
 use crate::erc20::ERC20Trait;
-use crate::identity;
 
 use crate::utils;
 use support::traits::Currency;
