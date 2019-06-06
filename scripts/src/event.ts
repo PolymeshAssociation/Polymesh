@@ -69,7 +69,8 @@ var questionsOp1 = [
 
 async function moduleEvents (api) {
     inquirer.prompt(questionsOp1).then(async (answers) => {
-        if (answers.to >= answers.from) {
+        let currentBlock = await api.derive.chain.bestNumber();
+        if (answers.to >= answers.from && parseInt(currentBlock.toString()) >= answers.to) {
             // let eventArray = new Array();
             // let event = {};
             let diff = parseInt(answers.to) - parseInt(answers.from);

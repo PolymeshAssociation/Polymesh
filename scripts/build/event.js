@@ -112,22 +112,25 @@ function moduleEvents(api) {
         var _this = this;
         return __generator(this, function (_a) {
             inquirer_1.default.prompt(questionsOp1).then(function (answers) { return __awaiter(_this, void 0, void 0, function () {
-                var diff, k, blockNo, hash, events, i, typeList, j, value;
+                var currentBlock, diff, k, blockNo, hash, events, i, typeList, j, value;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
-                        case 0:
-                            if (!(answers.to >= answers.from)) return [3 /*break*/, 6];
+                        case 0: return [4 /*yield*/, api.derive.chain.bestNumber()];
+                        case 1:
+                            currentBlock = _a.sent();
+                            console.log(currentBlock.toString());
+                            if (!(answers.to >= answers.from && parseInt(currentBlock.toString()) >= answers.to)) return [3 /*break*/, 7];
                             diff = parseInt(answers.to) - parseInt(answers.from);
                             k = 0;
-                            _a.label = 1;
-                        case 1:
-                            if (!(k <= diff)) return [3 /*break*/, 5];
+                            _a.label = 2;
+                        case 2:
+                            if (!(k <= diff)) return [3 /*break*/, 6];
                             blockNo = answers.from + k;
                             return [4 /*yield*/, api.rpc.chain.getBlockHash(blockNo)];
-                        case 2:
+                        case 3:
                             hash = _a.sent();
                             return [4 /*yield*/, api.query.system.events.at(hash.toString())];
-                        case 3:
+                        case 4:
                             events = _a.sent();
                             for (i = 0; i < Object.keys(events).length - 1; i++) {
                                 if (events[i].event.data["_section"] == answers.module) {
@@ -142,13 +145,13 @@ function moduleEvents(api) {
                                     console.log("***************************************");
                                 }
                             }
-                            _a.label = 4;
-                        case 4:
+                            _a.label = 5;
+                        case 5:
                             k++;
-                            return [3 /*break*/, 1];
-                        case 5: return [3 /*break*/, 7];
-                        case 6: throw new Error("Invalid block numbers");
-                        case 7: return [2 /*return*/];
+                            return [3 /*break*/, 2];
+                        case 6: return [3 /*break*/, 8];
+                        case 7: throw new Error("Invalid block numbers");
+                        case 8: return [2 /*return*/];
                     }
                 });
             }); });
