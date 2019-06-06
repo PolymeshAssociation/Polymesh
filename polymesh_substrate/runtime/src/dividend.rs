@@ -67,10 +67,10 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
     pub fn new(origin,
                amount: T::TokenBalance,
                ticker: Vec<u8>,
-               matures_at: Option<T::Moment>,
-               expires_at: Option<T::Moment>,
-               payout_currency: Option<Vec<u8>>,
-               checkpoint_id: Option<u32>
+               matures_at: T::Moment,
+               expires_at: T::Moment,
+               payout_ticker: Vec<u8>,
+               checkpoint_id: u32
               ) -> Result {
         let sender = ensure_signed(origin)?;
 
@@ -78,7 +78,7 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         ensure!(<asset::Module<T>>::_is_owner(ticker.clone(), sender.clone()), "User is not the owner of the asset");
 
         // Check if sender has enough funds in payout currency
-        let balance = if let Some(payout_ticker) = payout_currency.as_ref() {
+        let balance = if payout_ticker.is_empty() {
             // Check for token
             <asset::BalanceOf<T>>::get((payout_ticker.clone(), sender.clone()))
         } else {
@@ -88,8 +88,8 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         ensure!(balance >= amount, "Insufficient funds for payout");
 
         // Unpack the checkpoint ID or use the latest
-        let checkpoint_id = if let Some(id) = checkpoint_id {
-            id
+        let checkpoint_id = if checkpoint_id > 0 {
+            checkpoint_id
         } else {
             let count = <asset::TotalCheckpoints<T>>::get(ticker.clone());
             ensure!(
@@ -98,58 +98,59 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
             );
             count
         };
-                // Check if checkpoint exists
-                ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) >= checkpoint_id,
-                "Checkpoint for dividend does not exist");
+        // Check if checkpoint exists
+        ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) >= checkpoint_id,
+        "Checkpoint for dividend does not exist");
 
-            let now = <timestamp::Module<T>>::get();
+        let now = <timestamp::Module<T>>::get();
+        let zero_ts = now.clone() - now.clone(); // A 0 timestamp
 
-            // Check maturity/expiration dates
-            match (matures_at.as_ref(), expires_at.as_ref()) {
-                (Some(start), Some(end))=> {
-                    // Ends in the future
-                    ensure!(*end > now, "Dividend payout should end in the future");
-                    // Ends after start
-                    ensure!(*end > *start, "Dividend payout must end after it starts");
-                },
-                (Some(_start), None) => {
-                },
-                (None, Some(end)) => {
-                    // Ends in the future
-                    ensure!(*end > now, "Dividend payout should end in the future");
-                },
-                (None, None) => {}
-            }
-
-            // Subtract the amount
-            if let Some(payout_ticker) = payout_currency.as_ref() {
-                let new_balance = balance.checked_sub(&amount).ok_or("Overflow calculating new owner balance")?;
-                <asset::BalanceOf<T>>::insert((payout_ticker.clone(), sender.clone()), new_balance);
-            } else {
-                let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
-                    &sender,
-                    <T::TokenBalance as As<T::Balance>>::as_(amount),
-                    WithdrawReason::Reserve,
-                    ExistenceRequirement::KeepAlive)?;
-            }
-
-            // Insert dividend entry into storage
-            let new_dividend = Dividend {
-                amount,
-                active: false,
-                matures_at,
-                expires_at,
-                payout_currency: payout_currency.clone(),
-                checkpoint_id,
-            };
-
-            let dividend_id = Self::add_dividend_entry((ticker.clone(), checkpoint_id),new_dividend)?;
-
-            // Dispatch event
-            Self::deposit_event(RawEvent::DividendCreated(ticker, amount, checkpoint_id, dividend_id));
-
-            Ok(())
+        // Check maturity/expiration dates
+        match (&matures_at, &expires_at) {
+            (_start, end) if  end == &zero_ts => {
+            },
+            (start, end) if start == &zero_ts => {
+                // Ends in the future
+                ensure!(end > &now, "Dividend payout must end in the future");
+            },
+            (start, end) if start == &zero_ts && end == &zero_ts => {}
+            (start, end) => {
+                // Ends in the future
+                ensure!(end > &now, "Dividend payout should end in the future");
+                // Ends after start
+                ensure!(end > start, "Dividend payout must end after it starts");
+            },
         }
+
+        // Subtract the amount
+        if payout_ticker.is_empty() {
+            let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
+                &sender,
+                <T::TokenBalance as As<T::Balance>>::as_(amount),
+                WithdrawReason::Reserve,
+                ExistenceRequirement::KeepAlive)?;
+        } else {
+            let new_balance = balance.checked_sub(&amount).ok_or("Overflow calculating new owner balance")?;
+            <asset::BalanceOf<T>>::insert((payout_ticker.clone(), sender.clone()), new_balance);
+        }
+
+        // Insert dividend entry into storage
+        let new_dividend = Dividend {
+            amount,
+            active: false,
+            matures_at: if matures_at > zero_ts { Some(matures_at) } else { None },
+            expires_at: if expires_at > zero_ts { Some(expires_at) } else { None },
+            payout_currency: if payout_ticker.is_empty() { None } else { Some(payout_ticker.clone())},
+            checkpoint_id,
+        };
+
+        let dividend_id = Self::add_dividend_entry((ticker.clone(), checkpoint_id),new_dividend)?;
+
+        // Dispatch event
+        Self::deposit_event(RawEvent::DividendCreated(ticker, amount, checkpoint_id, dividend_id));
+
+        Ok(())
+    }
 
         /// Enables withdrawal of dividend funds for asset `ticker`.
         pub fn activate(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
@@ -580,10 +581,10 @@ mod tests {
                 Origin::signed(token.owner),
                 dividend.amount,
                 token.name.clone(),
-                dividend.matures_at.clone(),
-                dividend.expires_at.clone(),
-                dividend.payout_currency.clone(),
-                Some(dividend.checkpoint_id)
+                dividend.matures_at.clone().unwrap(),
+                dividend.expires_at.clone().unwrap(),
+                dividend.payout_currency.clone().unwrap(),
+                dividend.checkpoint_id
             ));
 
             // Compare created dividend with the expected structure
