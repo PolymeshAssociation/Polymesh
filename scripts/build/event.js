@@ -107,62 +107,109 @@ var questionsOp1 = [
         }
     }
 ];
+var questionsOp2 = [
+    {
+        type: 'input',
+        name: 'module',
+        message: "What is the module name whose events you want to fetch: ",
+        default: "asset",
+        filter: function (val) {
+            return val.toLowerCase();
+        }
+    }
+];
 function moduleEvents(api) {
     return __awaiter(this, void 0, void 0, function () {
-        var _this = this;
+        var answers, currentBlock, diff, k, blockNo, hash, events, i, typeList, j, value;
         return __generator(this, function (_a) {
-            inquirer_1.default.prompt(questionsOp1).then(function (answers) { return __awaiter(_this, void 0, void 0, function () {
-                var currentBlock, diff, k, blockNo, hash, events, i, typeList, j, value;
-                return __generator(this, function (_a) {
-                    switch (_a.label) {
-                        case 0: return [4 /*yield*/, api.derive.chain.bestNumber()];
-                        case 1:
-                            currentBlock = _a.sent();
-                            console.log(currentBlock.toString());
-                            if (!(answers.to >= answers.from && parseInt(currentBlock.toString()) >= answers.to)) return [3 /*break*/, 7];
-                            diff = parseInt(answers.to) - parseInt(answers.from);
-                            k = 0;
-                            _a.label = 2;
-                        case 2:
-                            if (!(k <= diff)) return [3 /*break*/, 6];
-                            blockNo = answers.from + k;
-                            return [4 /*yield*/, api.rpc.chain.getBlockHash(blockNo)];
-                        case 3:
-                            hash = _a.sent();
-                            return [4 /*yield*/, api.query.system.events.at(hash.toString())];
-                        case 4:
-                            events = _a.sent();
-                            for (i = 0; i < Object.keys(events).length - 1; i++) {
-                                if (events[i].event.data["_section"] == answers.module) {
-                                    typeList = events[i].event.data["_typeDef"];
-                                    console.log("EventName - " + events[i].event.data["_method"] + " at block number " + blockNo);
-                                    for (j = 0; j < typeList.length; j++) {
-                                        value = events[i].event.data[j];
-                                        if (typeList[j].type == "Bytes")
-                                            value = Utils.hexToString(Utils.bytesToHex(events[i].event.data[j]));
-                                        console.log(typeList[j].type + " : " + value);
-                                    }
-                                    console.log("***************************************");
-                                }
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, inquirer_1.default.prompt(questionsOp1)];
+                case 1:
+                    answers = _a.sent();
+                    return [4 /*yield*/, api.derive.chain.bestNumber()];
+                case 2:
+                    currentBlock = _a.sent();
+                    if (!(answers.to >= answers.from && parseInt(currentBlock.toString()) >= answers.to)) return [3 /*break*/, 8];
+                    diff = parseInt(answers.to) - parseInt(answers.from);
+                    k = 0;
+                    _a.label = 3;
+                case 3:
+                    if (!(k <= diff)) return [3 /*break*/, 7];
+                    blockNo = answers.from + k;
+                    return [4 /*yield*/, api.rpc.chain.getBlockHash(blockNo)];
+                case 4:
+                    hash = _a.sent();
+                    return [4 /*yield*/, api.query.system.events.at(hash.toString())];
+                case 5:
+                    events = _a.sent();
+                    for (i = 0; i < Object.keys(events).length - 1; i++) {
+                        if (events[i].event.data["_section"] == answers.module) {
+                            typeList = events[i].event.data["_typeDef"];
+                            console.log("EventName - " + events[i].event.data["_method"] + " at block number " + blockNo);
+                            for (j = 0; j < typeList.length; j++) {
+                                value = events[i].event.data[j];
+                                if (typeList[j].type == "Bytes")
+                                    value = Utils.hexToString(Utils.bytesToHex(events[i].event.data[j]));
+                                console.log(typeList[j].type + " : " + value);
                             }
-                            _a.label = 5;
-                        case 5:
-                            k++;
-                            return [3 /*break*/, 2];
-                        case 6: return [3 /*break*/, 8];
-                        case 7: throw new Error("Invalid block numbers");
-                        case 8: return [2 /*return*/];
+                            console.log("***************************************");
+                        }
                     }
-                });
-            }); });
-            return [2 /*return*/];
+                    _a.label = 6;
+                case 6:
+                    k++;
+                    return [3 /*break*/, 3];
+                case 7: return [3 /*break*/, 9];
+                case 8: throw new Error("Invalid block numbers");
+                case 9:
+                    process.exit(0);
+                    return [2 /*return*/];
+            }
         });
     });
 }
 function subscribeEvents(api) {
     return __awaiter(this, void 0, void 0, function () {
+        var answers, unsubscribe;
+        var _this = this;
         return __generator(this, function (_a) {
-            return [2 /*return*/];
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, inquirer_1.default.prompt(questionsOp2)];
+                case 1:
+                    answers = _a.sent();
+                    return [4 /*yield*/, api.rpc.chain.subscribeNewHead(function (header) { return __awaiter(_this, void 0, void 0, function () {
+                            var hash, events, i, typeList, j, value;
+                            return __generator(this, function (_a) {
+                                switch (_a.label) {
+                                    case 0:
+                                        console.log("Chain is at block: #" + header.blockNumber);
+                                        return [4 /*yield*/, api.rpc.chain.getBlockHash(header.blockNumber)];
+                                    case 1:
+                                        hash = _a.sent();
+                                        return [4 /*yield*/, api.query.system.events.at(hash.toString())];
+                                    case 2:
+                                        events = _a.sent();
+                                        for (i = 0; i < Object.keys(events).length - 1; i++) {
+                                            if (events[i].event.data["_section"] == answers.module) {
+                                                typeList = events[i].event.data["_typeDef"];
+                                                console.log("EventName - " + events[i].event.data["_method"] + " at block number " + header.blockNumber);
+                                                for (j = 0; j < typeList.length; j++) {
+                                                    value = events[i].event.data[j];
+                                                    if (typeList[j].type == "Bytes")
+                                                        value = Utils.hexToString(Utils.bytesToHex(events[i].event.data[j]));
+                                                    console.log(typeList[j].type + " : " + value);
+                                                }
+                                                console.log("***************************************");
+                                            }
+                                        }
+                                        return [2 /*return*/];
+                                }
+                            });
+                        }); })];
+                case 2:
+                    unsubscribe = _a.sent();
+                    return [2 /*return*/];
+            }
         });
     });
 }
