@@ -573,10 +573,10 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
     }
-    impl percentage_tm::Trait for Test {
-        type Event = ();
-        type Asset = Module<Test>;
-    }
+    // impl percentage_tm::Trait for Test {
+    //     type Event = ();
+    //     type Asset = Module<Test>;
+    // }
     impl timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();

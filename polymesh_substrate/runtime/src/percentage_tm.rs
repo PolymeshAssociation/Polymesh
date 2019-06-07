@@ -136,9 +136,9 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
+    // impl_outer_origin! {
+    //     pub enum Origin for Test {}
+    // }
 
     // For testing the module, we construct most of a mock runtime. This means
     // first constructing a configuration type (`Test`) which `impl`s each of the
