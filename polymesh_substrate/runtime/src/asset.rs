@@ -649,7 +649,7 @@ mod tests {
                 owner: 1,
                 total_supply: 1_000_000,
                 granularity: 1,
-                decimals: 18
+                decimals: 18,
             };
 
             // Raise the owner's base currency balance
@@ -681,7 +681,7 @@ mod tests {
                 owner: 1,
                 total_supply: 1_000_000,
                 granularity: 1,
-                decimals: 18
+                decimals: 18,
             };
 
             Balances::make_free_balance_be(&token.owner, 1_000_000);
@@ -811,7 +811,7 @@ mod tests {
                         owner: owner_id,
                         total_supply,
                         granularity: 1,
-                        decimals: 18
+                        decimals: 18,
                     };
                     println!("{:#?}", token_struct);
 
