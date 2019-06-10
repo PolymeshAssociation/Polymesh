@@ -1,8 +1,6 @@
-use crate::asset;
-use crate::asset::AssetTrait;
-use crate::asset::HasOwner;
 use crate::exemption;
 use crate::exemption::ExemptionTrait;
+use crate::asset::{self, AssetTrait};
 use crate::utils;
 
 use rstd::prelude::*;
@@ -16,9 +14,8 @@ use system::{self, ensure_signed};
 pub trait Trait: system::Trait + utils::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type Asset: asset::HasOwner<Self::AccountId>;
-    type AssetTrait: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
     type ExemptionTrait: exemption::ExemptionTrait<Self::AccountId>;
+    type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
 }
 
 decl_event!(
@@ -88,10 +85,10 @@ impl<T: Trait> Module<T> {
         // TODO: Mould the integer into the module identity
         let is_exempted = T::ExemptionTrait::is_exempted(ticker.clone(), 2, _to.clone());
         if max_percentage != 0 && !is_exempted {
-            let newBalance = (T::AssetTrait::balance(ticker.clone(), _to.clone()))
+            let newBalance = (T::Asset::balance(ticker.clone(), _to.clone()))
                 .checked_add(&_value)
                 .ok_or("Balance of to will get overflow")?;
-            let totalSupply = T::AssetTrait::total_supply(ticker);
+            let totalSupply = T::Asset::total_supply(ticker);
 
             let percentageBalance = (newBalance
                 .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(18))))

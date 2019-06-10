@@ -1,5 +1,4 @@
-use crate::asset;
-use crate::asset::HasOwner;
+use crate::asset::{self, AssetTrait};
 use crate::identity::{self, InvestorList};
 use crate::utils;
 
@@ -16,7 +15,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type Asset: asset::HasOwner<Self::AccountId>;
+    type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
