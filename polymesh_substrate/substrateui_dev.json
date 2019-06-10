@@ -39,5 +39,6 @@
         "ticker": "Vec<u8>",
         "total_supply": "TokenBalance",
         "owner": "AccountId"
-    }
+    },
+    "FeeOf": "Balance"
 }
