@@ -6,13 +6,11 @@ use rstd::prelude::*;
 //use parity_codec::Codec;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
 use session;
-use support::traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason};
+use support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -31,7 +29,6 @@ pub trait Trait:
     //type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>;
     type Currency: Currency<Self::AccountId>;
     // Handler for the unbalanced decrease when charging fee
-    type TokenFeeCharge: OnUnbalanced<NegativeImbalanceOf<Self>>;
     type CurrencyToBalance: Convert<FeeOf<Self>, <Self as balances::Trait>::Balance>;
 }
 
@@ -111,8 +108,7 @@ decl_module! {
                 <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
             }
             let remainder_fee = fee - (proportional_fee * validatorLen);
-            let imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
-            T::TokenFeeCharge::on_unbalanced(imbalance);
+            let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
             let token = SecurityToken {
                 name,
@@ -280,17 +276,6 @@ decl_event!(
         IssuedToken(Vec<u8>, Balance, AccountId, u128, u32),
     }
 );
-
-pub trait HasOwner<T> {
-    fn is_owner(_ticker: Vec<u8>, who: T) -> bool;
-}
-
-impl<T: Trait> HasOwner<T::AccountId> for Module<T> {
-    fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let token = Self::token_details(_ticker.clone());
-        token.owner == sender
-    }
-}
 
 pub trait AssetTrait<T, V> {
     fn _mint_from_sto(ticker: Vec<u8>, sender: T, tokens_purchased: V) -> Result;
@@ -601,7 +586,6 @@ mod tests {
     impl Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
-        type TokenFeeCharge = ();
         type CurrencyToBalance = CurrencyToBalanceHandler;
     }
     type Asset = Module<Test>;

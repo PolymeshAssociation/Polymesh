@@ -1,5 +1,4 @@
-use crate::asset;
-use crate::asset::HasOwner;
+use crate::asset::{self, AssetTrait};
 use crate::utils;
 
 use rstd::prelude::*;
@@ -13,7 +12,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait {
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type Asset: asset::HasOwner<Self::AccountId>;
+    type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
 }
 
 decl_storage! {
@@ -149,13 +148,22 @@ mod tests {
         type OnTimestampSet = ();
     }
 
-    impl asset::HasOwner<<Test as system::Trait>::AccountId> for Module<Test> {
+    impl asset::AssetTrait<<Test as system::Trait>::AccountId, <Test as utils::Trait>::TokenBalance>
+        for Module<Test>
+    {
         fn is_owner(_ticker: Vec<u8>, sender: <Test as system::Trait>::AccountId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(&_ticker) {
                 token.owner == sender
             } else {
                 false
             }
+        }
+        fn _mint_from_sto(
+            _ticker: Vec<u8>,
+            _sender: <Test as system::Trait>::AccountId,
+            _tokens_purchased: <Test as utils::Trait>::TokenBalance,
+        ) -> Result {
+            Err("_mint_from_sto() was not expected to be used in this test!")
         }
     }
 
@@ -177,15 +185,15 @@ mod tests {
     lazy_static! {
         static ref TOKEN_MAP: Arc<
             Mutex<
-                HashMap<
-                    Vec<u8>,
-                    SecurityToken<
-                        <Test as utils::Trait>::TokenBalance,
-                        <Test as system::Trait>::AccountId,
-                    >,
+            HashMap<
+            Vec<u8>,
+            SecurityToken<
+                <Test as utils::Trait>::TokenBalance,
+                <Test as system::Trait>::AccountId,
                 >,
-            >,
-        > = Arc::new(Mutex::new(HashMap::new()));
+                >,
+                >,
+                > = Arc::new(Mutex::new(HashMap::new()));
         /// Because Rust's Mutex is not recursive a second symbolic lock is necessary
         static ref TOKEN_MAP_OUTER_LOCK: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
     }
