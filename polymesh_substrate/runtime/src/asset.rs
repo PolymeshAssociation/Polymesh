@@ -41,6 +41,8 @@ pub struct SecurityToken<U, V> {
     pub name: Vec<u8>,
     pub total_supply: U,
     pub owner: V,
+    pub granularity: u128,
+    pub decimals: u32,
 }
 
 decl_storage! {
@@ -75,21 +77,16 @@ decl_module! {
         // takes a name, ticker, total supply for the token
         // makes the initiating account the owner of the token
         // the balance of the owner is set to total supply
-        fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+        fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, divisible: bool) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
-
             // Ensure the uniqueness of the ticker
             ensure!(!<Tokens<T>>::exists(ticker.clone()), "ticker is already issued");
-
-            // // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
-            // let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
-
-            // // Alternative way to take a fee - fee is paid to `fee_collector`
-            // let my_fee = <T::Balance as As<u64>>::sa(1337);
-            // <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
-            // T::TokenFeeCharge::on_unbalanced(imbalance);
+            // checking max size for name and ticker
+            // byte arrays (vecs) with no max size should be avoided
+            ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
+            ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
@@ -109,17 +106,18 @@ decl_module! {
             let imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
             T::TokenFeeCharge::on_unbalanced(imbalance);
 
-            // checking max size for name and ticker
-            // byte arrays (vecs) with no max size should be avoided
-            ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
-            ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
+            let mut token_granularity: u128 =  1;
 
-            // take fee for creating asset
+            if !divisible {
+                token_granularity = 10_u128.pow(18);
+            }
 
             let token = SecurityToken {
                 name,
                 total_supply,
-                owner:sender.clone()
+                owner:sender.clone(),
+                granularity: token_granularity,
+                decimals: 18
             };
 
             <Tokens<T>>::insert(ticker.clone(), token);
