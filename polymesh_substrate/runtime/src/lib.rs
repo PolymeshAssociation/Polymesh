@@ -302,7 +302,6 @@ impl asset::Trait for Runtime {
     type Event = Event;
     //type TokenBalance = u128;
     type Currency = Balances;
-    type TokenFeeCharge = ();
     type CurrencyToBalance = CurrencyToBalanceHandler;
 }
 
@@ -319,7 +318,6 @@ impl utils::Trait for Runtime {
 impl erc20::Trait for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type TokenFeeCharge = ();
 }
 
 // impl tm::Trait for Runtime {
@@ -334,7 +332,6 @@ impl general_tm::Trait for Runtime {
 impl sto_capped::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type Identity = Identity;
     type ERC20Trait = ERC20;
 }
 
