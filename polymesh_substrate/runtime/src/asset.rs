@@ -88,6 +88,14 @@ decl_module! {
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
+            let mut granularity  = 1 as u128;
+
+            if !divisible {
+                granularity = (10 as u128).pow(18);
+            }
+
+            ensure!(<T as utils::Trait>::as_u128(total_supply) % granularity == (0 as u128), "Invalid Total supply");
+
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
@@ -106,23 +114,17 @@ decl_module! {
             let imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
             T::TokenFeeCharge::on_unbalanced(imbalance);
 
-            let mut token_granularity: u128 =  1;
-
-            if !divisible {
-                token_granularity = 10_u128.pow(18);
-            }
-
             let token = SecurityToken {
                 name,
                 total_supply,
                 owner:sender.clone(),
-                granularity: token_granularity,
-                decimals: 18
+                granularity:granularity,
+                decimals:18
             };
 
             <Tokens<T>>::insert(ticker.clone(), token);
-            <BalanceOf<T>>::insert((ticker.clone(), sender), total_supply);
-
+            <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), total_supply);
+            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, sender, granularity, 18));
             runtime_io::print("Initialized!!!");
 
             Ok(())
@@ -214,7 +216,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
-            Self::_mint(_ticker,to,value)
+            Self::_mint(ticker,to,value)
         }
 
         pub fn burn(_origin, _ticker: Vec<u8>, value: T::TokenBalance) -> Result {
@@ -273,6 +275,9 @@ decl_event!(
         // event for forced transfer of tokens
         // ticker, from, to, value
         ForcedTransfer(Vec<u8>, AccountId, AccountId, Balance),
+        // Event for creation of the asset
+        // ticker, total supply, owner, granularity, decimal
+        IssuedToken(Vec<u8>, Balance, AccountId, u128, u32),
     }
 );
 
@@ -385,6 +390,8 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
+        // Granularity check
+        ensure!(Self::check_granularity(_ticker.clone(), value), "Invalid granularity");
         ensure!(
             <BalanceOf<T>>::exists((_ticker.clone(), from.clone())),
             "Account does not own this token"
@@ -457,6 +464,7 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn _mint(ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
+        ensure!(Self::check_granularity(ticker.clone(), value), "Invalid granularity");
         //Increase receiver balance
         let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
         let updated_to_balance = current_to_balance
@@ -464,10 +472,9 @@ impl<T: Trait> Module<T> {
             .ok_or("overflow in calculating balance")?;
 
         //PABLO: TODO: Add verify transfer check
-
-        //Increase total suply
+        // Read the token details
         let mut token = Self::token_details(ticker.clone());
-
+        //Increase total suply
         token.total_supply = token
             .total_supply
             .checked_add(&value)
@@ -482,6 +489,14 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+
+    fn check_granularity(ticker: Vec<u8>, value: T::TokenBalance) -> bool {
+        // Read the token details
+        let token = Self::token_details(ticker.clone());
+        // Check the granularity
+        <T as utils::Trait>::as_u128(value) % token.granularity == (0 as u128)
+    }
+
 }
 
 /// tests for this module

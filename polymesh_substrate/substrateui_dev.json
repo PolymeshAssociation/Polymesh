@@ -3,7 +3,9 @@
     "SecurityToken": {
         "name": "Vec<u8>",
         "total_supply": "TokenBalance",
-        "owner": "AccountId"
+        "owner": "AccountId",
+        "granularity": "u128",
+        "decimals": "u32"
     },
     "Restriction": {
         "name": "Vec<u8>",
