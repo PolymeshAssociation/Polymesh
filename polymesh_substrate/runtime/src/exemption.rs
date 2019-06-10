@@ -1,15 +1,15 @@
-use crate::asset;
-use crate::asset::HasOwner;
+use crate::asset::{self, AssetTrait};
+use crate::utils;
 
 use rstd::prelude::*;
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::ensure_signed;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + utils::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type Asset: asset::HasOwner<Self::AccountId>;
+    type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
 }
 
 // This module's storage items.

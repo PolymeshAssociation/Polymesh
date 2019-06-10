@@ -339,7 +339,6 @@ impl sto_capped::Trait for Runtime {
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type AssetTrait = Asset;
     type ExemptionTrait = Exemption;
 }
 
