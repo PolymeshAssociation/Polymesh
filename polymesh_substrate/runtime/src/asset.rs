@@ -391,7 +391,10 @@ impl<T: Trait> Module<T> {
         value: T::TokenBalance,
     ) -> Result {
         // Granularity check
-        ensure!(Self::check_granularity(_ticker.clone(), value), "Invalid granularity");
+        ensure!(
+            Self::check_granularity(_ticker.clone(), value),
+            "Invalid granularity"
+        );
         ensure!(
             <BalanceOf<T>>::exists((_ticker.clone(), from.clone())),
             "Account does not own this token"
@@ -464,7 +467,10 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn _mint(ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
-        ensure!(Self::check_granularity(ticker.clone(), value), "Invalid granularity");
+        ensure!(
+            Self::check_granularity(ticker.clone(), value),
+            "Invalid granularity"
+        );
         //Increase receiver balance
         let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
         let updated_to_balance = current_to_balance
@@ -496,7 +502,6 @@ impl<T: Trait> Module<T> {
         // Check the granularity
         <T as utils::Trait>::as_u128(value) % token.granularity == (0 as u128)
     }
-
 }
 
 /// tests for this module
