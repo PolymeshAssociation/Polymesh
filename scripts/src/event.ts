@@ -56,7 +56,15 @@ var questionsOp1 = [
         type: 'number',
         name: 'to',
         message: "Enter the to block: ",
-        default: 1,
+        default: async function() {
+            // Initialise the provider to connect to the local node
+            const wsProvider = new WsProvider('ws://127.0.0.1:9944');
+            // Create the API and wait until ready
+            const api = await ApiPromise.create({
+                provider: wsProvider
+            });
+            return parseInt((await api.derive.chain.bestNumber()).toString());
+        },
         validate: function(val) {
             if (val <= 0)
                 return "Please enter the valid block no.";
@@ -64,6 +72,24 @@ var questionsOp1 = [
                 return true;
 
         }
+    }
+]
+
+var getEventAllowed = [
+    {
+        type: 'confirm',
+        name: "isAllowed",
+        message: "Do you want to filter the events by event name? ",
+        default: false,
+    }
+]
+
+var getEventName = [
+    {
+        type: 'input',
+        name: "eventName",
+        message: "Enter the event name: ",
+        default: "Transfer",
     }
 ]
 
@@ -81,7 +107,11 @@ var questionsOp2 = [
 ]
 
 async function moduleEvents (api) {
+    let event_name;
     let answers = await inquirer.prompt(questionsOp1);
+    let filterByEvent = await inquirer.prompt(getEventAllowed);
+    if (filterByEvent.isAllowed)
+        event_name = (await inquirer.prompt(getEventName)).eventName;
     let currentBlock = await api.derive.chain.bestNumber();
     if (answers.to >= answers.from && parseInt(currentBlock.toString()) >= answers.to) {
         let diff = parseInt(answers.to) - parseInt(answers.from);
@@ -90,8 +120,11 @@ async function moduleEvents (api) {
             let hash = await api.rpc.chain.getBlockHash(blockNo);
             let events = await api.query.system.events.at(hash.toString());
             for (let i = 0; i < Object.keys(events).length - 1; i++) {
+                console.log(blockNo);
                 if (events[i].event.data["_section"]== answers.module) {
                     let typeList = events[i].event.data["_typeDef"];
+                    if (events[i].event.data["_method"] != event_name && filterByEvent.isAllowed)
+                        continue;
                     console.log(`EventName - ${events[i].event.data["_method"]} at block number ${blockNo}`);
                     for (let j = 0; j < typeList.length; j++) {
                         let value = events[i].event.data[j];
