@@ -141,6 +141,12 @@ mod tests {
 
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        fn as_u128(v: Self::TokenBalance) -> u128 {
+            v
+        }
+        fn as_tb(v: u128) -> Self::TokenBalance {
+            v
+        }
     }
 
     impl timestamp::Trait for Test {
@@ -213,6 +219,8 @@ mod tests {
                     name: ticker.clone(),
                     owner: 1337,
                     total_supply: 1_000_000,
+                    granularity: 1,
+                    decimals: 18,
                 };
                 map.insert(ticker.clone(), token);
                 map
@@ -247,6 +255,8 @@ mod tests {
                     name: ticker.clone(),
                     owner: matching_owner,
                     total_supply: 1_000_000,
+                    granularity: 1,
+                    decimals: 18,
                 };
                 map.insert(ticker.clone(), token);
                 map

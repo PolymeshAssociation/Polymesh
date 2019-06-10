@@ -572,6 +572,12 @@ mod tests {
     }
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        fn as_u128(v: Self::TokenBalance) -> u128 {
+            v
+        }
+        fn as_tb(v: u128) -> Self::TokenBalance {
+            v
+        }
     }
     impl consensus::Trait for Test {
         type SessionKey = UintAuthorityId;
@@ -642,6 +648,8 @@ mod tests {
                 name: vec![0x01],
                 owner: 1,
                 total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18
             };
 
             // Raise the owner's base currency balance
@@ -655,7 +663,8 @@ mod tests {
                 Origin::signed(token.owner),
                 token.name.clone(),
                 token.name.clone(),
-                token.total_supply
+                token.total_supply,
+                true
             ));
 
             // A correct entry is added
@@ -671,6 +680,8 @@ mod tests {
                 name: vec![0x01],
                 owner: 1,
                 total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18
             };
 
             Balances::make_free_balance_be(&token.owner, 1_000_000);
@@ -683,7 +694,8 @@ mod tests {
                     Origin::signed(token.owner + 1),
                     token.name.clone(),
                     token.name.clone(),
-                    token.total_supply
+                    token.total_supply,
+                    true
                 ),
                 "user is not authorized"
             );
@@ -798,6 +810,8 @@ mod tests {
                         name: ticker.to_owned().into_bytes(),
                         owner: owner_id,
                         total_supply,
+                        granularity: 1,
+                        decimals: 18
                     };
                     println!("{:#?}", token_struct);
 
@@ -811,6 +825,7 @@ mod tests {
                             token_struct.name.clone(),
                             token_struct.name.clone(),
                             token_struct.total_supply,
+                            true
                         ));
 
                         // Also check that the new token matches what we asked to create
@@ -870,6 +885,7 @@ mod tests {
                             token_struct.name.clone(),
                             token_struct.name.clone(),
                             token_struct.total_supply,
+                            true
                         )
                         .is_err());
                     }
