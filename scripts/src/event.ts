@@ -120,7 +120,6 @@ async function moduleEvents (api) {
             let hash = await api.rpc.chain.getBlockHash(blockNo);
             let events = await api.query.system.events.at(hash.toString());
             for (let i = 0; i < Object.keys(events).length - 1; i++) {
-                console.log(blockNo);
                 if (events[i].event.data["_section"]== answers.module) {
                     let typeList = events[i].event.data["_typeDef"];
                     if (events[i].event.data["_method"] != event_name && filterByEvent.isAllowed)

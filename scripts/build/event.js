@@ -181,12 +181,10 @@ function moduleEvents(api) {
                     return [4 /*yield*/, api.rpc.chain.getBlockHash(blockNo)];
                 case 7:
                     hash = _a.sent();
-                    console.log(hash.toString());
                     return [4 /*yield*/, api.query.system.events.at(hash.toString())];
                 case 8:
                     events = _a.sent();
                     for (i = 0; i < Object.keys(events).length - 1; i++) {
-                        console.log(blockNo);
                         if (events[i].event.data["_section"] == answers.module) {
                             typeList = events[i].event.data["_typeDef"];
                             if (events[i].event.data["_method"] != event_name && filterByEvent.isAllowed)
