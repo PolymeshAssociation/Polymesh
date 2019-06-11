@@ -85,11 +85,7 @@ decl_module! {
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
-            let mut granularity  = 1 as u128;
-
-            if !divisible {
-                granularity = (10 as u128).pow(18);
-            }
+            let granularity = if !divisible { (10 as u128).pow(18) } else { 1 };
 
             ensure!(<T as utils::Trait>::as_u128(total_supply) % granularity == (0 as u128), "Invalid Total supply");
 
