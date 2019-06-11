@@ -95,7 +95,7 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
             ensure!(
                 count > 0,
                 "Implicit checkpoint_id needs at least one checkpoint to exist in dividend token"
-            );
+                );
             count
         };
         // Check if checkpoint exists
@@ -344,7 +344,6 @@ mod tests {
     impl asset::Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
-        type TokenFeeCharge = ();
         type CurrencyToBalance = CurrencyToBalanceHandler;
     }
 
@@ -395,13 +394,23 @@ mod tests {
     impl Trait for Test {
         type Event = ();
     }
-    impl asset::HasOwner<<Test as system::Trait>::AccountId> for Module<Test> {
+    impl asset::AssetTrait<<Test as system::Trait>::AccountId, <Test as utils::Trait>::TokenBalance>
+        for Module<Test>
+    {
         fn is_owner(_ticker: Vec<u8>, sender: <Test as system::Trait>::AccountId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(&_ticker) {
                 token.owner == sender
             } else {
                 false
             }
+        }
+
+        fn _mint_from_sto(
+            ticker: Vec<u8>,
+            sender: <Test as system::Trait>::AccountId,
+            tokens_purchased: <Test as utils::Trait>::TokenBalance,
+        ) -> Result {
+            Err("_mint_from_sto() not expected be used in this testsuite")
         }
     }
 
