@@ -1,3 +1,4 @@
+use crate::exemption;
 use crate::general_tm;
 use crate::identity;
 use crate::percentage_tm;
@@ -212,7 +213,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
-            Self::_mint(_ticker,to,value)
+            Self::_mint(ticker, to, value)
         }
 
         pub fn burn(_origin, _ticker: Vec<u8>, value: T::TokenBalance) -> Result {
@@ -275,8 +276,9 @@ decl_event!(
 );
 
 pub trait AssetTrait<T, V> {
+    fn total_supply(_ticker: Vec<u8>) -> V;
+    fn balance(_ticker: Vec<u8>, who: T) -> V;
     fn _mint_from_sto(ticker: Vec<u8>, sender: T, tokens_purchased: V) -> Result;
-
     fn is_owner(_ticker: Vec<u8>, who: T) -> bool;
 }
 
@@ -293,6 +295,18 @@ impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
     fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
         let token = Self::token_details(_ticker);
         token.owner == sender
+    }
+
+    /// Get the asset `id` balance of `who`.
+    fn balance(_ticker: Vec<u8>, who: T::AccountId) -> T::TokenBalance {
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        return Self::balance_of((ticker, who));
+    }
+
+    // Get the total supply of an asset `id`
+    fn total_supply(_ticker: Vec<u8>) -> T::TokenBalance {
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        return Self::token_details(ticker).total_supply;
     }
 }
 
@@ -346,22 +360,23 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let _verification_whitelist = <general_tm::Module<T>>::verify_restriction(
+        let verification_whitelist = <general_tm::Module<T>>::verify_restriction(
             _ticker.clone(),
             from.clone(),
             to.clone(),
             value,
-        )?;
-        let _verification_percentage = <percentage_tm::Module<T>>::verify_restriction(
+        );
+        let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(
             _ticker.clone(),
             from.clone(),
             to.clone(),
             value,
-        )?;
+        );
+        ensure!(
+            verification_whitelist.is_ok() && verification_percentage.is_ok(),
+            "Transfer Verification failed. Review imposed transfer restrictions."
+        );
         Ok(())
-        // if !verification_whitelist.0 {verification_whitelist}
-        // else if !verification_percentage.0 {verification_percentage}
-        // else {(true,"")}
     }
 
     // the ERC20 standard transfer function
@@ -546,14 +561,25 @@ mod tests {
     }
     impl percentage_tm::Trait for Test {
         type Event = ();
+    }
+
+    impl exemption::Trait for Test {
+        type Event = ();
         type Asset = Module<Test>;
     }
+
     impl timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
     }
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        fn as_u128(v: Self::TokenBalance) -> u128 {
+            v
+        }
+        fn as_tb(v: u128) -> Self::TokenBalance {
+            v
+        }
     }
     impl consensus::Trait for Test {
         type SessionKey = UintAuthorityId;
