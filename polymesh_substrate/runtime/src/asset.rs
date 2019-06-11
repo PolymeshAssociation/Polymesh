@@ -39,7 +39,7 @@ pub struct SecurityToken<U, V> {
     pub total_supply: U,
     pub owner: V,
     pub granularity: u128,
-    pub decimals: u32,
+    pub decimals: u16,
 }
 
 decl_storage! {
@@ -244,6 +244,20 @@ decl_module! {
             Ok(())
 
         }
+
+        pub fn change_granularity(origin, ticker: Vec<u8>, granularity: u128) -> Result {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            let sender = ensure_signed(origin)?;
+            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
+            ensure!(granularity != 0_u128, "Invalid granularity");
+            // Read the token details
+            let mut token = Self::token_details(ticker.clone());
+            //Increase total suply
+            token.granularity = granularity;
+            <Tokens<T>>::insert(ticker.clone(), token);
+            Self::deposit_event(RawEvent::GranularityChanged(ticker.clone(), granularity));
+            Ok(())
+        }
     }
 }
 
@@ -273,7 +287,10 @@ decl_event!(
         ForcedTransfer(Vec<u8>, AccountId, AccountId, Balance),
         // Event for creation of the asset
         // ticker, total supply, owner, granularity, decimal
-        IssuedToken(Vec<u8>, Balance, AccountId, u128, u32),
+        IssuedToken(Vec<u8>, Balance, AccountId, u128, u16),
+        // Event for change granularity
+        // ticker, granularity
+        GranularityChanged(Vec<u8>, u128),
     }
 );
 
