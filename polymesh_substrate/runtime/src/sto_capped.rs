@@ -2,7 +2,6 @@ use crate::asset;
 use crate::asset::AssetTrait;
 use crate::erc20;
 use crate::erc20::ERC20Trait;
-use crate::identity;
 
 use crate::utils;
 use support::traits::Currency;
@@ -19,7 +18,6 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + balances::Tra
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
-    type Identity: identity::IdentityTrait<Self::AccountId>;
     type ERC20Trait: erc20::ERC20Trait<Self::AccountId, Self::TokenBalance>;
 }
 

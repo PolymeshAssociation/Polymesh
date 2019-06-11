@@ -67,6 +67,7 @@ pub type Nonce = u64;
 
 mod asset;
 mod erc20;
+mod exemption;
 mod general_tm;
 mod identity;
 mod jurisdiction;
@@ -302,23 +303,23 @@ impl asset::Trait for Runtime {
     type Event = Event;
     //type TokenBalance = u128;
     type Currency = Balances;
-    type TokenFeeCharge = ();
     type CurrencyToBalance = CurrencyToBalanceHandler;
 }
 
 impl utils::Trait for Runtime {
     type TokenBalance = u128;
+    fn as_u128(v: Self::TokenBalance) -> u128 {
+        v
+    }
+    fn as_tb(v: u128) -> Self::TokenBalance {
+        v
+    }
 }
 
 impl erc20::Trait for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type TokenFeeCharge = ();
 }
-
-// impl tm::Trait for Runtime {
-//         type Asset = Asset;
-// }
 
 impl general_tm::Trait for Runtime {
     type Event = Event;
@@ -328,13 +329,11 @@ impl general_tm::Trait for Runtime {
 impl sto_capped::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type Identity = Identity;
     type ERC20Trait = ERC20;
 }
 
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
-    type Asset = Asset;
 }
 
 impl jurisdiction::Trait for Runtime {
@@ -347,6 +346,11 @@ impl organisation::Trait for Runtime {
 
 impl identity::Trait for Runtime {
     type Event = Event;
+}
+
+impl exemption::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
 }
 
 construct_runtime!(
@@ -373,6 +377,7 @@ construct_runtime!(
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
+        Exemption: exemption::{Module, Call, Storage, Event<T>},
         Session: session,
         Staking: staking::{default, OfflineWorker},
         Democracy: democracy,

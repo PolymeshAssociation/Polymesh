@@ -15,6 +15,8 @@ pub trait Trait: system::Trait + balances::Trait {
         + As<usize>
         + As<u64>
         + As<<Self as balances::Trait>::Balance>;
+    fn as_u128(v: Self::TokenBalance) -> u128;
+    fn as_tb(v: u128) -> Self::TokenBalance;
 }
 
 decl_storage! {
