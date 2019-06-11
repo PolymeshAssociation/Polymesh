@@ -321,10 +321,6 @@ impl erc20::Trait for Runtime {
     type Event = Event;
 }
 
-// impl tm::Trait for Runtime {
-//         type Asset = Asset;
-// }
-
 impl general_tm::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
@@ -338,8 +334,6 @@ impl sto_capped::Trait for Runtime {
 
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
-    type Asset = Asset;
-    type ExemptionTrait = Exemption;
 }
 
 impl jurisdiction::Trait for Runtime {

@@ -1,6 +1,5 @@
-use crate::exemption;
-use crate::exemption::ExemptionTrait;
 use crate::asset::{self, AssetTrait};
+use crate::exemption;
 use crate::utils;
 
 use rstd::prelude::*;
@@ -11,11 +10,9 @@ use support::{
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + utils::Trait {
+pub trait Trait: system::Trait + utils::Trait + exemption::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type ExemptionTrait: exemption::ExemptionTrait<Self::AccountId>;
-    type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
 }
 
 decl_event!(
@@ -83,7 +80,7 @@ impl<T: Trait> Module<T> {
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
         // TODO: Mould the integer into the module identity
-        let is_exempted = T::ExemptionTrait::is_exempted(ticker.clone(), 2, _to.clone());
+        let is_exempted = <exemption::Module<T>>::is_exempted(ticker.clone(), 2, _to.clone());
         if max_percentage != 0 && !is_exempted {
             let newBalance = (T::Asset::balance(ticker.clone(), _to.clone()))
                 .checked_add(&_value)
@@ -115,23 +112,23 @@ impl<T: Trait> Module<T> {
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
-    use crate::asset::SecurityToken;
-    use lazy_static::lazy_static;
-    use primitives::{Blake2Hasher, H256};
-    use runtime_io::with_externalities;
-    use runtime_primitives::{
-        testing::{Digest, DigestItem, Header},
-        traits::{BlakeTwo256, IdentityLookup},
-        BuildStorage,
-    };
-    use support::{assert_noop, assert_ok, impl_outer_origin};
+    // use crate::asset::SecurityToken;
+    // use lazy_static::lazy_static;
+    // use primitives::{Blake2Hasher, H256};
+    // use runtime_io::with_externalities;
+    // use runtime_primitives::{
+    //     testing::{Digest, DigestItem, Header},
+    //     traits::{BlakeTwo256, IdentityLookup},
+    //     BuildStorage,
+    // };
+    // use support::{assert_noop, assert_ok, impl_outer_origin};
 
-    use std::{
-        collections::HashMap,
-        sync::{Arc, Mutex},
-    };
+    // use std::{
+    //     collections::HashMap,
+    //     sync::{Arc, Mutex},
+    // };
 
     // impl_outer_origin! {
     //     pub enum Origin for Test {}
@@ -197,7 +194,7 @@ mod tests {
     //         .0
     //         .into()
     // }
-    // type PercentageTM = Module<Test>;
+    //type PercentageTM = Module<Test>;
 
     // lazy_static! {
     //     static ref TOKEN_MAP: Arc<

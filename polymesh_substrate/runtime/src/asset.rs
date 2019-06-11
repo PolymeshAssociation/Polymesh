@@ -1,3 +1,4 @@
+use crate::exemption;
 use crate::general_tm;
 use crate::identity;
 use crate::percentage_tm;
@@ -558,16 +559,27 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
     }
-    // impl percentage_tm::Trait for Test {
-    //     type Event = ();
-    //     type Asset = Module<Test>;
-    // }
+    impl percentage_tm::Trait for Test {
+        type Event = ();
+    }
+
+    impl exemption::Trait for Test {
+        type Event = ();
+        type Asset = Module<Test>;
+    }
+
     impl timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
     }
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        fn as_u128(v: Self::TokenBalance) -> u128 {
+            v
+        }
+        fn as_tb(v: u128) -> Self::TokenBalance {
+            v
+        }
     }
     impl consensus::Trait for Test {
         type SessionKey = UintAuthorityId;
