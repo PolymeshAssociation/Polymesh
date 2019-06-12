@@ -73,6 +73,7 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
                checkpoint_id: u32
               ) -> Result {
         let sender = ensure_signed(origin)?;
+        let ticker = utils::bytes_to_upper(ticker.as_slice());
 
         // Check that sender owns the asset token
         ensure!(<asset::Module<T>>::_is_owner(ticker.clone(), sender.clone()), "User is not the owner of the asset");
@@ -92,11 +93,12 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
             checkpoint_id
         } else {
             let count = <asset::TotalCheckpoints<T>>::get(ticker.clone());
-            ensure!(
-                count > 0,
-                "Implicit checkpoint_id needs at least one checkpoint to exist in dividend token"
-                );
+            if count > 0 {
             count
+            } else {
+                <asset::Module<T>>::_create_checkpoint(ticker.clone())?;
+                1
+            }
         };
         // Check if checkpoint exists
         ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) >= checkpoint_id,

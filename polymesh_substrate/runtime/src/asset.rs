@@ -417,7 +417,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn _create_checkpoint(ticker: Vec<u8>) -> Result {
+    pub fn _create_checkpoint(ticker: Vec<u8>) -> Result {
         if <TotalCheckpoints<T>>::exists(ticker.clone()) {
             let mut checkpoint_count = Self::total_checkpoints_of(ticker.clone());
             checkpoint_count = checkpoint_count
