@@ -154,97 +154,96 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         Ok(())
     }
 
-        /// Enables withdrawal of dividend funds for asset `ticker`.
-        pub fn activate(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
-            let sender = ensure_signed(origin)?;
+    /// Enables withdrawal of dividend funds for asset `ticker`.
+    pub fn activate(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
+        let sender = ensure_signed(origin)?;
 
-            // Check that sender owns the asset token
-            ensure!(<asset::Module<T>>::_is_owner(ticker.clone(), sender.clone()), "User is not the owner of the asset");
+        // Check that sender owns the asset token
+        ensure!(<asset::Module<T>>::_is_owner(ticker.clone(), sender.clone()), "User is not the owner of the asset");
 
-            // Check that the dividend exists
-            ensure!(<Dividends<T>>::exists((ticker.clone(), checkpoint_id)), "No dividend entries for supplied ticker and checkpoint");
+        // Check that the dividend exists
+        ensure!(<Dividends<T>>::exists((ticker.clone(), checkpoint_id)), "No dividend entries for supplied ticker and checkpoint");
 
-            // Flip `active`
-            <Dividends<T>>::mutate((ticker.clone(), checkpoint_id), |entries| {
-                if let Some(entry) = entries.get_mut(dividend_id as usize) {
-                    entry.active = true;
-                    Ok(())
-                } else {
-                    Err("No dividend entry for supplied dividend id")
-                }
-            })?;
-
-            // Dispatch event
-            Self::deposit_event(RawEvent::DividendPayoutStarted(ticker.clone(), checkpoint_id, dividend_id));
-
-            Ok(())
-        }
-
-        /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
-        /// are rounded by truncation (down to first integer below)
-        pub fn claim(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            // Check if sender wasn't already paid their share
-            ensure!(!<PayoutCompleted<T>>::get((sender.clone(), ticker.clone(), checkpoint_id, dividend_id)), "User was already paid their share");
-
-            let balance_at_checkpoint =
-                <asset::Module<T>>::get_balance_at(ticker.clone(), sender.clone(), checkpoint_id);
-
-            // Look dividend entry up
-            let dividend = Self::get_dividend(ticker.clone(), checkpoint_id, dividend_id).ok_or("Dividend not found")?;
-
-            // Check if the dividend is active
-            ensure!(dividend.active, "Dividend not active");
-
-            let now = <timestamp::Module<T>>::get();
-
-            // Check if the current time is within maturity/expiration bounds
-            if let Some(start) = dividend.matures_at.as_ref() {
-                ensure!(now > *start, "Attempted payout before maturity");
-            }
-
-            if let Some(end) = dividend.expires_at.as_ref() {
-                ensure!(*end > now, "Attempted payout after expiration");
-            }
-
-            // Compute the share
-            ensure!(<asset::Tokens<T>>::exists(ticker.clone()), "Dividend token entry not found");
-            let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker.clone(), checkpoint_id));
-
-            let balance_amount_product = balance_at_checkpoint
-                .checked_mul(&dividend.amount)
-                .ok_or("multiplying balance and total payout amount failed")?;
-
-            let share = balance_amount_product
-                .checked_div(&supply_at_checkpoint)
-                .ok_or("balance_amount_product division failed")?;
-
-            // Perform the payout in designated tokens or base currency depending on setting
-            if let Some(payout_ticker) = dividend.payout_currency.as_ref() {
-                <asset::BalanceOf<T>>::mutate(
-                    (payout_ticker.clone(), sender.clone()),
-                    |balance| -> Result {
-                        *balance = balance
-                            .checked_add(&share)
-                            .ok_or("Could not add share to sender balance")?;
-                        Ok(())
-                    })?;
-
+        // Flip `active`
+        <Dividends<T>>::mutate((ticker.clone(), checkpoint_id), |entries| {
+            if let Some(entry) = entries.get_mut(dividend_id as usize) {
+                entry.active = true;
+                Ok(())
             } else {
-                // Convert to balances::Trait::Balance
-                let share = <T::TokenBalance as As<T::Balance>>::as_(share);
-                let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(&sender, share)?;
+                Err("No dividend entry for supplied dividend id")
             }
-            // Create payout entry
-            <PayoutCompleted<T>>::insert((sender.clone(), ticker.clone(), checkpoint_id, dividend_id), true);
+        })?;
 
-            // Dispatch event
-            Self::deposit_event(RawEvent::DividendPaidOut(sender.clone(), ticker.clone(), checkpoint_id, dividend_id, share));
-            Ok(())
+        // Dispatch event
+        Self::deposit_event(RawEvent::DividendPayoutStarted(ticker.clone(), checkpoint_id, dividend_id));
+
+        Ok(())
+    }
+
+    /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
+    /// are rounded by truncation (down to first integer below)
+    pub fn claim(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
+        let sender = ensure_signed(origin)?;
+
+        // Check if sender wasn't already paid their share
+        ensure!(!<PayoutCompleted<T>>::get((sender.clone(), ticker.clone(), checkpoint_id, dividend_id)), "User was already paid their share");
+
+        let balance_at_checkpoint =
+            <asset::Module<T>>::get_balance_at(ticker.clone(), sender.clone(), checkpoint_id);
+
+        // Look dividend entry up
+        let dividend = Self::get_dividend(ticker.clone(), checkpoint_id, dividend_id).ok_or("Dividend not found")?;
+
+        // Check if the dividend is active
+        ensure!(dividend.active, "Dividend not active");
+
+        let now = <timestamp::Module<T>>::get();
+
+        // Check if the current time is within maturity/expiration bounds
+        if let Some(start) = dividend.matures_at.as_ref() {
+            ensure!(now > *start, "Attempted payout before maturity");
         }
 
+        if let Some(end) = dividend.expires_at.as_ref() {
+            ensure!(*end > now, "Attempted payout after expiration");
+        }
+
+        // Compute the share
+        ensure!(<asset::Tokens<T>>::exists(ticker.clone()), "Dividend token entry not found");
+        let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker.clone(), checkpoint_id));
+
+        let balance_amount_product = balance_at_checkpoint
+            .checked_mul(&dividend.amount)
+            .ok_or("multiplying balance and total payout amount failed")?;
+
+        let share = balance_amount_product
+            .checked_div(&supply_at_checkpoint)
+            .ok_or("balance_amount_product division failed")?;
+
+        // Perform the payout in designated tokens or base currency depending on setting
+        if let Some(payout_ticker) = dividend.payout_currency.as_ref() {
+            <asset::BalanceOf<T>>::mutate(
+                (payout_ticker.clone(), sender.clone()),
+                |balance| -> Result {
+                    *balance = balance
+                        .checked_add(&share)
+                        .ok_or("Could not add share to sender balance")?;
+                    Ok(())
+                })?;
+
+        } else {
+            // Convert to balances::Trait::Balance
+            let share = <T::TokenBalance as As<T::Balance>>::as_(share);
+            let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(&sender, share)?;
+        }
+        // Create payout entry
+        <PayoutCompleted<T>>::insert((sender.clone(), ticker.clone(), checkpoint_id, dividend_id), true);
+
+        // Dispatch event
+        Self::deposit_event(RawEvent::DividendPaidOut(sender.clone(), ticker.clone(), checkpoint_id, dividend_id, share));
+        Ok(())
     }
+}
 }
 
 decl_event!(
