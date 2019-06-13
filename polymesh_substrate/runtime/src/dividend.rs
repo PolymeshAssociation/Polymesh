@@ -82,11 +82,11 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
         // Check if sender has enough funds in payout currency
         let balance = if payout_ticker.is_empty() {
-            // Check for token
-            <asset::BalanceOf<T>>::get((payout_ticker.clone(), sender.clone()))
-        } else {
             // Check for POLY
             <T::TokenBalance as As<T::Balance>>::sa(<balances::FreeBalance<T>>::get(sender.clone()))
+        } else {
+            // Check for token
+            <asset::BalanceOf<T>>::get((payout_ticker.clone(), sender.clone()))
         };
         ensure!(balance >= amount, "Insufficient funds for payout");
 
