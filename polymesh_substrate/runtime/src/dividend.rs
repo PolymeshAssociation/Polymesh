@@ -32,6 +32,8 @@ pub struct Dividend<U, V> {
     amount: U,
     /// Whether claiming dividends is enabled
     active: bool,
+    /// Whether the dividend was cancelled
+    canceled: bool,
     /// An optional timestamp of payout start
     matures_at: Option<V>,
     /// An optional timestamp for payout end
@@ -140,6 +142,7 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         let new_dividend = Dividend {
             amount,
             active: false,
+            canceled: false,
             matures_at: if matures_at > zero_ts { Some(matures_at) } else { None },
             expires_at: if expires_at > zero_ts { Some(expires_at) } else { None },
             payout_currency: if payout_ticker.is_empty() { None } else { Some(payout_ticker.clone())},
@@ -151,6 +154,55 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Dispatch event
         Self::deposit_event(RawEvent::DividendCreated(ticker, amount, checkpoint_id, dividend_id));
 
+        Ok(())
+    }
+
+    /// Lets the owner cancel a dividend before start date or activation
+    pub fn cancel(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
+        let sender = ensure_signed(origin)?;
+
+        // Check that sender owns the asset token
+        ensure!(<asset::Module<T>>::_is_owner(ticker.clone(), sender.clone()), "User is not the owner of the asset");
+
+        // Check that the dividend exists
+        ensure!(<Dividends<T>>::exists((ticker.clone(), checkpoint_id)), "Dividend does not exist");
+
+        // Check that the dividend has not started yet or is not active
+        let entry: Dividend<_, _> = <Dividends<T>>::get((ticker.clone(), checkpoint_id)).get(dividend_id as usize).ok_or("Dividend does not exist")?.clone();
+        let now = <timestamp::Module<T>>::get();
+
+        let starts_in_future = if let Some(start) = entry.matures_at.clone() {
+            start > now
+        } else {
+            false
+        };
+
+        ensure!(starts_in_future || !entry.active, "Cancellable dividend must mature in the future or be inactive");
+
+        // Flip `canceled`
+        <Dividends<T>>::mutate((ticker.clone(), checkpoint_id), |entries| {
+            if let Some(entry) = entries.get_mut(dividend_id as usize) {
+                entry.canceled = true;
+                Ok(())
+            } else {
+                Err("No dividend entry for supplied dividend id")
+            }
+        })?;
+
+        // Pay amount back to owner
+        if let Some(payout_ticker) = entry.payout_currency.clone() {
+            <asset::BalanceOf<T>>::mutate((payout_ticker.clone(), sender.clone()), |balance: &mut T::TokenBalance| -> Result {
+                *balance  = balance
+                    .checked_add(&entry.amount)
+                    .ok_or("Could not add amount back to asset owner account")?;
+                Ok(())
+            })?;
+        } else {
+            let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(
+                &sender,
+                <T::TokenBalance as As<T::Balance>>::as_(entry.amount)
+                )?;
+        }
         Ok(())
     }
 
@@ -243,7 +295,32 @@ pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         Self::deposit_event(RawEvent::DividendPaidOut(sender.clone(), ticker.clone(), checkpoint_id, dividend_id, share));
         Ok(())
     }
-}
+
+    pub fn claim_unclaimed(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
+        let sender = ensure_signed(origin)?;
+
+        // Check that sender owns the asset token
+        ensure!(<asset::Module<T>>::_is_owner(ticker.clone(), sender.clone()), "User is not the owner of the asset");
+
+        // Check that the dividend exists
+        ensure!(<Dividends<T>>::exists((ticker.clone(), checkpoint_id)), "No dividend entries for supplied ticker and checkpoint");
+
+        // Check that the expiry date had passed
+        let now = <timestamp::Module<T>>::get();
+
+        let entry = Self::get_dividend(ticker.clone(), checkpoint_id, dividend_id).ok_or("Could not retrieve dividend")?;
+
+        if let Some(end) = entry.expires_at.clone() {
+            ensure!(end < now, "Dividend not finished for returning unclaimed payout");
+        }
+
+        // Return the remaining money to the owner
+        // TODO: How to best compute the unclaimed amount? Resolve while remodeling storage
+
+
+        Ok(())
+    }
+    }
 }
 
 decl_event!(
@@ -572,6 +649,7 @@ mod tests {
             let dividend = Dividend {
                 amount: 500_000,
                 active: false,
+                canceled: false,
                 matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
                 expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
                 payout_currency: Some(payout_token.name.clone()),
