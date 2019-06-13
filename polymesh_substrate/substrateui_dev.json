@@ -4,7 +4,6 @@
         "name": "Vec<u8>",
         "total_supply": "TokenBalance",
         "owner": "AccountId",
-        "granularity": "u128",
         "decimals": "u16"
     },
     "Restriction": {
