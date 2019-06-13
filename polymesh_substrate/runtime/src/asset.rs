@@ -1,3 +1,4 @@
+use crate::exemption;
 use crate::general_tm;
 use crate::identity;
 use crate::percentage_tm;
@@ -38,7 +39,6 @@ pub struct SecurityToken<U, V> {
     pub name: Vec<u8>,
     pub total_supply: U,
     pub owner: V,
-    pub granularity: u128,
     pub decimals: u16,
 }
 
@@ -74,7 +74,7 @@ decl_module! {
         // takes a name, ticker, total supply for the token
         // makes the initiating account the owner of the token
         // the balance of the owner is set to total supply
-        fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, divisible: bool) -> Result {
+        fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, decimals: u16) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
@@ -84,10 +84,6 @@ decl_module! {
             // byte arrays (vecs) with no max size should be avoided
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
-
-            let granularity = if !divisible { (10 as u128).pow(18) } else { 1 };
-
-            ensure!(<T as utils::Trait>::as_u128(total_supply) % granularity == (0 as u128), "Invalid Total supply");
 
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
@@ -110,13 +106,12 @@ decl_module! {
                 name,
                 total_supply,
                 owner:sender.clone(),
-                granularity:granularity,
-                decimals:18
+                decimals
             };
 
             <Tokens<T>>::insert(ticker.clone(), token);
             <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), total_supply);
-            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, sender, granularity, 18));
+            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, sender, decimals));
             runtime_io::print("Initialized!!!");
 
             Ok(())
@@ -208,7 +203,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
-            Self::_mint(ticker,to,value)
+            Self::_mint(ticker, to, value)
         }
 
         pub fn burn(_origin, _ticker: Vec<u8>, value: T::TokenBalance) -> Result {
@@ -241,17 +236,16 @@ decl_module! {
 
         }
 
-        pub fn change_granularity(origin, ticker: Vec<u8>, granularity: u128) -> Result {
+        pub fn change_decimal(origin, ticker: Vec<u8>, decimals: u16) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
-            ensure!(granularity != 0_u128, "Invalid granularity");
             // Read the token details
             let mut token = Self::token_details(ticker.clone());
-            //Increase total suply
-            token.granularity = granularity;
+            //Update the decimals value
+            token.decimals = decimals;
             <Tokens<T>>::insert(ticker.clone(), token);
-            Self::deposit_event(RawEvent::GranularityChanged(ticker.clone(), granularity));
+            Self::deposit_event(RawEvent::DecimalChanged(ticker.clone(), decimals));
             Ok(())
         }
     }
@@ -282,17 +276,18 @@ decl_event!(
         // ticker, from, to, value
         ForcedTransfer(Vec<u8>, AccountId, AccountId, Balance),
         // Event for creation of the asset
-        // ticker, total supply, owner, granularity, decimal
-        IssuedToken(Vec<u8>, Balance, AccountId, u128, u16),
+        // ticker, total supply, owner, decimal
+        IssuedToken(Vec<u8>, Balance, AccountId, u16),
         // Event for change granularity
-        // ticker, granularity
-        GranularityChanged(Vec<u8>, u128),
+        // ticker, decimal
+        DecimalChanged(Vec<u8>, u16),
     }
 );
 
 pub trait AssetTrait<T, V> {
+    fn total_supply(_ticker: Vec<u8>) -> V;
+    fn balance(_ticker: Vec<u8>, who: T) -> V;
     fn _mint_from_sto(ticker: Vec<u8>, sender: T, tokens_purchased: V) -> Result;
-
     fn is_owner(_ticker: Vec<u8>, who: T) -> bool;
 }
 
@@ -309,6 +304,18 @@ impl<T: Trait> AssetTrait<T::AccountId, T::TokenBalance> for Module<T> {
     fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
         let token = Self::token_details(_ticker);
         token.owner == sender
+    }
+
+    /// Get the asset `id` balance of `who`.
+    fn balance(_ticker: Vec<u8>, who: T::AccountId) -> T::TokenBalance {
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        return Self::balance_of((ticker, who));
+    }
+
+    // Get the total supply of an asset `id`
+    fn total_supply(_ticker: Vec<u8>) -> T::TokenBalance {
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        return Self::token_details(ticker).total_supply;
     }
 }
 
@@ -362,22 +369,23 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        let _verification_whitelist = <general_tm::Module<T>>::verify_restriction(
+        let verification_whitelist = <general_tm::Module<T>>::verify_restriction(
             _ticker.clone(),
             from.clone(),
             to.clone(),
             value,
-        )?;
-        let _verification_percentage = <percentage_tm::Module<T>>::verify_restriction(
+        );
+        let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(
             _ticker.clone(),
             from.clone(),
             to.clone(),
             value,
-        )?;
+        );
+        ensure!(
+            verification_whitelist.is_ok() && verification_percentage.is_ok(),
+            "Transfer Verification failed. Review imposed transfer restrictions."
+        );
         Ok(())
-        // if !verification_whitelist.0 {verification_whitelist}
-        // else if !verification_percentage.0 {verification_percentage}
-        // else {(true,"")}
     }
 
     // the ERC20 standard transfer function
@@ -388,11 +396,6 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
-        // Granularity check
-        ensure!(
-            Self::check_granularity(_ticker.clone(), value),
-            "Invalid granularity"
-        );
         ensure!(
             <BalanceOf<T>>::exists((_ticker.clone(), from.clone())),
             "Account does not own this token"
@@ -465,10 +468,6 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn _mint(ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
-        ensure!(
-            Self::check_granularity(ticker.clone(), value),
-            "Invalid granularity"
-        );
         //Increase receiver balance
         let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
         let updated_to_balance = current_to_balance
@@ -492,13 +491,6 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Minted(ticker.clone(), to, value));
 
         Ok(())
-    }
-
-    fn check_granularity(ticker: Vec<u8>, value: T::TokenBalance) -> bool {
-        // Read the token details
-        let token = Self::token_details(ticker.clone());
-        // Check the granularity
-        <T as utils::Trait>::as_u128(value) % token.granularity == (0 as u128)
     }
 }
 
@@ -577,8 +569,13 @@ mod tests {
     }
     impl percentage_tm::Trait for Test {
         type Event = ();
+    }
+
+    impl exemption::Trait for Test {
+        type Event = ();
         type Asset = Module<Test>;
     }
+
     impl timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
@@ -661,7 +658,6 @@ mod tests {
                 name: vec![0x01],
                 owner: 1,
                 total_supply: 1_000_000,
-                granularity: 1,
                 decimals: 18,
             };
 
@@ -677,7 +673,7 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                token.decimals
             ));
 
             // A correct entry is added
@@ -693,7 +689,6 @@ mod tests {
                 name: vec![0x01],
                 owner: 1,
                 total_supply: 1_000_000,
-                granularity: 1,
                 decimals: 18,
             };
 
@@ -708,7 +703,7 @@ mod tests {
                     token.name.clone(),
                     token.name.clone(),
                     token.total_supply,
-                    true
+                    token.decimals
                 ),
                 "user is not authorized"
             );
@@ -823,7 +818,6 @@ mod tests {
                         name: ticker.to_owned().into_bytes(),
                         owner: owner_id,
                         total_supply,
-                        granularity: 1,
                         decimals: 18,
                     };
                     println!("{:#?}", token_struct);
@@ -838,7 +832,7 @@ mod tests {
                             token_struct.name.clone(),
                             token_struct.name.clone(),
                             token_struct.total_supply,
-                            true
+                            token_struct.decimals
                         ));
 
                         // Also check that the new token matches what we asked to create
@@ -898,7 +892,7 @@ mod tests {
                             token_struct.name.clone(),
                             token_struct.name.clone(),
                             token_struct.total_supply,
-                            true
+                            token_struct.decimals
                         )
                         .is_err());
                     }

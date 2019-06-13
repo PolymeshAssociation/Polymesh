@@ -67,6 +67,7 @@ pub type Nonce = u64;
 
 mod asset;
 mod erc20;
+mod exemption;
 mod general_tm;
 mod identity;
 mod jurisdiction;
@@ -320,10 +321,6 @@ impl erc20::Trait for Runtime {
     type Event = Event;
 }
 
-// impl tm::Trait for Runtime {
-//         type Asset = Asset;
-// }
-
 impl general_tm::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
@@ -337,7 +334,6 @@ impl sto_capped::Trait for Runtime {
 
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
-    type Asset = Asset;
 }
 
 impl jurisdiction::Trait for Runtime {
@@ -350,6 +346,11 @@ impl organisation::Trait for Runtime {
 
 impl identity::Trait for Runtime {
     type Event = Event;
+}
+
+impl exemption::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
 }
 
 construct_runtime!(
@@ -376,6 +377,7 @@ construct_runtime!(
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
+        Exemption: exemption::{Module, Call, Storage, Event<T>},
         Session: session,
         Staking: staking::{default, OfflineWorker},
         Democracy: democracy,
