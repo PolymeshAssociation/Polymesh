@@ -30,8 +30,10 @@ pub trait Trait:
 pub struct Dividend<U, V> {
     /// Total amount to be distributed
     amount: U,
-    /// Amount distributed so far. TODO: uncomment
-    //paid_out: U
+    /// Amount distributed so far
+    paid_out: U,
+    /// Whether the owner has claimed remaining funds
+    remaining_claimed: bool,
     /// Whether claiming dividends is enabled
     active: bool,
     /// Whether the dividend was cancelled
@@ -147,6 +149,8 @@ decl_module! {
             // Insert dividend entry into storage
             let new_dividend = Dividend {
                 amount,
+                paid_out: <T::TokenBalance as As<u64>>::sa(0),
+                remaining_claimed: false,
                 active: false,
                 canceled: false,
                 matures_at: if matures_at > zero_ts { Some(matures_at) } else { None },
@@ -229,20 +233,26 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        pub fn claim(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
+        pub fn claim(origin, ticker: Vec<u8>, dividend_id: u32) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check if sender wasn't already paid their share
             ensure!(!<UserPayoutCompleted<T>>::get((sender.clone(), ticker.clone(), dividend_id)), "User was already paid their share");
 
-            let balance_at_checkpoint =
-                <asset::Module<T>>::get_balance_at(ticker.clone(), sender.clone(), checkpoint_id);
-
             // Look dividend entry up
             let dividend = Self::get_dividend(ticker.clone(), dividend_id).ok_or("Dividend not found")?;
 
+            let balance_at_checkpoint =
+                <asset::Module<T>>::get_balance_at(ticker.clone(), sender.clone(), dividend.checkpoint_id);
+
+            // Check if the owner hadn't yanked the remaining amount out
+            ensure!(!dividend.remaining_claimed, "The remaining payout funds were already claimed");
+
             // Check if the dividend is active
             ensure!(dividend.active, "Dividend not active");
+
+            // Check if the dividend was not canceled
+            ensure!(!dividend.canceled, "Dividend was canceled");
 
             let now = <timestamp::Module<T>>::get();
 
@@ -257,7 +267,7 @@ decl_module! {
 
             // Compute the share
             ensure!(<asset::Tokens<T>>::exists(ticker.clone()), "Dividend token entry not found");
-            let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker.clone(), checkpoint_id));
+            let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker.clone(), dividend.checkpoint_id));
 
             let balance_amount_product = balance_at_checkpoint
                 .checked_mul(&dividend.amount)
@@ -266,6 +276,12 @@ decl_module! {
             let share = balance_amount_product
                 .checked_div(&supply_at_checkpoint)
                 .ok_or("balance_amount_product division failed")?;
+
+            // Adjust the paid_out amount
+            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
+                entry.paid_out = entry.paid_out.checked_add(&share).ok_or("Could not increase paid_out")?;
+                Ok(())
+            })?;
 
             // Perform the payout in designated tokens or base currency depending on setting
             if let Some(payout_ticker) = dividend.payout_currency.as_ref() {
@@ -291,27 +307,49 @@ decl_module! {
             Ok(())
         }
 
-        pub fn claim_unclaimed(origin, ticker: Vec<u8>, checkpoint_id: u32, dividend_id: u32) -> Result {
+        /// After a dividend had expired, collect the remaining amount to owner address
+        pub fn claim_unclaimed(origin, ticker: Vec<u8>, dividend_id: u32) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(ticker.clone(), sender.clone()), "User is not the owner of the asset");
 
-            // Check that the dividend exists
-            ensure!(<Dividends<T>>::exists((ticker.clone(), checkpoint_id)), "No dividend entries for supplied ticker and checkpoint");
+            let entry = Self::get_dividend(ticker.clone(), dividend_id).ok_or("Could not retrieve dividend")?;
 
             // Check that the expiry date had passed
             let now = <timestamp::Module<T>>::get();
 
-            let entry = Self::get_dividend(ticker.clone(), dividend_id).ok_or("Could not retrieve dividend")?;
-
             if let Some(end) = entry.expires_at.clone() {
                 ensure!(end < now, "Dividend not finished for returning unclaimed payout");
+            } else {
+                return Err("Claiming unclaimed payouts requires an end date");
             }
 
-            // Return the remaining money to the owner
-            // TODO: How to best compute the unclaimed amount? Resolve while remodeling storage
+            let unclaimed_payouts = entry.amount.checked_sub(&entry.paid_out).ok_or("Could not compute unclaimed dividend payouts")?;
 
+            // Transfer the computed amount
+            if let Some(payout_ticker) = entry.payout_currency.clone() {
+                <asset::BalanceOf<T>>::mutate((payout_ticker.clone(), sender.clone()), |balance: &mut T::TokenBalance| -> Result {
+                    *balance  = balance
+                        .checked_add(&unclaimed_payouts)
+                        .ok_or("Could not add amount back to asset owner account")?;
+                    Ok(())
+                })?;
+            } else {
+                let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(
+                    &sender,
+                    <T::TokenBalance as As<T::Balance>>::as_(unclaimed_payouts)
+                    )?;
+            }
+
+            // Set paid_out to maximum value, flip remaining_claimed
+            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
+                entry.paid_out = entry.amount;
+                entry.remaining_claimed = true;
+                Ok(())
+            })?;
+
+            Self::deposit_event(RawEvent::DividendRemainingClaimed(ticker.clone(), dividend_id, unclaimed_payouts));
 
             Ok(())
         }
@@ -324,14 +362,17 @@ decl_event!(
         TokenBalance = <T as utils::Trait>::TokenBalance,
         AccountId = <T as system::Trait>::AccountId,
     {
-        // ticker, amount, checkpoint ID, dividend ID
+        // ticker, amount, dividend ID
         DividendCreated(Vec<u8>, TokenBalance, u32),
 
-        // ticker, checkpoint ID, dividend ID
+        // ticker, dividend ID
         DividendActivated(Vec<u8>, u32),
 
-        // who, ticker, checkpoint_id, dividend_id, share
+        // who, ticker, dividend ID, share
         DividendPaidOutToUser(AccountId, Vec<u8>, u32, TokenBalance),
+
+        // ticker, dividend ID, amount
+        DividendRemainingClaimed(Vec<u8>, u32, TokenBalance),
     }
 );
 
@@ -650,6 +691,8 @@ mod tests {
 
             let dividend = Dividend {
                 amount: 500_000,
+                paid_out: 0,
+                remaining_claimed: false,
                 active: false,
                 canceled: false,
                 matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
@@ -694,8 +737,7 @@ mod tests {
             assert_ok!(DividendModule::claim(
                 Origin::signed(investor_id),
                 token.name.clone(),
-                dividend.checkpoint_id,
-                0
+                0,
             ));
 
             // Check if the correct amount was added to investor balance
@@ -704,6 +746,11 @@ mod tests {
                 Asset::balance_of((payout_token.name.clone(), investor_id)),
                 share
             );
+
+            // Check if paid_out was adjusted correctly
+            let current_entry = DividendModule::get_dividend(token.name.clone(), 0)
+                .expect("Could not retrieve dividend");
+            assert_eq!(current_entry.paid_out, share);
         });
     }
 }
