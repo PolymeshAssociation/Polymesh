@@ -17,11 +17,11 @@ use support::{
 };
 use system::ensure_signed;
 
-use crate::{asset, utils};
+use crate::{asset, erc20, utils};
 
 /// The module's configuration trait.
 pub trait Trait:
-    asset::Trait + balances::Trait + system::Trait + utils::Trait + timestamp::Trait
+    asset::Trait + balances::Trait + erc20::Trait + system::Trait + utils::Trait + timestamp::Trait
 {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -42,7 +42,7 @@ pub struct Dividend<U, V> {
     matures_at: Option<V>,
     /// An optional timestamp for payout end
     expires_at: Option<V>,
-    /// The payout currency ticker. None means POLY
+    /// The payout ERC20 currency ticker. None means POLY
     payout_currency: Option<Vec<u8>>,
     /// The checkpoint
     checkpoint_id: u32,
@@ -94,11 +94,11 @@ decl_module! {
                 <T::TokenBalance as As<T::Balance>>::sa(<balances::FreeBalance<T>>::get(sender.clone()))
             } else {
                 // Check for token
-                <asset::BalanceOf<T>>::get((payout_ticker.clone(), sender.clone()))
+                <erc20::BalanceOf<T>>::get((payout_ticker.clone(), sender.clone()))
             };
             ensure!(balance >= amount, "Insufficient funds for payout");
 
-            // Unpack the checkpoint ID or use the latest
+            // Unpack the checkpoint ID, use the latest or create a new one, in that order
             let checkpoint_id = if checkpoint_id > 0 {
                 checkpoint_id
             } else {
@@ -107,7 +107,7 @@ decl_module! {
                     count
                 } else {
                     <asset::Module<T>>::_create_checkpoint(ticker.clone())?;
-                    1
+                    1 // Caution: relies on 1-indexing
                 }
             };
             // Check if checkpoint exists
@@ -143,7 +143,7 @@ decl_module! {
                     ExistenceRequirement::KeepAlive)?;
             } else {
                 let new_balance = balance.checked_sub(&amount).ok_or("Overflow calculating new owner balance")?;
-                <asset::BalanceOf<T>>::insert((payout_ticker.clone(), sender.clone()), new_balance);
+                <erc20::BalanceOf<T>>::insert((payout_ticker.clone(), sender.clone()), new_balance);
             }
 
             // Insert dividend entry into storage
@@ -194,7 +194,7 @@ decl_module! {
 
             // Pay amount back to owner
             if let Some(payout_ticker) = entry.payout_currency.clone() {
-                <asset::BalanceOf<T>>::mutate((payout_ticker.clone(), sender.clone()), |balance: &mut T::TokenBalance| -> Result {
+                <erc20::BalanceOf<T>>::mutate((payout_ticker.clone(), sender.clone()), |balance: &mut T::TokenBalance| -> Result {
                     *balance  = balance
                         .checked_add(&entry.amount)
                         .ok_or("Could not add amount back to asset owner account")?;
@@ -285,7 +285,7 @@ decl_module! {
 
             // Perform the payout in designated tokens or base currency depending on setting
             if let Some(payout_ticker) = dividend.payout_currency.as_ref() {
-                <asset::BalanceOf<T>>::mutate(
+                <erc20::BalanceOf<T>>::mutate(
                     (payout_ticker.clone(), sender.clone()),
                     |balance| -> Result {
                         *balance = balance
@@ -329,7 +329,7 @@ decl_module! {
 
             // Transfer the computed amount
             if let Some(payout_ticker) = entry.payout_currency.clone() {
-                <asset::BalanceOf<T>>::mutate((payout_ticker.clone(), sender.clone()), |balance: &mut T::TokenBalance| -> Result {
+                <erc20::BalanceOf<T>>::mutate((payout_ticker.clone(), sender.clone()), |balance: &mut T::TokenBalance| -> Result {
                     *balance  = balance
                         .checked_add(&unclaimed_payouts)
                         .ok_or("Could not add amount back to asset owner account")?;
@@ -429,7 +429,9 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use crate::{asset::SecurityToken, general_tm, identity, percentage_tm};
+    use crate::{
+        asset::SecurityToken, erc20::ERC20Token, exemption, general_tm, identity, percentage_tm,
+    };
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -483,6 +485,17 @@ mod tests {
         type SessionKey = UintAuthorityId;
         type InherentOfflineReport = ();
     }
+
+    impl erc20::Trait for Test {
+        type Event = ();
+        type Currency = balances::Module<Test>;
+    }
+
+    impl exemption::Trait for Test {
+        type Event = ();
+        type Asset = Module<Test>;
+    }
+
     impl general_tm::Trait for Test {
         type Event = ();
         type Asset = Module<Test>;
@@ -494,7 +507,6 @@ mod tests {
 
     impl percentage_tm::Trait for Test {
         type Event = ();
-        type Asset = Module<Test>;
     }
 
     impl session::Trait for Test {
@@ -510,6 +522,12 @@ mod tests {
 
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        fn as_u128(v: Self::TokenBalance) -> u128 {
+            v
+        }
+        fn as_tb(v: u128) -> Self::TokenBalance {
+            v
+        }
     }
 
     impl Trait for Test {
@@ -531,7 +549,20 @@ mod tests {
             _sender: <Test as system::Trait>::AccountId,
             _tokens_purchased: <Test as utils::Trait>::TokenBalance,
         ) -> Result {
-            Err("_mint_from_sto() not expected be used in this testsuite")
+            unimplemented!();
+        }
+
+        /// Get the asset `id` balance of `who`.
+        fn balance(
+            _ticker: Vec<u8>,
+            _who: <Test as system::Trait>::AccountId,
+        ) -> <Test as utils::Trait>::TokenBalance {
+            unimplemented!();
+        }
+
+        // Get the total supply of an asset `id`
+        fn total_supply(_ticker: Vec<u8>) -> <Test as utils::Trait>::TokenBalance {
+            unimplemented!();
         }
     }
 
@@ -554,6 +585,7 @@ mod tests {
     type DividendModule = Module<Test>;
     type Balances = balances::Module<Test>;
     type Asset = asset::Module<Test>;
+    type ERC20 = erc20::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
     fn identity_owned_by(id: u64) -> runtime_io::TestExternalities<Blake2Hasher> {
@@ -582,8 +614,8 @@ mod tests {
             };
 
             // A token used for payout
-            let payout_token = SecurityToken {
-                name: vec![0x02],
+            let payout_token = ERC20Token {
+                ticker: vec![0x02],
                 owner: 2,
                 total_supply: 200_000_000,
             };
@@ -594,12 +626,10 @@ mod tests {
 
             identity::Module::<Test>::do_create_issuer(token.owner)
                 .expect("Could not make token.owner an issuer");
-            identity::Module::<Test>::do_create_issuer(payout_token.owner)
+            identity::Module::<Test>::do_create_erc20_issuer(payout_token.owner)
                 .expect("Could not make payout_token.owner an issuer");
             identity::Module::<Test>::do_create_investor(token.owner)
                 .expect("Could not make token.owner an investor");
-            identity::Module::<Test>::do_create_investor(payout_token.owner)
-                .expect("Could not make payout_token.owner an investor");
 
             // Share issuance is successful
             assert_ok!(Asset::issue_token(
@@ -610,10 +640,9 @@ mod tests {
             ));
 
             // Issuance for payout token is successful
-            assert_ok!(Asset::issue_token(
+            assert_ok!(ERC20::create_token(
                 Origin::signed(payout_token.owner),
-                payout_token.name.clone(),
-                payout_token.name.clone(),
+                payout_token.ticker.clone(),
                 payout_token.total_supply
             ));
 
@@ -630,7 +659,6 @@ mod tests {
             *TOKEN_MAP.lock().unwrap() = {
                 let mut map = HashMap::new();
                 map.insert(token.name.clone(), token.clone());
-                map.insert(payout_token.name.clone(), payout_token.clone());
                 map
             };
 
@@ -647,27 +675,6 @@ mod tests {
                 token.name.clone(),
                 0,
                 token.owner,
-                (now - Duration::hours(1)).timestamp() as u64,
-            ));
-            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(payout_token.owner),
-                payout_token.name.clone(),
-                0,
-                investor_id,
-                (now - Duration::hours(1)).timestamp() as u64,
-            ));
-            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(payout_token.owner),
-                payout_token.name.clone(),
-                0,
-                token.owner,
-                (now - Duration::hours(1)).timestamp() as u64,
-            ));
-            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(payout_token.owner),
-                payout_token.name.clone(),
-                0,
-                payout_token.owner,
                 (now - Duration::hours(1)).timestamp() as u64,
             ));
             drop(outer);
@@ -697,19 +704,19 @@ mod tests {
                 canceled: false,
                 matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
                 expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
-                payout_currency: Some(payout_token.name.clone()),
+                payout_currency: Some(payout_token.ticker.clone()),
                 checkpoint_id,
             };
 
-            // Transfer payout tokens to token owner
-            assert_ok!(Asset::transfer(
+            // Transfer payout tokens to asset owner
+            assert_ok!(ERC20::transfer(
                 Origin::signed(payout_token.owner),
-                payout_token.name.clone(),
+                payout_token.ticker.clone(),
                 token.owner,
                 dividend.amount
             ));
 
-            // Create the dividend for token
+            // Create the dividend for asset
             assert_ok!(DividendModule::new(
                 Origin::signed(token.owner),
                 dividend.amount,
@@ -743,7 +750,7 @@ mod tests {
             // Check if the correct amount was added to investor balance
             let share = dividend.amount * amount_invested / token.total_supply;
             assert_eq!(
-                Asset::balance_of((payout_token.name.clone(), investor_id)),
+                ERC20::balance_of((payout_token.ticker.clone(), investor_id)),
                 share
             );
 
