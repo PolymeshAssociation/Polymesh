@@ -70,8 +70,6 @@ mod erc20;
 mod exemption;
 mod general_tm;
 mod identity;
-mod jurisdiction;
-mod organisation;
 mod percentage_tm;
 mod sto_capped;
 mod template;
@@ -336,14 +334,6 @@ impl percentage_tm::Trait for Runtime {
     type Event = Event;
 }
 
-impl jurisdiction::Trait for Runtime {
-    type Event = Event;
-}
-
-impl organisation::Trait for Runtime {
-    type Event = Event;
-}
-
 impl identity::Trait for Runtime {
     type Event = Event;
 }
@@ -370,9 +360,6 @@ construct_runtime!(
         TemplateModule: template::{Module, Call, Storage, Event<T>},
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Utils: utils::{Module, Call, Storage},
-        // Tm: tm::{Module, Call, Storage},
-        Organisation: organisation::{Module, Call, Storage, Event<T>},
-        Jurisdiction: jurisdiction::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
