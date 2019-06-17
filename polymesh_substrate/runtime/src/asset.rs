@@ -5,7 +5,7 @@ use crate::percentage_tm;
 use crate::utils;
 use rstd::prelude::*;
 //use parity_codec::Codec;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert, Hash};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
 use session;
 use support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
@@ -215,14 +215,14 @@ decl_module! {
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
             let burner_balance = Self::balance_of((ticker.clone(), sender.clone()));
             ensure!(burner_balance >= value, "Not enough balance.");
-        
+
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
                 .checked_sub(&value)
                 .ok_or("overflow in calculating balance")?;
 
             // verify transfer check
-            //Self::_is_valid_transfer(ticker.clone(), sender.clone(), None, value)?;
+            Self::_is_valid_transfer(ticker.clone(), sender.clone(), T::AccountId::default(), value)?;
 
             //Decrease total suply
             let mut token = Self::token_details(ticker.clone());
@@ -457,9 +457,8 @@ impl<T: Trait> Module<T> {
         let updated_to_balance = current_to_balance
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
-        let empty_account = <<T as system::Trait>::Hashing as Trait>::hash::sa(0);
         // verify transfer check
-        Self::_is_valid_transfer(ticker.clone(), empty_account, to.clone(), value)?;
+        Self::_is_valid_transfer(ticker.clone(), T::AccountId::default(), to.clone(), value)?;
 
         //Increase total suply
         let mut token = Self::token_details(ticker.clone());

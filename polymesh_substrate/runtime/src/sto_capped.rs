@@ -1,16 +1,18 @@
-use crate::asset::{AssetTrait};
+use crate::asset::AssetTrait;
 use crate::erc20::{self, ERC20Trait};
 use crate::general_tm;
 use crate::utils;
 use support::traits::Currency;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedMul, CheckedSub, CheckedDiv};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + balances::Trait + general_tm::Trait {
+pub trait Trait:
+    timestamp::Trait + system::Trait + utils::Trait + balances::Trait + general_tm::Trait
+{
     // TODO: Add other types and constants required configure this module.
 
     /// The overarching event type.
@@ -55,8 +57,12 @@ decl_storage! {
         // [asset_ticker][sto_id] => count
         TokensCountForSto get(tokens_count_for_sto): map(Vec<u8>, u32) => u32;
         // To track the investment data of the investor corresponds to ticker
-        //[asset_ticker][sto_id][accountId] => Investment structure
+        //[asset_ticker][erc20_ticker][sto_id][accountId] => Investment structure
         InvestmentData get(investment_data): map(Vec<u8>, u32, T::AccountId) => Investment<T::AccountId, T::TokenBalance, T::Moment>;
+        // To track the investment amount of the investor corresponds to ticker using ERC20
+        // [asset_ticker][erc20_ticker][sto_id][accountId] => Invested balance
+        Erc20TokenSpent get(erc20_token_spent): map(Vec<u8>, Vec<u8>, u32, T::AccountId) => T::TokenBalance;
+
     }
 }
 
@@ -150,7 +156,7 @@ decl_module! {
                             .ok_or("incorrect division")?
                             )
                         ) as u64
-                    ); 
+                    );
             }
 
             selected_sto.sold = selected_sto.sold
@@ -181,7 +187,7 @@ decl_module! {
                 .ok_or("overflow while updating the invested amount")?;
             investor_holder.last_purchase_date = <timestamp::Module<T>>::get();
             // Emit Event
-            Self::deposit_event(RawEvent::AssetPurchase(ticker, sto_id, sender, <T::TokenBalance as As<T::Balance>>::sa(allowed_value), token_conversion));
+            Self::deposit_event(RawEvent::AssetPurchase(ticker, vec![0], sto_id, sender, <T::TokenBalance as As<T::Balance>>::sa(allowed_value), token_conversion));
             runtime_io::print("Invested in STO");
             Ok(())
         }
@@ -233,28 +239,58 @@ decl_module! {
             // Check whether given token is allowed as investment currency or not
             ensure!(Self::token_index_for_sto((ticker.clone(), sto_id, erc20_ticker.clone())) != None, "Given token is not a permitted investment currency");
             let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
-
+            // Validate that buyer is whitelisted for primary issuance.
+            ensure!(Self::is_whitelisted(_ticker.clone(), sender.clone()),"sender is not allowed to invest");
             let now = <timestamp::Module<T>>::get();
             ensure!(now >= selected_sto.start_date && now <= selected_sto.end_date, "STO has not started or already ended");
+            // Check whether the sto is unpaused or not
             ensure!(selected_sto.active, "STO is not active at the moment");
             ensure!(T::ERC20Trait::balanceOf(erc20_ticker.clone(), sender.clone()) >= value, "Insufficient balance");
 
             //  Calculate tokens to mint
-            let token_conversion = value.checked_mul(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
+            let mut token_conversion = value.checked_mul(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
                 .ok_or("overflow in calculating tokens")?;
+            let allowed_token_sold = selected_sto.cap
+                .checked_sub(&selected_sto.sold)
+                .ok_or("underflow while calculating the amount of token sold")?;
+            let mut allowed_value = value;
+
+            // Make sure there's still an allocation
+            // Instead of reverting, buy up to the max and refund excess of Erc20.
+            if token_conversion > allowed_token_sold {
+                token_conversion = allowed_token_sold;
+                allowed_value = token_conversion
+                            .checked_div(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
+                            .ok_or("incorrect division")?;
+            }
 
             selected_sto.sold = selected_sto.sold
                 .checked_add(&token_conversion)
                 .ok_or("overflow while calculating tokens sold")?;
 
-            ensure!(selected_sto.sold <= selected_sto.cap, "There's not enough tokens");
+            let erc20_investment = (Self::erc20_token_spent((ticker.clone(), erc20_ticker.clone(), sto_id, sender.clone())))
+                                    .checked_add(&allowed_value)
+                                    .ok_or("overflow while updating the erc20 investment value")?;
 
             // Mint tokens and update STO
             T::Asset::_mint_from_sto(ticker.clone(), sender.clone(), token_conversion);
 
-            T::ERC20Trait::transfer(sender, erc20_ticker.clone(), selected_sto.beneficiary.clone(), value)?;
+            T::ERC20Trait::transfer(sender.clone(), erc20_ticker.clone(), selected_sto.beneficiary.clone(), allowed_value)?;
 
+            // Store Investment DATA
+            let mut investor_holder = Self::investment_data((ticker.clone(), sto_id, sender.clone()));
+            if investor_holder.investor != sender {
+                investor_holder.investor = sender.clone();
+            }
+            investor_holder.tokens_purchased = investor_holder.tokens_purchased
+                .checked_add(&token_conversion)
+                .ok_or("overflow while updating the invested amount")?;
+            investor_holder.last_purchase_date = <timestamp::Module<T>>::get();
+
+            <Erc20TokenSpent<T>>::insert((ticker.clone(), erc20_ticker.clone(), sto_id, sender.clone()), erc20_investment);
             <StosByToken<T>>::insert((ticker.clone(),sto_id), selected_sto);
+            // Emit Event
+            Self::deposit_event(RawEvent::AssetPurchase(ticker, erc20_ticker, sto_id, sender, allowed_value, token_conversion));
             runtime_io::print("Invested in STO");
 
             Ok(())
@@ -304,8 +340,8 @@ decl_event!(
         Example(u32, AccountId, AccountId),
         ModifyAllowedTokens(Vec<u8>, Vec<u8>, u32, bool),
         //Emit when Asset get purchased by the investor
-        // Ticker, sto_id, investor address, amount invested, amount of token purchased
-        AssetPurchase(Vec<u8>, u32, AccountId, Balance, Balance),
+        // Ticker, Erc20 token, sto_id, investor address, amount invested, amount of token purchased
+        AssetPurchase(Vec<u8>, Vec<u8>, u32, AccountId, Balance, Balance),
     }
 );
 
