@@ -141,6 +141,25 @@ impl<T: Trait> Module<T> {
 
         Err("Cannot Transfer: General TM restrictions not satisfied")
     }
+
+    pub fn is_whitelisted(_ticker: Vec<u8>, holder: T::AccountId) -> bool {
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        let now = <timestamp::Module<T>>::get();
+        // loop through existing whitelists
+        let whitelist_count = Self::whitelist_count();
+
+        for x in 0..whitelist_count {
+            let whitelist_for_holder =
+                Self::whitelist_for_restriction((ticker.clone(), x, holder.clone()));
+
+            if whitelist_for_holder.can_send_after > T::Moment::sa(0)
+                && now >= whitelist_for_holder.can_send_after
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 /// tests for this module

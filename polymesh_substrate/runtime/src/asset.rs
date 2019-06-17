@@ -5,7 +5,7 @@ use crate::percentage_tm;
 use crate::utils;
 use rstd::prelude::*;
 //use parity_codec::Codec;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert, Hash};
 use session;
 use support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
@@ -81,29 +81,21 @@ decl_module! {
             // Ensure the uniqueness of the ticker
             ensure!(!<Tokens<T>>::exists(ticker.clone()), "ticker is already issued");
 
-            // // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
-            // let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
-
-            // // Alternative way to take a fee - fee is paid to `fee_collector`
-            // let my_fee = <T::Balance as As<u64>>::sa(1337);
-            // <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
-            // T::TokenFeeCharge::on_unbalanced(imbalance);
-
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
-            let validatorLen;
+            let validator_len;
             if validators.len() < 1 {
-                validatorLen = <FeeOf<T> as As<usize>>::sa(1);
+                validator_len = <FeeOf<T> as As<usize>>::sa(1);
             } else {
-                validatorLen = <FeeOf<T> as As<usize>>::sa(validators.len());
+                validator_len = <FeeOf<T> as As<usize>>::sa(validators.len());
             }
-            let proportional_fee = fee / validatorLen;
+            let proportional_fee = fee / validator_len;
             let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
             for v in &validators {
                 <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
             }
-            let remainder_fee = fee - (proportional_fee * validatorLen);
+            let remainder_fee = fee - (proportional_fee * validator_len);
             let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
             // checking max size for name and ticker
@@ -223,13 +215,14 @@ decl_module! {
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
             let burner_balance = Self::balance_of((ticker.clone(), sender.clone()));
             ensure!(burner_balance >= value, "Not enough balance.");
-
+        
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
                 .checked_sub(&value)
                 .ok_or("overflow in calculating balance")?;
 
-            //PABLO: TODO: Add verify transfer check
+            // verify transfer check
+            //Self::_is_valid_transfer(ticker.clone(), sender.clone(), None, value)?;
 
             //Decrease total suply
             let mut token = Self::token_details(ticker.clone());
@@ -464,8 +457,9 @@ impl<T: Trait> Module<T> {
         let updated_to_balance = current_to_balance
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
-
-        //PABLO: TODO: Add verify transfer check
+        let empty_account = <<T as system::Trait>::Hashing as Trait>::hash::sa(0);
+        // verify transfer check
+        Self::_is_valid_transfer(ticker.clone(), empty_account, to.clone(), value)?;
 
         //Increase total suply
         let mut token = Self::token_details(ticker.clone());

@@ -1,23 +1,20 @@
-use crate::asset;
-use crate::asset::AssetTrait;
-use crate::erc20;
-use crate::erc20::ERC20Trait;
-
+use crate::asset::{AssetTrait};
+use crate::erc20::{self, ERC20Trait};
+use crate::general_tm;
 use crate::utils;
 use support::traits::Currency;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedMul};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedMul, CheckedSub, CheckedDiv};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + balances::Trait {
+pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + balances::Trait + general_tm::Trait {
     // TODO: Add other types and constants required configure this module.
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
     type ERC20Trait: erc20::ERC20Trait<Self::AccountId, Self::TokenBalance>;
 }
 
@@ -37,7 +34,7 @@ pub struct Investment<U, V, W> {
     investor: U,
     amount_payed: V,
     tokens_purchased: V,
-    purchase_date: W,
+    last_purchase_date: W,
 }
 
 decl_storage! {
@@ -57,6 +54,9 @@ decl_storage! {
         // To track the no of different tokens allowed as fund raised type for the given STO
         // [asset_ticker][sto_id] => count
         TokensCountForSto get(tokens_count_for_sto): map(Vec<u8>, u32) => u32;
+        // To track the investment data of the investor corresponds to ticker
+        //[asset_ticker][sto_id][accountId] => Investment structure
+        InvestmentData get(investment_data): map(Vec<u8>, u32, T::AccountId) => Investment<T::AccountId, T::TokenBalance, T::Moment>;
     }
 }
 
@@ -118,29 +118,44 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
-            //PABLO: TODO: Validate that buyer is whitelisted for primary issuance.
+            // Validate that buyer is whitelisted for primary issuance.
+            ensure!(Self::is_whitelisted(_ticker.clone(), sender.clone()),"sender is not allowed to invest");
 
-            let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
-
+            let mut selected_sto = Self::stos_by_token((ticker.clone(), sto_id));
+            // Check whether the sto is unpaused or not
+            ensure!(selected_sto.active, "sto is paused");
+            // Check whether the sto is already ended
             let now = <timestamp::Module<T>>::get();
             ensure!(now >= selected_sto.start_date && now <= selected_sto.end_date,"STO has not started or already ended");
-
             // Make sure sender has enough balance
             let sender_balance = <balances::Module<T> as Currency<_>>::free_balance(&sender);
-
             ensure!(sender_balance >= value,"Insufficient funds");
-
-            //  Calculate tokens to mint
-            let token_conversion = <T::TokenBalance as As<T::Balance>>::sa(value).checked_mul(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
+            // Calculate tokens to mint
+            let mut token_conversion = <T::TokenBalance as As<T::Balance>>::sa(value).checked_mul(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
                 .ok_or("overflow in calculating tokens")?;
+            let allowed_token_sold = selected_sto.cap
+                .checked_sub(&selected_sto.sold)
+                .ok_or("underflow while calculating the amount of token sold")?;
+            let mut allowed_value = value;
+            // Make sure there's still an allocation
+            // Instead of reverting, buy up to the max and refund excess of poly.
+            if token_conversion > allowed_token_sold {
+                token_conversion = allowed_token_sold;
+                allowed_value = <T::Balance as As<_>>::sa(
+                        (
+                            <T as utils::Trait>::as_u128
+                            (
+                            token_conversion
+                            .checked_div(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
+                            .ok_or("incorrect division")?
+                            )
+                        ) as u64
+                    ); 
+            }
 
             selected_sto.sold = selected_sto.sold
                 .checked_add(&token_conversion)
                 .ok_or("overflow while calculating tokens sold")?;
-
-            // Make sure there's still an allocation
-            // PABLO: TODO: Instead of reverting, buy up to the max and refund excess of poly.
-            ensure!(selected_sto.sold <= selected_sto.cap, "There's not enough tokens");
 
             // Mint tokens and update STO
             T::Asset::_mint_from_sto(ticker.clone(), sender.clone(), token_conversion)?;
@@ -149,16 +164,25 @@ decl_module! {
             <balances::Module<T> as Currency<_>>::transfer(
                 &sender,
                 &selected_sto.beneficiary,
-                value
+                allowed_value
                 )?;
 
             <StosByToken<T>>::insert((ticker.clone(),sto_id), selected_sto);
-            // PABLO: TODO: Store Investment DATA
-
-            // PABLO: TODO: Emit event
-
+            // Store Investment DATA
+            let mut investor_holder = Self::investment_data((ticker.clone(), sto_id, sender.clone()));
+            if investor_holder.investor != sender {
+                investor_holder.investor = sender.clone();
+            }
+            investor_holder.amount_payed = investor_holder.amount_payed
+                .checked_add(&<T::TokenBalance as As<T::Balance>>::sa(allowed_value))
+                .ok_or("overflow while updating the invested amount")?;
+            investor_holder.tokens_purchased = investor_holder.tokens_purchased
+                .checked_add(&token_conversion)
+                .ok_or("overflow while updating the invested amount")?;
+            investor_holder.last_purchase_date = <timestamp::Module<T>>::get();
+            // Emit Event
+            Self::deposit_event(RawEvent::AssetPurchase(ticker, sto_id, sender, <T::TokenBalance as As<T::Balance>>::sa(allowed_value), token_conversion));
             runtime_io::print("Invested in STO");
-
             Ok(())
         }
 
@@ -236,6 +260,38 @@ decl_module! {
             Ok(())
         }
 
+        pub fn pause_sto(origin, _ticker: Vec<u8>, sto_id: u32) -> Result {
+            let sender = ensure_signed(origin)?;
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            // Check valid STO id
+            ensure!(Self::sto_count(ticker.clone()) >= sto_id, "Invalid sto id");
+            // Access the STO data
+            let mut selected_sto = Self::stos_by_token((ticker.clone(), sto_id));
+            // Check the flag
+            ensure!(selected_sto.active, "Already paused");
+            // Change the flag
+            selected_sto.active = false;
+            // Update the storage
+            <StosByToken<T>>::insert((ticker.clone(),sto_id), selected_sto);
+            Ok(())
+        }
+
+        pub fn unpause_sto(origin, _ticker: Vec<u8>, sto_id: u32) -> Result {
+            let sender = ensure_signed(origin)?;
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            // Check valid STO id
+            ensure!(Self::sto_count(ticker.clone()) >= sto_id, "Invalid sto id");
+            // Access the STO data
+            let mut selected_sto = Self::stos_by_token((ticker.clone(), sto_id));
+            // Check the flag
+            ensure!(!selected_sto.active, "Already in the active state");
+            // Change the flag
+            selected_sto.active = true;
+            // Update the storage
+            <StosByToken<T>>::insert((ticker.clone(),sto_id), selected_sto);
+            Ok(())
+        }
+
     }
 }
 
@@ -243,9 +299,13 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Trait>::AccountId,
+        Balance = <T as utils::Trait>::TokenBalance,
     {
         Example(u32, AccountId, AccountId),
         ModifyAllowedTokens(Vec<u8>, Vec<u8>, u32, bool),
+        //Emit when Asset get purchased by the investor
+        // Ticker, sto_id, investor address, amount invested, amount of token purchased
+        AssetPurchase(Vec<u8>, u32, AccountId, Balance, Balance),
     }
 );
 
@@ -253,6 +313,10 @@ impl<T: Trait> Module<T> {
     pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         T::Asset::is_owner(ticker.clone(), sender)
+    }
+
+    pub fn is_whitelisted(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+        <general_tm::Module<T>>::is_whitelisted(_ticker, sender)
     }
 }
 
