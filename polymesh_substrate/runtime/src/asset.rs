@@ -460,7 +460,7 @@ impl<T: Trait> Module<T> {
         // verify transfer check
         Self::_is_valid_transfer(ticker.clone(), T::AccountId::default(), to.clone(), value)?;
 
-        //Increase total suply
+        //Increase total supply
         let mut token = Self::token_details(ticker.clone());
 
         token.total_supply = token
