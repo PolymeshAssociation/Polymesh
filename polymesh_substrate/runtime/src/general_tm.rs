@@ -117,7 +117,10 @@ impl<T: Trait> Module<T> {
         let now = <timestamp::Module<T>>::get();
         // issuance case
         if from == T::AccountId::default() {
-            ensure!(Self::_check_investor_status(to.clone()).is_ok(), "Account is not active");
+            ensure!(
+                Self::_check_investor_status(to.clone()).is_ok(),
+                "Account is not active"
+            );
             ensure!(
                 Self::is_whitelisted(_ticker.clone(), to).is_ok(),
                 "to account is not whitelisted"
@@ -126,7 +129,10 @@ impl<T: Trait> Module<T> {
             return Ok(());
         } else if to == T::AccountId::default() {
             // burn case
-            ensure!(Self::_check_investor_status(from.clone()).is_ok(), "Account is not active");
+            ensure!(
+                Self::_check_investor_status(from.clone()).is_ok(),
+                "Account is not active"
+            );
             ensure!(
                 Self::is_whitelisted(_ticker.clone(), from).is_ok(),
                 "from account is not whitelisted"
@@ -136,8 +142,14 @@ impl<T: Trait> Module<T> {
         } else {
             // loop through existing whitelists
             let whitelist_count = Self::whitelist_count();
-            ensure!(Self::_check_investor_status(from.clone()).is_ok(), "Account is not active");
-            ensure!(Self::_check_investor_status(to.clone()).is_ok(), "Account is not active");
+            ensure!(
+                Self::_check_investor_status(from.clone()).is_ok(),
+                "Account is not active"
+            );
+            ensure!(
+                Self::_check_investor_status(to.clone()).is_ok(),
+                "Account is not active"
+            );
             for x in 0..whitelist_count {
                 let whitelist_for_from =
                     Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
@@ -160,7 +172,10 @@ impl<T: Trait> Module<T> {
     pub fn is_whitelisted(_ticker: Vec<u8>, holder: T::AccountId) -> Result {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let now = <timestamp::Module<T>>::get();
-        ensure!(Self::_check_investor_status(holder.clone()).is_ok(), "Account is not active");
+        ensure!(
+            Self::_check_investor_status(holder.clone()).is_ok(),
+            "Account is not active"
+        );
         // loop through existing whitelists
         let whitelist_count = Self::whitelist_count();
 
@@ -171,7 +186,7 @@ impl<T: Trait> Module<T> {
             if whitelist_for_holder.can_send_after > T::Moment::sa(0)
                 && now >= whitelist_for_holder.can_send_after
             {
-                return Ok(())
+                return Ok(());
             }
         }
         Err("Not whitelisted")
