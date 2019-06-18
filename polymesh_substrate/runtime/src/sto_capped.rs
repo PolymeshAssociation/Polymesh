@@ -313,7 +313,7 @@ impl<T: Trait> Module<T> {
     ) -> Result {
         // Validate that buyer is whitelisted for primary issuance.
         ensure!(
-            <general_tm::Module<T>>::is_whitelisted(ticker, sender),
+            <general_tm::Module<T>>::is_whitelisted(ticker, sender).is_ok(),
             "sender is not allowed to invest"
         );
         // Check whether the sto is unpaused or not

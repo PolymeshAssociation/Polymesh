@@ -115,32 +115,29 @@ impl<T: Trait> Module<T> {
     ) -> Result {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let now = <timestamp::Module<T>>::get();
-
-        let investor_from = <InvestorList<T>>::get(from.clone());
-        ensure!(
-            investor_from.active && investor_from.access_level == 1,
-            "From account is not active"
-        );
-
-        // loop through existing whitelists
-        let whitelist_count = Self::whitelist_count();
         // issuance case
         if from == T::AccountId::default() {
+            ensure!(Self::_check_investor_status(to.clone()).is_ok(), "Account is not active");
             ensure!(
-                Self::is_whitelisted(_ticker.clone(), to),
+                Self::is_whitelisted(_ticker.clone(), to).is_ok(),
                 "to account is not whitelisted"
             );
             runtime_io::print("GTM: Passed from the issuance case");
             return Ok(());
         } else if to == T::AccountId::default() {
             // burn case
+            ensure!(Self::_check_investor_status(from.clone()).is_ok(), "Account is not active");
             ensure!(
-                Self::is_whitelisted(_ticker.clone(), from),
+                Self::is_whitelisted(_ticker.clone(), from).is_ok(),
                 "from account is not whitelisted"
             );
             runtime_io::print("GTM: Passed from the burn case");
             return Ok(());
         } else {
+            // loop through existing whitelists
+            let whitelist_count = Self::whitelist_count();
+            ensure!(Self::_check_investor_status(from.clone()).is_ok(), "Account is not active");
+            ensure!(Self::_check_investor_status(to.clone()).is_ok(), "Account is not active");
             for x in 0..whitelist_count {
                 let whitelist_for_from =
                     Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
@@ -160,9 +157,10 @@ impl<T: Trait> Module<T> {
         Err("Cannot Transfer: General TM restrictions not satisfied")
     }
 
-    pub fn is_whitelisted(_ticker: Vec<u8>, holder: T::AccountId) -> bool {
+    pub fn is_whitelisted(_ticker: Vec<u8>, holder: T::AccountId) -> Result {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let now = <timestamp::Module<T>>::get();
+        ensure!(Self::_check_investor_status(holder.clone()).is_ok(), "Account is not active");
         // loop through existing whitelists
         let whitelist_count = Self::whitelist_count();
 
@@ -173,10 +171,19 @@ impl<T: Trait> Module<T> {
             if whitelist_for_holder.can_send_after > T::Moment::sa(0)
                 && now >= whitelist_for_holder.can_send_after
             {
-                return true;
+                return Ok(())
             }
         }
-        return false;
+        Err("Not whitelisted")
+    }
+
+    fn _check_investor_status(holder: T::AccountId) -> Result {
+        let investor = <InvestorList<T>>::get(holder.clone());
+        ensure!(
+            investor.active && investor.access_level == 1,
+            "From account is not active"
+        );
+        Ok(())
     }
 }
 
