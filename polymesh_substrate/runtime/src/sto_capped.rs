@@ -34,7 +34,7 @@ pub struct STO<U, V, W> {
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Investment<U, V, W> {
     investor: U,
-    amount_payed: V,
+    amount_paid: V,
     tokens_purchased: V,
     last_purchase_date: W,
 }
@@ -382,8 +382,8 @@ impl<T: Trait> Module<T> {
                 erc20_investment,
             );
         } else {
-            investor_holder.amount_payed = investor_holder
-                .amount_payed
+            investor_holder.amount_paid = investor_holder
+                .amount_paid
                 .checked_add(&investment_amount)
                 .ok_or("overflow while updating the invested amount")?;
         }
