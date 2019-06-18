@@ -124,21 +124,39 @@ impl<T: Trait> Module<T> {
 
         // loop through existing whitelists
         let whitelist_count = Self::whitelist_count();
+        // issuance case
+        if from == T::AccountId::default() {
+            ensure!(
+                Self::is_whitelisted(_ticker.clone(), to),
+                "to account is not whitelisted"
+            );
+            runtime_io::print("GTM: Passed from the issuance case");
+            return Ok(());
+        } else if to == T::AccountId::default() {
+            // burn case
+            ensure!(
+                Self::is_whitelisted(_ticker.clone(), from),
+                "from account is not whitelisted"
+            );
+            runtime_io::print("GTM: Passed from the burn case");
+            return Ok(());
+        } else {
+            for x in 0..whitelist_count {
+                let whitelist_for_from =
+                    Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
+                let whitelist_for_to =
+                    Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
 
-        for x in 0..whitelist_count {
-            let whitelist_for_from =
-                Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
-            let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
-
-            if (whitelist_for_from.can_send_after > T::Moment::sa(0)
-                && now >= whitelist_for_from.can_send_after)
-                && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
-                    && now > whitelist_for_to.can_receive_after)
-            {
-                return Ok(());
+                if (whitelist_for_from.can_send_after > T::Moment::sa(0)
+                    && now >= whitelist_for_from.can_send_after)
+                    && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
+                        && now > whitelist_for_to.can_receive_after)
+                {
+                    return Ok(());
+                }
             }
         }
-
+        runtime_io::print("GTM: Not going through the restriction");
         Err("Cannot Transfer: General TM restrictions not satisfied")
     }
 

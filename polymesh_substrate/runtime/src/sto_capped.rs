@@ -306,10 +306,6 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker.clone(), sender)
     }
 
-    pub fn is_whitelisted(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        <general_tm::Module<T>>::is_whitelisted(_ticker, sender)
-    }
-
     fn _pre_validation(
         ticker: Vec<u8>,
         sender: T::AccountId,
