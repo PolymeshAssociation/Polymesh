@@ -30,8 +30,8 @@ pub trait Trait:
 pub struct Dividend<U, V> {
     /// Total amount to be distributed
     amount: U,
-    /// Amount distributed so far
-    paid_out: U,
+    /// Amount left to distribute
+    amount_left: U,
     /// Whether the owner has claimed remaining funds
     remaining_claimed: bool,
     /// Whether claiming dividends is enabled
@@ -149,7 +149,7 @@ decl_module! {
             // Insert dividend entry into storage
             let new_dividend = Dividend {
                 amount,
-                paid_out: <T::TokenBalance as As<u64>>::sa(0),
+                amount_left: amount,
                 remaining_claimed: false,
                 active: false,
                 canceled: false,
@@ -279,7 +279,7 @@ decl_module! {
 
             // Adjust the paid_out amount
             <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
-                entry.paid_out = entry.paid_out.checked_add(&share).ok_or("Could not increase paid_out")?;
+                entry.amount_left = entry.amount_left.checked_sub(&share).ok_or("Could not increase paid_out")?;
                 Ok(())
             })?;
 
@@ -325,31 +325,29 @@ decl_module! {
                 return Err("Claiming unclaimed payouts requires an end date");
             }
 
-            let unclaimed_payouts = entry.amount.checked_sub(&entry.paid_out).ok_or("Could not compute unclaimed dividend payouts")?;
-
             // Transfer the computed amount
             if let Some(payout_ticker) = entry.payout_currency.clone() {
                 <erc20::BalanceOf<T>>::mutate((payout_ticker.clone(), sender.clone()), |balance: &mut T::TokenBalance| -> Result {
                     *balance  = balance
-                        .checked_add(&unclaimed_payouts)
+                        .checked_add(&entry.amount_left)
                         .ok_or("Could not add amount back to asset owner account")?;
                     Ok(())
                 })?;
             } else {
                 let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(
                     &sender,
-                    <T::TokenBalance as As<T::Balance>>::as_(unclaimed_payouts)
+                    <T::TokenBalance as As<T::Balance>>::as_(entry.amount_left)
                     )?;
             }
 
             // Set paid_out to maximum value, flip remaining_claimed
             <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
-                entry.paid_out = entry.amount;
+                entry.amount_left = <<T as utils::Trait>::TokenBalance as As<u64>>::sa(0);
                 entry.remaining_claimed = true;
                 Ok(())
             })?;
 
-            Self::deposit_event(RawEvent::DividendRemainingClaimed(ticker.clone(), dividend_id, unclaimed_payouts));
+            Self::deposit_event(RawEvent::DividendRemainingClaimed(ticker.clone(), dividend_id, entry.amount_left));
 
             Ok(())
         }
@@ -698,7 +696,7 @@ mod tests {
 
             let dividend = Dividend {
                 amount: 500_000,
-                paid_out: 0,
+                amount_left: 500_000,
                 remaining_claimed: false,
                 active: false,
                 canceled: false,
@@ -754,10 +752,10 @@ mod tests {
                 share
             );
 
-            // Check if paid_out was adjusted correctly
+            // Check if amount_left was adjusted correctly
             let current_entry = DividendModule::get_dividend(token.name.clone(), 0)
                 .expect("Could not retrieve dividend");
-            assert_eq!(current_entry.paid_out, share);
+            assert_eq!(current_entry.amount_left, current_entry.amount - share);
         });
     }
 }
