@@ -47,4 +47,12 @@
         "owner": "AccountId"
     },
     "FeeOf": "Balance"
+    "Dividend": {
+        "amount": "TokenBalance",
+        "active": "bool",
+        "maturates_at": "Option<u64>",
+        "expires_at": "Option<u64>",
+        "payout_currency": "Option<Vec<u8>>",
+        "checkpoint_id": "u32"
+    }
 }

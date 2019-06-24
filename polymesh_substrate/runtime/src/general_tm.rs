@@ -106,7 +106,7 @@ impl<T: Trait> Module<T> {
         // token.owner == sender
     }
 
-    // Transfer restriction verification logic
+    ///  Sender restriction verification
     pub fn verify_restriction(
         _ticker: Vec<u8>,
         from: T::AccountId,

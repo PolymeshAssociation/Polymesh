@@ -4,6 +4,7 @@ use crate::general_tm;
 use crate::utils;
 use support::traits::Currency;
 
+use core::convert::TryInto;
 use rstd::prelude::*;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
@@ -57,7 +58,7 @@ decl_storage! {
         // [asset_ticker][sto_id] => count
         TokensCountForSto get(tokens_count_for_sto): map(Vec<u8>, u32) => u32;
         // To track the investment data of the investor corresponds to ticker
-        //[asset_ticker][erc20_ticker][sto_id][accountId] => Investment structure
+        //[asset_ticker][sto_id][accountId] => Investment structure
         InvestmentData get(investment_data): map(Vec<u8>, u32, T::AccountId) => Investment<T::AccountId, T::TokenBalance, T::Moment>;
         // To track the investment amount of the investor corresponds to ticker using ERC20
         // [asset_ticker][erc20_ticker][sto_id][accountId] => Invested balance
@@ -135,7 +136,7 @@ decl_module! {
                 <T::TokenBalance as As<T::Balance>>::sa(value),
                 selected_sto.clone()
             )?;
-            let allowed_value = <T::Balance as As<_>>::sa((<T as utils::Trait>::as_u128(token_amount_value.1)) as u64);
+            let allowed_value = <T::Balance as As<_>>::sa((<T as utils::Trait>::as_u128(token_amount_value.1)).try_into().unwrap());
 
             selected_sto.sold = selected_sto.sold
                 .checked_add(&token_amount_value.0)
