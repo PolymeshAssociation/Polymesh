@@ -30,8 +30,8 @@ pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trai
 // struct to store the token details
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct ERC20Token<U, V> {
-    ticker: Vec<u8>,
-    total_supply: U,
+    pub ticker: Vec<u8>,
+    pub total_supply: U,
     pub owner: V,
 }
 
@@ -40,7 +40,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as ERC20 {
         // How much Alice (first address) allows Bob (second address) to spend from her account
         Allowance get(allowance): map (Vec<u8>, T::AccountId, T::AccountId) => T::TokenBalance;
-        BalanceOf get(balance_of): map (Vec<u8>, T::AccountId) => T::TokenBalance;
+        pub BalanceOf get(balance_of): map (Vec<u8>, T::AccountId) => T::TokenBalance;
         // How much creating a new ERC20 token costs in base currency
         CreationFee get(creation_fee) config(): FeeOf<T>;
         // Token Details
@@ -56,7 +56,7 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event<T>() = default;
 
-        fn create_token(origin, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+        pub fn create_token(origin, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(!<Tokens<T>>::exists(ticker.clone()), "Ticker with this name already exists");
             ensure!(<identity::Module<T>>::is_erc20_issuer(sender.clone()), "Sender is not an issuer");
@@ -101,7 +101,7 @@ decl_module! {
             Ok(())
         }
 
-        fn transfer(origin, ticker: Vec<u8>, to: T::AccountId, amount: T::TokenBalance) -> Result {
+        pub fn transfer(origin, ticker: Vec<u8>, to: T::AccountId, amount: T::TokenBalance) -> Result {
             let sender = ensure_signed(origin)?;
 
             Self::_transfer(ticker.clone(), sender, to, amount)

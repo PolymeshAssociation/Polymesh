@@ -106,13 +106,8 @@ impl<T: Trait> Module<T> {
         // token.owner == sender
     }
 
-    // Transfer restriction verification logic
-    pub fn verify_restriction(
-        _ticker: Vec<u8>,
-        from: T::AccountId,
-        to: T::AccountId,
-        _value: T::TokenBalance,
-    ) -> Result {
+    ///  Sender restriction verification
+    pub fn verify_from(_ticker: Vec<u8>, from: T::AccountId, _value: T::TokenBalance) -> Result {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let now = <timestamp::Module<T>>::get();
 
@@ -128,18 +123,47 @@ impl<T: Trait> Module<T> {
         for x in 0..whitelist_count {
             let whitelist_for_from =
                 Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
-            let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
-
-            if (whitelist_for_from.can_send_after > T::Moment::sa(0)
-                && now >= whitelist_for_from.can_send_after)
-                && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
-                    && now > whitelist_for_to.can_receive_after)
+            if whitelist_for_from.can_send_after > T::Moment::sa(0)
+                && now >= whitelist_for_from.can_send_after
             {
                 return Ok(());
             }
         }
 
-        Err("Cannot Transfer: General TM restrictions not satisfied")
+        Err("Verification failed: Sender's general TM restrictions not satisfied")
+    }
+
+    ///  Beneficiary restriction verification
+    pub fn verify_to(_ticker: Vec<u8>, to: T::AccountId, _value: T::TokenBalance) -> Result {
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        let now = <timestamp::Module<T>>::get();
+
+        // loop through existing whitelists
+        let whitelist_count = Self::whitelist_count();
+
+        for x in 0..whitelist_count {
+            let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
+            if whitelist_for_to.can_receive_after > T::Moment::sa(0)
+                && now > whitelist_for_to.can_receive_after
+            {
+                return Ok(());
+            }
+        }
+
+        Err("Verification failed: Beneficiary's general TM restrictions not satisfied")
+    }
+
+    // Transfer restriction verification logic
+    pub fn verify_restriction(
+        ticker: Vec<u8>,
+        from: T::AccountId,
+        to: T::AccountId,
+        value: T::TokenBalance,
+    ) -> Result {
+        Self::verify_from(ticker.clone(), from, value)?;
+        Self::verify_to(ticker, to, value)?;
+
+        Ok(())
     }
 }
 
