@@ -11,7 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@polkadot/api": "^0.79.1",
+    "@polkadot/api": "0.81.1",
     "bn.js": "^4.11.8",
     "inquirer": "^6.3.1",
     "web3-utils": "^1.0.0-beta.55"
