@@ -39,6 +39,8 @@ pub struct SecurityToken<U, V> {
     pub name: Vec<u8>,
     pub total_supply: U,
     pub owner: V,
+    pub granularity: u128,
+    pub decimals: u16,
 }
 
 decl_storage! {
@@ -73,21 +75,19 @@ decl_module! {
         // takes a name, ticker, total supply for the token
         // makes the initiating account the owner of the token
         // the balance of the owner is set to total supply
-        pub fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+        pub fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, divisible: bool) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
-
             // Ensure the uniqueness of the ticker
             ensure!(!<Tokens<T>>::exists(ticker.clone()), "ticker is already issued");
+            // checking max size for name and ticker
+            // byte arrays (vecs) with no max size should be avoided
+            ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
+            ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
-            // // Fee is burnt (could override the on_unbalanced function to instead distribute to stakers / validators)
-            // let imbalance = T::Currency::withdraw(&sender, Self::asset_creation_fee(), WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
-
-            // // Alternative way to take a fee - fee is paid to `fee_collector`
-            // let my_fee = <T::Balance as As<u64>>::sa(1337);
-            // <balances::Module<T> as Currency<_>>::transfer(&sender, &Self::fee_collector(), my_fee)?;
-            // T::TokenFeeCharge::on_unbalanced(imbalance);
+            let granularity = if !divisible { (10 as u128).pow(18) } else { 1_u128 };
+            ensure!(<T as utils::Trait>::as_u128(total_supply) % granularity == (0 as u128), "Invalid Total supply");
 
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
@@ -106,22 +106,17 @@ decl_module! {
             let remainder_fee = fee - (proportional_fee * validatorLen);
             let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
-            // checking max size for name and ticker
-            // byte arrays (vecs) with no max size should be avoided
-            ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
-            ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
-
-            // take fee for creating asset
-
             let token = SecurityToken {
                 name,
                 total_supply,
-                owner:sender.clone()
+                owner:sender.clone(),
+                granularity: granularity,
+                decimals: 18
             };
 
             <Tokens<T>>::insert(ticker.clone(), token);
-            <BalanceOf<T>>::insert((ticker.clone(), sender), total_supply);
-
+            <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), total_supply);
+            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, sender, granularity, 18));
             runtime_io::print("Initialized!!!");
 
             Ok(())
@@ -220,6 +215,11 @@ decl_module! {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
+            // Granularity check
+            ensure!(
+                Self::check_granularity(_ticker.clone(), value),
+                "Invalid granularity"
+            );
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), sender.clone())), "Account does not own this token");
             let burner_balance = Self::balance_of((ticker.clone(), sender.clone()));
             ensure!(burner_balance >= value, "Not enough balance.");
@@ -244,6 +244,20 @@ decl_module! {
 
             Ok(())
 
+        }
+
+        pub fn change_granularity(origin, ticker: Vec<u8>, granularity: u128) -> Result {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            let sender = ensure_signed(origin)?;
+            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "user is not authorized");
+            ensure!(granularity != 0_u128, "Invalid granularity");
+            // Read the token details
+            let mut token = Self::token_details(ticker.clone());
+            //Increase total suply
+            token.granularity = granularity;
+            <Tokens<T>>::insert(ticker.clone(), token);
+            Self::deposit_event(RawEvent::GranularityChanged(ticker.clone(), granularity));
+            Ok(())
         }
     }
 }
@@ -272,6 +286,12 @@ decl_event!(
         // event for forced transfer of tokens
         // ticker, from, to, value
         ForcedTransfer(Vec<u8>, AccountId, AccountId, Balance),
+        // Event for creation of the asset
+        // ticker, total supply, owner, decimal
+        IssuedToken(Vec<u8>, Balance, AccountId, u128, u16),
+        // Event for change granularity
+        // ticker, granularity
+        GranularityChanged(Vec<u8>, u128),
     }
 );
 
@@ -390,6 +410,11 @@ impl<T: Trait> Module<T> {
         to: T::AccountId,
         value: T::TokenBalance,
     ) -> Result {
+        // Granularity check
+        ensure!(
+            Self::check_granularity(_ticker.clone(), value),
+            "Invalid granularity"
+        );
         ensure!(
             <BalanceOf<T>>::exists((_ticker.clone(), from.clone())),
             "Account does not own this token"
@@ -461,6 +486,11 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn _mint(ticker: Vec<u8>, to: T::AccountId, value: T::TokenBalance) -> Result {
+        // Granularity check
+        ensure!(
+            Self::check_granularity(ticker.clone(), value),
+            "Invalid granularity"
+        );
         //Increase receiver balance
         let current_to_balance = Self::balance_of((ticker.clone(), to.clone()));
         let updated_to_balance = current_to_balance
@@ -468,10 +498,9 @@ impl<T: Trait> Module<T> {
             .ok_or("overflow in calculating balance")?;
 
         //PABLO: TODO: Add verify transfer check
-
-        //Increase total suply
+        // Read the token details
         let mut token = Self::token_details(ticker.clone());
-
+        //Increase total suply
         token.total_supply = token
             .total_supply
             .checked_add(&value)
@@ -485,6 +514,13 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Minted(ticker.clone(), to, value));
 
         Ok(())
+    }
+
+    fn check_granularity(ticker: Vec<u8>, value: T::TokenBalance) -> bool {
+        // Read the token details
+        let token = Self::token_details(ticker.clone());
+        // Check the granularity
+        <T as utils::Trait>::as_u128(value) % token.granularity == (0 as u128)
     }
 }
 
@@ -652,6 +688,8 @@ mod tests {
                 name: vec![0x01],
                 owner: 1,
                 total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
             };
 
             // Raise the owner's base currency balance
@@ -665,7 +703,8 @@ mod tests {
                 Origin::signed(token.owner),
                 token.name.clone(),
                 token.name.clone(),
-                token.total_supply
+                token.total_supply,
+                true
             ));
 
             // A correct entry is added
@@ -681,6 +720,8 @@ mod tests {
                 name: vec![0x01],
                 owner: 1,
                 total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
             };
 
             Balances::make_free_balance_be(&token.owner, 1_000_000);
@@ -693,7 +734,8 @@ mod tests {
                     Origin::signed(token.owner + 1),
                     token.name.clone(),
                     token.name.clone(),
-                    token.total_supply
+                    token.total_supply,
+                    true
                 ),
                 "user is not authorized"
             );
@@ -808,6 +850,8 @@ mod tests {
                         name: ticker.to_owned().into_bytes(),
                         owner: owner_id,
                         total_supply,
+                        granularity: 1,
+                        decimals: 18,
                     };
                     println!("{:#?}", token_struct);
 
@@ -821,6 +865,7 @@ mod tests {
                             token_struct.name.clone(),
                             token_struct.name.clone(),
                             token_struct.total_supply,
+                            true
                         ));
 
                         // Also check that the new token matches what we asked to create
@@ -880,6 +925,7 @@ mod tests {
                             token_struct.name.clone(),
                             token_struct.name.clone(),
                             token_struct.total_supply,
+                            true
                         )
                         .is_err());
                     }
