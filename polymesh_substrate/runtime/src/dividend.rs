@@ -609,6 +609,8 @@ mod tests {
                 name: vec![0x01],
                 owner: 1,
                 total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
             };
 
             // A token used for payout
@@ -634,7 +636,8 @@ mod tests {
                 Origin::signed(token.owner),
                 token.name.clone(),
                 token.name.clone(),
-                token.total_supply
+                token.total_supply,
+                true
             ));
 
             // Issuance for payout token is successful
