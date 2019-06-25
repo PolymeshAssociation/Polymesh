@@ -649,6 +649,8 @@ mod tests {
 
             // Prepare a whitelisted investor
             let investor_id = 3;
+            identity::Module::<Test>::do_create_investor(investor_id)
+                .expect("Could not make token.owner an investor");
             let amount_invested = 50_000;
             Balances::make_free_balance_be(&investor_id, 1_000_000);
 

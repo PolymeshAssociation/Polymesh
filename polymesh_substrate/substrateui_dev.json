@@ -37,12 +37,18 @@
         "end_date": "Moment",
         "active": "bool"
     },
+    "Investment": {
+        "investor": "AccountId",
+        "amount_paid": "TokenBalance",
+        "tokens_purchased": "TokenBalance",
+        "last_purchase_date": "Moment"
+    },
     "ERC20Token": {
         "ticker": "Vec<u8>",
         "total_supply": "TokenBalance",
         "owner": "AccountId"
     },
-    "FeeOf": "Balance"
+    "FeeOf": "Balance",
     "Dividend": {
         "amount": "TokenBalance",
         "active": "bool",

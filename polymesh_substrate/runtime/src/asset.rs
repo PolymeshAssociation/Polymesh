@@ -92,18 +92,18 @@ decl_module! {
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
-            let validatorLen;
+            let validator_len;
             if validators.len() < 1 {
-                validatorLen = <FeeOf<T> as As<usize>>::sa(1);
+                validator_len = <FeeOf<T> as As<usize>>::sa(1);
             } else {
-                validatorLen = <FeeOf<T> as As<usize>>::sa(validators.len());
+                validator_len = <FeeOf<T> as As<usize>>::sa(validators.len());
             }
-            let proportional_fee = fee / validatorLen;
+            let proportional_fee = fee / validator_len;
             let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
             for v in &validators {
                 <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
             }
-            let remainder_fee = fee - (proportional_fee * validatorLen);
+            let remainder_fee = fee - (proportional_fee * validator_len);
             let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
             let token = SecurityToken {
@@ -229,7 +229,8 @@ decl_module! {
                 .checked_sub(&value)
                 .ok_or("overflow in calculating balance")?;
 
-            //PABLO: TODO: Add verify transfer check
+            // verify transfer check
+            Self::_is_valid_transfer(ticker.clone(), sender.clone(), T::AccountId::default(), value)?;
 
             //Decrease total suply
             let mut token = Self::token_details(ticker.clone());
@@ -496,8 +497,9 @@ impl<T: Trait> Module<T> {
         let updated_to_balance = current_to_balance
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
+        // verify transfer check
+        Self::_is_valid_transfer(ticker.clone(), T::AccountId::default(), to.clone(), value)?;
 
-        //PABLO: TODO: Add verify transfer check
         // Read the token details
         let mut token = Self::token_details(ticker.clone());
         //Increase total suply

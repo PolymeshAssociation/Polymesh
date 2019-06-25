@@ -107,62 +107,97 @@ impl<T: Trait> Module<T> {
     }
 
     ///  Sender restriction verification
-    pub fn verify_from(_ticker: Vec<u8>, from: T::AccountId, _value: T::TokenBalance) -> Result {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        let now = <timestamp::Module<T>>::get();
-
-        let investor_from = <InvestorList<T>>::get(from.clone());
-        ensure!(
-            investor_from.active && investor_from.access_level == 1,
-            "From account is not active"
-        );
-
-        // loop through existing whitelists
-        let whitelist_count = Self::whitelist_count();
-
-        for x in 0..whitelist_count {
-            let whitelist_for_from =
-                Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
-            if whitelist_for_from.can_send_after > T::Moment::sa(0)
-                && now >= whitelist_for_from.can_send_after
-            {
-                return Ok(());
-            }
-        }
-
-        Err("Verification failed: Sender's general TM restrictions not satisfied")
-    }
-
-    ///  Beneficiary restriction verification
-    pub fn verify_to(_ticker: Vec<u8>, to: T::AccountId, _value: T::TokenBalance) -> Result {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        let now = <timestamp::Module<T>>::get();
-
-        // loop through existing whitelists
-        let whitelist_count = Self::whitelist_count();
-
-        for x in 0..whitelist_count {
-            let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
-            if whitelist_for_to.can_receive_after > T::Moment::sa(0)
-                && now > whitelist_for_to.can_receive_after
-            {
-                return Ok(());
-            }
-        }
-
-        Err("Verification failed: Beneficiary's general TM restrictions not satisfied")
-    }
-
-    // Transfer restriction verification logic
     pub fn verify_restriction(
-        ticker: Vec<u8>,
+        _ticker: Vec<u8>,
         from: T::AccountId,
         to: T::AccountId,
-        value: T::TokenBalance,
+        _value: T::TokenBalance,
     ) -> Result {
-        Self::verify_from(ticker.clone(), from, value)?;
-        Self::verify_to(ticker, to, value)?;
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        let now = <timestamp::Module<T>>::get();
+        // issuance case
+        if from == T::AccountId::default() {
+            ensure!(
+                Self::_check_investor_status(to.clone()).is_ok(),
+                "Account is not active"
+            );
+            ensure!(
+                Self::is_whitelisted(_ticker.clone(), to).is_ok(),
+                "to account is not whitelisted"
+            );
+            runtime_io::print("GTM: Passed from the issuance case");
+            return Ok(());
+        } else if to == T::AccountId::default() {
+            // burn case
+            ensure!(
+                Self::_check_investor_status(from.clone()).is_ok(),
+                "Account is not active"
+            );
+            ensure!(
+                Self::is_whitelisted(_ticker.clone(), from).is_ok(),
+                "from account is not whitelisted"
+            );
+            runtime_io::print("GTM: Passed from the burn case");
+            return Ok(());
+        } else {
+            // loop through existing whitelists
+            let whitelist_count = Self::whitelist_count();
+            ensure!(
+                Self::_check_investor_status(from.clone()).is_ok(),
+                "Account is not active"
+            );
+            ensure!(
+                Self::_check_investor_status(to.clone()).is_ok(),
+                "Account is not active"
+            );
+            for x in 0..whitelist_count {
+                let whitelist_for_from =
+                    Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
+                let whitelist_for_to =
+                    Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
 
+                if (whitelist_for_from.can_send_after > T::Moment::sa(0)
+                    && now >= whitelist_for_from.can_send_after)
+                    && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
+                        && now > whitelist_for_to.can_receive_after)
+                {
+                    return Ok(());
+                }
+            }
+        }
+        runtime_io::print("GTM: Not going through the restriction");
+        Err("Cannot Transfer: General TM restrictions not satisfied")
+    }
+
+    pub fn is_whitelisted(_ticker: Vec<u8>, holder: T::AccountId) -> Result {
+        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        let now = <timestamp::Module<T>>::get();
+        ensure!(
+            Self::_check_investor_status(holder.clone()).is_ok(),
+            "Account is not active"
+        );
+        // loop through existing whitelists
+        let whitelist_count = Self::whitelist_count();
+
+        for x in 0..whitelist_count {
+            let whitelist_for_holder =
+                Self::whitelist_for_restriction((ticker.clone(), x, holder.clone()));
+
+            if whitelist_for_holder.can_send_after > T::Moment::sa(0)
+                && now >= whitelist_for_holder.can_send_after
+            {
+                return Ok(());
+            }
+        }
+        Err("Not whitelisted")
+    }
+
+    fn _check_investor_status(holder: T::AccountId) -> Result {
+        let investor = <InvestorList<T>>::get(holder.clone());
+        ensure!(
+            investor.active && investor.access_level == 1,
+            "From account is not active"
+        );
         Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use crate::asset::{self, AssetTrait};
+use crate::asset::AssetTrait;
 use crate::exemption;
 use crate::utils;
 
