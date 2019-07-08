@@ -80,7 +80,7 @@ decl_module! {
                 owner: sender.clone(),
             };
 
-            let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner: sender.clone() };
+            let reg_entry = RegistryEntry { token_type: TokenType::Erc20Token as u32, owner: sender.clone() };
 
             <registry::Module<T>>::put(ticker.clone(), &reg_entry)?;
 
