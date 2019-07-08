@@ -429,6 +429,7 @@ mod tests {
 
     use crate::{
         asset::SecurityToken, erc20::ERC20Token, exemption, general_tm, identity, percentage_tm,
+        registry,
     };
 
     impl_outer_origin! {
@@ -527,6 +528,8 @@ mod tests {
             v
         }
     }
+
+    impl registry::Trait for Test {}
 
     impl Trait for Test {
         type Event = ();

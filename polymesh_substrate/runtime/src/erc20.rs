@@ -3,6 +3,7 @@
 //! This module implements a simple ERC20 API on top of Polymesh.
 
 use crate::identity;
+use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 
 use rstd::prelude::*;
@@ -20,7 +21,9 @@ use system::ensure_signed;
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trait {
+pub trait Trait:
+    system::Trait + balances::Trait + utils::Trait + identity::Trait + registry::Trait
+{
     // TODO: Add other types and constants required configure this module.
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -76,6 +79,10 @@ decl_module! {
                 total_supply: total_supply.clone(),
                 owner: sender.clone(),
             };
+
+            let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner: sender.clone() };
+
+            <registry::Module<T>>::put(ticker.clone(), &reg_entry)?;
 
             <Tokens<T>>::insert(ticker.clone(), new_token);
             // Let the owner distribute the whole supply of the token
