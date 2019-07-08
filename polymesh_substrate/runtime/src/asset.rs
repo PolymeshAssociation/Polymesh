@@ -91,6 +91,8 @@ decl_module! {
             let granularity = if !divisible { (10 as u128).pow(18) } else { 1_u128 };
             ensure!(<T as utils::Trait>::as_u128(total_supply) % granularity == (0 as u128), "Invalid Total supply");
 
+            ensure!(<registry::Module<T>>::get(ticker.clone()).is_none(), "Ticker is already taken");
+
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
