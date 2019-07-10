@@ -37,7 +37,7 @@ decl_storage! {
         // Tokens by ticker. This represents the global namespace for tokens of all kinds. Entry
         // keys MUST be in full caps. To ensure this the storage item is private and using the
         // custom access methods is mandatory
-        Tokens get(tokens): map Vec<u8> => RegistryEntry<T::AccountId>;
+        pub Tokens get(tokens): map Vec<u8> => RegistryEntry<T::AccountId>;
     }
 }
 
