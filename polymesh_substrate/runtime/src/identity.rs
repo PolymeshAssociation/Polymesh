@@ -1,6 +1,8 @@
 use rstd::prelude::*;
 //use parity_codec::Codec;
 
+pub static DID_PREFIX: &'static str = "did:poly:";
+
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
@@ -17,6 +19,12 @@ pub struct Investor<U> {
     pub access_level: u16,
     pub active: bool,
     pub jurisdiction: u16,
+}
+
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+pub struct DidRecord {
+    pub master_key: Vec<u8>,
+    pub signing_keys: Vec<Vec<u8>>,
 }
 
 /// The module's configuration trait.
@@ -36,6 +44,8 @@ decl_storage! {
         IssuerList get(issuer_list): map T::AccountId => Issuer<T::AccountId>;
         pub InvestorList get(investor_list): map T::AccountId => Investor<T::AccountId>;
 
+        /// DID -> master + signing keys
+        pub DidRecords get(did_records): map Vec<u8> => DidRecord;
     }
 }
 
@@ -66,6 +76,30 @@ decl_module! {
 
             Self::do_create_investor(_investor)
         }
+
+        /// Register signing keys for a new DID. Uses origin key as the master key
+        fn register(origin, did: Vec<u8>, signing_keys: Vec<Vec<u8>>) -> Result {
+
+            // TODO: Retrieve public key from origin/AccountId
+            let sender = ensure_signed(origin)?;
+
+            // Make sure there's no pre-existing entry for the DID
+            ensure!(!<DidRecords<T>>::exists(did.clone()), "DID must be unique");
+
+            // Make sure caller specified a correct DID
+            validate_did(did.as_slice())?;
+
+            let record = DidRecord {
+                signing_keys: signing_keys.clone(),
+                master_key: vec![]
+            };
+
+            <DidRecords<T>>::insert(did.clone(), record);
+
+            Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
+
+            Ok(())
+        }
     }
 }
 
@@ -78,6 +112,9 @@ decl_event!(
         // Event `Something` is declared with a parameter of the type `u32` and `AccountId`
         // To emit this event, we call the deposit funtion, from our runtime funtions
         SomethingStored(u32, AccountId),
+
+        /// DID, master key account ID, signing keys
+        NewDid(Vec<u8>, AccountId, Vec<Vec<u8>>),
     }
 );
 
@@ -132,6 +169,16 @@ impl<T: Trait> Module<T> {
     pub fn is_investor(_user: T::AccountId) -> bool {
         let user = Self::investor_list(_user.clone());
         user.account == _user && user.access_level == 1 && user.active
+    }
+}
+
+/// Make sure the supplied slice is a valid Polymesh DID
+pub fn validate_did(did: &[u8]) -> Result {
+    // TODO: Also check length after prefix,
+    if did.starts_with(DID_PREFIX.as_bytes()) {
+        Ok(())
+    } else {
+        Err("DID has no valid prefix")
     }
 }
 
