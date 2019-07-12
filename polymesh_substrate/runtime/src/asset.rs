@@ -2,6 +2,7 @@ use crate::exemption;
 use crate::general_tm;
 use crate::identity;
 use crate::percentage_tm;
+use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 use rstd::prelude::*;
 //use parity_codec::Codec;
@@ -22,6 +23,7 @@ pub trait Trait:
     + balances::Trait
     + identity::Trait
     + session::Trait
+    + registry::Trait
 {
     // TODO: Add other types and constants required configure this module.
 
@@ -89,6 +91,8 @@ decl_module! {
             let granularity = if !divisible { (10 as u128).pow(18) } else { 1_u128 };
             ensure!(<T as utils::Trait>::as_u128(total_supply) % granularity == (0 as u128), "Invalid Total supply");
 
+            ensure!(<registry::Module<T>>::get(ticker.clone()).is_none(), "Ticker is already taken");
+
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
@@ -113,6 +117,10 @@ decl_module! {
                 granularity: granularity,
                 decimals: 18
             };
+
+            let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner: sender.clone() };
+
+            <registry::Module<T>>::put(ticker.clone(), &reg_entry)?;
 
             <Tokens<T>>::insert(ticker.clone(), token);
             <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), total_supply);
@@ -631,6 +639,7 @@ mod tests {
         type OnSessionChange = ();
         type Event = ();
     }
+    impl registry::Trait for Test {}
     impl Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;

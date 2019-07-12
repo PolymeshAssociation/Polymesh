@@ -56,5 +56,9 @@
         "expires_at": "Option<u64>",
         "payout_currency": "Option<Vec<u8>>",
         "checkpoint_id": "u32"
+    },
+    "RegistryEntry": {
+        "token_type": "u32",
+        "owner": "AccountId"
     }
 }
