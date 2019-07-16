@@ -3,7 +3,16 @@ use rstd::prelude::*;
 
 pub static DID_PREFIX: &'static str = "did:poly:";
 
-use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use parity_codec::Encode;
+use primitives::sr25519;
+use runtime_primitives::traits::{CheckedAdd, CheckedSub};
+use support::{
+    decl_event, decl_module, decl_storage,
+    dispatch::Result,
+    ensure,
+    traits::{Currency, ExistenceRequirement, WithdrawReason},
+    StorageMap,
+};
 use system::{self, ensure_signed};
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
@@ -22,15 +31,31 @@ pub struct Investor<U> {
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct DidRecord {
+pub struct DidRecord<U> {
     pub master_key: Vec<u8>,
     pub signing_keys: Vec<Vec<u8>>,
+    pub balance: U,
+}
+
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct Claim<U> {
+    topic: u32,
+    schema: u32,
+    bytes: Vec<u8>,
+    expiry: U,
+}
+
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct ClaimRecord<U> {
+    claim: Claim<U>,
+    revoked: bool,
+    /// issuer DID
+    issued_by: Vec<u8>,
+    attestation: Vec<u8>,
 }
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait {
-    // TODO: Add other types and constants required configure this module.
-
+pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -44,8 +69,14 @@ decl_storage! {
         IssuerList get(issuer_list): map T::AccountId => Issuer<T::AccountId>;
         pub InvestorList get(investor_list): map T::AccountId => Investor<T::AccountId>;
 
-        /// DID -> master + signing keys
-        pub DidRecords get(did_records): map Vec<u8> => DidRecord;
+        /// DID -> identity info
+        pub DidRecords get(did_records): map Vec<u8> => DidRecord<T::Balance>;
+
+        /// DID -> DID claim issuers
+        pub ClaimIssuers get(claim_issuers): map Vec<u8> => Vec<Vec<u8>>;
+
+        /// DID -> Associated claims
+        pub Claims get(claims): map Vec<u8> => Vec<ClaimRecord<T::Moment>>;
     }
 }
 
@@ -80,8 +111,9 @@ decl_module! {
         /// Register signing keys for a new DID. Uses origin key as the master key
         fn register(origin, did: Vec<u8>, signing_keys: Vec<Vec<u8>>) -> Result {
 
-            // TODO: Retrieve public key from origin/AccountId
             let sender = ensure_signed(origin)?;
+
+            let master_key = sender.encode();
 
             // Make sure there's no pre-existing entry for the DID
             ensure!(!<DidRecords<T>>::exists(did.clone()), "DID must be unique");
@@ -91,12 +123,309 @@ decl_module! {
 
             let record = DidRecord {
                 signing_keys: signing_keys.clone(),
-                master_key: vec![]
+                master_key,
+                ..Default::default()
             };
 
             <DidRecords<T>>::insert(did.clone(), record);
 
             Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
+
+            Ok(())
+        }
+
+        /// Adds new signing keys for a DID. Only called by master key owner.
+        fn add_signing_keys(origin, did: Vec<u8>, additional_keys: Vec<Vec<u8>>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+
+            // Verify that sender key is current master key
+            let sender_key = sender.encode();
+            let record = <DidRecords<T>>::get(did.clone());
+            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+
+            <DidRecords<T>>::mutate(did.clone(),
+            |record| {
+                // Concatenate new keys while making sure the key set is
+                // unique
+                let mut new_keys: Vec<Vec<u8>> = record.signing_keys
+                    .iter()
+                    .cloned()
+                    .filter(|key| {
+                        !additional_keys.contains(key)
+                    }).collect();
+                new_keys.append(&mut additional_keys.clone());
+
+                (*record).signing_keys = new_keys;
+            });
+
+            Self::deposit_event(RawEvent::SigningKeysAdded(did, additional_keys));
+
+            Ok(())
+        }
+
+        /// Removes specified signing keys of a DID if present. Only called by master key owner.
+        fn remove_signing_keys(origin, did: Vec<u8>, keys_to_remove: Vec<Vec<u8>>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // Verify that sender key is current master key
+            let sender_key = sender.encode();
+            let record = <DidRecords<T>>::get(did.clone());
+            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+
+            <DidRecords<T>>::mutate(did.clone(),
+            |record| {
+                // Filter out keys meant for deletion
+                (*record).signing_keys = record.signing_keys
+                    .iter()
+                    .cloned()
+                    .filter(|key| {
+                        !keys_to_remove.contains(key)
+                    }).collect();
+            });
+
+            Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
+
+            Ok(())
+        }
+
+        /// Sets a new master key for a DID. Only called by master key owner.
+        fn set_master_key(origin, did: Vec<u8>, new_key: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // Verify that sender key is current master key
+            let sender_key = sender.encode();
+            let record = <DidRecords<T>>::get(did.clone());
+            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+
+            <DidRecords<T>>::mutate(did.clone(),
+            |record| {
+                (*record).master_key = new_key.clone();
+            });
+
+            Self::deposit_event(RawEvent::NewMasterKey(did, sender, new_key));
+
+            Ok(())
+        }
+
+        /// Adds funds to a DID.
+        fn fund_poly(origin, did: Vec<u8>, amount: <T as balances::Trait>::Balance) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+
+            let record = <DidRecords<T>>::get(did.clone());
+
+            // We must know that new balance is valid without creating side effects
+            let new_record_balance = record.balance.checked_add(&amount).ok_or("overflow occured when increasing DID balance")?;
+
+            let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
+                &sender,
+                amount,
+                WithdrawReason::Transfer,
+                ExistenceRequirement::KeepAlive
+                )?;
+
+            <DidRecords<T>>::mutate(did.clone(), |record| {
+                (*record).balance = new_record_balance;
+            });
+
+            Self::deposit_event(RawEvent::PolyDepositedInDid(did, sender, amount));
+
+            Ok(())
+        }
+
+        /// Withdraws funds from a DID. Only called by master key owner.
+        fn withdrawy_poly(origin, did: Vec<u8>, amount: <T as balances::Trait>::Balance) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // Verify that sender key is current master key
+            let sender_key = sender.encode();
+            let record = <DidRecords<T>>::get(did.clone());
+            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+
+            let record = <DidRecords<T>>::get(did.clone());
+
+            // We must know that new balance is valid without creating side effects
+            let new_record_balance = record.balance.checked_sub(&amount).ok_or("underflow occured when decreasing DID balance")?;
+
+            let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(&sender, amount)?;
+
+            <DidRecords<T>>::mutate(did.clone(), |record| {
+                (*record).balance = new_record_balance;
+            });
+
+            Self::deposit_event(RawEvent::PolyWithdrawnFromDid(did, sender, amount));
+
+            Ok(())
+        }
+
+        /// Appends a claim issuer DID to a DID. Only called by master key owner.
+        fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // Verify that sender key is current master key
+            let sender_key = sender.encode();
+            let record = <DidRecords<T>>::get(did.clone());
+            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
+
+            <ClaimIssuers<T>>::mutate(did.clone(), |old_claim_issuers| {
+                if !old_claim_issuers.contains(&did_issuer) {
+                    old_claim_issuers.push(did_issuer.clone());
+                }
+            });
+
+            Self::deposit_event(RawEvent::NewClaimIssuer(did, did_issuer));
+
+            Ok(())
+        }
+
+        /// Removes a claim issuer DID. Only called by master key owner.
+        fn remove_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // Verify that sender key is current master key
+            let sender_key = sender.encode();
+            let record = <DidRecords<T>>::get(did.clone());
+            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
+
+            <ClaimIssuers<T>>::mutate(did.clone(), |old_claim_issuers| {
+                *old_claim_issuers = old_claim_issuers
+                    .iter()
+                    .cloned()
+                    .filter(|issuer| *issuer != did_issuer)
+                    .collect();
+            });
+
+            Self::deposit_event(RawEvent::RemovedClaimIssuer(did, did_issuer));
+
+            Ok(())
+        }
+
+        /// Adds new claim records. Only called by did_issuer's signing key
+        fn add_claim(origin, did: Vec<u8>, did_issuer: Vec<u8>, claims: Vec<Claim<T::Moment>>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
+
+            // Verify that sender key is one of did_issuer's signing keys
+            let sender_key = sender.encode();
+            ensure!(Self::is_signing_key(did_issuer.clone(), &sender_key), "Sender must hold a claim issuer's signing key");
+
+            <Claims<T>>::mutate(did.clone(), |claim_records| {
+                let mut new_records = claims
+                    .iter()
+                    .cloned()
+                    .map(|claim| ClaimRecord {
+                        claim,
+                        revoked: false,
+                        issued_by: did_issuer.clone(),
+                        attestation: Vec::new(),
+                    })
+                    .collect();
+
+                claim_records.append(&mut new_records);
+            });
+
+            Self::deposit_event(RawEvent::NewClaims(did, did_issuer, claims));
+
+            Ok(())
+        }
+
+        /// Adds new claim records with an attestation. Only called by issuer signing keys
+        fn add_claim_with_attestation(origin, did: Vec<u8>, did_issuer: Vec<u8>, claims: Vec<Claim<T::Moment>>, attestation: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer), "did_issuer must be a claim issuer for DID");
+
+            // Verify that sender key is one of did_issuer's signing keys
+            let sender_key = sender.encode();
+            ensure!(Self::is_signing_key(did_issuer.clone(), &sender_key), "Sender must hold a claim issuer's signing key");
+
+            <Claims<T>>::mutate(did.clone(), |claim_records| {
+                let mut new_records = claims
+                    .iter()
+                    .cloned()
+                    .map(|claim| ClaimRecord {
+                        claim,
+                        revoked: false,
+                        issued_by: did_issuer.clone(),
+                        attestation: attestation.clone(),
+                    })
+                    .collect();
+
+                claim_records.append(&mut new_records);
+            });
+
+            Self::deposit_event(RawEvent::NewClaimsWithAttestation(did, did_issuer, claims, attestation));
+
+            Ok(())
+        }
+
+        /// Marks the specified claim as revoked
+        fn revoke_claim(origin, did: Vec<u8>, did_issuer: Vec<u8>, claim: Claim<T::Moment>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer), "did_issuer must be a claim issuer for DID");
+
+            // Verify that sender key is one of did_issuer's signing keys
+            let sender_key = sender.encode();
+            ensure!(Self::is_signing_key(did_issuer.clone(), &sender_key), "Sender must hold a claim issuer's signing key");
+
+            <Claims<T>>::mutate(did.clone(), |claim_records| {
+
+                claim_records
+                    .iter_mut()
+                    .for_each(|record| if record.issued_by == did_issuer && record.claim == claim {
+                        (*record).revoked = true;
+                })
+            });
+
+            Self::deposit_event(RawEvent::RevokedClaim(did, did_issuer, claim));
+
+            Ok(())
+        }
+
+        /// Marks all claims of an issuer as revoked
+        fn revoke_all(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer), "did_issuer must be a claim issuer for DID");
+
+            // Verify that sender key is one of did_issuer's signing keys
+            let sender_key = sender.encode();
+            ensure!(Self::is_signing_key(did_issuer.clone(), &sender_key), "Sender must hold a claim issuer's signing key");
+
+            <Claims<T>>::mutate(did.clone(), |claim_records| {
+
+                claim_records
+                    .iter_mut()
+                    .for_each(|record| if record.issued_by == did_issuer {
+                        (*record).revoked = true;
+                })
+            });
+
+            Self::deposit_event(RawEvent::RevokedAllClaims(did, did_issuer));
 
             Ok(())
         }
@@ -107,6 +436,8 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Trait>::AccountId,
+        Balance = <T as balances::Trait>::Balance,
+        Moment = <T as timestamp::Trait>::Moment,
     {
         // Just a dummy event.
         // Event `Something` is declared with a parameter of the type `u32` and `AccountId`
@@ -115,6 +446,39 @@ decl_event!(
 
         /// DID, master key account ID, signing keys
         NewDid(Vec<u8>, AccountId, Vec<Vec<u8>>),
+
+        /// DID, new keys
+        SigningKeysAdded(Vec<u8>, Vec<Vec<u8>>),
+
+        /// DID, the keys that got removed
+        SigningKeysRemoved(Vec<u8>, Vec<Vec<u8>>),
+
+        /// DID, old master key account ID, new key
+        NewMasterKey(Vec<u8>, AccountId, Vec<u8>),
+
+        /// beneficiary DID, sender, amount
+        PolyDepositedInDid(Vec<u8>, AccountId, Balance),
+
+        /// DID, beneficiary, amount
+        PolyWithdrawnFromDid(Vec<u8>, AccountId, Balance),
+
+        /// DID, claim issuer DID
+        NewClaimIssuer(Vec<u8>, Vec<u8>),
+
+        /// DID, removed claim issuer DID
+        RemovedClaimIssuer(Vec<u8>, Vec<u8>),
+
+        /// DID, claim issuer DID, claims
+        NewClaims(Vec<u8>, Vec<u8>, Vec<Claim<Moment>>),
+
+        /// DID, claim issuer DID, claims, attestation
+        NewClaimsWithAttestation(Vec<u8>, Vec<u8>, Vec<Claim<Moment>>, Vec<u8>),
+
+        /// DID, claim issuer DID, claim
+        RevokedClaim(Vec<u8>, Vec<u8>, Claim<Moment>),
+
+        /// DID, claim issuer DID
+        RevokedAllClaims(Vec<u8>, Vec<u8>),
     }
 );
 
@@ -169,6 +533,14 @@ impl<T: Trait> Module<T> {
     pub fn is_investor(_user: T::AccountId) -> bool {
         let user = Self::investor_list(_user.clone());
         user.account == _user && user.access_level == 1 && user.active
+    }
+
+    pub fn is_claim_issuer(did: Vec<u8>, did_issuer: &Vec<u8>) -> bool {
+        <ClaimIssuers<T>>::get(did).contains(&did_issuer)
+    }
+
+    pub fn is_signing_key(did: Vec<u8>, key: &Vec<u8>) -> bool {
+        <DidRecords<T>>::get(did).signing_keys.contains(key)
     }
 }
 
