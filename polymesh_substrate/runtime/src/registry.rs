@@ -11,7 +11,6 @@ use support::{decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 pub enum TokenType {
     AssetToken,
     ConfidentialAssetToken,
-    Erc20Token,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Encode, Decode)]
@@ -33,7 +32,7 @@ pub trait Trait: system::Trait {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as TemplateModule {
+    trait Store for Module<T: Trait> as Registry {
         // Tokens by ticker. This represents the global namespace for tokens of all kinds. Entry
         // keys MUST be in full caps. To ensure this the storage item is private and using the
         // custom access methods is mandatory
@@ -71,20 +70,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 }
-
-/*
- *decl_event!(
- *    pub enum Event<T>
- *    where
- *        AccountId = <T as system::Trait>::AccountId,
- *    {
- *        // Just a dummy event.
- *        // Event `Something` is declared with a parameter of the type `u32` and `AccountId`
- *        // To emit this event, we call the deposit funtion, from our runtime funtions
- *        SomethingStored(u32, AccountId),
- *    }
- *);
- */
 
 /// tests for this module
 #[cfg(test)]
