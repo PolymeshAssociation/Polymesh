@@ -46,6 +46,15 @@ decl_module! {
         // Just a dummy entry point.
         // function that can be called by the external world as an extrinsics call
         // takes a parameter of the type `AccountId`, stores it and emits an event
+        pub fn get(ticker: Vec<u8>) -> Option<RegistryEntry<T::AccountId>> {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+
+            if <Tokens<T>>::exists(ticker.clone()) {
+                Some(<Tokens<T>>::get(ticker))
+            } else {
+                None
+            }
+        }
     }
 }
 
