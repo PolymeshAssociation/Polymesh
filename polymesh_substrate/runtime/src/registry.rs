@@ -43,9 +43,19 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        // Just a dummy entry point.
-        // function that can be called by the external world as an extrinsics call
-        // takes a parameter of the type `AccountId`, stores it and emits an event
+        pub fn printTickerAvailability(ticker: Vec<u8>) -> Result {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+
+            if <Tokens<T>>::exists(ticker.clone()) {
+                runtime_io::print("Ticker not available");
+            } else {
+                runtime_io::print("Ticker available");
+            }
+
+            Ok(())
+        }
+
+
     }
 }
 
