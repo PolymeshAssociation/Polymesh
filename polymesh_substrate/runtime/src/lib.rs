@@ -73,6 +73,7 @@ mod general_tm;
 mod identity;
 mod percentage_tm;
 mod registry;
+mod settlement;
 mod sto_capped;
 mod template;
 mod utils;
@@ -350,6 +351,8 @@ impl dividend::Trait for Runtime {
 
 impl registry::Trait for Runtime {}
 
+impl settlement::Trait for Runtime {}
+
 construct_runtime!(
     pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
         Block = Block,
@@ -369,6 +372,7 @@ construct_runtime!(
         Utils: utils::{Module, Call, Storage},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Registry: registry::{Module, Call, Storage},
+        Settlement: settlement::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
