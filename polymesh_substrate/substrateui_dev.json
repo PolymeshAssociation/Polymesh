@@ -28,6 +28,23 @@
         "active": "bool",
         "jurisdiction": "u16"
     },
+    "DidRecord": {
+        "master_key": "Vec<u8>",
+        "signing_keys": "Vec<Vec<u8>>",
+        "balance": "Balance"
+    },
+    "Claim": {
+        "topic": "u32",
+        "schema": "u32",
+        "bytes": "Vec<u8>",
+        "expiry": "Moment"
+    },
+    "ClaimRecord": {
+        "claim": "Claim",
+        "revoked": "bool",
+        "issued_by": "Vec<u8>",
+        "attestation": "Vec<u8>"
+    },
     "STO": {
         "beneficiary": "AccountId",
         "cap": "TokenBalance",
