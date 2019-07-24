@@ -372,7 +372,7 @@ construct_runtime!(
         Utils: utils::{Module, Call, Storage},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Registry: registry::{Module, Call, Storage},
-        Settlement: settlement::{Module, Call, Storage},
+        //Settlement: settlement::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
