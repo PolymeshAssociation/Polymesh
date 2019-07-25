@@ -16,6 +16,8 @@ pub trait Trait: system::Trait + utils::Trait + asset::Trait + erc20::Trait{
 pub struct Instruction<U> {
     /// Total amount to be sold
     amount: U,
+    ticker: Vec<u8>,
+    regulated: bool,
 }
 
 decl_storage! {
@@ -29,7 +31,7 @@ decl_storage! {
         //pub AvailableERC20Balance get(deposited_erc20_balance): map (Vec<u8>, T::AccountId) => T::TokenBalance;
         Instructions get(instructions): map (T::AccountId, u64) => Instruction<T::TokenBalance>;
         InstructionsCount get(instructions_count): map T::AccountId => u64;
-        //InstructionsIndex get(instructions): map (T::AccountId, u64) => u64;
+        //InstructionsPosition get(instructions_position): map (T::AccountId, u64) => u64;
     }
 }
 
@@ -115,35 +117,36 @@ decl_module! {
             Ok(())
         }
 
-        pub fn add_security_instruction_fixed(origin, _ticker: Vec<u8>, _amount: T::TokenBalance /* settlement_criteria */) -> Result {
+        pub fn add_instruction_fixed(origin, _ticker: Vec<u8>, _regulated: bool, _amount: T::TokenBalance /* settlement_criteria */) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let new_deposit_balance = Self::deposited_security_balance((ticker.clone(), sender.clone())).checked_sub(&_amount).ok_or("Underflow in deposit balance")?;
-            <DepositedSecurityBalance<T>>::insert((ticker.clone(), sender.clone()), new_deposit_balance);
+            if _regulated {
+                let new_deposit_balance = Self::deposited_security_balance((ticker.clone(), sender.clone())).checked_sub(&_amount).ok_or("Underflow in deposit balance")?;
+                <DepositedSecurityBalance<T>>::insert((ticker.clone(), sender.clone()), new_deposit_balance);
+            } else {
+                let new_deposit_balance = Self::deposited_erc20_balance((ticker.clone(), sender.clone())).checked_sub(&_amount).ok_or("Underflow in deposit balance")?;
+                <DepositedERC20Balance<T>>::insert((ticker.clone(), sender.clone()), new_deposit_balance);
+            }
             let new_instruction = Instruction {
                 amount: _amount,
+                ticker: _ticker,
+                regulated: _regulated,
             };
             let new_count = <InstructionsCount<T>>::get(sender.clone())
                 .checked_add(1)
                 .ok_or("Could not add 1 to dividend count")?;
+            //<InstructionsPosition<T>>::insert((sender.clone(), new_count.clone()), new_count.clone());
             <Instructions<T>>::insert((sender.clone(), new_count.clone()), new_instruction);
             <InstructionsCount<T>>::insert(sender.clone(), new_count);
             Ok(())
         }
 
-        pub fn add_erc20_instruction_fixed(origin, _ticker: Vec<u8>, _amount: T::TokenBalance /* settlement_criteria */) -> Result {
+        pub fn settle_instruction(origin, _ticker: Vec<u8>, _instruction_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let new_deposit_balance = Self::deposited_erc20_balance((ticker.clone(), sender.clone())).checked_sub(&_amount).ok_or("Underflow in deposit balance")?;
-            <DepositedERC20Balance<T>>::insert((ticker.clone(), sender.clone()), new_deposit_balance);
-            let new_instruction = Instruction {
-                amount: _amount,
-            };
-            let new_count = <InstructionsCount<T>>::get(sender.clone())
-                .checked_add(1)
-                .ok_or("Could not add 1 to dividend count")?;
-            <Instructions<T>>::insert((sender.clone(), new_count.clone()), new_instruction);
-            <InstructionsCount<T>>::insert(sender.clone(), new_count);
+            ensure!(<Instructions<T>>::exists((sender.clone(), _instruction_id)), "No instruction for supplied ticker and ID");
+            //Do settlement magic
+            <Instructions<T>>::remove((sender.clone(), _instruction_id));
             Ok(())
         }
        // T::Lookup::unlookup(_contract.clone())
