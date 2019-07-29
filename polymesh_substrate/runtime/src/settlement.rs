@@ -35,8 +35,7 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-
-        pub fn add_instruction(
+        pub fn add_instructions(
             origin,
             _sell_token_amount: T::TokenBalance,
             _sell_token_ticker: Vec<u8>,
@@ -45,24 +44,24 @@ decl_module! {
             _buy_tokens_regulated: Vec<bool>,
             _prices: Option<Vec<Vec<u8>>>,
             _price_contract: Option<T::AccountId>,
-            _expiry: Option<T::Moment>,
+            _expiry: Option<T::Moment>
         ) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(_sell_token_ticker.as_slice());
             ensure!(
-                match _prices {
-                    Some(x) => match _price_contract {
+                match _prices.clone() {
+                    Some(x) => match _price_contract.clone() {
                         Some(y) => false,
-                        None => _prices.len == _buy_tokens_ticker.len && _prices.len == _buy_tokens_regulated.len,
+                        None => x.len() == _buy_tokens_ticker.len() && x.len() == _buy_tokens_regulated.len(),
                     },
-                    None => => match _price_contract {
+                    None => match _price_contract.clone() {
                         Some(y) => true,
                         None => false,
                     },
                 },
                 "Invalid buy token details"
             );
-            ensure!(&_expiry > <timestamp::Module<T>>::get(), "Instruction expiry must be in future");
+            ensure!(_expiry > Some(<timestamp::Module<T>>::get()), "Instruction expiry must be in future");
             if _sell_token_regulated {
                 let balance = <asset::BalanceOf<T>>::get((ticker.clone(), sender.clone()));
                 let new_balance = balance.checked_sub(&_sell_token_amount).ok_or("underflow calculating new owner balance")?;
@@ -73,7 +72,7 @@ decl_module! {
                 <erc20::BalanceOf<T>>::insert((ticker.clone(), sender.clone()), new_balance);
             }
             let new_instruction = Instruction {
-                sell_token_amount: _sell_token_amount,
+                sell_token_amount_left: _sell_token_amount,
                 sell_token_ticker: _sell_token_ticker,
                 sell_token_regulated: _sell_token_regulated,
                 buy_tokens_ticker: _buy_tokens_ticker,
@@ -84,12 +83,11 @@ decl_module! {
             };
             let new_count = <InstructionsCount<T>>::get(sender.clone())
                 .checked_add(1)
-                .ok_or("Could not add 1 to dividend count")?;
+                .ok_or("Could not add 1 to Instruction count")?;
             <Instructions<T>>::insert((sender.clone(), new_count.clone()), new_instruction);
             <InstructionsCount<T>>::insert(sender.clone(), new_count);
             Ok(())
         }
-
         pub fn clear_instruction(origin, _instruction_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(<Instructions<T>>::exists((sender.clone(), _instruction_id)), "No instruction for supplied ticker and ID");
@@ -107,6 +105,7 @@ decl_module! {
             Ok(())
         }
        // T::Lookup::unlookup(_contract.clone())
+
     }
 }
 
