@@ -27,16 +27,8 @@ pub struct Instruction<U,V,W> {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Settlement {
-        // pub SettlementContracts get(settlement_contracts): map (Vec<u8>, u64) => T::AccountId;
-        // pub NumberOfContracts get(number_of_contracts): map Vec<u8> => u64;
-        // pub ContractPosition get(contract_position): map (Vec<u8>, T::AccountId) => u64;
-        // pub DepositedSecurityBalance get(deposited_security_balance): map (Vec<u8>, T::AccountId) => T::TokenBalance;
-        // pub DepositedERC20Balance get(deposited_erc20_balance): map (Vec<u8>, T::AccountId) => T::TokenBalance;
-        // pub AvailableSecurityBalance get(deposited_security_balance): map (Vec<u8>, T::AccountId) => T::TokenBalance;
-        // pub AvailableERC20Balance get(deposited_erc20_balance): map (Vec<u8>, T::AccountId) => T::TokenBalance;
         Instructions get(instructions): map (T::AccountId, u64) => Instruction<T::TokenBalance, T::AccountId, T::Moment>;
         InstructionsCount get(instructions_count): map T::AccountId => u64;
-        //InstructionsPosition get(instructions_position): map (T::AccountId, u64) => u64;
     }
 }
 
@@ -150,11 +142,11 @@ decl_module! {
             ensure!(&_expiry > <timestamp::Module<T>>::get(), "Instruction expiry must be in future");
             if _sell_token_regulated {
                 let balance = <asset::BalanceOf<T>>::get((ticker.clone(), sender.clone()));
-                let new_balance = balance.checked_sub(&_sell_token_amount).ok_or("Overflow calculating new owner balance")?;
+                let new_balance = balance.checked_sub(&_sell_token_amount).ok_or("underflow calculating new owner balance")?;
                 <asset::BalanceOf<T>>::insert((ticker.clone(), sender.clone()), new_balance);
             } else {
                 let balance = <erc20::BalanceOf<T>>::get((ticker.clone(), sender.clone()));
-                let new_balance = balance.checked_sub(&_sell_token_amount).ok_or("Overflow calculating new owner balance")?;
+                let new_balance = balance.checked_sub(&_sell_token_amount).ok_or("underflow calculating new owner balance")?;
                 <erc20::BalanceOf<T>>::insert((ticker.clone(), sender.clone()), new_balance);
             }
             let new_instruction = Instruction {
@@ -175,11 +167,19 @@ decl_module! {
             Ok(())
         }
 
-        pub fn settle_instruction(origin, _ticker: Vec<u8>, _instruction_id: u64) -> Result {
+        pub fn clear_instruction(origin, _instruction_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             ensure!(<Instructions<T>>::exists((sender.clone(), _instruction_id)), "No instruction for supplied ticker and ID");
-            //Do settlement magic
+            let instruction = <Instructions<T>>::get((sender.clone(), _instruction_id));
+            if instruction.sell_token_regulated {
+                let balance = <asset::BalanceOf<T>>::get((instruction.sell_token_ticker.clone(), sender.clone()));
+                let new_balance = balance.checked_add(&instruction.sell_token_amount_left).ok_or("Overflow calculating new owner balance")?;
+                <asset::BalanceOf<T>>::insert((instruction.sell_token_ticker.clone(), sender.clone()), new_balance);
+            } else {
+                let balance = <erc20::BalanceOf<T>>::get((instruction.sell_token_ticker.clone(), sender.clone()));
+                let new_balance = balance.checked_add(&instruction.sell_token_amount_left).ok_or("Overflow calculating new owner balance")?;
+                <erc20::BalanceOf<T>>::insert((instruction.sell_token_ticker.clone(), sender.clone()), new_balance);
+            }
             <Instructions<T>>::remove((sender.clone(), _instruction_id));
             Ok(())
         }
