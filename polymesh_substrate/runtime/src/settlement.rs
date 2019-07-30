@@ -36,6 +36,7 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+
         pub fn add_instructions(
             origin,
             _sell_token_amount: T::TokenBalance,
@@ -181,6 +182,81 @@ decl_module! {
 
             <Instructions<T>>::mutate(_instruction_id, |inst| -> Result {
                 inst.sell_token_amount_left = new_sell_token_amount_left;
+                Ok(())
+            })?;
+            Ok(())
+        }
+
+        pub fn settle_instruction_against_existing_instruction(
+            origin,
+            _target_instruction_id: u64,
+            _self_instruction_id: u64,
+            _sell_token_amount: T::TokenBalance
+        ) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<Instructions<T>>::exists(_target_instruction_id), "No instruction for supplied ID");
+            ensure!(<Instructions<T>>::exists(_self_instruction_id), "No instruction for supplied ID");
+            let target_instruction = <Instructions<T>>::get(_target_instruction_id);
+            let self_instruction = <Instructions<T>>::get(_self_instruction_id);
+            ensure!(sender.clone() == self_instruction.instruction_owner, "Unauthorized");
+            //ensure!(self_instruction.sell_token_amount_left >= _sell_token_amount, "Insufficient locked tokens");
+            let ticker = utils::bytes_to_upper(self_instruction.sell_token_ticker.as_slice());
+            let mut final_index:Option<usize> = None;
+            for (index, temp_ticker) in target_instruction.buy_tokens_ticker.iter().enumerate() {
+                if *temp_ticker == self_instruction.sell_token_ticker.clone() {
+                    if target_instruction.buy_tokens_regulated[index] == self_instruction.sell_token_regulated.clone() {
+                        final_index = Some(index);
+                        break;
+                    }
+                }
+            }
+            ensure!(final_index != None, "Sell token not allowed by the target instruction");
+            let buy_amount;
+            if target_instruction.prices == None {
+                //fetch price from smart contract
+                buy_amount = <T::TokenBalance as As<u64>>::sa(1);
+            } else {
+                let price = target_instruction.prices.unwrap()[final_index.unwrap()];
+                buy_amount = (_sell_token_amount * price)/<T::TokenBalance as As<u64>>::sa(1000000);
+                ensure!((buy_amount * <T::TokenBalance as As<u64>>::sa(1000000))/price == _sell_token_amount, "Error in calculation");
+            }
+            let new_sell_token_amount_left = target_instruction.sell_token_amount_left
+                .checked_sub(&buy_amount)
+                .ok_or("Underflow in calculating new sell token amount left")?;
+            let new_self_token_amount_left = self_instruction.sell_token_amount_left
+                .checked_sub(&_sell_token_amount)
+                .ok_or("Underflow in calculating new self token amount left")?;
+
+            if target_instruction.sell_token_regulated {
+                let balance = <asset::BalanceOf<T>>::get((target_instruction.sell_token_ticker.clone(), sender.clone()));
+                let new_balance = balance.checked_add(&buy_amount).ok_or("Overflow calculating new owner balance")?;
+                <asset::BalanceOf<T>>::insert((target_instruction.sell_token_ticker.clone(), sender.clone()), new_balance);
+            } else {
+                let balance = <erc20::BalanceOf<T>>::get((target_instruction.sell_token_ticker.clone(), sender.clone()));
+                let new_balance = balance.checked_add(&buy_amount).ok_or("Overflow calculating new owner balance")?;
+                <erc20::BalanceOf<T>>::insert((target_instruction.sell_token_ticker.clone(), sender.clone()), new_balance);
+            }
+
+            if self_instruction.sell_token_regulated {
+                let instruction_onwer_balance = <asset::BalanceOf<T>>::get((ticker.clone(), self_instruction.instruction_owner.clone()));
+                let new_instruction_onwer_balance = instruction_onwer_balance
+                    .checked_add(&_sell_token_amount)
+                    .ok_or("Overflow calculating new owner balance")?;
+                <asset::BalanceOf<T>>::insert((ticker.clone(), self_instruction.instruction_owner.clone()), new_instruction_onwer_balance);
+            } else {
+                let instruction_onwer_balance = <erc20::BalanceOf<T>>::get((ticker.clone(), self_instruction.instruction_owner.clone()));
+                let new_instruction_onwer_balance = instruction_onwer_balance
+                    .checked_add(&_sell_token_amount)
+                    .ok_or("Overflow calculating new owner balance")?;
+                <erc20::BalanceOf<T>>::insert((ticker.clone(), self_instruction.instruction_owner.clone()), new_instruction_onwer_balance);
+            }
+
+            <Instructions<T>>::mutate(_target_instruction_id, |inst| -> Result {
+                inst.sell_token_amount_left = new_sell_token_amount_left;
+                Ok(())
+            })?;
+            <Instructions<T>>::mutate(_self_instruction_id, |inst| -> Result {
+                inst.sell_token_amount_left = new_self_token_amount_left;
                 Ok(())
             })?;
             Ok(())
