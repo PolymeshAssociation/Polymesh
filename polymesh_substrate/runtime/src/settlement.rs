@@ -118,7 +118,7 @@ decl_module! {
         ) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(_sell_token_ticker.as_slice());
-            ensure!(<Instructions<T>>::exists(_instruction_id), "No instruction for supplied ticker and ID");
+            ensure!(<Instructions<T>>::exists(_instruction_id), "No instruction for supplied ID");
             let instruction = <Instructions<T>>::get(_instruction_id);
             let mut exists = false;
             let mut final_index = 0;
@@ -142,8 +142,8 @@ decl_module! {
                 ensure!((buy_amount * <T::TokenBalance as As<u64>>::sa(1000000))/price == _sell_token_amount, "Error in calculation");
             }
             let new_sell_token_amount_left = instruction.sell_token_amount_left
-                    .checked_sub(&buy_amount)
-                    .ok_or("Underflow in calculating new sell token amount left")?;
+                .checked_sub(&buy_amount)
+                .ok_or("Underflow in calculating new sell token amount left")?;
 
             if instruction.sell_token_regulated {
                 let balance = <asset::BalanceOf<T>>::get((instruction.sell_token_ticker.clone(), sender.clone()));
@@ -191,10 +191,37 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    // pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-    //     let ticker = utils::bytes_to_upper(_ticker.as_slice());
-    //     <asset::Module<T>>::_is_owner(ticker.clone(), sender)
-    // }
+    pub fn get_price(
+        _instruction_id: u64,
+        _sell_token_ticker: Vec<u8>,
+        _sell_token_regulated: bool
+    ) -> T::TokenBalance {
+        let ticker = utils::bytes_to_upper(_sell_token_ticker.as_slice());
+        if !<Instructions<T>>::exists(_instruction_id) {
+            return <T::TokenBalance as As<u64>>::sa(0);
+        }
+        let instruction = <Instructions<T>>::get(_instruction_id);
+        let mut exists = false;
+        let mut final_index = 0;
+        for (index, temp_ticker) in instruction.buy_tokens_ticker.iter().enumerate() {
+            if *temp_ticker == ticker.clone() {
+                if instruction.buy_tokens_regulated[index] == _sell_token_regulated {
+                    exists = true;
+                    final_index = index;
+                    break;
+                }
+            }
+        }
+        if !exists {
+            return <T::TokenBalance as As<u64>>::sa(0);
+        }
+        if instruction.prices == None {
+            //fetch price from smart contract
+            return <T::TokenBalance as As<u64>>::sa(1);
+        } else {
+            return instruction.prices.unwrap()[final_index];
+        }
+    }
 }
 
 /// tests for this module
