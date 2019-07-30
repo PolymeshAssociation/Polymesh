@@ -144,15 +144,41 @@ decl_module! {
             let new_sell_token_amount_left = instruction.sell_token_amount_left
                     .checked_sub(&buy_amount)
                     .ok_or("Underflow in calculating new sell token amount left")?;
-            if _sell_token_regulated {
-                let balance = <asset::BalanceOf<T>>::get((ticker.clone(), sender.clone()));
+
+            if instruction.sell_token_regulated {
+                let balance = <asset::BalanceOf<T>>::get((instruction.sell_token_ticker.clone(), sender.clone()));
                 let new_balance = balance.checked_add(&buy_amount).ok_or("Overflow calculating new owner balance")?;
-                <asset::BalanceOf<T>>::insert((ticker.clone(), sender.clone()), new_balance);
+                <asset::BalanceOf<T>>::insert((instruction.sell_token_ticker.clone(), sender.clone()), new_balance);
             } else {
-                let balance = <erc20::BalanceOf<T>>::get((ticker.clone(), sender.clone()));
+                let balance = <erc20::BalanceOf<T>>::get((instruction.sell_token_ticker.clone(), sender.clone()));
                 let new_balance = balance.checked_add(&buy_amount).ok_or("Overflow calculating new owner balance")?;
-                <erc20::BalanceOf<T>>::insert((ticker.clone(), sender.clone()), new_balance);
+                <erc20::BalanceOf<T>>::insert((instruction.sell_token_ticker.clone(), sender.clone()), new_balance);
             }
+
+            if _sell_token_regulated {
+                let instruction_onwer_balance = <asset::BalanceOf<T>>::get((ticker.clone(), instruction.instruction_owner.clone()));
+                let new_instruction_onwer_balance = instruction_onwer_balance
+                    .checked_add(&_sell_token_amount)
+                    .ok_or("Overflow calculating new owner balance")?;
+                let settler_balance = <asset::BalanceOf<T>>::get((ticker.clone(), sender.clone()));
+                let new_settler_balance = settler_balance
+                    .checked_sub(&_sell_token_amount)
+                    .ok_or("Underflow calculating settler balance")?;
+                <asset::BalanceOf<T>>::insert((ticker.clone(), instruction.instruction_owner.clone()), new_instruction_onwer_balance);
+                <asset::BalanceOf<T>>::insert((ticker.clone(), sender.clone()), new_settler_balance);
+            } else {
+                let instruction_onwer_balance = <erc20::BalanceOf<T>>::get((ticker.clone(), instruction.instruction_owner.clone()));
+                let new_instruction_onwer_balance = instruction_onwer_balance
+                    .checked_add(&_sell_token_amount)
+                    .ok_or("Overflow calculating new owner balance")?;
+                let settler_balance = <erc20::BalanceOf<T>>::get((ticker.clone(), sender.clone()));
+                let new_settler_balance = settler_balance
+                    .checked_add(&_sell_token_amount)
+                    .ok_or("Underflow calculating settler balance")?;
+                <erc20::BalanceOf<T>>::insert((ticker.clone(), instruction.instruction_owner.clone()), new_instruction_onwer_balance);
+                <erc20::BalanceOf<T>>::insert((ticker.clone(), sender.clone()), new_settler_balance);
+            }
+
             <Instructions<T>>::mutate(_instruction_id, |inst| -> Result {
                 inst.sell_token_amount_left = new_sell_token_amount_left;
                 Ok(())
