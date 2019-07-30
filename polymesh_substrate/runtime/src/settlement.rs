@@ -20,15 +20,16 @@ pub struct Instruction<U,V,W> {
     sell_token_regulated: bool,
     buy_tokens_ticker: Vec<Vec<u8>>, //Array of buy tokens
     buy_tokens_regulated: Vec<bool>,
-    prices: Option<Vec<Vec<u8>>>, // sell_token_amount * 10^18 = price * buy_token_amount
+    prices: Option<Vec<U>>, // sell_token_amount * 10^6 = price * buy_token_amount
     price_contract: Option<V>, // Either fixed price is defined above or variable price is used via this contract
     expiry: Option<W>,
+    instruction_owner: V,
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as Settlement {
-        Instructions get(instructions): map (T::AccountId, u64) => Instruction<T::TokenBalance, T::AccountId, T::Moment>;
-        InstructionsCount get(instructions_count): map T::AccountId => u64;
+        Instructions get(instructions): map u64 => Instruction<T::TokenBalance, T::AccountId, T::Moment>;
+        InstructionsCount get(instructions_count): u64;
     }
 }
 
@@ -42,7 +43,7 @@ decl_module! {
             _sell_token_regulated: bool,
             _buy_tokens_ticker: Vec<Vec<u8>>,
             _buy_tokens_regulated: Vec<bool>,
-            _prices: Option<Vec<Vec<u8>>>,
+            _prices: Option<Vec<T::TokenBalance>>,
             _price_contract: Option<T::AccountId>,
             _expiry: Option<T::Moment>
         ) -> Result {
@@ -80,18 +81,21 @@ decl_module! {
                 prices: _prices,
                 price_contract: _price_contract,
                 expiry: _expiry,
+                instruction_owner: sender.clone(),
             };
-            let new_count = <InstructionsCount<T>>::get(sender.clone())
+            let new_count = Self::instructions_count()
                 .checked_add(1)
                 .ok_or("Could not add 1 to Instruction count")?;
-            <Instructions<T>>::insert((sender.clone(), new_count.clone()), new_instruction);
-            <InstructionsCount<T>>::insert(sender.clone(), new_count);
+            <Instructions<T>>::insert(new_count.clone(), new_instruction);
+            //<InstructionsCount<T>>::put(new_count.clone());
             Ok(())
         }
+
         pub fn clear_instruction(origin, _instruction_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
-            ensure!(<Instructions<T>>::exists((sender.clone(), _instruction_id)), "No instruction for supplied ticker and ID");
-            let instruction = <Instructions<T>>::get((sender.clone(), _instruction_id));
+            ensure!(<Instructions<T>>::exists(_instruction_id), "No instruction for supplied ID");
+            let instruction = <Instructions<T>>::get(_instruction_id);
+            ensure!(sender.clone() == instruction.instruction_owner, "Unauthorized");
             if instruction.sell_token_regulated {
                 let balance = <asset::BalanceOf<T>>::get((instruction.sell_token_ticker.clone(), sender.clone()));
                 let new_balance = balance.checked_add(&instruction.sell_token_amount_left).ok_or("Overflow calculating new owner balance")?;
@@ -101,7 +105,58 @@ decl_module! {
                 let new_balance = balance.checked_add(&instruction.sell_token_amount_left).ok_or("Overflow calculating new owner balance")?;
                 <erc20::BalanceOf<T>>::insert((instruction.sell_token_ticker.clone(), sender.clone()), new_balance);
             }
-            <Instructions<T>>::remove((sender.clone(), _instruction_id));
+            <Instructions<T>>::remove(_instruction_id);
+            Ok(())
+        }
+
+        pub fn settle_instruction(
+            origin,
+            _instruction_id: u64,
+            _sell_token_amount: T::TokenBalance,
+            _sell_token_ticker: Vec<u8>,
+            _sell_token_regulated: bool
+        ) -> Result {
+            let sender = ensure_signed(origin)?;
+            let ticker = utils::bytes_to_upper(_sell_token_ticker.as_slice());
+            ensure!(<Instructions<T>>::exists(_instruction_id), "No instruction for supplied ticker and ID");
+            let instruction = <Instructions<T>>::get(_instruction_id);
+            let mut exists = false;
+            let mut final_index = 0;
+            for (index, temp_ticker) in instruction.buy_tokens_ticker.iter().enumerate() {
+                if *temp_ticker == ticker.clone() {
+                    if instruction.buy_tokens_regulated[index] == _sell_token_regulated {
+                        exists = true;
+                        final_index = index;
+                        break;
+                    }
+                }
+            }
+            ensure!(exists, "Sell token not allowed");
+            let buy_amount;
+            if instruction.prices == None {
+                //fetch price from smart contract
+                buy_amount = <T::TokenBalance as As<u64>>::sa(1);
+            } else {
+                let price = instruction.prices.unwrap()[final_index];
+                buy_amount = (_sell_token_amount * price)/<T::TokenBalance as As<u64>>::sa(1000000);
+                ensure!((buy_amount * <T::TokenBalance as As<u64>>::sa(1000000))/price == _sell_token_amount, "Error in calculation");
+            }
+            let new_sell_token_amount_left = instruction.sell_token_amount_left
+                    .checked_sub(&buy_amount)
+                    .ok_or("Underflow in calculating new sell token amount left")?;
+            if _sell_token_regulated {
+                let balance = <asset::BalanceOf<T>>::get((ticker.clone(), sender.clone()));
+                let new_balance = balance.checked_add(&buy_amount).ok_or("Overflow calculating new owner balance")?;
+                <asset::BalanceOf<T>>::insert((ticker.clone(), sender.clone()), new_balance);
+            } else {
+                let balance = <erc20::BalanceOf<T>>::get((ticker.clone(), sender.clone()));
+                let new_balance = balance.checked_add(&buy_amount).ok_or("Overflow calculating new owner balance")?;
+                <erc20::BalanceOf<T>>::insert((ticker.clone(), sender.clone()), new_balance);
+            }
+            <Instructions<T>>::mutate(_instruction_id, |inst| -> Result {
+                inst.sell_token_amount_left = new_sell_token_amount_left;
+                Ok(())
+            })?;
             Ok(())
         }
        // T::Lookup::unlookup(_contract.clone())
@@ -110,10 +165,10 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        <asset::Module<T>>::_is_owner(ticker.clone(), sender)
-    }
+    // pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+    //     let ticker = utils::bytes_to_upper(_ticker.as_slice());
+    //     <asset::Module<T>>::_is_owner(ticker.clone(), sender)
+    // }
 }
 
 /// tests for this module
