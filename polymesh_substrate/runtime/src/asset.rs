@@ -11,6 +11,7 @@ use session;
 use support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
+use parity_codec::Encode;
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
@@ -77,7 +78,13 @@ decl_module! {
         // takes a name, ticker, total supply for the token
         // makes the initiating account the owner of the token
         // the balance of the owner is set to total supply
-        pub fn issue_token(origin, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, divisible: bool) -> Result {
+        pub fn issue_token(
+            origin, name: Vec<u8>,
+            _ticker: Vec<u8>,
+            total_supply: T::TokenBalance,
+            divisible: bool,
+            did_to_charge: Option<Vec<u8>>
+        ) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             ensure!(<identity::Module<T>>::is_issuer(sender.clone()),"user is not authorized");
@@ -104,11 +111,23 @@ decl_module! {
             }
             let proportional_fee = fee / validator_len;
             let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
-            for v in &validators {
-                <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
+            let total_fee_to_charge = proportional_fee * validator_len;
+            let total_fee_to_charge_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(total_fee_to_charge);
+            if did_to_charge.clone() != None {
+                ensure!(<identity::Module<T>>::is_signing_key(did_to_charge.clone().unwrap(), &sender.clone().encode()),"user is not authorized");
+                ensure!(
+                    <identity::Module<T>>::charge_poly(
+                        did_to_charge.unwrap(),
+                        total_fee_to_charge_in_balance
+                    ),"Insufficient DID balance"
+                );
+            } else {
+                let _imbalance = T::Currency::withdraw(&sender, total_fee_to_charge, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
             }
-            let remainder_fee = fee - (proportional_fee * validator_len);
-            let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+
+            for v in &validators {
+                let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(v, proportional_fee_in_balance)?;
+            }
 
             let token = SecurityToken {
                 name,
