@@ -1,19 +1,21 @@
 //! A runtime module providing a unique ticker registry
+use crate::utils;
 use crate::{asset, erc20};
 use parity_codec::{Decode, Encode};
 use rstd::prelude::*;
-use crate::utils;
-use system::{self, ensure_signed};
 use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert, StaticLookup};
 use support::{decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + utils::Trait + asset::Trait + erc20::Trait + timestamp::Trait{
+pub trait Trait:
+    system::Trait + utils::Trait + asset::Trait + erc20::Trait + timestamp::Trait
+{
     //type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Instruction<U,V,W> {
+pub struct Instruction<U, V, W> {
     /// Total amount to be sold. This amount is deposited in the settlement module by the instruction creator.
     sell_token_amount_left: U,
     sell_token_ticker: Vec<u8>,
@@ -270,7 +272,7 @@ impl<T: Trait> Module<T> {
     pub fn get_price(
         _instruction_id: u64,
         _sell_token_ticker: Vec<u8>,
-        _sell_token_regulated: bool
+        _sell_token_regulated: bool,
     ) -> T::TokenBalance {
         let ticker = utils::bytes_to_upper(_sell_token_ticker.as_slice());
         if !<Instructions<T>>::exists(_instruction_id) {
@@ -303,39 +305,39 @@ impl<T: Trait> Module<T> {
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
-    use primitives::{Blake2Hasher, H256};
-    use runtime_io::with_externalities;
-    use runtime_primitives::{
-        testing::{Digest, DigestItem, Header},
-        traits::{BlakeTwo256, IdentityLookup},
-        BuildStorage,
-    };
-    use support::{assert_ok, impl_outer_origin};
+    // use primitives::{Blake2Hasher, H256};
+    // use runtime_io::with_externalities;
+    // use runtime_primitives::{
+    //     testing::{Digest, DigestItem, Header},
+    //     traits::{BlakeTwo256, IdentityLookup},
+    //     BuildStorage,
+    // };
+    // use support::{assert_ok, impl_outer_origin};
 
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
+    // impl_outer_origin! {
+    //     pub enum Origin for Test {}
+    // }
 
-    // For testing the module, we construct most of a mock runtime. This means
-    // first constructing a configuration type (`Test`) which `impl`s each of the
-    // configuration traits of modules we want to use.
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
-    impl system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type Digest = Digest;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type Log = DigestItem;
-    }
-    impl Trait for Test {}
+    // // For testing the module, we construct most of a mock runtime. This means
+    // // first constructing a configuration type (`Test`) which `impl`s each of the
+    // // configuration traits of modules we want to use.
+    // #[derive(Clone, Eq, PartialEq)]
+    // pub struct Test;
+    // impl system::Trait for Test {
+    //     type Origin = Origin;
+    //     type Index = u64;
+    //     type BlockNumber = u64;
+    //     type Hash = H256;
+    //     type Hashing = BlakeTwo256;
+    //     type Digest = Digest;
+    //     type AccountId = u64;
+    //     type Lookup = IdentityLookup<Self::AccountId>;
+    //     type Header = Header;
+    //     type Event = ();
+    //     type Log = DigestItem;
+    // }
+    // impl Trait for Test {}
 
 }
