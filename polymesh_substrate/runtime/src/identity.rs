@@ -463,7 +463,7 @@ decl_event!(
         PolyWithdrawnFromDid(Vec<u8>, AccountId, Balance),
 
         /// DID, amount
-        PolyChargedFromDid(Vec<u8>,  Balance),
+        PolyChargedFromDid(Vec<u8>, Balance),
 
         /// DID, claim issuer DID
         NewClaimIssuer(Vec<u8>, Vec<u8>),

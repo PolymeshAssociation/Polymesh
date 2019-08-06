@@ -6,12 +6,12 @@ use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 use rstd::prelude::*;
 //use parity_codec::Codec;
+use parity_codec::Encode;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
 use session;
 use support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
-use parity_codec::Encode;
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
