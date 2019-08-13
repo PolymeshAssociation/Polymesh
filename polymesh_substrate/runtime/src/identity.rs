@@ -5,7 +5,6 @@ pub static DID_PREFIX: &'static str = "did:poly:";
 use crate::balances;
 
 use parity_codec::Encode;
-use primitives::sr25519;
 use runtime_primitives::traits::{CheckedAdd, CheckedSub};
 use support::{
     decl_event, decl_module, decl_storage,
@@ -619,6 +618,24 @@ pub fn validate_did(did: &[u8]) -> Result {
         Ok(())
     } else {
         Err("DID has no valid prefix")
+    }
+}
+
+pub trait IdentityTrait<T> {
+    fn signing_key_charge_did(signing_key: Vec<u8>) -> bool;
+    fn charge_poly(did: Vec<u8>, amount: T) -> bool;
+}
+
+impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
+    fn charge_poly(did: Vec<u8>, amount: T::Balance) -> bool {
+        Self::charge_poly(did, amount)
+    }
+
+    fn signing_key_charge_did(signing_key: Vec<u8>) -> bool {
+        if <SigningKeyDid<T>>::exists(signing_key.clone()) {
+            return Self::is_signing_key(<SigningKeyDid<T>>::get(signing_key.clone()), &signing_key);
+        }
+        return false;
     }
 }
 

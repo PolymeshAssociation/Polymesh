@@ -287,6 +287,7 @@ impl balances::Trait for Runtime {
     type TransactionPayment = ();
     type DustRemoval = ();
     type TransferPayment = ();
+    //type Identity = Identity;
 }
 
 impl sudo::Trait for Runtime {

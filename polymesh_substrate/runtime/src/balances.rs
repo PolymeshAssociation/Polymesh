@@ -160,6 +160,8 @@ use runtime_primitives::traits::{
 };
 use system::{IsDeadAccount, OnNewAccount, ensure_signed};
 
+use crate::identity;
+
 pub use self::imbalances::{PositiveImbalance, NegativeImbalance};
 
 pub trait Subtrait<I: Instance = DefaultInstance>: system::Trait {
@@ -176,7 +178,7 @@ pub trait Subtrait<I: Instance = DefaultInstance>: system::Trait {
     type OnNewAccount: OnNewAccount<Self::AccountId>;
 }
 
-pub trait Trait<I: Instance = DefaultInstance>: system::Trait {
+pub trait Trait<I: Instance = DefaultInstance>: system::Trait + identity::IdentityTrait<Self::Balance> {
     /// The balance of an account.
     type Balance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64> + MaybeSerializeDebug;
 
@@ -201,6 +203,8 @@ pub trait Trait<I: Instance = DefaultInstance>: system::Trait {
 
     /// The overarching event type.
     type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
+
+    //type Identity: identity::IdentityTrait<Self::Balance>;
 }
 
 impl<T: Trait<I>, I: Instance> Subtrait<I> for T {
@@ -663,7 +667,10 @@ impl<T: Subtrait<I>, I: Instance> Trait<I> for ElevatedTrait<T, I> {
     type TransactionPayment = ();
     type TransferPayment = ();
     type DustRemoval = ();
+    // type Identity = identity::IdentityTrait<T::Balance>;
 }
+
+
 
 impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
 where
@@ -1012,13 +1019,20 @@ impl<T: Trait<I>, I: Instance> MakePayment<T::AccountId> for Module<T, I> {
     fn make_payment(transactor: &T::AccountId, encoded_len: usize) -> Result {
         let encoded_len = <T::Balance as As<u64>>::sa(encoded_len as u64);
         let transaction_fee = Self::transaction_base_fee() + Self::transaction_byte_fee() * encoded_len;
-        let imbalance = Self::withdraw(
-            transactor,
-            transaction_fee,
-            WithdrawReason::TransactionPayment,
-            ExistenceRequirement::KeepAlive
-        )?;
-        T::TransactionPayment::on_unbalanced(imbalance);
+        if T::Identity::signing_key_charge_did(transactor.clone().encode()) {
+            // charge did or revert
+            // Err("too few free funds in account")
+        }
+        else {
+            let imbalance = Self::withdraw(
+                transactor,
+                transaction_fee,
+                WithdrawReason::TransactionPayment,
+                ExistenceRequirement::KeepAlive
+            )?;
+            T::TransactionPayment::on_unbalanced(imbalance);
+        }
+
         Ok(())
     }
 }
