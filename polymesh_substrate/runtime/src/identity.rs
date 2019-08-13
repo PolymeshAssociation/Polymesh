@@ -627,8 +627,8 @@ pub trait IdentityTrait<T> {
 }
 
 impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
-    fn charge_poly(did: Vec<u8>, amount: T::Balance) -> bool {
-        Self::charge_poly(did, amount)
+    fn charge_poly(signing_key: Vec<u8>, amount: T::Balance) -> bool {
+        Self::charge_poly(<SigningKeyDid<T>>::get(signing_key), amount)
     }
 
     fn signing_key_charge_did(signing_key: Vec<u8>) -> bool {
