@@ -3,6 +3,7 @@ use crate::erc20::{self, ERC20Trait};
 use crate::general_tm;
 use crate::utils;
 use support::traits::Currency;
+use crate::balances;
 
 use core::convert::TryInto;
 use rstd::prelude::*;

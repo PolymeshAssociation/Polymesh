@@ -2,6 +2,7 @@ use rstd::prelude::*;
 //use parity_codec::Codec;
 
 pub static DID_PREFIX: &'static str = "did:poly:";
+use crate::balances;
 
 use parity_codec::Encode;
 use primitives::sr25519;

@@ -66,6 +66,7 @@ pub type BlockNumber = u64;
 pub type Nonce = u64;
 
 mod asset;
+mod balances;
 mod dividend;
 mod erc20;
 mod exemption;

@@ -4,6 +4,7 @@
 
 use crate::identity;
 use crate::utils;
+use crate::balances;
 
 use rstd::prelude::*;
 

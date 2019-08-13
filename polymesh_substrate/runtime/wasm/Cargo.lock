@@ -1365,7 +1365,6 @@ dependencies = [
  "sr-std 1.0.0 (git+https://github.com/paritytech/substrate.git?rev=14bc1b40b66ee66beb53efa65cbb25c89e90fc31)",
  "sr-version 1.0.0 (git+https://github.com/paritytech/substrate.git?rev=14bc1b40b66ee66beb53efa65cbb25c89e90fc31)",
  "srml-aura 1.0.0 (git+https://github.com/paritytech/substrate.git?rev=14bc1b40b66ee66beb53efa65cbb25c89e90fc31)",
- "srml-balances 1.0.0 (git+https://github.com/paritytech/substrate.git?rev=14bc1b40b66ee66beb53efa65cbb25c89e90fc31)",
  "srml-consensus 1.0.0 (git+https://github.com/paritytech/substrate.git?rev=14bc1b40b66ee66beb53efa65cbb25c89e90fc31)",
  "srml-council 1.0.0 (git+https://github.com/paritytech/substrate.git?rev=14bc1b40b66ee66beb53efa65cbb25c89e90fc31)",
  "srml-democracy 1.0.0 (git+https://github.com/paritytech/substrate.git?rev=14bc1b40b66ee66beb53efa65cbb25c89e90fc31)",
