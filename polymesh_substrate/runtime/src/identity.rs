@@ -82,6 +82,9 @@ decl_storage! {
         // Signing key => DID
         pub SigningKeyDid get(signing_key_did): map Vec<u8> => Vec<u8>;
 
+        // Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
+        pub ChargeDid get(charge_did): map Vec<u8> => bool;
+
     }
 }
 
@@ -111,6 +114,12 @@ decl_module! {
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
             Self::do_create_investor(_investor)
+        }
+
+        fn set_charge_did(origin, charge_did: bool) -> Result {
+            let sender = ensure_signed(origin)?;
+            <ChargeDid<T>>::insert(sender.encode(), charge_did);
+            Ok(())
         }
 
         /// Register signing keys for a new DID. Uses origin key as the master key
