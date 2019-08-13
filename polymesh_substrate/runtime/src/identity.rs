@@ -633,7 +633,10 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
 
     fn signing_key_charge_did(signing_key: Vec<u8>) -> bool {
         if <SigningKeyDid<T>>::exists(signing_key.clone()) {
-            return Self::is_signing_key(<SigningKeyDid<T>>::get(signing_key.clone()), &signing_key);
+            return Self::is_signing_key(
+                <SigningKeyDid<T>>::get(signing_key.clone()),
+                &signing_key,
+            );
         }
         return false;
     }

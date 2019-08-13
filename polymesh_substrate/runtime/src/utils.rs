@@ -1,9 +1,9 @@
+use crate::balances;
 use parity_codec::Codec;
 use rstd::prelude::*;
 use runtime_primitives::traits::{As, Member, SimpleArithmetic};
 use support::{decl_module, decl_storage, Parameter};
 use system;
-use crate::balances;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait {

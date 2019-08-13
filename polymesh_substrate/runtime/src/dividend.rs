@@ -1,3 +1,4 @@
+use crate::balances;
 use rstd::prelude::*;
 /// A runtime module template with necessary imports
 
@@ -16,7 +17,6 @@ use support::{
     StorageMap,
 };
 use system::ensure_signed;
-use crate::balances;
 
 use crate::{asset, erc20, utils};
 
