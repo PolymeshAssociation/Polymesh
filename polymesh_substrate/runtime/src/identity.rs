@@ -78,6 +78,10 @@ decl_storage! {
 
         /// DID -> Associated claims
         pub Claims get(claims): map Vec<u8> => Vec<ClaimRecord<T::Moment>>;
+
+        // Signing key => DID
+        pub SigningKeyDid get(signing_key_did): map Vec<u8> => Vec<u8>;
+
     }
 }
 
@@ -122,6 +126,16 @@ decl_module! {
             // Make sure caller specified a correct DID
             validate_did(did.as_slice())?;
 
+            for key in &signing_keys {
+                if <SigningKeyDid<T>>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "One signing key can only belong to one DID");
+                }
+            }
+
+            for key in &signing_keys {
+                <SigningKeyDid<T>>::insert(key, did.clone());
+            }
+
             let record = DidRecord {
                 signing_keys: signing_keys.clone(),
                 master_key,
@@ -145,6 +159,16 @@ decl_module! {
             let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(did.clone());
             ensure!(sender_key == record.master_key, "Sender must hold the master key");
+
+            for key in &additional_keys {
+                if <SigningKeyDid<T>>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "One signing key can only belong to one DID");
+                }
+            }
+
+            for key in &additional_keys {
+                <SigningKeyDid<T>>::insert(key, did.clone());
+            }
 
             <DidRecords<T>>::mutate(did.clone(),
             |record| {
@@ -176,6 +200,16 @@ decl_module! {
             ensure!(sender_key == record.master_key, "Sender must hold the master key");
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+
+            for key in &keys_to_remove {
+                if <SigningKeyDid<T>>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "Signing key does not belong to this DID");
+                }
+            }
+
+            for key in &keys_to_remove {
+                <SigningKeyDid<T>>::remove(key);
+            }
 
             <DidRecords<T>>::mutate(did.clone(),
             |record| {
