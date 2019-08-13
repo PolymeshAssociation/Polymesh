@@ -506,6 +506,9 @@ decl_event!(
         /// DID, beneficiary, amount
         PolyWithdrawnFromDid(Vec<u8>, AccountId, Balance),
 
+        /// DID, amount
+        PolyChargedFromDid(Vec<u8>, Balance),
+
         /// DID, claim issuer DID
         NewClaimIssuer(Vec<u8>, Vec<u8>),
 
@@ -585,6 +588,27 @@ impl<T: Trait> Module<T> {
 
     pub fn is_signing_key(did: Vec<u8>, key: &Vec<u8>) -> bool {
         <DidRecords<T>>::get(did).signing_keys.contains(key)
+    }
+
+    /// Withdraws funds from a DID balance
+    pub fn charge_poly(did: Vec<u8>, amount: T::Balance) -> bool {
+        if !<DidRecords<T>>::exists(did.clone()) {
+            return false;
+        }
+
+        let record = <DidRecords<T>>::get(did.clone());
+
+        if record.balance < amount {
+            return false;
+        }
+
+        <DidRecords<T>>::mutate(did.clone(), |record| {
+            (*record).balance = record.balance - amount;
+        });
+
+        Self::deposit_event(RawEvent::PolyChargedFromDid(did, amount));
+
+        return true;
     }
 }
 
