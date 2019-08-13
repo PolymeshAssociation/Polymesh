@@ -478,6 +478,7 @@ mod tests {
         type OnNewAccount = ();
         type TransactionPayment = ();
         type TransferPayment = ();
+        type Identity = identity::Module<Test>;
     }
 
     impl consensus::Trait for Test {
