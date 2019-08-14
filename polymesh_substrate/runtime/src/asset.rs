@@ -592,7 +592,15 @@ mod tests {
         type Event = ();
         type Log = DigestItem;
     }
-    impl identity::IdentityTrait<u128> for Test {}
+    impl identity::IdentityTrait<u128> for Test {
+        fn charge_poly(signing_key: Vec<u8>, amount: u128) -> bool {
+            return false;
+        }
+
+        fn signing_key_charge_did(signing_key: Vec<u8>) -> bool {
+            return false;
+        }
+    }
     impl balances::Trait for Test {
         type Balance = u128;
         type DustRemoval = ();
