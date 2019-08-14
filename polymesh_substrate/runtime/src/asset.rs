@@ -559,7 +559,7 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use crate::identity::{self, Investor, InvestorList, IdentityTrait};
+    use crate::identity::{self, IdentityTrait, Investor, InvestorList};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -592,8 +592,7 @@ mod tests {
         type Event = ();
         type Log = DigestItem;
     }
-    impl identity::IdentityTrait<u128> for Test {
-    }
+    impl identity::IdentityTrait<u128> for Test {}
     impl balances::Trait for Test {
         type Balance = u128;
         type DustRemoval = ();

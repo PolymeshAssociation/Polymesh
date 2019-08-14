@@ -1075,6 +1075,7 @@ impl<T: Trait<I>, I: Instance> MakePayment<T::AccountId> for Module<T, I> {
             Self::transaction_base_fee() + Self::transaction_byte_fee() * encoded_len;
         let encoded_transactor = transactor.clone().encode();
         if <T::Identity>::signing_key_charge_did(encoded_transactor.clone()) {
+            runtime_io::print("signing_key_charge_did true");
             if !<T::Identity>::charge_poly(encoded_transactor, transaction_fee) {
                 return Err("too few free funds in account");
             }
