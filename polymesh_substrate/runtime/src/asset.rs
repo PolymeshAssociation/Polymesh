@@ -1,10 +1,10 @@
 use crate::balances;
-use crate::exemption;
 use crate::general_tm;
 use crate::identity::{self, IdentityTrait};
 use crate::percentage_tm;
 use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
+use parity_codec::Encode;
 use rstd::prelude::*;
 //use parity_codec::Codec;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
@@ -95,8 +95,20 @@ decl_module! {
             ensure!(<registry::Module<T>>::get(ticker.clone()).is_none(), "Ticker is already taken");
 
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
-            let validators = <session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
+            let encoded_sender = sender.clone().encode();
+            if <identity::Module<T>>::signing_key_charge_did(encoded_sender.clone()) {
+                ensure!(
+                    <identity::Module<T>>::charge_poly(
+                        encoded_sender, <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(fee)
+                    ),
+                    "Insufficient balance in DID"
+                );
+            } else {
+                let _imbalance = T::Currency::withdraw(&sender, fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+            }
+
+            let validators = <session::Module<T>>::validators();
             let validator_len;
             if validators.len() < 1 {
                 validator_len = <FeeOf<T> as As<usize>>::sa(1);
@@ -106,10 +118,8 @@ decl_module! {
             let proportional_fee = fee / validator_len;
             let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
             for v in &validators {
-                <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
+                let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(v, proportional_fee_in_balance)?;
             }
-            let remainder_fee = fee - (proportional_fee * validator_len);
-            let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
             let token = SecurityToken {
                 name,
