@@ -2,6 +2,7 @@
 //!
 //! This module implements a simple ERC20 API on top of Polymesh.
 
+use crate::balances;
 use crate::identity;
 use crate::utils;
 

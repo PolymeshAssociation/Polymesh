@@ -15,12 +15,6 @@ git = 'https://github.com/paritytech/substrate.git'
 package = 'srml-aura'
 rev = '14bc1b40b66ee66beb53efa65cbb25c89e90fc31'
 
-[dependencies.balances]
-default_features = false
-git = 'https://github.com/paritytech/substrate.git'
-package = 'srml-balances'
-rev = '14bc1b40b66ee66beb53efa65cbb25c89e90fc31'
-
 [dependencies.client]
 default_features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -186,7 +180,6 @@ std = [
     'rstd/std',
     'runtime-io/std',
     'support/std',
-    'balances/std',
     'executive/std',
     'aura/std',
     'indices/std',

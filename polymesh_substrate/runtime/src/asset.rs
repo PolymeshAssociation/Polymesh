@@ -1,6 +1,7 @@
+use crate::balances;
 use crate::exemption;
 use crate::general_tm;
-use crate::identity;
+use crate::identity::{self, IdentityTrait};
 use crate::percentage_tm;
 use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
@@ -558,7 +559,7 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use crate::identity::{Investor, InvestorList};
+    use crate::identity::{self, IdentityTrait, Investor, InvestorList};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -591,6 +592,15 @@ mod tests {
         type Event = ();
         type Log = DigestItem;
     }
+    impl identity::IdentityTrait<u128> for Test {
+        fn charge_poly(signing_key: Vec<u8>, amount: u128) -> bool {
+            return false;
+        }
+
+        fn signing_key_charge_did(signing_key: Vec<u8>) -> bool {
+            return false;
+        }
+    }
     impl balances::Trait for Test {
         type Balance = u128;
         type DustRemoval = ();
@@ -599,6 +609,7 @@ mod tests {
         type OnNewAccount = ();
         type TransactionPayment = ();
         type TransferPayment = ();
+        type Identity = identity::Module<Test>;
     }
     impl general_tm::Trait for Test {
         type Event = ();
