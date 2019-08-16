@@ -2,9 +2,9 @@ use rstd::prelude::*;
 //use parity_codec::Codec;
 
 pub static DID_PREFIX: &'static str = "did:poly:";
+use crate::balances;
 
 use parity_codec::Encode;
-use primitives::sr25519;
 use runtime_primitives::traits::{CheckedAdd, CheckedSub};
 use support::{
     decl_event, decl_module, decl_storage,
@@ -80,6 +80,12 @@ decl_storage! {
 
         /// How much does creating a DID cost
         pub DidCreationFee get(did_creation_fee) config(): T::Balance;
+
+        // Signing key => DID
+        pub SigningKeyDid get(signing_key_did): map Vec<u8> => Vec<u8>;
+
+        // Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
+        pub ChargeDid get(charge_did): map Vec<u8> => bool;
     }
 }
 
@@ -112,6 +118,12 @@ decl_module! {
             Self::do_create_investor(investor_did)
         }
 
+        fn set_charge_did(origin, charge_did: bool) -> Result {
+            let sender = ensure_signed(origin)?;
+            <ChargeDid<T>>::insert(sender.encode(), charge_did);
+            Ok(())
+        }
+
         /// Register signing keys for a new DID. Uses origin key as the master key
         pub fn register_did(origin, did: Vec<u8>, signing_keys: Vec<Vec<u8>>) -> Result {
 
@@ -127,6 +139,16 @@ decl_module! {
 
             // TODO: Subtract the fee
 
+
+            for key in &signing_keys {
+                if <SigningKeyDid<T>>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "One signing key can only belong to one DID");
+                }
+            }
+
+            for key in &signing_keys {
+                <SigningKeyDid<T>>::insert(key, did.clone());
+            }
 
             let record = DidRecord {
                 signing_keys: signing_keys.clone(),
@@ -151,6 +173,16 @@ decl_module! {
             let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(did.clone());
             ensure!(sender_key == record.master_key, "Sender must hold the master key");
+
+            for key in &additional_keys {
+                if <SigningKeyDid<T>>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "One signing key can only belong to one DID");
+                }
+            }
+
+            for key in &additional_keys {
+                <SigningKeyDid<T>>::insert(key, did.clone());
+            }
 
             <DidRecords<T>>::mutate(did.clone(),
             |record| {
@@ -182,6 +214,16 @@ decl_module! {
             ensure!(sender_key == record.master_key, "Sender must hold the master key");
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
+
+            for key in &keys_to_remove {
+                if <SigningKeyDid<T>>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "Signing key does not belong to this DID");
+                }
+            }
+
+            for key in &keys_to_remove {
+                <SigningKeyDid<T>>::remove(key);
+            }
 
             <DidRecords<T>>::mutate(did.clone(),
             |record| {
@@ -499,6 +541,9 @@ decl_event!(
         /// DID from, DID to, amount
         PolyTransfer(Vec<u8>, Vec<u8>, Balance),
 
+        /// DID, amount
+        PolyChargedFromDid(Vec<u8>, Balance),
+
         /// DID, claim issuer DID
         NewClaimIssuer(Vec<u8>, Vec<u8>),
 
@@ -580,6 +625,27 @@ impl<T: Trait> Module<T> {
         <DidRecords<T>>::get(did.clone()).signing_keys.contains(key)
             || &<DidRecords<T>>::get(did).master_key == key
     }
+
+    /// Withdraws funds from a DID balance
+    pub fn charge_poly(did: Vec<u8>, amount: T::Balance) -> bool {
+        if !<DidRecords<T>>::exists(did.clone()) {
+            return false;
+        }
+
+        let record = <DidRecords<T>>::get(did.clone());
+
+        if record.balance < amount {
+            return false;
+        }
+
+        <DidRecords<T>>::mutate(did.clone(), |record| {
+            (*record).balance = record.balance - amount;
+        });
+
+        Self::deposit_event(RawEvent::PolyChargedFromDid(did, amount));
+
+        return true;
+    }
 }
 
 /// Make sure the supplied slice is a valid Polymesh DID
@@ -589,6 +655,28 @@ pub fn validate_did(did: &[u8]) -> Result {
         Ok(())
     } else {
         Err("DID has no valid prefix")
+    }
+}
+
+pub trait IdentityTrait<T> {
+    fn signing_key_charge_did(signing_key: Vec<u8>) -> bool;
+    fn charge_poly(did: Vec<u8>, amount: T) -> bool;
+}
+
+impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
+    fn charge_poly(signing_key: Vec<u8>, amount: T::Balance) -> bool {
+        Self::charge_poly(<SigningKeyDid<T>>::get(signing_key), amount)
+    }
+
+    fn signing_key_charge_did(signing_key: Vec<u8>) -> bool {
+        if <SigningKeyDid<T>>::exists(signing_key.clone()) {
+            if Self::is_signing_key(<SigningKeyDid<T>>::get(signing_key.clone()), &signing_key) {
+                if <ChargeDid<T>>::exists(signing_key.clone()) {
+                    return <ChargeDid<T>>::get(signing_key.clone());
+                }
+            }
+        }
+        return false;
     }
 }
 

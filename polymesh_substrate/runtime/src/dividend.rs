@@ -1,3 +1,5 @@
+use crate::balances;
+use rstd::prelude::*;
 /// A runtime module template with necessary imports
 
 /// Feel free to remove or edit this file as needed.
@@ -499,6 +501,7 @@ mod tests {
         type OnNewAccount = ();
         type TransactionPayment = ();
         type TransferPayment = ();
+        type Identity = identity::Module<Test>;
     }
 
     impl consensus::Trait for Test {
