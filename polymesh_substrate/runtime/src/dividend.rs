@@ -1,5 +1,4 @@
 use crate::balances;
-use rstd::prelude::*;
 /// A runtime module template with necessary imports
 
 /// Feel free to remove or edit this file as needed.
@@ -9,6 +8,7 @@ use rstd::prelude::*;
 /// For more guidance on Substrate modules, see the example module
 /// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
 use parity_codec::Encode;
+use rstd::prelude::*;
 use rstd::prelude::*;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use support::{
