@@ -9,6 +9,7 @@
 use crate::balances;
 use parity_codec::Encode;
 use rstd::prelude::*;
+use rstd::prelude::*;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use support::{
     decl_event, decl_module, decl_storage,
