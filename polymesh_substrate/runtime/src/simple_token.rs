@@ -1,6 +1,6 @@
-//! ERC20
+//! SimpleToken
 //!
-//! This module implements a simple ERC20 API on top of Polymesh.
+//! This module implements a simple SimpleToken API on top of Polymesh.
 
 use crate::balances;
 use crate::identity;
@@ -32,7 +32,7 @@ pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trai
 
 // struct to store the token details
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct ERC20Token<U> {
+pub struct SimpleTokenRecord<U> {
     pub ticker: Vec<u8>,
     pub total_supply: U,
     pub owner_did: Vec<u8>,
@@ -40,15 +40,15 @@ pub struct ERC20Token<U> {
 
 // This module's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as ERC20 {
+    trait Store for Module<T: Trait> as SimpleToken {
         // ticker, owner DID, spender DID -> allowance amount
         Allowance get(allowance): map (Vec<u8>, Vec<u8>, Vec<u8>) => T::TokenBalance;
         // ticker, DID
         pub BalanceOf get(balance_of): map (Vec<u8>, Vec<u8>) => T::TokenBalance;
-        // How much creating a new ERC20 token costs in base currency
+        // How much creating a new SimpleToken token costs in base currency
         CreationFee get(creation_fee) config(): FeeOf<T>;
         // Token Details
-        Tokens get(tokens): map Vec<u8> => ERC20Token<T::TokenBalance>;
+        Tokens get(tokens): map Vec<u8> => SimpleTokenRecord<T::TokenBalance>;
     }
 }
 
@@ -67,7 +67,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
 
             ensure!(!<Tokens<T>>::exists(ticker.clone()), "Ticker with this name already exists");
-            ensure!(<identity::Module<T>>::is_erc20_issuer(did.clone()), "Sender is not an issuer");
+            ensure!(<identity::Module<T>>::is_simple_token_issuer(did.clone()), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
             let fee_as_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(Self::creation_fee());
@@ -76,7 +76,7 @@ decl_module! {
                 Ok(())
             })?;
 
-            let new_token = ERC20Token {
+            let new_token = SimpleTokenRecord {
                 ticker: ticker.clone(),
                 total_supply: total_supply.clone(),
                 owner_did: did.clone(),
@@ -156,13 +156,13 @@ decl_event!(
     }
 );
 
-pub trait ERC20Trait<V> {
+pub trait SimpleTokenTrait<V> {
     fn transfer(sender_did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, amount: V) -> Result;
 
     fn balanceOf(ticker: Vec<u8>, owner_did: Vec<u8>) -> V;
 }
 
-impl<T: Trait> ERC20Trait<T::TokenBalance> for Module<T> {
+impl<T: Trait> SimpleTokenTrait<T::TokenBalance> for Module<T> {
     fn transfer(
         sender_did: Vec<u8>,
         ticker: Vec<u8>,
@@ -247,7 +247,7 @@ mod tests {
      *    impl Trait for Test {
      *        type Event = ();
      *    }
-     *    type ERC20 = Module<Test>;
+     *    type SimpleToken = Module<Test>;
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
@@ -264,9 +264,9 @@ mod tests {
      *        with_externalities(&mut new_test_ext(), || {
      *            // Just a dummy test for the dummy funtion `do_something`
      *            // calling the `do_something` function with a value 42
-     *            assert_ok!(ERC20::do_something(Origin::signed(1), 42));
+     *            assert_ok!(SimpleToken::do_something(Origin::signed(1), 42));
      *            // asserting that the stored value is equal to what we stored
-     *            assert_eq!(ERC20::something(), Some(42));
+     *            assert_eq!(SimpleToken::something(), Some(42));
      *        });
      *    }
      */

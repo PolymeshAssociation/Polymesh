@@ -196,7 +196,6 @@ decl_module! {
             Ok(())
         }
 
-        // the ERC20 standard transfer_from function
         // implemented in the open-zeppelin way - increase/decrease allownace
         // if approved, transfer from an account to another account without owner's signature
         pub fn transfer_from(_origin, did: Vec<u8>,  _ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance) -> Result {
@@ -452,7 +451,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    // the ERC20 standard transfer function
+    // the SimpleToken standard transfer function
     // internal
     fn _transfer(
         _ticker: Vec<u8>,

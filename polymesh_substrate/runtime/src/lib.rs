@@ -68,12 +68,12 @@ pub type Nonce = u64;
 mod asset;
 mod balances;
 mod dividend;
-mod erc20;
 mod exemption;
 mod general_tm;
 mod identity;
 mod percentage_tm;
 mod registry;
+mod simple_token;
 mod sto_capped;
 mod template;
 mod utils;
@@ -318,7 +318,7 @@ impl utils::Trait for Runtime {
     }
 }
 
-impl erc20::Trait for Runtime {
+impl simple_token::Trait for Runtime {
     type Currency = Balances;
     type CurrencyToBalance = CurrencyToBalanceHandler;
     type Event = Event;
@@ -331,7 +331,7 @@ impl general_tm::Trait for Runtime {
 
 impl sto_capped::Trait for Runtime {
     type Event = Event;
-    type ERC20Trait = ERC20;
+    type SimpleTokenTrait = SimpleToken;
 }
 
 impl percentage_tm::Trait for Runtime {
@@ -387,7 +387,7 @@ construct_runtime!(
         FinalityTracker: finality_tracker::{Module, Call, Inherent},
         Grandpa: grandpa::{Module, Call, Storage, Config<T>, Log(), Event<T>},
         Treasury: treasury,
-        ERC20: erc20::{Module, Call, Storage, Event<T>, Config<T>},
+        SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 

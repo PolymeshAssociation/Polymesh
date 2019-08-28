@@ -1,8 +1,8 @@
 use crate::asset::AssetTrait;
 use crate::balances;
-use crate::erc20::{self, ERC20Trait};
 use crate::general_tm;
 use crate::identity;
+use crate::simple_token::{self, SimpleTokenTrait};
 use crate::utils;
 use support::traits::Currency;
 
@@ -21,7 +21,7 @@ pub trait Trait:
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type ERC20Trait: erc20::ERC20Trait<Self::TokenBalance>;
+    type SimpleTokenTrait: simple_token::SimpleTokenTrait<Self::TokenBalance>;
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
@@ -51,11 +51,11 @@ decl_storage! {
 
         StoCount get(sto_count): map (Vec<u8>) => u32;
 
-        // List of ERC20 tokens which will be accepted as the fund raised type for the STO
-        // [asset_ticker][sto_id][index] => erc20_ticker
+        // List of SimpleToken tokens which will be accepted as the fund raised type for the STO
+        // [asset_ticker][sto_id][index] => simple_token_ticker
         AllowedTokens get(allowed_tokens): map(Vec<u8>, u32, u32) => Vec<u8>;
         // To track the index of the token address for the given STO
-        // [Asset_ticker][sto_id][erc20_ticker] => index
+        // [Asset_ticker][sto_id][simple_token_ticker] => index
         TokenIndexForSTO get(token_index_for_sto): map(Vec<u8>, u32, Vec<u8>) => Option<u32>;
         // To track the no of different tokens allowed as fund raised type for the given STO
         // [asset_ticker][sto_id] => count
@@ -63,9 +63,9 @@ decl_storage! {
         // To track the investment data of the investor corresponds to ticker
         //[asset_ticker][sto_id][DID] => Investment structure
         InvestmentData get(investment_data): map(Vec<u8>, u32, Vec<u8>) => Investment<T::TokenBalance, T::Moment>;
-        // To track the investment amount of the investor corresponds to ticker using ERC20
-        // [asset_ticker][erc20_ticker][sto_id][accountId] => Invested balance
-        Erc20TokenSpent get(erc20_token_spent): map(Vec<u8>, Vec<u8>, u32, Vec<u8>) => T::TokenBalance;
+        // To track the investment amount of the investor corresponds to ticker using SimpleToken
+        // [asset_ticker][simple_token_ticker][sto_id][accountId] => Invested balance
+        SimpleTokenSpent get(simple_token_token_spent): map(Vec<u8>, Vec<u8>, u32, Vec<u8>) => T::TokenBalance;
 
     }
 }
@@ -86,7 +86,7 @@ decl_module! {
             rate: u64,
             start_date: T::Moment,
             end_date: T::Moment,
-            erc20_ticker: Vec<u8>
+            simple_token_ticker: Vec<u8>
         ) -> Result {
             let sender = ensure_signed(origin)?;
 
@@ -117,13 +117,13 @@ decl_module! {
             <StosByToken<T>>::insert((ticker.clone(),sto_count), sto);
             <StoCount<T>>::insert(ticker.clone(),new_sto_count);
 
-            if erc20_ticker.len() > 0 {
-                // Addition of the ERC20 token as the fund raised type.
-                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_count, erc20_ticker.clone()), new_token_count);
-                <AllowedTokens<T>>::insert((ticker.clone(), sto_count, new_token_count), erc20_ticker.clone());
+            if simple_token_ticker.len() > 0 {
+                // Addition of the SimpleToken token as the fund raised type.
+                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_count, simple_token_ticker.clone()), new_token_count);
+                <AllowedTokens<T>>::insert((ticker.clone(), sto_count, new_token_count), simple_token_ticker.clone());
                 <TokensCountForSto<T>>::insert((ticker.clone(), sto_count), new_token_count);
 
-                Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, erc20_ticker, sto_count, true));
+                Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, simple_token_ticker, sto_count, true));
             }
             runtime_io::print("Capped STOlaunched!!!");
 
@@ -181,7 +181,7 @@ decl_module! {
             Ok(())
         }
 
-        pub fn modify_allowed_tokens(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32, erc20_ticker: Vec<u8>, modify_status: bool) -> Result {
+        pub fn modify_allowed_tokens(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32, simple_token_ticker: Vec<u8>, modify_status: bool) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -197,7 +197,7 @@ decl_module! {
 
             ensure!(Self::is_owner(ticker.clone(),did), "Not authorised to execute this function");
 
-            let token_index = Self::token_index_for_sto((ticker.clone(), sto_id, erc20_ticker.clone()));
+            let token_index = Self::token_index_for_sto((ticker.clone(), sto_id, simple_token_ticker.clone()));
             let token_count = Self::tokens_count_for_sto((ticker.clone(), sto_id));
 
             let current_status = match token_index == None {
@@ -209,23 +209,23 @@ decl_module! {
 
             if modify_status {
                 let new_count = token_count.checked_add(1).ok_or("overflow new token count value")?;
-                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_id, erc20_ticker.clone()), new_count);
-                <AllowedTokens<T>>::insert((ticker.clone(), sto_id, new_count), erc20_ticker.clone());
+                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_id, simple_token_ticker.clone()), new_count);
+                <AllowedTokens<T>>::insert((ticker.clone(), sto_id, new_count), simple_token_ticker.clone());
                 <TokensCountForSto<T>>::insert((ticker.clone(), sto_id), new_count);
             } else {
                 let new_count = token_count.checked_sub(1).ok_or("underflow new token count value")?;
-                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_id, erc20_ticker.clone()), new_count);
+                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_id, simple_token_ticker.clone()), new_count);
                 <AllowedTokens<T>>::insert((ticker.clone(), sto_id, new_count), vec![]);
                 <TokensCountForSto<T>>::insert((ticker.clone(), sto_id), new_count);
             }
 
-            Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, erc20_ticker, sto_id, modify_status));
+            Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, simple_token_ticker, sto_id, modify_status));
 
             Ok(())
 
         }
 
-        pub fn buy_tokens_by_erc20(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32, value: T::TokenBalance, erc20_ticker: Vec<u8>) -> Result {
+        pub fn buy_tokens_by_simple_token(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32, value: T::TokenBalance, simple_token_ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -234,12 +234,12 @@ decl_module! {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
             // Check whether given token is allowed as investment currency or not
-            ensure!(Self::token_index_for_sto((ticker.clone(), sto_id, erc20_ticker.clone())) != None, "Given token is not a permitted investment currency");
+            ensure!(Self::token_index_for_sto((ticker.clone(), sto_id, simple_token_ticker.clone())) != None, "Given token is not a permitted investment currency");
             let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
             // Pre validation checks
             ensure!(Self::_pre_validation(_ticker.clone(), did.clone(), selected_sto.clone()).is_ok(), "Invalidate investment");
             // Make sure sender has enough balance
-            ensure!(T::ERC20Trait::balanceOf(erc20_ticker.clone(), did.clone()) >= value, "Insufficient balance");
+            ensure!(T::SimpleTokenTrait::balanceOf(simple_token_ticker.clone(), did.clone()) >= value, "Insufficient balance");
 
             // Get the invested amount of investment currency and amount of ST tokens minted as a return of investment
             let token_amount_value = Self::_get_invested_amount_and_tokens(
@@ -251,14 +251,14 @@ decl_module! {
                 .checked_add(&token_amount_value.0)
                 .ok_or("overflow while calculating tokens sold")?;
 
-            let erc20_investment = (Self::erc20_token_spent((ticker.clone(), erc20_ticker.clone(), sto_id, did.clone())))
+            let simple_token_investment = (Self::simple_token_token_spent((ticker.clone(), simple_token_ticker.clone(), sto_id, did.clone())))
                                     .checked_add(&token_amount_value.1)
-                                    .ok_or("overflow while updating the erc20 investment value")?;
+                                    .ok_or("overflow while updating the simple_token investment value")?;
 
             // Mint tokens and update STO
             T::Asset::_mint_from_sto(ticker.clone(), did.clone(), token_amount_value.0);
-            // Transfer the erc20 invested token to beneficiary account
-            T::ERC20Trait::transfer(did.clone(), erc20_ticker.clone(), selected_sto.beneficiary_did.clone(), token_amount_value.1)?;
+            // Transfer the simple_token invested token to beneficiary account
+            T::SimpleTokenTrait::transfer(did.clone(), simple_token_ticker.clone(), selected_sto.beneficiary_did.clone(), token_amount_value.1)?;
 
             // Update storage values
             Self::_update_storage(
@@ -267,8 +267,8 @@ decl_module! {
                 did.clone(),
                 token_amount_value.1,
                 token_amount_value.0,
-                erc20_ticker.clone(),
-                erc20_investment,
+                simple_token_ticker.clone(),
+                simple_token_investment,
                 selected_sto.clone()
             )?;
             Ok(())
@@ -324,7 +324,7 @@ decl_event!(
     {
         ModifyAllowedTokens(Vec<u8>, Vec<u8>, u32, bool),
         //Emit when Asset get purchased by the investor
-        // Ticker, Erc20 token, sto_id, investor DID, amount invested, amount of token purchased
+        // Ticker, SimpleToken token, sto_id, investor DID, amount invested, amount of token purchased
         AssetPurchase(Vec<u8>, Vec<u8>, u32, Vec<u8>, Balance, Balance),
     }
 );
@@ -386,8 +386,8 @@ impl<T: Trait> Module<T> {
         did: Vec<u8>,
         investment_amount: T::TokenBalance,
         new_tokens_minted: T::TokenBalance,
-        erc20_ticker: Vec<u8>,
-        erc20_investment: T::TokenBalance,
+        simple_token_ticker: Vec<u8>,
+        simple_token_investment: T::TokenBalance,
         selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> Result {
         // Store Investment DATA
@@ -401,10 +401,15 @@ impl<T: Trait> Module<T> {
             .ok_or("overflow while updating the invested amount")?;
         investor_holder.last_purchase_date = <timestamp::Module<T>>::get();
 
-        if erc20_ticker != vec![0] {
-            <Erc20TokenSpent<T>>::insert(
-                (ticker.clone(), erc20_ticker.clone(), sto_id, did.clone()),
-                erc20_investment,
+        if simple_token_ticker != vec![0] {
+            <SimpleTokenSpent<T>>::insert(
+                (
+                    ticker.clone(),
+                    simple_token_ticker.clone(),
+                    sto_id,
+                    did.clone(),
+                ),
+                simple_token_investment,
             );
         } else {
             investor_holder.amount_paid = investor_holder
@@ -416,7 +421,7 @@ impl<T: Trait> Module<T> {
         // Emit Event
         Self::deposit_event(RawEvent::AssetPurchase(
             ticker,
-            erc20_ticker,
+            simple_token_ticker,
             sto_id,
             did,
             investment_amount,

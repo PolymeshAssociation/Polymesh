@@ -65,7 +65,7 @@ decl_storage! {
 
         Owner get(owner) config(): T::AccountId;
 
-        ERC20IssuerList get(erc20_issuer_list): map Vec<u8> => Issuer;
+        SimpleTokenIssuerList get(simple_token_issuer_list): map Vec<u8> => Issuer;
         IssuerList get(issuer_list): map Vec<u8> => Issuer;
         pub InvestorList get(investor_list): map Vec<u8> => Investor;
 
@@ -104,11 +104,11 @@ decl_module! {
             Self::do_create_issuer(issuer_did)
         }
 
-        fn create_erc20_issuer(origin, issuer_did: Vec<u8>) -> Result {
+        fn create_simple_token_issuer(origin, issuer_did: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-            Self::do_create_erc20_issuer(issuer_did)
+            Self::do_create_simple_token_issuer(issuer_did)
         }
 
         fn create_investor(origin, investor_did: Vec<u8>) -> Result {
@@ -582,15 +582,15 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Add a new ERC20 issuer. Warning: No identity module ownership checks are performed
-    pub fn do_create_erc20_issuer(issuer_did: Vec<u8>) -> Result {
-        let new_erc20_issuer = Issuer {
+    /// Add a new SimpleToken issuer. Warning: No identity module ownership checks are performed
+    pub fn do_create_simple_token_issuer(issuer_did: Vec<u8>) -> Result {
+        let new_simple_token_issuer = Issuer {
             did: issuer_did.clone(),
             access_level: 1,
             active: true,
         };
 
-        <ERC20IssuerList<T>>::insert(issuer_did, new_erc20_issuer);
+        <SimpleTokenIssuerList<T>>::insert(issuer_did, new_simple_token_issuer);
         Ok(())
     }
 
@@ -612,8 +612,8 @@ impl<T: Trait> Module<T> {
         user.did == did && user.access_level == 1 && user.active
     }
 
-    pub fn is_erc20_issuer(did: Vec<u8>) -> bool {
-        let user = Self::erc20_issuer_list(did.clone());
+    pub fn is_simple_token_issuer(did: Vec<u8>) -> bool {
+        let user = Self::simple_token_issuer_list(did.clone());
         user.did == did && user.access_level == 1 && user.active
     }
 

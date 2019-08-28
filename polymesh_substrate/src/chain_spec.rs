@@ -1,8 +1,8 @@
 pub use node_template_runtime::GenesisConfig;
 use node_template_runtime::{
     AccountId, AssetConfig, BalancesConfig, ConsensusConfig, CouncilSeatsConfig,
-    CouncilVotingConfig, DemocracyConfig, ERC20Config, GrandpaConfig, IdentityConfig,
-    IndicesConfig, Perbill, Permill, SessionConfig, StakerStatus, StakingConfig, SudoConfig,
+    CouncilVotingConfig, DemocracyConfig, GrandpaConfig, IdentityConfig, IndicesConfig, Perbill,
+    Permill, SessionConfig, SimpleTokenConfig, StakerStatus, StakingConfig, SudoConfig,
     TimestampConfig, TreasuryConfig,
 };
 use primitives::{ed25519, ed25519::Public as AuthorityId, sr25519, Pair};
@@ -195,7 +195,7 @@ pub fn testnet_genesis(
             owner: get_account_id_from_seed("Dave"),
             did_creation_fee: 250,
         }),
-        erc20: Some(ERC20Config {
+        simple_token: Some(SimpleTokenConfig {
             creation_fee: 1000
         }),
         balances: Some(BalancesConfig {
