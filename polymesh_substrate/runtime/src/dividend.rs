@@ -20,11 +20,16 @@ use support::{
 };
 use system::ensure_signed;
 
-use crate::{asset, erc20, identity, utils};
+use crate::{asset, identity, simple_token, utils};
 
 /// The module's configuration trait.
 pub trait Trait:
-    asset::Trait + balances::Trait + erc20::Trait + system::Trait + utils::Trait + timestamp::Trait
+    asset::Trait
+    + balances::Trait
+    + simple_token::Trait
+    + system::Trait
+    + utils::Trait
+    + timestamp::Trait
 {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -45,7 +50,7 @@ pub struct Dividend<U, V> {
     matures_at: Option<V>,
     /// An optional timestamp for payout end
     expires_at: Option<V>,
-    /// The payout ERC20 currency ticker. None means POLY
+    /// The payout SimpleToken currency ticker. None means POLY
     payout_currency: Option<Vec<u8>>,
     /// The checkpoint
     checkpoint_id: u32,
@@ -102,7 +107,7 @@ decl_module! {
                 <T::TokenBalance as As<T::Balance>>::sa(<identity::DidRecords<T>>::get(did.clone()).balance)
             } else {
                 // Check for token
-                <erc20::BalanceOf<T>>::get((payout_ticker.clone(), did.clone()))
+                <simple_token::BalanceOf<T>>::get((payout_ticker.clone(), did.clone()))
             };
             ensure!(balance >= amount, "Insufficient funds for payout");
 
@@ -150,7 +155,7 @@ decl_module! {
                     record.balance = new_balance;
                 });
             } else {
-                <erc20::BalanceOf<T>>::insert((payout_ticker.clone(), did.clone()), new_balance);
+                <simple_token::BalanceOf<T>>::insert((payout_ticker.clone(), did.clone()), new_balance);
             }
 
             // Insert dividend entry into storage
@@ -204,7 +209,7 @@ decl_module! {
 
             // Pay amount back to owner
             if let Some(payout_ticker) = entry.payout_currency.clone() {
-                <erc20::BalanceOf<T>>::mutate((payout_ticker.clone(), did.clone()), |balance: &mut T::TokenBalance| -> Result {
+                <simple_token::BalanceOf<T>>::mutate((payout_ticker.clone(), did.clone()), |balance: &mut T::TokenBalance| -> Result {
                     *balance  = balance
                         .checked_add(&entry.amount)
                         .ok_or("Could not add amount back to asset owner account")?;
@@ -302,7 +307,7 @@ decl_module! {
 
             // Perform the payout in designated tokens or base currency depending on setting
             if let Some(payout_ticker) = dividend.payout_currency.as_ref() {
-                <erc20::BalanceOf<T>>::mutate(
+                <simple_token::BalanceOf<T>>::mutate(
                     (payout_ticker.clone(), did.clone()),
                     |balance| -> Result {
                         *balance = balance
@@ -352,7 +357,7 @@ decl_module! {
 
             // Transfer the computed amount
             if let Some(payout_ticker) = entry.payout_currency.clone() {
-                <erc20::BalanceOf<T>>::mutate((payout_ticker.clone(), did.clone()), |balance: &mut T::TokenBalance| -> Result {
+                <simple_token::BalanceOf<T>>::mutate((payout_ticker.clone(), did.clone()), |balance: &mut T::TokenBalance| -> Result {
                     let new_balance = balance.checked_add(&entry.amount_left).ok_or("Could not add amount back to asset owner DID")?;
                     *balance  = new_balance;
                     Ok(())
@@ -452,8 +457,8 @@ mod tests {
     };
 
     use crate::{
-        asset::SecurityToken, erc20::ERC20Token, exemption, general_tm, identity, percentage_tm,
-        registry,
+        asset::SecurityToken, exemption, general_tm, identity, percentage_tm, registry,
+        simple_token::SimpleTokenRecord,
     };
 
     impl_outer_origin! {
@@ -510,7 +515,7 @@ mod tests {
         type InherentOfflineReport = ();
     }
 
-    impl erc20::Trait for Test {
+    impl simple_token::Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
         type CurrencyToBalance = CurrencyToBalanceHandler;
@@ -606,7 +611,7 @@ mod tests {
     type DividendModule = Module<Test>;
     type Balances = balances::Module<Test>;
     type Asset = asset::Module<Test>;
-    type ERC20 = erc20::Module<Test>;
+    type SimpleToken = simple_token::Module<Test>;
     type Identity = identity::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
@@ -646,7 +651,7 @@ mod tests {
             };
 
             // A token used for payout
-            let payout_token = ERC20Token {
+            let payout_token = SimpleTokenRecord {
                 ticker: vec![0x02],
                 owner_did: payout_owner_did.clone(),
                 total_supply: 200_000_000,
@@ -677,7 +682,7 @@ mod tests {
             });
             identity::Module::<Test>::do_create_issuer(token.owner_did.clone())
                 .expect("Could not make token.owner_did an issuer");
-            identity::Module::<Test>::do_create_erc20_issuer(payout_token.owner_did.clone())
+            identity::Module::<Test>::do_create_simple_token_issuer(payout_token.owner_did.clone())
                 .expect("Could not make payout_token.owner_did an issuer");
             identity::Module::<Test>::do_create_investor(token.owner_did.clone())
                 .expect("Could not make token.owner_did an investor");
@@ -693,7 +698,7 @@ mod tests {
             ));
 
             // Issuance for payout token is successful
-            assert_ok!(ERC20::create_token(
+            assert_ok!(SimpleToken::create_token(
                 Origin::signed(payout_owner_acc),
                 payout_owner_did.clone(),
                 payout_token.ticker.clone(),
@@ -775,7 +780,7 @@ mod tests {
             };
 
             // Transfer payout tokens to asset owner
-            assert_ok!(ERC20::transfer(
+            assert_ok!(SimpleToken::transfer(
                 Origin::signed(payout_owner_acc),
                 payout_owner_did.clone(),
                 payout_token.ticker.clone(),
@@ -820,7 +825,7 @@ mod tests {
             // Check if the correct amount was added to investor balance
             let share = dividend.amount * amount_invested / token.total_supply;
             assert_eq!(
-                ERC20::balance_of((payout_token.ticker.clone(), investor_did.clone())),
+                SimpleToken::balance_of((payout_token.ticker.clone(), investor_did.clone())),
                 share
             );
 

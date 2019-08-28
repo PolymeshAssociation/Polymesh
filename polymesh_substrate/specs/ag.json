@@ -249,7 +249,7 @@
         "spendPeriod": 17280,
         "burn": 500000
       },
-      "erc20": {
+      "simple_token": {
         "creationFee": 1000
       }
     }
