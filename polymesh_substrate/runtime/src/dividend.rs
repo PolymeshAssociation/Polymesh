@@ -652,6 +652,7 @@ mod tests {
                 total_supply: 200_000_000,
             };
 
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
             Identity::register_did(
                 Origin::signed(token_owner_acc),
                 token_owner_did.clone(),
@@ -659,6 +660,7 @@ mod tests {
             )
             .expect("Could not create token_owner_did");
 
+            Balances::make_free_balance_be(&payout_owner_acc, 1_000_000);
             Identity::register_did(
                 Origin::signed(payout_owner_acc),
                 payout_owner_did.clone(),
@@ -700,6 +702,7 @@ mod tests {
 
             // Prepare a whitelisted investor
             let investor_acc = 3;
+            Balances::make_free_balance_be(&investor_acc, 1_000_000);
             let investor_did = "did:poly:3".as_bytes().to_vec();
             Identity::register_did(Origin::signed(investor_acc), investor_did.clone(), vec![])
                 .expect("Could not create investor_did");

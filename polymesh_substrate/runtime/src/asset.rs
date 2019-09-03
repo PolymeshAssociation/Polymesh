@@ -265,7 +265,7 @@ decl_module! {
             ensure!(
                 Self::check_granularity(_ticker.clone(), value),
                 "Invalid granularity"
-            );
+                );
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), did.clone())), "Account does not own this token");
             let burner_balance = Self::balance_of((ticker.clone(), did.clone()));
             ensure!(burner_balance >= value, "Not enough balance.");
@@ -750,6 +750,8 @@ mod tests {
             let owner_acc = 1;
             let owner_did = "did:poly:1".as_bytes().to_vec();
 
+            // Raise the owner's base currency balance
+            Balances::make_free_balance_be(&owner_acc, 1_000_000);
             Identity::register_did(Origin::signed(owner_acc), owner_did.clone(), vec![])
                 .expect("Could not create owner_did");
 
@@ -761,9 +763,6 @@ mod tests {
                 granularity: 1,
                 decimals: 18,
             };
-
-            // Raise the owner's base currency balance
-            Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
             Identity::fund_poly(Origin::signed(owner_acc), owner_did.clone(), 500_000)
                 .expect("Could not add funds to DID");
@@ -801,11 +800,14 @@ mod tests {
                 decimals: 18,
             };
 
+            let wrong_acc = owner_acc + 1;
+
+            Balances::make_free_balance_be(&wrong_acc, 1_000_000);
+
             let wrong_did = "did:poly:wrong".as_bytes().to_vec();
-            Identity::register_did(Origin::signed(owner_acc + 1), wrong_did.clone(), vec![])
+            Identity::register_did(Origin::signed(wrong_acc), wrong_did.clone(), vec![])
                 .expect("Could not create other DID");
 
-            Balances::make_free_balance_be(&owner_acc, 1_000_000);
             // Issuance is unsuccessful
             assert_noop!(
                 Asset::issue_token(
@@ -822,6 +824,105 @@ mod tests {
             // Entry is not added
             assert_ne!(Asset::token_details(token.name.clone()), token);
         });
+    }
+
+    #[test]
+    fn valid_transfers_pass() {
+        with_externalities(&mut identity_owned_by_1(), || {
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let owner_acc = 1;
+            let owner_did = "did:poly:1".as_bytes().to_vec();
+
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            Balances::make_free_balance_be(&owner_acc, 1_000_000);
+            Identity::register_did(Origin::signed(owner_acc), owner_did.clone(), vec![])
+                .expect("Could not create owner_did");
+            identity::Module::<Test>::do_create_investor(owner_did.clone())
+                .expect("Could not make token.owner an issuer");
+
+            let alice_acc = 2;
+            let alice_did = "did:poly:alice".as_bytes().to_vec();
+
+            Balances::make_free_balance_be(&alice_acc, 1_000_000);
+            Identity::register_did(Origin::signed(alice_acc), alice_did.clone(), vec![])
+                .expect("Could not create alice_did");
+            identity::Module::<Test>::do_create_investor(alice_did.clone())
+                .expect("Could not make token.owner an issuer");
+            let bob_acc = 3;
+            let bob_did = "did:poly:bob".as_bytes().to_vec();
+
+            Balances::make_free_balance_be(&bob_acc, 1_000_000);
+            Identity::register_did(Origin::signed(bob_acc), bob_did.clone(), vec![])
+                .expect("Could not create bob_did");
+            identity::Module::<Test>::do_create_investor(bob_did.clone())
+                .expect("Could not make token.owner an issuer");
+            Identity::fund_poly(Origin::signed(owner_acc), owner_did.clone(), 500_000)
+                .expect("Could not add funds to DID");
+
+            identity::Module::<Test>::do_create_issuer(owner_did.clone())
+                .expect("Could not make token.owner an issuer");
+
+            // Issuance is successful
+            assert_ok!(Asset::issue_token(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                token.name.clone(),
+                0,
+                owner_did.clone(),
+                (now - Duration::hours(1)).timestamp() as u64,
+            )
+            .expect("Could not configure general_tm for owner");
+
+            general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                token.name.clone(),
+                0,
+                alice_did.clone(),
+                (now - Duration::hours(1)).timestamp() as u64,
+            )
+            .expect("Could not configure general_tm for alice");
+
+            general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                token.name.clone(),
+                0,
+                bob_did.clone(),
+                (now - Duration::hours(1)).timestamp() as u64,
+            )
+            .expect("Could not configure general_tm for bob");
+
+            // A correct entry is added
+            assert_eq!(Asset::token_details(token.name.clone()), token);
+
+            assert_ok!(Asset::transfer(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                token.name.clone(),
+                alice_did.clone(),
+                500
+            ));
+        })
     }
 
     /*

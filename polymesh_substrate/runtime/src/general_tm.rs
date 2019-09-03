@@ -148,6 +148,9 @@ impl<T: Trait> Module<T> {
         } else {
             // loop through existing whitelists
             let whitelist_count = Self::whitelist_count();
+            if whitelist_count > 0 {
+                runtime_io::print("We have at least one entry to verify");
+            }
             ensure!(
                 Self::_check_investor_status(from_did.clone()).is_ok(),
                 "Account is not active"
