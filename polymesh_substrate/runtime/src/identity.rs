@@ -138,7 +138,12 @@ decl_module! {
             ensure!(!<DidRecords<T>>::exists(did.clone()), "DID must be unique");
 
             // TODO: Subtract the fee
-
+            let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
+                &sender,
+                Self::did_creation_fee(),
+                WithdrawReason::Fee,
+                ExistenceRequirement::KeepAlive
+                )?;
 
             for key in &signing_keys {
                 if <SigningKeyDid<T>>::exists(key.clone()) {
@@ -275,7 +280,7 @@ decl_module! {
 
             let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
                 &sender,
-                Self::did_creation_fee(),
+                amount,
                 WithdrawReason::Fee,
                 ExistenceRequirement::KeepAlive
                 )?;
