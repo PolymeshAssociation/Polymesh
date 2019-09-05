@@ -7,7 +7,7 @@ use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 use parity_codec::Encode;
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
+use runtime_primitives::traits::{As, CheckedAdd, CheckedMul, CheckedSub, Convert};
 use session;
 use support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
@@ -73,6 +73,91 @@ decl_module! {
         // initialize the default event for this module
         fn deposit_event<T>() = default;
 
+        // Same as issue_token() except multiple sets of parameters may be specified for issuing
+        // multiple tokens in one go
+        pub fn batch_issue_token(origin, did: Vec<u8>, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::TokenBalance>, divisible_values: Vec<bool>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_issuer(did.clone()),"DID is not an issuer");
+
+            // Ensure we get a complete set of parameters for every token
+            ensure!((names.len() == tickers.len()) == (total_supply_values.len() == divisible_values.len()), "Inconsistent token param vector lengths");
+
+            // bytes_to_upper() all tickers
+            let mut tickers = tickers;
+            tickers.iter_mut().for_each(|ticker| {
+                *ticker = utils::bytes_to_upper(ticker.as_slice());
+            });
+
+            // A helper vec for duplicate ticker detection
+            let mut seen_tickers = Vec::new();
+
+            let n_tokens = names.len();
+
+            // Perform per-token checks beforehand
+            for i in 0..n_tokens {
+                // checking max size for name and ticker
+                // byte arrays (vecs) with no max size should be avoided
+                ensure!(names[i].len() <= 64, "token name cannot exceed 64 bytes");
+                ensure!(tickers[i].len() <= 32, "token ticker cannot exceed 32 bytes");
+
+                ensure!(!seen_tickers.contains(&tickers[i]), "Duplicate tickers in token batch");
+                seen_tickers.push(tickers[i].clone());
+
+                let granularity = if !divisible_values[i] { (10 as u128).pow(18) } else { 1_u128 };
+                ensure!(<T as utils::Trait>::as_u128(total_supply_values[i]) % granularity == (0 as u128), "Invalid Total supply");
+
+                // Ensure the uniqueness of the ticker
+                ensure!(!<Tokens<T>>::exists(tickers[i].clone()), "Ticker is already issued");
+            }
+
+            // Withdraw n_tokens * Self::asset_creation_fee() from sender DID
+            let validators = <session::Module<T>>::validators();
+            let fee = Self::asset_creation_fee().checked_mul(&<FeeOf<T> as As<usize>>::sa(n_tokens)).ok_or("asset_creation_fee() * n_tokens overflows")?;
+            let validator_len;
+            if validators.len() < 1 {
+                validator_len = <FeeOf<T> as As<usize>>::sa(1);
+            } else {
+                validator_len = <FeeOf<T> as As<usize>>::sa(validators.len());
+            }
+            let proportional_fee = fee / validator_len;
+            let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
+            for v in &validators {
+                <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
+            }
+            let remainder_fee = fee - (proportional_fee * validator_len);
+            let remainder_fee_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
+            <identity::DidRecords<T>>::mutate(did.clone(), |record| -> Result {
+                record.balance = record.balance.checked_sub(&remainder_fee_balance).ok_or("Could not charge for token issuance")?;
+                Ok(())
+            })?;
+
+            // Perform per-ticker issuance
+            for i in 0..n_tokens {
+                let granularity = if !divisible_values[i] { (10 as u128).pow(18) } else { 1_u128 };
+                let token = SecurityToken {
+                    name: names[i].clone(),
+                    total_supply: total_supply_values[i],
+                    owner_did: did.clone(),
+                    granularity: granularity,
+                    decimals: 18
+                };
+
+                let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner_did: did.clone() };
+
+                <registry::Module<T>>::put(tickers[i].clone(), &reg_entry)?;
+
+                <Tokens<T>>::insert(tickers[i].clone(), token);
+                <BalanceOf<T>>::insert((tickers[i].clone(), did.clone()), total_supply_values[i]);
+                Self::deposit_event(RawEvent::IssuedToken(tickers[i].clone(), total_supply_values[i], did.clone(), granularity, 18));
+                runtime_io::print("Batch token initialized");
+            }
+
+            Ok(())
+        }
+
         // initializes a new token
         // takes a name, ticker, total supply for the token
         // makes the initiating account the owner of the token
@@ -85,8 +170,6 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
 
             ensure!(<identity::Module<T>>::is_issuer(did.clone()),"DID is not an issuer");
-            // Ensure the uniqueness of the ticker
-            ensure!(!<Tokens<T>>::exists(ticker.clone()), "ticker is already issued");
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
@@ -139,7 +222,7 @@ decl_module! {
             <Tokens<T>>::insert(ticker.clone(), token);
             <BalanceOf<T>>::insert((ticker.clone(), did.clone()), total_supply);
             Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, did, granularity, 18));
-            runtime_io::print("Initialized!!!");
+            runtime_io::print("Token initialized");
 
             Ok(())
         }
