@@ -366,7 +366,7 @@ decl_module! {
             Ok(())
         }
 
-        pub fn mint(_origin, did: Vec<u8>, _ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance) -> Result {
+        pub fn issue(_origin, did: Vec<u8>, _ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.clone().as_slice());
             let sender = ensure_signed(_origin)?;
 
@@ -377,7 +377,7 @@ decl_module! {
             Self::_mint(ticker, to_did, value)
         }
 
-        pub fn burn(_origin, did: Vec<u8>, _ticker: Vec<u8>, value: T::TokenBalance) -> Result {
+        pub fn redeem(_origin, did: Vec<u8>, _ticker: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
@@ -410,7 +410,7 @@ decl_module! {
             <BalanceOf<T>>::insert((ticker.clone(), did.clone()), updated_burner_balance);
             <Tokens<T>>::insert(ticker.clone(), token);
 
-            Self::deposit_event(RawEvent::Burned(ticker.clone(), did, value));
+            Self::deposit_event(RawEvent::Redeemed(ticker.clone(), did, value));
 
             Ok(())
 
@@ -433,6 +433,32 @@ decl_module! {
             Self::deposit_event(RawEvent::GranularityChanged(ticker.clone(), granularity));
             Ok(())
         }
+
+        // ERC1594 endpoints
+
+        /// Checks whether a transaction with given parameters can take place
+        pub fn can_transfer(ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, amount: T::TokenBalance, data: Vec<u8>) {
+            if let Ok(()) = Self::_is_valid_transfer(ticker.clone(), from_did.clone(), to_did.clone(), amount) {
+                Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, amount, data, 0));
+            } else {
+                Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, amount, data, 1));
+            }
+        }
+
+        /// An ERC1594 transfer with data
+        pub fn transfer_with_data(origin, did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, amount: T::TokenBalance, data: Vec<u8>) -> Result {
+            Self::transfer(origin, did.clone(), ticker.clone(), to_did.clone(), amount)?;
+            Self::deposit_event(RawEvent::TransferWithData(ticker, did, to_did, amount, data));
+            Ok(())
+        }
+
+
+        pub fn is_issuable(ticker: Vec<u8>) {
+            Self::deposit_event(RawEvent::IsIssuable(ticker, true));
+        }
+
+        //pub fn redeem_from() {}
+
     }
 }
 
@@ -450,12 +476,12 @@ decl_event!(
         // event - used for testing in the absence of custom getters
         // ticker, owner DID, checkpoint, balance
         BalanceAt(Vec<u8>, Vec<u8>, u32, Balance),
-        // event mint
+
         // ticker, beneficiary DID, value
-        Minted(Vec<u8>, Vec<u8>, Balance),
-        // event burn
+        Issued(Vec<u8>, Vec<u8>, Balance),
+
         // ticker, DID, value
-        Burned(Vec<u8>, Vec<u8>, Balance),
+        Redeemed(Vec<u8>, Vec<u8>, Balance),
         // event for forced transfer of tokens
         // ticker, from DID, to DID, value
         ForcedTransfer(Vec<u8>, Vec<u8>, Vec<u8>, Balance),
@@ -465,6 +491,22 @@ decl_event!(
         // Event for change granularity
         // ticker, granularity
         GranularityChanged(Vec<u8>, u128),
+
+        // can_transfer() output
+        // ticker, from_did, to_did, amount, data, status/reason
+        // status codes:
+        // 0 - OK
+        // 1,2... - Error, meanings TBD
+        CanTransfer(Vec<u8>, Vec<u8>, Vec<u8>, Balance, Vec<u8>, u32),
+
+        // An additional event to Transfer; emitted when transfer_with_data is called; similar to
+        // Transfer with data added at the end.
+        // ticker, from DID, to DID, value, data
+        TransferWithData(Vec<u8>, Vec<u8>, Vec<u8>, Balance, Vec<u8>),
+
+        // is_issuable() output
+        // ticker, return value (true if issuable)
+        IsIssuable(Vec<u8>, bool),
     }
 );
 
@@ -681,7 +723,7 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert((ticker.clone(), to_did.clone()), updated_to_balance);
         <Tokens<T>>::insert(ticker.clone(), token);
 
-        Self::deposit_event(RawEvent::Minted(ticker.clone(), to_did, value));
+        Self::deposit_event(RawEvent::Issued(ticker.clone(), to_did, value));
 
         Ok(())
     }
