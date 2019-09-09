@@ -1,7 +1,9 @@
 use crate::asset::AssetTrait;
 use crate::exemption;
+use crate::identity;
 use crate::utils;
 
+use parity_codec::Encode;
 use rstd::prelude::*;
 use runtime_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use support::{
@@ -38,10 +40,14 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event<T>() = default;
 
-        fn toggle_maximum_percentage_restriction(origin, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
+        fn toggle_maximum_percentage_restriction(origin, did: Vec<u8>, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
-            ensure!(Self::is_owner(ticker.clone(), sender.clone()),"Sender must be the token owner");
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
+            ensure!(Self::is_owner(ticker.clone(), did.clone()),"Sender DID must be the token owner");
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
 
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
@@ -63,27 +69,27 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+    pub fn is_owner(_ticker: Vec<u8>, sender_did: Vec<u8>) -> bool {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        T::Asset::is_owner(ticker.clone(), sender)
+        T::Asset::is_owner(ticker.clone(), sender_did)
     }
 
     // Transfer restriction verification logic
     pub fn verify_restriction(
-        _ticker: Vec<u8>,
-        _from: T::AccountId,
-        _to: T::AccountId,
-        _value: T::TokenBalance,
+        ticker: Vec<u8>,
+        from_did: Vec<u8>,
+        to_did: Vec<u8>,
+        value: T::TokenBalance,
     ) -> Result {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        let ticker = utils::bytes_to_upper(ticker.as_slice());
         let max_percentage = Self::maximum_percentage_enabled_for_token(ticker.clone());
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
         // TODO: Mould the integer into the module identity
-        let is_exempted = <exemption::Module<T>>::is_exempted(ticker.clone(), 2, _to.clone());
+        let is_exempted = <exemption::Module<T>>::is_exempted(ticker.clone(), 2, to_did.clone());
         if max_percentage != 0 && !is_exempted {
-            let newBalance = (T::Asset::balance(ticker.clone(), _to.clone()))
-                .checked_add(&_value)
+            let newBalance = (T::Asset::balance(ticker.clone(), to_did.clone()))
+                .checked_add(&value)
                 .ok_or("Balance of to will get overflow")?;
             let totalSupply = T::Asset::total_supply(ticker);
 

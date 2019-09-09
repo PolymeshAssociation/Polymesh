@@ -2,10 +2,12 @@ use crate::asset::AssetTrait;
 use crate::balances;
 use crate::erc20::{self, ERC20Trait};
 use crate::general_tm;
+use crate::identity;
 use crate::utils;
 use support::traits::Currency;
 
 use core::convert::TryInto;
+use parity_codec::Encode;
 use rstd::prelude::*;
 use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
@@ -19,12 +21,12 @@ pub trait Trait:
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type ERC20Trait: erc20::ERC20Trait<Self::AccountId, Self::TokenBalance>;
+    type ERC20Trait: erc20::ERC20Trait<Self::TokenBalance>;
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct STO<U, V, W> {
-    beneficiary: U,
+pub struct STO<V, W> {
+    beneficiary_did: Vec<u8>,
     cap: V,
     sold: V,
     rate: u64,
@@ -34,8 +36,8 @@ pub struct STO<U, V, W> {
 }
 
 #[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Investment<U, V, W> {
-    investor: U,
+pub struct Investment<V, W> {
+    investor_did: Vec<u8>,
     amount_paid: V,
     tokens_purchased: V,
     last_purchase_date: W,
@@ -45,7 +47,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as STOCapped {
 
         // Tokens can have multiple whitelists that (for now) check entries individually within each other
-        StosByToken get(stos_by_token): map (Vec<u8>, u32) => STO<T::AccountId,T::TokenBalance,T::Moment>;
+        StosByToken get(stos_by_token): map (Vec<u8>, u32) => STO<T::TokenBalance,T::Moment>;
 
         StoCount get(sto_count): map (Vec<u8>) => u32;
 
@@ -59,11 +61,11 @@ decl_storage! {
         // [asset_ticker][sto_id] => count
         TokensCountForSto get(tokens_count_for_sto): map(Vec<u8>, u32) => u32;
         // To track the investment data of the investor corresponds to ticker
-        //[asset_ticker][sto_id][accountId] => Investment structure
-        InvestmentData get(investment_data): map(Vec<u8>, u32, T::AccountId) => Investment<T::AccountId, T::TokenBalance, T::Moment>;
+        //[asset_ticker][sto_id][DID] => Investment structure
+        InvestmentData get(investment_data): map(Vec<u8>, u32, Vec<u8>) => Investment<T::TokenBalance, T::Moment>;
         // To track the investment amount of the investor corresponds to ticker using ERC20
         // [asset_ticker][erc20_ticker][sto_id][accountId] => Invested balance
-        Erc20TokenSpent get(erc20_token_spent): map(Vec<u8>, Vec<u8>, u32, T::AccountId) => T::TokenBalance;
+        Erc20TokenSpent get(erc20_token_spent): map(Vec<u8>, Vec<u8>, u32, Vec<u8>) => T::TokenBalance;
 
     }
 }
@@ -76,8 +78,10 @@ decl_module! {
         fn deposit_event<T>() = default;
 
         pub fn launch_sto(
-            origin, _ticker: Vec<u8>,
-            beneficiary: T::AccountId,
+            origin,
+            did: Vec<u8>,
+            _ticker: Vec<u8>,
+            beneficiary_did: Vec<u8>,
             cap: T::TokenBalance,
             rate: u64,
             start_date: T::Moment,
@@ -85,11 +89,15 @@ decl_module! {
             erc20_ticker: Vec<u8>
         ) -> Result {
             let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
+            ensure!(Self::is_owner(ticker.clone(), did.clone()),"Sender must be the token owner");
 
             let sto = STO {
-                beneficiary,
+                beneficiary_did,
                 cap,
                 sold:<T::TokenBalance as As<u64>>::sa(0),
                 rate,
@@ -122,12 +130,16 @@ decl_module! {
             Ok(())
         }
 
-        pub fn buy_tokens(origin, _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> Result {
+        pub fn buy_tokens(origin, did: Vec<u8>,  _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> Result {
             let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let mut selected_sto = Self::stos_by_token((ticker.clone(), sto_id));
             // Pre validation checks
-            ensure!(Self::_pre_validation(_ticker.clone(), sender.clone(), selected_sto.clone()).is_ok(), "Invalidate investment");
+            ensure!(Self::_pre_validation(_ticker.clone(), did.clone(), selected_sto.clone()).is_ok(), "Invalidate investment");
             // Make sure sender has enough balance
             let sender_balance = <balances::Module<T> as Currency<_>>::free_balance(&sender);
             ensure!(sender_balance >= value,"Insufficient funds");
@@ -144,20 +156,21 @@ decl_module! {
                 .ok_or("overflow while calculating tokens sold")?;
 
             // Mint tokens and update STO
-            T::Asset::_mint_from_sto(ticker.clone(), sender.clone(), token_amount_value.0)?;
+            T::Asset::_mint_from_sto(ticker.clone(), did.clone(), token_amount_value.0)?;
 
             // Transfer poly to token owner
-            <balances::Module<T> as Currency<_>>::transfer(
-                &sender,
-                &selected_sto.beneficiary,
-                allowed_value
-                )?;
+            // TODO: transfer between DIDs
+            //<balances::Module<T> as Currency<_>>::transfer(
+                //&sender,
+                //&selected_sto.beneficiary_did,
+                //allowed_value
+                //)?;
 
             // Update storage values
             Self::_update_storage(
                 ticker.clone(),
                 sto_id.clone(),
-                sender.clone(),
+                did.clone(),
                 token_amount_value.1,
                 token_amount_value.0,
                 vec![0],
@@ -168,8 +181,12 @@ decl_module! {
             Ok(())
         }
 
-        pub fn modify_allowed_tokens(origin, _ticker: Vec<u8>, sto_id: u32, erc20_ticker: Vec<u8>, modify_status: bool) -> Result {
+        pub fn modify_allowed_tokens(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32, erc20_ticker: Vec<u8>, modify_status: bool) -> Result {
             let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
             let selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
@@ -178,7 +195,7 @@ decl_module! {
             // or STO should be in non-active stage
             ensure!(now < selected_sto.start_date || !selected_sto.active, "STO is already started");
 
-            ensure!(Self::is_owner(ticker.clone(),sender), "Not authorised to execute this function");
+            ensure!(Self::is_owner(ticker.clone(),did), "Not authorised to execute this function");
 
             let token_index = Self::token_index_for_sto((ticker.clone(), sto_id, erc20_ticker.clone()));
             let token_count = Self::tokens_count_for_sto((ticker.clone(), sto_id));
@@ -208,17 +225,21 @@ decl_module! {
 
         }
 
-        pub fn buy_tokens_by_erc20(origin, _ticker: Vec<u8>, sto_id: u32, value: T::TokenBalance, erc20_ticker: Vec<u8>) -> Result {
+        pub fn buy_tokens_by_erc20(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32, value: T::TokenBalance, erc20_ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
             // Check whether given token is allowed as investment currency or not
             ensure!(Self::token_index_for_sto((ticker.clone(), sto_id, erc20_ticker.clone())) != None, "Given token is not a permitted investment currency");
             let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
             // Pre validation checks
-            ensure!(Self::_pre_validation(_ticker.clone(), sender.clone(), selected_sto.clone()).is_ok(), "Invalidate investment");
+            ensure!(Self::_pre_validation(_ticker.clone(), did.clone(), selected_sto.clone()).is_ok(), "Invalidate investment");
             // Make sure sender has enough balance
-            ensure!(T::ERC20Trait::balanceOf(erc20_ticker.clone(), sender.clone()) >= value, "Insufficient balance");
+            ensure!(T::ERC20Trait::balanceOf(erc20_ticker.clone(), did.clone()) >= value, "Insufficient balance");
 
             // Get the invested amount of investment currency and amount of ST tokens minted as a return of investment
             let token_amount_value = Self::_get_invested_amount_and_tokens(
@@ -230,20 +251,20 @@ decl_module! {
                 .checked_add(&token_amount_value.0)
                 .ok_or("overflow while calculating tokens sold")?;
 
-            let erc20_investment = (Self::erc20_token_spent((ticker.clone(), erc20_ticker.clone(), sto_id, sender.clone())))
+            let erc20_investment = (Self::erc20_token_spent((ticker.clone(), erc20_ticker.clone(), sto_id, did.clone())))
                                     .checked_add(&token_amount_value.1)
                                     .ok_or("overflow while updating the erc20 investment value")?;
 
             // Mint tokens and update STO
-            T::Asset::_mint_from_sto(ticker.clone(), sender.clone(), token_amount_value.0);
+            T::Asset::_mint_from_sto(ticker.clone(), did.clone(), token_amount_value.0);
             // Transfer the erc20 invested token to beneficiary account
-            T::ERC20Trait::transfer(sender.clone(), erc20_ticker.clone(), selected_sto.beneficiary.clone(), token_amount_value.1)?;
+            T::ERC20Trait::transfer(did.clone(), erc20_ticker.clone(), selected_sto.beneficiary_did.clone(), token_amount_value.1)?;
 
             // Update storage values
             Self::_update_storage(
                 ticker.clone(),
                 sto_id.clone(),
-                sender.clone(),
+                did.clone(),
                 token_amount_value.1,
                 token_amount_value.0,
                 erc20_ticker.clone(),
@@ -253,8 +274,12 @@ decl_module! {
             Ok(())
         }
 
-        pub fn pause_sto(origin, _ticker: Vec<u8>, sto_id: u32) -> Result {
+        pub fn pause_sto(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32) -> Result {
             let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             // Check valid STO id
             ensure!(Self::sto_count(ticker.clone()) >= sto_id, "Invalid sto id");
@@ -269,8 +294,12 @@ decl_module! {
             Ok(())
         }
 
-        pub fn unpause_sto(origin, _ticker: Vec<u8>, sto_id: u32) -> Result {
+        pub fn unpause_sto(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32) -> Result {
             let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             // Check valid STO id
             ensure!(Self::sto_count(ticker.clone()) >= sto_id, "Invalid sto id");
@@ -291,31 +320,29 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
         Balance = <T as utils::Trait>::TokenBalance,
     {
-        Example(u32, AccountId, AccountId),
         ModifyAllowedTokens(Vec<u8>, Vec<u8>, u32, bool),
         //Emit when Asset get purchased by the investor
-        // Ticker, Erc20 token, sto_id, investor address, amount invested, amount of token purchased
-        AssetPurchase(Vec<u8>, Vec<u8>, u32, AccountId, Balance, Balance),
+        // Ticker, Erc20 token, sto_id, investor DID, amount invested, amount of token purchased
+        AssetPurchase(Vec<u8>, Vec<u8>, u32, Vec<u8>, Balance, Balance),
     }
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+    pub fn is_owner(_ticker: Vec<u8>, did: Vec<u8>) -> bool {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        T::Asset::is_owner(ticker.clone(), sender)
+        T::Asset::is_owner(ticker.clone(), did)
     }
 
     fn _pre_validation(
         ticker: Vec<u8>,
-        sender: T::AccountId,
-        selected_sto: STO<T::AccountId, T::TokenBalance, T::Moment>,
+        did: Vec<u8>,
+        selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> Result {
         // Validate that buyer is whitelisted for primary issuance.
         ensure!(
-            <general_tm::Module<T>>::is_whitelisted(ticker, sender).is_ok(),
+            <general_tm::Module<T>>::is_whitelisted(ticker, did).is_ok(),
             "sender is not allowed to invest"
         );
         // Check whether the sto is unpaused or not
@@ -331,7 +358,7 @@ impl<T: Trait> Module<T> {
 
     fn _get_invested_amount_and_tokens(
         invested_amount: T::TokenBalance,
-        selected_sto: STO<T::AccountId, T::TokenBalance, T::Moment>,
+        selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> core::result::Result<(T::TokenBalance, T::TokenBalance), &'static str> {
         // Calculate tokens to mint
         let mut token_conversion = invested_amount
@@ -356,17 +383,17 @@ impl<T: Trait> Module<T> {
     fn _update_storage(
         ticker: Vec<u8>,
         sto_id: u32,
-        sender: T::AccountId,
+        did: Vec<u8>,
         investment_amount: T::TokenBalance,
         new_tokens_minted: T::TokenBalance,
         erc20_ticker: Vec<u8>,
         erc20_investment: T::TokenBalance,
-        selected_sto: STO<T::AccountId, T::TokenBalance, T::Moment>,
+        selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> Result {
         // Store Investment DATA
-        let mut investor_holder = Self::investment_data((ticker.clone(), sto_id, sender.clone()));
-        if investor_holder.investor == T::AccountId::default() {
-            investor_holder.investor = sender.clone();
+        let mut investor_holder = Self::investment_data((ticker.clone(), sto_id, did.clone()));
+        if investor_holder.investor_did == Vec::<u8>::default() {
+            investor_holder.investor_did = did.clone();
         }
         investor_holder.tokens_purchased = investor_holder
             .tokens_purchased
@@ -376,7 +403,7 @@ impl<T: Trait> Module<T> {
 
         if erc20_ticker != vec![0] {
             <Erc20TokenSpent<T>>::insert(
-                (ticker.clone(), erc20_ticker.clone(), sto_id, sender.clone()),
+                (ticker.clone(), erc20_ticker.clone(), sto_id, did.clone()),
                 erc20_investment,
             );
         } else {
@@ -391,7 +418,7 @@ impl<T: Trait> Module<T> {
             ticker,
             erc20_ticker,
             sto_id,
-            sender,
+            did,
             investment_amount,
             new_tokens_minted,
         ));

@@ -320,6 +320,7 @@ impl utils::Trait for Runtime {
 
 impl erc20::Trait for Runtime {
     type Currency = Balances;
+    type CurrencyToBalance = CurrencyToBalanceHandler;
     type Event = Event;
 }
 
@@ -375,7 +376,7 @@ construct_runtime!(
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
-        Exemption: exemption::{Module, Call, Storage, Event<T>},
+        Exemption: exemption::{Module, Call, Storage, Event},
         Session: session,
         Staking: staking::{default, OfflineWorker},
         Democracy: democracy,

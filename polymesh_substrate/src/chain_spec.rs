@@ -193,6 +193,7 @@ pub fn testnet_genesis(
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed("Dave"),
+            did_creation_fee: 250,
         }),
         erc20: Some(ERC20Config {
             creation_fee: 1000
