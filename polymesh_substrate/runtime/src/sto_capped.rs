@@ -314,10 +314,10 @@ impl<T: Trait> Module<T> {
         selected_sto: STO<T::AccountId, T::TokenBalance, T::Moment>,
     ) -> Result {
         // Validate that buyer is whitelisted for primary issuance.
-        ensure!(
-            <general_tm::Module<T>>::is_whitelisted(ticker, sender).is_ok(),
-            "sender is not allowed to invest"
-        );
+        // ensure!(
+        //     <general_tm::Module<T>>::is_whitelisted(ticker, sender).is_ok(),
+        //     "sender is not allowed to invest"
+        // );
         // Check whether the sto is unpaused or not
         ensure!(selected_sto.active, "sto is paused");
         // Check whether the sto is already ended

@@ -18,83 +18,80 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
     type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Whitelist<U, V> {
-    investor: V,
-    can_send_after: U,
-    can_receive_after: U,
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct Rule {
+    topic: u32,
+    schema: u32,
+    bytes: Vec<RuleData>, // Array of {key value operator}
+}
+
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct AssetRule {
+    sender_rules: Vec<Rule>,
+    receiver_rules: Vec<Rule>,
+}
+
+#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct RuleData {
+    key: Vec<u8>,
+    value: Vec<u8>,
+    operator: u16, // 0= 2! 3< 4> 5<= 6>=
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
-
-        // Tokens can have multiple whitelists that (for now) check entries individually within each other
-        WhitelistsByToken get(whitelists_by_token): map (Vec<u8>, u32) => Vec<Whitelist<T::Moment, T::AccountId>>;
-
-        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (Vec<u8>, u32, T::AccountId) => Whitelist<T::Moment, T::AccountId>;
-
-        WhitelistEntriesCount get(whitelist_entries_count): map (Vec<u8>,u32) => u64;
-        WhitelistCount get(whitelist_count): u32;
-
+        pub ActiveRules get(active_rules): map Vec<u8> => Vec<AssetRule>;
     }
 }
 
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        // Initializing events
-        // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
-
-        pub fn add_to_whitelist(origin, _ticker: Vec<u8>, whitelist_id: u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
-            let sender = ensure_signed(origin)?;
+        fn add_asset_rule(origin, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
+            let sender = ensure_signed(origin)?;
 
-            let whitelist = Whitelist {
-                investor: _investor.clone(),
-                can_send_after:expiry.clone(),
-                can_receive_after:expiry
-            };
+            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "Sender must be the token owner");
 
-            //Get whitelist entries for this token + whitelistId
-            let mut whitelists_for_token = Self::whitelists_by_token((ticker.clone(), whitelist_id.clone()));
+            <ActiveRules<T>>::mutate(ticker.clone(), |old_asset_rules| {
+                if !old_asset_rules.contains(&asset_rule) {
+                    old_asset_rules.push(asset_rule.clone());
+                }
+            });
 
-            //Get how many entries this whiteslist has and increase it if we are adding a new entry
-            let entries_count = Self::whitelist_entries_count((ticker.clone(), whitelist_id.clone()));
+            //Self::deposit_event(RawEvent::NewAssetRule(ticker, asset_rule));
 
-            // TODO: Make sure we are only increasing the count if it's a new entry and not just an update of an existing entry
-            let new_entries_count = entries_count.checked_add(1).ok_or("overflow in calculating next entry count")?;
-            <WhitelistEntriesCount<T>>::insert((ticker.clone(), whitelist_id),new_entries_count);
+            Ok(())
+        }
 
-            // If this is the first entry for this whitelist, increase the whitelists count so then we can loop through them.
-            if new_entries_count == 1 {
-                let whitelist_count = Self::whitelist_count();
-                let new_whitelist_count = whitelist_count.checked_add(1).ok_or("overflow in calculating next whitelist count")?;
-                <WhitelistCount<T>>::put(new_whitelist_count);
-            }
+        fn remove_asset_rule(origin, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            let sender = ensure_signed(origin)?;
 
-            whitelists_for_token.push(whitelist.clone());
+            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "Sender must be the token owner");
 
-            //PABLO: TODO: don't add the restriction to the array if it already exists
-            <WhitelistsByToken<T>>::insert((ticker.clone(), whitelist_id.clone()), whitelists_for_token);
+            <ActiveRules<T>>::mutate(ticker.clone(), |old_asset_rules| {
+                *old_asset_rules = old_asset_rules
+                    .iter()
+                    .cloned()
+                    .filter(|an_asset_rule| *an_asset_rule != asset_rule)
+                    .collect();
+            });
 
-            <WhitelistForTokenAndAddress<T>>::insert((ticker.clone(), whitelist_id, _investor),whitelist);
-
-            runtime_io::print("Created restriction!!!");
-            //<general_tm::Module<T>>::add_to_whitelist(sender,token_id,_investor,expiry);
+            //Self::deposit_event(RawEvent::RemoveAssetRule(ticker, asset_rule));
 
             Ok(())
         }
     }
 }
 
+
 decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Trait>::AccountId,
     {
-        Example(u32, AccountId, AccountId),
+        NewAssetRule(Vec<u8>, AssetRule, AccountId),
     }
 );
 
@@ -102,8 +99,6 @@ impl<T: Trait> Module<T> {
     pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         T::Asset::is_owner(ticker.clone(), sender)
-        // let token = T::Asset::token_details(token_id);
-        // token.owner == sender
     }
 
     ///  Sender restriction verification
@@ -114,144 +109,93 @@ impl<T: Trait> Module<T> {
         _value: T::TokenBalance,
     ) -> Result {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        let now = <timestamp::Module<T>>::get();
-        // issuance case
-        if from == T::AccountId::default() {
-            ensure!(
-                Self::_check_investor_status(to.clone()).is_ok(),
-                "Account is not active"
-            );
-            ensure!(
-                Self::is_whitelisted(_ticker.clone(), to).is_ok(),
-                "to account is not whitelisted"
-            );
-            runtime_io::print("GTM: Passed from the issuance case");
-            return Ok(());
-        } else if to == T::AccountId::default() {
-            // burn case
-            ensure!(
-                Self::_check_investor_status(from.clone()).is_ok(),
-                "Account is not active"
-            );
-            ensure!(
-                Self::is_whitelisted(_ticker.clone(), from).is_ok(),
-                "from account is not whitelisted"
-            );
-            runtime_io::print("GTM: Passed from the burn case");
-            return Ok(());
-        } else {
-            // loop through existing whitelists
-            let whitelist_count = Self::whitelist_count();
-            ensure!(
-                Self::_check_investor_status(from.clone()).is_ok(),
-                "Account is not active"
-            );
-            ensure!(
-                Self::_check_investor_status(to.clone()).is_ok(),
-                "Account is not active"
-            );
-            for x in 0..whitelist_count {
-                let whitelist_for_from =
-                    Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
-                let whitelist_for_to =
-                    Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
-
-                if (whitelist_for_from.can_send_after > T::Moment::sa(0)
-                    && now >= whitelist_for_from.can_send_after)
-                    && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
-                        && now > whitelist_for_to.can_receive_after)
-                {
-                    return Ok(());
+        let active_rules = Self::active_rules(ticker.clone());
+        for active_rule in active_rules {
+            let rule_broken = false;
+            for sender_rule in active_rule.sender_rules {
+                for data in sender_rule.bytes {
+                    // Verify all sender claims
+                    // Set rule_broken = true if the rule is broken
+                }
+                if rule_broken {
+                    break;
                 }
             }
-        }
-        runtime_io::print("GTM: Not going through the restriction");
-        Err("Cannot Transfer: General TM restrictions not satisfied")
-    }
-
-    pub fn is_whitelisted(_ticker: Vec<u8>, holder: T::AccountId) -> Result {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        let now = <timestamp::Module<T>>::get();
-        ensure!(
-            Self::_check_investor_status(holder.clone()).is_ok(),
-            "Account is not active"
-        );
-        // loop through existing whitelists
-        let whitelist_count = Self::whitelist_count();
-
-        for x in 0..whitelist_count {
-            let whitelist_for_holder =
-                Self::whitelist_for_restriction((ticker.clone(), x, holder.clone()));
-
-            if whitelist_for_holder.can_send_after > T::Moment::sa(0)
-                && now >= whitelist_for_holder.can_send_after
-            {
+            for receiver_rule in active_rule.receiver_rules {
+                if rule_broken {
+                    break;
+                }
+                for data in receiver_rule.bytes {
+                    // Verify all receiver claims
+                    // Set rule_broken = true if the rule is broken
+                }
+            }
+            if !rule_broken {
                 return Ok(());
             }
         }
-        Err("Not whitelisted")
-    }
 
-    fn _check_investor_status(holder: T::AccountId) -> Result {
-        let investor = <InvestorList<T>>::get(holder.clone());
-        ensure!(
-            investor.active && investor.access_level == 1,
-            "From account is not active"
-        );
-        Ok(())
+        runtime_io::print("Identity TM restrictions not satisfied");
+        Err("Cannot Transfer: Identity TM restrictions not satisfied")
+
+        // let now = <timestamp::Module<T>>::get();
+        // // issuance case
+        // if from == T::AccountId::default() {
+        //     ensure!(
+        //         Self::_check_investor_status(to.clone()).is_ok(),
+        //         "Account is not active"
+        //     );
+        //     ensure!(
+        //         Self::is_whitelisted(_ticker.clone(), to).is_ok(),
+        //         "to account is not whitelisted"
+        //     );
+        //     runtime_io::print("GTM: Passed from the issuance case");
+        //     return Ok(());
+        // } else if to == T::AccountId::default() {
+        //     // burn case
+        //     ensure!(
+        //         Self::_check_investor_status(from.clone()).is_ok(),
+        //         "Account is not active"
+        //     );
+        //     ensure!(
+        //         Self::is_whitelisted(_ticker.clone(), from).is_ok(),
+        //         "from account is not whitelisted"
+        //     );
+        //     runtime_io::print("GTM: Passed from the burn case");
+        //     return Ok(());
+        // } else {
+        //     // loop through existing whitelists
+        //     let whitelist_count = Self::whitelist_count();
+        //     ensure!(
+        //         Self::_check_investor_status(from.clone()).is_ok(),
+        //         "Account is not active"
+        //     );
+        //     ensure!(
+        //         Self::_check_investor_status(to.clone()).is_ok(),
+        //         "Account is not active"
+        //     );
+        //     for x in 0..whitelist_count {
+        //         let whitelist_for_from =
+        //             Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
+        //         let whitelist_for_to =
+        //             Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
+
+        //         if (whitelist_for_from.can_send_after > T::Moment::sa(0)
+        //             && now >= whitelist_for_from.can_send_after)
+        //             && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
+        //                 && now > whitelist_for_to.can_receive_after)
+        //         {
+        //             return Ok(());
+        //         }
+        //     }
+        // }
+        // runtime_io::print("GTM: Not going through the restriction");
+        // Err("Cannot Transfer: General TM restrictions not satisfied")
     }
 }
 
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    /*
-     *    use super::*;
-     *
-     *    use primitives::{Blake2Hasher, H256};
-     *    use runtime_io::with_externalities;
-     *    use runtime_primitives::{
-     *        testing::{Digest, DigestItem, Header},
-     *        traits::{BlakeTwo256, IdentityLookup},
-     *        BuildStorage,
-     *    };
-     *    use support::{assert_ok, impl_outer_origin};
-     *
-     *    impl_outer_origin! {
-     *        pub enum Origin for Test {}
-     *    }
-     *
-     *    // For testing the module, we construct most of a mock runtime. This means
-     *    // first constructing a configuration type (`Test`) which `impl`s each of the
-     *    // configuration traits of modules we want to use.
-     *    #[derive(Clone, Eq, PartialEq)]
-     *    pub struct Test;
-     *    impl system::Trait for Test {
-     *        type Origin = Origin;
-     *        type Index = u64;
-     *        type BlockNumber = u64;
-     *        type Hash = H256;
-     *        type Hashing = BlakeTwo256;
-     *        type Digest = Digest;
-     *        type AccountId = u64;
-     *        type Lookup = IdentityLookup<Self::AccountId>;
-     *        type Header = Header;
-     *        type Event = ();
-     *        type Log = DigestItem;
-     *    }
-     *    impl Trait for Test {
-     *        type Event = ();
-     *    }
-     *    type TransferValidationModule = Module<Test>;
-     *
-     *    // This function basically just builds a genesis storage key/value store according to
-     *    // our desired mockup.
-     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::<Test>::default()
-     *            .build_storage()
-     *            .unwrap()
-     *            .0
-     *            .into()
-     *    }
-     */
+
 }
