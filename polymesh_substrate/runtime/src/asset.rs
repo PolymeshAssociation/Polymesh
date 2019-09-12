@@ -282,9 +282,8 @@ decl_module! {
             Self::_transfer(ticker.clone(), did, to_did, value)
         }
 
-        // transfer tokens from one account to another
-        // origin is assumed as sender
-        fn force_transfer(_origin, did: Vec<u8>, _ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance) -> Result {
+        /// Forces a transfer between two accounts. Can only be called by token owner
+        pub fn controller_transfer(_origin, did: Vec<u8>, _ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
@@ -295,7 +294,7 @@ decl_module! {
 
             Self::_transfer(ticker.clone(), from_did.clone(), to_did.clone(), value.clone())?;
 
-            Self::deposit_event(RawEvent::ForcedTransfer(ticker.clone(), from_did, to_did, value));
+            Self::deposit_event(RawEvent::ControllerTransfer(did.clone(), ticker.clone(), from_did, to_did, value, data, operator_data));
 
             Ok(())
         }
@@ -416,6 +415,44 @@ decl_module! {
 
         }
 
+        /// Forces a redemption of an account's tokens. Can only be called by token owner
+        pub fn controller_redeem(origin, did: Vec<u8>, ticker: Vec<u8>, token_holder_did: Vec<u8>, value: T::TokenBalance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not token owner");
+
+            // Granularity check
+            ensure!(
+                Self::check_granularity(ticker.clone(), value),
+                "Invalid granularity"
+                );
+            ensure!(<BalanceOf<T>>::exists((ticker.clone(), token_holder_did.clone())), "Account does not own this token");
+            let burner_balance = Self::balance_of((ticker.clone(), token_holder_did.clone()));
+            ensure!(burner_balance >= value, "Not enough balance.");
+
+            // Reduce sender's balance
+            let updated_burner_balance = burner_balance
+                .checked_sub(&value)
+                .ok_or("overflow in calculating balance")?;
+
+            //Decrease total suply
+            let mut token = Self::token_details(ticker.clone());
+            token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
+
+            Self::_update_checkpoint(ticker.clone(), token_holder_did.clone(), burner_balance)?;
+
+            <BalanceOf<T>>::insert((ticker.clone(), token_holder_did.clone()), updated_burner_balance);
+            <Tokens<T>>::insert(ticker.clone(), token);
+
+            Self::deposit_event(RawEvent::ControllerRedemption(ticker, did, token_holder_did, value, data, operator_data));
+
+            Ok(())
+        }
+
+
         pub fn change_granularity(origin, did: Vec<u8>, ticker: Vec<u8>, granularity: u128) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
@@ -437,18 +474,18 @@ decl_module! {
         // ERC1594 endpoints
 
         /// Checks whether a transaction with given parameters can take place
-        pub fn can_transfer(ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, amount: T::TokenBalance, data: Vec<u8>) {
-            if let Ok(()) = Self::_is_valid_transfer(ticker.clone(), from_did.clone(), to_did.clone(), amount) {
-                Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, amount, data, 0));
+        pub fn can_transfer(ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, data: Vec<u8>) {
+            if let Ok(()) = Self::_is_valid_transfer(ticker.clone(), from_did.clone(), to_did.clone(), value) {
+                Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, 0));
             } else {
-                Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, amount, data, 1));
+                Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, 1));
             }
         }
 
         /// An ERC1594 transfer with data
-        pub fn transfer_with_data(origin, did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, amount: T::TokenBalance, data: Vec<u8>) -> Result {
-            Self::transfer(origin, did.clone(), ticker.clone(), to_did.clone(), amount)?;
-            Self::deposit_event(RawEvent::TransferWithData(ticker, did, to_did, amount, data));
+        pub fn transfer_with_data(origin, did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, data: Vec<u8>) -> Result {
+            Self::transfer(origin, did.clone(), ticker.clone(), to_did.clone(), value)?;
+            Self::deposit_event(RawEvent::TransferWithData(ticker, did, to_did, value, data));
             Ok(())
         }
 
@@ -457,12 +494,10 @@ decl_module! {
             Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
 
-        //pub fn redeem_from() {}
-
     }
 }
 
-decl_event!(
+decl_event! {
     pub enum Event<T>
     where
         Balance = <T as utils::Trait>::TokenBalance,
@@ -483,8 +518,13 @@ decl_event!(
         // ticker, DID, value
         Redeemed(Vec<u8>, Vec<u8>, Balance),
         // event for forced transfer of tokens
-        // ticker, from DID, to DID, value
-        ForcedTransfer(Vec<u8>, Vec<u8>, Vec<u8>, Balance),
+        // ticker, controller DID, from DID, to DID, value, data, operator data
+        ControllerTransfer(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Balance, Vec<u8>, Vec<u8>),
+
+        // event for when a forced redemption takes place
+        // ticker, controller DID, token holder DID, value, data, operator data
+        ControllerRedemption(Vec<u8>, Vec<u8>, Vec<u8>, Balance, Vec<u8>, Vec<u8>),
+
         // Event for creation of the asset
         // ticker, total supply, owner DID, decimal
         IssuedToken(Vec<u8>, Balance, Vec<u8>, u128, u16),
@@ -493,7 +533,7 @@ decl_event!(
         GranularityChanged(Vec<u8>, u128),
 
         // can_transfer() output
-        // ticker, from_did, to_did, amount, data, status/reason
+        // ticker, from_did, to_did, value, data, status/reason
         // status codes:
         // 0 - OK
         // 1,2... - Error, meanings TBD
@@ -508,7 +548,7 @@ decl_event!(
         // ticker, return value (true if issuable)
         IsIssuable(Vec<u8>, bool),
     }
-);
+}
 
 pub trait AssetTrait<V> {
     fn total_supply(_ticker: Vec<u8>) -> V;
