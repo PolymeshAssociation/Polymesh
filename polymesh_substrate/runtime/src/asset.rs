@@ -59,6 +59,9 @@ decl_storage! {
         CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, Vec<u8>, u32) => Option<T::TokenBalance>;
         // Last checkpoint updated for a DID's balance; (ticker, DID) -> last checkpoint ID
         LatestUserCheckpoint get(latest_user_checkpoint): map (Vec<u8>, Vec<u8>) => u32;
+        // The documents attached to the tokens
+        // (ticker, document name) -> (URI, document hash)
+        Documents get(documents): map (Vec<u8>, Vec<u8>) => (Vec<u8>, Vec<u8>, T::Moment);
     }
 }
 
@@ -471,8 +474,6 @@ decl_module! {
             Ok(())
         }
 
-        // ERC1594 endpoints
-
         /// Checks whether a transaction with given parameters can take place
         pub fn can_transfer(ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, data: Vec<u8>) {
             if let Ok(()) = Self::_is_valid_transfer(ticker.clone(), from_did.clone(), to_did.clone(), value) {
@@ -489,11 +490,47 @@ decl_module! {
             Ok(())
         }
 
+        /// An ERC1594 transfer_from with data
+        pub fn transfer_from_with_data(origin, did: Vec<u8>, ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, data: Vec<u8>) -> Result {
+            Self::transfer_from(origin, did.clone(), ticker.clone(), from_did.clone(),  to_did.clone(), value)?;
+            Self::deposit_event(RawEvent::TransferWithData(ticker, from_did, to_did, value, data));
+            Ok(())
+        }
+
 
         pub fn is_issuable(ticker: Vec<u8>) {
             Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
 
+        pub fn get_document(ticker: Vec<u8>, name: Vec<u8>) -> Result {
+            let record = <Documents<T>>::get((ticker.clone(), name.clone()));
+            Self::deposit_event(RawEvent::GetDocument(ticker, name, record.0, record.1, record.2));
+            Ok(())
+        }
+
+        pub fn set_document(origin, did: Vec<u8>, ticker: Vec<u8>, name: Vec<u8>, uri: Vec<u8>, document_hash: Vec<u8>) -> Result {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+
+            <Documents<T>>::insert((ticker.clone(), name.clone()), (uri.clone(), document_hash.clone(), <timestamp::Module<T>>::get()));
+            Ok(())
+        }
+
+        pub fn remove_document(origin, did: Vec<u8>, ticker: Vec<u8>, name: Vec<u8>) -> Result {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+
+            <Documents<T>>::remove((ticker.clone(), name.clone()));
+            Ok(())
+        }
     }
 }
 
@@ -501,6 +538,7 @@ decl_event! {
     pub enum Event<T>
     where
         Balance = <T as utils::Trait>::TokenBalance,
+        TSMoment = <T as timestamp::Trait>::Moment,
     {
         // event for transfer of tokens
         // ticker, from DID, to DID, value
@@ -547,6 +585,10 @@ decl_event! {
         // is_issuable() output
         // ticker, return value (true if issuable)
         IsIssuable(Vec<u8>, bool),
+
+        // get_document() output
+        // ticker, name, uri, hash, last modification date
+        GetDocument(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, TSMoment),
     }
 }
 
