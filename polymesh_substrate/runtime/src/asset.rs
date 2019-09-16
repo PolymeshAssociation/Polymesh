@@ -283,7 +283,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
 
-            Self::_is_valid_transfer(ticker.clone(), did.clone(), to_did.clone(), value)?;
+            ensure!(Self::_is_valid_transfer(ticker.clone(), did.clone(), to_did.clone(), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             Self::_transfer(ticker.clone(), did, to_did, value)
         }
@@ -341,7 +341,7 @@ decl_module! {
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
 
-            Self::_is_valid_transfer(ticker.clone(), from_did.clone(), to_did.clone(), value)?;
+            ensure!(Self::_is_valid_transfer(ticker.clone(), from_did.clone(), to_did.clone(), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             Self::_transfer(ticker.clone(), from_did.clone(), to_did.clone(), value)?;
 
@@ -485,7 +485,7 @@ decl_module! {
                     Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, code as u32));
                 },
                 Err(msg) => {
-                    // We return a generic error whenever there's an internal issue - i.e. captured
+                    // We emit a generic error with the event whenever there's an internal issue - i.e. captured
                     // in a string error and not using the status codes
                     sr_primitives::print(msg);
                     Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_TRANSFER_FAILURE as u32));
@@ -798,7 +798,11 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
         // verify transfer check
-        Self::_is_valid_transfer(ticker.clone(), Vec::<u8>::default(), to_did.clone(), value)?;
+        ensure!(
+            Self::_is_valid_transfer(ticker.clone(), Vec::<u8>::default(), to_did.clone(), value)?
+                == ERC1400_TRANSFER_SUCCESS,
+            "Transfer restrictions failed"
+        );
 
         // Read the token details
         let mut token = Self::token_details(ticker.clone());
