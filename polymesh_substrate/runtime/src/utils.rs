@@ -7,12 +7,7 @@ use system::{self, ensure_signed};
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait {
-    type TokenBalance: Parameter
-        + Member
-        + SimpleArithmetic
-        + Codec
-        + Default
-        + Copy;
+    type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy;
     fn as_u128(v: Self::TokenBalance) -> u128;
     fn as_tb(v: u128) -> Self::TokenBalance;
     fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance;

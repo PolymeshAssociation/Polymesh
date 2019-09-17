@@ -1,10 +1,10 @@
 //! A runtime module providing a unique ticker registry
 
+use crate::utils;
 use codec::{Decode, Encode};
 use rstd::prelude::*;
-use system::ensure_signed;
-use crate::utils;
 use srml_support::{decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use system::ensure_signed;
 
 #[repr(u32)]
 #[derive(Clone, Debug, Eq, PartialEq, Encode, Decode)]

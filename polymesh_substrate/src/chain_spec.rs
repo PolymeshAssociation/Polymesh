@@ -1,17 +1,15 @@
-use primitives::{Pair, Public};
-use polymesh_primitives::AccountId;
-use polymesh_runtime::{
-	AssetConfig, IdentityConfig, ERC20Config,
-	DemocracyConfig, BabeConfig, GrandpaConfig,
-	GenesisConfig, CouncilConfig, SystemConfig,
-	SessionConfig, StakingConfig, BalancesConfig, Perbill, SessionKeys,
-	SudoConfig, IndicesConfig, StakerStatus, WASM_BINARY,
-	ElectionsConfig, TechnicalCommitteeConfig
-};
-use polymesh_runtime::constants::{currency::POLY, time::*};
 use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
-use im_online::sr25519::{AuthorityId as ImOnlineId};
+use im_online::sr25519::AuthorityId as ImOnlineId;
+use polymesh_primitives::AccountId;
+use polymesh_runtime::constants::{currency::POLY, time::*};
+use polymesh_runtime::{
+    AssetConfig, BabeConfig, BalancesConfig, CouncilConfig, DemocracyConfig, ERC20Config,
+    ElectionsConfig, GenesisConfig, GrandpaConfig, IdentityConfig, IndicesConfig, Perbill,
+    SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+    TechnicalCommitteeConfig, WASM_BINARY,
+};
+use primitives::{Pair, Public};
 use srml_staking::Forcing;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
@@ -22,179 +20,198 @@ pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
 /// from a string (`--chain=...`) into a `ChainSpec`.
 #[derive(Clone, Debug)]
 pub enum Alternative {
-	/// Whatever the current runtime is, with just Alice as an auth.
-	Development,
-	/// Whatever the current runtime is, with simple Alice/Bob auths.
-	LocalTestnet,
+    /// Whatever the current runtime is, with just Alice as an auth.
+    Development,
+    /// Whatever the current runtime is, with simple Alice/Bob auths.
+    LocalTestnet,
 }
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
+    TPublic::Pair::from_string(&format!("//{}", seed), None)
+        .expect("static values are valid; qed")
+        .public()
 }
 
 /// Helper function to generate stash, controller and session key from seed
-pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId) {
-	(
-		get_from_seed::<AccountId>(&format!("{}//stash", seed)),
-		get_from_seed::<AccountId>(seed),
-		get_from_seed::<GrandpaId>(seed),
-		get_from_seed::<BabeId>(seed),
-		get_from_seed::<ImOnlineId>(seed),
-	)
+pub fn get_authority_keys_from_seed(
+    seed: &str,
+) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId) {
+    (
+        get_from_seed::<AccountId>(&format!("{}//stash", seed)),
+        get_from_seed::<AccountId>(seed),
+        get_from_seed::<GrandpaId>(seed),
+        get_from_seed::<BabeId>(seed),
+        get_from_seed::<ImOnlineId>(seed),
+    )
 }
 
 impl Alternative {
-	/// Get an actual chain config from one of the alternatives.
-	pub(crate) fn load(self) -> Result<ChainSpec, String> {
-		Ok(match self {
-			Alternative::Development => ChainSpec::from_genesis(
-				"Development",
-				"dev",
-				|| testnet_genesis(vec![
-					get_authority_keys_from_seed("Alice"),
-				],
-				get_from_seed::<AccountId>("Alice"),
-				vec![
-					get_from_seed::<AccountId>("Alice"),
-					get_from_seed::<AccountId>("Bob"),
-					get_from_seed::<AccountId>("Alice//stash"),
-					get_from_seed::<AccountId>("Bob//stash"),
-				],
-				true),
-				vec![],
-				None,
-				None,
-				None,
-				None
-			),
-			Alternative::LocalTestnet => ChainSpec::from_genesis(
-				"Local Testnet",
-				"local_testnet",
-				|| testnet_genesis(vec![
-					get_authority_keys_from_seed("Alice"),
-					get_authority_keys_from_seed("Bob"),
-					get_authority_keys_from_seed("Charlie"),
-					get_authority_keys_from_seed("Dave"),
-				],
-				get_from_seed::<AccountId>("Alice"),
-				vec![
-					get_from_seed::<AccountId>("Alice"),
-					get_from_seed::<AccountId>("Bob"),
-					get_from_seed::<AccountId>("Charlie"),
-					get_from_seed::<AccountId>("Dave"),
-					get_from_seed::<AccountId>("Eve"),
-					get_from_seed::<AccountId>("Ferdie"),
-					get_from_seed::<AccountId>("Alice//stash"),
-					get_from_seed::<AccountId>("Bob//stash"),
-					get_from_seed::<AccountId>("Charlie//stash"),
-					get_from_seed::<AccountId>("Dave//stash"),
-					get_from_seed::<AccountId>("Eve//stash"),
-					get_from_seed::<AccountId>("Ferdie//stash"),
-				],
-				true),
-				vec![],
-				None,
-				None,
-				None,
-				None
-			),
-		})
-	}
+    /// Get an actual chain config from one of the alternatives.
+    pub(crate) fn load(self) -> Result<ChainSpec, String> {
+        Ok(match self {
+            Alternative::Development => ChainSpec::from_genesis(
+                "Development",
+                "dev",
+                || {
+                    testnet_genesis(
+                        vec![get_authority_keys_from_seed("Alice")],
+                        get_from_seed::<AccountId>("Alice"),
+                        vec![
+                            get_from_seed::<AccountId>("Alice"),
+                            get_from_seed::<AccountId>("Bob"),
+                            get_from_seed::<AccountId>("Alice//stash"),
+                            get_from_seed::<AccountId>("Bob//stash"),
+                        ],
+                        true,
+                    )
+                },
+                vec![],
+                None,
+                None,
+                None,
+                None,
+            ),
+            Alternative::LocalTestnet => ChainSpec::from_genesis(
+                "Local Testnet",
+                "local_testnet",
+                || {
+                    testnet_genesis(
+                        vec![
+                            get_authority_keys_from_seed("Alice"),
+                            get_authority_keys_from_seed("Bob"),
+                            get_authority_keys_from_seed("Charlie"),
+                            get_authority_keys_from_seed("Dave"),
+                        ],
+                        get_from_seed::<AccountId>("Alice"),
+                        vec![
+                            get_from_seed::<AccountId>("Alice"),
+                            get_from_seed::<AccountId>("Bob"),
+                            get_from_seed::<AccountId>("Charlie"),
+                            get_from_seed::<AccountId>("Dave"),
+                            get_from_seed::<AccountId>("Eve"),
+                            get_from_seed::<AccountId>("Ferdie"),
+                            get_from_seed::<AccountId>("Alice//stash"),
+                            get_from_seed::<AccountId>("Bob//stash"),
+                            get_from_seed::<AccountId>("Charlie//stash"),
+                            get_from_seed::<AccountId>("Dave//stash"),
+                            get_from_seed::<AccountId>("Eve//stash"),
+                            get_from_seed::<AccountId>("Ferdie//stash"),
+                        ],
+                        true,
+                    )
+                },
+                vec![],
+                None,
+                None,
+                None,
+                None,
+            ),
+        })
+    }
 
-	pub(crate) fn from(s: &str) -> Option<Self> {
-		match s {
-			"dev" => Some(Alternative::Development),
-			"" | "local" => Some(Alternative::LocalTestnet),
-			_ => None,
-		}
-	}
+    pub(crate) fn from(s: &str) -> Option<Self> {
+        match s {
+            "dev" => Some(Alternative::Development),
+            "" | "local" => Some(Alternative::LocalTestnet),
+            _ => None,
+        }
+    }
 }
 
-fn session_keys(
-	grandpa: GrandpaId,
-	babe: BabeId,
-	im_online: ImOnlineId
-) -> SessionKeys {
-	SessionKeys { babe, grandpa, im_online }
+fn session_keys(grandpa: GrandpaId, babe: BabeId, im_online: ImOnlineId) -> SessionKeys {
+    SessionKeys {
+        babe,
+        grandpa,
+        im_online,
+    }
 }
 
 fn testnet_genesis(
-	initial_authorities: Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId)>,
-	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
-	_enable_println: bool
+    initial_authorities: Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId)>,
+    root_key: AccountId,
+    endowed_accounts: Vec<AccountId>,
+    _enable_println: bool,
 ) -> GenesisConfig {
-	const ENDOWMENT: u128 = 1_000_000 * POLY;
-	const STASH: u128 = 100 * POLY;
-	let desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
-	GenesisConfig {
-		system: Some(SystemConfig {
-			code: WASM_BINARY.to_vec(),
-			changes_trie_config: Default::default(),
-		}),
-		asset: Some(AssetConfig {
+    const ENDOWMENT: u128 = 1_000_000 * POLY;
+    const STASH: u128 = 100 * POLY;
+    let desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
+    GenesisConfig {
+        system: Some(SystemConfig {
+            code: WASM_BINARY.to_vec(),
+            changes_trie_config: Default::default(),
+        }),
+        asset: Some(AssetConfig {
             asset_creation_fee: 250,
             fee_collector: get_from_seed::<AccountId>("Dave"),
         }),
         identity: Some(IdentityConfig {
             owner: get_from_seed::<AccountId>("Dave"),
         }),
-        erc20: Some(ERC20Config {
-            creation_fee: 1000
+        erc20: Some(ERC20Config { creation_fee: 1000 }),
+        balances: Some(BalancesConfig {
+            balances: endowed_accounts
+                .iter()
+                .cloned()
+                .map(|k| (k, 1 << 60))
+                .collect(),
+            vesting: vec![],
         }),
-		balances: Some(BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k|(k, 1 << 60)).collect(),
-			vesting: vec![],
-		}),
-		indices: Some(IndicesConfig {
-			ids: endowed_accounts.clone(),
-		}),
-		sudo: Some(SudoConfig {
-			key: root_key,
-		}),
-		collective_Instance1: Some(CouncilConfig {
-			members: vec![],
-			phantom: Default::default(),
-		}),
-		collective_Instance2: Some(TechnicalCommitteeConfig {
-			members: vec![],
-			phantom: Default::default(),
-		}),
-		elections: Some(ElectionsConfig {
-			members: endowed_accounts.iter()
-				.filter(|&endowed| initial_authorities.iter()
-					.find(|&(_, controller, _, _, _)| controller == endowed)
-					.is_none()
-				).map(|a| (a.clone(), 1000000)).collect(),
-			presentation_duration: 10 * MINUTES,
-			term_duration: 1 * DAYS,
-			desired_seats,
-		}),
-		session: Some(SessionConfig {
-			keys: initial_authorities.iter().map(|x| (
-				x.0.clone(),
-				session_keys(x.2.clone(), x.3.clone(), x.4.clone()),
-			)).collect::<Vec<_>>(),
-		}),
-		membership_Instance1: Some(Default::default()),
-		staking: Some(StakingConfig {
-			current_era: 0,
-			minimum_validator_count: 1,
-			validator_count: 2,
-			stakers: initial_authorities.iter()
-				.map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
-				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-			force_era: Forcing::NotForcing,
-			slash_reward_fraction: Perbill::from_percent(10),
-			.. Default::default()
-		}),
-		democracy: Some(DemocracyConfig::default()),
-		im_online: Some(Default::default()),
-		babe: Some(Default::default()),
-		grandpa: Some(Default::default()),
-	}
+        indices: Some(IndicesConfig {
+            ids: endowed_accounts.clone(),
+        }),
+        sudo: Some(SudoConfig { key: root_key }),
+        collective_Instance1: Some(CouncilConfig {
+            members: vec![],
+            phantom: Default::default(),
+        }),
+        collective_Instance2: Some(TechnicalCommitteeConfig {
+            members: vec![],
+            phantom: Default::default(),
+        }),
+        elections: Some(ElectionsConfig {
+            members: endowed_accounts
+                .iter()
+                .filter(|&endowed| {
+                    initial_authorities
+                        .iter()
+                        .find(|&(_, controller, _, _, _)| controller == endowed)
+                        .is_none()
+                })
+                .map(|a| (a.clone(), 1000000))
+                .collect(),
+            presentation_duration: 10 * MINUTES,
+            term_duration: 1 * DAYS,
+            desired_seats,
+        }),
+        session: Some(SessionConfig {
+            keys: initial_authorities
+                .iter()
+                .map(|x| {
+                    (
+                        x.0.clone(),
+                        session_keys(x.2.clone(), x.3.clone(), x.4.clone()),
+                    )
+                })
+                .collect::<Vec<_>>(),
+        }),
+        membership_Instance1: Some(Default::default()),
+        staking: Some(StakingConfig {
+            current_era: 0,
+            minimum_validator_count: 1,
+            validator_count: 2,
+            stakers: initial_authorities
+                .iter()
+                .map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
+                .collect(),
+            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+            force_era: Forcing::NotForcing,
+            slash_reward_fraction: Perbill::from_percent(10),
+            ..Default::default()
+        }),
+        democracy: Some(DemocracyConfig::default()),
+        im_online: Some(Default::default()),
+        babe: Some(Default::default()),
+        grandpa: Some(Default::default()),
+    }
 }

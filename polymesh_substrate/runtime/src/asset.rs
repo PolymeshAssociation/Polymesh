@@ -8,12 +8,12 @@ use crate::utils;
 use parity_codec::Encode;
 use rstd::prelude::*;
 //use codec::Codec;
-use sr_primitives::traits::{CheckedAdd, CheckedSub, Convert};
+use core::convert::TryInto;
 use session;
+use sr_primitives::traits::{CheckedAdd, CheckedSub, Convert};
 use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
-use core::convert::TryInto;
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 

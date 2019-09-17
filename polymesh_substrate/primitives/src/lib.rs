@@ -1,7 +1,6 @@
 //! Shareable types.
 
 #![warn(missing_docs)]
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use runtime_primitives::{generic, AnySignature};
