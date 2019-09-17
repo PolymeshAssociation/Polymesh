@@ -403,9 +403,9 @@ decl_module! {
                 .ok_or("overflow in calculating balance")?;
 
             // verify transfer check
-            Self::_is_valid_transfer(ticker.clone(), did.clone(), Vec::<u8>::default(), value)?;
+            ensure!(Self::_is_valid_transfer(ticker.clone(), did.clone(), Vec::<u8>::default(), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
-            //Decrease total suply
+            //Decrease total supply
             let mut token = Self::token_details(ticker.clone());
             token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
 
@@ -418,6 +418,52 @@ decl_module! {
 
             Ok(())
 
+        }
+
+        pub fn redeem_from(_origin, did: Vec<u8>, _ticker: Vec<u8>, from_did: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            let sender = ensure_signed(_origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
+            // Granularity check
+            ensure!(
+                Self::check_granularity(_ticker.clone(), value),
+                "Invalid granularity"
+                );
+            ensure!(<BalanceOf<T>>::exists((ticker.clone(), did.clone())), "Account does not own this token");
+            let burner_balance = Self::balance_of((ticker.clone(), did.clone()));
+            ensure!(burner_balance >= value, "Not enough balance.");
+
+            // Reduce sender's balance
+            let updated_burner_balance = burner_balance
+                .checked_sub(&value)
+                .ok_or("overflow in calculating balance")?;
+
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            ensure!(<Allowance<T>>::exists((ticker.clone(), from_did.clone(), did.clone())), "Allowance does not exist");
+            let allowance = Self::allowance((ticker.clone(), from_did.clone(), did.clone()));
+            ensure!(allowance >= value, "Not enough allowance");
+
+            ensure!(Self::_is_valid_transfer(ticker.clone(), from_did.clone(), Vec::<u8>::default(), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+
+            let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
+
+            //Decrease total suply
+            let mut token = Self::token_details(ticker.clone());
+            token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
+
+            Self::_update_checkpoint(ticker.clone(), did.clone(), burner_balance);
+
+            <Allowance<T>>::insert((ticker.clone(), from_did.clone(), did.clone()), updated_allowance);
+            <BalanceOf<T>>::insert((ticker.clone(), did.clone()), updated_burner_balance);
+            <Tokens<T>>::insert(ticker.clone(), token);
+
+            Self::deposit_event(RawEvent::Redeemed(ticker.clone(), did.clone(), value));
+            Self::deposit_event(RawEvent::Approval(ticker.clone(), from_did.clone(), did.clone(), value));
+
+            Ok(())
         }
 
         /// Forces a redemption of an account's tokens. Can only be called by token owner
