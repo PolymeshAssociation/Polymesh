@@ -6,12 +6,13 @@ use crate::percentage_tm;
 use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 use rstd::prelude::*;
-//use parity_codec::Codec;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedSub, Convert};
+//use codec::Codec;
+use sr_primitives::traits::{CheckedAdd, CheckedSub, Convert};
 use session;
-use support::traits::{Currency, ExistenceRequirement, WithdrawReason};
-use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
+use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
+use core::convert::TryInto;
 
 type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
@@ -32,12 +33,10 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     //type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>;
     type Currency: Currency<Self::AccountId>;
-    // Handler for the unbalanced decrease when charging fee
-    type CurrencyToBalance: Convert<FeeOf<Self>, <Self as balances::Trait>::Balance>;
 }
 
 // struct to store the token details
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U, V> {
     pub name: Vec<u8>,
     pub total_supply: U,
@@ -72,7 +71,7 @@ decl_storage! {
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // initialize the default event for this module
-        fn deposit_event<T>() = default;
+        fn deposit_event() = default;
 
         // initializes a new token
         // takes a name, ticker, total supply for the token
@@ -94,22 +93,23 @@ decl_module! {
 
             ensure!(<registry::Module<T>>::get(ticker.clone()).is_none(), "Ticker is already taken");
 
-            // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
-            let validators = <session::Module<T>>::validators();
-            let fee = Self::asset_creation_fee();
-            let validator_len;
-            if validators.len() < 1 {
-                validator_len = <FeeOf<T> as As<usize>>::sa(1);
-            } else {
-                validator_len = <FeeOf<T> as As<usize>>::sa(validators.len());
-            }
-            let proportional_fee = fee / validator_len;
-            let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
-            for v in &validators {
-                <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
-            }
-            let remainder_fee = fee - (proportional_fee * validator_len);
-            let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+            // TODO Fix this
+            // // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
+            // let validators = <session::Module<T>>::validators();
+            // let fee = Self::asset_creation_fee();
+            // let validator_len:u128;
+            // if validators.len() < 1 {
+            //     validator_len = 1;
+            // } else {
+            //     validator_len = validators.len().try_into().unwrap();
+            // }
+            // let proportional_fee = fee / validator_len;
+            // let proportional_fee_in_balance = proportional_fee.into();
+            // for v in &validators {
+            //     <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
+            // }
+            // let remainder_fee = fee - (proportional_fee * validator_len);
+            // let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
             let token = SecurityToken {
                 name,
@@ -126,7 +126,7 @@ decl_module! {
             <Tokens<T>>::insert(ticker.clone(), token);
             <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), total_supply);
             Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, sender, granularity, 18));
-            runtime_io::print("Initialized!!!");
+            sr_primitives::print("Initialized!!!");
 
             Ok(())
         }
@@ -453,18 +453,18 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn _create_checkpoint(ticker: Vec<u8>) -> Result {
-        if <TotalCheckpoints<T>>::exists(ticker.clone()) {
+        if <TotalCheckpoints>::exists(ticker.clone()) {
             let mut checkpoint_count = Self::total_checkpoints_of(ticker.clone());
             checkpoint_count = checkpoint_count
                 .checked_add(1)
                 .ok_or("overflow in adding checkpoint")?;
-            <TotalCheckpoints<T>>::insert(ticker.clone(), checkpoint_count);
+            <TotalCheckpoints>::insert(ticker.clone(), checkpoint_count);
             <CheckpointTotalSupply<T>>::insert(
                 (ticker.clone(), checkpoint_count),
                 Self::token_details(ticker.clone()).total_supply,
             );
         } else {
-            <TotalCheckpoints<T>>::insert(ticker.clone(), 1);
+            <TotalCheckpoints>::insert(ticker.clone(), 1);
             <CheckpointTotalSupply<T>>::insert(
                 (ticker.clone(), 1),
                 Self::token_details(ticker.clone()).total_supply,
@@ -478,7 +478,7 @@ impl<T: Trait> Module<T> {
         user: T::AccountId,
         user_balance: T::TokenBalance,
     ) -> Result {
-        if <TotalCheckpoints<T>>::exists(ticker.clone()) {
+        if <TotalCheckpoints>::exists(ticker.clone()) {
             let checkpoint_count = Self::total_checkpoints_of(ticker.clone());
             if !<CheckpointBalance<T>>::exists((ticker.clone(), user.clone(), checkpoint_count)) {
                 <CheckpointBalance<T>>::insert(
@@ -543,13 +543,13 @@ mod tests {
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
     use primitives::{Blake2Hasher, H256};
-    use runtime_io::with_externalities;
-    use runtime_primitives::{
+    use sr_io::with_externalities;
+    use sr_primitives::{
         testing::{Digest, DigestItem, Header, UintAuthorityId},
         traits::{BlakeTwo256, IdentityLookup},
         BuildStorage,
     };
-    use support::{assert_noop, assert_ok, impl_outer_origin};
+    use srml_support::{assert_noop, assert_ok, impl_outer_origin};
     use yaml_rust::{Yaml, YamlLoader};
 
     use std::{
@@ -570,14 +570,6 @@ mod tests {
     // configuration traits of modules we want to use.
     #[derive(Clone, Eq, PartialEq)]
     pub struct Test;
-
-    pub struct CurrencyToBalanceHandler;
-
-    impl Convert<u128, u128> for CurrencyToBalanceHandler {
-        fn convert(x: u128) -> u128 {
-            x
-        }
-    }
 
     impl system::Trait for Test {
         type Origin = Origin;
@@ -654,7 +646,6 @@ mod tests {
     impl Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
-        type CurrencyToBalance = CurrencyToBalanceHandler;
     }
     type Asset = Module<Test>;
 
@@ -673,7 +664,7 @@ mod tests {
     }
 
     /// Build a genesis identity instance owned by account No. 1
-    fn identity_owned_by_1() -> runtime_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by_1() -> sr_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::<Test>::default()
             .build_storage()
             .unwrap()
@@ -688,7 +679,7 @@ mod tests {
     }
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by(id: u64) -> runtime_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::<Test>::default()
             .build_storage()
             .unwrap()

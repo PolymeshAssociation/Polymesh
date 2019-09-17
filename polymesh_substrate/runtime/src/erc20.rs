@@ -8,8 +8,8 @@ use crate::utils;
 
 use rstd::prelude::*;
 
-use runtime_primitives::traits::{CheckedAdd, CheckedSub};
-use support::{
+use sr_primitives::traits::{CheckedAdd, CheckedSub};
+use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
     ensure,
@@ -29,7 +29,7 @@ pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trai
 }
 
 // struct to store the token details
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct ERC20Token<U, V> {
     pub ticker: Vec<u8>,
     pub total_supply: U,
@@ -55,7 +55,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
+        fn deposit_event() = default;
 
         pub fn create_token(origin, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
             let sender = ensure_signed(origin)?;
@@ -82,7 +82,7 @@ decl_module! {
             // Let the owner distribute the whole supply of the token
             <BalanceOf<T>>::insert((ticker.clone(), sender.clone()), total_supply);
 
-            runtime_io::print("Initialized a new token");
+            sr_primitives::print("Initialized a new token");
 
             Self::deposit_event(RawEvent::TokenCreated(ticker.clone(), sender, total_supply));
 
@@ -205,13 +205,13 @@ mod tests {
      *    use super::*;
      *
      *    use primitives::{Blake2Hasher, H256};
-     *    use runtime_io::with_externalities;
-     *    use runtime_primitives::{
+     *    use sr_io::with_externalities;
+     *    use sr_primitives::{
      *        testing::{Digest, DigestItem, Header},
      *        traits::{BlakeTwo256, IdentityLookup},
      *        BuildStorage,
      *    };
-     *    use support::{assert_ok, impl_outer_origin};
+     *    use srml_support::{assert_ok, impl_outer_origin};
      *
      *    impl_outer_origin! {
      *        pub enum Origin for Test {}
@@ -242,7 +242,7 @@ mod tests {
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
-     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
      *        system::GenesisConfig::<Test>::default()
      *            .build_storage()
      *            .unwrap()

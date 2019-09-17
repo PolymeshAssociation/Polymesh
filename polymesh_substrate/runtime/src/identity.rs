@@ -1,12 +1,12 @@
 use rstd::prelude::*;
-//use parity_codec::Codec;
+//use codec::Codec;
 
 pub static DID_PREFIX: &'static str = "did:poly:";
 use crate::balances;
 
-use parity_codec::Encode;
-use runtime_primitives::traits::{CheckedAdd, CheckedSub};
-use support::{
+use codec::Encode;
+use sr_primitives::traits::{CheckedAdd, CheckedSub};
+use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
     ensure,
@@ -15,14 +15,14 @@ use support::{
 };
 use system::{self, ensure_signed};
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Issuer<U> {
     account: U,
     access_level: u16,
     active: bool,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Investor<U> {
     pub account: U,
     pub access_level: u16,
@@ -30,14 +30,14 @@ pub struct Investor<U> {
     pub jurisdiction: u16,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct DidRecord<U> {
     pub master_key: Vec<u8>,
     pub signing_keys: Vec<Vec<u8>>,
     pub balance: U,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
     topic: u32,
     schema: u32,
@@ -45,7 +45,7 @@ pub struct Claim<U> {
     expiry: U,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimRecord<U> {
     claim: Claim<U>,
     revoked: bool,
@@ -92,7 +92,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
+        fn deposit_event() = default;
 
         fn create_issuer(origin,_issuer: T::AccountId) -> Result {
             let sender = ensure_signed(origin)?;
@@ -117,7 +117,7 @@ decl_module! {
 
         fn set_charge_did(origin, charge_did: bool) -> Result {
             let sender = ensure_signed(origin)?;
-            <ChargeDid<T>>::insert(sender.encode(), charge_did);
+            <ChargeDid>::insert(sender.encode(), charge_did);
             Ok(())
         }
 
@@ -135,13 +135,13 @@ decl_module! {
             validate_did(did.as_slice())?;
 
             for key in &signing_keys {
-                if <SigningKeyDid<T>>::exists(key.clone()) {
-                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "One signing key can only belong to one DID");
+                if <SigningKeyDid>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid>::get(key) == did.clone(), "One signing key can only belong to one DID");
                 }
             }
 
             for key in &signing_keys {
-                <SigningKeyDid<T>>::insert(key, did.clone());
+                <SigningKeyDid>::insert(key, did.clone());
             }
 
             let record = DidRecord {
@@ -169,13 +169,13 @@ decl_module! {
             ensure!(sender_key == record.master_key, "Sender must hold the master key");
 
             for key in &additional_keys {
-                if <SigningKeyDid<T>>::exists(key.clone()) {
-                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "One signing key can only belong to one DID");
+                if <SigningKeyDid>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid>::get(key) == did.clone(), "One signing key can only belong to one DID");
                 }
             }
 
             for key in &additional_keys {
-                <SigningKeyDid<T>>::insert(key, did.clone());
+                <SigningKeyDid>::insert(key, did.clone());
             }
 
             <DidRecords<T>>::mutate(did.clone(),
@@ -210,13 +210,13 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
 
             for key in &keys_to_remove {
-                if <SigningKeyDid<T>>::exists(key.clone()) {
-                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "Signing key does not belong to this DID");
+                if <SigningKeyDid>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid>::get(key) == did.clone(), "Signing key does not belong to this DID");
                 }
             }
 
             for key in &keys_to_remove {
-                <SigningKeyDid<T>>::remove(key);
+                <SigningKeyDid>::remove(key);
             }
 
             <DidRecords<T>>::mutate(did.clone(),
@@ -322,7 +322,7 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
 
-            <ClaimIssuers<T>>::mutate(did.clone(), |old_claim_issuers| {
+            <ClaimIssuers>::mutate(did.clone(), |old_claim_issuers| {
                 if !old_claim_issuers.contains(&did_issuer) {
                     old_claim_issuers.push(did_issuer.clone());
                 }
@@ -345,7 +345,7 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
 
-            <ClaimIssuers<T>>::mutate(did.clone(), |old_claim_issuers| {
+            <ClaimIssuers>::mutate(did.clone(), |old_claim_issuers| {
                 *old_claim_issuers = old_claim_issuers
                     .iter()
                     .cloned()
@@ -582,7 +582,7 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn is_claim_issuer(did: Vec<u8>, did_issuer: &Vec<u8>) -> bool {
-        <ClaimIssuers<T>>::get(did).contains(&did_issuer)
+        <ClaimIssuers>::get(did).contains(&did_issuer)
     }
 
     pub fn is_signing_key(did: Vec<u8>, key: &Vec<u8>) -> bool {
@@ -628,14 +628,14 @@ pub trait IdentityTrait<T> {
 
 impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
     fn charge_poly(signing_key: Vec<u8>, amount: T::Balance) -> bool {
-        Self::charge_poly(<SigningKeyDid<T>>::get(signing_key), amount)
+        Self::charge_poly(<SigningKeyDid>::get(signing_key), amount)
     }
 
     fn signing_key_charge_did(signing_key: Vec<u8>) -> bool {
-        if <SigningKeyDid<T>>::exists(signing_key.clone()) {
-            if Self::is_signing_key(<SigningKeyDid<T>>::get(signing_key.clone()), &signing_key) {
-                if <ChargeDid<T>>::exists(signing_key.clone()) {
-                    return <ChargeDid<T>>::get(signing_key.clone());
+        if <SigningKeyDid>::exists(signing_key.clone()) {
+            if Self::is_signing_key(<SigningKeyDid>::get(signing_key.clone()), &signing_key) {
+                if <ChargeDid>::exists(signing_key.clone()) {
+                    return <ChargeDid>::get(signing_key.clone());
                 }
             }
         }
@@ -650,13 +650,13 @@ mod tests {
      *    use super::*;
      *
      *    use primitives::{Blake2Hasher, H256};
-     *    use runtime_io::with_externalities;
-     *    use runtime_primitives::{
+     *    use sr_io::with_externalities;
+     *    use sr_primitives::{
      *        testing::{Digest, DigestItem, Header},
      *        traits::{BlakeTwo256, IdentityLookup},
      *        BuildStorage,
      *    };
-     *    use support::{assert_ok, impl_outer_origin};
+     *    use srml_support::{assert_ok, impl_outer_origin};
      *
      *    impl_outer_origin! {
      *        pub enum Origin for Test {}
@@ -687,7 +687,7 @@ mod tests {
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
-     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
      *        system::GenesisConfig::<Test>::default()
      *            .build_storage()
      *            .unwrap()

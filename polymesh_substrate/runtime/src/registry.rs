@@ -1,10 +1,10 @@
 //! A runtime module providing a unique ticker registry
 
-use parity_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use rstd::prelude::*;
-
+use system::ensure_signed;
 use crate::utils;
-use support::{decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use srml_support::{decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 
 #[repr(u32)]
 #[derive(Clone, Debug, Eq, PartialEq, Encode, Decode)]
@@ -43,13 +43,14 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        pub fn printTickerAvailability(ticker: Vec<u8>) -> Result {
+        pub fn printTickerAvailability(origin, ticker: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(ticker.as_slice());
 
             if <Tokens<T>>::exists(ticker.clone()) {
-                runtime_io::print("Ticker not available");
+                sr_primitives::print("Ticker not available");
             } else {
-                runtime_io::print("Ticker available");
+                sr_primitives::print("Ticker available");
             }
 
             Ok(())
@@ -87,13 +88,13 @@ mod tests {
     use super::*;
 
     use primitives::{Blake2Hasher, H256};
-    use runtime_io::with_externalities;
-    use runtime_primitives::{
+    use sr_io::with_externalities;
+    use sr_primitives::{
         testing::{Digest, DigestItem, Header},
         traits::{BlakeTwo256, IdentityLookup},
         BuildStorage,
     };
-    use support::{assert_ok, impl_outer_origin};
+    use srml_support::{assert_ok, impl_outer_origin};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -122,7 +123,7 @@ mod tests {
 
     // This function basically just builds a genesis storage key/value store according to
     // our desired mockup.
-    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
         system::GenesisConfig::<Test>::default()
             .build_storage()
             .unwrap()

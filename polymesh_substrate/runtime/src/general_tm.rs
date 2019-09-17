@@ -3,8 +3,7 @@ use crate::identity::{self, InvestorList};
 use crate::utils;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::As;
-use support::{
+use srml_support::{
     decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
 };
 use system::{self, ensure_signed};
@@ -18,7 +17,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
     type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Whitelist<U, V> {
     investor: V,
     can_send_after: U,
@@ -44,7 +43,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
+        fn deposit_event() = default;
 
         pub fn add_to_whitelist(origin, _ticker: Vec<u8>, whitelist_id: u32, _investor: T::AccountId, expiry: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
@@ -65,13 +64,13 @@ decl_module! {
 
             // TODO: Make sure we are only increasing the count if it's a new entry and not just an update of an existing entry
             let new_entries_count = entries_count.checked_add(1).ok_or("overflow in calculating next entry count")?;
-            <WhitelistEntriesCount<T>>::insert((ticker.clone(), whitelist_id),new_entries_count);
+            <WhitelistEntriesCount>::insert((ticker.clone(), whitelist_id),new_entries_count);
 
             // If this is the first entry for this whitelist, increase the whitelists count so then we can loop through them.
             if new_entries_count == 1 {
                 let whitelist_count = Self::whitelist_count();
                 let new_whitelist_count = whitelist_count.checked_add(1).ok_or("overflow in calculating next whitelist count")?;
-                <WhitelistCount<T>>::put(new_whitelist_count);
+                <WhitelistCount>::put(new_whitelist_count);
             }
 
             whitelists_for_token.push(whitelist.clone());
@@ -81,7 +80,7 @@ decl_module! {
 
             <WhitelistForTokenAndAddress<T>>::insert((ticker.clone(), whitelist_id, _investor),whitelist);
 
-            runtime_io::print("Created restriction!!!");
+            sr_primitives::print("Created restriction!!!");
             //<general_tm::Module<T>>::add_to_whitelist(sender,token_id,_investor,expiry);
 
             Ok(())
@@ -125,7 +124,7 @@ impl<T: Trait> Module<T> {
                 Self::is_whitelisted(_ticker.clone(), to).is_ok(),
                 "to account is not whitelisted"
             );
-            runtime_io::print("GTM: Passed from the issuance case");
+            sr_primitives::print("GTM: Passed from the issuance case");
             return Ok(());
         } else if to == T::AccountId::default() {
             // burn case
@@ -137,7 +136,7 @@ impl<T: Trait> Module<T> {
                 Self::is_whitelisted(_ticker.clone(), from).is_ok(),
                 "from account is not whitelisted"
             );
-            runtime_io::print("GTM: Passed from the burn case");
+            sr_primitives::print("GTM: Passed from the burn case");
             return Ok(());
         } else {
             // loop through existing whitelists
@@ -156,16 +155,16 @@ impl<T: Trait> Module<T> {
                 let whitelist_for_to =
                     Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
 
-                if (whitelist_for_from.can_send_after > T::Moment::sa(0)
+                if (whitelist_for_from.can_send_after > 0.into()
                     && now >= whitelist_for_from.can_send_after)
-                    && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
+                    && (whitelist_for_to.can_receive_after > 0.into()
                         && now > whitelist_for_to.can_receive_after)
                 {
                     return Ok(());
                 }
             }
         }
-        runtime_io::print("GTM: Not going through the restriction");
+        sr_primitives::print("GTM: Not going through the restriction");
         Err("Cannot Transfer: General TM restrictions not satisfied")
     }
 
@@ -183,7 +182,7 @@ impl<T: Trait> Module<T> {
             let whitelist_for_holder =
                 Self::whitelist_for_restriction((ticker.clone(), x, holder.clone()));
 
-            if whitelist_for_holder.can_send_after > T::Moment::sa(0)
+            if whitelist_for_holder.can_send_after > 0.into()
                 && now >= whitelist_for_holder.can_send_after
             {
                 return Ok(());
@@ -209,13 +208,13 @@ mod tests {
      *    use super::*;
      *
      *    use primitives::{Blake2Hasher, H256};
-     *    use runtime_io::with_externalities;
-     *    use runtime_primitives::{
+     *    use sr_io::with_externalities;
+     *    use sr_primitives::{
      *        testing::{Digest, DigestItem, Header},
      *        traits::{BlakeTwo256, IdentityLookup},
      *        BuildStorage,
      *    };
-     *    use support::{assert_ok, impl_outer_origin};
+     *    use srml_support::{assert_ok, impl_outer_origin};
      *
      *    impl_outer_origin! {
      *        pub enum Origin for Test {}
@@ -246,7 +245,7 @@ mod tests {
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
-     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
      *        system::GenesisConfig::<Test>::default()
      *            .build_storage()
      *            .unwrap()

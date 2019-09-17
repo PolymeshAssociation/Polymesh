@@ -8,8 +8,8 @@ use rstd::prelude::*;
 
 /// For more guidance on Substrate modules, see the example module
 /// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
-use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use support::{
+use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
     ensure,
@@ -27,7 +27,7 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Dividend<U, V> {
     /// Total amount to be distributed
     amount: U,
@@ -71,7 +71,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
+        fn deposit_event() = default;
 
         /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
         /// None in payout_currency means POLY payout.
@@ -91,8 +91,7 @@ decl_module! {
 
             // Check if sender has enough funds in payout currency
             let balance = if payout_ticker.is_empty() {
-                // Check for POLY
-                <T::TokenBalance as As<T::Balance>>::sa(<balances::FreeBalance<T>>::get(sender.clone()))
+                <T as utils::Trait>::balance_to_token_balance(<balances::FreeBalance<T>>::get(sender.clone()))
             } else {
                 // Check for token
                 <erc20::BalanceOf<T>>::get((payout_ticker.clone(), sender.clone()))
@@ -103,7 +102,7 @@ decl_module! {
             let checkpoint_id = if checkpoint_id > 0 {
                 checkpoint_id
             } else {
-                let count = <asset::TotalCheckpoints<T>>::get(ticker.clone());
+                let count = <asset::TotalCheckpoints>::get(ticker.clone());
                 if count > 0 {
                     count
                 } else {
@@ -139,7 +138,7 @@ decl_module! {
             if payout_ticker.is_empty() {
                 let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
                     &sender,
-                    <T::TokenBalance as As<T::Balance>>::as_(amount),
+                    <T as utils::Trait>::token_balance_to_balance(amount),
                     WithdrawReason::Reserve,
                     ExistenceRequirement::KeepAlive)?;
             } else {
@@ -204,8 +203,8 @@ decl_module! {
             } else {
                 let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(
                     &sender,
-                    <T::TokenBalance as As<T::Balance>>::as_(entry.amount)
-                    )?;
+                    <T as utils::Trait>::token_balance_to_balance(entry.amount)
+                )?;
             }
             Ok(())
         }
@@ -296,9 +295,10 @@ decl_module! {
                     })?;
 
             } else {
-                // Convert to balances::Trait::Balance
-                let share = <T::TokenBalance as As<T::Balance>>::as_(share);
-                let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(&sender, share)?;
+                let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(
+                    &sender,
+                    <T as utils::Trait>::token_balance_to_balance(share)
+                )?;
             }
             // Create payout entry
             <UserPayoutCompleted<T>>::insert((sender.clone(), ticker.clone(), dividend_id), true);
@@ -337,13 +337,13 @@ decl_module! {
             } else {
                 let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(
                     &sender,
-                    <T::TokenBalance as As<T::Balance>>::as_(entry.amount_left)
-                    )?;
+                    <T as utils::Trait>::token_balance_to_balance(entry.amount_left)
+                )?;
             }
 
             // Set paid_out to maximum value, flip remaining_claimed
             <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
-                entry.amount_left = <<T as utils::Trait>::TokenBalance as As<u64>>::sa(0);
+                entry.amount_left = 0.into();
                 entry.remaining_claimed = true;
                 Ok(())
             })?;
@@ -382,13 +382,13 @@ impl<T: Trait> Module<T> {
         ticker: Vec<u8>,
         d: Dividend<T::TokenBalance, T::Moment>,
     ) -> core::result::Result<u32, &'static str> {
-        let old_count = <DividendCount<T>>::get(ticker.clone());
+        let old_count = <DividendCount>::get(ticker.clone());
         let new_count = old_count
             .checked_add(1)
             .ok_or("Could not add 1 to dividend count")?;
 
         <Dividends<T>>::insert((ticker.clone(), old_count), d);
-        <DividendCount<T>>::insert(ticker.clone(), new_count);
+        <DividendCount>::insert(ticker.clone(), new_count);
 
         Ok(old_count)
     }
@@ -415,13 +415,13 @@ mod tests {
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
     use primitives::{Blake2Hasher, H256};
-    use runtime_io::with_externalities;
-    use runtime_primitives::{
+    use sr_io::with_externalities;
+    use sr_primitives::{
         testing::{Digest, DigestItem, Header, UintAuthorityId},
         traits::{BlakeTwo256, Convert, IdentityLookup},
         BuildStorage,
     };
-    use support::{assert_ok, impl_outer_origin};
+    use srml_support::{assert_ok, impl_outer_origin};
 
     use std::{
         collections::HashMap,
@@ -591,7 +591,7 @@ mod tests {
     type ERC20 = erc20::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by(id: u64) -> runtime_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::<Test>::default()
             .build_storage()
             .unwrap()

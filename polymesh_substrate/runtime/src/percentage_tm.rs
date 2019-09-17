@@ -3,8 +3,8 @@ use crate::exemption;
 use crate::utils;
 
 use rstd::prelude::*;
-use runtime_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul};
-use support::{
+use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul};
+use srml_support::{
     decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
 };
 use system::{self, ensure_signed};
@@ -36,7 +36,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
+        fn deposit_event() = default;
 
         fn toggle_maximum_percentage_restriction(origin, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
@@ -46,14 +46,14 @@ decl_module! {
 
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
             //SATYAM: TODO: Add the decimal restriction
-            <MaximumPercentageEnabledForToken<T>>::insert(ticker.clone(), max_percentage);
+            <MaximumPercentageEnabledForToken>::insert(ticker.clone(), max_percentage);
             // Emit an event with values (Ticker of asset, max percentage, restriction enabled or not)
             Self::deposit_event(RawEvent::TogglePercentageRestriction(ticker, max_percentage, max_percentage != 0));
 
             if max_percentage != 0 {
-                runtime_io::print("Maximum percentage restriction enabled!");
+                sr_primitives::print("Maximum percentage restriction enabled!");
             } else {
-                runtime_io::print("Maximum percentage restriction disabled!");
+                sr_primitives::print("Maximum percentage restriction disabled!");
             }
 
             Ok(())
@@ -98,13 +98,13 @@ impl<T: Trait> Module<T> {
                 .ok_or("unsafe percentage multiplication")?;
 
             if percentageBalance > allowed_token_amount {
-                runtime_io::print(
+                sr_primitives::print(
                     "It is failing because it is not validating the PercentageTM restrictions",
                 );
                 return Err("Cannot Transfer: Percentage TM restrictions not satisfied");
             }
         }
-        runtime_io::print("It is passing thorugh the PercentageTM");
+        sr_primitives::print("It is passing thorugh the PercentageTM");
         Ok(())
     }
 }
@@ -117,13 +117,13 @@ mod tests {
     // use crate::asset::SecurityToken;
     // use lazy_static::lazy_static;
     // use primitives::{Blake2Hasher, H256};
-    // use runtime_io::with_externalities;
-    // use runtime_primitives::{
+    // use sr_io::with_externalities;
+    // use sr_primitives::{
     //     testing::{Digest, DigestItem, Header},
     //     traits::{BlakeTwo256, IdentityLookup},
     //     BuildStorage,
     // };
-    // use support::{assert_noop, assert_ok, impl_outer_origin};
+    // use srml_support::{assert_noop, assert_ok, impl_outer_origin};
 
     // use std::{
     //     collections::HashMap,
@@ -187,7 +187,7 @@ mod tests {
     // }
     // // This function basically just builds a genesis storage key/value store according to
     // // our desired mockup.
-    // fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+    // fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
     //     system::GenesisConfig::<Test>::default()
     //         .build_storage()
     //         .unwrap()

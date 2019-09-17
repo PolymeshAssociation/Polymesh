@@ -2,7 +2,7 @@ use crate::asset::{self, AssetTrait};
 use crate::utils;
 
 use rstd::prelude::*;
-use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::ensure_signed;
 
 /// The module's configuration trait.
@@ -26,7 +26,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
+        fn deposit_event() = default;
 
         fn modify_exemption_list(origin, _ticker: Vec<u8>, _tm: u16, asset_holder: T::AccountId, exempted: bool) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
@@ -70,13 +70,13 @@ mod tests {
     // use super::*;
 
     // use primitives::{Blake2Hasher, H256};
-    // use runtime_io::with_externalities;
-    // use runtime_primitives::{
+    // use sr_io::with_externalities;
+    // use sr_primitives::{
     //     testing::{Digest, DigestItem, Header},
     //     traits::{BlakeTwo256, IdentityLookup},
     //     BuildStorage,
     // };
-    // use support::{assert_ok, impl_outer_origin};
+    // use srml_support::{assert_ok, impl_outer_origin};
 
     // impl_outer_origin! {
     //     pub enum Origin for Test {}
@@ -107,7 +107,7 @@ mod tests {
 
     // // This function basically just builds a genesis storage key/value store according to
     // // our desired mockup.
-    // fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+    // fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
     //     system::GenesisConfig::<Test>::default()
     //         .build_storage()
     //         .unwrap()

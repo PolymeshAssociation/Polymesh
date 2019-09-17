@@ -3,12 +3,12 @@ use crate::balances;
 use crate::erc20::{self, ERC20Trait};
 use crate::general_tm;
 use crate::utils;
-use support::traits::Currency;
+use srml_support::traits::Currency;
 
 use core::convert::TryInto;
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
@@ -22,7 +22,7 @@ pub trait Trait:
     type ERC20Trait: erc20::ERC20Trait<Self::AccountId, Self::TokenBalance>;
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct STO<U, V, W> {
     beneficiary: U,
     cap: V,
@@ -33,7 +33,7 @@ pub struct STO<U, V, W> {
     active: bool,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Investment<U, V, W> {
     investor: U,
     amount_paid: V,
@@ -73,7 +73,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
+        fn deposit_event() = default;
 
         pub fn launch_sto(
             origin, _ticker: Vec<u8>,
@@ -87,11 +87,11 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             ensure!(Self::is_owner(ticker.clone(),sender.clone()),"Sender must be the token owner");
-
+            let sold:T::TokenBalance = 0.into();
             let sto = STO {
                 beneficiary,
                 cap,
-                sold:<T::TokenBalance as As<u64>>::sa(0),
+                sold,
                 rate,
                 start_date,
                 end_date,
@@ -107,17 +107,17 @@ decl_module! {
             let new_token_count = token_count.checked_add(1).ok_or("overflow new token count value")?;
 
             <StosByToken<T>>::insert((ticker.clone(),sto_count), sto);
-            <StoCount<T>>::insert(ticker.clone(),new_sto_count);
+            <StoCount>::insert(ticker.clone(),new_sto_count);
 
             if erc20_ticker.len() > 0 {
                 // Addition of the ERC20 token as the fund raised type.
-                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_count, erc20_ticker.clone()), new_token_count);
-                <AllowedTokens<T>>::insert((ticker.clone(), sto_count, new_token_count), erc20_ticker.clone());
-                <TokensCountForSto<T>>::insert((ticker.clone(), sto_count), new_token_count);
+                <TokenIndexForSTO>::insert((ticker.clone(), sto_count, erc20_ticker.clone()), new_token_count);
+                <AllowedTokens>::insert((ticker.clone(), sto_count, new_token_count), erc20_ticker.clone());
+                <TokensCountForSto>::insert((ticker.clone(), sto_count), new_token_count);
 
                 Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, erc20_ticker, sto_count, true));
             }
-            runtime_io::print("Capped STOlaunched!!!");
+            sr_primitives::print("Capped STOlaunched!!!");
 
             Ok(())
         }
@@ -134,10 +134,10 @@ decl_module! {
 
             // Get the invested amount of investment currency and amount of ST tokens minted as a return of investment
             let token_amount_value = Self::_get_invested_amount_and_tokens(
-                <T::TokenBalance as As<T::Balance>>::sa(value),
+                <T as utils::Trait>::balance_to_token_balance(value),
                 selected_sto.clone()
             )?;
-            let allowed_value = <T::Balance as As<_>>::sa((<T as utils::Trait>::as_u128(token_amount_value.1)).try_into().unwrap());
+            let allowed_value = <T as utils::Trait>::token_balance_to_balance(token_amount_value.1);
 
             selected_sto.sold = selected_sto.sold
                 .checked_add(&token_amount_value.0)
@@ -192,14 +192,14 @@ decl_module! {
 
             if modify_status {
                 let new_count = token_count.checked_add(1).ok_or("overflow new token count value")?;
-                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_id, erc20_ticker.clone()), new_count);
-                <AllowedTokens<T>>::insert((ticker.clone(), sto_id, new_count), erc20_ticker.clone());
-                <TokensCountForSto<T>>::insert((ticker.clone(), sto_id), new_count);
+                <TokenIndexForSTO>::insert((ticker.clone(), sto_id, erc20_ticker.clone()), new_count);
+                <AllowedTokens>::insert((ticker.clone(), sto_id, new_count), erc20_ticker.clone());
+                <TokensCountForSto>::insert((ticker.clone(), sto_id), new_count);
             } else {
                 let new_count = token_count.checked_sub(1).ok_or("underflow new token count value")?;
-                <TokenIndexForSTO<T>>::insert((ticker.clone(), sto_id, erc20_ticker.clone()), new_count);
-                <AllowedTokens<T>>::insert((ticker.clone(), sto_id, new_count), vec![]);
-                <TokensCountForSto<T>>::insert((ticker.clone(), sto_id), new_count);
+                <TokenIndexForSTO>::insert((ticker.clone(), sto_id, erc20_ticker.clone()), new_count);
+                <AllowedTokens>::insert((ticker.clone(), sto_id, new_count), vec![]);
+                <TokensCountForSto>::insert((ticker.clone(), sto_id), new_count);
             }
 
             Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, erc20_ticker, sto_id, modify_status));
@@ -335,7 +335,7 @@ impl<T: Trait> Module<T> {
     ) -> core::result::Result<(T::TokenBalance, T::TokenBalance), &'static str> {
         // Calculate tokens to mint
         let mut token_conversion = invested_amount
-            .checked_mul(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
+            .checked_mul(&<T as utils::Trait>::as_tb(selected_sto.rate.into()))
             .ok_or("overflow in calculating tokens")?;
         let allowed_token_sold = selected_sto
             .cap
@@ -347,7 +347,7 @@ impl<T: Trait> Module<T> {
         if token_conversion > allowed_token_sold {
             token_conversion = allowed_token_sold;
             allowed_value = token_conversion
-                .checked_div(&<T::TokenBalance as As<u64>>::sa(selected_sto.rate))
+                .checked_div(&<T as utils::Trait>::as_tb(selected_sto.rate.into()))
                 .ok_or("incorrect division")?;
         }
         Ok((token_conversion, allowed_value))
@@ -395,7 +395,7 @@ impl<T: Trait> Module<T> {
             investment_amount,
             new_tokens_minted,
         ));
-        runtime_io::print("Invested in STO");
+        sr_primitives::print("Invested in STO");
         Ok(())
     }
 }
@@ -407,13 +407,13 @@ mod tests {
      *    use super::*;
      *
      *    use primitives::{Blake2Hasher, H256};
-     *    use runtime_io::with_externalities;
-     *    use runtime_primitives::{
+     *    use sr_io::with_externalities;
+     *    use sr_primitives::{
      *        testing::{Digest, DigestItem, Header},
      *        traits::{BlakeTwo256, IdentityLookup},
      *        BuildStorage,
      *    };
-     *    use support::{assert_ok, impl_outer_origin};
+     *    use srml_support::{assert_ok, impl_outer_origin};
      *
      *    impl_outer_origin! {
      *        pub enum Origin for Test {}
@@ -444,7 +444,7 @@ mod tests {
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
-     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
      *        system::GenesisConfig::<Test>::default()
      *            .build_storage()
      *            .unwrap()

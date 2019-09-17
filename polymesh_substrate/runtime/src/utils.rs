@@ -1,9 +1,9 @@
 use crate::balances;
-use parity_codec::Codec;
+use codec::Codec;
 use rstd::prelude::*;
-use runtime_primitives::traits::{As, Member, SimpleArithmetic};
-use support::{decl_module, decl_storage, Parameter};
-use system;
+use sr_primitives::traits::{Member, SimpleArithmetic};
+use srml_support::{decl_module, decl_storage, Parameter};
+use system::{self, ensure_signed};
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait {
@@ -12,12 +12,11 @@ pub trait Trait: system::Trait + balances::Trait {
         + SimpleArithmetic
         + Codec
         + Default
-        + Copy
-        + As<usize>
-        + As<u64>
-        + As<<Self as balances::Trait>::Balance>;
+        + Copy;
     fn as_u128(v: Self::TokenBalance) -> u128;
     fn as_tb(v: u128) -> Self::TokenBalance;
+    fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance;
+    fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance;
 }
 
 decl_storage! {
