@@ -354,9 +354,6 @@ decl_module! {
         fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
 
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(Self::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
-
             // Verify that sender key is current master key
             let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(did.clone());
@@ -407,6 +404,7 @@ decl_module! {
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer), "did_issuer must be a claim issuer for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = sender.encode();
