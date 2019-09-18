@@ -22,20 +22,16 @@ jobs:
           keys:
             - build-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
       - run:
-          name: Compile everything
-          command: ./build.sh
-          working_directory: ./polymesh_substrate
-      - run:
           name: Build rocksdb
-          command: cargo build -p rocksdb -j 1
+          command: cargo +nightly build -p rocksdb -j 1 --release
           working_directory: ./polymesh_substrate
       - run:
           name: Build release
-          command: cargo build -j 1
+          command: cargo +nightly build -j 1 --release
           working_directory: ./polymesh_substrate
       - run:
           name: Run unit tests
-          command: cargo test
+          command: cargo +nightly test
           working_directory: ./polymesh_substrate/runtime
       - save_cache:
           key: build-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
