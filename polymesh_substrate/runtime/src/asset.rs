@@ -5,7 +5,7 @@ use crate::identity::{self, IdentityTrait};
 use crate::percentage_tm;
 use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
-use parity_codec::Encode;
+use codec::Encode;
 use rstd::prelude::*;
 //use codec::Codec;
 use core::convert::TryInto;

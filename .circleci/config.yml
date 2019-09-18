@@ -44,8 +44,8 @@ workflows:
   version: 2
   commit:
     jobs:
-      - build
       - lint
+      - build
   daily-builds:
     triggers:
       - schedule:
