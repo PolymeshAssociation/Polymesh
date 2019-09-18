@@ -74,62 +74,8 @@ decl_module! {
         // initialize the default event for this module
         fn deposit_event() = default;
 
-        // Mint a token to multiple investors
-        pub fn batch_mint(origin, did: Vec<u8>, ticker: Vec<u8>, investor_dids: Vec<Vec<u8>>, values: Vec<T::TokenBalance>) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
-
-            ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
-
-            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
-
-
-            // A helper vec for calculated new investor balances
-            let mut updated_balances = Vec::with_capacity(investor_dids.len());
-
-            // Get current token details for supply update
-            let mut token = Self::token_details(ticker.clone());
-
-            // A round of per-investor checks
-            for i in 0..investor_dids.len() {
-                ensure!(
-                    Self::check_granularity(ticker.clone(), values[i]),
-                    "Invalid granularity"
-                );
-
-                let current_balance = Self::balance_of((ticker.clone(), investor_dids[i].clone()));
-                updated_balances.push(current_balance
-                    .checked_add(&values[i])
-                    .ok_or("overflow in calculating balance")?);
-
-                // verify transfer check
-                Self::_is_valid_transfer(ticker.clone(), Vec::<u8>::default(), investor_dids[i].clone(), values[i])?;
-
-                // New total supply must be valid
-                token.total_supply = token
-                    .total_supply
-                    .checked_add(&values[i])
-                    .ok_or("overflow in calculating balance")?;
-            }
-
-            // After checks are ensured introduce side effects
-            for i in 0..investor_dids.len() {
-                Self::_update_checkpoint(ticker.clone(), investor_dids[i].clone(), updated_balances[i]);
-
-                <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i].clone()), updated_balances[i]);
-
-                Self::deposit_event(RawEvent::Issued(ticker.clone(), investor_dids[i].clone(), values[i]));
-            }
-            <Tokens<T>>::insert(ticker.clone(), token);
-
-            Ok(())
-        }
-
-        // Same as issue_token() except multiple sets of parameters may be specified for issuing
         // multiple tokens in one go
-        pub fn batch_issue_token(origin, did: Vec<u8>, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::TokenBalance>, divisible_values: Vec<bool>) -> Result {
+        pub fn batch_create_token(origin, did: Vec<u8>, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::TokenBalance>, divisible_values: Vec<bool>) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -216,7 +162,7 @@ decl_module! {
         // takes a name, ticker, total supply for the token
         // makes the initiating account the owner of the token
         // the balance of the owner is set to total supply
-        pub fn issue_token(origin, did: Vec<u8>, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, divisible: bool) -> Result {
+        pub fn create_token(origin, did: Vec<u8>, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, divisible: bool) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
@@ -380,6 +326,59 @@ decl_module! {
 
             ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
             Self::_mint(ticker, to_did, value)
+        }
+
+        // Mint a token to multiple investors
+        pub fn batch_issue(origin, did: Vec<u8>, ticker: Vec<u8>, investor_dids: Vec<Vec<u8>>, values: Vec<T::TokenBalance>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
+            ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
+
+            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+
+
+            // A helper vec for calculated new investor balances
+            let mut updated_balances = Vec::with_capacity(investor_dids.len());
+
+            // Get current token details for supply update
+            let mut token = Self::token_details(ticker.clone());
+
+            // A round of per-investor checks
+            for i in 0..investor_dids.len() {
+                ensure!(
+                    Self::check_granularity(ticker.clone(), values[i]),
+                    "Invalid granularity"
+                );
+
+                let current_balance = Self::balance_of((ticker.clone(), investor_dids[i].clone()));
+                updated_balances.push(current_balance
+                    .checked_add(&values[i])
+                    .ok_or("overflow in calculating balance")?);
+
+                // verify transfer check
+                ensure!(Self::_is_valid_transfer(ticker.clone(), Vec::<u8>::default(), investor_dids[i].clone(), values[i])? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+
+                // New total supply must be valid
+                token.total_supply = token
+                    .total_supply
+                    .checked_add(&values[i])
+                    .ok_or("overflow in calculating balance")?;
+            }
+
+            // After checks are ensured introduce side effects
+            for i in 0..investor_dids.len() {
+                Self::_update_checkpoint(ticker.clone(), investor_dids[i].clone(), updated_balances[i]);
+
+                <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i].clone()), updated_balances[i]);
+
+                Self::deposit_event(RawEvent::Issued(ticker.clone(), investor_dids[i].clone(), values[i]));
+            }
+            <Tokens<T>>::insert(ticker.clone(), token);
+
+            Ok(())
         }
 
         pub fn redeem(_origin, did: Vec<u8>, _ticker: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
@@ -1080,7 +1079,7 @@ mod tests {
                 .expect("Could not make token.owner an issuer");
 
             // Issuance is successful
-            assert_ok!(Asset::issue_token(
+            assert_ok!(Asset::create_token(
                 Origin::signed(owner_acc),
                 owner_did.clone(),
                 token.name.clone(),
@@ -1119,7 +1118,7 @@ mod tests {
 
             // Issuance is unsuccessful
             assert_noop!(
-                Asset::issue_token(
+                Asset::create_token(
                     Origin::signed(owner_acc + 1),
                     wrong_did.clone(),
                     token.name.clone(),
@@ -1182,7 +1181,7 @@ mod tests {
                 .expect("Could not make token.owner an issuer");
 
             // Issuance is successful
-            assert_ok!(Asset::issue_token(
+            assert_ok!(Asset::create_token(
                 Origin::signed(owner_acc),
                 owner_did.clone(),
                 token.name.clone(),
@@ -1350,7 +1349,7 @@ mod tests {
      *                        .as_bool()
      *                        .expect("Could not check if issuance should succeed")
      *                    {
-     *                        assert_ok!(Asset::issue_token(
+     *                        assert_ok!(Asset::create_token(
      *                            Origin::signed(token_struct.owner),
      *                            token_struct.name.clone(),
      *                            token_struct.name.clone(),
@@ -1410,7 +1409,7 @@ mod tests {
      *                            .expect("Could not create whitelist entry");
      *                        }
      *                    } else {
-     *                        assert!(Asset::issue_token(
+     *                        assert!(Asset::create_token(
      *                            Origin::signed(token_struct.owner),
      *                            token_struct.name.clone(),
      *                            token_struct.name.clone(),
