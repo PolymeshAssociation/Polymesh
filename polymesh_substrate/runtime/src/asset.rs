@@ -73,6 +73,59 @@ decl_module! {
         // initialize the default event for this module
         fn deposit_event<T>() = default;
 
+        // Mint a token to multiple investors
+        pub fn batch_mint(origin, did: Vec<u8>, ticker: Vec<u8>, investor_dids: Vec<Vec<u8>>, values: Vec<T::TokenBalance>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
+            ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
+
+            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+
+
+            // A helper vec for calculated new investor balances
+            let mut updated_balances = Vec::with_capacity(investor_dids.len());
+
+            // Get current token details for supply update
+            let mut token = Self::token_details(ticker.clone());
+
+            // A round of per-investor checks
+            for i in 0..investor_dids.len() {
+                ensure!(
+                    Self::check_granularity(ticker.clone(), values[i]),
+                    "Invalid granularity"
+                );
+
+                let current_balance = Self::balance_of((ticker.clone(), investor_dids[i].clone()));
+                updated_balances.push(current_balance
+                    .checked_add(&values[i])
+                    .ok_or("overflow in calculating balance")?);
+
+                // verify transfer check
+                Self::_is_valid_transfer(ticker.clone(), Vec::<u8>::default(), investor_dids[i].clone(), values[i])?;
+
+                // New total supply must be valid
+                token.total_supply = token
+                    .total_supply
+                    .checked_add(&values[i])
+                    .ok_or("overflow in calculating balance")?;
+            }
+
+            // After checks are ensured introduce side effects
+            for i in 0..investor_dids.len() {
+                Self::_update_checkpoint(ticker.clone(), investor_dids[i].clone(), updated_balances[i]);
+
+                <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i].clone()), updated_balances[i]);
+
+                Self::deposit_event(RawEvent::Minted(ticker.clone(), investor_dids[i].clone(), values[i]));
+            }
+            <Tokens<T>>::insert(ticker.clone(), token);
+
+            Ok(())
+        }
+
         // Same as issue_token() except multiple sets of parameters may be specified for issuing
         // multiple tokens in one go
         pub fn batch_issue_token(origin, did: Vec<u8>, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::TokenBalance>, divisible_values: Vec<bool>) -> Result {
@@ -364,7 +417,7 @@ decl_module! {
             let mut token = Self::token_details(ticker.clone());
             token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
 
-            Self::_update_checkpoint(ticker.clone(), did.clone(), burner_balance)?;
+            Self::_update_checkpoint(ticker.clone(), did.clone(), burner_balance);
 
             <BalanceOf<T>>::insert((ticker.clone(), did.clone()), updated_burner_balance);
             <Tokens<T>>::insert(ticker.clone(), token);
@@ -562,8 +615,8 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
 
-        Self::_update_checkpoint(_ticker.clone(), from_did.clone(), sender_balance)?;
-        Self::_update_checkpoint(_ticker.clone(), to_did.clone(), receiver_balance)?;
+        Self::_update_checkpoint(_ticker.clone(), from_did.clone(), sender_balance);
+        Self::_update_checkpoint(_ticker.clone(), to_did.clone(), receiver_balance);
         // reduce sender's balance
         <BalanceOf<T>>::insert((_ticker.clone(), from_did.clone()), updated_from_balance);
 
@@ -595,11 +648,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn _update_checkpoint(
-        ticker: Vec<u8>,
-        user_did: Vec<u8>,
-        user_balance: T::TokenBalance,
-    ) -> Result {
+    fn _update_checkpoint(ticker: Vec<u8>, user_did: Vec<u8>, user_balance: T::TokenBalance) {
         if <TotalCheckpoints<T>>::exists(ticker.clone()) {
             let checkpoint_count = Self::total_checkpoints_of(ticker.clone());
             if !<CheckpointBalance<T>>::exists((ticker.clone(), user_did.clone(), checkpoint_count))
@@ -611,7 +660,6 @@ impl<T: Trait> Module<T> {
                 <LatestUserCheckpoint<T>>::insert((ticker, user_did), checkpoint_count);
             }
         }
-        Ok(())
     }
 
     fn is_owner(_ticker: Vec<u8>, did: Vec<u8>) -> bool {
@@ -640,7 +688,7 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
 
-        Self::_update_checkpoint(ticker.clone(), to_did.clone(), current_to_balance)?;
+        Self::_update_checkpoint(ticker.clone(), to_did.clone(), current_to_balance);
 
         <BalanceOf<T>>::insert((ticker.clone(), to_did.clone()), updated_to_balance);
         <Tokens<T>>::insert(ticker.clone(), token);
