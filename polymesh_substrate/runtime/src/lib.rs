@@ -427,8 +427,6 @@ impl utils::Trait for Runtime {
 }
 
 impl simple_token::Trait for Runtime {
-    type Currency = Balances;
-    type CurrencyToBalance = CurrencyToBalanceHandler;
     type Event = Event;
 }
 
