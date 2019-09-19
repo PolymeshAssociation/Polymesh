@@ -505,7 +505,7 @@ construct_runtime!(
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
-        Exemption: exemption::{Module, Call, Storage, Event<T>},
+        Exemption: exemption::{Module, Call, Storage, Event},
 		SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
 	}
 );

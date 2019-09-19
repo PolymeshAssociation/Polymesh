@@ -152,7 +152,6 @@ fn testnet_genesis(
         simple_token: Some(SimpleTokenConfig {
             creation_fee: 1000
         }),
-        erc20: Some(ERC20Config { creation_fee: 1000 }),
         balances: Some(BalancesConfig {
             balances: endowed_accounts
                 .iter()
