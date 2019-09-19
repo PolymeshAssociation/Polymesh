@@ -163,27 +163,27 @@ decl_module! {
                 // Ensure the uniqueness of the ticker
                 ensure!(!<Tokens<T>>::exists(tickers[i].clone()), "Ticker is already issued");
             }
-
+            // TODO: Fix fee withdrawal
             // Withdraw n_tokens * Self::asset_creation_fee() from sender DID
-            let validators = <session::Module<T>>::validators();
-            let fee = Self::asset_creation_fee().checked_mul(&<FeeOf<T> as As<usize>>::sa(n_tokens)).ok_or("asset_creation_fee() * n_tokens overflows")?;
-            let validator_len;
-            if validators.len() < 1 {
-                validator_len = <FeeOf<T> as As<usize>>::sa(1);
-            } else {
-                validator_len = <FeeOf<T> as As<usize>>::sa(validators.len());
-            }
-            let proportional_fee = fee / validator_len;
-            let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
-            for v in &validators {
-                <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
-            }
-            let remainder_fee = fee - (proportional_fee * validator_len);
-            let remainder_fee_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
-            <identity::DidRecords<T>>::mutate(did.clone(), |record| -> Result {
-                record.balance = record.balance.checked_sub(&remainder_fee_balance).ok_or("Could not charge for token issuance")?;
-                Ok(())
-            })?;
+            // let validators = <session::Module<T>>::validators();
+            // let fee = Self::asset_creation_fee().checked_mul(&<FeeOf<T> as As<usize>>::sa(n_tokens)).ok_or("asset_creation_fee() * n_tokens overflows")?;
+            // let validator_len;
+            // if validators.len() < 1 {
+            //     validator_len = <FeeOf<T> as As<usize>>::sa(1);
+            // } else {
+            //     validator_len = <FeeOf<T> as As<usize>>::sa(validators.len());
+            // }
+            // let proportional_fee = fee / validator_len;
+            // let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
+            // for v in &validators {
+            //     <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
+            // }
+            // let remainder_fee = fee - (proportional_fee * validator_len);
+            // let remainder_fee_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
+            // <identity::DidRecords<T>>::mutate(did.clone(), |record| -> Result {
+            //     record.balance = record.balance.checked_sub(&remainder_fee_balance).ok_or("Could not charge for token issuance")?;
+            //     Ok(())
+            // })?;
 
             // Perform per-ticker issuance
             for i in 0..n_tokens {
@@ -203,7 +203,7 @@ decl_module! {
                 <Tokens<T>>::insert(tickers[i].clone(), token);
                 <BalanceOf<T>>::insert((tickers[i].clone(), did.clone()), total_supply_values[i]);
                 Self::deposit_event(RawEvent::IssuedToken(tickers[i].clone(), total_supply_values[i], did.clone(), granularity, 18));
-                runtime_io::print("Batch token initialized");
+                sr_primitives::print("Batch token initialized");
             }
 
             Ok(())
