@@ -259,7 +259,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
 
             // Check if sender wasn't already paid their share
-            ensure!(!<UserPayoutCompleted<T>>::get((did.clone(), ticker.clone(), dividend_id)), "User was already paid their share");
+            ensure!(!<UserPayoutCompleted>::get((did.clone(), ticker.clone(), dividend_id)), "User was already paid their share");
 
             // Look dividend entry up
             let dividend = Self::get_dividend(ticker.clone(), dividend_id).ok_or("Dividend not found")?;
@@ -326,7 +326,7 @@ decl_module! {
                 })?;
             }
             // Create payout entry
-            <UserPayoutCompleted<T>>::insert((did.clone(), ticker.clone(), dividend_id), true);
+            <UserPayoutCompleted>::insert((did.clone(), ticker.clone(), dividend_id), true);
 
             // Dispatch event
             Self::deposit_event(RawEvent::DividendPaidOutToUser(did.clone(), ticker.clone(), dividend_id, share));

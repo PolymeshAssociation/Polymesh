@@ -576,7 +576,7 @@ impl<T: Trait> Module<T> {
             active: true,
         };
 
-        <IssuerList<T>>::insert(issuer_did, new_issuer);
+        <IssuerList>::insert(issuer_did, new_issuer);
         Ok(())
     }
 
@@ -588,7 +588,7 @@ impl<T: Trait> Module<T> {
             active: true,
         };
 
-        <SimpleTokenIssuerList<T>>::insert(issuer_did, new_simple_token_issuer);
+        <SimpleTokenIssuerList>::insert(issuer_did, new_simple_token_issuer);
         Ok(())
     }
 
@@ -601,7 +601,7 @@ impl<T: Trait> Module<T> {
             jurisdiction: 1,
         };
 
-        <InvestorList<T>>::insert(investor_did, new_investor);
+        <InvestorList>::insert(investor_did, new_investor);
         Ok(())
     }
 

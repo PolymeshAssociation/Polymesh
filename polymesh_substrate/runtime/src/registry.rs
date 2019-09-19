@@ -47,7 +47,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(ticker.as_slice());
 
-            if <Tokens<T>>::exists(ticker.clone()) {
+            if <Tokens>::exists(ticker.clone()) {
                 sr_primitives::print("Ticker not available");
             } else {
                 sr_primitives::print("Ticker available");
@@ -64,8 +64,8 @@ impl<T: Trait> Module<T> {
     pub fn get(ticker: Vec<u8>) -> Option<RegistryEntry> {
         let ticker = utils::bytes_to_upper(ticker.as_slice());
 
-        if <Tokens<T>>::exists(ticker.clone()) {
-            Some(<Tokens<T>>::get(ticker))
+        if <Tokens>::exists(ticker.clone()) {
+            Some(<Tokens>::get(ticker))
         } else {
             None
         }
@@ -74,9 +74,9 @@ impl<T: Trait> Module<T> {
     pub fn put(ticker: Vec<u8>, entry: &RegistryEntry) -> Result {
         let ticker = utils::bytes_to_upper(ticker.as_slice());
 
-        ensure!(!<Tokens<T>>::exists(ticker.clone()), "Token ticker exists");
+        ensure!(!<Tokens>::exists(ticker.clone()), "Token ticker exists");
 
-        <Tokens<T>>::insert(ticker.clone(), entry);
+        <Tokens>::insert(ticker.clone(), entry);
 
         Ok(())
     }

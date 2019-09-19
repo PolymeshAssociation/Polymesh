@@ -5,7 +5,7 @@
 use crate::balances;
 use crate::identity;
 use crate::utils;
-
+use codec::Encode;
 use rstd::prelude::*;
 
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
@@ -41,7 +41,7 @@ decl_storage! {
         // ticker, DID
         pub BalanceOf get(balance_of): map (Vec<u8>, Vec<u8>) => T::TokenBalance;
         // How much creating a new SimpleToken token costs in base currency
-        CreationFee get(creation_fee) config(): T::TokenBalance;
+        CreationFee get(creation_fee) config(): T::Balance;
         // Token Details
         Tokens get(tokens): map Vec<u8> => SimpleTokenRecord<T::TokenBalance>;
     }

@@ -536,7 +536,7 @@ impl<T: Trait> Module<T> {
             _at = max;
         }
 
-        if <LatestUserCheckpoint<T>>::exists((ticker.clone(), did.clone())) {
+        if <LatestUserCheckpoint>::exists((ticker.clone(), did.clone())) {
             let latest_checkpoint = Self::latest_user_checkpoint((ticker.clone(), did.clone()));
             if _at <= latest_checkpoint {
                 while _at > 0u32 {
@@ -646,7 +646,7 @@ impl<T: Trait> Module<T> {
                     (ticker.clone(), user_did.clone(), checkpoint_count),
                     user_balance,
                 );
-                <LatestUserCheckpoint<T>>::insert((ticker, user_did), checkpoint_count);
+                <LatestUserCheckpoint>::insert((ticker, user_did), checkpoint_count);
             }
         }
     }

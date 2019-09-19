@@ -40,7 +40,7 @@ decl_module! {
             let isExempted = Self::exemption_list((ticker.clone(), _tm, asset_holder_did.clone()));
             ensure!(isExempted != exempted, "No change in the state");
 
-            <ExemptionList<T>>::insert((ticker.clone(), _tm, asset_holder_did.clone()), exempted);
+            <ExemptionList>::insert((ticker.clone(), _tm, asset_holder_did.clone()), exempted);
             Self::deposit_event(Event::ModifyExemptionList(ticker, _tm, asset_holder_did, exempted));
 
             Ok(())

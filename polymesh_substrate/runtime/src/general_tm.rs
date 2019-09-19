@@ -201,7 +201,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn _check_investor_status(holder_did: Vec<u8>) -> Result {
-        let investor = <InvestorList<T>>::get(holder_did.clone());
+        let investor = <InvestorList>::get(holder_did.clone());
         ensure!(
             investor.active && investor.access_level == 1,
             "From account is not active"

@@ -55,12 +55,12 @@ use constants::{currency::*, time::*};
 mod asset;
 mod balances;
 mod dividend;
+mod simple_token;
 mod exemption;
 mod general_tm;
 mod identity;
 mod percentage_tm;
 mod registry;
-mod simple_token;
 mod sto_capped;
 mod utils;
 
