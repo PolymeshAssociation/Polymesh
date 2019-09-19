@@ -60,7 +60,7 @@
         "tokens_purchased": "TokenBalance",
         "last_purchase_date": "Moment"
     },
-    "ERC20Token": {
+    "SimpleToken": {
         "ticker": "Vec<u8>",
         "total_supply": "TokenBalance",
         "owner": "AccountId"

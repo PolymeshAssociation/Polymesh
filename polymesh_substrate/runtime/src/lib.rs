@@ -55,12 +55,12 @@ use constants::{currency::*, time::*};
 mod asset;
 mod balances;
 mod dividend;
-mod erc20;
 mod exemption;
 mod general_tm;
 mod identity;
 mod percentage_tm;
 mod registry;
+mod simple_token;
 mod sto_capped;
 mod utils;
 
@@ -426,8 +426,9 @@ impl utils::Trait for Runtime {
     }
 }
 
-impl erc20::Trait for Runtime {
+impl simple_token::Trait for Runtime {
     type Currency = Balances;
+    type CurrencyToBalance = CurrencyToBalanceHandler;
     type Event = Event;
 }
 
@@ -438,7 +439,7 @@ impl general_tm::Trait for Runtime {
 
 impl sto_capped::Trait for Runtime {
     type Event = Event;
-    type ERC20Trait = ERC20;
+    type SimpleTokenTrait = SimpleToken;
 }
 
 impl percentage_tm::Trait for Runtime {
@@ -507,7 +508,7 @@ construct_runtime!(
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event<T>},
-		ERC20: erc20::{Module, Call, Storage, Event<T>, Config<T>},
+		SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
 	}
 );
 

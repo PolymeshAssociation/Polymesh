@@ -4,7 +4,7 @@ use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
 use polymesh_runtime::constants::{currency::POLY, time::*};
 use polymesh_runtime::{
-    AssetConfig, BabeConfig, BalancesConfig, CouncilConfig, DemocracyConfig, ERC20Config,
+    AssetConfig, BabeConfig, BalancesConfig, CouncilConfig, DemocracyConfig, SimpleTokenConfig,
     ElectionsConfig, GenesisConfig, GrandpaConfig, IdentityConfig, IndicesConfig, Perbill,
     SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
     TechnicalCommitteeConfig, WASM_BINARY,
@@ -147,6 +147,10 @@ fn testnet_genesis(
         }),
         identity: Some(IdentityConfig {
             owner: get_from_seed::<AccountId>("Dave"),
+            did_creation_fee: 250,
+        }),
+        simple_token: Some(SimpleTokenConfig {
+            creation_fee: 1000
         }),
         erc20: Some(ERC20Config { creation_fee: 1000 }),
         balances: Some(BalancesConfig {

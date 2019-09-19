@@ -14,9 +14,9 @@ pub enum TokenType {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Encode, Decode)]
-pub struct RegistryEntry<U> {
+pub struct RegistryEntry {
     pub token_type: u32,
-    pub owner: U,
+    pub owner_did: Vec<u8>,
 }
 
 /// Default on TokenType is there only to please the storage macro.
@@ -36,7 +36,7 @@ decl_storage! {
         // Tokens by ticker. This represents the global namespace for tokens of all kinds. Entry
         // keys MUST be in full caps. To ensure this the storage item is private and using the
         // custom access methods is mandatory
-        pub Tokens get(tokens): map Vec<u8> => RegistryEntry<T::AccountId>;
+        pub Tokens get(tokens): map Vec<u8> => RegistryEntry;
     }
 }
 
@@ -61,7 +61,7 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    pub fn get(ticker: Vec<u8>) -> Option<RegistryEntry<T::AccountId>> {
+    pub fn get(ticker: Vec<u8>) -> Option<RegistryEntry> {
         let ticker = utils::bytes_to_upper(ticker.as_slice());
 
         if <Tokens<T>>::exists(ticker.clone()) {
@@ -71,7 +71,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    pub fn put(ticker: Vec<u8>, entry: &RegistryEntry<T::AccountId>) -> Result {
+    pub fn put(ticker: Vec<u8>, entry: &RegistryEntry) -> Result {
         let ticker = utils::bytes_to_upper(ticker.as_slice());
 
         ensure!(!<Tokens<T>>::exists(ticker.clone()), "Token ticker exists");
@@ -136,7 +136,7 @@ mod tests {
         with_externalities(&mut new_test_ext(), || {
             let entry = RegistryEntry {
                 token_type: TokenType::AssetToken as u32,
-                owner: 0,
+                owner_did: "did:poly:some_did".as_bytes().to_vec(),
             };
 
             assert_ok!(Registry::put("SOMETOKEN".as_bytes().to_vec(), &entry));
