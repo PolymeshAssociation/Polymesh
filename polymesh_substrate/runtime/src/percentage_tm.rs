@@ -3,7 +3,7 @@ use crate::exemption;
 use crate::identity;
 use crate::utils;
 
-use parity_codec::Encode;
+use codec::Encode;
 use rstd::prelude::*;
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use srml_support::{

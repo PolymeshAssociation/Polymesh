@@ -7,7 +7,7 @@ use crate::utils;
 use srml_support::traits::Currency;
 
 use core::convert::TryInto;
-use parity_codec::Encode;
+use codec::Encode;
 use rstd::prelude::*;
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};

@@ -1,7 +1,7 @@
 use crate::asset::{self, AssetTrait};
 use crate::{identity, utils};
 
-use parity_codec::Encode;
+use codec::Encode;
 use rstd::prelude::*;
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::ensure_signed;
