@@ -46,7 +46,7 @@ jobs:
             - test-cache-{{ checksum "./polymesh_substrate/runtime/Cargo.lock" }}
       - run:
           name: runtime tests
-          command: cargo test --release
+          command: cargo test
           working_directory: ./polymesh_substrate/runtime
       - save_cache:
           key: test-cache-{{ checksum "./polymesh_substrate/runtime/Cargo.lock" }}
