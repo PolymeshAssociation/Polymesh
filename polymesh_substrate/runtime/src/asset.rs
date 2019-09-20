@@ -7,7 +7,7 @@ use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 use codec::Encode;
 use rstd::prelude::*;
-use session;
+//use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub, Convert};
 use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
@@ -23,7 +23,7 @@ pub trait Trait:
     + utils::Trait
     + balances::Trait
     + identity::Trait
-    + session::Trait
+    //+ session::Trait
     + registry::Trait
 {
     /// The overarching event type.
@@ -704,12 +704,8 @@ mod tests {
     use lazy_static::lazy_static;
     use substrate_primitives::{Blake2Hasher, H256};
     use sr_io::with_externalities;
-    use sr_primitives::{
-        testing::{Digest, DigestItem, Header, UintAuthorityId},
-        traits::{BlakeTwo256, IdentityLookup},
-        BuildStorage,
-    };
-    use srml_support::{assert_noop, assert_ok, impl_outer_origin};
+    use sr_primitives::{Perbill, traits::{BlakeTwo256, IdentityLookup, ConvertInto}, testing::Header};
+    use srml_support::{impl_outer_origin, assert_ok, assert_err, assert_noop, parameter_types};
     use yaml_rust::{Yaml, YamlLoader};
 
     use std::{
@@ -729,40 +725,56 @@ mod tests {
     // first constructing a configuration type (`Test`) which `impl`s each of the
     // configuration traits of modules we want to use.
     #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
+	pub struct Test;
+	parameter_types! {
+		pub const BlockHashCount: u32 = 250;
+		pub const MaximumBlockWeight: u32 = 4 * 1024 * 1024;
+		pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
+		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+	}
+	impl system::Trait for Test {
+		type Origin = Origin;
+		type Call = ();
+		type Index = u64;
+		type BlockNumber = u64;
+		type Hash = H256;
+		type Hashing = BlakeTwo256;
+		type AccountId = u64;
+		type Lookup = IdentityLookup<u64>;
+		type WeightMultiplierUpdate = ();
+		type Header = Header;
+		type Event = ();
+		type BlockHashCount = BlockHashCount;
+		type MaximumBlockWeight = MaximumBlockWeight;
+		type AvailableBlockRatio = AvailableBlockRatio;
+		type MaximumBlockLength = MaximumBlockLength;
+		type Version = ();
+	}
 
-    impl system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type Digest = Digest;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type Log = DigestItem;
-    }
-    impl identity::IdentityTrait<u128> for Test {
-        fn charge_poly(signing_key: Vec<u8>, amount: u128) -> bool {
-            return false;
-        }
+	parameter_types! {
+		pub const ExistentialDeposit: u64 = 0;
+		pub const TransferFee: u64 = 0;
+		pub const CreationFee: u64 = 0;
+		pub const TransactionBaseFee: u64 = 0;
+		pub const TransactionByteFee: u64 = 0;
+	}
 
-        fn signing_key_charge_did(signing_key: Vec<u8>) -> bool {
-            return false;
-        }
-    }
-    impl balances::Trait for Test {
-        type Balance = u128;
-        type DustRemoval = ();
-        type Event = ();
-        type OnFreeBalanceZero = ();
-        type OnNewAccount = ();
-        type TransactionPayment = ();
-        type TransferPayment = ();
-        type Identity = identity::Module<Test>;
-    }
+	impl balances::Trait for Test {
+		type Balance = u64;
+		type OnFreeBalanceZero = ();
+		type OnNewAccount = ();
+		type Event = ();
+		type TransactionPayment = ();
+		type DustRemoval = ();
+		type TransferPayment = ();
+		type ExistentialDeposit = ExistentialDeposit;
+		type TransferFee = TransferFee;
+		type CreationFee = CreationFee;
+		type TransactionBaseFee = TransactionBaseFee;
+		type TransactionByteFee = TransactionByteFee;
+		type WeightToFee = ConvertInto;
+	}
+
     impl general_tm::Trait for Test {
         type Event = ();
         type Asset = Module<Test>;
@@ -792,16 +804,7 @@ mod tests {
             v
         }
     }
-    impl consensus::Trait for Test {
-        type SessionKey = UintAuthorityId;
-        type InherentOfflineReport = ();
-        type Log = DigestItem;
-    }
-    impl session::Trait for Test {
-        type ConvertAccountIdToSessionKey = ();
-        type OnSessionChange = ();
-        type Event = ();
-    }
+
     impl registry::Trait for Test {}
     impl Trait for Test {
         type Event = ();

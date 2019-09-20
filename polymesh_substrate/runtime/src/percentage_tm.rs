@@ -152,7 +152,7 @@ mod tests {
     //     type BlockNumber = u64;
     //     type Hash = H256;
     //     type Hashing = BlakeTwo256;
-    //     type Digest = Digest;
+    //     type Digest = H256;
     //     type AccountId = u64;
     //     type Lookup = IdentityLookup<Self::AccountId>;
     //     type Header = Header;

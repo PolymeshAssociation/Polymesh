@@ -444,15 +444,14 @@ mod tests {
     use lazy_static::lazy_static;
     use substrate_primitives::{Blake2Hasher, H256};
     use sr_io::with_externalities;
-    use sr_primitives::{
-        testing::{Digest, DigestItem, Header, UintAuthorityId},
-        traits::{BlakeTwo256, Convert, IdentityLookup},
-        BuildStorage,
-    };
-    use srml_support::{assert_ok, impl_outer_origin};
+    use sr_primitives::{Perbill, traits::{BlakeTwo256, IdentityLookup, ConvertInto}, testing::Header};
+    use srml_support::{impl_outer_origin, assert_ok, assert_err, assert_noop, parameter_types};
+    use yaml_rust::{Yaml, YamlLoader};
 
     use std::{
         collections::HashMap,
+        fs::read_to_string,
+        path::PathBuf,
         sync::{Arc, Mutex},
     };
 
@@ -465,60 +464,72 @@ mod tests {
         pub enum Origin for Test {}
     }
 
-    pub struct CurrencyToBalanceHandler;
-
-    impl Convert<u128, u128> for CurrencyToBalanceHandler {
-        fn convert(x: u128) -> u128 {
-            x
-        }
-    }
-
     // For testing the module, we construct most of a mock runtime. This means
     // first constructing a configuration type (`Test`) which `impl`s each of the
     // configuration traits of modules we want to use.
     #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
-    impl system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type Digest = Digest;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
+	pub struct Test;
+	parameter_types! {
+		pub const BlockHashCount: u32 = 250;
+		pub const MaximumBlockWeight: u32 = 4 * 1024 * 1024;
+		pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
+		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+	}
+	impl system::Trait for Test {
+		type Origin = Origin;
+		type Call = ();
+		type Index = u64;
+		type BlockNumber = u64;
+		type Hash = H256;
+		type Hashing = BlakeTwo256;
+		type AccountId = u64;
+		type Lookup = IdentityLookup<u64>;
+		type WeightMultiplierUpdate = ();
+		type Header = Header;
+		type Event = ();
+		type BlockHashCount = BlockHashCount;
+		type MaximumBlockWeight = MaximumBlockWeight;
+		type AvailableBlockRatio = AvailableBlockRatio;
+		type MaximumBlockLength = MaximumBlockLength;
+		type Version = ();
+	}
+
+	parameter_types! {
+		pub const ExistentialDeposit: u64 = 0;
+		pub const TransferFee: u64 = 0;
+		pub const CreationFee: u64 = 0;
+		pub const TransactionBaseFee: u64 = 0;
+		pub const TransactionByteFee: u64 = 0;
+	}
+
+	impl balances::Trait for Test {
+		type Balance = u64;
+		type OnFreeBalanceZero = ();
+		type OnNewAccount = ();
+		type Event = ();
+		type TransactionPayment = ();
+		type DustRemoval = ();
+		type TransferPayment = ();
+		type ExistentialDeposit = ExistentialDeposit;
+		type TransferFee = TransferFee;
+		type CreationFee = CreationFee;
+		type TransactionBaseFee = TransactionBaseFee;
+		type TransactionByteFee = TransactionByteFee;
+		type WeightToFee = ConvertInto;
+        type Identity = identity::Module<Test>;
+	}
+
+    impl simple_token::Trait for Test {
         type Event = ();
-        type Log = DigestItem;
     }
 
     impl asset::Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
-        type CurrencyToBalance = CurrencyToBalanceHandler;
     }
 
-    impl balances::Trait for Test {
-        type Balance = u128;
-        type DustRemoval = ();
+    impl identity::Trait for Test {
         type Event = ();
-        type OnFreeBalanceZero = ();
-        type OnNewAccount = ();
-        type TransactionPayment = ();
-        type TransferPayment = ();
-        type Identity = identity::Module<Test>;
-    }
-
-    impl consensus::Trait for Test {
-        type Log = DigestItem;
-        type SessionKey = UintAuthorityId;
-        type InherentOfflineReport = ();
-    }
-
-    impl simple_token::Trait for Test {
-        type Event = ();
-        type Currency = balances::Module<Test>;
-        type CurrencyToBalance = CurrencyToBalanceHandler;
     }
 
     impl exemption::Trait for Test {
@@ -531,25 +542,14 @@ mod tests {
         type Asset = Module<Test>;
     }
 
-    impl identity::Trait for Test {
-        type Event = ();
-    }
-
     impl percentage_tm::Trait for Test {
         type Event = ();
-    }
-
-    impl session::Trait for Test {
-        type ConvertAccountIdToSessionKey = ();
-        type Event = ();
-        type OnSessionChange = ();
     }
 
     impl timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
     }
-
     impl utils::Trait for Test {
         type TokenBalance = u128;
         fn as_u128(v: Self::TokenBalance) -> u128 {

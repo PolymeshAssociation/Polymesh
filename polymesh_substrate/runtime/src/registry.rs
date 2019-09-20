@@ -87,14 +87,22 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
+    use chrono::{prelude::*, Duration};
+    use lazy_static::lazy_static;
     use substrate_primitives::{Blake2Hasher, H256};
     use sr_io::with_externalities;
-    use sr_primitives::{
-        testing::{Digest, DigestItem, Header},
-        traits::{BlakeTwo256, IdentityLookup},
-        BuildStorage,
+    use sr_primitives::{Perbill, traits::{BlakeTwo256, IdentityLookup, ConvertInto}, testing::Header};
+    use srml_support::{impl_outer_origin, assert_ok, assert_err, assert_noop, parameter_types};
+    use yaml_rust::{Yaml, YamlLoader};
+
+    use std::{
+        collections::HashMap,
+        fs::read_to_string,
+        path::PathBuf,
+        sync::{Arc, Mutex},
     };
-    use srml_support::{assert_ok, impl_outer_origin};
+
+    use crate::identity::{self, IdentityTrait, Investor, InvestorList};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -104,20 +112,32 @@ mod tests {
     // first constructing a configuration type (`Test`) which `impl`s each of the
     // configuration traits of modules we want to use.
     #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
-    impl system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type Digest = Digest;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type Log = DigestItem;
-    }
+	pub struct Test;
+	parameter_types! {
+		pub const BlockHashCount: u32 = 250;
+		pub const MaximumBlockWeight: u32 = 4 * 1024 * 1024;
+		pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
+		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+	}
+	impl system::Trait for Test {
+		type Origin = Origin;
+		type Call = ();
+		type Index = u64;
+		type BlockNumber = u64;
+		type Hash = H256;
+		type Hashing = BlakeTwo256;
+		type AccountId = u64;
+		type Lookup = IdentityLookup<u64>;
+		type WeightMultiplierUpdate = ();
+		type Header = Header;
+		type Event = ();
+		type BlockHashCount = BlockHashCount;
+		type MaximumBlockWeight = MaximumBlockWeight;
+		type AvailableBlockRatio = AvailableBlockRatio;
+		type MaximumBlockLength = MaximumBlockLength;
+		type Version = ();
+	}
+
     impl Trait for Test {}
     type Registry = Module<Test>;
 
