@@ -503,7 +503,7 @@ mod tests {
 	}
 
 	impl balances::Trait for Test {
-		type Balance = u64;
+		type Balance = u128;
 		type OnFreeBalanceZero = ();
 		type OnNewAccount = ();
 		type Event = ();
@@ -546,16 +546,28 @@ mod tests {
         type Event = ();
     }
 
+    parameter_types! {
+		pub const MinimumPeriod: u64 = 3;
+	}
+
     impl timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
     }
+
     impl utils::Trait for Test {
         type TokenBalance = u128;
         fn as_u128(v: Self::TokenBalance) -> u128 {
             v
         }
         fn as_tb(v: u128) -> Self::TokenBalance {
+            v
+        }
+        fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
+            v
+        }
+        fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
             v
         }
     }
@@ -616,7 +628,7 @@ mod tests {
 
     /// Build a genesis identity instance owned by the specified account
     fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::<Test>::default()
+        let mut t = system::GenesisConfig::default()
             .build_storage()
             .unwrap()
             .0;
