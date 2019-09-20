@@ -716,6 +716,7 @@ mod tests {
     };
 
     use crate::identity::{self, IdentityTrait, Investor, InvestorList};
+    use crate::GenesisConfig;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -824,7 +825,6 @@ mod tests {
         type Currency = balances::Module<Test>;
     }
     type Asset = Module<Test>;
-
     type Balances = balances::Module<Test>;
     type Identity = identity::Module<Test>;
 
@@ -836,38 +836,22 @@ mod tests {
 
     /// Build a genesis identity instance owned by account No. 1
     fn identity_owned_by_1() -> sr_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
-            .build_storage()
-            .unwrap()
-            .0;
-        t.extend(
-            identity::GenesisConfig::<Test> {
-                owner: 1,
-                did_creation_fee: 250,
-            }
-            .build_storage()
-            .unwrap()
-            .0,
-        );
-        t.into()
+        let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		identity::GenesisConfig::<Test> {
+            owner: 1,
+            did_creation_fee: 250,
+        }.assimilate_storage(&mut t).unwrap();
+		sr_io::TestExternalities::new(t)
     }
 
     /// Build a genesis identity instance owned by the specified account
     fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
-            .build_storage()
-            .unwrap()
-            .0;
-        t.extend(
-            identity::GenesisConfig::<Test> {
-                owner: id,
-                did_creation_fee: 250,
-            }
-            .build_storage()
-            .unwrap()
-            .0,
-        );
-        t.into()
+        let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		identity::GenesisConfig::<Test> {
+            owner: id,
+            did_creation_fee: 250,
+        }.assimilate_storage(&mut t).unwrap();
+		sr_io::TestExternalities::new(t)
     }
 
     #[test]
