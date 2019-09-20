@@ -55,12 +55,12 @@ use constants::{currency::*, time::*};
 mod asset;
 mod balances;
 mod dividend;
-mod simple_token;
 mod exemption;
 mod general_tm;
 mod identity;
 mod percentage_tm;
 mod registry;
+mod simple_token;
 mod sto_capped;
 mod utils;
 
@@ -522,116 +522,117 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
-	system::CheckVersion<Runtime>,
-	system::CheckGenesis<Runtime>,
-	system::CheckEra<Runtime>,
-	system::CheckNonce<Runtime>,
-	system::CheckWeight<Runtime>,
-	balances::TakeFees<Runtime>,
+    system::CheckVersion<Runtime>,
+    system::CheckGenesis<Runtime>,
+    system::CheckEra<Runtime>,
+    system::CheckNonce<Runtime>,
+    system::CheckWeight<Runtime>,
+    balances::TakeFees<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Nonce, Call>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
+pub type Executive =
+    executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
 
 impl_runtime_apis! {
-	impl client_api::Core<Block> for Runtime {
-		fn version() -> RuntimeVersion {
-			VERSION
-		}
+    impl client_api::Core<Block> for Runtime {
+        fn version() -> RuntimeVersion {
+            VERSION
+        }
 
-		fn execute_block(block: Block) {
-			Executive::execute_block(block)
-		}
+        fn execute_block(block: Block) {
+            Executive::execute_block(block)
+        }
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
-			Executive::initialize_block(header)
-		}
-	}
+        fn initialize_block(header: &<Block as BlockT>::Header) {
+            Executive::initialize_block(header)
+        }
+    }
 
-	impl client_api::Metadata<Block> for Runtime {
-		fn metadata() -> OpaqueMetadata {
-			Runtime::metadata().into()
-		}
-	}
+    impl client_api::Metadata<Block> for Runtime {
+        fn metadata() -> OpaqueMetadata {
+            Runtime::metadata().into()
+        }
+    }
 
-	impl block_builder_api::BlockBuilder<Block> for Runtime {
-		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyResult {
-			Executive::apply_extrinsic(extrinsic)
-		}
+    impl block_builder_api::BlockBuilder<Block> for Runtime {
+        fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyResult {
+            Executive::apply_extrinsic(extrinsic)
+        }
 
-		fn finalize_block() -> <Block as BlockT>::Header {
-			Executive::finalize_block()
-		}
+        fn finalize_block() -> <Block as BlockT>::Header {
+            Executive::finalize_block()
+        }
 
-		fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
-			data.create_extrinsics()
-		}
+        fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+            data.create_extrinsics()
+        }
 
-		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
-			data.check_extrinsics(&block)
-		}
+        fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
+            data.check_extrinsics(&block)
+        }
 
-		fn random_seed() -> <Block as BlockT>::Hash {
-			System::random_seed()
-		}
-	}
+        fn random_seed() -> <Block as BlockT>::Hash {
+            System::random_seed()
+        }
+    }
 
-	impl client_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
-			Executive::validate_transaction(tx)
-		}
-	}
+    impl client_api::TaggedTransactionQueue<Block> for Runtime {
+        fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
+            Executive::validate_transaction(tx)
+        }
+    }
 
-	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(number: sr_primitives::traits::NumberFor<Block>) {
-			Executive::offchain_worker(number)
-		}
-	}
+    impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
+        fn offchain_worker(number: sr_primitives::traits::NumberFor<Block>) {
+            Executive::offchain_worker(number)
+        }
+    }
 
-	impl fg_primitives::GrandpaApi<Block> for Runtime {
-		fn grandpa_pending_change(digest: &DigestFor<Block>)
-			-> Option<ScheduledChange<BlockNumber>>
-		{
-			Grandpa::pending_change(digest)
-		}
+    impl fg_primitives::GrandpaApi<Block> for Runtime {
+        fn grandpa_pending_change(digest: &DigestFor<Block>)
+            -> Option<ScheduledChange<BlockNumber>>
+        {
+            Grandpa::pending_change(digest)
+        }
 
-		fn grandpa_forced_change(digest: &DigestFor<Block>)
-			-> Option<(BlockNumber, ScheduledChange<BlockNumber>)>
-		{
-			Grandpa::forced_change(digest)
-		}
+        fn grandpa_forced_change(digest: &DigestFor<Block>)
+            -> Option<(BlockNumber, ScheduledChange<BlockNumber>)>
+        {
+            Grandpa::forced_change(digest)
+        }
 
-		fn grandpa_authorities() -> Vec<(GrandpaId, u64)> {
-			Grandpa::grandpa_authorities()
-		}
-	}
+        fn grandpa_authorities() -> Vec<(GrandpaId, u64)> {
+            Grandpa::grandpa_authorities()
+        }
+    }
 
-	impl babe_primitives::BabeApi<Block> for Runtime {
-		fn startup_data() -> babe_primitives::BabeConfiguration {
-			// The choice of `c` parameter (where `1 - c` represents the
-			// probability of a slot being empty), is done in accordance to the
-			// slot duration and expected target block time, for safely
-			// resisting network delays of maximum two seconds.
-			// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
-			babe_primitives::BabeConfiguration {
-				median_required_blocks: 1000,
-				slot_duration: Babe::slot_duration(),
-				c: PRIMARY_PROBABILITY,
-			}
-		}
+    impl babe_primitives::BabeApi<Block> for Runtime {
+        fn startup_data() -> babe_primitives::BabeConfiguration {
+            // The choice of `c` parameter (where `1 - c` represents the
+            // probability of a slot being empty), is done in accordance to the
+            // slot duration and expected target block time, for safely
+            // resisting network delays of maximum two seconds.
+            // <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+            babe_primitives::BabeConfiguration {
+                median_required_blocks: 1000,
+                slot_duration: Babe::slot_duration(),
+                c: PRIMARY_PROBABILITY,
+            }
+        }
 
-		fn epoch() -> babe_primitives::Epoch {
-			babe_primitives::Epoch {
-				start_slot: Babe::epoch_start_slot(),
-				authorities: Babe::authorities(),
-				epoch_index: Babe::epoch_index(),
-				randomness: Babe::randomness(),
-				duration: EpochDuration::get(),
-				secondary_slots: Babe::secondary_slots().0,
-			}
-		}
-	}
+        fn epoch() -> babe_primitives::Epoch {
+            babe_primitives::Epoch {
+                start_slot: Babe::epoch_start_slot(),
+                authorities: Babe::authorities(),
+                epoch_index: Babe::epoch_index(),
+                randomness: Babe::randomness(),
+                duration: EpochDuration::get(),
+                secondary_slots: Babe::secondary_slots().0,
+            }
+        }
+    }
 }

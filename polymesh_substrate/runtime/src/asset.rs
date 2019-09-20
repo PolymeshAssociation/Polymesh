@@ -702,10 +702,14 @@ mod tests {
 
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
-    use substrate_primitives::{Blake2Hasher, H256};
     use sr_io::with_externalities;
-    use sr_primitives::{Perbill, traits::{BlakeTwo256, IdentityLookup, ConvertInto}, testing::Header};
-    use srml_support::{impl_outer_origin, assert_ok, assert_err, assert_noop, parameter_types};
+    use sr_primitives::{
+        testing::Header,
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+        Perbill,
+    };
+    use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use substrate_primitives::{Blake2Hasher, H256};
     use yaml_rust::{Yaml, YamlLoader};
 
     use std::{
@@ -726,56 +730,56 @@ mod tests {
     // first constructing a configuration type (`Test`) which `impl`s each of the
     // configuration traits of modules we want to use.
     #[derive(Clone, Eq, PartialEq)]
-	pub struct Test;
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-		pub const MaximumBlockWeight: u32 = 4 * 1024 * 1024;
-		pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
-		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-	}
-	impl system::Trait for Test {
-		type Origin = Origin;
-		type Call = ();
-		type Index = u64;
-		type BlockNumber = u64;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<u64>;
-		type WeightMultiplierUpdate = ();
-		type Header = Header;
-		type Event = ();
-		type BlockHashCount = BlockHashCount;
-		type MaximumBlockWeight = MaximumBlockWeight;
-		type AvailableBlockRatio = AvailableBlockRatio;
-		type MaximumBlockLength = MaximumBlockLength;
-		type Version = ();
-	}
+    pub struct Test;
+    parameter_types! {
+        pub const BlockHashCount: u32 = 250;
+        pub const MaximumBlockWeight: u32 = 4 * 1024 * 1024;
+        pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
+        pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    }
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Call = ();
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<u64>;
+        type WeightMultiplierUpdate = ();
+        type Header = Header;
+        type Event = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type MaximumBlockLength = MaximumBlockLength;
+        type Version = ();
+    }
 
-	parameter_types! {
-		pub const ExistentialDeposit: u64 = 0;
-		pub const TransferFee: u64 = 0;
-		pub const CreationFee: u64 = 0;
-		pub const TransactionBaseFee: u64 = 0;
-		pub const TransactionByteFee: u64 = 0;
-	}
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 0;
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const TransactionBaseFee: u64 = 0;
+        pub const TransactionByteFee: u64 = 0;
+    }
 
-	impl balances::Trait for Test {
-		type Balance = u128;
-		type OnFreeBalanceZero = ();
-		type OnNewAccount = ();
-		type Event = ();
-		type TransactionPayment = ();
-		type DustRemoval = ();
-		type TransferPayment = ();
-		type ExistentialDeposit = ExistentialDeposit;
-		type TransferFee = TransferFee;
-		type CreationFee = CreationFee;
-		type TransactionBaseFee = TransactionBaseFee;
-		type TransactionByteFee = TransactionByteFee;
-		type WeightToFee = ConvertInto;
+    impl balances::Trait for Test {
+        type Balance = u128;
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type TransactionPayment = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+        type TransactionBaseFee = TransactionBaseFee;
+        type TransactionByteFee = TransactionByteFee;
+        type WeightToFee = ConvertInto;
         type Identity = identity::Module<Test>;
-	}
+    }
 
     impl general_tm::Trait for Test {
         type Event = ();
@@ -794,8 +798,8 @@ mod tests {
     }
 
     parameter_types! {
-		pub const MinimumPeriod: u64 = 3;
-	}
+        pub const MinimumPeriod: u64 = 3;
+    }
 
     impl timestamp::Trait for Test {
         type Moment = u64;
@@ -836,22 +840,30 @@ mod tests {
 
     /// Build a genesis identity instance owned by account No. 1
     fn identity_owned_by_1() -> sr_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		identity::GenesisConfig::<Test> {
+        let mut t = system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+        identity::GenesisConfig::<Test> {
             owner: 1,
             did_creation_fee: 250,
-        }.assimilate_storage(&mut t).unwrap();
-		sr_io::TestExternalities::new(t)
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        sr_io::TestExternalities::new(t)
     }
 
     /// Build a genesis identity instance owned by the specified account
     fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		identity::GenesisConfig::<Test> {
+        let mut t = system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+        identity::GenesisConfig::<Test> {
             owner: id,
             did_creation_fee: 250,
-        }.assimilate_storage(&mut t).unwrap();
-		sr_io::TestExternalities::new(t)
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        sr_io::TestExternalities::new(t)
     }
 
     #[test]

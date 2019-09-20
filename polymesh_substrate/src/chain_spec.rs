@@ -4,9 +4,9 @@ use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
 use polymesh_runtime::constants::{currency::POLY, time::*};
 use polymesh_runtime::{
-    AssetConfig, BabeConfig, BalancesConfig, CouncilConfig, DemocracyConfig, SimpleTokenConfig,
-    ElectionsConfig, GenesisConfig, GrandpaConfig, IdentityConfig, IndicesConfig, Perbill,
-    SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+    AssetConfig, BabeConfig, BalancesConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
+    GenesisConfig, GrandpaConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig,
+    SessionKeys, SimpleTokenConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
     TechnicalCommitteeConfig, WASM_BINARY,
 };
 use primitives::{Pair, Public};
@@ -149,9 +149,7 @@ fn testnet_genesis(
             owner: get_from_seed::<AccountId>("Dave"),
             did_creation_fee: 250,
         }),
-        simple_token: Some(SimpleTokenConfig {
-            creation_fee: 1000
-        }),
+        simple_token: Some(SimpleTokenConfig { creation_fee: 1000 }),
         balances: Some(BalancesConfig {
             balances: endowed_accounts
                 .iter()
