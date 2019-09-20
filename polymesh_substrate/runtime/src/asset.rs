@@ -702,7 +702,7 @@ mod tests {
 
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
-    use primitives::{Blake2Hasher, H256};
+    use substrate_primitives::{Blake2Hasher, H256};
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::{Digest, DigestItem, Header, UintAuthorityId},

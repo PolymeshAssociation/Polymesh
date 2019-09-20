@@ -689,7 +689,7 @@ mod tests {
     /*
      *    use super::*;
      *
-     *    use primitives::{Blake2Hasher, H256};
+     *    use substrate_primitives::{Blake2Hasher, H256};
      *    use sr_io::with_externalities;
      *    use sr_primitives::{
      *        testing::{Digest, DigestItem, Header},
