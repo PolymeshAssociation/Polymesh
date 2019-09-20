@@ -34,6 +34,23 @@ jobs:
           paths:
             - "~/.cargo"
             - "./polymesh_substrate/target"
+  test:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - test-cache-{{ checksum "./polymesh_substrate/runtime/Cargo.lock" }}
+      - run:
+          name: runtime tests
+          command: cargo test --release
+          working_directory: ./polymesh_substrate/runtime
+      - save_cache:
+          key: test-cache-{{ checksum "./polymesh_substrate/runtime/Cargo.lock" }}
+          paths:
             - "./polymesh_substrate/runtime/target"
             - "./polymesh_substrate/runtime/wasm/target"
 workflows:
@@ -42,6 +59,7 @@ workflows:
     jobs:
       - lint
       - build
+      - test
   daily-builds:
     triggers:
       - schedule:
