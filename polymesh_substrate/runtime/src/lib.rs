@@ -423,6 +423,9 @@ impl utils::Trait for Runtime {
     fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
         v
     }
+    fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+        v
+    }
 }
 
 impl simple_token::Trait for Runtime {

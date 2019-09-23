@@ -6,10 +6,10 @@ use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 use codec::Encode;
 use rstd::prelude::*;
+use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
 use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
-use staking;
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
@@ -20,7 +20,7 @@ pub trait Trait:
     + utils::Trait
     + balances::Trait
     + identity::Trait
-    + staking::Trait
+    + session::Trait
     + registry::Trait
 {
     /// The overarching event type.
@@ -229,7 +229,7 @@ decl_module! {
             ensure!(<registry::Module<T>>::get(ticker.clone()).is_none(), "Ticker is already taken");
 
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
-            let validators = <staking::Module<T>>::current_elected();
+            let validators = <session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
             let validator_len:T::Balance;
             if validators.len() < 1 {
@@ -238,10 +238,10 @@ decl_module! {
                 validator_len = T::Balance::from(validators.len() as u32);
             }
             let proportional_fee = fee / validator_len;
-            for v in &validators {
+            for v in validators {
                 <balances::Module<T> as Currency<_>>::transfer(
                     &sender,
-                    v,
+                    &<T as utils::Trait>::validator_id_to_account_id(v),
                     proportional_fee
                 )?;
             }
@@ -703,8 +703,8 @@ mod tests {
     use lazy_static::lazy_static;
     use sr_io::with_externalities;
     use sr_primitives::{
-        testing::Header,
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         Perbill,
     };
     use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
@@ -718,9 +718,34 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
+    use crate::exemption;
     use crate::identity::{self, IdentityTrait, Investor, InvestorList};
     use crate::GenesisConfig;
-    use crate::exemption;
+
+    type SessionIndex = u32;
+    type AuthorityId = u64;
+    type BlockNumber = u64;
+
+    pub struct TestOnSessionEnding;
+    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+        fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
+            None
+        }
+    }
+
+    pub struct TestSessionHandler;
+    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+        fn on_new_session<Ks: OpaqueKeys>(
+            _changed: bool,
+            _validators: &[(AuthorityId, Ks)],
+            _queued_validators: &[(AuthorityId, Ks)],
+        ) {
+        }
+
+        fn on_disabled(_validator_index: usize) {}
+
+        fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+    }
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -732,6 +757,8 @@ mod tests {
     #[derive(Clone, Eq, PartialEq)]
     pub struct Test;
     parameter_types! {
+        pub const Period: BlockNumber = 1;
+        pub const Offset: BlockNumber = 0;
         pub const BlockHashCount: u32 = 250;
         pub const MaximumBlockWeight: u32 = 4 * 1024 * 1024;
         pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
@@ -754,6 +781,22 @@ mod tests {
         type AvailableBlockRatio = AvailableBlockRatio;
         type MaximumBlockLength = MaximumBlockLength;
         type Version = ();
+    }
+
+    impl session::Trait for Test {
+        type OnSessionEnding = TestOnSessionEnding;
+        type Keys = UintAuthorityId;
+        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type SessionHandler = TestSessionHandler;
+        type Event = ();
+        type ValidatorId = AuthorityId;
+        type ValidatorIdOf = ConvertInto;
+        type SelectInitialValidators = ();
+    }
+
+    impl session::historical::Trait for Test {
+        type FullIdentification = ();
+        type FullIdentificationOf = ();
     }
 
     parameter_types! {
@@ -819,6 +862,9 @@ mod tests {
             v
         }
         fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
+            v
+        }
+        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
             v
         }
     }

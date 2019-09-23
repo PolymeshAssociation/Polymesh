@@ -437,10 +437,11 @@ mod tests {
     use lazy_static::lazy_static;
     use sr_io::with_externalities;
     use sr_primitives::{
-        testing::Header,
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         Perbill,
     };
+    use srml_support::traits::Currency;
     use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
     use yaml_rust::{Yaml, YamlLoader};
@@ -453,9 +454,34 @@ mod tests {
     };
 
     use crate::{
-        asset::SecurityToken, exemption, general_tm, identity, percentage_tm, registry,
+        asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
         simple_token::SimpleTokenRecord,
     };
+
+    type SessionIndex = u32;
+    type AuthorityId = u64;
+    type BlockNumber = u64;
+
+    pub struct TestOnSessionEnding;
+    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+        fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
+            None
+        }
+    }
+
+    pub struct TestSessionHandler;
+    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+        fn on_new_session<Ks: OpaqueKeys>(
+            _changed: bool,
+            _validators: &[(AuthorityId, Ks)],
+            _queued_validators: &[(AuthorityId, Ks)],
+        ) {
+        }
+
+        fn on_disabled(_validator_index: usize) {}
+
+        fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+    }
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -492,11 +518,29 @@ mod tests {
     }
 
     parameter_types! {
+        pub const Period: BlockNumber = 1;
+        pub const Offset: BlockNumber = 0;
         pub const ExistentialDeposit: u64 = 0;
         pub const TransferFee: u64 = 0;
         pub const CreationFee: u64 = 0;
         pub const TransactionBaseFee: u64 = 0;
         pub const TransactionByteFee: u64 = 0;
+    }
+
+    impl session::Trait for Test {
+        type OnSessionEnding = TestOnSessionEnding;
+        type Keys = UintAuthorityId;
+        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type SessionHandler = TestSessionHandler;
+        type Event = ();
+        type ValidatorId = AuthorityId;
+        type ValidatorIdOf = ConvertInto;
+        type SelectInitialValidators = ();
+    }
+
+    impl session::historical::Trait for Test {
+        type FullIdentification = ();
+        type FullIdentificationOf = ();
     }
 
     impl balances::Trait for Test {
@@ -565,6 +609,9 @@ mod tests {
             v
         }
         fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
+            v
+        }
+        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
             v
         }
     }
