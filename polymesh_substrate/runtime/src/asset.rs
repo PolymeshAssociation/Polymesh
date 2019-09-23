@@ -6,13 +6,11 @@ use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 use codec::Encode;
 use rstd::prelude::*;
-//use session;
+use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
-use srml_support::traits::Currency;
+use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
-
-type FeeOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -22,7 +20,7 @@ pub trait Trait:
     + utils::Trait
     + balances::Trait
     + identity::Trait
-    //+ session::Trait
+    + session::Trait
     + registry::Trait
 {
     /// The overarching event type.
@@ -52,7 +50,7 @@ decl_storage! {
         // (ticker, sender, spender) -> allowance amount
         Allowance get(allowance): map (Vec<u8>, Vec<u8>, Vec<u8>) => T::TokenBalance;
         // cost in base currency to create a token
-        AssetCreationFee get(asset_creation_fee) config(): FeeOf<T>;
+        AssetCreationFee get(asset_creation_fee) config(): T::Balance;
         // Checkpoints created per token
         pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u32;
         // Total supply of the token at the checkpoint
@@ -230,23 +228,25 @@ decl_module! {
 
             ensure!(<registry::Module<T>>::get(ticker.clone()).is_none(), "Ticker is already taken");
 
-            // TODO Fix this
-            // // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
-            // let validators = <session::Module<T>>::validators();
-            // let fee = Self::asset_creation_fee();
-            // let validator_len:u128;
-            // if validators.len() < 1 {
-            //     validator_len = 1;
-            // } else {
-            //     validator_len = validators.len().try_into().unwrap();
-            // }
-            // let proportional_fee = fee / validator_len;
-            // let proportional_fee_in_balance = proportional_fee.into();
-            // for v in &validators {
-            //     <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
-            // }
-            // let remainder_fee = fee - (proportional_fee * validator_len);
-            // let _imbalance = T::Currency::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+            // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
+            let validators = <session::Module<T>>::validators();
+            let fee = Self::asset_creation_fee();
+            let validator_len:T::Balance;
+            if validators.len() < 1 {
+                validator_len = T::Balance::from(1 as u32);
+            } else {
+                validator_len = T::Balance::from(validators.len() as u32);
+            }
+            let proportional_fee = fee / validator_len;
+            for v in validators {
+                <balances::Module<T> as Currency<_>>::transfer(
+                    &sender,
+                    &<T as utils::Trait>::validator_id_to_account_id(v),
+                    proportional_fee
+                )?;
+            }
+            let remainder_fee = fee - (proportional_fee * validator_len);
+            <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
             let token = SecurityToken {
                 name,
