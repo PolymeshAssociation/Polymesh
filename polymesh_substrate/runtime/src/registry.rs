@@ -43,8 +43,8 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        pub fn printTickerAvailability(origin, ticker: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
+        pub fn print_ticker_availability(origin, ticker: Vec<u8>) -> Result {
+            let _sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(ticker.as_slice());
 
             if <Tokens>::exists(ticker.clone()) {

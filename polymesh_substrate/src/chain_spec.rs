@@ -4,8 +4,8 @@ use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
 use polymesh_runtime::constants::{currency::POLY, time::*};
 use polymesh_runtime::{
-    AssetConfig, BabeConfig, BalancesConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
-    GenesisConfig, GrandpaConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig,
+    AssetConfig, BalancesConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
+    GenesisConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig,
     SessionKeys, SimpleTokenConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
     TechnicalCommitteeConfig, WASM_BINARY,
 };
@@ -133,7 +133,6 @@ fn testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
 ) -> GenesisConfig {
-    const ENDOWMENT: u128 = 1_000_000 * POLY;
     const STASH: u128 = 100 * POLY;
     let desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
     GenesisConfig {

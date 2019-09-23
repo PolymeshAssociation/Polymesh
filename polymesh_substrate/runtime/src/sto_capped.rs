@@ -7,7 +7,6 @@ use crate::utils;
 use srml_support::traits::Currency;
 
 use codec::Encode;
-use core::convert::TryInto;
 use rstd::prelude::*;
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
@@ -150,7 +149,7 @@ decl_module! {
                 <T as utils::Trait>::balance_to_token_balance(value),
                 selected_sto.clone()
             )?;
-            let allowed_value = <T as utils::Trait>::token_balance_to_balance(token_amount_value.1);
+            let _allowed_value = <T as utils::Trait>::token_balance_to_balance(token_amount_value.1);
 
             selected_sto.sold = selected_sto.sold
                 .checked_add(&token_amount_value.0)

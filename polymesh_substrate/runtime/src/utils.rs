@@ -3,7 +3,7 @@ use codec::Codec;
 use rstd::prelude::*;
 use sr_primitives::traits::{Member, SimpleArithmetic};
 use srml_support::{decl_module, decl_storage, Parameter};
-use system::{self, ensure_signed};
+use system;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait {

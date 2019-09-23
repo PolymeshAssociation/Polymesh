@@ -7,7 +7,7 @@ use codec::Encode;
 use rstd::prelude::*;
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use srml_support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
+    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap,
 };
 use system::{self, ensure_signed};
 
@@ -88,22 +88,22 @@ impl<T: Trait> Module<T> {
         // TODO: Mould the integer into the module identity
         let is_exempted = <exemption::Module<T>>::is_exempted(ticker.clone(), 2, to_did.clone());
         if max_percentage != 0 && !is_exempted {
-            let newBalance = (T::Asset::balance(ticker.clone(), to_did.clone()))
+            let new_balance = (T::Asset::balance(ticker.clone(), to_did.clone()))
                 .checked_add(&value)
                 .ok_or("Balance of to will get overflow")?;
-            let totalSupply = T::Asset::total_supply(ticker);
+            let total_supply = T::Asset::total_supply(ticker);
 
-            let percentageBalance = (newBalance
+            let percentage_balance = (new_balance
                 .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(18))))
                 .ok_or("unsafe multiplication")?)
-            .checked_div(&totalSupply)
+            .checked_div(&total_supply)
             .ok_or("unsafe division")?;
 
             let allowed_token_amount = (<T as utils::Trait>::as_tb(max_percentage as u128))
                 .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(16))))
                 .ok_or("unsafe percentage multiplication")?;
 
-            if percentageBalance > allowed_token_amount {
+            if percentage_balance > allowed_token_amount {
                 sr_primitives::print(
                     "It is failing because it is not validating the PercentageTM restrictions",
                 );

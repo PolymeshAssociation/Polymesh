@@ -59,7 +59,6 @@ workflows:
     jobs:
       - lint
       - build
-      - test
   daily-builds:
     triggers:
       - schedule:

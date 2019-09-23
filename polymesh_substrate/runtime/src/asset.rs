@@ -1,15 +1,14 @@
 use crate::balances;
-use crate::exemption;
 use crate::general_tm;
-use crate::identity::{self, IdentityTrait};
+use crate::identity;
 use crate::percentage_tm;
 use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 use codec::Encode;
 use rstd::prelude::*;
 //use session;
-use sr_primitives::traits::{CheckedAdd, CheckedSub, Convert};
-use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
+use sr_primitives::traits::{CheckedAdd, CheckedSub};
+use srml_support::traits::Currency;
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 

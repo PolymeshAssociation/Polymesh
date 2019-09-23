@@ -7,7 +7,6 @@ use client::{
     block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
     impl_runtime_apis, runtime_api as client_api,
 };
-use codec::{Decode, Encode};
 use elections::VoteIndex;
 use grandpa::{
     fg_primitives::{self, ScheduledChange},
@@ -18,9 +17,9 @@ use primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Moment, No
 use rstd::prelude::*;
 use sr_primitives::{
     create_runtime_str, generic, impl_opaque_keys, key_types,
-    traits::{BlakeTwo256, Block as BlockT, DigestFor, SignedExtension, StaticLookup},
-    transaction_validity::{TransactionValidity, ValidTransaction},
-    weights::{DispatchInfo, Weight},
+    traits::{BlakeTwo256, Block as BlockT, DigestFor, StaticLookup},
+    transaction_validity::TransactionValidity,
+    weights::Weight,
     ApplyResult,
 };
 use sr_staking_primitives::SessionIndex;
