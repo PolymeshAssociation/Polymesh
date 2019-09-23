@@ -6,10 +6,10 @@ use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
 use codec::Encode;
 use rstd::prelude::*;
-use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
 use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use staking;
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
@@ -20,7 +20,7 @@ pub trait Trait:
     + utils::Trait
     + balances::Trait
     + identity::Trait
-    + session::Trait
+    + staking::Trait
     + registry::Trait
 {
     /// The overarching event type.
@@ -229,7 +229,7 @@ decl_module! {
             ensure!(<registry::Module<T>>::get(ticker.clone()).is_none(), "Ticker is already taken");
 
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
-            let validators = <session::Module<T>>::validators();
+            let validators = <staking::Module<T>>::current_elected();
             let fee = Self::asset_creation_fee();
             let validator_len:T::Balance;
             if validators.len() < 1 {
@@ -238,10 +238,10 @@ decl_module! {
                 validator_len = T::Balance::from(validators.len() as u32);
             }
             let proportional_fee = fee / validator_len;
-            for v in validators {
+            for v in &validators {
                 <balances::Module<T> as Currency<_>>::transfer(
                     &sender,
-                    &<T as utils::Trait>::validator_id_to_account_id(v),
+                    v,
                     proportional_fee
                 )?;
             }
