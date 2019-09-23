@@ -4,10 +4,9 @@ use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
 use polymesh_runtime::constants::{currency::POLY, time::*};
 use polymesh_runtime::{
-    AssetConfig, BalancesConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
-    GenesisConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig,
-    SessionKeys, SimpleTokenConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-    TechnicalCommitteeConfig, WASM_BINARY,
+    AssetConfig, BalancesConfig, CouncilConfig, DemocracyConfig, ElectionsConfig, GenesisConfig,
+    IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys, SimpleTokenConfig,
+    StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
 use primitives::{Pair, Public};
 use srml_staking::Forcing;

@@ -10,12 +10,7 @@ use rstd::prelude::*;
 /// For more guidance on Substrate modules, see the example module
 /// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use srml_support::{
-    decl_event, decl_module, decl_storage,
-    dispatch::Result,
-    ensure,
-    StorageMap,
-};
+use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::ensure_signed;
 
 use crate::{asset, identity, simple_token, utils};
