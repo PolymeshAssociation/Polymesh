@@ -720,6 +720,7 @@ mod tests {
 
     use crate::identity::{self, IdentityTrait, Investor, InvestorList};
     use crate::GenesisConfig;
+    use crate::exemption;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
