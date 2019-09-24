@@ -1,13 +1,22 @@
 use crate::asset::{self, AssetTrait};
 use crate::identity;
 use crate::utils;
-use codec::Encode;
+use codec::{Encode, Decode};
 
 use rstd::prelude::*;
 use srml_support::{
     decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap,
 };
 use system::{self, ensure_signed};
+
+// pub enum Types {
+//     U8, U16, U32, U64, U128,
+//     BYTES, STRING,
+// }
+
+// pub enum Operators {
+//     EQUAL_TO, NOT_EQUAL_TO, LESS_THAN, GREATER_THAN, LESS_OR_EQUAL_TO, GREATER_OR_EQUAL_TO,
+// }
 
 /// The module's configuration trait.
 pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
@@ -22,7 +31,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
 pub struct Rule {
     topic: u32,
     schema: u32,
-    bytes: Vec<RuleData>, // Array of {key value operator}
+    rules_data: Vec<RuleData>, // Array of {key value operator}
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
@@ -35,7 +44,8 @@ pub struct AssetRule {
 pub struct RuleData {
     key: Vec<u8>,
     value: Vec<u8>,
-    operator: u16, // 0= 2! 3< 4> 5<= 6>=
+    data_type: u8,
+    operator: u8, // 0= 2! 3< 4> 5<= 6>=
 }
 
 decl_storage! {
@@ -104,6 +114,53 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker.clone(), sender_did)
     }
 
+    pub fn fetch_value(did: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+        // TODO Fetch value from Identity module
+        return 1.encode();
+    }
+
+    pub fn check_rule(rule_data: Vec<u8>, identity_data: Vec<u8>, data_type: u8, operator: u8) -> bool {
+        let mut rule_broken = false;
+        match data_type {
+            0 => {
+                let rule_value = u8::decode(&mut &rule_data[..]);
+                let identity_value = u8::decode(&mut &identity_data[..]);
+                match operator {
+                    0 => {
+                        if rule_value != identity_value {
+                            rule_broken = true;
+                        }
+                    } 1 => {
+                        if rule_value == identity_value {
+                            rule_broken = true;
+                        }
+                    } _ => {
+                        rule_broken = true;
+                    }
+                }
+            } 1 => {
+                let rule_value = u16::decode(&mut &rule_data[..]);
+                let identity_value = u16::decode(&mut &identity_data[..]);
+                match operator {
+                    0 => {
+                        if rule_value != identity_value {
+                            rule_broken = true;
+                        }
+                    } 1 => {
+                        if rule_value == identity_value {
+                            rule_broken = true;
+                        }
+                    } _ => {
+                        rule_broken = true;
+                    }
+                }
+            } _ => {
+                rule_broken = true;
+            }
+        }
+        return rule_broken;
+    }
+
     ///  Sender restriction verification
     pub fn verify_restriction(
         _ticker: Vec<u8>,
@@ -114,11 +171,11 @@ impl<T: Trait> Module<T> {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
         let active_rules = Self::active_rules(ticker.clone());
         for active_rule in active_rules {
-            let rule_broken = false;
+            let mut rule_broken = false;
             for sender_rule in active_rule.sender_rules {
-                for data in sender_rule.bytes {
-                    // Verify all sender claims
-                    // Set rule_broken = true if the rule is broken
+                for data in sender_rule.rules_data {
+                    let identity_value = Self::fetch_value(from_did.clone(), data.key);
+                    rule_broken = Self::check_rule(data.value, identity_value, data.data_type, data.operator);
                 }
                 if rule_broken {
                     break;
@@ -128,9 +185,9 @@ impl<T: Trait> Module<T> {
                 if rule_broken {
                     break;
                 }
-                for data in receiver_rule.bytes {
-                    // Verify all receiver claims
-                    // Set rule_broken = true if the rule is broken
+                for data in receiver_rule.rules_data {
+                    let identity_value = Self::fetch_value(from_did.clone(), data.key);
+                    rule_broken = Self::check_rule(data.value, identity_value, data.data_type, data.operator);
                 }
             }
             if !rule_broken {
