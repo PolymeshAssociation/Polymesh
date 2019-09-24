@@ -60,12 +60,14 @@
         "tokens_purchased": "TokenBalance",
         "last_purchase_date": "Moment"
     },
-    "SimpleToken": {
+    "SimpleTokenRecord": {
         "ticker": "Vec<u8>",
         "total_supply": "TokenBalance",
         "owner": "AccountId"
     },
     "FeeOf": "Balance",
+    "TSMoment": "u64",
+    "Moment": "u64",
     "Dividend": {
         "amount": "TokenBalance",
         "active": "bool",

@@ -6,7 +6,7 @@ import * as path from 'path';
 import inquirer from 'inquirer';
 import * as Utils from 'web3-utils';
 
-const filePath = path.join(__dirname + "../../../polymesh_substrate/substrateui_dev.json");
+const filePath = path.join(__dirname + "../../../../polymesh_substrate/substrateui_dev.json");
 const customTypes = JSON.parse(fs.readFileSync(filePath, "utf8").toString());
 
 console.log(`Welcome to a notification tracking device:\n`);

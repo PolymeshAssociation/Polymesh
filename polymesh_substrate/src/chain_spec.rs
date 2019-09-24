@@ -24,6 +24,8 @@ pub enum Alternative {
     Development,
     /// Whatever the current runtime is, with simple Alice/Bob auths.
     LocalTestnet,
+    /// The stats collector testnet
+    StatsTestnet,
 }
 
 /// Helper function to generate a crypto pair from seed
@@ -107,6 +109,25 @@ impl Alternative {
                 None,
                 None,
             ),
+            Alternative::StatsTestnet => ChainSpec::from_genesis(
+                "Stats Testnet",
+                "stats-testnet",
+                || {
+                    testnet_genesis(
+                        vec![
+                            get_authority_keys_from_seed("Alice"),
+                            get_authority_keys_from_seed("Bob"),
+                            get_authority_keys_from_seed("Charlie"),
+                        ],
+                        get_account_id_from_seed("Alice"),
+                    )
+                },
+                vec![],
+                None,
+                None,
+                None,
+                None,
+            ),
         })
     }
 
@@ -114,6 +135,7 @@ impl Alternative {
         match s {
             "dev" => Some(Alternative::Development),
             "" | "local" => Some(Alternative::LocalTestnet),
+            "stats-testnet" => Some(Alternative::StatsTestnet),
             _ => None,
         }
     }

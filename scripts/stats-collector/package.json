@@ -1,0 +1,15 @@
+{
+  "name": "pmesh-stats",
+  "version": "1.0.0",
+  "description": "Polymesh stats collector",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Polymath Network",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@polkadot/api": "^0.92.1",
+    "@polkadot/keyring": "^1.4.1"
+  }
+}
