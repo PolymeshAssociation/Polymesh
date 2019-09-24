@@ -1,12 +1,12 @@
 use rstd::prelude::*;
-//use parity_codec::Codec;
+//use codec::Codec;
 
 pub static DID_PREFIX: &'static str = "did:poly:";
 use crate::balances;
 
-use parity_codec::Encode;
-use runtime_primitives::traits::{CheckedAdd, CheckedSub};
-use support::{
+use codec::Encode;
+use sr_primitives::traits::{CheckedAdd, CheckedSub};
+use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
     ensure,
@@ -15,29 +15,29 @@ use support::{
 };
 use system::{self, ensure_signed};
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Issuer<U> {
-    account: U,
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
+pub struct Issuer {
+    did: Vec<u8>,
     access_level: u16,
     active: bool,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Investor<U> {
-    pub account: U,
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
+pub struct Investor {
+    pub did: Vec<u8>,
     pub access_level: u16,
     pub active: bool,
     pub jurisdiction: u16,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct DidRecord<U> {
     pub master_key: Vec<u8>,
     pub signing_keys: Vec<Vec<u8>>,
     pub balance: U,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
     topic: u32,
     schema: u32,
@@ -45,7 +45,7 @@ pub struct Claim<U> {
     expiry: U,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimRecord<U> {
     claim: Claim<U>,
     revoked: bool,
@@ -65,9 +65,9 @@ decl_storage! {
 
         Owner get(owner) config(): T::AccountId;
 
-        ERC20IssuerList get(erc20_issuer_list): map T::AccountId => Issuer<T::AccountId>;
-        IssuerList get(issuer_list): map T::AccountId => Issuer<T::AccountId>;
-        pub InvestorList get(investor_list): map T::AccountId => Investor<T::AccountId>;
+        SimpleTokenIssuerList get(simple_token_issuer_list): map Vec<u8> => Issuer;
+        IssuerList get(issuer_list): map Vec<u8> => Issuer;
+        pub InvestorList get(investor_list): map Vec<u8> => Investor;
 
         /// DID -> identity info
         pub DidRecords get(did_records): map Vec<u8> => DidRecord<T::Balance>;
@@ -84,6 +84,8 @@ decl_storage! {
         // Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map Vec<u8> => bool;
 
+        /// How much does creating a DID cost
+        pub DidCreationFee get(did_creation_fee) config(): T::Balance;
     }
 }
 
@@ -92,56 +94,65 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         // this is needed only if you are using events in your module
-        fn deposit_event<T>() = default;
+        fn deposit_event() = default;
 
-        fn create_issuer(origin,_issuer: T::AccountId) -> Result {
+        fn create_issuer(origin, issuer_did: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
+
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-            Self::do_create_issuer(_issuer)
+            Self::do_create_issuer(issuer_did)
         }
 
-        fn create_erc20_issuer(origin,_issuer: T::AccountId) -> Result {
+        fn create_simple_token_issuer(origin, issuer_did: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-            Self::do_create_erc20_issuer(_issuer)
+            Self::do_create_simple_token_issuer(issuer_did)
         }
 
-        fn create_investor(origin,_investor: T::AccountId) -> Result {
+        fn create_investor(origin, investor_did: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-            Self::do_create_investor(_investor)
+            Self::do_create_investor(investor_did)
         }
 
         fn set_charge_did(origin, charge_did: bool) -> Result {
             let sender = ensure_signed(origin)?;
-            <ChargeDid<T>>::insert(sender.encode(), charge_did);
+            <ChargeDid>::insert(sender.encode(), charge_did);
             Ok(())
         }
 
         /// Register signing keys for a new DID. Uses origin key as the master key
-        fn register(origin, did: Vec<u8>, signing_keys: Vec<Vec<u8>>) -> Result {
+        pub fn register_did(origin, did: Vec<u8>, signing_keys: Vec<Vec<u8>>) -> Result {
 
             let sender = ensure_signed(origin)?;
 
             let master_key = sender.encode();
 
-            // Make sure there's no pre-existing entry for the DID
-            ensure!(!<DidRecords<T>>::exists(did.clone()), "DID must be unique");
-
             // Make sure caller specified a correct DID
             validate_did(did.as_slice())?;
 
+            // Make sure there's no pre-existing entry for the DID
+            ensure!(!<DidRecords<T>>::exists(did.clone()), "DID must be unique");
+
+            // TODO: Subtract the fee
+            let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
+                &sender,
+                Self::did_creation_fee(),
+                WithdrawReason::Fee,
+                ExistenceRequirement::KeepAlive
+                )?;
+
             for key in &signing_keys {
-                if <SigningKeyDid<T>>::exists(key.clone()) {
-                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "One signing key can only belong to one DID");
+                if <SigningKeyDid>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid>::get(key) == did.clone(), "One signing key can only belong to one DID");
                 }
             }
 
             for key in &signing_keys {
-                <SigningKeyDid<T>>::insert(key, did.clone());
+                <SigningKeyDid>::insert(key, did.clone());
             }
 
             let record = DidRecord {
@@ -169,13 +180,13 @@ decl_module! {
             ensure!(sender_key == record.master_key, "Sender must hold the master key");
 
             for key in &additional_keys {
-                if <SigningKeyDid<T>>::exists(key.clone()) {
-                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "One signing key can only belong to one DID");
+                if <SigningKeyDid>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid>::get(key) == did.clone(), "One signing key can only belong to one DID");
                 }
             }
 
             for key in &additional_keys {
-                <SigningKeyDid<T>>::insert(key, did.clone());
+                <SigningKeyDid>::insert(key, did.clone());
             }
 
             <DidRecords<T>>::mutate(did.clone(),
@@ -210,13 +221,13 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
 
             for key in &keys_to_remove {
-                if <SigningKeyDid<T>>::exists(key.clone()) {
-                    ensure!(<SigningKeyDid<T>>::get(key) == did.clone(), "Signing key does not belong to this DID");
+                if <SigningKeyDid>::exists(key.clone()) {
+                    ensure!(<SigningKeyDid>::get(key) == did.clone(), "Signing key does not belong to this DID");
                 }
             }
 
             for key in &keys_to_remove {
-                <SigningKeyDid<T>>::remove(key);
+                <SigningKeyDid>::remove(key);
             }
 
             <DidRecords<T>>::mutate(did.clone(),
@@ -257,7 +268,7 @@ decl_module! {
         }
 
         /// Adds funds to a DID.
-        fn fund_poly(origin, did: Vec<u8>, amount: <T as balances::Trait>::Balance) -> Result {
+        pub fn fund_poly(origin, did: Vec<u8>, amount: <T as balances::Trait>::Balance) -> Result {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
@@ -270,7 +281,7 @@ decl_module! {
             let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
                 &sender,
                 amount,
-                WithdrawReason::Transfer,
+                WithdrawReason::Fee,
                 ExistenceRequirement::KeepAlive
                 )?;
 
@@ -310,6 +321,35 @@ decl_module! {
             Ok(())
         }
 
+        /// Transfers funds between DIDs.
+        fn transfer_poly(origin, did: Vec<u8>, to_did: Vec<u8>, amount: <T as balances::Trait>::Balance) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(Self::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
+            let from_record = <DidRecords<T>>::get(did.clone());
+            let to_record = <DidRecords<T>>::get(to_did.clone());
+
+            // Same for `from`
+            let new_from_balance = from_record.balance.checked_sub(&amount).ok_or("Sender must have sufficient funds")?;
+
+            // Compute new `to_did` balance and check that beneficiary's balance can be increased
+            let new_to_balance = to_record.balance.checked_add(&amount).ok_or("Failed to increase to_did balance")?;
+
+            // Alter from record
+            <DidRecords<T>>::mutate(did.clone(), |record| {
+                record.balance = new_from_balance;
+            });
+
+            // Alter to record
+            <DidRecords<T>>::mutate(to_did.clone(), |record| {
+                record.balance = new_to_balance;
+            });
+
+            Ok(())
+        }
+
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
         fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
@@ -322,7 +362,7 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
 
-            <ClaimIssuers<T>>::mutate(did.clone(), |old_claim_issuers| {
+            <ClaimIssuers>::mutate(did.clone(), |old_claim_issuers| {
                 if !old_claim_issuers.contains(&did_issuer) {
                     old_claim_issuers.push(did_issuer.clone());
                 }
@@ -345,7 +385,7 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
 
-            <ClaimIssuers<T>>::mutate(did.clone(), |old_claim_issuers| {
+            <ClaimIssuers>::mutate(did.clone(), |old_claim_issuers| {
                 *old_claim_issuers = old_claim_issuers
                     .iter()
                     .cloned()
@@ -364,6 +404,7 @@ decl_module! {
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer), "did_issuer must be a claim issuer for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = sender.encode();
@@ -482,11 +523,6 @@ decl_event!(
         Balance = <T as balances::Trait>::Balance,
         Moment = <T as timestamp::Trait>::Moment,
     {
-        // Just a dummy event.
-        // Event `Something` is declared with a parameter of the type `u32` and `AccountId`
-        // To emit this event, we call the deposit funtion, from our runtime funtions
-        SomethingStored(u32, AccountId),
-
         /// DID, master key account ID, signing keys
         NewDid(Vec<u8>, AccountId, Vec<Vec<u8>>),
 
@@ -507,6 +543,9 @@ decl_event!(
 
         /// DID, amount
         PolyChargedFromDid(Vec<u8>, Balance),
+
+        /// DID from, DID to, amount
+        PolyTransfer(Vec<u8>, Vec<u8>, Balance),
 
         /// DID, claim issuer DID
         NewClaimIssuer(Vec<u8>, Vec<u8>),
@@ -530,63 +569,64 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
     /// Add a new issuer. Warning: No identity module ownership checks are performed
-    pub fn do_create_issuer(_issuer: T::AccountId) -> Result {
+    pub fn do_create_issuer(issuer_did: Vec<u8>) -> Result {
         let new_issuer = Issuer {
-            account: _issuer.clone(),
+            did: issuer_did.clone(),
             access_level: 1,
             active: true,
         };
 
-        <IssuerList<T>>::insert(_issuer, new_issuer);
+        <IssuerList>::insert(issuer_did, new_issuer);
         Ok(())
     }
 
-    /// Add a new ERC20 issuer. Warning: No identity module ownership checks are performed
-    pub fn do_create_erc20_issuer(_erc20_issuer: T::AccountId) -> Result {
-        let new_erc20_issuer = Issuer {
-            account: _erc20_issuer.clone(),
+    /// Add a new SimpleToken issuer. Warning: No identity module ownership checks are performed
+    pub fn do_create_simple_token_issuer(issuer_did: Vec<u8>) -> Result {
+        let new_simple_token_issuer = Issuer {
+            did: issuer_did.clone(),
             access_level: 1,
             active: true,
         };
 
-        <ERC20IssuerList<T>>::insert(_erc20_issuer, new_erc20_issuer);
+        <SimpleTokenIssuerList>::insert(issuer_did, new_simple_token_issuer);
         Ok(())
     }
 
     /// Add a new investor. Warning: No identity module ownership checks are performed
-    pub fn do_create_investor(_investor: T::AccountId) -> Result {
+    pub fn do_create_investor(investor_did: Vec<u8>) -> Result {
         let new_investor = Investor {
-            account: _investor.clone(),
+            did: investor_did.clone(),
             access_level: 1,
             active: true,
             jurisdiction: 1,
         };
 
-        <InvestorList<T>>::insert(_investor, new_investor);
+        <InvestorList>::insert(investor_did, new_investor);
         Ok(())
     }
 
-    pub fn is_issuer(_user: T::AccountId) -> bool {
-        let user = Self::issuer_list(_user.clone());
-        user.account == _user && user.access_level == 1 && user.active
+    pub fn is_issuer(did: Vec<u8>) -> bool {
+        let user = Self::issuer_list(did.clone());
+        user.did == did && user.access_level == 1 && user.active
     }
 
-    pub fn is_erc20_issuer(_user: T::AccountId) -> bool {
-        let user = Self::erc20_issuer_list(_user.clone());
-        user.account == _user && user.access_level == 1 && user.active
+    pub fn is_simple_token_issuer(did: Vec<u8>) -> bool {
+        let user = Self::simple_token_issuer_list(did.clone());
+        user.did == did && user.access_level == 1 && user.active
     }
 
-    pub fn is_investor(_user: T::AccountId) -> bool {
-        let user = Self::investor_list(_user.clone());
-        user.account == _user && user.access_level == 1 && user.active
+    pub fn is_investor(did: Vec<u8>) -> bool {
+        let user = Self::investor_list(did.clone());
+        user.did == did && user.access_level == 1 && user.active
     }
 
     pub fn is_claim_issuer(did: Vec<u8>, did_issuer: &Vec<u8>) -> bool {
-        <ClaimIssuers<T>>::get(did).contains(&did_issuer)
+        <ClaimIssuers>::get(did).contains(&did_issuer)
     }
 
     pub fn is_signing_key(did: Vec<u8>, key: &Vec<u8>) -> bool {
-        <DidRecords<T>>::get(did).signing_keys.contains(key)
+        <DidRecords<T>>::get(did.clone()).signing_keys.contains(key)
+            || &<DidRecords<T>>::get(did).master_key == key
     }
 
     /// Withdraws funds from a DID balance
@@ -628,14 +668,14 @@ pub trait IdentityTrait<T> {
 
 impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
     fn charge_poly(signing_key: Vec<u8>, amount: T::Balance) -> bool {
-        Self::charge_poly(<SigningKeyDid<T>>::get(signing_key), amount)
+        Self::charge_poly(<SigningKeyDid>::get(signing_key), amount)
     }
 
     fn signing_key_charge_did(signing_key: Vec<u8>) -> bool {
-        if <SigningKeyDid<T>>::exists(signing_key.clone()) {
-            if Self::is_signing_key(<SigningKeyDid<T>>::get(signing_key.clone()), &signing_key) {
-                if <ChargeDid<T>>::exists(signing_key.clone()) {
-                    return <ChargeDid<T>>::get(signing_key.clone());
+        if <SigningKeyDid>::exists(signing_key.clone()) {
+            if Self::is_signing_key(<SigningKeyDid>::get(signing_key.clone()), &signing_key) {
+                if <ChargeDid>::exists(signing_key.clone()) {
+                    return <ChargeDid>::get(signing_key.clone());
                 }
             }
         }
@@ -649,14 +689,14 @@ mod tests {
     /*
      *    use super::*;
      *
-     *    use primitives::{Blake2Hasher, H256};
-     *    use runtime_io::with_externalities;
-     *    use runtime_primitives::{
+     *    use substrate_primitives::{Blake2Hasher, H256};
+     *    use sr_io::with_externalities;
+     *    use sr_primitives::{
      *        testing::{Digest, DigestItem, Header},
      *        traits::{BlakeTwo256, IdentityLookup},
      *        BuildStorage,
      *    };
-     *    use support::{assert_ok, impl_outer_origin};
+     *    use srml_support::{assert_ok, impl_outer_origin};
      *
      *    impl_outer_origin! {
      *        pub enum Origin for Test {}
@@ -673,7 +713,7 @@ mod tests {
      *        type BlockNumber = u64;
      *        type Hash = H256;
      *        type Hashing = BlakeTwo256;
-     *        type Digest = Digest;
+     *        type Digest = H256;
      *        type AccountId = u64;
      *        type Lookup = IdentityLookup<Self::AccountId>;
      *        type Header = Header;
@@ -687,8 +727,8 @@ mod tests {
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
-     *    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::<Test>::default()
+     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+     *        system::GenesisConfig::default()
      *            .build_storage()
      *            .unwrap()
      *            .0

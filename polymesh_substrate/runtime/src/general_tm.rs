@@ -2,9 +2,9 @@ use crate::asset::{self, AssetTrait};
 use crate::identity::{self, InvestorList};
 use crate::utils;
 
+use codec::Encode;
 use rstd::prelude::*;
-use runtime_primitives::traits::As;
-use support::{
+use srml_support::{
     decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
 };
 use system::{self, ensure_signed};
@@ -15,23 +15,23 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::AccountId, Self::TokenBalance>;
+    type Asset: asset::AssetTrait<Self::TokenBalance>;
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Rule {
     topic: u32,
     schema: u32,
     bytes: Vec<RuleData>, // Array of {key value operator}
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetRule {
     sender_rules: Vec<Rule>,
     receiver_rules: Vec<Rule>,
 }
 
-#[derive(parity_codec::Encode, parity_codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct RuleData {
     key: Vec<u8>,
     value: Vec<u8>,
@@ -53,7 +53,7 @@ decl_module! {
 
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "Sender must be the token owner");
 
-            <ActiveRules<T>>::mutate(ticker.clone(), |old_asset_rules| {
+            <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
                 if !old_asset_rules.contains(&asset_rule) {
                     old_asset_rules.push(asset_rule.clone());
                 }
@@ -70,7 +70,7 @@ decl_module! {
 
             ensure!(Self::is_owner(ticker.clone(), sender.clone()), "Sender must be the token owner");
 
-            <ActiveRules<T>>::mutate(ticker.clone(), |old_asset_rules| {
+            <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
                 *old_asset_rules = old_asset_rules
                     .iter()
                     .cloned()
@@ -96,16 +96,16 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(_ticker: Vec<u8>, sender: T::AccountId) -> bool {
+    pub fn is_owner(_ticker: Vec<u8>, sender_did: Vec<u8>) -> bool {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        T::Asset::is_owner(ticker.clone(), sender)
+        T::Asset::is_owner(ticker.clone(), sender_did)
     }
 
     ///  Sender restriction verification
     pub fn verify_restriction(
         _ticker: Vec<u8>,
-        from: T::AccountId,
-        to: T::AccountId,
+        from_did: Vec<u8>,
+        to_did: Vec<u8>,
         _value: T::TokenBalance,
     ) -> Result {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
@@ -135,7 +135,7 @@ impl<T: Trait> Module<T> {
             }
         }
 
-        runtime_io::print("Identity TM restrictions not satisfied");
+        sr_primitives::print("Identity TM restrictions not satisfied");
         Err("Cannot Transfer: Identity TM restrictions not satisfied")
 
         // let now = <timestamp::Module<T>>::get();
@@ -197,5 +197,4 @@ impl<T: Trait> Module<T> {
 /// tests for this module
 #[cfg(test)]
 mod tests {
-
 }
