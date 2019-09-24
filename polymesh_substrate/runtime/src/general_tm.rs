@@ -1,11 +1,11 @@
 use crate::asset::{self, AssetTrait};
-use crate::identity::{self, InvestorList};
+use crate::identity;
 use crate::utils;
-
 use codec::Encode;
+
 use rstd::prelude::*;
 use srml_support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap, StorageValue,
+    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap,
 };
 use system::{self, ensure_signed};
 
@@ -47,11 +47,13 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        fn add_asset_rule(origin, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+        fn add_asset_rule(origin, did: Vec<u8>, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "Sender must be the token owner");
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
+            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
 
             <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
                 if !old_asset_rules.contains(&asset_rule) {
@@ -64,11 +66,13 @@ decl_module! {
             Ok(())
         }
 
-        fn remove_asset_rule(origin, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+        fn remove_asset_rule(origin, did: Vec<u8>, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(Self::is_owner(ticker.clone(), sender.clone()), "Sender must be the token owner");
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
+            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
 
             <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
                 *old_asset_rules = old_asset_rules
@@ -84,7 +88,6 @@ decl_module! {
         }
     }
 }
-
 
 decl_event!(
     pub enum Event<T>
@@ -196,5 +199,4 @@ impl<T: Trait> Module<T> {
 
 /// tests for this module
 #[cfg(test)]
-mod tests {
-}
+mod tests {}
