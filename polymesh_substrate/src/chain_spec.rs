@@ -2,9 +2,9 @@ use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
-use polymesh_runtime::constants::{currency::POLY, time::*};
+use polymesh_runtime::constants::{currency::POLY, time::*, currency::MILLICENTS};
 use polymesh_runtime::{
-    AssetConfig, BalancesConfig, CouncilConfig, DemocracyConfig, ElectionsConfig, GenesisConfig,
+    AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig, GenesisConfig,
     IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys, SimpleTokenConfig,
     StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
 };
@@ -212,5 +212,12 @@ fn testnet_genesis(
         im_online: Some(Default::default()),
         babe: Some(Default::default()),
         grandpa: Some(Default::default()),
+        contracts: Some(ContractsConfig {
+			current_schedule: contracts::Schedule {
+				enable_println, // this should only be enabled on development chains
+				..Default::default()
+			},
+			gas_price: 1 * MILLICENTS,
+		}),
     }
 }

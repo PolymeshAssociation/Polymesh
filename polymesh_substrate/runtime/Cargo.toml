@@ -27,6 +27,7 @@ client = { package = "substrate-client", git = "https://github.com/paritytech/su
 inherents = { package = "substrate-inherents", git = "https://github.com/paritytech/substrate", default-features = false, rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
 offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
 authorship = { package = "srml-authorship", git = "https://github.com/paritytech/substrate", default-features = false, rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
+contracts = { package = "srml-contracts", git = "https://github.com/paritytech/substrate", default-features = false, rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
 collective = { package = "srml-collective", git = "https://github.com/paritytech/substrate", default-features = false, rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
 elections = { package = "srml-elections", git = "https://github.com/paritytech/substrate", default-features = false, rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
 democracy = { package = "srml-democracy", git = "https://github.com/paritytech/substrate", default-features = false, rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
@@ -55,8 +56,10 @@ wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.
 
 [features]
 default = ["std"]
-no_std = []
 only-staking = []
+no_std = [
+	"contracts/core",
+]
 std = [
 	"bitvec/std",
 	"primitives/std",
@@ -74,6 +77,7 @@ std = [
 	"elections/std",
 	"democracy/std",
 	"executive/std",
+	"contracts/std",
 	"finality-tracker/std",
 	"grandpa/std",
 	"im-online/std",

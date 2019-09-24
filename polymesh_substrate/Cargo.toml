@@ -43,6 +43,7 @@ im-online = { package = "srml-im-online", git = "https://github.com/paritytech/s
 babe = { package = "substrate-consensus-babe", git = "https://github.com/paritytech/substrate", rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
 babe-primitives = { package = "substrate-consensus-babe-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
 basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/paritytech/substrate", rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
+contracts = { package = "srml-contracts", git = "https://github.com/paritytech/substrate", rev = "203e2c23b51bf23f778b3afee16465e6dca04cf2" }
 
 [build-dependencies]
 vergen = "3.0.4"
