@@ -2,11 +2,12 @@ use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
-use polymesh_runtime::constants::{currency::POLY, time::*, currency::MILLICENTS};
+use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY, time::*};
 use polymesh_runtime::{
-    AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig, GenesisConfig,
-    IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys, SimpleTokenConfig,
-    StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, WASM_BINARY,
+    AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
+    GenesisConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys,
+    SimpleTokenConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+    TechnicalCommitteeConfig, WASM_BINARY,
 };
 use primitives::{Pair, Public};
 use srml_staking::Forcing;
@@ -210,14 +211,15 @@ fn testnet_genesis(
         }),
         democracy: Some(DemocracyConfig::default()),
         im_online: Some(Default::default()),
+        authority_discovery: Some(Default::default()),
         babe: Some(Default::default()),
         grandpa: Some(Default::default()),
         contracts: Some(ContractsConfig {
-			current_schedule: contracts::Schedule {
-				enable_println, // this should only be enabled on development chains
-				..Default::default()
-			},
-			gas_price: 1 * MILLICENTS,
-		}),
+            current_schedule: contracts::Schedule {
+                enable_println, // this should only be enabled on development chains
+                ..Default::default()
+            },
+            gas_price: 1 * MILLICENTS,
+        }),
     }
 }

@@ -3,7 +3,7 @@ use crate::{identity, utils};
 
 use codec::Encode;
 use rstd::prelude::*;
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
 
 /// The module's configuration trait.

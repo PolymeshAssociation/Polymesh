@@ -3,7 +3,7 @@
 use crate::utils;
 use codec::{Decode, Encode};
 use rstd::prelude::*;
-use srml_support::{decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use srml_support::{decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
 
 #[repr(u32)]

@@ -2,6 +2,7 @@
 
 use babe::{import_queue, start_babe, Config};
 use futures::prelude::*;
+use futures::sync::mpsc;
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 use inherents::InherentDataProviders;
 use network::construct_simple_protocol;
@@ -95,6 +96,7 @@ macro_rules! new_full_start {
 pub fn new_full<C: Send + Default + 'static>(
     config: Configuration<C, GenesisConfig>,
 ) -> Result<impl AbstractService, ServiceError> {
+    use substrate_network::DhtEvent;
     let is_authority = config.roles.is_authority();
     let name = config.name.clone();
     let disable_grandpa = config.disable_grandpa;
@@ -102,6 +104,8 @@ pub fn new_full<C: Send + Default + 'static>(
 
     let (builder, mut import_setup, inherent_data_providers, mut tasks_to_spawn) =
         new_full_start!(config);
+
+    let (dht_event_tx, dht_event_rx) = mpsc::channel::<DhtEvent>(10000);
 
     let service = builder
         .with_network_protocol(|_| Ok(NodeProtocol::new()))?
@@ -151,6 +155,14 @@ pub fn new_full<C: Send + Default + 'static>(
         // the BABE authoring task is considered infallible, i.e. if it
         // fails we take down the service with it.
         service.spawn_essential_task(select);
+
+        let authority_discovery = authority_discovery::AuthorityDiscovery::new(
+			service.client(),
+			service.network(),
+			dht_event_rx,
+		);
+		service.spawn_task(authority_discovery);
+
     }
 
     let grandpa_config = grandpa::Config {

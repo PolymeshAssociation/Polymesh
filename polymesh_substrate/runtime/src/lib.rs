@@ -7,20 +7,23 @@ use client::{
     block_builder::api::{self as block_builder_api, CheckInherentsResult, InherentData},
     impl_runtime_apis, runtime_api as client_api,
 };
+use codec::{Encode, Decode};
 use elections::VoteIndex;
 use grandpa::{
-    fg_primitives::{self, ScheduledChange},
+    fg_primitives,
     AuthorityId as GrandpaId,
 };
-use im_online::sr25519::AuthorityId as ImOnlineId;
+use authority_discovery_primitives::{AuthorityId as EncodedAuthorityId, Signature as EncodedSignature};
+use im_online::sr25519::{AuthorityId as ImOnlineId, AuthoritySignature as ImOnlineSignature};
 use primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce, Signature};
 use rstd::prelude::*;
 use sr_primitives::{
     create_runtime_str, generic, impl_opaque_keys, key_types,
-    traits::{BlakeTwo256, Block as BlockT, DigestFor, StaticLookup},
+    traits::{BlakeTwo256, Block as BlockT, StaticLookup},
     transaction_validity::TransactionValidity,
     weights::Weight,
     ApplyResult,
+    curve::PiecewiseLinear,
 };
 use sr_staking_primitives::SessionIndex;
 use srml_support::{
@@ -194,7 +197,7 @@ parameter_types! {
     pub const Offset: BlockNumber = 0;
 }
 
-type SessionHandlers = (Grandpa, Babe, ImOnline);
+type SessionHandlers = (Grandpa, Babe, ImOnline, AuthorityDiscovery);
 impl_opaque_keys! {
     pub struct SessionKeys {
         #[id(key_types::GRANDPA)]
@@ -211,16 +214,20 @@ impl_opaque_keys! {
 // `SessionKeys`.
 // TODO: Introduce some structure to tie these together to make it a bit less of a footgun. This
 // should be easy, since OneSessionHandler trait provides the `Key` as an associated type. #2858
+parameter_types! {
+	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
+}
 
 impl session::Trait for Runtime {
-    type OnSessionEnding = Staking;
-    type SessionHandler = SessionHandlers;
-    type ShouldEndSession = Babe;
-    type Event = Event;
-    type Keys = SessionKeys;
-    type SelectInitialValidators = Staking;
-    type ValidatorId = AccountId;
-    type ValidatorIdOf = staking::StashOf<Self>;
+	type OnSessionEnding = Staking;
+	type SessionHandler = SessionHandlers;
+	type ShouldEndSession = Babe;
+	type Event = Event;
+	type Keys = SessionKeys;
+	type SelectInitialValidators = Staking;
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = staking::StashOf<Self>;
+	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 }
 
 impl session::historical::Trait for Runtime {
@@ -228,11 +235,23 @@ impl session::historical::Trait for Runtime {
     type FullIdentificationOf = staking::ExposureOf<Self>;
 }
 
+srml_staking_reward_curve::build! {
+	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
+		min_inflation: 0_025_000,
+		max_inflation: 0_100_000,
+		ideal_stake: 0_500_000,
+		falloff: 0_050_000,
+		max_piece_count: 40,
+		test_precision: 0_005_000,
+	);
+}
+
 parameter_types! {
     // Six sessions in an era (24 hours).
     pub const SessionsPerEra: SessionIndex = 6;
     // 28 eras for unbonding (28 days).
     pub const BondingDuration: staking::EraIndex = 28;
+    pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 }
 
 impl staking::Trait for Runtime {
@@ -246,6 +265,7 @@ impl staking::Trait for Runtime {
     type BondingDuration = BondingDuration;
     type SessionInterface = Self;
     type Time = Timestamp;
+    type RewardCurve = RewardCurve;
 }
 
 parameter_types! {
@@ -383,6 +403,8 @@ impl grandpa::Trait for Runtime {
     type Event = Event;
 }
 
+impl authority_discovery::Trait for Runtime {}
+
 parameter_types! {
     pub const WindowSize: BlockNumber = finality_tracker::DEFAULT_WINDOW_SIZE.into();
     pub const ReportLatency: BlockNumber = finality_tracker::DEFAULT_REPORT_LATENCY.into();
@@ -485,6 +507,7 @@ construct_runtime!(
 		FinalityTracker: finality_tracker::{Module, Call, Inherent},
 		Grandpa: grandpa::{Module, Call, Storage, Config, Event},
 		ImOnline: im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+        AuthorityDiscovery: authority_discovery::{Module, Call, Config<T>},
 
 		// Governance stuff; uncallable initially.
 		Democracy: democracy::{Module, Call, Storage, Config, Event<T>},
@@ -540,108 +563,117 @@ pub type Executive =
     executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
 
 impl_runtime_apis! {
-    impl client_api::Core<Block> for Runtime {
-        fn version() -> RuntimeVersion {
-            VERSION
-        }
+	impl client_api::Core<Block> for Runtime {
+		fn version() -> RuntimeVersion {
+			VERSION
+		}
 
-        fn execute_block(block: Block) {
-            Executive::execute_block(block)
-        }
+		fn execute_block(block: Block) {
+			Executive::execute_block(block)
+		}
 
-        fn initialize_block(header: &<Block as BlockT>::Header) {
-            Executive::initialize_block(header)
-        }
-    }
+		fn initialize_block(header: &<Block as BlockT>::Header) {
+			Executive::initialize_block(header)
+		}
+	}
 
-    impl client_api::Metadata<Block> for Runtime {
-        fn metadata() -> OpaqueMetadata {
-            Runtime::metadata().into()
-        }
-    }
+	impl client_api::Metadata<Block> for Runtime {
+		fn metadata() -> OpaqueMetadata {
+			Runtime::metadata().into()
+		}
+	}
 
-    impl block_builder_api::BlockBuilder<Block> for Runtime {
-        fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyResult {
-            Executive::apply_extrinsic(extrinsic)
-        }
+	impl block_builder_api::BlockBuilder<Block> for Runtime {
+		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyResult {
+			Executive::apply_extrinsic(extrinsic)
+		}
 
-        fn finalize_block() -> <Block as BlockT>::Header {
-            Executive::finalize_block()
-        }
+		fn finalize_block() -> <Block as BlockT>::Header {
+			Executive::finalize_block()
+		}
 
-        fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
-            data.create_extrinsics()
-        }
+		fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+			data.create_extrinsics()
+		}
 
-        fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
-            data.check_extrinsics(&block)
-        }
+		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
+			data.check_extrinsics(&block)
+		}
 
-        fn random_seed() -> <Block as BlockT>::Hash {
-            System::random_seed()
-        }
-    }
+		fn random_seed() -> <Block as BlockT>::Hash {
+			System::random_seed()
+		}
+	}
 
-    impl client_api::TaggedTransactionQueue<Block> for Runtime {
-        fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
-            Executive::validate_transaction(tx)
-        }
-    }
+	impl client_api::TaggedTransactionQueue<Block> for Runtime {
+		fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
+			Executive::validate_transaction(tx)
+		}
+	}
 
-    impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
-        fn offchain_worker(number: sr_primitives::traits::NumberFor<Block>) {
-            Executive::offchain_worker(number)
-        }
-    }
+	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
+		fn offchain_worker(number: sr_primitives::traits::NumberFor<Block>) {
+			Executive::offchain_worker(number)
+		}
+	}
 
-    impl fg_primitives::GrandpaApi<Block> for Runtime {
-        fn grandpa_pending_change(digest: &DigestFor<Block>)
-            -> Option<ScheduledChange<BlockNumber>>
-        {
-            Grandpa::pending_change(digest)
-        }
+	impl fg_primitives::GrandpaApi<Block> for Runtime {
+		fn grandpa_authorities() -> Vec<(GrandpaId, u64)> {
+			Grandpa::grandpa_authorities()
+		}
+	}
 
-        fn grandpa_forced_change(digest: &DigestFor<Block>)
-            -> Option<(BlockNumber, ScheduledChange<BlockNumber>)>
-        {
-            Grandpa::forced_change(digest)
-        }
+	impl babe_primitives::BabeApi<Block> for Runtime {
+		fn configuration() -> babe_primitives::BabeConfiguration {
+			// The choice of `c` parameter (where `1 - c` represents the
+			// probability of a slot being empty), is done in accordance to the
+			// slot duration and expected target block time, for safely
+			// resisting network delays of maximum two seconds.
+			// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+			babe_primitives::BabeConfiguration {
+				slot_duration: Babe::slot_duration(),
+				epoch_length: EpochDuration::get(),
+				c: PRIMARY_PROBABILITY,
+				genesis_authorities: Babe::authorities(),
+				randomness: Babe::randomness(),
+				secondary_slots: true,
+			}
+		}
+	}
 
-        fn grandpa_authorities() -> Vec<(GrandpaId, u64)> {
-            Grandpa::grandpa_authorities()
-        }
-    }
+	impl authority_discovery_primitives::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<EncodedAuthorityId> {
+			AuthorityDiscovery::authorities().into_iter()
+				.map(|id| id.encode())
+				.map(EncodedAuthorityId)
+				.collect()
+		}
 
-    impl babe_primitives::BabeApi<Block> for Runtime {
-        fn startup_data() -> babe_primitives::BabeConfiguration {
-            // The choice of `c` parameter (where `1 - c` represents the
-            // probability of a slot being empty), is done in accordance to the
-            // slot duration and expected target block time, for safely
-            // resisting network delays of maximum two seconds.
-            // <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
-            babe_primitives::BabeConfiguration {
-                median_required_blocks: 1000,
-                slot_duration: Babe::slot_duration(),
-                c: PRIMARY_PROBABILITY,
-            }
-        }
+		fn sign(payload: &Vec<u8>) -> Option<(EncodedSignature, EncodedAuthorityId)> {
+			AuthorityDiscovery::sign(payload).map(|(sig, id)| {
+				(EncodedSignature(sig.encode()), EncodedAuthorityId(id.encode()))
+			})
+		}
 
-        fn epoch() -> babe_primitives::Epoch {
-            babe_primitives::Epoch {
-                start_slot: Babe::epoch_start_slot(),
-                authorities: Babe::authorities(),
-                epoch_index: Babe::epoch_index(),
-                randomness: Babe::randomness(),
-                duration: EpochDuration::get(),
-                secondary_slots: Babe::secondary_slots().0,
-            }
-        }
-    }
+		fn verify(payload: &Vec<u8>, signature: &EncodedSignature, authority_id: &EncodedAuthorityId) -> bool {
+			let signature = match ImOnlineSignature::decode(&mut &signature.0[..]) {
+				Ok(s) => s,
+				_ => return false,
+			};
 
-    impl substrate_session::SessionKeys<Block> for Runtime {
-        fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-            let seed = seed.as_ref().map(|s| rstd::str::from_utf8(&s).expect("Seed is an utf8 string"));
-            SessionKeys::generate(seed)
-        }
-    }
+			let authority_id = match ImOnlineId::decode(&mut &authority_id.0[..]) {
+				Ok(id) => id,
+				_ => return false,
+			};
+
+			AuthorityDiscovery::verify(payload, signature, authority_id)
+		}
+	}
+
+	impl substrate_session::SessionKeys<Block> for Runtime {
+		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
+			let seed = seed.as_ref().map(|s| rstd::str::from_utf8(&s).expect("Seed is an utf8 string"));
+			SessionKeys::generate(seed)
+		}
+	}
 }

@@ -6,7 +6,7 @@ use crate::utils;
 use codec::Encode;
 use rstd::prelude::*;
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
+use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
