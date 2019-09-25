@@ -1,12 +1,10 @@
 use crate::asset::{self, AssetTrait};
 use crate::identity;
 use crate::utils;
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
 
 use rstd::prelude::*;
-use srml_support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap,
-};
+use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageMap};
 use system::{self, ensure_signed};
 
 // pub enum Types {
@@ -44,8 +42,8 @@ pub struct AssetRule {
 pub struct RuleData {
     key: Vec<u8>,
     value: Vec<u8>,
-    data_type: u8,
-    operator: u8, // 0= 2! 3< 4> 5<= 6>=
+    data_type: u8, // 0u8 1u16 2u32 3u64 4u128, 5bool, 6Vec<u8>
+    operator: u8,  // 0= 1! 2< 3> 4<= 5>=
 }
 
 decl_storage! {
@@ -119,42 +117,248 @@ impl<T: Trait> Module<T> {
         return 1.encode();
     }
 
-    pub fn check_rule(rule_data: Vec<u8>, identity_data: Vec<u8>, data_type: u8, operator: u8) -> bool {
+    pub fn check_rule(
+        rule_data: Vec<u8>,
+        identity_data: Vec<u8>,
+        data_type: u8,
+        operator: u8,
+    ) -> bool {
         let mut rule_broken = false;
         match data_type {
             0 => {
-                let rule_value = u8::decode(&mut &rule_data[..]);
-                let identity_value = u8::decode(&mut &identity_data[..]);
+                let rule_value = u8::decode(&mut &rule_data[..]).unwrap();
+                let identity_value: u8 = u8::decode(&mut &identity_data[..]).unwrap();
                 match operator {
                     0 => {
                         if rule_value != identity_value {
                             rule_broken = true;
                         }
-                    } 1 => {
+                    }
+                    1 => {
                         if rule_value == identity_value {
                             rule_broken = true;
                         }
-                    } _ => {
+                    }
+                    2 => {
+                        if rule_value >= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    3 => {
+                        if rule_value <= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    4 => {
+                        if rule_value > identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    5 => {
+                        if rule_value < identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    _ => {
                         rule_broken = true;
                     }
                 }
-            } 1 => {
-                let rule_value = u16::decode(&mut &rule_data[..]);
-                let identity_value = u16::decode(&mut &identity_data[..]);
+            }
+            1 => {
+                let rule_value = u16::decode(&mut &rule_data[..]).unwrap();
+                let identity_value = u16::decode(&mut &identity_data[..]).unwrap();
                 match operator {
                     0 => {
                         if rule_value != identity_value {
                             rule_broken = true;
                         }
-                    } 1 => {
+                    }
+                    1 => {
                         if rule_value == identity_value {
                             rule_broken = true;
                         }
-                    } _ => {
+                    }
+                    2 => {
+                        if rule_value >= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    3 => {
+                        if rule_value <= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    4 => {
+                        if rule_value > identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    5 => {
+                        if rule_value < identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    _ => {
                         rule_broken = true;
                     }
                 }
-            } _ => {
+            }
+            2 => {
+                let rule_value = u32::decode(&mut &rule_data[..]).unwrap();
+                let identity_value = u32::decode(&mut &identity_data[..]).unwrap();
+                match operator {
+                    0 => {
+                        if rule_value != identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    1 => {
+                        if rule_value == identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    2 => {
+                        if rule_value >= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    3 => {
+                        if rule_value <= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    4 => {
+                        if rule_value > identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    5 => {
+                        if rule_value < identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    _ => {
+                        rule_broken = true;
+                    }
+                }
+            }
+            3 => {
+                let rule_value = u64::decode(&mut &rule_data[..]).unwrap();
+                let identity_value = u64::decode(&mut &identity_data[..]).unwrap();
+                match operator {
+                    0 => {
+                        if rule_value != identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    1 => {
+                        if rule_value == identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    2 => {
+                        if rule_value >= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    3 => {
+                        if rule_value <= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    4 => {
+                        if rule_value > identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    5 => {
+                        if rule_value < identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    _ => {
+                        rule_broken = true;
+                    }
+                }
+            }
+            4 => {
+                let rule_value = u128::decode(&mut &rule_data[..]).unwrap();
+                let identity_value = u128::decode(&mut &identity_data[..]).unwrap();
+                match operator {
+                    0 => {
+                        if rule_value != identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    1 => {
+                        if rule_value == identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    2 => {
+                        if rule_value >= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    3 => {
+                        if rule_value <= identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    4 => {
+                        if rule_value > identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    5 => {
+                        if rule_value < identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    _ => {
+                        rule_broken = true;
+                    }
+                }
+            }
+            5 => {
+                let rule_value = bool::decode(&mut &rule_data[..]).unwrap();
+                let identity_value = bool::decode(&mut &identity_data[..]).unwrap();
+                match operator {
+                    0 => {
+                        if rule_value != identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    1 => {
+                        if rule_value == identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    _ => {
+                        rule_broken = true;
+                    }
+                }
+            }
+            6 => {
+                let rule_value = Vec::<u8>::decode(&mut &rule_data[..]).unwrap();
+                let identity_value = Vec::<u8>::decode(&mut &identity_data[..]).unwrap();
+                match operator {
+                    0 => {
+                        if rule_value != identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    1 => {
+                        if rule_value == identity_value {
+                            rule_broken = true;
+                        }
+                    }
+                    _ => {
+                        rule_broken = true;
+                    }
+                }
+            }
+            _ => {
                 rule_broken = true;
             }
         }
@@ -175,7 +379,8 @@ impl<T: Trait> Module<T> {
             for sender_rule in active_rule.sender_rules {
                 for data in sender_rule.rules_data {
                     let identity_value = Self::fetch_value(from_did.clone(), data.key);
-                    rule_broken = Self::check_rule(data.value, identity_value, data.data_type, data.operator);
+                    rule_broken =
+                        Self::check_rule(data.value, identity_value, data.data_type, data.operator);
                 }
                 if rule_broken {
                     break;
@@ -187,7 +392,8 @@ impl<T: Trait> Module<T> {
                 }
                 for data in receiver_rule.rules_data {
                     let identity_value = Self::fetch_value(from_did.clone(), data.key);
-                    rule_broken = Self::check_rule(data.value, identity_value, data.data_type, data.operator);
+                    rule_broken =
+                        Self::check_rule(data.value, identity_value, data.data_type, data.operator);
                 }
             }
             if !rule_broken {
