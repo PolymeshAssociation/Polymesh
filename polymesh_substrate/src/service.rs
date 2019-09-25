@@ -8,6 +8,7 @@ use inherents::InherentDataProviders;
 use network::construct_simple_protocol;
 use polymesh_primitives::Block;
 use polymesh_runtime::{self, GenesisConfig, RuntimeApi};
+pub use sr_primitives::traits::ProvideRuntimeApi;
 use std::sync::Arc;
 use std::time::Duration;
 use substrate_client::LongestChain;
@@ -17,7 +18,6 @@ use substrate_service::{
     error::Error as ServiceError, AbstractService, Configuration, ServiceBuilder,
 };
 use transaction_pool::{self, txpool::Pool as TransactionPool};
-pub use sr_primitives::traits::ProvideRuntimeApi;
 
 // Our native executor instance.
 native_executor_instance!(
@@ -48,16 +48,21 @@ macro_rules! new_full_start {
         .with_select_chain(|_config, backend| {
             Ok(substrate_client::LongestChain::new(backend.clone()))
         })?
-        .with_transaction_pool(|config, client|
-            Ok(transaction_pool::txpool::Pool::new(config, transaction_pool::ChainApi::new(client)))
-        )?
+        .with_transaction_pool(|config, client| {
+            Ok(transaction_pool::txpool::Pool::new(
+                config,
+                transaction_pool::ChainApi::new(client),
+            ))
+        })?
         .with_import_queue(|_config, client, mut select_chain, _transaction_pool| {
             let select_chain = select_chain
                 .take()
                 .ok_or_else(|| substrate_service::Error::SelectChainRequired)?;
             let (grandpa_block_import, grandpa_link) =
                 grandpa::block_import::<_, _, _, polymesh_runtime::RuntimeApi, _, _>(
-                    client.clone(), &*client, select_chain
+                    client.clone(),
+                    &*client,
+                    select_chain,
                 )?;
             let justification_import = grandpa_block_import.clone();
 
@@ -83,11 +88,7 @@ macro_rules! new_full_start {
             Ok(import_queue)
         })?;
 
-        (
-            builder,
-            import_setup,
-            inherent_data_providers,
-        )
+        (builder, import_setup, inherent_data_providers)
     }};
 }
 
@@ -101,8 +102,7 @@ pub fn new_full<C: Send + Default + 'static>(
     let disable_grandpa = config.disable_grandpa;
     let force_authoring = config.force_authoring;
 
-    let (builder, mut import_setup, inherent_data_providers) =
-        new_full_start!(config);
+    let (builder, mut import_setup, inherent_data_providers) = new_full_start!(config);
 
     let (_dht_event_tx, dht_event_rx) = mpsc::channel::<DhtEvent>(10000);
 
@@ -129,16 +129,16 @@ pub fn new_full<C: Send + Default + 'static>(
             .ok_or(ServiceError::SelectChainRequired)?;
 
         let babe_config = babe::BabeParams {
-			keystore: service.keystore(),
-			client,
-			select_chain,
-			env: proposer,
-			block_import,
-			sync_oracle: service.network(),
-			inherent_data_providers: inherent_data_providers.clone(),
-			force_authoring,
-			babe_link,
-		};
+            keystore: service.keystore(),
+            client,
+            select_chain,
+            env: proposer,
+            block_import,
+            sync_oracle: service.network(),
+            inherent_data_providers: inherent_data_providers.clone(),
+            force_authoring,
+            babe_link,
+        };
 
         let babe = babe::start_babe(babe_config)?;
         let select = babe.select(service.on_exit()).then(|_| Ok(()));
@@ -148,12 +148,11 @@ pub fn new_full<C: Send + Default + 'static>(
         service.spawn_essential_task(select);
 
         let authority_discovery = authority_discovery::AuthorityDiscovery::new(
-			service.client(),
-			service.network(),
-			dht_event_rx,
-		);
-		service.spawn_task(authority_discovery);
-
+            service.client(),
+            service.network(),
+            dht_event_rx,
+        );
+        service.spawn_task(authority_discovery);
     }
 
     let grandpa_config = grandpa::Config {
@@ -209,40 +208,50 @@ pub fn new_light<C: Send + Default + 'static>(
 
     ServiceBuilder::new_light::<Block, RuntimeApi, Executor>(config)?
         .with_select_chain(|_config, backend| Ok(LongestChain::new(backend.clone())))?
-        .with_transaction_pool(|config, client|
-			Ok(TransactionPool::new(config, transaction_pool::ChainApi::new(client)))
-		)?
-        .with_import_queue_and_fprb(|_config, client, backend, fetcher, _select_chain, _tx_pool| {
-			let fetch_checker = fetcher
-				.map(|fetcher| fetcher.checker().clone())
-				.ok_or_else(|| "Trying to start light import queue without active fetch checker")?;
-			let grandpa_block_import = grandpa::light_block_import::<_, _, _, RuntimeApi, _>(
-				client.clone(), backend, Arc::new(fetch_checker), client.clone()
-			)?;
+        .with_transaction_pool(|config, client| {
+            Ok(TransactionPool::new(
+                config,
+                transaction_pool::ChainApi::new(client),
+            ))
+        })?
+        .with_import_queue_and_fprb(
+            |_config, client, backend, fetcher, _select_chain, _tx_pool| {
+                let fetch_checker = fetcher
+                    .map(|fetcher| fetcher.checker().clone())
+                    .ok_or_else(|| {
+                        "Trying to start light import queue without active fetch checker"
+                    })?;
+                let grandpa_block_import = grandpa::light_block_import::<_, _, _, RuntimeApi, _>(
+                    client.clone(),
+                    backend,
+                    Arc::new(fetch_checker),
+                    client.clone(),
+                )?;
 
-			let finality_proof_import = grandpa_block_import.clone();
-			let finality_proof_request_builder =
-				finality_proof_import.create_finality_proof_request_builder();
+                let finality_proof_import = grandpa_block_import.clone();
+                let finality_proof_request_builder =
+                    finality_proof_import.create_finality_proof_request_builder();
 
-			let (babe_block_import, babe_link) = babe::block_import(
-				babe::Config::get_or_compute(&*client)?,
-				grandpa_block_import,
-				client.clone(),
-				client.clone(),
-			)?;
+                let (babe_block_import, babe_link) = babe::block_import(
+                    babe::Config::get_or_compute(&*client)?,
+                    grandpa_block_import,
+                    client.clone(),
+                    client.clone(),
+                )?;
 
-			let import_queue = babe::import_queue(
-				babe_link.clone(),
-				babe_block_import,
-				None,
-				Some(Box::new(finality_proof_import)),
-				client.clone(),
-				client,
-				inherent_data_providers.clone(),
-			)?;
+                let import_queue = babe::import_queue(
+                    babe_link.clone(),
+                    babe_block_import,
+                    None,
+                    Some(Box::new(finality_proof_import)),
+                    client.clone(),
+                    client,
+                    inherent_data_providers.clone(),
+                )?;
 
-			Ok((import_queue, finality_proof_request_builder))
-		})?
+                Ok((import_queue, finality_proof_request_builder))
+            },
+        )?
         .with_network_protocol(|_| Ok(NodeProtocol::new()))?
         .with_finality_proof_provider(|client, backend| {
             Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, client)) as _)

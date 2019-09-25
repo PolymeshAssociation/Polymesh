@@ -784,8 +784,8 @@ mod tests {
     }
 
     parameter_types! {
-		pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
-	}
+        pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+    }
 
     impl session::Trait for Test {
         type OnSessionEnding = TestOnSessionEnding;
