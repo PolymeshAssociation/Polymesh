@@ -131,7 +131,7 @@ fn testnet_genesis(
     initial_authorities: Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId)>,
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
-    _enable_println: bool,
+    enable_println: bool,
 ) -> GenesisConfig {
     const STASH: u128 = 100 * POLY;
     let desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;

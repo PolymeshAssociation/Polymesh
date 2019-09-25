@@ -160,7 +160,7 @@ use srml_support::traits::{
     OnFreeBalanceZero, OnUnbalanced, ReservableCurrency, SignedImbalance, UpdateBalanceOutcome,
     WithdrawReason, WithdrawReasons,
 };
-use srml_support::{decl_event, decl_module, decl_storage, Parameter, StorageMap, StorageValue};
+use srml_support::{decl_event, decl_module, decl_storage, Parameter, StorageValue};
 use system::{ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 
 use crate::identity::IdentityTrait;
