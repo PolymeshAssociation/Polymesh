@@ -10,6 +10,8 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@polkadot/api": "^0.92.1",
-    "@polkadot/keyring": "^1.4.1"
+    "@polkadot/keyring": "^1.5.1",
+    "command-line-args": "^5.1.1",
+    "inquirer": "^7.0.0"
   }
 }
