@@ -783,6 +783,10 @@ mod tests {
         type Version = ();
     }
 
+    parameter_types! {
+		pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+	}
+
     impl session::Trait for Test {
         type OnSessionEnding = TestOnSessionEnding;
         type Keys = UintAuthorityId;
@@ -792,6 +796,7 @@ mod tests {
         type ValidatorId = AuthorityId;
         type ValidatorIdOf = ConvertInto;
         type SelectInitialValidators = ();
+        type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     }
 
     impl session::historical::Trait for Test {
