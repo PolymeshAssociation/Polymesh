@@ -221,5 +221,12 @@ fn testnet_genesis(
             },
             gas_price: 1 * MILLICENTS,
         }),
+        contracts_wrapper: Some(ContractsConfig {
+            current_schedule: contracts::Schedule {
+                enable_println, // this should only be enabled on development chains
+                ..Default::default()
+            },
+            gas_price: 1 * MILLICENTS,
+        }),
     }
 }
