@@ -1,10 +1,6 @@
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
 
-use ink_core::{
-    memory::format,
-    storage,
-    memory::vec::Vec,
-};
+use ink_core::{memory::format, memory::vec::Vec, storage};
 
 use ink_lang::contract;
 
