@@ -6,7 +6,7 @@ use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY, time::*}
 use polymesh_runtime::{
     AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
     GenesisConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys,
-    SimpleTokenConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+    SimpleTokenConfig, StakerStatus, StakingConfig, SystemConfig,
     TechnicalCommitteeConfig, WASM_BINARY,
 };
 use primitives::{Pair, Public};
