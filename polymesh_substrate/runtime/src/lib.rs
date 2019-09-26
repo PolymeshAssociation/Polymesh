@@ -460,10 +460,10 @@ parameter_types! {
     pub const Prefix: &'static [u8] = b"Pay POLY to the Polymesh account:";
 }
 
-impl sudo::Trait for Runtime {
-    type Event = Event;
-    type Proposal = Call;
-}
+// impl sudo::Trait for Runtime {
+//     type Event = Event;
+//     type Proposal = Call;
+// }
 
 impl asset::Trait for Runtime {
     type Event = Event;
@@ -562,11 +562,11 @@ construct_runtime!(
 
 		// Sudo. Usable initially.
 		// RELEASE: remove this for release build.
-		Sudo: sudo,
+		//Sudo: sudo,
 
         // Contracts
         Contracts: contracts::{Module, Storage, Config<T>, Event<T>},
-        ContractsWrapper: contracts_wrapper::{Module, Call},
+        ContractsWrapper: contracts_wrapper::{Module, Call, Storage, Event<T>},
 
 		//Polymesh
 		Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},

@@ -160,7 +160,7 @@ fn testnet_genesis(
         indices: Some(IndicesConfig {
             ids: endowed_accounts.clone(),
         }),
-        sudo: Some(SudoConfig { key: root_key }),
+        // sudo: Some(SudoConfig { key: root_key }),
         collective_Instance1: Some(CouncilConfig {
             members: vec![],
             phantom: Default::default(),
@@ -215,13 +215,6 @@ fn testnet_genesis(
         babe: Some(Default::default()),
         grandpa: Some(Default::default()),
         contracts: Some(ContractsConfig {
-            current_schedule: contracts::Schedule {
-                enable_println, // this should only be enabled on development chains
-                ..Default::default()
-            },
-            gas_price: 1 * MILLICENTS,
-        }),
-        contracts_wrapper: Some(ContractsConfig {
             current_schedule: contracts::Schedule {
                 enable_println, // this should only be enabled on development chains
                 ..Default::default()
