@@ -58,7 +58,9 @@ decl_module! {
 		) -> Result {
             <contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
 		}        
-
+        /// TODO: Call this directly using something like:
+        /// let result = contract::Call::<T>::claim_surcharge(...).dispatch(origin).is_ok();
+        /// 
         /// Simply forwards to the `claim_surcharge` function in the Contract module.
 		// fn claim_surcharge(origin, dest: T::AccountId, aux_sender: Option<T::AccountId>) {
         //     <contracts::Module<T>>::claim_surcharge(origin, dest, aux_sender)
