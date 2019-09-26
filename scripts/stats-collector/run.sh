@@ -3,7 +3,7 @@ trap cleanup INT
 
 cleanup() {
 	pm2 kill
-	rm -rf /tmp/pmesh-*-node-*
+	rm -rf /tmp/pmesh-*-node*
 }
 
 set -xe
