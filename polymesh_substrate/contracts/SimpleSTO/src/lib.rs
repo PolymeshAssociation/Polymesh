@@ -1,8 +1,6 @@
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
 
-use ink_core::{
-    storage
-};
+use ink_core::storage;
 
 use ink_lang::contract;
 
