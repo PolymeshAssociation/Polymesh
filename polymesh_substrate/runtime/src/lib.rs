@@ -567,7 +567,7 @@ construct_runtime!(
 		//Sudo: sudo,
 
         // Contracts
-        Contracts: contracts::{Module, Call, Storage, Config<T>, Event<T>},
+        Contracts: contracts::{Module, Storage, Config<T>, Event<T>},
         ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
 		//Polymesh
