@@ -1,7 +1,6 @@
 use rstd::prelude::*;
 
 use contracts::{CodeHash, Schedule, Gas};
-use crate::identity;
 use codec::Encode;
 use sr_primitives::traits::StaticLookup;
 use srml_support::traits::Currency;
@@ -11,7 +10,9 @@ use system::ensure_signed;
 pub type BalanceOf<T> =
     <<T as contracts::Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
-pub trait Trait: contracts::Trait + identity::Trait
+pub trait Trait: contracts::Trait {
+
+}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
