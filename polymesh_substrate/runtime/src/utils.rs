@@ -16,19 +16,6 @@ pub trait Trait: system::Trait + balances::Trait + session::Trait {
     fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId;
 }
 
-decl_storage! {
-    trait Store for Module<T: Trait> as Utils {
-
-    }
-}
-
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-
-    }
-}
-
 // Other utility functions
 #[inline]
 /// Convert all letter characters of a slice to their upper case counterparts.

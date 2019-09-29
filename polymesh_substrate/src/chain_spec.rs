@@ -6,7 +6,7 @@ use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY, time::*}
 use polymesh_runtime::{
     AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
     GenesisConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys,
-    SimpleTokenConfig, StakerStatus, StakingConfig, SystemConfig,
+    SimpleTokenConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
     TechnicalCommitteeConfig, WASM_BINARY,
 };
 use primitives::{Pair, Public};
@@ -160,7 +160,7 @@ fn testnet_genesis(
         indices: Some(IndicesConfig {
             ids: endowed_accounts.clone(),
         }),
-        // sudo: Some(SudoConfig { key: root_key }),
+        sudo: Some(SudoConfig { key: root_key }),
         collective_Instance1: Some(CouncilConfig {
             members: vec![],
             phantom: Default::default(),
