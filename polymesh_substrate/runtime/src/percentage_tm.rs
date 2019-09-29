@@ -1,7 +1,7 @@
 use crate::asset::AssetTrait;
 use crate::exemption;
 use crate::identity;
-use crate::utils;
+use crate::new_utils;
 
 use codec::Encode;
 use rstd::prelude::*;
@@ -10,7 +10,7 @@ use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensu
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + utils::Trait + exemption::Trait {
+pub trait Trait: system::Trait + exemption::Trait + new_utils::Utils {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -18,7 +18,7 @@ pub trait Trait: system::Trait + utils::Trait + exemption::Trait {
 decl_event!(
     pub enum Event<T>
     where
-        Balance = <T as utils::Trait>::TokenBalance,
+        Balance = <T as new_utils::Utils>::TokenBalance,
     {
         TogglePercentageRestriction(Vec<u8>, u16, bool),
         DoSomething(Balance),
@@ -39,7 +39,7 @@ decl_module! {
         fn deposit_event() = default;
 
         fn toggle_maximum_percentage_restriction(origin, did: Vec<u8>, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            let ticker = new_utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -68,7 +68,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     pub fn is_owner(_ticker: Vec<u8>, sender_did: Vec<u8>) -> bool {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        let ticker = new_utils::bytes_to_upper(_ticker.as_slice());
         T::Asset::is_owner(ticker.clone(), sender_did)
     }
 
@@ -79,7 +79,7 @@ impl<T: Trait> Module<T> {
         to_did: Vec<u8>,
         value: T::TokenBalance,
     ) -> Result {
-        let ticker = utils::bytes_to_upper(ticker.as_slice());
+        let ticker = new_utils::bytes_to_upper(ticker.as_slice());
         let max_percentage = Self::maximum_percentage_enabled_for_token(ticker.clone());
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
@@ -92,13 +92,13 @@ impl<T: Trait> Module<T> {
             let total_supply = T::Asset::total_supply(ticker);
 
             let percentage_balance = (new_balance
-                .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(18))))
+                .checked_mul(&(<T as new_utils::Utils>::as_tb((10 as u128).pow(18))))
                 .ok_or("unsafe multiplication")?)
             .checked_div(&total_supply)
             .ok_or("unsafe division")?;
 
-            let allowed_token_amount = (<T as utils::Trait>::as_tb(max_percentage as u128))
-                .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(16))))
+            let allowed_token_amount = (<T as new_utils::Utils>::as_tb(max_percentage as u128))
+                .checked_mul(&(<T as new_utils::Utils>::as_tb((10 as u128).pow(16))))
                 .ok_or("unsafe percentage multiplication")?;
 
             if percentage_balance > allowed_token_amount {

@@ -13,7 +13,7 @@ use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
 
-use crate::{asset, identity, simple_token, utils};
+use crate::{asset, identity, simple_token, new_utils};
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -21,7 +21,7 @@ pub trait Trait:
     + balances::Trait
     + simple_token::Trait
     + system::Trait
-    + utils::Trait
+    + new_utils::Utils
     + timestamp::Trait
 {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
