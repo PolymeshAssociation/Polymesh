@@ -61,7 +61,7 @@ pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Identity {
+    trait Store for Module<T: Trait> as identity {
 
         Owner get(owner) config(): T::AccountId;
 

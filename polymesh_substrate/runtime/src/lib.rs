@@ -67,7 +67,6 @@ mod registry;
 mod simple_token;
 mod sto_capped;
 mod utils;
-mod new_utils;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -472,25 +471,6 @@ impl asset::Trait for Runtime {
     type Currency = Balances;
 }
 
-impl new_utils::Utils for Runtime {
-    type TokenBalance = u128;
-    fn as_u128(v: Self::TokenBalance) -> u128 {
-        v
-    }
-    fn as_tb(v: u128) -> Self::TokenBalance {
-        v
-    }
-    fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
-        v
-    }
-    fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
-        v
-    }
-    fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
-        v
-    }
-}
-
 impl utils::Trait for Runtime {
     type TokenBalance = u128;
     fn as_u128(v: Self::TokenBalance) -> u128 {
@@ -584,7 +564,7 @@ construct_runtime!(
 
 		// Sudo. Usable initially.
 		// RELEASE: remove this for release build.
-		// Sudo: sudo,
+		//Sudo: sudo,
 
         // Contracts
         Contracts: contracts::{Module, Call, Storage, Config<T>, Event<T>},
