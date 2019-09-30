@@ -3,7 +3,7 @@ use codec::Codec;
 use rstd::prelude::*;
 use session;
 use sr_primitives::traits::{Member, SimpleArithmetic};
-use srml_support::{decl_module, decl_storage, Parameter};
+use srml_support::Parameter;
 use system;
 
 /// The module's configuration trait.

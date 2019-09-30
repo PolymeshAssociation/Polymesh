@@ -18,7 +18,7 @@ use rstd::prelude::*;
 use crate::identity;
 use codec::Encode;
 use contracts::{CodeHash, Gas, Schedule};
-use sr_primitives::traits::{Hash, StaticLookup};
+use sr_primitives::traits::StaticLookup;
 use srml_support::traits::Currency;
 use srml_support::{decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
