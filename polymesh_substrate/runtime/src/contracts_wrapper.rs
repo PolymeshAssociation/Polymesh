@@ -4,20 +4,20 @@
 //!
 //! ## To Do
 //!
-//!   - Remove the ability to call the Contracts module, bypassing Contracts Wrapper 
+//!   - Remove the ability to call the Contracts module, bypassing Contracts Wrapper
 //!   - Integrate DID into all calls, and validate signing_key
 //!   - Track ownership of code and instances via DIDs
-//! 
+//!
 //! ## Possible Tokenomics
-//! 
+//!
 //!   - Initially restrict list of accounts that can put_code
 //!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
 
 use rstd::prelude::*;
 
-use contracts::{Schedule, Gas, CodeHash};
 use crate::identity;
 use codec::Encode;
+use contracts::{CodeHash, Gas, Schedule};
 use sr_primitives::traits::{Hash, StaticLookup};
 use srml_support::traits::Currency;
 use srml_support::{decl_module, decl_storage, dispatch::Result, ensure};
@@ -28,13 +28,11 @@ use system::ensure_signed;
 pub type BalanceOf<T> =
     <<T as contracts::Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
-pub trait Trait: contracts::Trait + identity::Trait {
-
-}
+pub trait Trait: contracts::Trait + identity::Trait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
-		pub CodeHashDid: map CodeHash<T> => Option<Vec<u8>>;
+        pub CodeHashDid: map CodeHash<T> => Option<Vec<u8>>;
     }
 }
 
@@ -79,17 +77,16 @@ decl_module! {
         }
 
         // Simply forwards to the `instantiate` function in the Contract module.
-		pub fn instantiate(
-			origin,
-			#[compact] endowment: BalanceOf<T>,
-			#[compact] gas_limit: Gas,
-			code_hash: CodeHash<T>,
-			data: Vec<u8>
-		) -> Result {
+        pub fn instantiate(
+            origin,
+            #[compact] endowment: BalanceOf<T>,
+            #[compact] gas_limit: Gas,
+            code_hash: CodeHash<T>,
+            data: Vec<u8>
+        ) -> Result {
             <contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
-		}        
+        }
     }
 }
 
-impl<T: Trait> Module<T> {
-}
+impl<T: Trait> Module<T> {}

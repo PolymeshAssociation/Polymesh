@@ -512,8 +512,7 @@ impl identity::Trait for Runtime {
     type Event = Event;
 }
 
-impl contracts_wrapper::Trait for Runtime {
-}
+impl contracts_wrapper::Trait for Runtime {}
 
 impl exemption::Trait for Runtime {
     type Event = Event;
