@@ -1,26 +1,46 @@
+//! # Contracts Wrapper Module
+//!
+//! The Contracts Wrapper module wraps Contracts, allowing for DID integration and permissioning
+//!
+//! ## To Do
+//!
+//!   - Remove the ability to call the Contracts module, bypassing Contracts Wrapper 
+//!   - Integrate DID into all calls, and validate signing_key
+//!   - Track ownership of code and instances via DIDs
+//! 
+//! ## Possible Tokenomics
+//! 
+//!   - Initially restrict list of accounts that can put_code
+//!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
+
 use rstd::prelude::*;
 
-use contracts::{CodeHash, Schedule, Gas};
+use contracts::{Schedule, Gas, CodeHash};
+use crate::identity;
 use codec::Encode;
-use sr_primitives::traits::StaticLookup;
+use sr_primitives::traits::{Hash, StaticLookup};
 use srml_support::traits::Currency;
 use srml_support::{decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
 
+// pub type CodeHash<T> = <T as system::Trait>::Hash;
+
 pub type BalanceOf<T> =
     <<T as contracts::Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
-pub trait Trait: contracts::Trait {
+pub trait Trait: contracts::Trait + identity::Trait {
 
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
+		pub CodeHashDid: map CodeHash<T> => Option<Vec<u8>>;
     }
 }
 
 decl_module! {
     // Wrap dispatchable functions for contracts so that we can add additional gating logic
+    // TODO: Figure out how to remove dispatchable calls from the underlying contracts module
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
         // Simply forwards to the `update_schedule` function in the Contract module.
@@ -31,10 +51,20 @@ decl_module! {
         // Simply forwards to the `put_code` function in the Contract module.
         pub fn put_code(
             origin,
+            did: Vec<u8>,
             #[compact] gas_limit: Gas,
             code: Vec<u8>
         ) -> Result {
-            <contracts::Module<T>>::put_code(origin, gas_limit, code)
+            let sender = ensure_signed(origin)?;
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+
+            // Call underlying function
+            let new_origin = system::RawOrigin::Signed(sender).into();
+            let result:Result = <contracts::Module<T>>::put_code(new_origin, gas_limit, code);
+
+            result
         }
 
         // Simply forwards to the `call` function in the Contract module.

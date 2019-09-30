@@ -513,8 +513,6 @@ impl identity::Trait for Runtime {
 }
 
 impl contracts_wrapper::Trait for Runtime {
-    // type Event = Event;
-    // type Asset = Asset;
 }
 
 impl exemption::Trait for Runtime {
@@ -568,7 +566,7 @@ construct_runtime!(
 
         // Contracts
         Contracts: contracts::{Module, Call, Storage, Config<T>, Event<T>},
-        ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
+        // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
 		//Polymesh
 		Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
