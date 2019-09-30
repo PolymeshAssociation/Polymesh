@@ -57,6 +57,7 @@ use constants::{currency::*, time::*};
 
 mod asset;
 mod balances;
+mod contracts_wrapper;
 mod dividend;
 mod exemption;
 mod general_tm;
@@ -511,6 +512,8 @@ impl identity::Trait for Runtime {
     type Event = Event;
 }
 
+impl contracts_wrapper::Trait for Runtime {}
+
 impl exemption::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
@@ -562,10 +565,10 @@ construct_runtime!(
 
         // Contracts
         Contracts: contracts::{Module, Call, Storage, Config<T>, Event<T>},
+        // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
 		//Polymesh
 		Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
-        Utils: utils::{Module, Call, Storage},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Registry: registry::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},

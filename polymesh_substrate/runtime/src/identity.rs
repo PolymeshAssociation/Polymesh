@@ -11,7 +11,6 @@ use srml_support::{
     dispatch::Result,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
-    StorageMap,
 };
 use system::{self, ensure_signed};
 
