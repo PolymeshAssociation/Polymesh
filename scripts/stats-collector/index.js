@@ -32,9 +32,8 @@ async function main() {
   let n_claims = 10 ** opts.claims;
 
   console.log(
-    "Welcome to Polymesh Stats Collector. Performing " +
-      n_txes +
-      " txes per stat."
+    `Welcome to Polymesh Stats Collector. Performing ${n_txes} txes per stat,` +
+      `${n_claims} claims per DID.`
   );
 
   const filePath = path.join(
@@ -58,6 +57,7 @@ async function main() {
   console.log("=== DISTRIBUTE POLY === ");
 
   let alice = keyring.addFromUri("//Alice", { name: "Alice" });
+  let id_module_owner = keyring.addFromUri("//Dave", { name: "Dave" });
   let accounts = [];
 
   // Create `n_txes` accounts
@@ -88,9 +88,6 @@ async function main() {
   let dids = await createIdentities(api, accounts);
 
   console.log("=== TURN NEW DIDS INTO ISSUERS ===");
-  // The identity module owner
-  let id_module_owner = keyring.addFromUri("//Dave", { name: "Dave" });
-
   await makeDidsIssuers(api, dids, id_module_owner);
 
   console.log("=== ISSUE ONE SECURITY TOKEN PER DID ===");
@@ -247,9 +244,6 @@ async function createIdentities(api, accounts) {
     console.log(
       "Creating DID for account " + i + " (address " + accounts[i].address + ")"
     );
-    let nonce = new BN(
-      await api.query.system.accountNonce(accounts[i].address).toString()
-    );
 
     const did = "did:poly:" + i;
     dids.push(did);
@@ -315,7 +309,7 @@ async function createIdentities(api, accounts) {
 
 async function makeDidsIssuers(api, dids, id_module_owner) {
   let nonce = new BN(
-    await api.query.system.accountNonce(id_module_owner.address).toString()
+    (await api.query.system.accountNonce(id_module_owner.address)).toString()
   );
 
   for (let i = 0; i < dids.length; i++) {
@@ -327,14 +321,15 @@ async function makeDidsIssuers(api, dids, id_module_owner) {
         if (status.isFinalized) {
           let new_issuer_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
-            if (section == "system" && method == "ExtrinsicSuccess") {
+            console.log(`event ${section}: ${data}`)
+            if (section == "identity" && method == "NewIssuer") {
               new_issuer_ok = true;
-              console.log(`Successfully made DID ${i} an issuer`);
+              console.log(`NewIssuer event ${i}: ${data}`);
             }
           });
 
           if (!new_issuer_ok) {
-            console.error(`Could not make DID ${i} an issuer`);
+            console.error(`DID ${i}: NewIssuer event not detected`);
           }
           unsub();
         }
@@ -355,7 +350,7 @@ async function makeDidsIssuers(api, dids, id_module_owner) {
       j++;
       if (oldPendingTx > extrinsics.length) {
         console.log(
-          'Approx DID "issuerization" TPS: ',
+          "Approx create_issuer TPS: ",
           (oldPendingTx - extrinsics.length) / j
         );
         j = 0;
