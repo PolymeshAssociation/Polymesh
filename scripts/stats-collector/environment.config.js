@@ -5,16 +5,16 @@ module.exports = {
       name: "pmesh-primary-node",
       script:
         "../../polymesh_substrate/target/release/polymesh-substrate",
-      args: "-d /tmp/pmesh-primary-node --pool-limit 100000 --ws-port 9944 --alice --validator --force-authoring",
+      args: "-d /tmp/pmesh-primary-node --pool-limit 100000 --ws-port 9944 --alice --validator --chain stats-testnet --force-authoring",
       env: {
-        RUST_BACKTRACE: "1"
+        RUST_BACKTRACE: "1",
       }
     },
     {
       name: "pmesh-peer-node-1",
       script:
         "../../polymesh_substrate/target/release/polymesh-substrate",
-      args: "-d /tmp/pmesh-peer-node-1 --ws-port 9945 --bob --validator --force-authoring",
+      args: "-d /tmp/pmesh-peer-node-1 --ws-port 9945 --bob --validator --chain stats-testnet --force-authoring",
       env: {
         RUST_BACKTRACE: "1"
       }
@@ -23,7 +23,7 @@ module.exports = {
       name: "pmesh-peer-node-2",
       script:
         "../../polymesh_substrate/target/release/polymesh-substrate",
-      args: "-d /tmp/pmesh-peer-node-2 --ws-port 9946 --charlie --validator --force-authoring",
+      args: "-d /tmp/pmesh-peer-node-2 --ws-port 9946 --charlie --validator --chain stats-testnet --force-authoring",
       env: {
         RUST_BACKTRACE: "1"
       }
