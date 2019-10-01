@@ -22,23 +22,36 @@ jobs:
           keys:
             - build-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
       - run:
-          name: Compile everything
-          command: ./build.sh
-          working_directory: ./polymesh_substrate
-      - run:
           name: Build rocksdb
-          command: cargo build -p rocksdb -j 1
+          command: cargo build -p rocksdb -j 1 --release
           working_directory: ./polymesh_substrate
       - run:
           name: Build release
-          command: cargo build -j 1
+          command: cargo build --release
           working_directory: ./polymesh_substrate
-      - run:
-          name: Run unit tests
-          command: cargo test
-          working_directory: ./polymesh_substrate/runtime
       - save_cache:
           key: build-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./polymesh_substrate/target"
+            - "./polymesh_substrate/runtime/target"
+            - "./polymesh_substrate/runtime/wasm/target"
+  test:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - debug-cache-{{ checksum "./polymesh_substrate/runtime/Cargo.lock" }}
+      - run:
+          name: runtime tests
+          command: cargo test -p polymesh-runtime
+          working_directory: ./polymesh_substrate
+      - save_cache:
+          key: debug-cache-{{ checksum "./polymesh_substrate/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./polymesh_substrate/target"
@@ -48,8 +61,9 @@ workflows:
   version: 2
   commit:
     jobs:
-      - build
       - lint
+      - build
+      - test
   daily-builds:
     triggers:
       - schedule:
