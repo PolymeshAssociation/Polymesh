@@ -3,11 +3,20 @@ const { Keyring } = require("@polkadot/keyring");
 const { stringToU8a, u8aToHex } = require("@polkadot/util");
 const BN = require("bn.js");
 const cli = require("command-line-args");
+const cliProg = require("cli-progress");
+const getSize = require("get-folder-size");
 
 const fs = require("fs");
 const path = require("path");
 
+const BYTES_IN_MB = 1024 * 1024;
+
 const BOB = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
+
+// Helps track the size delta for
+let current_storage_size = 0;
+// Updated by the CLI option
+let STORAGE_DIR;
 
 const cli_opts = [
   {
@@ -22,6 +31,12 @@ const cli_opts = [
     alias: "c",
     type: Number,
     defaultValue: 1
+  },
+  {
+    name: "dir", // Substrate storage dir
+    alias: "d",
+    type: String,
+    defaultValue: "/tmp/pmesh-primary-node"
   }
 ];
 
@@ -30,6 +45,7 @@ async function main() {
   const opts = cli(cli_opts);
   let n_txes = 10 ** opts.order;
   let n_claims = 10 ** opts.claims;
+  STORAGE_DIR = opts.dir;
 
   console.log(
     `Welcome to Polymesh Stats Collector. Performing ${n_txes} txes per stat,` +
@@ -39,7 +55,7 @@ async function main() {
   const filePath = path.join(
     __dirname + "/../../../polymesh/polymesh_substrate/substrateui_dev.json"
   );
-  const customTypes = JSON.parse(fs.readFileSync(filePath, "utf8").toString());
+  const customTypes = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
   const ws_provider = new WsProvider("ws://127.0.0.1:9944");
   const api = await ApiPromise.create({
@@ -48,7 +64,20 @@ async function main() {
   });
   const keyring = new Keyring({ type: "sr25519" });
 
+  // Set initial storage size
+  getSize(STORAGE_DIR, (err, size) => {
+    if (err) {
+      throw err;
+    }
+
+    current_storage_size = size;
+  });
+
+  console.log(`Initial storage size: ${current_storage_size}MB`);
+
   // Execute each stats collection stage
+
+  // Optional base currency TPS test
   if (opts.tps) {
     console.log("=== TPS ===");
     await tps(api, keyring, n_txes); // base currency transfer sanity-check
@@ -116,7 +145,11 @@ async function tps(api, keyring, n_txes) {
   for (let j = 0; j < n_txes / 2; j++) {
     const txHash = await api.tx.balances
       .transfer(bob.address, 10)
-      .signAndSend(alice, { nonce: aliceNonce });
+      .signAndSend(
+        alice,
+        { nonce: aliceNonce },
+        ({ events = [], status }) => {}
+      );
     aliceNonce = aliceNonce.addn(1);
   }
   console.log("Alice -> Bob scheduled");
@@ -132,39 +165,7 @@ async function tps(api, keyring, n_txes) {
   }
   console.log("Bob -> Alice scheduled");
 
-  const unsub = await api.rpc.chain.subscribeNewHeads(header => {
-    console.log("Block " + header.number + " Mined. Hash: " + header.hash);
-  });
-  console.timeEnd("Transactions sent to the node in");
-  let i = 0;
-  let j = 0;
-  let oldPendingTx = 0;
-  let still_polling = true;
-  while (still_polling) {
-    await api.rpc.author.pendingExtrinsics(extrinsics => {
-      i++;
-      j++;
-      if (oldPendingTx > extrinsics.length) {
-        console.log("Approx TPS: ", (oldPendingTx - extrinsics.length) / j);
-        j = 0;
-      }
-      if (extrinsics.length === 0) {
-        console.log(i + " Second passed, No pending extrinsics in the pool.");
-        unsub();
-        still_polling = false;
-      }
-      console.log(
-        i +
-          " Second passed, " +
-          extrinsics.length +
-          " pending extrinsics in the pool"
-      );
-      oldPendingTx = extrinsics.length;
-    });
-
-    // Wait one second
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
+  await blockTillPoolEmpty(api, n_txes);
 }
 
 // Sends transfer_amount to accounts[] from alice
@@ -172,69 +173,47 @@ async function distributePoly(api, keyring, alice, accounts, transfer_amount) {
   let aliceRawNonce = await api.query.system.accountNonce(alice.address);
   let aliceNonce = new BN(aliceRawNonce.toString());
 
+  let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
+
+  console.log("Scheduling");
+  sched_prog.start(accounts.length);
+
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
-    console.log(`Distributing to account ${i} (${accounts[i].address})`);
     const unsub = await api.tx.balances
       .transfer(accounts[i].address, transfer_amount)
-      .signAndSend(alice, { nonce: aliceNonce }, ({ events = [], status }) => {
-        console.log(`Status: ${status.type}`);
+      .signAndSend(
+        alice,
+        { nonce: aliceNonce.addn(accounts.length - i - 1) },
+        ({ events = [], status }) => {
+          if (status.isFinalized) {
+            console.group();
+            console.log(
+              `Distribution Tx ${i} included at ${status.asFinalized}`
+            );
+            transfer_ok = false;
+            events.forEach(({ phase, event: { data, method, section } }) => {
+              if (section == "balances" && method == "Transfer") {
+                transfer_ok = true;
+                console.log(`New transfer to ${i}: Transfer ${data}`);
+              }
+            });
 
-        if (status.isFinalized) {
-          console.log(`Distribution Tx ${i} included at ${status.asFinalized}`);
-          transfer_ok = false;
-          events.forEach(({ phase, event: { data, method, section } }) => {
-            if (section == "balances" && method == "Transfer") {
-              transfer_ok = true;
-              console.log(`Transfer event ${i}: ${data}`);
+            if (!transfer_ok) {
+              console.error(`Transfer event ${i} not received`);
             }
-          });
 
-          if (!transfer_ok) {
-            console.error(`Transfer event ${i} not received`);
+            unsub();
+            console.groupEnd();
           }
-
-          unsub();
         }
-      });
-    aliceNonce = aliceNonce.addn(1);
-  }
-
-  const unsub = await api.rpc.chain.subscribeNewHeads(header => {
-    console.log("Block " + header.number + " Mined. Hash: " + header.hash);
-  });
-  let i = 0;
-  let j = 0;
-  let oldPendingTx = 0;
-  let still_polling = true;
-  while (still_polling) {
-    await api.rpc.author.pendingExtrinsics(extrinsics => {
-      i++;
-      j++;
-      if (oldPendingTx > extrinsics.length) {
-        console.log(
-          "Approx POLY distribution TPS: ",
-          (oldPendingTx - extrinsics.length) / j
-        );
-        j = 0;
-      }
-      if (extrinsics.length === 0) {
-        console.log(i + " Second passed, No pending extrinsics in the pool.");
-        unsub();
-        still_polling = false;
-      }
-      console.log(
-        i +
-          " Second passed, " +
-          extrinsics.length +
-          " pending extrinsics in the pool"
       );
-      oldPendingTx = extrinsics.length;
-    });
-
-    // Wait one second
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    sched_prog.increment();
   }
+
+  sched_prog.stop();
+
+  await blockTillPoolEmpty(api, accounts.length);
 }
 
 // Create a new DID for each of accounts[]
@@ -256,7 +235,7 @@ async function createIdentities(api, accounts) {
           events.forEach(({ phase, event: { data, method, section } }) => {
             if (section == "identity" && method == "NewDid") {
               new_did_ok = true;
-              console.log(`NewDid event ${i}: ${data}`);
+              console.log(`Account ${i} now has a DID: NewDid ${data}`);
             }
           });
 
@@ -268,41 +247,7 @@ async function createIdentities(api, accounts) {
       });
   }
 
-  const unsub = await api.rpc.chain.subscribeNewHeads(header => {
-    console.log("Block " + header.number + " Mined. Hash: " + header.hash);
-  });
-  let i = 0;
-  let j = 0;
-  let oldPendingTx = 0;
-  let still_polling = true;
-  while (still_polling) {
-    await api.rpc.author.pendingExtrinsics(extrinsics => {
-      i++;
-      j++;
-      if (oldPendingTx > extrinsics.length) {
-        console.log(
-          "Approx DID creation TPS: ",
-          (oldPendingTx - extrinsics.length) / j
-        );
-        j = 0;
-      }
-      if (extrinsics.length === 0) {
-        console.log(i + " Second passed, No pending extrinsics in the pool.");
-        unsub();
-        still_polling = false;
-      }
-      console.log(
-        i +
-          " Second passed, " +
-          extrinsics.length +
-          " pending extrinsics in the pool"
-      );
-      oldPendingTx = extrinsics.length;
-    });
-
-    // Wait one second
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
+  await blockTillPoolEmpty(api, accounts.length);
 
   return dids;
 }
@@ -321,10 +266,10 @@ async function makeDidsIssuers(api, dids, id_module_owner) {
         if (status.isFinalized) {
           let new_issuer_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
-            console.log(`event ${section}: ${data}`)
+            console.log(`event ${section}: ${data}`);
             if (section == "identity" && method == "NewIssuer") {
               new_issuer_ok = true;
-              console.log(`NewIssuer event ${i}: ${data}`);
+              console.log(`DID ${i} is now an issuer: NewIssuer ${data}`);
             }
           });
 
@@ -337,103 +282,7 @@ async function makeDidsIssuers(api, dids, id_module_owner) {
     nonce = nonce.addn(1);
   }
 
-  const unsub = await api.rpc.chain.subscribeNewHeads(header => {
-    console.log("Block " + header.number + " Mined. Hash: " + header.hash);
-  });
-  let i = 0;
-  let j = 0;
-  let oldPendingTx = 0;
-  let still_polling = true;
-  while (still_polling) {
-    await api.rpc.author.pendingExtrinsics(extrinsics => {
-      i++;
-      j++;
-      if (oldPendingTx > extrinsics.length) {
-        console.log(
-          "Approx create_issuer TPS: ",
-          (oldPendingTx - extrinsics.length) / j
-        );
-        j = 0;
-      }
-      if (extrinsics.length === 0) {
-        console.log(i + " Second passed, No pending extrinsics in the pool.");
-        unsub();
-        still_polling = false;
-      }
-      console.log(
-        i +
-          " Second passed, " +
-          extrinsics.length +
-          " pending extrinsics in the pool"
-      );
-      oldPendingTx = extrinsics.length;
-    });
-
-    // Wait one second
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-}
-async function issueTokenPerDid(api, accounts, dids) {
-  for (let i = 0; i < dids.length; i++) {
-    console.log(`Creating token for DID ${i} ${accounts[i].address}`);
-
-    const ticker = `token${i}`;
-
-    const unsub = await api.tx.asset
-      .issueToken(dids[i], ticker, ticker, 1000000, true)
-      .signAndSend(accounts[i], ({ events = [], status }) => {
-        if (status.isFinalized) {
-          let new_token_ok = false;
-          events.forEach(({ phase, event: { data, method, section } }) => {
-            if (section == "asset" && method == "IssuedToken") {
-              new_token_ok = true;
-              console.log(`Successfully issued token for DID ${i}: ${data}`);
-            }
-          });
-
-          if (!new_token_ok) {
-            console.error(`Could not issue token for DID ${i}`);
-          }
-          unsub();
-        }
-      });
-  }
-
-  const unsub = await api.rpc.chain.subscribeNewHeads(header => {
-    console.log("Block " + header.number + " Mined. Hash: " + header.hash);
-  });
-  let i = 0;
-  let j = 0;
-  let oldPendingTx = 0;
-  let still_polling = true;
-  while (still_polling) {
-    await api.rpc.author.pendingExtrinsics(extrinsics => {
-      i++;
-      j++;
-      if (oldPendingTx > extrinsics.length) {
-        console.log(
-          "Approx DID token creation TPS: ",
-          (oldPendingTx - extrinsics.length) / j
-        );
-        j = 0;
-      }
-      if (extrinsics.length === 0) {
-        console.log(i + " Second passed, No pending extrinsics in the pool.");
-        unsub();
-        still_polling = false;
-      }
-      console.log(
-        i +
-          " Second passed, " +
-          extrinsics.length +
-          " pending extrinsics in the pool"
-      );
-      oldPendingTx = extrinsics.length;
-    });
-
-    // Wait one second
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
+  await blockTillPoolEmpty(api, dids.length);
 }
 
 async function issueTokenPerDid(api, accounts, dids) {
@@ -462,41 +311,36 @@ async function issueTokenPerDid(api, accounts, dids) {
       });
   }
 
-  const unsub = await api.rpc.chain.subscribeNewHeads(header => {
-    console.log("Block " + header.number + " Mined. Hash: " + header.hash);
-  });
-  let i = 0;
-  let j = 0;
-  let oldPendingTx = 0;
-  let still_polling = true;
-  while (still_polling) {
-    await api.rpc.author.pendingExtrinsics(extrinsics => {
-      i++;
-      j++;
-      if (oldPendingTx > extrinsics.length) {
-        console.log(
-          "Approx DID token creation TPS: ",
-          (oldPendingTx - extrinsics.length) / j
-        );
-        j = 0;
-      }
-      if (extrinsics.length === 0) {
-        console.log(i + " Second passed, No pending extrinsics in the pool.");
-        unsub();
-        still_polling = false;
-      }
-      console.log(
-        i +
-          " Second passed, " +
-          extrinsics.length +
-          " pending extrinsics in the pool"
-      );
-      oldPendingTx = extrinsics.length;
-    });
+  await blockTillPoolEmpty(api, dids.length);
+}
 
-    // Wait one second
-    await new Promise(resolve => setTimeout(resolve, 1000));
+async function issueTokenPerDid(api, accounts, dids) {
+  for (let i = 0; i < dids.length; i++) {
+    console.log(`Creating token for DID ${i} ${accounts[i].address}`);
+
+    const ticker = `token${i}`;
+
+    const unsub = await api.tx.asset
+      .issueToken(dids[i], ticker, ticker, 1000000, true)
+      .signAndSend(accounts[i], ({ events = [], status }) => {
+        if (status.isFinalized) {
+          let new_token_ok = false;
+          events.forEach(({ phase, event: { data, method, section } }) => {
+            if (section == "asset" && method == "IssuedToken") {
+              new_token_ok = true;
+              console.log(`Successfully issued token for DID ${i}: ${data}`);
+            }
+          });
+
+          if (!new_token_ok) {
+            console.error(`Could not issue token for DID ${i}`);
+          }
+          unsub();
+        }
+      });
   }
+
+  await blockTillPoolEmpty(api, dids.length);
 }
 
 async function addClaimIssuersToDids(api, accounts, dids) {
@@ -525,41 +369,7 @@ async function addClaimIssuersToDids(api, accounts, dids) {
       });
   }
 
-  const unsub = await api.rpc.chain.subscribeNewHeads(header => {
-    console.log("Block " + header.number + " Mined. Hash: " + header.hash);
-  });
-  let i = 0;
-  let j = 0;
-  let oldPendingTx = 0;
-  let still_polling = true;
-  while (still_polling) {
-    await api.rpc.author.pendingExtrinsics(extrinsics => {
-      i++;
-      j++;
-      if (oldPendingTx > extrinsics.length) {
-        console.log(
-          "Approx DID claim issuer addition TPS: ",
-          (oldPendingTx - extrinsics.length) / j
-        );
-        j = 0;
-      }
-      if (extrinsics.length === 0) {
-        console.log(i + " Second passed, No pending extrinsics in the pool.");
-        unsub();
-        still_polling = false;
-      }
-      console.log(
-        i +
-          " Second passed, " +
-          extrinsics.length +
-          " pending extrinsics in the pool"
-      );
-      oldPendingTx = extrinsics.length;
-    });
-
-    // Wait one second
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
+  await blockTillPoolEmpty(api, dids.length);
 }
 
 async function addNClaimsToDids(api, accounts, dids, n_claims) {
@@ -593,40 +403,43 @@ async function addNClaimsToDids(api, accounts, dids, n_claims) {
       });
   }
 
+  await blockTillPoolEmpty(api, dids.length);
+}
+
+async function blockTillPoolEmpty(api, expected_tx_count) {
   const unsub = await api.rpc.chain.subscribeNewHeads(header => {
     console.log("Block " + header.number + " Mined. Hash: " + header.hash);
   });
-  let i = 0;
-  let j = 0;
-  let oldPendingTx = 0;
+  let elapsed_total = 0; // How many seconds since first tx pool subscription
+  let elapsed_this_batch = 0; // How many seconds since last batch popped from the pool
+  let prev_pending_tx_count = 0; // How many txes on last loop run
   let still_polling = true;
+  let tps_sum = 0;
   while (still_polling) {
-    await api.rpc.author.pendingExtrinsics(extrinsics => {
-      i++;
-      j++;
-      if (oldPendingTx > extrinsics.length) {
+    await api.rpc.author.pendingExtrinsics(pool => {
+      elapsed_total++;
+      elapsed_this_batch++;
+      if (pool.length < prev_pending_tx_count) {
+        let batch_len = prev_pending_tx_count - pool.length;
         console.log(
-          "Approx DID claim addition TPS: ",
-          (oldPendingTx - extrinsics.length) / j
+          `Current batch (${batch_len} txs) processed in ${elapsed_this_batch}s`
         );
-        j = 0;
+        console.log("Current batch TPS:", batch_len / elapsed_this_batch);
+        elapsed_this_batch = 0;
       }
-      if (extrinsics.length === 0) {
-        console.log(i + " Second passed, No pending extrinsics in the pool.");
+      if (pool.length === 0) {
         unsub();
         still_polling = false;
       }
-      console.log(
-        i +
-          " Second passed, " +
-          extrinsics.length +
-          " pending extrinsics in the pool"
-      );
-      oldPendingTx = extrinsics.length;
+      prev_pending_tx_count = pool.length;
     });
 
     // Wait one second
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
+
+  console.log(`Tx pool cleared in ${elapsed_total}s`);
+  console.log(`TPS: ${expected_tx_count / elapsed_total}`);
 }
+
 main().catch(console.error);
