@@ -4,12 +4,10 @@ const { stringToU8a, u8aToHex } = require("@polkadot/util");
 const BN = require("bn.js");
 const cli = require("command-line-args");
 const cliProg = require("cli-progress");
-const getSize = require("get-folder-size");
+const childProc = require("child_process");
 
 const fs = require("fs");
 const path = require("path");
-
-const BYTES_IN_MB = 1024 * 1024;
 
 const BOB = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
 
@@ -20,17 +18,17 @@ let STORAGE_DIR;
 
 const cli_opts = [
   {
-    name: "order", // Order of magnitude, results in 10^order transactions/parties involved per stage
-    alias: "o",
+    name: "ntxs", // Number of transactions/accounts to use per step
+    alias: "n",
     type: Number,
-    defaultValue: 3
+    defaultValue: 1000
   },
   { name: "tps", alias: "t", type: Boolean, defaultValue: false },
   {
-    name: "claims", // How many claims to add to the 10^order DIDs
+    name: "claims", // How many claims to add to the `ntxs` DIDs
     alias: "c",
     type: Number,
-    defaultValue: 1
+    defaultValue: 10
   },
   {
     name: "dir", // Substrate storage dir
@@ -43,8 +41,8 @@ const cli_opts = [
 async function main() {
   // Parse CLI args and compute tx count
   const opts = cli(cli_opts);
-  let n_txes = 10 ** opts.order;
-  let n_claims = 10 ** opts.claims;
+  let n_txes = opts.ntxs;
+  let n_claims = opts.claims;
   STORAGE_DIR = opts.dir;
 
   console.log(
@@ -64,16 +62,11 @@ async function main() {
   });
   const keyring = new Keyring({ type: "sr25519" });
 
-  // Set initial storage size
-  getSize(STORAGE_DIR, (err, size) => {
-    if (err) {
-      throw err;
-    }
-
-    current_storage_size = size;
-  });
-
-  console.log(`Initial storage size: ${current_storage_size}MB`);
+  const initial_storage_size = duDirSize(STORAGE_DIR);
+  console.log(
+    `Initial storage size (${STORAGE_DIR}): ${initial_storage_size / 1024}MB`
+  );
+  current_storage_size = initial_storage_size;
 
   // Execute each stats collection stage
 
@@ -81,9 +74,8 @@ async function main() {
   if (opts.tps) {
     console.log("=== TPS ===");
     await tps(api, keyring, n_txes); // base currency transfer sanity-check
+    printAndUpdateStorageSize(STORAGE_DIR);
   }
-
-  console.log("=== DISTRIBUTE POLY === ");
 
   let alice = keyring.addFromUri("//Alice", { name: "Alice" });
   let id_module_owner = keyring.addFromUri("//Dave", { name: "Dave" });
@@ -111,22 +103,31 @@ async function main() {
     process.exit();
   }
 
+  console.log("=== DISTRIBUTE POLY === ");
   await distributePoly(api, keyring, alice, accounts, transfer_amount);
+  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
 
   console.log("=== CREATE IDENTITIES ===");
   let dids = await createIdentities(api, accounts);
+  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
 
   console.log("=== TURN NEW DIDS INTO ISSUERS ===");
   await makeDidsIssuers(api, dids, id_module_owner);
+  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
 
   console.log("=== ISSUE ONE SECURITY TOKEN PER DID ===");
   await issueTokenPerDid(api, accounts, dids);
+  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
 
   console.log("=== ADD CLAIM ISSUERS TO DIDS ===");
   await addClaimIssuersToDids(api, accounts, dids);
+  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
 
   console.log("=== ADD CLAIMS TO DIDS ===");
   await addNClaimsToDids(api, accounts, dids, n_claims);
+  printAndUpdateStorageSize(STORAGE_DIR, n_txes * n_claims);
+
+  console.log(`Total storage size delta: ${current_storage_size - initial_storage_size}KB`);
 
   console.log("DONE");
   process.exit();
@@ -219,11 +220,12 @@ async function distributePoly(api, keyring, alice, accounts, transfer_amount) {
 // Create a new DID for each of accounts[]
 async function createIdentities(api, accounts) {
   let dids = [];
-  for (let i = 0; i < accounts.length; i++) {
-    console.log(
-      "Creating DID for account " + i + " (address " + accounts[i].address + ")"
-    );
 
+  let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
+
+  console.log("Scheduling");
+  sched_prog.start(accounts.length);
+  for (let i = 0; i < accounts.length; i++) {
     const did = "did:poly:" + i;
     dids.push(did);
 
@@ -245,7 +247,10 @@ async function createIdentities(api, accounts) {
           unsub();
         }
       });
+    sched_prog.increment();
   }
+
+  sched_prog.stop();
 
   await blockTillPoolEmpty(api, accounts.length);
 
@@ -266,7 +271,6 @@ async function makeDidsIssuers(api, dids, id_module_owner) {
         if (status.isFinalized) {
           let new_issuer_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
-            console.log(`event ${section}: ${data}`);
             if (section == "identity" && method == "NewIssuer") {
               new_issuer_ok = true;
               console.log(`DID ${i} is now an issuer: NewIssuer ${data}`);
@@ -407,6 +411,7 @@ async function addNClaimsToDids(api, accounts, dids, n_claims) {
 }
 
 async function blockTillPoolEmpty(api, expected_tx_count) {
+  console.log("Waiting on transaction pool to empty...");
   const unsub = await api.rpc.chain.subscribeNewHeads(header => {
     console.log("Block " + header.number + " Mined. Hash: " + header.hash);
   });
@@ -440,6 +445,29 @@ async function blockTillPoolEmpty(api, expected_tx_count) {
 
   console.log(`Tx pool cleared in ${elapsed_total}s`);
   console.log(`TPS: ${expected_tx_count / elapsed_total}`);
+}
+
+// Use the `du` command to obtain recursive directory size
+function duDirSize(dir) {
+  let cmd = `du -s ${dir}`;
+  let re = /(\d+)/;
+  let output = childProc.execSync(cmd).toString();
+
+  let results = output.match(re);
+  return new Number(results[1]);
+}
+
+function printAndUpdateStorageSize(dir, n_txs) {
+  n_txs = n_txs > 0 ? n_txs : 1;
+  let new_storage_size = duDirSize(STORAGE_DIR);
+  let storage_delta = new_storage_size - current_storage_size;
+
+  console.log(
+    `Current storage size (${STORAGE_DIR}): ${new_storage_size /
+      1024}MB (delta ${storage_delta}KB, ${storage_delta /
+      n_txs}KB per tx)`
+  );
+  current_storage_size = new_storage_size;
 }
 
 main().catch(console.error);
