@@ -2,7 +2,7 @@
 script_dir=$(dirname $0)
 set -e
 
-pushd $script_dir/../polymesh_substrate 1>/dev/null
+pushd $script_dir/../ 1>/dev/null
 	# rustfmt all top-level, non-artifact `src` dirs, all of *.rs inside
 	if [ -z "${VERBOSE-}" ] ; then
 		find . -type d -name "src" -not -path "*/target/*" \

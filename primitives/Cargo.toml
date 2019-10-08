@@ -1,0 +1,35 @@
+[package]
+name = "polymesh-primitives"
+version = "0.6.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0", optional = true, features = ["derive"] }
+parity-scale-codec = { version = "1.0.5", default-features = false, features = ["bit-vec", "derive"] }
+primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+application-crypto = { package = "substrate-application-crypto", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+substrate-client = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+sr-version = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+bitvec = { version = "0.14.0", default-features = false, features = ["alloc"] }
+babe = { package = "srml-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+
+[dev-dependencies]
+substrate-serializer = { git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+pretty_assertions = "0.5.1"
+
+[features]
+default = ["std"]
+std = [
+	"parity-scale-codec/std",
+	"primitives/std",
+	"substrate-client/std",
+	"rstd/std",
+	"sr-version/std",
+	"runtime_primitives/std",
+	"serde",
+	"bitvec/std",
+	"babe/std"
+]
