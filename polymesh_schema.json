@@ -1,0 +1,81 @@
+{
+    "TokenBalance": "u128",
+    "SecurityToken": {
+        "name": "Vec<u8>",
+        "total_supply": "TokenBalance",
+        "owner": "AccountId",
+        "granularity": "u128",
+        "decimals": "u16"
+    },
+    "Restriction": {
+        "name": "Vec<u8>",
+        "token_id": "u32",
+        "can_transfer": "bool"
+    },
+    "Whitelist": {
+        "investor": "AccountId",
+        "canSendAfter": "Moment",
+        "canReceiveAfter": "Moment"
+    },
+    "Issuer": {
+        "account": "AccountId",
+        "access_level": "u16",
+        "active": "bool"
+    },
+    "Investor": {
+        "account": "AccountId",
+        "access_level": "u16",
+        "active": "bool",
+        "jurisdiction": "u16"
+    },
+    "DidRecord": {
+        "master_key": "Vec<u8>",
+        "signing_keys": "Vec<Vec<u8>>",
+        "balance": "Balance"
+    },
+    "Claim": {
+        "topic": "u32",
+        "schema": "u32",
+        "bytes": "Vec<u8>",
+        "expiry": "Moment"
+    },
+    "ClaimRecord": {
+        "claim": "Claim",
+        "revoked": "bool",
+        "issued_by": "Vec<u8>",
+        "attestation": "Vec<u8>"
+    },
+    "STO": {
+        "beneficiary": "AccountId",
+        "cap": "TokenBalance",
+        "sold": "TokenBalance",
+        "rate": "u64",
+        "start_date": "Moment",
+        "end_date": "Moment",
+        "active": "bool"
+    },
+    "Investment": {
+        "investor": "AccountId",
+        "amount_paid": "TokenBalance",
+        "tokens_purchased": "TokenBalance",
+        "last_purchase_date": "Moment"
+    },
+    "SimpleToken": {
+        "ticker": "Vec<u8>",
+        "total_supply": "TokenBalance",
+        "owner": "AccountId"
+    },
+    "FeeOf": "Balance",
+    "Dividend": {
+        "amount": "TokenBalance",
+        "active": "bool",
+        "maturates_at": "Option<u64>",
+        "expires_at": "Option<u64>",
+        "payout_currency": "Option<Vec<u8>>",
+        "checkpoint_id": "u32"
+    },
+    "RegistryEntry": {
+        "token_type": "u32",
+        "owner": "AccountId"
+    }
+}
