@@ -403,10 +403,11 @@ decl_module! {
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
-            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer), "did_issuer must be a claim issuer for DID");
+
+            let sender_key = sender.encode();
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer) || Self::is_master_key(did.clone(), &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_key = sender.encode();
             ensure!(Self::is_signing_key(did_issuer.clone(), &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did.clone(), |claim_records| {
@@ -435,10 +436,11 @@ decl_module! {
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
-            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer), "did_issuer must be a claim issuer for DID");
+
+            let sender_key = sender.encode();
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer) || Self::is_master_key(did.clone(), &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_key = sender.encode();
             ensure!(Self::is_signing_key(did_issuer.clone(), &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did.clone(), |claim_records| {
@@ -493,7 +495,7 @@ decl_module! {
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
-            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer), "did_issuer must be a claim issuer for DID");
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = sender.encode();
@@ -619,13 +621,17 @@ impl<T: Trait> Module<T> {
         user.did == did && user.access_level == 1 && user.active
     }
 
-    pub fn is_claim_issuer(did: Vec<u8>, did_issuer: &Vec<u8>) -> bool {
-        <ClaimIssuers>::get(did).contains(&did_issuer)
+    pub fn is_claim_issuer(did: Vec<u8>, issuer_did: &Vec<u8>) -> bool {
+        <ClaimIssuers>::get(did.clone()).contains(&issuer_did)
     }
 
     pub fn is_signing_key(did: Vec<u8>, key: &Vec<u8>) -> bool {
         <DidRecords<T>>::get(did.clone()).signing_keys.contains(key)
-            || &<DidRecords<T>>::get(did).master_key == key
+            || Self::is_master_key(did, key)
+    }
+
+    pub fn is_master_key(did: Vec<u8>, key: &Vec<u8>) -> bool {
+        &<DidRecords<T>>::get(did).master_key == key
     }
 
     /// Withdraws funds from a DID balance
