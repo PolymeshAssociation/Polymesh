@@ -4,7 +4,7 @@ use crate::utils;
 
 use codec::Encode;
 use rstd::prelude::*;
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageValue};
+use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure };
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.

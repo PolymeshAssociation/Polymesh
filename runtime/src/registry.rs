@@ -87,26 +87,14 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
-    use chrono::{prelude::*, Duration};
-    use lazy_static::lazy_static;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+        traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
-    use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{ assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
-    use yaml_rust::{Yaml, YamlLoader};
-
-    use std::{
-        collections::HashMap,
-        fs::read_to_string,
-        path::PathBuf,
-        sync::{Arc, Mutex},
-    };
-
-    use crate::identity::{self, IdentityTrait, Investor, InvestorList};
 
     impl_outer_origin! {
         pub enum Origin for Test {}

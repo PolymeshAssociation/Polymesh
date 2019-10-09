@@ -75,7 +75,7 @@ impl<T: Trait> Module<T> {
     // Transfer restriction verification logic
     pub fn verify_restriction(
         ticker: Vec<u8>,
-        from_did: Vec<u8>,
+        _from_did: Vec<u8>,
         to_did: Vec<u8>,
         value: T::TokenBalance,
     ) -> Result {

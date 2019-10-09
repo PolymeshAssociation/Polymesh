@@ -707,20 +707,16 @@ mod tests {
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         Perbill,
     };
-    use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
-    use yaml_rust::{Yaml, YamlLoader};
 
     use std::{
         collections::HashMap,
-        fs::read_to_string,
-        path::PathBuf,
         sync::{Arc, Mutex},
     };
 
     use crate::exemption;
-    use crate::identity::{self, IdentityTrait, Investor, InvestorList};
-    use crate::GenesisConfig;
+    use crate::identity::{self, Investor };
 
     type SessionIndex = u32;
     type AuthorityId = u64;
