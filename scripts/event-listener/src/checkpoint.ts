@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const Alice = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
-const filePath = path.join(__dirname + "../../../../polymesh_substrate/substrateui_dev.json");
+const filePath = path.join(__dirname + "../../../polymesh_schema.json");
 const customTypes = JSON.parse(fs.readFileSync(filePath, "utf8").toString());
 
 const initialQuestions = [

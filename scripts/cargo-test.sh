@@ -2,7 +2,7 @@
 set -e
 
 script_dir=$(dirname $0)
-pushd $script_dir/../polymesh_substrate/runtime 1>/dev/null
+pushd $script_dir/../runtime 1>/dev/null
 	if [ -z "${VERBOSE-}" ] ; then
 		cargo test || (echo "cargo-test FAIL" && false)
 		echo cargo-test OK
