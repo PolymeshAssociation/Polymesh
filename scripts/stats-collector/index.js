@@ -51,7 +51,7 @@ async function main() {
   );
 
   const filePath = path.join(
-    __dirname + "/../../../polymesh/polymesh_substrate/substrateui_dev.json"
+    __dirname + "/../../../polymesh/polymesh_schema.json"
   );
   const customTypes = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
