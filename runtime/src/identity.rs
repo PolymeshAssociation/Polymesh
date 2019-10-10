@@ -632,7 +632,7 @@ impl<T: Trait> Module<T> {
             || Self::is_master_key( &did, key)
     }
 
-    // pub fn is_master_key(did: &[u8], key: &Vec<u8>) -> bool {
+    /// Use `did` as reference.
     pub fn is_master_key(did: &Vec<u8>, key: &Vec<u8>) -> bool {
         &<DidRecords<T>>::get(did).master_key == key
     }
@@ -785,12 +785,12 @@ mod tests {
 
     type Identity = super::Module<IdentityTest>;
 
+    /// Create externalities
     fn build_ext() -> TestExternalities<Blake2Hasher> {
-        let t = system::GenesisConfig::default().build_storage::<IdentityTest>().unwrap();
-        // sr_io::TestExternalities::new(t)
-        t.into()
+        system::GenesisConfig::default().build_storage::<IdentityTest>().unwrap().into()
     }
 
+    /// It creates an Account and registers its DID.
     fn make_account( id: u64) -> Result<(<IdentityTest as system::Trait>::Origin, Vec<u8>), &'static str> {
         let signed_id = Origin::signed(id);
         let did = format!( "did:poly:{}", id).as_bytes().to_vec();
@@ -814,7 +814,6 @@ mod tests {
                 "did:poly:2".as_bytes().to_vec(),
                 vec![]));
 
-
             assert_err!( Identity::register_did(
                 Origin::signed(3),
                 did_1,
@@ -831,11 +830,12 @@ mod tests {
             let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
 
             assert_ok!( Identity::add_signing_keys( claim_issuer.clone(), claim_issuer_did.clone(),
-                vec![ owner_id.encode() ]));
+                    vec![ owner_id.encode() ]));
 
             // Create issuer and claim issuer
             assert_ok!( Identity::create_issuer( owner.clone(), issuer_did.clone()));
-            assert_ok!( Identity::add_claim_issuer( owner.clone(), owner_did.clone(), claim_issuer_did.clone()));
+            assert_ok!( Identity::add_claim_issuer( owner.clone(), owner_did.clone(),
+                    claim_issuer_did.clone()));
 
             // Add Claims by master & claim_issuer
             let claims = vec![ Claim {
@@ -844,13 +844,17 @@ mod tests {
                 bytes: vec![],
                 expiry: 10
             }];
-            assert_ok!( Identity::add_claim( owner.clone(), owner_did.clone(), claim_issuer_did.clone(), claims.clone()));
-            assert_ok!( Identity::add_claim( claim_issuer.clone(), owner_did.clone(), claim_issuer_did.clone(), claims.clone()));
 
-            assert_err!( Identity::add_claim( claim_issuer.clone(), owner_did.clone(), issuer_did.clone(), claims.clone()),
-                "did_issuer must be a claim issuer or master key for DID");
+            assert_ok!( Identity::add_claim( owner.clone(), owner_did.clone(),
+                    claim_issuer_did.clone(), claims.clone()));
+            assert_ok!( Identity::add_claim( claim_issuer.clone(), owner_did.clone(),
+                    claim_issuer_did.clone(), claims.clone()));
+
+            assert_err!( Identity::add_claim( claim_issuer.clone(), owner_did.clone(),
+                    issuer_did.clone(), claims.clone()),
+                    "did_issuer must be a claim issuer or master key for DID");
             assert_err!( Identity::add_claim( owner.clone(), owner_did.clone(), issuer_did, claims),
-                "Sender must hold a claim issuer\'s signing key");
+                    "Sender must hold a claim issuer\'s signing key");
         });
     }
 
