@@ -358,6 +358,7 @@ decl_module! {
             let record = <DidRecords<T>>::get(did.clone());
             ensure!(sender_key == record.master_key, "Sender must hold the master key");
 
+            /// @TODO Duplicated ? We already use get(did.clone())
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
 
@@ -405,7 +406,7 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
 
             let sender_key = sender.encode();
-            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer) || Self::is_master_key(did.clone(), &sender_key), "did_issuer must be a claim issuer or master key for DID");
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer) || Self::is_master_key(&did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             ensure!(Self::is_signing_key(did_issuer.clone(), &sender_key), "Sender must hold a claim issuer's signing key");
@@ -438,7 +439,7 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
 
             let sender_key = sender.encode();
-            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer) || Self::is_master_key(did.clone(), &sender_key), "did_issuer must be a claim issuer or master key for DID");
+            ensure!(Self::is_claim_issuer(did.clone(), &did_issuer) || Self::is_master_key(&did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             ensure!(Self::is_signing_key(did_issuer.clone(), &sender_key), "Sender must hold a claim issuer's signing key");
@@ -626,11 +627,13 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn is_signing_key(did: Vec<u8>, key: &Vec<u8>) -> bool {
-        <DidRecords<T>>::get(did.clone()).signing_keys.contains(key)
-            || Self::is_master_key(did, key)
+        let record = <DidRecords<T>>::get(did.clone());
+        record.signing_keys.contains(key)
+            || Self::is_master_key( &did, key)
     }
 
-    pub fn is_master_key(did: Vec<u8>, key: &Vec<u8>) -> bool {
+    // pub fn is_master_key(did: &[u8], key: &Vec<u8>) -> bool {
+    pub fn is_master_key(did: &Vec<u8>, key: &Vec<u8>) -> bool {
         &<DidRecords<T>>::get(did).master_key == key
     }
 
@@ -691,64 +694,209 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    /*
-     *    use super::*;
-     *
-     *    use substrate_primitives::{Blake2Hasher, H256};
-     *    use sr_io::with_externalities;
-     *    use sr_primitives::{
-     *        testing::{Digest, DigestItem, Header},
-     *        traits::{BlakeTwo256, IdentityLookup},
-     *        BuildStorage,
-     *    };
-     *    use srml_support::{assert_ok, impl_outer_origin};
-     *
-     *    impl_outer_origin! {
-     *        pub enum Origin for Test {}
-     *    }
-     *
-     *    // For testing the module, we construct most of a mock runtime. This means
-     *    // first constructing a configuration type (`Test`) which `impl`s each of the
-     *    // configuration traits of modules we want to use.
-     *    #[derive(Clone, Eq, PartialEq)]
-     *    pub struct Test;
-     *    impl system::Trait for Test {
-     *        type Origin = Origin;
-     *        type Index = u64;
-     *        type BlockNumber = u64;
-     *        type Hash = H256;
-     *        type Hashing = BlakeTwo256;
-     *        type Digest = H256;
-     *        type AccountId = u64;
-     *        type Lookup = IdentityLookup<Self::AccountId>;
-     *        type Header = Header;
-     *        type Event = ();
-     *        type Log = DigestItem;
-     *    }
-     *    impl Trait for Test {
-     *        type Event = ();
-     *    }
-     *    type identity = Module<Test>;
-     *
-     *    // This function basically just builds a genesis storage key/value store according to
-     *    // our desired mockup.
-     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::default()
-     *            .build_storage()
-     *            .unwrap()
-     *            .0
-     *            .into()
-     *    }
-     *
-     *    #[test]
-     *    fn it_works_for_default_value() {
-     *        with_externalities(&mut new_test_ext(), || {
-     *            // Just a dummy test for the dummy funtion `do_something`
-     *            // calling the `do_something` function with a value 42
-     *            assert_ok!(identity::do_something(Origin::signed(1), 42));
-     *            // asserting that the stored value is equal to what we stored
-     *            assert_eq!(identity::something(), Some(42));
-     *        });
-     *    }
-     */
+    use super::*;
+
+    use substrate_primitives::{Blake2Hasher, H256};
+    use sr_io::{ with_externalities, TestExternalities };
+    use sr_primitives::{
+        testing::{ Header},
+        traits::{BlakeTwo256, IdentityLookup, ConvertInto}, Perbill
+    };
+    use srml_support::{impl_outer_origin, parameter_types, assert_ok, assert_err};
+    use std::result::Result;
+
+    impl_outer_origin! {
+        pub enum Origin for IdentityTest {}
+    }
+
+    // For testing the module, we construct most of a mock runtime. This means
+    // first constructing a configuration type (`Test`) which `impl`s each of the
+    // configuration traits of modules we want to use.
+    #[derive(Clone, Eq, PartialEq)]
+    pub struct IdentityTest;
+
+    parameter_types! {
+        pub const BlockHashCount: u32 = 250;
+        pub const MaximumBlockWeight: u32 = 4096;
+        pub const MaximumBlockLength: u32 = 4096;
+        pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    }
+
+    impl system::Trait for IdentityTest {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+
+        type Call = ();
+        type WeightMultiplierUpdate = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type Version = ();
+
+    }
+
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 0;
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const TransactionBaseFee: u64 = 0;
+        pub const TransactionByteFee: u64 = 0;
+    }
+
+    impl balances::Trait for IdentityTest {
+        type Balance = u128;
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type TransactionPayment = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
+
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+        type TransactionBaseFee = TransactionBaseFee;
+        type TransactionByteFee = TransactionByteFee;
+        type WeightToFee = ConvertInto;
+        type Identity = super::Module<IdentityTest>;
+    }
+
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
+    }
+
+    impl timestamp::Trait for IdentityTest {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
+
+    impl super::Trait for IdentityTest {
+        type Event = ();
+    }
+
+    type Identity = super::Module<IdentityTest>;
+
+    fn build_ext() -> TestExternalities<Blake2Hasher> {
+        let t = system::GenesisConfig::default().build_storage::<IdentityTest>().unwrap();
+        // sr_io::TestExternalities::new(t)
+        t.into()
+    }
+
+    fn make_account( id: u64) -> Result<(<IdentityTest as system::Trait>::Origin, Vec<u8>), &'static str> {
+        let signed_id = Origin::signed(id);
+        let did = format!( "did:poly:{}", id).as_bytes().to_vec();
+
+        Identity::register_did( signed_id.clone(), did.clone(), vec![])?;
+        Ok((signed_id, did))
+    }
+
+    #[test]
+    fn dids_are_unique() {
+        with_externalities( &mut build_ext(), || {
+            let did_1 = "did:poly:1".as_bytes().to_vec();
+
+            assert_ok!( Identity::register_did(
+                Origin::signed(1),
+                did_1.clone(),
+                vec![]));
+
+            assert_ok!( Identity::register_did(
+                Origin::signed(2),
+                "did:poly:2".as_bytes().to_vec(),
+                vec![]));
+
+
+            assert_err!( Identity::register_did(
+                Origin::signed(3),
+                did_1,
+                vec![]), "DID must be unique");
+        });
+    }
+
+    #[test]
+    fn only_claim_issuers_can_add_claims() {
+        with_externalities( &mut build_ext(), || {
+            let owner_id = Identity::owner();
+            let (owner, owner_did) =  make_account( owner_id).unwrap();
+            let (_issuer, issuer_did) = make_account(2).unwrap();
+            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+
+            assert_ok!( Identity::add_signing_keys( claim_issuer.clone(), claim_issuer_did.clone(),
+                vec![ owner_id.encode() ]));
+
+            // Create issuer and claim issuer
+            assert_ok!( Identity::create_issuer( owner.clone(), issuer_did.clone()));
+            assert_ok!( Identity::add_claim_issuer( owner.clone(), owner_did.clone(), claim_issuer_did.clone()));
+
+            // Add Claims by master & claim_issuer
+            let claims = vec![ Claim {
+                topic: 1,
+                schema: 1,
+                bytes: vec![],
+                expiry: 10
+            }];
+            assert_ok!( Identity::add_claim( owner.clone(), owner_did.clone(), claim_issuer_did.clone(), claims.clone()));
+            assert_ok!( Identity::add_claim( claim_issuer.clone(), owner_did.clone(), claim_issuer_did.clone(), claims.clone()));
+
+            assert_err!( Identity::add_claim( claim_issuer.clone(), owner_did.clone(), issuer_did.clone(), claims.clone()),
+                "did_issuer must be a claim issuer or master key for DID");
+            assert_err!( Identity::add_claim( owner.clone(), owner_did.clone(), issuer_did, claims),
+                "Sender must hold a claim issuer\'s signing key");
+        });
+    }
+
+    #[test]
+    fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
+        with_externalities( &mut build_ext(), || {
+
+        });
+    }
+
+    #[test]
+    fn revoking_claims() {
+        with_externalities( &mut build_ext(), || {
+            let owner_id = Identity::owner();
+            let (owner, owner_did) = make_account( Identity::owner()).unwrap();
+            let (issuer, issuer_did) = make_account(2).unwrap();
+
+            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+            assert_ok!( Identity::add_claim_issuer( owner.clone(), owner_did.clone(),
+                    claim_issuer_did.clone()));
+            assert_ok!( Identity::add_signing_keys( claim_issuer.clone(), claim_issuer_did.clone(),
+                    vec![  owner_id.encode() ]));
+
+            // Add Claims by master & claim_issuer
+            let claim = Claim {
+                topic: 1,
+                schema: 1,
+                bytes: vec![],
+                expiry: 10
+            };
+
+            assert_ok!( Identity::add_claim( owner.clone(), owner_did.clone(),
+                    claim_issuer_did.clone(), vec![ claim.clone()] ));
+
+            assert_err!( Identity::revoke_claim( issuer.clone(), issuer_did.clone(),
+                    claim_issuer_did.clone(), claim.clone()),
+                    "did_issuer must be a claim issuer for DID");
+            assert_err!( Identity::revoke_claim( claim_issuer.clone(), claim_issuer_did.clone(),
+                    claim_issuer_did.clone(), claim.clone()),
+                    "did_issuer must be a claim issuer for DID");
+
+            assert_ok!( Identity::revoke_claim( owner.clone(), owner_did.clone(),
+                    claim_issuer_did.clone(), claim.clone()));
+            // TODO Revoke claim twice??
+            assert_ok!( Identity::revoke_claim( owner, owner_did,
+                    claim_issuer_did, claim));
+        });
+    }
 }
