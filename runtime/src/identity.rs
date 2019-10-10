@@ -891,18 +891,29 @@ mod tests {
         with_externalities(&mut build_ext(), || {
             let owner_id = Identity::owner();
             let owner_key = owner_id.encode();
-            let (owner, owner_did) = make_account(owner_id).unwrap();
-            let (claim_issuer_a, claim_issuer_did_a) = make_account(2).unwrap();
-            let (claim_issuer_b, claim_issuer_did_b) = make_account(3).unwrap();
+            let (_owner, owner_did) = make_account(owner_id).unwrap();
+            let (a, a_did) = make_account(2).unwrap();
+            let (_b, b_did) = make_account(3).unwrap();
 
             assert_ok!(Identity::add_signing_keys(
-                claim_issuer_a.clone(),
-                claim_issuer_did_a.clone(),
+                a.clone(),
+                a_did.clone(),
                 vec![owner_key.clone()]
             ));
 
-            // Check master key on master.
-            assert!(Identity::is_signing_key(owner_did.clone(), &onwer_key));
+            // Check master key on master and signing_keys.
+            assert!(Identity::is_signing_key(owner_did.clone(), &owner_key));
+            assert!(Identity::is_signing_key(a_did.clone(), &owner_key));
+
+            assert!(Identity::is_signing_key(b_did.clone(), &owner_key) == false);
+
+            // ... and remove that key.
+            assert_ok!(Identity::remove_signing_keys(
+                a.clone(),
+                a_did.clone(),
+                vec![owner_key.clone()]
+            ));
+            assert!(Identity::is_signing_key(a_did.clone(), &owner_key) == false);
         });
     }
 
