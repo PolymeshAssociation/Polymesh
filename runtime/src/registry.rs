@@ -93,7 +93,7 @@ mod tests {
         traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
-    use srml_support::{ assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
 
     impl_outer_origin! {

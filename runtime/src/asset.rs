@@ -716,7 +716,7 @@ mod tests {
     };
 
     use crate::exemption;
-    use crate::identity::{self, Investor };
+    use crate::identity::{self, Investor};
 
     type SessionIndex = u32;
     type AuthorityId = u64;
