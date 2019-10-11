@@ -53,7 +53,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
             ensure!(!<Tokens<T>>::exists(ticker.clone()), "Ticker with this name already exists");
             ensure!(<identity::Module<T>>::is_simple_token_issuer(did.clone()), "Sender is not an issuer");
@@ -86,7 +86,7 @@ decl_module! {
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), did.clone())), "Account does not own this token");
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
             let allowance = Self::allowance((ticker.clone(), did.clone(), spender_did.clone()));
             let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
@@ -101,7 +101,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
             Self::_transfer(ticker.clone(), did, to_did, amount)
         }
@@ -110,7 +110,7 @@ decl_module! {
             let spender = ensure_signed(origin)?;
 
             // Check that spender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &spender.encode()), "spender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &spender.encode()), "spender must be a signing key for DID");
 
             ensure!(<Allowance<T>>::exists((ticker.clone(), from_did.clone(), did.clone())), "Allowance does not exist.");
             let allowance = Self::allowance((ticker.clone(), from_did.clone(), did.clone()));
