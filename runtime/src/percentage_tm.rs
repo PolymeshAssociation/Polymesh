@@ -73,12 +73,7 @@ impl<T: Trait> Module<T> {
     }
 
     // Transfer restriction verification logic
-    pub fn verify_restriction(
-        ticker: Vec<u8>,
-        _from_did: Vec<u8>,
-        to_did: Vec<u8>,
-        value: T::TokenBalance,
-    ) -> Result {
+    pub fn verify_restriction(ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance) -> Result {
         let ticker = utils::bytes_to_upper(ticker.as_slice());
         let max_percentage = Self::maximum_percentage_enabled_for_token(ticker.clone());
         // check whether the to address is in the exemption list or not

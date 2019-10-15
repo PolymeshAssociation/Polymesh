@@ -562,12 +562,8 @@ impl<T: Trait> Module<T> {
             to_did.clone(),
             value,
         );
-        let verification_percentage = <percentage_tm::Module<T>>::verify_restriction(
-            _ticker.clone(),
-            from_did.clone(),
-            to_did.clone(),
-            value,
-        );
+        let verification_percentage =
+            <percentage_tm::Module<T>>::verify_restriction(_ticker.clone(), to_did.clone(), value);
         ensure!(
             verification_whitelist.is_ok() && verification_percentage.is_ok(),
             "Transfer Verification failed. Review imposed transfer restrictions."
