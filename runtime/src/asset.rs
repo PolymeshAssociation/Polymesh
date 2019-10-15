@@ -1,6 +1,5 @@
 use crate::balances;
 use crate::constants::*;
-use crate::exemption;
 use crate::general_tm;
 use crate::identity;
 use crate::percentage_tm;
@@ -74,7 +73,6 @@ decl_module! {
         // initialize the default event for this module
         fn deposit_event() = default;
 
-            let empty_did = vec![];
         // multiple tokens in one go
         pub fn batch_create_token(origin, did: Vec<u8>, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::TokenBalance>, divisible_values: Vec<bool>) -> Result {
             let sender = ensure_signed(origin)?;
@@ -263,10 +261,9 @@ decl_module! {
 
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), did.clone())), "Account does not own this token");
 
-            let ticker_did_spender_did = (ticker.clone(), did.clone(), spender_did.clone());
-            let allowance = Self::allowance(&ticker_did_spender_did);
+            let allowance = Self::allowance((ticker.clone(), did.clone(), spender_did.clone()));
             let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
-            <Allowance<T>>::insert( &ticker_did_spender_did, updated_allowance);
+            <Allowance<T>>::insert((ticker.clone(), did.clone(), spender_did.clone()), updated_allowance);
 
             Self::deposit_event(RawEvent::Approval(ticker, did, spender_did, value));
 
@@ -317,13 +314,12 @@ decl_module! {
         pub fn balance_at(_origin, ticker: Vec<u8>, owner_did: Vec<u8>, checkpoint: u32) -> Result {
             let upper_ticker = utils::bytes_to_upper(&ticker);
             let balance = Self::get_balance_at(&upper_ticker, &owner_did, checkpoint);
-
             Self::deposit_event(RawEvent::BalanceAt(upper_ticker, owner_did, checkpoint, balance));
             Ok(())
         }
 
-        pub fn issue(_origin, did: &Vec<u8>, ticker: &Vec<u8>, to_did: &Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
-            let upper_ticker = utils::bytes_to_upper(ticker);
+        pub fn issue(_origin, did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
+            let upper_ticker = utils::bytes_to_upper(&ticker);
             let sender = ensure_signed(_origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -338,11 +334,11 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
             ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
 
-            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+            ensure!(Self::is_owner(&ticker, &did), "user is not authorized");
 
 
             // A helper vec for calculated new investor balances
@@ -354,7 +350,7 @@ decl_module! {
             // A round of per-investor checks
             for i in 0..investor_dids.len() {
                 ensure!(
-                    Self::check_granularity(ticker.clone(), values[i]),
+                    Self::check_granularity(&ticker, values[i]),
                     "Invalid granularity"
                 );
 
@@ -364,7 +360,7 @@ decl_module! {
                     .ok_or("overflow in calculating balance")?);
 
                 // verify transfer check
-                ensure!(Self::_is_valid_transfer(ticker.clone(), Vec::<u8>::default(), investor_dids[i].clone(), values[i])? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+                ensure!(Self::_is_valid_transfer(&ticker, &vec![], &investor_dids[i], values[i])? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
                 // New total supply must be valid
                 token.total_supply = token
@@ -375,7 +371,7 @@ decl_module! {
 
             // After checks are ensured introduce side effects
             for i in 0..investor_dids.len() {
-                Self::_update_checkpoint(ticker.clone(), investor_dids[i].clone(), updated_balances[i]);
+                Self::_update_checkpoint(&ticker, &investor_dids[i], updated_balances[i]);
 
                 <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i].clone()), updated_balances[i]);
 
@@ -387,6 +383,7 @@ decl_module! {
         }
 
         pub fn redeem(_origin, did: Vec<u8>, _ticker: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
+            let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -408,37 +405,38 @@ decl_module! {
                 .ok_or("overflow in calculating balance")?;
 
             // verify transfer check
-            ensure!(Self::_is_valid_transfer(ticker.clone(), did.clone(), Vec::<u8>::default(), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&upper_ticker, &did, &vec![], value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             //Decrease total supply
-            let mut token = Self::token_details(ticker.clone());
+            let mut token = Self::token_details(&upper_ticker);
             token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
 
-            Self::_update_checkpoint(ticker.clone(), did.clone(), burner_balance);
+            Self::_update_checkpoint(&upper_ticker, &did, burner_balance);
 
-            <BalanceOf<T>>::insert((ticker.clone(), did.clone()), updated_burner_balance);
-            <Tokens<T>>::insert(ticker.clone(), token);
+            <BalanceOf<T>>::insert((upper_ticker.clone(), did.clone()), updated_burner_balance);
+            <Tokens<T>>::insert(&upper_ticker, token);
 
-            Self::deposit_event(RawEvent::Redeemed(ticker.clone(), did, value));
+            Self::deposit_event(RawEvent::Redeemed(upper_ticker, did, value));
 
             Ok(())
 
         }
 
         pub fn redeem_from(_origin, did: Vec<u8>, _ticker: Vec<u8>, from_did: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
             // Granularity check
             ensure!(
-                Self::check_granularity(_ticker.clone(), value),
+                Self::check_granularity(&upper_ticker, value),
                 "Invalid granularity"
                 );
-            ensure!(<BalanceOf<T>>::exists((ticker.clone(), did.clone())), "Account does not own this token");
-            let burner_balance = Self::balance_of((ticker.clone(), did.clone()));
+            let ticker_did = (upper_ticker.clone(), did.clone());
+            ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
+            let burner_balance = Self::balance_of(&ticker_did);
             ensure!(burner_balance >= value, "Not enough balance.");
 
             // Reduce sender's balance
@@ -446,12 +444,12 @@ decl_module! {
                 .checked_sub(&value)
                 .ok_or("overflow in calculating balance")?;
 
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            ensure!(<Allowance<T>>::exists((ticker.clone(), from_did.clone(), did.clone())), "Allowance does not exist");
-            let allowance = Self::allowance((ticker.clone(), from_did.clone(), did.clone()));
+            let ticker_from_did_did = (upper_ticker.clone(), from_did.clone(), did.clone());
+            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist");
+            let allowance = Self::allowance(&ticker_from_did_did);
             ensure!(allowance >= value, "Not enough allowance");
 
-            ensure!(Self::_is_valid_transfer(ticker.clone(), from_did.clone(), Vec::<u8>::default(), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer( &upper_ticker, &from_did, &vec![], value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
 
@@ -461,11 +459,12 @@ decl_module! {
 
             Self::_update_checkpoint(&upper_ticker, &did, burner_balance);
 
-            <Allowance<T>>::insert((ticker.clone(), from_did.clone(), did.clone()), updated_allowance);
+            <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
+            <BalanceOf<T>>::insert(&ticker_did, updated_burner_balance);
             <Tokens<T>>::insert(&upper_ticker, token);
 
-            Self::deposit_event(RawEvent::Redeemed(ticker.clone(), did.clone(), value));
-            Self::deposit_event(RawEvent::Approval(ticker.clone(), from_did.clone(), did.clone(), value));
+            Self::deposit_event(RawEvent::Redeemed(upper_ticker.clone(), did.clone(), value));
+            Self::deposit_event(RawEvent::Approval(upper_ticker, from_did, did, value));
 
             Ok(())
         }
@@ -476,16 +475,17 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not token owner");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(Self::is_owner(&ticker, &did), "user is not token owner");
 
             // Granularity check
             ensure!(
-                Self::check_granularity(ticker.clone(), value),
+                Self::check_granularity(&ticker, value),
                 "Invalid granularity"
                 );
-            ensure!(<BalanceOf<T>>::exists((ticker.clone(), token_holder_did.clone())), "Account does not own this token");
-            let burner_balance = Self::balance_of((ticker.clone(), token_holder_did.clone()));
+            let ticker_token_holder_did = (ticker.clone(), token_holder_did.clone());
+            ensure!(<BalanceOf<T>>::exists( &ticker_token_holder_did), "Account does not own this token");
+            let burner_balance = Self::balance_of(&ticker_token_holder_did);
             ensure!(burner_balance >= value, "Not enough balance.");
 
             // Reduce sender's balance
@@ -494,12 +494,13 @@ decl_module! {
                 .ok_or("overflow in calculating balance")?;
 
             //Decrease total suply
-            let mut token = Self::token_details(ticker.clone());
+            let mut token = Self::token_details(&ticker);
             token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
-            Self::_update_checkpoint(ticker.clone(), token_holder_did.clone(), burner_balance);
 
-            <BalanceOf<T>>::insert((ticker.clone(), token_holder_did.clone()), updated_burner_balance);
-            <Tokens<T>>::insert(ticker.clone(), token);
+            Self::_update_checkpoint(&ticker, &token_holder_did, burner_balance);
+
+            <BalanceOf<T>>::insert(&ticker_token_holder_did, updated_burner_balance);
+            <Tokens<T>>::insert(&ticker, token);
 
             Self::deposit_event(RawEvent::ControllerRedemption(ticker, did, token_holder_did, value, data, operator_data));
 
@@ -527,7 +528,7 @@ decl_module! {
 
         /// Checks whether a transaction with given parameters can take place
         pub fn can_transfer(_origin, ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, data: Vec<u8>) {
-            match Self::_is_valid_transfer(ticker.clone(), from_did.clone(), to_did.clone(), value) {
+            match Self::_is_valid_transfer(&ticker, &from_did, &to_did, value) {
                 Ok(code) =>
                 {
                     Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, code as u32));
@@ -539,7 +540,7 @@ decl_module! {
                     Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_TRANSFER_FAILURE as u32));
                 }
             }
-    }
+        }
 
     /// An ERC1594 transfer with data
     pub fn transfer_with_data(origin, did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, data: Vec<u8>) -> Result {
@@ -571,10 +572,10 @@ decl_module! {
         let sender = ensure_signed(origin)?;
 
         // Check that sender is allowed to act on behalf of `did`
-        ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
-        ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+        ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+        ensure!(Self::is_owner(&ticker, &did), "user is not authorized");
 
-        <Documents<T>>::insert((ticker.clone(), name.clone()), (uri.clone(), document_hash.clone(), <timestamp::Module<T>>::get()));
+        <Documents<T>>::insert((ticker, name), (uri, document_hash, <timestamp::Module<T>>::get()));
         Ok(())
     }
 
@@ -583,10 +584,10 @@ decl_module! {
         let sender = ensure_signed(origin)?;
 
         // Check that sender is allowed to act on behalf of `did`
-        ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
-        ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+        ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+        ensure!(Self::is_owner(&ticker, &did), "user is not authorized");
 
-        <Documents<T>>::remove((ticker.clone(), name.clone()));
+        <Documents<T>>::remove((ticker, name));
         Ok(())
     }
 }
@@ -739,21 +740,18 @@ impl<T: Trait> Module<T> {
         value: T::TokenBalance,
     ) -> StdResult<u8, &'static str> {
         let general_status_code = <general_tm::Module<T>>::verify_restriction(
-            <general_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value);
-        let verification_percentage =
-            <percentage_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value);
-            _ticker.clone(),
-            from_did.clone(),
-            to_did.clone(),
+            ticker,
+            from_did,
+            to_did,
             value,
         )?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             general_status_code
         } else {
             <percentage_tm::Module<T>>::verify_restriction(
-                _ticker.clone(),
-                from_did.clone(),
-                to_did.clone(),
+                ticker,
+                from_did,
+                to_did,
                 value,
             )?
         })
@@ -859,7 +857,7 @@ impl<T: Trait> Module<T> {
             .ok_or("overflow in calculating balance")?;
         // verify transfer check
         ensure!(
-            Self::_is_valid_transfer(ticker.clone(), Vec::<u8>::default(), to_did.clone(), value)?
+            Self::_is_valid_transfer(ticker, &vec![], to_did, value)?
                 == ERC1400_TRANSFER_SUCCESS,
             "Transfer restrictions failed"
         );
@@ -877,7 +875,7 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(&ticker_to_did, updated_to_balance);
         <Tokens<T>>::insert(ticker, token);
 
-        Self::deposit_event(RawEvent::Issued(ticker.clone(), to_did, value));
+        Self::deposit_event(RawEvent::Issued(ticker.clone(), to_did.clone(), value));
 
         Ok(())
     }
@@ -1095,22 +1093,6 @@ mod tests {
         sr_io::TestExternalities::new(t)
     }
 
-    /// TODO Could we deleted? It is not used.
-    /*
-    /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
-        identity::GenesisConfig::<Test> {
-            owner: id,
-            did_creation_fee: 250,
-        }
-        .assimilate_storage(&mut t)
-        .unwrap();
-        sr_io::TestExternalities::new(t)
-    }
-    */
 
     #[test]
     fn issuers_can_create_tokens() {

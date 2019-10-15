@@ -125,12 +125,12 @@ impl<T: Trait> Module<T> {
 
         // issuance case
         if *from_did == empty_did {
-            if !Self::_check_investor_status(to_did.clone()).is_ok() {
+            if !Self::_check_investor_status(to_did).is_ok() {
                 sr_primitives::print("to account is not active");
                 return Ok(ERC1400_INVALID_RECEIVER);
             }
 
-            if !Self::is_whitelisted(_ticker.clone(), to_did).is_ok() {
+            if !Self::is_whitelisted(&upper_ticker, to_did).is_ok() {
                 sr_primitives::print("to account is not whitelisted");
                 return Ok(ERC1400_INVALID_RECEIVER);
             }
@@ -138,12 +138,12 @@ impl<T: Trait> Module<T> {
             sr_primitives::print("GTM: Passed from the issuance case");
             return Ok(ERC1400_TRANSFER_SUCCESS);
         } else if *to_did == empty_did {
-            if !Self::_check_investor_status(from_did.clone()).is_ok() {
+            if !Self::_check_investor_status(from_did).is_ok() {
                 sr_primitives::print("from account is not active");
                 return Ok(ERC1400_INVALID_SENDER);
             }
 
-            if !Self::is_whitelisted(_ticker.clone(), from_did).is_ok() {
+            if !Self::is_whitelisted(&upper_ticker, from_did).is_ok() {
                 sr_primitives::print("from account is not whitelisted");
                 return Ok(ERC1400_INVALID_SENDER);
             }
@@ -155,11 +155,11 @@ impl<T: Trait> Module<T> {
             if whitelist_count > 0 {
                 sr_primitives::print("We have at least one entry to verify");
             }
-            if !Self::_check_investor_status(from_did.clone()).is_ok() {
+            if !Self::_check_investor_status(from_did).is_ok() {
                 sr_primitives::print("from account is not active");
                 return Ok(ERC1400_INVALID_SENDER);
             }
-            if !Self::_check_investor_status(to_did.clone()).is_ok() {
+            if !Self::_check_investor_status(to_did).is_ok() {
                 sr_primitives::print("to account is not active");
                 return Ok(ERC1400_INVALID_RECEIVER);
             }
