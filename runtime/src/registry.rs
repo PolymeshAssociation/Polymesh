@@ -61,22 +61,22 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    pub fn get(ticker: Vec<u8>) -> Option<RegistryEntry> {
-        let ticker = utils::bytes_to_upper(ticker.as_slice());
+    pub fn get(ticker: &Vec<u8>) -> Option<RegistryEntry> {
+        let upper_ticker = utils::bytes_to_upper(ticker);
 
-        if <Tokens>::exists(ticker.clone()) {
-            Some(<Tokens>::get(ticker))
+        if <Tokens>::exists(&upper_ticker) {
+            Some(<Tokens>::get(upper_ticker))
         } else {
             None
         }
     }
 
-    pub fn put(ticker: Vec<u8>, entry: &RegistryEntry) -> Result {
-        let ticker = utils::bytes_to_upper(ticker.as_slice());
+    pub fn put(ticker: &Vec<u8>, entry: &RegistryEntry) -> Result {
+        let upper_ticker = utils::bytes_to_upper(ticker);
 
-        ensure!(!<Tokens>::exists(ticker.clone()), "Token ticker exists");
+        ensure!(!<Tokens>::exists(&upper_ticker), "Token ticker exists");
 
-        <Tokens>::insert(ticker.clone(), entry);
+        <Tokens>::insert(upper_ticker, entry);
 
         Ok(())
     }
@@ -150,16 +150,16 @@ mod tests {
                 owner_did: "did:poly:some_did".as_bytes().to_vec(),
             };
 
-            assert_ok!(Registry::put("SOMETOKEN".as_bytes().to_vec(), &entry));
+            assert_ok!(Registry::put(&"SOMETOKEN".as_bytes().to_vec(), &entry));
 
             // Verify that the entry corresponds to what we intended to insert
             assert_eq!(
-                Registry::get("SOMETOKEN".as_bytes().to_vec()),
+                Registry::get(&"SOMETOKEN".as_bytes().to_vec()),
                 Some(entry.clone())
             );
 
             // Effectively treated as identical ticker
-            assert!(Registry::put("sOmEtOkEn".as_bytes().to_vec(), &entry).is_err());
+            assert!(Registry::put(&"sOmEtOkEn".as_bytes().to_vec(), &entry).is_err());
         });
     }
 }

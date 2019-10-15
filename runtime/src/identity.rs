@@ -603,9 +603,9 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn is_issuer(did: Vec<u8>) -> bool {
-        let user = Self::issuer_list(did.clone());
-        user.did == did && user.access_level == 1 && user.active
+    pub fn is_issuer(did: &Vec<u8>) -> bool {
+        let user = Self::issuer_list(did);
+        user.did == *did && user.access_level == 1 && user.active
     }
 
     pub fn is_simple_token_issuer(did: Vec<u8>) -> bool {

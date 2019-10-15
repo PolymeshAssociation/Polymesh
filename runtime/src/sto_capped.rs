@@ -94,7 +94,7 @@ decl_module! {
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sold:T::TokenBalance = 0.into();
-            ensure!(Self::is_owner(ticker.clone(), did.clone()),"Sender must be the token owner");
+            ensure!(Self::is_owner(&ticker, &did),"Sender must be the token owner");
 
             let sto = STO {
                 beneficiary_did,
@@ -139,7 +139,7 @@ decl_module! {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let mut selected_sto = Self::stos_by_token((ticker.clone(), sto_id));
             // Pre validation checks
-            ensure!(Self::_pre_validation(_ticker.clone(), did.clone(), selected_sto.clone()).is_ok(), "Invalidate investment");
+            ensure!(Self::_pre_validation(&_ticker, &did, selected_sto.clone()).is_ok(), "Invalidate investment");
             // Make sure sender has enough balance
             let sender_balance = <balances::Module<T> as Currency<_>>::free_balance(&sender);
             ensure!(sender_balance >= value,"Insufficient funds");
@@ -156,7 +156,7 @@ decl_module! {
                 .ok_or("overflow while calculating tokens sold")?;
 
             // Mint tokens and update STO
-            T::Asset::_mint_from_sto(ticker.clone(), did.clone(), token_amount_value.0)?;
+            T::Asset::_mint_from_sto(&ticker, &did, token_amount_value.0)?;
 
             // Transfer poly to token owner
             // TODO: transfer between DIDs
@@ -195,7 +195,7 @@ decl_module! {
             // or STO should be in non-active stage
             ensure!(now < selected_sto.start_date || !selected_sto.active, "STO is already started");
 
-            ensure!(Self::is_owner(ticker.clone(),did), "Not authorised to execute this function");
+            ensure!(Self::is_owner(&ticker,&did), "Not authorised to execute this function");
 
             let token_index = Self::token_index_for_sto((ticker.clone(), sto_id, simple_token_ticker.clone()));
             let token_count = Self::tokens_count_for_sto((ticker.clone(), sto_id));
@@ -237,7 +237,7 @@ decl_module! {
             ensure!(Self::token_index_for_sto((ticker.clone(), sto_id, simple_token_ticker.clone())) != None, "Given token is not a permitted investment currency");
             let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
             // Pre validation checks
-            ensure!(Self::_pre_validation(_ticker.clone(), did.clone(), selected_sto.clone()).is_ok(), "Invalidate investment");
+            ensure!(Self::_pre_validation(&_ticker, &did, selected_sto.clone()).is_ok(), "Invalidate investment");
             // Make sure sender has enough balance
             ensure!(T::SimpleTokenTrait::balanceOf(simple_token_ticker.clone(), did.clone()) >= value, "Insufficient balance");
 
@@ -256,7 +256,7 @@ decl_module! {
                                     .ok_or("overflow while updating the simple_token investment value")?;
 
             // Mint tokens and update STO
-            T::Asset::_mint_from_sto(ticker.clone(), did.clone(), token_amount_value.0);
+            T::Asset::_mint_from_sto(&ticker, &did, token_amount_value.0);
             // Transfer the simple_token invested token to beneficiary account
             T::SimpleTokenTrait::transfer(did.clone(), simple_token_ticker.clone(), selected_sto.beneficiary_did.clone(), token_amount_value.1)?;
 
@@ -330,14 +330,14 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(_ticker: Vec<u8>, did: Vec<u8>) -> bool {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        T::Asset::is_owner(ticker.clone(), did)
+    pub fn is_owner(ticker: &Vec<u8>, did: &Vec<u8>) -> bool {
+        let upper_ticker = utils::bytes_to_upper(ticker.as_slice());
+        T::Asset::is_owner(&upper_ticker, did)
     }
 
     fn _pre_validation(
-        ticker: Vec<u8>,
-        did: Vec<u8>,
+        ticker: &Vec<u8>,
+        did: &Vec<u8>,
         selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> Result {
         // Validate that buyer is whitelisted for primary issuance.

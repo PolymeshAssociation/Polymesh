@@ -19,6 +19,9 @@ pub trait Trait: system::Trait + balances::Trait + session::Trait {
 // Other utility functions
 #[inline]
 /// Convert all letter characters of a slice to their upper case counterparts.
+/// # TODO
+/// This functions is always called on `ticket`, maybe we could create a type for `ticket` to
+/// ensure that type is UPPER case, and **avoid vector clone** (using `collect`).
 pub fn bytes_to_upper(v: &[u8]) -> Vec<u8> {
     v.iter()
         .map(|chr| match chr {
@@ -27,3 +30,24 @@ pub fn bytes_to_upper(v: &[u8]) -> Vec<u8> {
         })
         .collect()
 }
+
+/*
+use rstd::borrow::Borrow;
+use srml_support::{ Parameter, StorageMap};
+pub trait StorageMapExt<K: Codec, V: Codec> {
+    type Query;
+
+    fn get_option<KeyArg: Borrow<K>>( key: KeyArg) -> Option<Self::Query>;
+}
+
+impl<K,V> StorageMapExt<K,V> for StorageMap<K,V> {
+    type Query = StorageMap<K,V>::Query;
+
+    fn get_option<KeyArg: Borrow<K>>( key: KeyArg) -> Option<Self::Query>{
+        if Self::exists(key) {
+            Some( Self::get(key))
+        } else {
+            None
+        }
+    }
+}*/

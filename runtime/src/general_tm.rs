@@ -45,14 +45,14 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        pub fn add_to_whitelist(origin, did: Vec<u8>, _ticker: Vec<u8>, whitelist_id: u32, investor_did: Vec<u8>, expiry: T::Moment) -> Result {
+        pub fn add_to_whitelist(origin, did: Vec<u8>, ticker: Vec<u8>, whitelist_id: u32, investor_did: Vec<u8>, expiry: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            ensure!(Self::is_owner(ticker.clone(),did.clone()),"Sender must be the token owner");
+            let upper_ticker = utils::bytes_to_upper(&ticker);
+            ensure!(Self::is_owner(&upper_ticker, &did),"Sender must be the token owner");
 
             let whitelist = Whitelist {
                 investor: investor_did.clone(),
@@ -61,14 +61,15 @@ decl_module! {
             };
 
             //Get whitelist entries for this token + whitelistId
-            let mut whitelists_for_token = Self::whitelists_by_token((ticker.clone(), whitelist_id.clone()));
+            let ticker_whitelist_id = (upper_ticker.clone(), whitelist_id);
+            let mut whitelists_for_token = Self::whitelists_by_token(&ticker_whitelist_id);
 
             //Get how many entries this whiteslist has and increase it if we are adding a new entry
-            let entries_count = Self::whitelist_entries_count((ticker.clone(), whitelist_id.clone()));
+            let entries_count = Self::whitelist_entries_count(&ticker_whitelist_id);
 
             // TODO: Make sure we are only increasing the count if it's a new entry and not just an update of an existing entry
             let new_entries_count = entries_count.checked_add(1).ok_or("overflow in calculating next entry count")?;
-            <WhitelistEntriesCount>::insert((ticker.clone(), whitelist_id),new_entries_count);
+            <WhitelistEntriesCount>::insert( &ticker_whitelist_id, new_entries_count);
 
             // If this is the first entry for this whitelist, increase the whitelists count so then we can loop through them.
             if new_entries_count == 1 {
@@ -80,9 +81,9 @@ decl_module! {
             whitelists_for_token.push(whitelist.clone());
 
             //PABLO: TODO: don't add the restriction to the array if it already exists
-            <WhitelistsByToken<T>>::insert((ticker.clone(), whitelist_id.clone()), whitelists_for_token);
+            <WhitelistsByToken<T>>::insert(&ticker_whitelist_id, whitelists_for_token);
 
-            <WhitelistForTokenAndAddress<T>>::insert((ticker.clone(), whitelist_id, investor_did),whitelist);
+            <WhitelistForTokenAndAddress<T>>::insert((upper_ticker, whitelist_id, investor_did),whitelist);
 
             sr_primitives::print("Created restriction!!!");
             //<general_tm::Module<T>>::add_to_whitelist(sender,token_id,investor_did,expiry);
@@ -102,42 +103,44 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(_ticker: Vec<u8>, sender_did: Vec<u8>) -> bool {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        T::Asset::is_owner(ticker.clone(), sender_did)
+    pub fn is_owner(ticker: &Vec<u8>, sender_did: &Vec<u8>) -> bool {
+        let upper_ticker = utils::bytes_to_upper(ticker);
+        T::Asset::is_owner(&upper_ticker, sender_did)
         // let token = T::Asset::token_details(token_id);
         // token.owner == sender
     }
 
     ///  Sender restriction verification
     pub fn verify_restriction(
-        _ticker: Vec<u8>,
-        from_did: Vec<u8>,
-        to_did: Vec<u8>,
+        ticker: &Vec<u8>,
+        from_did: &Vec<u8>,
+        to_did: &Vec<u8>,
         _value: T::TokenBalance,
     ) -> Result {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        let upper_ticker = utils::bytes_to_upper(ticker);
         let now = <timestamp::Module<T>>::get();
+        let empty_did: Vec<u8> = vec![];
+
         // issuance case
-        if from_did == Vec::<u8>::default() {
+        if *from_did == empty_did {
             ensure!(
-                Self::_check_investor_status(to_did.clone()).is_ok(),
+                Self::_check_investor_status(to_did).is_ok(),
                 "Account is not active"
             );
             ensure!(
-                Self::is_whitelisted(_ticker.clone(), to_did).is_ok(),
+                Self::is_whitelisted(&upper_ticker, to_did).is_ok(),
                 "to account is not whitelisted"
             );
             sr_primitives::print("GTM: Passed from the issuance case");
             return Ok(());
-        } else if to_did == Vec::<u8>::default() {
+        } else if *to_did == empty_did {
             // burn case
             ensure!(
-                Self::_check_investor_status(from_did.clone()).is_ok(),
+                Self::_check_investor_status(from_did).is_ok(),
                 "Account is not active"
             );
             ensure!(
-                Self::is_whitelisted(_ticker.clone(), from_did).is_ok(),
+                Self::is_whitelisted(&upper_ticker, from_did).is_ok(),
                 "from account is not whitelisted"
             );
             sr_primitives::print("GTM: Passed from the burn case");
@@ -149,11 +152,11 @@ impl<T: Trait> Module<T> {
                 sr_primitives::print("We have at least one entry to verify");
             }
             ensure!(
-                Self::_check_investor_status(from_did.clone()).is_ok(),
+                Self::_check_investor_status(from_did).is_ok(),
                 "Account is not active"
             );
             ensure!(
-                Self::_check_investor_status(to_did.clone()).is_ok(),
+                Self::_check_investor_status(to_did).is_ok(),
                 "Account is not active"
             );
             for x in 0..whitelist_count {
@@ -175,11 +178,11 @@ impl<T: Trait> Module<T> {
         Err("Cannot Transfer: General TM restrictions not satisfied")
     }
 
-    pub fn is_whitelisted(_ticker: Vec<u8>, holder_did: Vec<u8>) -> Result {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+    pub fn is_whitelisted(ticker: &[u8], holder_did: &Vec<u8>) -> Result {
+        let upper_ticker = utils::bytes_to_upper(ticker);
         let now = <timestamp::Module<T>>::get();
         ensure!(
-            Self::_check_investor_status(holder_did.clone()).is_ok(),
+            Self::_check_investor_status(holder_did).is_ok(),
             "Account is not active"
         );
         // loop through existing whitelists
@@ -187,7 +190,7 @@ impl<T: Trait> Module<T> {
 
         for x in 0..whitelist_count {
             let whitelist_for_holder =
-                Self::whitelist_for_restriction((ticker.clone(), x, holder_did.clone()));
+                Self::whitelist_for_restriction((upper_ticker.clone(), x, holder_did.clone()));
 
             if whitelist_for_holder.can_send_after > 0.into()
                 && now >= whitelist_for_holder.can_send_after
@@ -198,8 +201,8 @@ impl<T: Trait> Module<T> {
         Err("Not whitelisted")
     }
 
-    fn _check_investor_status(holder_did: Vec<u8>) -> Result {
-        let investor = <InvestorList>::get(holder_did.clone());
+    fn _check_investor_status(holder_did: &Vec<u8>) -> Result {
+        let investor = <InvestorList>::get(holder_did);
         ensure!(
             investor.active && investor.access_level == 1,
             "From account is not active"
