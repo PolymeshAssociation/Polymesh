@@ -355,10 +355,6 @@ decl_module! {
             let record = <DidRecords<T>>::get(&did);
             ensure!(sender_key == record.master_key, "Sender must hold the master key");
 
-            /// @TODO Duplicated ? We already use get(did.clone())
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
-
             <ClaimIssuers>::mutate(&did, |old_claim_issuers| {
                 if !old_claim_issuers.contains(&did_issuer) {
                     old_claim_issuers.push(did_issuer.clone());

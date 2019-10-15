@@ -1,8 +1,10 @@
 use crate::asset::{self, AssetTrait};
+use crate::constants::*;
 use crate::identity::{self, InvestorList};
 use crate::utils;
 
 use codec::Encode;
+use core::result::Result as StdResult;
 use rstd::prelude::*;
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -116,49 +118,51 @@ impl<T: Trait> Module<T> {
         from_did: &Vec<u8>,
         to_did: &Vec<u8>,
         _value: T::TokenBalance,
-    ) -> Result {
+    ) -> StdResult<u8, &'static str> {
         let upper_ticker = utils::bytes_to_upper(ticker);
         let now = <timestamp::Module<T>>::get();
         let empty_did: Vec<u8> = vec![];
 
         // issuance case
         if *from_did == empty_did {
-            ensure!(
-                Self::_check_investor_status(to_did).is_ok(),
-                "Account is not active"
-            );
-            ensure!(
-                Self::is_whitelisted(&upper_ticker, to_did).is_ok(),
-                "to account is not whitelisted"
-            );
+            if !Self::_check_investor_status(to_did.clone()).is_ok() {
+                sr_primitives::print("to account is not active");
+                return Ok(ERC1400_INVALID_RECEIVER);
+            }
+
+            if !Self::is_whitelisted(_ticker.clone(), to_did).is_ok() {
+                sr_primitives::print("to account is not whitelisted");
+                return Ok(ERC1400_INVALID_RECEIVER);
+            }
+
             sr_primitives::print("GTM: Passed from the issuance case");
-            return Ok(());
+            return Ok(ERC1400_TRANSFER_SUCCESS);
         } else if *to_did == empty_did {
-            // burn case
-            ensure!(
-                Self::_check_investor_status(from_did).is_ok(),
-                "Account is not active"
-            );
-            ensure!(
-                Self::is_whitelisted(&upper_ticker, from_did).is_ok(),
-                "from account is not whitelisted"
-            );
+            if !Self::_check_investor_status(from_did.clone()).is_ok() {
+                sr_primitives::print("from account is not active");
+                return Ok(ERC1400_INVALID_SENDER);
+            }
+
+            if !Self::is_whitelisted(_ticker.clone(), from_did).is_ok() {
+                sr_primitives::print("from account is not whitelisted");
+                return Ok(ERC1400_INVALID_SENDER);
+            }
             sr_primitives::print("GTM: Passed from the burn case");
-            return Ok(());
+            return Ok(ERC1400_TRANSFER_SUCCESS);
         } else {
             // loop through existing whitelists
             let whitelist_count = Self::whitelist_count();
             if whitelist_count > 0 {
                 sr_primitives::print("We have at least one entry to verify");
             }
-            ensure!(
-                Self::_check_investor_status(from_did).is_ok(),
-                "Account is not active"
-            );
-            ensure!(
-                Self::_check_investor_status(to_did).is_ok(),
-                "Account is not active"
-            );
+            if !Self::_check_investor_status(from_did.clone()).is_ok() {
+                sr_primitives::print("from account is not active");
+                return Ok(ERC1400_INVALID_SENDER);
+            }
+            if !Self::_check_investor_status(to_did.clone()).is_ok() {
+                sr_primitives::print("to account is not active");
+                return Ok(ERC1400_INVALID_RECEIVER);
+            }
             for x in 0..whitelist_count {
                 let whitelist_for_from =
                     Self::whitelist_for_restriction((ticker.clone(), x, from_did.clone()));
@@ -170,12 +174,12 @@ impl<T: Trait> Module<T> {
                     && (whitelist_for_to.can_receive_after > 0.into()
                         && now > whitelist_for_to.can_receive_after)
                 {
-                    return Ok(());
+                    return Ok(ERC1400_TRANSFER_SUCCESS);
                 }
             }
         }
         sr_primitives::print("GTM: Not going through the restriction");
-        Err("Cannot Transfer: General TM restrictions not satisfied")
+        Ok(ERC1400_TRANSFER_FAILURE)
     }
 
     pub fn is_whitelisted(ticker: &[u8], holder_did: &Vec<u8>) -> Result {

@@ -37,3 +37,25 @@ pub mod fee {
     /// The block saturation level. Fees will be updates based on this value.
     pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
 }
+
+// ERC1400 transfer status codes
+pub static ERC1400_TRANSFER_FAILURE: u8 = 0x50;
+pub static ERC1400_TRANSFER_SUCCESS: u8 = 0x51;
+pub static ERC1400_INSUFFICIENT_BALANCE: u8 = 0x52;
+pub static ERC1400_INSUFFICIENT_ALLOWANCE: u8 = 0x53;
+pub static ERC1400_TRANSFERS_HALTED: u8 = 0x54;
+pub static ERC1400_FUNDS_LOCKED: u8 = 0x55;
+pub static ERC1400_INVALID_SENDER: u8 = 0x56;
+pub static ERC1400_INVALID_RECEIVER: u8 = 0x57;
+pub static ERC1400_INVALID_OPERATOR: u8 = 0x58;
+
+// Application-specific status codes
+pub static APP_NOT_AFFECTED: u8 = 0xa0;
+pub static APP_SUCCESS: u8 = 0xa1;
+pub static APP_MAX_HOLDERS_REACHED: u8 = 0xa2;
+pub static APP_MANUAL_APPROVAL_EXPIRED: u8 = 0xa3;
+pub static APP_FUNDS_LIMIT_REACHED: u8 = 0xa4;
+pub static APP_TX_VOLUME_LIMIT_REACHED: u8 = 0xa5;
+pub static APP_BLACKLISTED_TX: u8 = 0xa6;
+pub static APP_FUNDS_LOCKED: u8 = 0xa7;
+pub static APP_INVALID_GRANULARITY: u8 = 0xa8;

@@ -20,22 +20,22 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - build-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
+            - build-cache-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build rocksdb
           command: cargo build -p rocksdb -j 1 --release
-          working_directory: ./polymesh_substrate
+          working_directory: .
       - run:
           name: Build release
           command: cargo build --release
-          working_directory: ./polymesh_substrate
+          working_directory: .
       - save_cache:
-          key: build-cache-{{ checksum "./polymesh_substrate/Cargo.lock" }}
+          key: build-cache-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
-            - "./polymesh_substrate/target"
-            - "./polymesh_substrate/runtime/target"
-            - "./polymesh_substrate/runtime/wasm/target"
+            - "./target"
+            - "./runtime/target"
+            - "./runtime/wasm/target"
   test:
     docker:
       - image: maxsam4/rust
@@ -45,18 +45,18 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - debug-cache-{{ checksum "./polymesh_substrate/runtime/Cargo.lock" }}
+            - debug-cache-{{ checksum "./runtime/Cargo.lock" }}
       - run:
           name: runtime tests
           command: cargo test -p polymesh-runtime
-          working_directory: ./polymesh_substrate
+          working_directory: .
       - save_cache:
-          key: debug-cache-{{ checksum "./polymesh_substrate/runtime/Cargo.lock" }}
+          key: debug-cache-{{ checksum "./runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
-            - "./polymesh_substrate/target"
-            - "./polymesh_substrate/runtime/target"
-            - "./polymesh_substrate/runtime/wasm/target"
+            - "./target"
+            - "./runtime/target"
+            - "./runtime/wasm/target"
 workflows:
   version: 2
   commit:
