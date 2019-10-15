@@ -1,9 +1,11 @@
 use crate::asset::AssetTrait;
+use crate::constants::*;
 use crate::exemption;
 use crate::identity;
 use crate::utils;
 
 use codec::Encode;
+use core::result::Result as StdResult;
 use rstd::prelude::*;
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
@@ -73,7 +75,12 @@ impl<T: Trait> Module<T> {
     }
 
     // Transfer restriction verification logic
-    pub fn verify_restriction(ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance) -> Result {
+    pub fn verify_restriction(
+        ticker: Vec<u8>,
+        from_did: Vec<u8>,
+        to_did: Vec<u8>,
+        value: T::TokenBalance,
+    ) -> StdResult<u8, &'static str> {
         let ticker = utils::bytes_to_upper(ticker.as_slice());
         let max_percentage = Self::maximum_percentage_enabled_for_token(ticker.clone());
         // check whether the to address is in the exemption list or not
@@ -100,11 +107,11 @@ impl<T: Trait> Module<T> {
                 sr_primitives::print(
                     "It is failing because it is not validating the PercentageTM restrictions",
                 );
-                return Err("Cannot Transfer: Percentage TM restrictions not satisfied");
+                return Ok(APP_FUNDS_LIMIT_REACHED);
             }
         }
         sr_primitives::print("It is passing thorugh the PercentageTM");
-        Ok(())
+        Ok(ERC1400_TRANSFER_SUCCESS)
     }
 }
 

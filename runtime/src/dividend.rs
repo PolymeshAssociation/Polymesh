@@ -742,7 +742,7 @@ mod tests {
                 .expect("Could not make token.owner_did an investor");
 
             // Share issuance is successful
-            assert_ok!(Asset::issue_token(
+            assert_ok!(Asset::create_token(
                 Origin::signed(token_owner_acc),
                 token_owner_did.clone(),
                 token.name.clone(),
