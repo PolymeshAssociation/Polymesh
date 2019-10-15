@@ -37,10 +37,11 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&upper_ticker, &did), "Sender must be the token owner");
-            let is_exempted = Self::exemption_list((ticker.clone(), _tm, asset_holder_did.clone()));
+            let ticker_asset_holder_did = (ticker.clone(), _tm, asset_holder_did.clone());
+            let is_exempted = Self::exemption_list(&ticker_asset_holder_did);
             ensure!(is_exempted != exempted, "No change in the state");
 
-            <ExemptionList>::insert((ticker.clone(), _tm, asset_holder_did.clone()), exempted);
+            <ExemptionList>::insert(&ticker_asset_holder_did, exempted);
             Self::deposit_event(Event::ModifyExemptionList(ticker, _tm, asset_holder_did, exempted));
 
             Ok(())
