@@ -31,23 +31,3 @@ pub fn bytes_to_upper(v: &[u8]) -> Vec<u8> {
         .collect()
 }
 
-/*
-use rstd::borrow::Borrow;
-use srml_support::{ Parameter, StorageMap};
-pub trait StorageMapExt<K: Codec, V: Codec> {
-    type Query;
-
-    fn get_option<KeyArg: Borrow<K>>( key: KeyArg) -> Option<Self::Query>;
-}
-
-impl<K,V> StorageMapExt<K,V> for StorageMap<K,V> {
-    type Query = StorageMap<K,V>::Query;
-
-    fn get_option<KeyArg: Borrow<K>>( key: KeyArg) -> Option<Self::Query>{
-        if Self::exists(key) {
-            Some( Self::get(key))
-        } else {
-            None
-        }
-    }
-}*/
