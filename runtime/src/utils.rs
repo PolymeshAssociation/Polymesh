@@ -30,4 +30,3 @@ pub fn bytes_to_upper(v: &[u8]) -> Vec<u8> {
         })
         .collect()
 }
-

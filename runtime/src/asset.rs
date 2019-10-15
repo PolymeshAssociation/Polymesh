@@ -739,21 +739,12 @@ impl<T: Trait> Module<T> {
         to_did: &Vec<u8>,
         value: T::TokenBalance,
     ) -> StdResult<u8, &'static str> {
-        let general_status_code = <general_tm::Module<T>>::verify_restriction(
-            ticker,
-            from_did,
-            to_did,
-            value,
-        )?;
+        let general_status_code =
+            <general_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             general_status_code
         } else {
-            <percentage_tm::Module<T>>::verify_restriction(
-                ticker,
-                from_did,
-                to_did,
-                value,
-            )?
+            <percentage_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?
         })
     }
 
@@ -857,8 +848,7 @@ impl<T: Trait> Module<T> {
             .ok_or("overflow in calculating balance")?;
         // verify transfer check
         ensure!(
-            Self::_is_valid_transfer(ticker, &vec![], to_did, value)?
-                == ERC1400_TRANSFER_SUCCESS,
+            Self::_is_valid_transfer(ticker, &vec![], to_did, value)? == ERC1400_TRANSFER_SUCCESS,
             "Transfer restrictions failed"
         );
 
@@ -1092,7 +1082,6 @@ mod tests {
         .unwrap();
         sr_io::TestExternalities::new(t)
     }
-
 
     #[test]
     fn issuers_can_create_tokens() {
