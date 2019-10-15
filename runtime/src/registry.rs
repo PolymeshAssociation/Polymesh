@@ -45,9 +45,9 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         pub fn print_ticker_availability(origin, ticker: Vec<u8>) -> Result {
             let _sender = ensure_signed(origin)?;
-            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            let upper_ticker = utils::bytes_to_upper(&ticker);
 
-            if <Tokens>::exists(ticker.clone()) {
+            if <Tokens>::exists(&upper_ticker) {
                 sr_primitives::print("Ticker not available");
             } else {
                 sr_primitives::print("Ticker available");
@@ -55,8 +55,6 @@ decl_module! {
 
             Ok(())
         }
-
-
     }
 }
 

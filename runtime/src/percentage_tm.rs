@@ -39,20 +39,20 @@ decl_module! {
         fn deposit_event() = default;
 
         fn toggle_maximum_percentage_restriction(origin, did: Vec<u8>, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
-            ensure!(Self::is_owner(&ticker, &did),"Sender DID must be the token owner");
+            ensure!(Self::is_owner(&upper_ticker, &did),"Sender DID must be the token owner");
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
 
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
             //SATYAM: TODO: Add the decimal restriction
-            <MaximumPercentageEnabledForToken>::insert(ticker.clone(), max_percentage);
+            <MaximumPercentageEnabledForToken>::insert(&upper_ticker, max_percentage);
             // Emit an event with values (Ticker of asset, max percentage, restriction enabled or not)
-            Self::deposit_event(RawEvent::TogglePercentageRestriction(ticker, max_percentage, max_percentage != 0));
+            Self::deposit_event(RawEvent::TogglePercentageRestriction(upper_ticker, max_percentage, max_percentage != 0));
 
             if max_percentage != 0 {
                 sr_primitives::print("Maximum percentage restriction enabled!");
@@ -86,7 +86,7 @@ impl<T: Trait> Module<T> {
         // TODO: Mould the integer into the module identity
         let is_exempted = <exemption::Module<T>>::is_exempted(&upper_ticker, 2, to_did.clone());
         if max_percentage != 0 && !is_exempted {
-            let new_balance = (T::Asset::balance(&upper_ticker, to_did.to_vec()))
+            let new_balance = (T::Asset::balance(&upper_ticker, to_did.clone()))
                 .checked_add(&value)
                 .ok_or("Balance of to will get overflow")?;
             let total_supply = T::Asset::total_supply(&upper_ticker);
