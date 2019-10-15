@@ -97,7 +97,7 @@ decl_module! {
             // TODO: Change to checking DID balance
             let balance = if payout_ticker.is_empty() {
                 // Check for POLY
-                <T as utils::Trait>::balance_to_token_balance(<identity::DidRecords<T>>::get(did.clone()).balance)
+                <T as utils::Trait>::balance_to_token_balance(<identity::DidRecords<T>>::get(&did).balance)
             } else {
                 // Check for token
                 <simple_token::BalanceOf<T>>::get((payout_ticker.clone(), did.clone()))
@@ -117,11 +117,11 @@ decl_module! {
                 }
             };
             // Check if checkpoint exists
-            ensure!(<asset::Module<T>>::total_checkpoints_of(ticker.clone()) >= checkpoint_id,
+            ensure!(<asset::Module<T>>::total_checkpoints_of(&ticker) >= checkpoint_id,
             "Checkpoint for dividend does not exist");
 
             let now = <timestamp::Module<T>>::get();
-            let zero_ts = now.clone() - now.clone(); // A 0 timestamp
+            let zero_ts = now - now; // A 0 timestamp
 
             // Check maturity/expiration dates
             match (&matures_at, &expires_at) {
@@ -144,9 +144,7 @@ decl_module! {
             let new_balance = balance.checked_sub(&amount).ok_or("Overflow calculating new owner balance")?;
             if payout_ticker.is_empty() {
                 let new_balance = <T as utils::Trait>::token_balance_to_balance(new_balance);
-                <identity::DidRecords<T>>::mutate(did.clone(), |record| {
-                    record.balance = new_balance;
-                });
+                <identity::DidRecords<T>>::mutate(&did, |record| record.balance = new_balance );
             } else {
                 <simple_token::BalanceOf<T>>::insert((payout_ticker.clone(), did.clone()), new_balance);
             }
@@ -164,7 +162,7 @@ decl_module! {
                 checkpoint_id,
             };
 
-            let dividend_id = Self::add_dividend_entry(ticker.clone(), new_dividend)?;
+            let dividend_id = Self::add_dividend_entry(&ticker, new_dividend)?;
 
             // Dispatch event
             Self::deposit_event(RawEvent::DividendCreated(ticker, amount, dividend_id));
@@ -186,8 +184,8 @@ decl_module! {
             let entry: Dividend<_, _> = Self::get_dividend(&ticker, dividend_id).ok_or("Dividend not found")?;
             let now = <timestamp::Module<T>>::get();
 
-            let starts_in_future = if let Some(start) = entry.matures_at.clone() {
-                start > now
+            let starts_in_future = if let Some(ref start) = entry.matures_at {
+                (*start) > now
             } else {
                 false
             };
@@ -201,7 +199,7 @@ decl_module! {
             })?;
 
             // Pay amount back to owner
-            if let Some(payout_ticker) = entry.payout_currency.clone() {
+            if let Some(ref payout_ticker) = entry.payout_currency {
                 <simple_token::BalanceOf<T>>::mutate((payout_ticker.clone(), did.clone()), |balance: &mut T::TokenBalance| -> Result {
                     *balance  = balance
                         .checked_add(&entry.amount)
@@ -209,7 +207,7 @@ decl_module! {
                     Ok(())
                 })?;
             } else {
-                <identity::DidRecords<T>>::mutate(did.clone(), |record| -> Result {
+                <identity::DidRecords<T>>::mutate(&did, |record| -> Result {
                     let new_balance = record.balance.checked_add(&<T as utils::Trait>::token_balance_to_balance(entry.amount)).ok_or("Could not add amount back to asset owner DID")?;
                     record.balance = new_balance;
                     Ok(())
@@ -229,16 +227,17 @@ decl_module! {
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
 
             // Check that the dividend exists
-            ensure!(<Dividends<T>>::exists((ticker.clone(), dividend_id)), "No dividend entry for supplied ticker and ID");
+            let ticker_dividend_id = (ticker.clone(), dividend_id);
+            ensure!(<Dividends<T>>::exists(&ticker_dividend_id), "No dividend entry for supplied ticker and ID");
 
             // Flip `active`
-            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
+            <Dividends<T>>::mutate(&ticker_dividend_id, |entry| -> Result {
                 entry.active = true;
                 Ok(())
             })?;
 
             // Dispatch event
-            Self::deposit_event(RawEvent::DividendActivated(ticker.clone(), dividend_id));
+            Self::deposit_event(RawEvent::DividendActivated(ticker, dividend_id));
 
             Ok(())
         }
@@ -281,7 +280,7 @@ decl_module! {
             }
 
             // Compute the share
-            ensure!(<asset::Tokens<T>>::exists(ticker.clone()), "Dividend token entry not found");
+            ensure!(<asset::Tokens<T>>::exists(&ticker), "Dividend token entry not found");
             let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker.clone(), dividend.checkpoint_id));
 
             let balance_amount_product = balance_at_checkpoint
@@ -312,7 +311,7 @@ decl_module! {
             } else {
                 // Convert to balances::Trait::Balance
                 let share = <T as utils::Trait>::token_balance_to_balance(share);
-                <identity::DidRecords<T>>::mutate(did.clone(), |record| -> Result {
+                <identity::DidRecords<T>>::mutate(&did, |record| -> Result {
                     let new_balance = record.balance.checked_add(&share).ok_or("Could not add amount back to asset owner DID")?;
                     record.balance = new_balance;
                     Ok(())
@@ -322,7 +321,7 @@ decl_module! {
             <UserPayoutCompleted>::insert((did.clone(), ticker.clone(), dividend_id), true);
 
             // Dispatch event
-            Self::deposit_event(RawEvent::DividendPaidOutToUser(did.clone(), ticker.clone(), dividend_id, share));
+            Self::deposit_event(RawEvent::DividendPaidOutToUser(did, ticker, dividend_id, share));
             Ok(())
         }
 
@@ -341,22 +340,22 @@ decl_module! {
             // Check that the expiry date had passed
             let now = <timestamp::Module<T>>::get();
 
-            if let Some(end) = entry.expires_at.clone() {
-                ensure!(end < now, "Dividend not finished for returning unclaimed payout");
+            if let Some(ref end) = entry.expires_at {
+                ensure!(*end < now, "Dividend not finished for returning unclaimed payout");
             } else {
                 return Err("Claiming unclaimed payouts requires an end date");
             }
 
 
             // Transfer the computed amount
-            if let Some(payout_ticker) = entry.payout_currency.clone() {
+            if let Some(ref payout_ticker) = entry.payout_currency {
                 <simple_token::BalanceOf<T>>::mutate((payout_ticker.clone(), did.clone()), |balance: &mut T::TokenBalance| -> Result {
                     let new_balance = balance.checked_add(&entry.amount_left).ok_or("Could not add amount back to asset owner DID")?;
                     *balance  = new_balance;
                     Ok(())
                 })?;
             } else {
-                <identity::DidRecords<T>>::mutate(did.clone(), |record| -> Result {
+                <identity::DidRecords<T>>::mutate(&did, |record| -> Result {
                     let new_balance = record.balance.checked_add(&<T as utils::Trait>::token_balance_to_balance(entry.amount_left)).ok_or("Could not add amount back to asset owner DID")?;
                     record.balance = new_balance;
                     Ok(())
@@ -370,7 +369,7 @@ decl_module! {
                 Ok(())
             })?;
 
-            Self::deposit_event(RawEvent::DividendRemainingClaimed(ticker.clone(), dividend_id, entry.amount_left));
+            Self::deposit_event(RawEvent::DividendRemainingClaimed(ticker, dividend_id, entry.amount_left));
 
             Ok(())
         }
@@ -400,16 +399,16 @@ impl<T: Trait> Module<T> {
     /// A helper method for dividend creation. Returns dividend ID
     /// #[inline]
     fn add_dividend_entry(
-        ticker: Vec<u8>,
+        ticker: &Vec<u8>,
         d: Dividend<T::TokenBalance, T::Moment>,
     ) -> core::result::Result<u32, &'static str> {
-        let old_count = <DividendCount>::get(ticker.clone());
+        let old_count = <DividendCount>::get(ticker);
         let new_count = old_count
             .checked_add(1)
             .ok_or("Could not add 1 to dividend count")?;
 
         <Dividends<T>>::insert((ticker.clone(), old_count), d);
-        <DividendCount>::insert(ticker.clone(), new_count);
+        <DividendCount>::insert(ticker, new_count);
 
         Ok(old_count)
     }
@@ -635,14 +634,14 @@ mod tests {
 
         fn _mint_from_sto(
             _ticker: &[u8],
-            sender_did: &Vec<u8>,
+            _sender_did: &Vec<u8>,
             _tokens_purchased: <Test as utils::Trait>::TokenBalance,
         ) -> Result {
             unimplemented!();
         }
 
         /// Get the asset `id` balance of `who`.
-        fn balance(_ticker: &[u8], did: Vec<u8>) -> <Test as utils::Trait>::TokenBalance {
+        fn balance(_ticker: &[u8], _did: Vec<u8>) -> <Test as utils::Trait>::TokenBalance {
             unimplemented!();
         }
 
@@ -729,10 +728,10 @@ mod tests {
             .expect("Could not create payout_owner_did");
 
             // Raise the owners' base currency balance
-            <identity::DidRecords<Test>>::mutate(token_owner_did.clone(), |record| {
+            <identity::DidRecords<Test>>::mutate(&token_owner_did, |record| {
                 record.balance = 1_000_000;
             });
-            <identity::DidRecords<Test>>::mutate(payout_owner_did.clone(), |record| {
+            <identity::DidRecords<Test>>::mutate(&payout_owner_did, |record| {
                 record.balance = 1_000_000;
             });
             identity::Module::<Test>::do_create_issuer(token.owner_did.clone())
