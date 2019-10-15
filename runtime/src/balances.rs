@@ -572,7 +572,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// This just calls appropriate hooks. It doesn't (necessarily) make any state changes.
     fn new_account(who: &T::AccountId, balance: T::Balance) {
         T::OnNewAccount::on_new_account(&who);
-        Self::deposit_event(RawEvent::NewAccount(who.clone(), balance.clone()));
+        Self::deposit_event(RawEvent::NewAccount(who.clone(), balance));
     }
 
     /// Unregister an account.
