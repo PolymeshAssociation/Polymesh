@@ -1,0 +1,56 @@
+[package]
+name = "curated-validation"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+
+[dependencies.serde]
+version = "1.0"
+optional = true
+
+[dependencies.codec]
+default-features = false
+features = ['derive']
+package = 'parity-scale-codec'
+version = '1.0.0'
+
+[dependencies.support]
+default_features = false
+git = 'https://github.com/paritytech/substrate.git'
+package = 'srml-support'
+rev = '7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50'
+
+[dependencies.system]
+default_features = false
+git = 'https://github.com/paritytech/substrate.git'
+package = 'srml-system'
+rev = '7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50'
+
+[dependencies.sr-primitives]
+default_features = false
+git = 'https://github.com/paritytech/substrate.git'
+package = 'sr-primitives'
+rev = '7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50'
+
+[dependencies.runtime-io]
+default_features = false
+git = 'https://github.com/paritytech/substrate.git'
+package = 'sr-io'
+rev = '7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50'
+
+[dev-dependencies.primitives]
+git = 'https://github.com/paritytech/substrate.git'
+package = 'substrate-primitives'
+rev = '7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50'
+
+[features]
+default = ['std']
+std = [
+    'serde',
+    'codec/std',
+    'support/std',
+    'system/std',
+    'sr-primitives/std',
+    'runtime-io/std',
+]

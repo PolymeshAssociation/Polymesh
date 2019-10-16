@@ -279,6 +279,10 @@ parameter_types! {
     pub const CooloffPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
 }
 
+impl curated_validation::Trait for Runtime {
+    type Event = Event;
+}
+
 impl democracy::Trait for Runtime {
     type Proposal = Call;
     type Event = Event;
@@ -550,6 +554,8 @@ construct_runtime!(
 		Grandpa: grandpa::{Module, Call, Storage, Config, Event},
 		ImOnline: im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
         AuthorityDiscovery: authority_discovery::{Module, Call, Config<T>},
+
+        CuratedValidation: curated_validation::{Module, Call, Storage, Event<T>},
 
 		// Governance stuff; uncallable initially.
 		Democracy: democracy::{Module, Call, Storage, Config, Event<T>},

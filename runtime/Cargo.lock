@@ -429,6 +429,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "curated-validation"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sr-io 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "sr-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "srml-support 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "srml-system 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+]
+
+[[package]]
 name = "curve25519-dalek"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1853,6 +1865,7 @@ version = "0.6.0"
 dependencies = [
  "bitvec 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "curated-validation 0.1.0",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-scale-codec 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
