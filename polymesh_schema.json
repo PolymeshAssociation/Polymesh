@@ -1,0 +1,83 @@
+{
+    "TokenBalance": "u128",
+    "SecurityToken": {
+        "name": "Vec<u8>",
+        "total_supply": "TokenBalance",
+        "owner_did": "Vec<u8>",
+        "granularity": "u128",
+        "decimals": "u16"
+    },
+    "Restriction": {
+        "name": "Vec<u8>",
+        "token_id": "u32",
+        "can_transfer": "bool"
+    },
+    "Whitelist": {
+        "investor_did": "Vec<u8>",
+        "canSendAfter": "Moment",
+        "canReceiveAfter": "Moment"
+    },
+    "Issuer": {
+        "did": "Vec<u8>",
+        "access_level": "u16",
+        "active": "bool"
+    },
+    "Investor": {
+        "did": "Vec<u8>",
+        "access_level": "u16",
+        "active": "bool",
+        "jurisdiction": "u16"
+    },
+    "DidRecord": {
+        "master_key": "Vec<u8>",
+        "signing_keys": "Vec<Vec<u8>>",
+        "balance": "Balance"
+    },
+    "Claim": {
+        "topic": "u32",
+        "schema": "u32",
+        "bytes": "Vec<u8>",
+        "expiry": "Moment"
+    },
+    "ClaimRecord": {
+        "claim": "Claim",
+        "revoked": "bool",
+        "issued_by": "Vec<u8>",
+        "attestation": "Vec<u8>"
+    },
+    "STO": {
+        "beneficiary_did": "Vec<u8>",
+        "cap": "TokenBalance",
+        "sold": "TokenBalance",
+        "rate": "u64",
+        "start_date": "Moment",
+        "end_date": "Moment",
+        "active": "bool"
+    },
+    "Investment": {
+        "investor_did": "Vec<u8>",
+        "amount_paid": "TokenBalance",
+        "tokens_purchased": "TokenBalance",
+        "last_purchase_date": "Moment"
+    },
+    "SimpleTokenRecord": {
+        "ticker": "Vec<u8>",
+        "total_supply": "TokenBalance",
+        "owner_did": "Vec<u8>"
+    },
+    "FeeOf": "Balance",
+    "TSMoment": "u64",
+    "Moment": "u64",
+    "Dividend": {
+        "amount": "TokenBalance",
+        "active": "bool",
+        "maturates_at": "Option<u64>",
+        "expires_at": "Option<u64>",
+        "payout_currency": "Option<Vec<u8>>",
+        "checkpoint_id": "u32"
+    },
+    "RegistryEntry": {
+        "token_type": "u32",
+        "owner_did": "Vec<u8>"
+    }
+}

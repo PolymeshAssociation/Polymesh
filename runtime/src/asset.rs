@@ -597,7 +597,7 @@ decl_event! {
     pub enum Event<T>
         where
         Balance = <T as utils::Trait>::TokenBalance,
-        TSMoment = <T as timestamp::Trait>::Moment,
+        Moment = <T as timestamp::Trait>::Moment,
         {
             // event for transfer of tokens
             // ticker, from DID, to DID, value
@@ -646,7 +646,7 @@ decl_event! {
 
             // get_document() output
             // ticker, name, uri, hash, last modification date
-            GetDocument(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, TSMoment),
+            GetDocument(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Moment),
         }
 }
 
