@@ -45,9 +45,9 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         pub fn print_ticker_availability(origin, ticker: Vec<u8>) -> Result {
             let _sender = ensure_signed(origin)?;
-            let upper_ticker = utils::bytes_to_upper(&ticker);
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
 
-            if <Tokens>::exists(&upper_ticker) {
+            if <Tokens>::exists(ticker.clone()) {
                 sr_primitives::print("Ticker not available");
             } else {
                 sr_primitives::print("Ticker available");
@@ -55,26 +55,28 @@ decl_module! {
 
             Ok(())
         }
+
+
     }
 }
 
 impl<T: Trait> Module<T> {
-    pub fn get(ticker: &Vec<u8>) -> Option<RegistryEntry> {
-        let upper_ticker = utils::bytes_to_upper(ticker);
+    pub fn get(ticker: Vec<u8>) -> Option<RegistryEntry> {
+        let ticker = utils::bytes_to_upper(ticker.as_slice());
 
-        if <Tokens>::exists(&upper_ticker) {
-            Some(<Tokens>::get(upper_ticker))
+        if <Tokens>::exists(ticker.clone()) {
+            Some(<Tokens>::get(ticker))
         } else {
             None
         }
     }
 
-    pub fn put(ticker: &Vec<u8>, entry: &RegistryEntry) -> Result {
-        let upper_ticker = utils::bytes_to_upper(ticker);
+    pub fn put(ticker: Vec<u8>, entry: &RegistryEntry) -> Result {
+        let ticker = utils::bytes_to_upper(ticker.as_slice());
 
-        ensure!(!<Tokens>::exists(&upper_ticker), "Token ticker exists");
+        ensure!(!<Tokens>::exists(ticker.clone()), "Token ticker exists");
 
-        <Tokens>::insert(upper_ticker, entry);
+        <Tokens>::insert(ticker.clone(), entry);
 
         Ok(())
     }
@@ -148,16 +150,16 @@ mod tests {
                 owner_did: "did:poly:some_did".as_bytes().to_vec(),
             };
 
-            assert_ok!(Registry::put(&"SOMETOKEN".as_bytes().to_vec(), &entry));
+            assert_ok!(Registry::put("SOMETOKEN".as_bytes().to_vec(), &entry));
 
             // Verify that the entry corresponds to what we intended to insert
             assert_eq!(
-                Registry::get(&"SOMETOKEN".as_bytes().to_vec()),
+                Registry::get("SOMETOKEN".as_bytes().to_vec()),
                 Some(entry.clone())
             );
 
             // Effectively treated as identical ticker
-            assert!(Registry::put(&"sOmEtOkEn".as_bytes().to_vec(), &entry).is_err());
+            assert!(Registry::put("sOmEtOkEn".as_bytes().to_vec(), &entry).is_err());
         });
     }
 }
