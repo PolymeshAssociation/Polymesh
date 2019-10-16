@@ -442,14 +442,11 @@ mod tests {
         Perbill,
     };
     use srml_support::traits::Currency;
-    use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
-    use yaml_rust::{Yaml, YamlLoader};
 
     use std::{
         collections::HashMap,
-        fs::read_to_string,
-        path::PathBuf,
         sync::{Arc, Mutex},
     };
 
