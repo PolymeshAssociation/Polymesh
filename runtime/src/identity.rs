@@ -562,6 +562,9 @@ decl_event!(
 
         /// DID, claim issuer DID
         RevokedAllClaims(Vec<u8>, Vec<u8>),
+
+        /// DID
+        NewIssuer(Vec<u8>),
     }
 );
 
@@ -574,7 +577,10 @@ impl<T: Trait> Module<T> {
             active: true,
         };
 
-        <IssuerList>::insert(issuer_did, new_issuer);
+        <IssuerList>::insert(issuer_did.clone(), new_issuer);
+
+        Self::deposit_event(RawEvent::NewIssuer(issuer_did));
+
         Ok(())
     }
 

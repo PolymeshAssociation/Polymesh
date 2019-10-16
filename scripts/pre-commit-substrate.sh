@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Aggregated pre-commit checks of polymesh_substrate Rust code
+# Aggregated pre-commit checks of polymesh Rust code
 set -e
 
 # This particular script needs to work in and out of git context
