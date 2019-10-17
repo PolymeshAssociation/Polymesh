@@ -239,7 +239,7 @@ decl_module! {
             // Pre validation checks
             ensure!(Self::_pre_validation(_ticker.clone(), did.clone(), selected_sto.clone()).is_ok(), "Invalidate investment");
             // Make sure sender has enough balance
-            ensure!(T::SimpleTokenTrait::balanceOf(simple_token_ticker.clone(), did.clone()) >= value, "Insufficient balance");
+            ensure!(T::SimpleTokenTrait::balance_of(simple_token_ticker.clone(), did.clone()) >= value, "Insufficient balance");
 
             // Get the invested amount of investment currency and amount of ST tokens minted as a return of investment
             let token_amount_value = Self::_get_invested_amount_and_tokens(
@@ -256,7 +256,7 @@ decl_module! {
                                     .ok_or("overflow while updating the simple_token investment value")?;
 
             // Mint tokens and update STO
-            T::Asset::_mint_from_sto(ticker.clone(), did.clone(), token_amount_value.0);
+            let _minted_tokes = T::Asset::_mint_from_sto(ticker.clone(), did.clone(), token_amount_value.0);
             // Transfer the simple_token invested token to beneficiary account
             T::SimpleTokenTrait::transfer(did.clone(), simple_token_ticker.clone(), selected_sto.beneficiary_did.clone(), token_amount_value.1)?;
 

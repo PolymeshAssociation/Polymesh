@@ -634,14 +634,14 @@ mod tests {
 
         fn _mint_from_sto(
             _ticker: Vec<u8>,
-            sender_did: Vec<u8>,
+            _sender_did: Vec<u8>,
             _tokens_purchased: <Test as utils::Trait>::TokenBalance,
         ) -> Result {
             unimplemented!();
         }
 
         /// Get the asset `id` balance of `who`.
-        fn balance(_ticker: Vec<u8>, did: Vec<u8>) -> <Test as utils::Trait>::TokenBalance {
+        fn balance(_ticker: Vec<u8>, _did: Vec<u8>) -> <Test as utils::Trait>::TokenBalance {
             unimplemented!();
         }
 

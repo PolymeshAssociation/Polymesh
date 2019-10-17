@@ -147,7 +147,7 @@ decl_event!(
 pub trait SimpleTokenTrait<V> {
     fn transfer(sender_did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, amount: V) -> Result;
 
-    fn balanceOf(ticker: Vec<u8>, owner_did: Vec<u8>) -> V;
+    fn balance_of(ticker: Vec<u8>, owner_did: Vec<u8>) -> V;
 }
 
 impl<T: Trait> SimpleTokenTrait<T::TokenBalance> for Module<T> {
@@ -160,7 +160,7 @@ impl<T: Trait> SimpleTokenTrait<T::TokenBalance> for Module<T> {
         Self::_transfer(ticker.clone(), sender_did, to_did, amount)
     }
 
-    fn balanceOf(ticker: Vec<u8>, owner_did: Vec<u8>) -> T::TokenBalance {
+    fn balance_of(ticker: Vec<u8>, owner_did: Vec<u8>) -> T::TokenBalance {
         Self::balance_of((ticker, owner_did))
     }
 }

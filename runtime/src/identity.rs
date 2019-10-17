@@ -2,7 +2,10 @@ use rstd::prelude::*;
 //use codec::Codec;
 
 pub static DID_PREFIX: &'static str = "did:poly:";
-use crate::balances;
+use crate::{
+    balances,
+    entity::{IdentityRole, RoledKey},
+};
 
 use codec::Encode;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
@@ -31,7 +34,7 @@ pub struct Investor {
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct DidRecord<U> {
-    pub master_key: Vec<u8>,
+    pub master_key: RoledKey,
     pub signing_keys: Vec<Vec<u8>>,
     pub balance: U,
 }
@@ -156,7 +159,7 @@ decl_module! {
 
             let record = DidRecord {
                 signing_keys: signing_keys.clone(),
-                master_key,
+                master_key: RoledKey::new( &master_key, vec![IdentityRole::Full]),
                 ..Default::default()
             };
 
@@ -176,7 +179,7 @@ decl_module! {
             // Verify that sender key is current master key
             let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(did.clone());
-            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+            ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
 
             for key in &additional_keys {
                 if <SigningKeyDid>::exists(key.clone()) {
@@ -215,7 +218,7 @@ decl_module! {
             // Verify that sender key is current master key
             let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(did.clone());
-            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+            ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
 
@@ -252,13 +255,13 @@ decl_module! {
             // Verify that sender key is current master key
             let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(did.clone());
-            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+            ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
 
             <DidRecords<T>>::mutate(did.clone(),
             |record| {
-                (*record).master_key = new_key.clone();
+                (*record).master_key.key.copy_from_slice(&new_key)
             });
 
             Self::deposit_event(RawEvent::NewMasterKey(did, sender, new_key));
@@ -300,7 +303,7 @@ decl_module! {
             // Verify that sender key is current master key
             let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(did.clone());
-            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+            ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
 
@@ -356,7 +359,7 @@ decl_module! {
             // Verify that sender key is current master key
             let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(did.clone());
-            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+            ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
 
             <ClaimIssuers>::mutate(did.clone(), |old_claim_issuers| {
                 if !old_claim_issuers.contains(&did_issuer) {
@@ -376,7 +379,7 @@ decl_module! {
             // Verify that sender key is current master key
             let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(did.clone());
-            ensure!(sender_key == record.master_key, "Sender must hold the master key");
+            ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
 
             ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
@@ -635,7 +638,7 @@ impl<T: Trait> Module<T> {
 
     /// Use `did` as reference.
     pub fn is_master_key(did: &Vec<u8>, key: &Vec<u8>) -> bool {
-        &<DidRecords<T>>::get(did).master_key == key
+        key == &<DidRecords<T>>::get(did).master_key.key
     }
 
     /// Withdraws funds from a DID balance
