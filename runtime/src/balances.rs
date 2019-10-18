@@ -572,7 +572,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// This just calls appropriate hooks. It doesn't (necessarily) make any state changes.
     fn new_account(who: &T::AccountId, balance: T::Balance) {
         T::OnNewAccount::on_new_account(&who);
-        Self::deposit_event(RawEvent::NewAccount(who.clone(), balance.clone()));
+        Self::deposit_event(RawEvent::NewAccount(who.clone(), balance));
     }
 
     /// Unregister an account.
@@ -1294,9 +1294,9 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
         let fee = Self::compute_fee(len, info, self.0);
 
         let encoded_transactor = who.clone().encode();
-        if <T::Identity>::signing_key_charge_did(encoded_transactor.clone()) {
+        if <T::Identity>::signing_key_charge_did(&encoded_transactor) {
             sr_primitives::print("Charging fee to identity");
-            if !<T::Identity>::charge_poly(encoded_transactor, fee) {
+            if !<T::Identity>::charge_poly(&encoded_transactor, fee) {
                 return InvalidTransaction::Payment.into();
             }
         } else {
