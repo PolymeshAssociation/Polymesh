@@ -1,9 +1,12 @@
 use rstd::{prelude::Vec, vec};
 
-use crate::entity::IgnoredCaseString;
+// use crate::entity::IgnoredCaseString;
 
 /// Size of key, when it is u64
+#[cfg(test)]
 const KEY_SIZE: usize = 8;
+#[cfg(not(test))]
+const KEY_SIZE: usize = 32;
 
 /// Identity roles.
 /// # TODO
@@ -11,7 +14,7 @@ const KEY_SIZE: usize = 8;
 ///     - [MESH-235](https://polymath.atlassian.net/browse/MESH-235)
 ///     - [Polymesh: Roles/Permissions](https://docs.google.com/document/d/12u-rMavow4fvidsFlLcLe7DAXuqWk8XUHOBV9kw05Z8/)
 ///
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub enum IdentityRole {
     Full,
     Admin,
@@ -25,10 +28,11 @@ pub enum IdentityRole {
     KYCAMLClaimIssuer,
     AccreditedInvestorClaimIssuer,
     VerifiedIdentityClaimIssuer,
-    Custom(IgnoredCaseString),
+    // Future or custom identities
+    // Custom(IgnoredCaseString),
 }
 
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, Eq, Debug)]
 /// It is a key, and its associated roles.
 pub struct RoledKey {
     pub key: [u8; KEY_SIZE],
@@ -54,6 +58,18 @@ impl RoledKey {
 impl From<&[u8]> for RoledKey {
     fn from(s: &[u8]) -> Self {
         Self::new(s, vec![])
+    }
+}
+
+impl PartialEq for RoledKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key && self.roles == other.roles
+    }
+}
+
+impl PartialEq<&[u8]> for RoledKey {
+    fn eq(&self, other: &&[u8]) -> bool {
+        self.key == *other
     }
 }
 
