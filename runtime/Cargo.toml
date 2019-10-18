@@ -104,5 +104,5 @@ std = [
 	"babe/std",
 	"babe-primitives/std",
     "substrate-session/std",
-    'curated-validation/std'
+    "curated-validation/std"
 ]

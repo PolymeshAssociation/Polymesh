@@ -1,39 +1,120 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use support::{decl_event, decl_module, decl_storage, dispatch::Result};
-use system::ensure_signed;
+use rstd::prelude::*;
+
+use support::{decl_event, decl_module, decl_storage, ensure, dispatch::Result};
+use system::{ensure_signed, ensure_root};
+use codec::{Encode, Decode};
 
 /// The configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + session::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
-decl_storage! {
-    trait Store for Module<T: Trait> as CuratedValidation {
-        pub ValidatorCount get(validator_count) config(): u32;
-    }
+/// Requirement level for a control point
+#[repr(u32)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+enum Condition {
+    MinorMust,
+    MajorMust,
 }
 
-decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        fn deposit_event() = default;
+/// Represents a requirement that must be met to be eligible to become a validator
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+pub struct ControlPoint {
+    what: Vec<u8>,
+    condition: Condition,
+    complies: bool,
+}
+
+decl_storage! {
+    trait Store for Module<T: Trait> as CuratedValidation {
+        /// Validator -> Compliance criteria
+        AllValidators: map T::AccountId => Vec<ControlPoint>;
+
     }
 }
 
 decl_event!(
-    pub enum Event<T> where
-    AccountId = <T as system::Trait>::AccountId {
-        ValidatorAdded(AccountId),
+    pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
+        // Validator candidate added. (candidate account)
+        CandidateAdded(AccountId),
 
+        // Validator removed from active pool
         ValidatorRemoved(AccountId),
     }
 );
 
+decl_module! {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Initializing events
+        fn deposit_event() = default;
+
+        // Add a potential validator account. It marks the beginning of compliance process.
+        // Add compliance control points that must be met by this validator
+        // candidate. Only after passing all control points will a candidate
+        // be promoted to a validator pool.
+        pub fn add_candidate(origin, account_id: T::AccountId, requirements: Vec<ControlPoint>) -> Result {
+            ensure_root(origin)?;
+
+            ensure!(!<AllValidators<T>>::exists(account_id.clone()), "Already a validator.");
+
+            let mut copies = requirements
+                .iter()
+                .cloned()
+                .map(|cp| ControlPoint {
+                    what: cp.what.clone(),
+                    condition: cp.condition.clone(),
+                    complies: false,
+                })
+                .collect();
+
+            <AllValidators<T>>::insert(account_id.clone(), &mut copies);
+
+            Ok(())
+        }
+
+        // Sign and mark whether compliance criteria has been met.
+        pub fn report_compliance(origin) -> Result {
+            ensure_root(origin)?;
+
+
+
+            Ok(())
+        }
+
+        // Attempt to promote the candidate to validator pool.
+        pub fn promote_candidate(origin, account_id: T::AccountId) -> Result {
+            ensure_root(origin)?;
+
+
+
+            Self::add_validator(account_id)?;
+
+            Ok(())
+        }
+    }
+}
+
+impl<T: Trait> Module<T> {
+
+    // Add new validator and trigger a new session
+    fn add_validator(account_id: T::AccountId) -> Result {
+        let mut current_validators = <session::Module<T>>::validators();
+
+
+
+        Self::deposit_event(RawEvent::CandidateAdded(account_id));
+        Ok(())
+    }
+}
+
+
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    use runtime_io::with_externalities;
+    use sr_io::with_externalities;
     use sr_primitives::{testing::Header, traits::{BlakeTwo256, IdentityLookup}};
     use sr_primitives::Perbill;
     use sr_primitives::weights::Weight;

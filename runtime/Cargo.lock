@@ -432,12 +432,16 @@ dependencies = [
 name = "curated-validation"
 version = "0.1.0"
 dependencies = [
+ "bitvec 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-scale-codec 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "sr-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "sr-std 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "srml-session 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "srml-support 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "srml-system 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "substrate-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
 ]
 
 [[package]]
