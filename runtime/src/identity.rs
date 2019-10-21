@@ -379,6 +379,7 @@ decl_module! {
             Ok(())
         }
 
+        /*
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
         fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
@@ -388,7 +389,7 @@ decl_module! {
             let record = <DidRecords<T>>::get(&did);
             ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
 
-            <ClaimIssuers>::mutate(&didclone(), |old_claim_issuers| {
+            <ClaimIssuers>::mutate(&did, |old_claim_issuers| {
                 if !old_claim_issuers.contains(&did_issuer) {
                     old_claim_issuers.push(did_issuer.clone());
                 }
@@ -399,7 +400,6 @@ decl_module! {
             Ok(())
         }
 
-        /*
         /// Removes a claim issuer DID. Only called by master key owner.
         fn remove_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
