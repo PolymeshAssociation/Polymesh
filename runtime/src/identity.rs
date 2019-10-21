@@ -37,21 +37,19 @@ pub struct DidRecord<U> {
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct Claim<U> {
-    topic: u32,
-    schema: u32,
-    bytes: Vec<u8>,
+struct Claim<U> {
+    issuance_date: U,
     expiry: U,
+    data_type: u8,
+    value: Vec<u8>,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct ClaimRecord<U> {
-    claim: Claim<U>,
-    revoked: bool,
-    /// issuer DID
-    issued_by: Vec<u8>,
-    attestation: Vec<u8>,
+struct ClaimMetaData {
+    claim_key: Vec<u8>,
+    claim_issuer: Vec<u8>,
 }
+
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
@@ -74,8 +72,11 @@ decl_storage! {
         /// DID -> DID claim issuers
         pub ClaimIssuers get(claim_issuers): map Vec<u8> => Vec<Vec<u8>>;
 
-        /// DID -> Associated claims
-        pub Claims get(claims): map Vec<u8> => Vec<ClaimRecord<T::Moment>>;
+        /// (DID, claim_key, claim_issuer) -> Associated claims
+        pub Claims get(claims): map(Vec<u8>, ClaimMetaData) => Claim<T::Moment>;
+
+        /// DID -> array of (claim_key and claim_issuer)
+        pub ClaimKeys get(claim_keys): map Vec<u8> => Vec<ClaimMetaData>;
 
         // Signing key => DID
         pub SigningKeyDid get(signing_key_did): map Vec<u8> => Vec<u8>;
@@ -391,8 +392,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds new claim records. Only called by did_issuer's signing key
-        fn add_claim(origin, did: Vec<u8>, did_issuer: Vec<u8>, claims: Vec<Claim<T::Moment>>) -> Result {
+        /// Adds new claim record or edits an exisitng one. Only called by did_issuer's signing key
+        fn add_claim(origin, did: Vec<u8>, claim_key: Vec<u8>, did_issuer: Vec<u8>, claim: Claim<T::Moment>) -> Result {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
@@ -404,106 +405,51 @@ decl_module! {
             // Verify that sender key is one of did_issuer's signing keys
             ensure!(Self::is_signing_key(&did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
-            <Claims<T>>::mutate(&did, |claim_records| {
-                let mut new_records = claims
-                    .iter()
-                    .cloned()
-                    .map(|claim| ClaimRecord {
-                        claim,
-                        revoked: false,
-                        issued_by: did_issuer.clone(),
-                        attestation: Vec::new(),
-                    })
-                    .collect();
+            let claim_meta_data = ClaimMetaData {
+                claim_key: claim_key,
+                claim_issuer: did_issuer,
+            }
 
-                claim_records.append(&mut new_records);
+            <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
+
+            <ClaimKeys>::mutate(&did, |old_claim_data| {
+                if !old_claim_data.contains(&claim_meta_data) {
+                    old_claim_data.push(claim_meta_data.clone());
+                }
             });
 
-            Self::deposit_event(RawEvent::NewClaims(did, did_issuer, claims));
-
-            Ok(())
-        }
-
-        /// Adds new claim records with an attestation. Only called by issuer signing keys
-        fn add_claim_with_attestation(origin, did: Vec<u8>, did_issuer: Vec<u8>, claims: Vec<Claim<T::Moment>>, attestation: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
-
-            let sender_key = sender.encode();
-            ensure!(Self::is_claim_issuer(&did, &did_issuer) || Self::is_master_key(&did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
-
-            // Verify that sender key is one of did_issuer's signing keys
-            ensure!(Self::is_signing_key(&did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
-
-            <Claims<T>>::mutate(&did, |claim_records| {
-                let mut new_records = claims
-                    .iter()
-                    .cloned()
-                    .map(|claim| ClaimRecord {
-                        claim,
-                        revoked: false,
-                        issued_by: did_issuer.clone(),
-                        attestation: attestation.clone(),
-                    })
-                    .collect();
-
-                claim_records.append(&mut new_records);
-            });
-
-            Self::deposit_event(RawEvent::NewClaimsWithAttestation(did, did_issuer, claims, attestation));
+            Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
 
             Ok(())
         }
 
         /// Marks the specified claim as revoked
-        fn revoke_claim(origin, did: Vec<u8>, did_issuer: Vec<u8>, claim: Claim<T::Moment>) -> Result {
+        fn revoke_claim(origin, did: Vec<u8>, claim_key: Vec<u8>, did_issuer: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
-            ensure!(Self::is_claim_issuer(&did, &did_issuer), "did_issuer must be a claim issuer for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = sender.encode();
             ensure!(Self::is_signing_key(&did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
-            <Claims<T>>::mutate(&did, |claim_records| {
-                claim_records
-                    .iter_mut()
-                    .for_each(|record| if record.issued_by == did_issuer && record.claim == claim {
-                        (*record).revoked = true;
-                })
+            let claim_meta_data = ClaimMetaData {
+                claim_key: claim_key,
+                claim_issuer: did_issuer,
+            }
+
+            <Claims<T>>::remove((&did, &claim_meta_data), claim);
+
+            <ClaimKeys>::mutate(&did, |old_claim_metadata| {
+                *old_claim_metadata = old_claim_metadata
+                    .iter()
+                    .filter(|&metadata| *metadata != claim_meta_data)
+                    .cloned()
+                    .collect();
             });
 
-            Self::deposit_event(RawEvent::RevokedClaim(did, did_issuer, claim));
-
-            Ok(())
-        }
-
-        /// Marks all claims of an issuer as revoked
-        fn revoke_all(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
-            ensure!(Self::is_claim_issuer(&did, &did_issuer), "did_issuer must be a claim issuer or master key for DID");
-
-            // Verify that sender key is one of did_issuer's signing keys
-            let sender_key = sender.encode();
-            ensure!(Self::is_signing_key(&did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
-
-            <Claims<T>>::mutate(did.clone(), |claim_records| {
-
-                claim_records
-                    .iter_mut()
-                    .for_each(|record| if record.issued_by == did_issuer {
-                        (*record).revoked = true;
-                })
-            });
-
-            Self::deposit_event(RawEvent::RevokedAllClaims(did, did_issuer));
+            Self::deposit_event(RawEvent::RevokedClaim(did, claim_meta_data));
 
             Ok(())
         }
@@ -548,16 +494,10 @@ decl_event!(
         RemovedClaimIssuer(Vec<u8>, Vec<u8>),
 
         /// DID, claim issuer DID, claims
-        NewClaims(Vec<u8>, Vec<u8>, Vec<Claim<Moment>>),
-
-        /// DID, claim issuer DID, claims, attestation
-        NewClaimsWithAttestation(Vec<u8>, Vec<u8>, Vec<Claim<Moment>>, Vec<u8>),
+        NewClaims(Vec<u8>, ClaimMetaData, Claim<Moment>),
 
         /// DID, claim issuer DID, claim
-        RevokedClaim(Vec<u8>, Vec<u8>, Claim<Moment>),
-
-        /// DID, claim issuer DID
-        RevokedAllClaims(Vec<u8>, Vec<u8>),
+        RevokedClaim(Vec<u8>, ClaimMetaData),
 
         /// DID
         NewIssuer(Vec<u8>),
