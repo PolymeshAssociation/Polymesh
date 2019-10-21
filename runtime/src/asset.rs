@@ -318,9 +318,11 @@ decl_module! {
             Ok(())
         }
 
-        pub fn issue(_origin, did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
+        pub fn issue(origin, did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
             let upper_ticker = utils::bytes_to_upper(&ticker);
-            let sender = ensure_signed(_origin)?;
+            let sender = ensure_signed(origin)?;
+
+            let _verified_grants = <identity::Module<T>>::check_default_grants(&did)?;
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");

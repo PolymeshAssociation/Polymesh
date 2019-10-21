@@ -1,5 +1,4 @@
 use rstd::prelude::*;
-//use codec::Codec;
 
 pub static DID_PREFIX: &'static str = "did:poly:";
 use crate::{
@@ -173,7 +172,7 @@ decl_module! {
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
-        fn add_signing_keys(origin, did: Vec<u8>, additional_keys: Vec<RoledKey>) -> Result {
+        fn add_signing_keys(origin, did: Vec<u8>, additional_keys: Vec<Vec<u8>>) -> Result {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
@@ -183,15 +182,13 @@ decl_module! {
             let record = <DidRecords<T>>::get(&did);
             ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
 
-            for roled_key in &additional_keys {
-                let key = roled_key.key.to_vec();
-                if <SigningKeyDid>::exists(&key) {
-                    ensure!(<SigningKeyDid>::get(&key) == did, "One signing key can only belong to one DID");
+            for key in &additional_keys {
+                if <SigningKeyDid>::exists(key) {
+                    ensure!(<SigningKeyDid>::get(key) == did, "One signing key can only belong to one DID");
                 }
             }
 
-            for roled_key in &additional_keys {
-                let key = &roled_key.key.to_vec();
+            for key in &additional_keys {
                 <SigningKeyDid>::insert(key, did.clone());
             }
 
@@ -199,15 +196,16 @@ decl_module! {
             |record| {
                 // Concatenate new keys while making sure the key set is
                 // unique
-                let mut new_keys = additional_keys.iter()
-                    .filter( |&add_roled_key| {
+                let mut new_roled_keys = additional_keys.iter()
+                    .filter( |&add_key| {
                         record.signing_keys.iter()
-                        .find( |&rk| rk.key == add_roled_key.key)
+                        .find( |&rk| rk == &add_key.as_slice())
                         .is_none()
                     })
-                    .cloned()
+                    .map( |add_key| RoledKey::from( add_key.as_slice()))
                     .collect::<Vec<_>>();
-                (*record).signing_keys.append( &mut new_keys);
+
+                (*record).signing_keys.append( &mut new_roled_keys);
             });
 
             Self::deposit_event(RawEvent::SigningKeysAdded(did, additional_keys));
@@ -216,7 +214,7 @@ decl_module! {
         }
 
         /// Removes specified signing keys of a DID if present. Only called by master key owner.
-        fn remove_signing_keys(origin, did: Vec<u8>, keys_to_remove: Vec<RoledKey>) -> Result {
+        fn remove_signing_keys(origin, did: Vec<u8>, keys_to_remove: Vec<Vec<u8>>) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Verify that sender key is current master key
@@ -226,15 +224,13 @@ decl_module! {
 
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
 
-            for roled_key in &keys_to_remove {
-                let key = roled_key.key.to_vec();
-                if <SigningKeyDid>::exists(&key) {
-                    ensure!(<SigningKeyDid>::get(&key) == did, "Signing key does not belong to this DID");
+            for key in &keys_to_remove {
+                if <SigningKeyDid>::exists(key) {
+                    ensure!(<SigningKeyDid>::get(key) == did, "Signing key does not belong to this DID");
                 }
             }
 
-            for roled_key in &keys_to_remove {
-                let key = roled_key.key.to_vec();
+            for key in &keys_to_remove {
                 <SigningKeyDid>::remove(key);
             }
 
@@ -244,7 +240,7 @@ decl_module! {
                 let keys = record.signing_keys
                     .iter()
                     .filter(|&roled_key| keys_to_remove.iter()
-                        .find(|&rk| rk.key == roled_key.key )
+                        .find(|&rk| roled_key == rk)
                         .is_none())
                     .cloned()
                     .collect::<Vec<_>>();
@@ -253,6 +249,32 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
+
+            Ok(())
+        }
+
+        pub fn set_roles(origin, did: Vec<u8>, roles: Vec<IdentityRole>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = sender.encode();
+
+            // Target did existence
+            ensure!( <DidRecords<T>>::exists(&did), "DID must already exist");
+            let did_record = <DidRecords<T>>::get( &did);
+
+            // Target did has sender's master key in its signing keys.
+            ensure!( did_record.signing_keys.iter()
+                .find( |&rk| rk == &sender_key.as_slice()).is_some(), "Sender is not part of did's signing keys");
+
+            <DidRecords<T>>::mutate( &did,
+                |record| {
+                    let mut signing_keys = record.signing_keys.iter()
+                        .filter(|&rk| rk != &sender_key.as_slice())
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    signing_keys.push( RoledKey::new( &sender_key, roles));
+
+                    (*record).signing_keys = signing_keys;
+                });
 
             Ok(())
         }
@@ -536,10 +558,10 @@ decl_event!(
         NewDid(Vec<u8>, AccountId, Vec<RoledKey>),
 
         /// DID, new keys
-        SigningKeysAdded(Vec<u8>, Vec<RoledKey>),
+        SigningKeysAdded(Vec<u8>, Vec<Vec<u8>>),
 
         /// DID, the keys that got removed
-        SigningKeysRemoved(Vec<u8>, Vec<RoledKey>),
+        SigningKeysRemoved(Vec<u8>, Vec<Vec<u8>>),
 
         /// DID, old master key account ID, new key
         NewMasterKey(Vec<u8>, AccountId, Vec<u8>),
@@ -668,6 +690,22 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::PolyChargedFromDid(did, amount));
 
         return true;
+    }
+
+    /// By default, all functions require `IdentityRole::Full` role.
+    pub fn check_default_grants(did: &Vec<u8>) -> Result {
+        Self::check_grants_with_roles(did, &[IdentityRole::Full])
+    }
+
+    /// It double-checks that `did` has all roles of `roles` list.
+    pub fn check_grants_with_roles(did: &Vec<u8>, roles: &[IdentityRole]) -> Result {
+        let record = Self::did_records(did);
+        for role in roles.into_iter() {
+            if !record.master_key.has_role(*role) {
+                return Err("This function requires {} role");
+            }
+        }
+        Ok(())
     }
 }
 
@@ -851,7 +889,7 @@ mod tests {
             assert_ok!(Identity::add_signing_keys(
                 claim_issuer.clone(),
                 claim_issuer_did.clone(),
-                vec![RoledKey::from(owner_id.encode().as_slice())]
+                vec![owner_id.encode()]
             ));
 
             // Create issuer and claim issuer
@@ -911,7 +949,7 @@ mod tests {
             assert_ok!(Identity::add_signing_keys(
                 a.clone(),
                 a_did.clone(),
-                vec![RoledKey::from(owner_key.as_slice())]
+                vec![owner_key.clone()]
             ));
 
             // Check master key on master and signing_keys.
@@ -924,7 +962,7 @@ mod tests {
             assert_ok!(Identity::remove_signing_keys(
                 a.clone(),
                 a_did.clone(),
-                vec![RoledKey::from(owner_key.as_slice())]
+                vec![owner_key.clone()]
             ));
             assert!(Identity::is_signing_key(&a_did, &owner_key) == false);
         });
@@ -946,7 +984,7 @@ mod tests {
             assert_ok!(Identity::add_signing_keys(
                 claim_issuer.clone(),
                 claim_issuer_did.clone(),
-                vec![RoledKey::from(owner_id.encode().as_slice())]
+                vec![owner_id.encode()]
             ));
 
             // Add Claims by master & claim_issuer
@@ -995,6 +1033,29 @@ mod tests {
                 owner_did,
                 claim_issuer_did,
                 claim
+            ));
+        });
+    }
+
+    #[test]
+    fn check_grants_test() {
+        with_externalities(&mut build_ext(), || {
+            let owner_id = Identity::owner();
+            let (owner, _owner_did) = make_account(Identity::owner()).unwrap();
+            let owner2_id = 2;
+            let (_owner2, _owner2_did) = make_account(owner2_id).unwrap();
+            let (issuer, issuer_did) = make_account(3).unwrap();
+
+            assert_ok!(Identity::add_signing_keys(
+                issuer.clone(),
+                issuer_did.clone(),
+                vec![owner_id.encode(), owner2_id.encode()]
+            ));
+
+            assert_ok!(Identity::set_roles(
+                owner,
+                issuer_did.clone(),
+                vec![IdentityRole::Issuer]
             ));
         });
     }

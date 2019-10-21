@@ -14,7 +14,7 @@ const KEY_SIZE: usize = 32;
 ///     - [MESH-235](https://polymath.atlassian.net/browse/MESH-235)
 ///     - [Polymesh: Roles/Permissions](https://docs.google.com/document/d/12u-rMavow4fvidsFlLcLe7DAXuqWk8XUHOBV9kw05Z8/)
 ///
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum IdentityRole {
     Full,
     Admin,
@@ -53,7 +53,10 @@ impl RoledKey {
     /// It checks if this key has specified `role` role.
     /// Role `IdentityRole::Full` is special and denotates that this key can be used for any role.
     pub fn has_role(&self, role: IdentityRole) -> bool {
-        self.roles.iter().find(|&r| role == *r || *r == IdentityRole::Full).is_some()
+        self.roles
+            .iter()
+            .find(|&r| role == *r || *r == IdentityRole::Full)
+            .is_some()
     }
 }
 
@@ -72,6 +75,12 @@ impl PartialEq for RoledKey {
 impl PartialEq<&[u8]> for RoledKey {
     fn eq(&self, other: &&[u8]) -> bool {
         self.key == *other
+    }
+}
+
+impl PartialEq<Vec<u8>> for RoledKey {
+    fn eq(&self, other: &Vec<u8>) -> bool {
+        self.key == other.as_slice()
     }
 }
 
@@ -100,12 +109,12 @@ mod tests {
         let full_key = RoledKey::new(key, vec![IdentityRole::Full]);
         let not_full_key = RoledKey::new(key, vec![IdentityRole::Issuer, IdentityRole::Operator]);
 
-        assert_eq!( full_key.has_role( IdentityRole::Issuer), true);
-        assert_eq!( full_key.has_role( IdentityRole::Operator), true);
+        assert_eq!(full_key.has_role(IdentityRole::Issuer), true);
+        assert_eq!(full_key.has_role(IdentityRole::Operator), true);
 
-        assert_eq!( not_full_key.has_role( IdentityRole::Issuer), true);
-        assert_eq!( not_full_key.has_role( IdentityRole::Operator), true);
-        assert_eq!( not_full_key.has_role( IdentityRole::Validator), false);
+        assert_eq!(not_full_key.has_role(IdentityRole::Issuer), true);
+        assert_eq!(not_full_key.has_role(IdentityRole::Operator), true);
+        assert_eq!(not_full_key.has_role(IdentityRole::Validator), false);
     }
 
     #[test]
