@@ -1,12 +1,7 @@
+use crate::entity::Key;
 use rstd::{prelude::Vec, vec};
 
 // use crate::entity::IgnoredCaseString;
-
-/// Size of key, when it is u64
-#[cfg(test)]
-const KEY_SIZE: usize = 8;
-#[cfg(not(test))]
-const KEY_SIZE: usize = 32;
 
 /// Identity roles.
 /// # TODO
@@ -21,6 +16,7 @@ pub enum IdentityRole {
     Operator,
     Issuer,
     Validator,
+    ClaimIssuer,
     // From MESH-235
     Investor,
     NodeRunner,
@@ -35,19 +31,14 @@ pub enum IdentityRole {
 #[derive(codec::Encode, codec::Decode, Default, Clone, Eq, Debug)]
 /// It is a key, and its associated roles.
 pub struct RoledKey {
-    pub key: [u8; KEY_SIZE],
+    pub key: Key,
     pub roles: Vec<IdentityRole>,
 }
 
 impl RoledKey {
-    pub fn new(key: &[u8], roles: Vec<IdentityRole>) -> Self {
-        let mut s = Self {
-            key: [0u8; KEY_SIZE],
-            roles,
-        };
-        s.key.copy_from_slice(key);
-
-        s
+    pub fn new(key: Key, roles: Vec<IdentityRole>) -> Self {
+        Self { key, roles }
+        // s.key.copy_from_slice(key);
     }
 
     /// It checks if this key has specified `role` role.
@@ -60,8 +51,8 @@ impl RoledKey {
     }
 }
 
-impl From<&[u8]> for RoledKey {
-    fn from(s: &[u8]) -> Self {
+impl From<Key> for RoledKey {
+    fn from(s: Key) -> Self {
         Self::new(s, vec![])
     }
 }
@@ -72,30 +63,27 @@ impl PartialEq for RoledKey {
     }
 }
 
-impl PartialEq<&[u8]> for RoledKey {
-    fn eq(&self, other: &&[u8]) -> bool {
+impl PartialEq<Key> for RoledKey {
+    fn eq(&self, other: &Key) -> bool {
         self.key == *other
-    }
-}
-
-impl PartialEq<Vec<u8>> for RoledKey {
-    fn eq(&self, other: &Vec<u8>) -> bool {
-        self.key == other.as_slice()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{IdentityRole, RoledKey};
+    use super::{IdentityRole, Key, RoledKey};
 
     #[test]
     fn build_test() {
-        let key = "ABCDABCD".as_bytes();
-        let rk1 = RoledKey::new(key, vec![]);
-        let rk2 = RoledKey::from(key);
+        let key = Key::from("ABCDABCD".as_bytes());
+        let rk1 = RoledKey::new(key.clone(), vec![]);
+        let rk2 = RoledKey::from(key.clone());
         assert_eq!(rk1, rk2);
 
-        let rk3 = RoledKey::new(key, vec![IdentityRole::Operator, IdentityRole::Issuer]);
+        let rk3 = RoledKey::new(
+            key.clone(),
+            vec![IdentityRole::Operator, IdentityRole::Issuer],
+        );
         assert_ne!(rk1, rk3);
 
         let mut rk4 = RoledKey::from(key);
@@ -105,21 +93,14 @@ mod tests {
 
     #[test]
     fn full_role_test() {
-        let key = "ABCDABCD".as_bytes();
-        let full_key = RoledKey::new(key, vec![IdentityRole::Full]);
+        let key = Key::from("ABCDABCD".as_bytes());
+        let full_key = RoledKey::new(key.clone(), vec![IdentityRole::Full]);
         let not_full_key = RoledKey::new(key, vec![IdentityRole::Issuer, IdentityRole::Operator]);
-
         assert_eq!(full_key.has_role(IdentityRole::Issuer), true);
         assert_eq!(full_key.has_role(IdentityRole::Operator), true);
 
         assert_eq!(not_full_key.has_role(IdentityRole::Issuer), true);
         assert_eq!(not_full_key.has_role(IdentityRole::Operator), true);
         assert_eq!(not_full_key.has_role(IdentityRole::Validator), false);
-    }
-
-    #[test]
-    #[should_panic]
-    fn panic_build_test() {
-        let _rk_panic = RoledKey::from("ABCDABCDx".as_bytes());
     }
 }

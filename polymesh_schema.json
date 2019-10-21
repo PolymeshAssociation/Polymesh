@@ -28,9 +28,26 @@
         "active": "bool",
         "jurisdiction": "u16"
     },
+    "Key": "[u8;32]",
+    "IdentityRole": {
+        "_enum": [
+            "Full",
+            "Admin",
+            "Operator",
+            "Issuer",
+            "Validator",
+            "ClaimIssuer",
+            "Investor",
+            "NodeRunner"
+       ]
+    },
+    "RoledKey": {
+        "key": "Key",
+        "roles": "IdentityRole"
+    },
     "DidRecord": {
-        "master_key": "Vec<u8>",
-        "signing_keys": "Vec<Vec<u8>>",
+        "master_key": "Key",
+        "signing_keys": "Vec<RoledKey>",
         "balance": "Balance"
     },
     "Claim": {

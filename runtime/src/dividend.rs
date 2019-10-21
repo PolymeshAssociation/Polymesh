@@ -13,7 +13,7 @@ use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
 
-use crate::{asset, identity, simple_token, utils};
+use crate::{asset, entity::Key, identity, simple_token, utils};
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -88,7 +88,7 @@ decl_module! {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
@@ -175,7 +175,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
@@ -221,7 +221,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
@@ -248,7 +248,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
 
             // Check if sender wasn't already paid their share
             ensure!(!<UserPayoutCompleted>::get((did.clone(), ticker.clone(), dividend_id)), "User was already paid their share");
@@ -330,7 +330,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");

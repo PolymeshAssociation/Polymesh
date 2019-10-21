@@ -1,5 +1,6 @@
 use crate::asset::{self, AssetTrait};
 use crate::constants::*;
+use crate::entity::Key;
 use crate::identity::{self, InvestorList};
 use crate::utils;
 
@@ -51,7 +52,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
 
             let upper_ticker = utils::bytes_to_upper(&ticker);
             ensure!(Self::is_owner(&upper_ticker, &did),"Sender must be the token owner");

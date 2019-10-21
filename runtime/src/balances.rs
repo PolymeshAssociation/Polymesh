@@ -163,7 +163,7 @@ use srml_support::traits::{
 use srml_support::{decl_event, decl_module, decl_storage, Parameter, StorageValue};
 use system::{ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 
-use crate::identity::IdentityTrait;
+use crate::{entity::Key, identity::IdentityTrait};
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 
@@ -1293,7 +1293,7 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
         // pay any fees.
         let fee = Self::compute_fee(len, info, self.0);
 
-        let encoded_transactor = who.clone().encode();
+        let encoded_transactor = Key::from(who.encode());
         if <T::Identity>::signing_key_charge_did(&encoded_transactor) {
             sr_primitives::print("Charging fee to identity");
             if !<T::Identity>::charge_poly(&encoded_transactor, fee) {
