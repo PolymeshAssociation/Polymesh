@@ -50,8 +50,10 @@ impl RoledKey {
         s
     }
 
-    pub fn has_role(&self, role: &IdentityRole) -> bool {
-        self.roles.iter().find(|&r| *role == *r).is_some()
+    /// It checks if this key has specified `role` role.
+    /// Role `IdentityRole::Full` is special and denotates that this key can be used for any role.
+    pub fn has_role(&self, role: IdentityRole) -> bool {
+        self.roles.iter().find(|&r| role == *r || *r == IdentityRole::Full).is_some()
     }
 }
 
@@ -90,6 +92,20 @@ mod tests {
         let mut rk4 = RoledKey::from(key);
         rk4.roles = vec![IdentityRole::Operator, IdentityRole::Issuer];
         assert_eq!(rk3, rk4);
+    }
+
+    #[test]
+    fn full_role_test() {
+        let key = "ABCDABCD".as_bytes();
+        let full_key = RoledKey::new(key, vec![IdentityRole::Full]);
+        let not_full_key = RoledKey::new(key, vec![IdentityRole::Issuer, IdentityRole::Operator]);
+
+        assert_eq!( full_key.has_role( IdentityRole::Issuer), true);
+        assert_eq!( full_key.has_role( IdentityRole::Operator), true);
+
+        assert_eq!( not_full_key.has_role( IdentityRole::Issuer), true);
+        assert_eq!( not_full_key.has_role( IdentityRole::Operator), true);
+        assert_eq!( not_full_key.has_role( IdentityRole::Validator), false);
     }
 
     #[test]
