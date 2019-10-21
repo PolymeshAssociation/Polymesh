@@ -37,7 +37,7 @@ pub struct DidRecord<U> {
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-struct Claim<U> {
+pub struct Claim<U> {
     issuance_date: U,
     expiry: U,
     data_type: u8,
@@ -45,7 +45,7 @@ struct Claim<U> {
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-struct ClaimMetaData {
+pub struct ClaimMetaData {
     claim_key: Vec<u8>,
     claim_issuer: Vec<u8>,
 }
@@ -408,7 +408,7 @@ decl_module! {
             let claim_meta_data = ClaimMetaData {
                 claim_key: claim_key,
                 claim_issuer: did_issuer,
-            }
+            };
 
             <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
 
@@ -437,9 +437,9 @@ decl_module! {
             let claim_meta_data = ClaimMetaData {
                 claim_key: claim_key,
                 claim_issuer: did_issuer,
-            }
+            };
 
-            <Claims<T>>::remove((&did, &claim_meta_data), claim);
+            <Claims<T>>::remove((did.clone(), claim_meta_data.clone()));
 
             <ClaimKeys>::mutate(&did, |old_claim_metadata| {
                 *old_claim_metadata = old_claim_metadata
