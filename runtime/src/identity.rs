@@ -564,6 +564,7 @@ impl<T: Trait> Module<T> {
         Self::update_roles(target_did, key, roles)
     }
 
+    /// It adds `role` role to `did` for signing key `key`.
     pub fn add_role_to_key(did: &Vec<u8>, key: &Key, role: IdentityRole) -> Result {
         ensure!(<DidRecords<T>>::exists(did), "Investor DID does not exist");
         let record = <DidRecords<T>>::get(did);
@@ -625,7 +626,7 @@ impl<T: Trait> Module<T> {
         Self::has_role_for_did(investor_did, master_did, IdentityRole::Investor)
     }
 
-    pub fn is_claim_issuer(issuer_did: &Vec<u8>, master_did: &Vec<u8>) -> bool {
+    pub fn is_claim_issuer(master_did: &Vec<u8>, issuer_did: &Vec<u8>) -> bool {
         Self::has_role_for_did(issuer_did, master_did, IdentityRole::ClaimIssuer)
     }
 
@@ -868,14 +869,21 @@ mod tests {
     fn only_claim_issuers_can_add_claims() {
         with_externalities(&mut build_ext(), || {
             let owner_id = Identity::owner();
+            let owner_key = Key::try_from(owner_id.encode()).unwrap();
             let (owner, owner_did) = make_account(owner_id).unwrap();
-            let (_issuer, issuer_did) = make_account(2).unwrap();
+
+            let (issuer, issuer_did) = make_account(2).unwrap();
             let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
 
             assert_ok!(Identity::add_signing_keys(
                 claim_issuer.clone(),
                 claim_issuer_did.clone(),
-                vec![Key::try_from(owner_id.encode()).unwrap()]
+                vec![owner_key.clone()]
+            ));
+            assert_ok!(Identity::add_signing_keys(
+                issuer.clone(),
+                issuer_did.clone(),
+                vec![owner_key.clone()]
             ));
 
             // Create issuer and claim issuer
