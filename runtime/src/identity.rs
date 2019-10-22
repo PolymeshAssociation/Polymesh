@@ -594,6 +594,21 @@ impl<T: Trait> Module<T> {
 
         return true;
     }
+
+    pub fn fetch_claim_value(did: Vec<u8>, claim_key: Vec<u8>, claim_issuer: Vec<u8>) -> Option<Vec<u8>> {
+        let claim_meta_data = ClaimMetaData {
+            claim_key: claim_key,
+            claim_issuer: claim_issuer,
+        };
+        if <Claims<T>>::exists((did.clone(), claim_meta_data.clone())) {
+            let now = <timestamp::Module<T>>::get();
+            let claim = <Claims<T>>::get((did, claim_meta_data));
+            if claim.expiry > now {
+                return Some(claim.value);
+            }
+        }
+        return None;
+    }
 }
 
 /// Make sure the supplied slice is a valid Polymesh DID
