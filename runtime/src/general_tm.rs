@@ -37,6 +37,7 @@ pub struct Rule {
 pub struct AssetRule {
     sender_rules: Vec<Rule>,
     receiver_rules: Vec<Rule>,
+    trusted_issuers: Vec<Vec<u8>>,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
@@ -49,6 +50,7 @@ pub struct RuleData {
 
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
+        // (Asset -> AssetRules)
         pub ActiveRules get(active_rules): map Vec<u8> => Vec<AssetRule>;
     }
 }
@@ -113,7 +115,7 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(&ticker, &sender_did)
     }
 
-    pub fn fetch_value(did: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+    pub fn fetch_value(did: &Vec<u8>, key: &Vec<u8>, trusted_issuers: &Vec<Vec<u8>>) -> Vec<u8> {
         // TODO Fetch value from Identity module
         return 1.encode();
     }
@@ -379,7 +381,7 @@ impl<T: Trait> Module<T> {
             let mut rule_broken = false;
             for sender_rule in active_rule.sender_rules {
                 for data in sender_rule.rules_data {
-                    let identity_value = Self::fetch_value(from_did.clone(), data.key);
+                    let identity_value = Self::fetch_value(&from_did, &data.key, &active_rule.trusted_issuers);
                     rule_broken =
                         Self::check_rule(data.value, identity_value, data.data_type, data.operator);
                 }
@@ -392,7 +394,7 @@ impl<T: Trait> Module<T> {
                     break;
                 }
                 for data in receiver_rule.rules_data {
-                    let identity_value = Self::fetch_value(from_did.clone(), data.key);
+                    let identity_value = Self::fetch_value(&from_did, &data.key, &active_rule.trusted_issuers);
                     rule_broken =
                         Self::check_rule(data.value, identity_value, data.data_type, data.operator);
                 }
