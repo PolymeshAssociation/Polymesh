@@ -9,12 +9,13 @@ use rstd::{prelude::Vec, vec};
 ///     - [MESH-235](https://polymath.atlassian.net/browse/MESH-235)
 ///     - [Polymesh: Roles/Permissions](https://docs.google.com/document/d/12u-rMavow4fvidsFlLcLe7DAXuqWk8XUHOBV9kw05Z8/)
 ///
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum IdentityRole {
     Full,
     Admin,
     Operator,
     Issuer,
+    SimpleTokenIssuer,
     Validator,
     ClaimIssuer,
     // From MESH-235
@@ -38,7 +39,6 @@ pub struct RoledKey {
 impl RoledKey {
     pub fn new(key: Key, roles: Vec<IdentityRole>) -> Self {
         Self { key, roles }
-        // s.key.copy_from_slice(key);
     }
 
     /// It checks if this key has specified `role` role.
@@ -72,10 +72,11 @@ impl PartialEq<Key> for RoledKey {
 #[cfg(test)]
 mod tests {
     use super::{IdentityRole, Key, RoledKey};
+    use std::convert::TryFrom;
 
     #[test]
     fn build_test() {
-        let key = Key::from("ABCDABCD".as_bytes());
+        let key = Key::try_from("ABCDABCD".as_bytes()).unwrap();
         let rk1 = RoledKey::new(key.clone(), vec![]);
         let rk2 = RoledKey::from(key.clone());
         assert_eq!(rk1, rk2);
@@ -93,7 +94,7 @@ mod tests {
 
     #[test]
     fn full_role_test() {
-        let key = Key::from("ABCDABCD".as_bytes());
+        let key = Key::try_from("ABCDABCD".as_bytes()).unwrap();
         let full_key = RoledKey::new(key.clone(), vec![IdentityRole::Full]);
         let not_full_key = RoledKey::new(key, vec![IdentityRole::Issuer, IdentityRole::Operator]);
         assert_eq!(full_key.has_role(IdentityRole::Issuer), true);

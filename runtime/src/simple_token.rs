@@ -7,7 +7,7 @@ use crate::entity::Key;
 use crate::identity;
 use crate::utils;
 use codec::Encode;
-use rstd::prelude::*;
+use rstd::{convert::TryFrom, prelude::*};
 
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
@@ -54,10 +54,10 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
-            ensure!(<identity::Module<T>>::is_simple_token_issuer(did.clone()), "Sender is not an issuer");
+            ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
             <identity::DidRecords<T>>::mutate(&did, |record| -> Result {
@@ -88,7 +88,7 @@ decl_module! {
             ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker_did_spender_did = (ticker.clone(), did.clone(), spender_did.clone());
             let allowance = Self::allowance(&ticker_did_spender_did);
@@ -104,7 +104,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             Self::_transfer(&ticker, &did, &to_did, amount)
         }
@@ -113,7 +113,7 @@ decl_module! {
             let spender = ensure_signed(origin)?;
 
             // Check that spender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(spender.encode())), "spender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(spender.encode())?), "spender must be a signing key for DID");
 
             let ticker_from_did_did = (ticker.clone(), from_did.clone(), did.clone());
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist.");

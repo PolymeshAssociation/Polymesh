@@ -13,7 +13,7 @@
 //!   - Initially restrict list of accounts that can put_code
 //!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
 
-use rstd::prelude::*;
+use rstd::{convert::TryFrom, prelude::*};
 
 use crate::{entity::Key, identity};
 use codec::Encode;
@@ -56,7 +56,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, & Key::from(sender.encode())), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, & Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Call underlying function
             let new_origin = system::RawOrigin::Signed(sender).into();

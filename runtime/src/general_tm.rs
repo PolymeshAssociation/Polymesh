@@ -1,12 +1,12 @@
 use crate::asset::{self, AssetTrait};
 use crate::constants::*;
-use crate::entity::Key;
-use crate::identity::{self, InvestorList};
+use crate::entity::{IdentityRole, Key};
+use crate::identity;
 use crate::utils;
 
 use codec::Encode;
 use core::result::Result as StdResult;
-use rstd::prelude::*;
+use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 
@@ -52,7 +52,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let upper_ticker = utils::bytes_to_upper(&ticker);
             ensure!(Self::is_owner(&upper_ticker, &did),"Sender must be the token owner");
@@ -207,10 +207,10 @@ impl<T: Trait> Module<T> {
     }
 
     fn _check_investor_status(holder_did: &Vec<u8>) -> Result {
-        let investor = <InvestorList>::get(holder_did);
+        let investor = <identity::DidRecords<T>>::get(holder_did);
         ensure!(
-            investor.active && investor.access_level == 1,
-            "From account is not active"
+            investor.has_role(IdentityRole::Investor),
+            "Account is not an investor"
         );
         Ok(())
     }

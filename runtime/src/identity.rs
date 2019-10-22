@@ -1,4 +1,4 @@
-use rstd::prelude::*;
+use rstd::{convert::TryFrom, prelude::*};
 
 pub static DID_PREFIX: &'static str = "did:poly:";
 use crate::{
@@ -17,25 +17,19 @@ use srml_support::{
 use system::{self, ensure_signed};
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Issuer {
-    did: Vec<u8>,
-    access_level: u16,
-    active: bool,
-}
-
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Investor {
-    pub did: Vec<u8>,
-    pub access_level: u16,
-    pub active: bool,
-    pub jurisdiction: u16,
-}
-
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct DidRecord<U> {
     pub master_key: Key,
     pub signing_keys: Vec<RoledKey>,
     pub balance: U,
+}
+
+impl<U> DidRecord<U> {
+    pub fn has_role(&self, role: IdentityRole) -> bool {
+        self.signing_keys
+            .iter()
+            .find(|&rk| rk.has_role(role))
+            .is_some()
+    }
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
@@ -66,11 +60,6 @@ decl_storage! {
 
         Owner get(owner) config(): T::AccountId;
 
-        SimpleTokenIssuerList get(simple_token_issuer_list): map Vec<u8> => Issuer;
-        IssuerList get(issuer_list): map Vec<u8> => Issuer;
-
-        pub InvestorList get(investor_list): map Vec<u8> => Investor;
-
         /// DID -> identity info
         pub DidRecords get(did_records): map Vec<u8> => DidRecord<T::Balance>;
 
@@ -97,29 +86,35 @@ decl_module! {
 
         fn create_issuer(origin, issuer_did: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
-
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-            Self::do_create_issuer(issuer_did)
+            let sender_key = Key::try_from( sender.encode())?;
+            ensure!( <SigningKeyDid>::exists( &sender_key), "Sender key does not associated DID");
+
+            Self::do_create_issuer( &issuer_did, &sender_key)
         }
 
         fn create_simple_token_issuer(origin, issuer_did: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-            Self::do_create_simple_token_issuer(issuer_did)
+            let sender_key = Key::try_from( sender.encode())?;
+            ensure!( <SigningKeyDid>::exists( &sender_key), "Sender key does not associated DID");
+            Self::do_create_simple_token_issuer(&issuer_did, &sender_key)
         }
 
         fn create_investor(origin, investor_did: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(Self::owner() == sender,"Sender must be the identity module owner");
 
-            Self::do_create_investor(investor_did)
+            let sender_key = Key::try_from( sender.encode())?;
+            ensure!( <SigningKeyDid>::exists( &sender_key), "Sender key does not associated DID");
+            Self::do_create_investor(&investor_did, &sender_key)
         }
 
         fn set_charge_did(origin, charge_did: bool) -> Result {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::from( sender.encode());
+            let sender_key = Key::try_from( sender.encode())?;
             <ChargeDid>::insert(sender_key, charge_did);
             Ok(())
         }
@@ -127,7 +122,7 @@ decl_module! {
         /// Register signing keys for a new DID. Uses origin key as the master key
         pub fn register_did(origin, did: Vec<u8>, signing_keys: Vec<RoledKey>) -> Result {
             let sender = ensure_signed(origin)?;
-            let master_key = Key::from( sender.encode());
+            let master_key = Key::try_from( sender.encode())?;
 
             // Make sure caller specified a correct DID
             validate_did(did.as_slice())?;
@@ -251,28 +246,9 @@ decl_module! {
 
         pub fn set_roles(origin, did: Vec<u8>, roles: Vec<IdentityRole>) -> Result {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::from( sender.encode());
+            let sender_key = Key::try_from( sender.encode())?;
 
-            // Target did existence
-            ensure!( <DidRecords<T>>::exists(&did), "DID must already exist");
-            let did_record = <DidRecords<T>>::get( &did);
-
-            // Target did has sender's master key in its signing keys.
-            ensure!( did_record.signing_keys.iter()
-                .find( |&rk| *rk == sender_key).is_some(), "Sender is not part of did's signing keys");
-
-            <DidRecords<T>>::mutate( &did,
-                |record| {
-                    let mut signing_keys = record.signing_keys.iter()
-                        .filter(|&rk| *rk != sender_key)
-                        .cloned()
-                        .collect::<Vec<_>>();
-                    signing_keys.push( RoledKey::new( sender_key, roles));
-
-                    (*record).signing_keys = signing_keys;
-                });
-
-            Ok(())
+            Self::do_set_roles( &did, &sender_key, roles)
         }
 
         /// Sets a new master key for a DID. Only called by master key owner.
@@ -355,7 +331,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(Self::is_signing_key(&did, &Key::from(sender.encode())), "sender must be a signing key for DID");
+            ensure!(Self::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let from_record = <DidRecords<T>>::get(did.clone());
             let to_record = <DidRecords<T>>::get(to_did.clone());
@@ -379,52 +355,6 @@ decl_module! {
             Ok(())
         }
 
-        /*
-        /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            // Verify that sender key is current master key
-            let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
-            ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
-
-            <ClaimIssuers>::mutate(&did, |old_claim_issuers| {
-                if !old_claim_issuers.contains(&did_issuer) {
-                    old_claim_issuers.push(did_issuer.clone());
-                }
-            });
-
-            Self::deposit_event(RawEvent::NewClaimIssuer(did, did_issuer));
-
-            Ok(())
-        }
-
-        /// Removes a claim issuer DID. Only called by master key owner.
-        fn remove_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            // Verify that sender key is current master key
-            let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
-            ensure!(sender_key == record.master_key.key, "Sender must hold the master key");
-
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
-
-            <ClaimIssuers>::mutate(&did, |old_claim_issuers| {
-                *old_claim_issuers = old_claim_issuers
-                    .iter()
-                    .filter(|&issuer| *issuer != did_issuer)
-                    .cloned()
-                    .collect();
-            });
-
-            Self::deposit_event(RawEvent::RemovedClaimIssuer(did, did_issuer));
-
-            Ok(())
-        }*/
-
         /// Adds new claim records. Only called by did_issuer's signing key
         fn add_claim(origin, did: Vec<u8>, did_issuer: Vec<u8>, claims: Vec<Claim<T::Moment>>) -> Result {
             let sender = ensure_signed(origin)?;
@@ -432,7 +362,7 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
 
-            let sender_key = Key::from( sender.encode());
+            let sender_key = Key::try_from( sender.encode())?;
             ensure!(Self::is_claim_issuer(&did, &did_issuer) || Self::is_master_key(&did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
@@ -465,7 +395,7 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
 
-            let sender_key = Key::from( sender.encode());
+            let sender_key = Key::try_from( sender.encode())?;
             ensure!(Self::is_claim_issuer(&did, &did_issuer) || Self::is_master_key(&did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
@@ -500,7 +430,7 @@ decl_module! {
             ensure!(Self::is_claim_issuer(&did, &did_issuer), "did_issuer must be a claim issuer for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_key = Key::from( sender.encode());
+            let sender_key = Key::try_from( sender.encode())?;
             ensure!(Self::is_signing_key(&did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(&did, |claim_records| {
@@ -525,7 +455,7 @@ decl_module! {
             ensure!(Self::is_claim_issuer(&did, &did_issuer), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_key = Key::from( sender.encode());
+            let sender_key = Key::try_from( sender.encode())?;
             ensure!(Self::is_signing_key(&did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did.clone(), |claim_records| {
@@ -599,71 +529,120 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    /// Add a new issuer. Warning: No identity module ownership checks are performed
-    pub fn do_create_issuer(issuer_did: Vec<u8>) -> Result {
-        let new_issuer = Issuer {
-            did: issuer_did.clone(),
-            access_level: 1,
-            active: true,
+    /// Private and not sanitized function. It is designed to be used internally by
+    /// others sanitezed functions.
+    fn update_roles(target_did: &Vec<u8>, key: &Key, roles: Vec<IdentityRole>) -> Result {
+        <DidRecords<T>>::mutate(target_did, |record| {
+            // First filter avoids duplication of key.
+            let mut signing_keys = record
+                .signing_keys
+                .iter()
+                .filter(|&rk| rk != key)
+                .cloned()
+                .collect::<Vec<_>>();
+
+            signing_keys.push(RoledKey::new(key.clone(), roles));
+            (*record).signing_keys = signing_keys;
+        });
+        Ok(())
+    }
+
+    pub fn do_set_roles(target_did: &Vec<u8>, key: &Key, roles: Vec<IdentityRole>) -> Result {
+        // Target did existence
+        ensure!(
+            <DidRecords<T>>::exists(target_did),
+            "DID must already exist"
+        );
+        let record = <DidRecords<T>>::get(target_did);
+
+        // Target did has sender's master key in its signing keys.
+        ensure!(
+            record.signing_keys.iter().find(|&rk| rk == key).is_some(),
+            "Sender is not part of did's signing keys"
+        );
+
+        Self::update_roles(target_did, key, roles)
+    }
+
+    pub fn add_role_to_key(did: &Vec<u8>, key: &Key, role: IdentityRole) -> Result {
+        ensure!(<DidRecords<T>>::exists(did), "Investor DID does not exist");
+        let record = <DidRecords<T>>::get(did);
+
+        // Target did has sender's master key in its signing keys.
+        ensure!(
+            record.signing_keys.iter().find(|&rk| rk == key).is_some(),
+            "Sender is not part of did's signing keys"
+        );
+
+        // Get current roles of `key` at `investor_did`.
+        let mut new_roles = match record.signing_keys.iter().find(|&rk| rk == key) {
+            Some(ref rk) => rk.roles.clone(),
+            None => Vec::with_capacity(1),
         };
 
-        <IssuerList>::insert(issuer_did.clone(), new_issuer);
+        // Add new role, sort result and remove duplicates.
+        new_roles.push(role);
+        new_roles.sort();
+        new_roles.dedup();
 
-        Self::deposit_event(RawEvent::NewIssuer(issuer_did));
+        Self::update_roles(&did, key, new_roles)
+    }
 
+    /// Add a new investor. Warning: No identity module ownership checks are performed
+    pub fn do_create_investor(investor_did: &Vec<u8>, key: &Key) -> Result {
+        Self::add_role_to_key(investor_did, key, IdentityRole::Investor)
+    }
+
+    /// Add a new issuer. Warning: No identity module ownership checks are performed
+    pub fn do_create_issuer(issuer_did: &Vec<u8>, key: &Key) -> Result {
+        Self::add_role_to_key(issuer_did, key, IdentityRole::Issuer)?;
+        Self::deposit_event(RawEvent::NewIssuer(issuer_did.clone()));
         Ok(())
     }
 
     /// Add a new SimpleToken issuer. Warning: No identity module ownership checks are performed
-    pub fn do_create_simple_token_issuer(issuer_did: Vec<u8>) -> Result {
-        let new_simple_token_issuer = Issuer {
-            did: issuer_did.clone(),
-            access_level: 1,
-            active: true,
-        };
-
-        <SimpleTokenIssuerList>::insert(issuer_did, new_simple_token_issuer);
-        Ok(())
-    }
-
-    /// Add a new investor. Warning: No identity module ownership checks are performed
-    pub fn do_create_investor(investor_did: Vec<u8>) -> Result {
-        let new_investor = Investor {
-            did: investor_did.clone(),
-            access_level: 1,
-            active: true,
-            jurisdiction: 1,
-        };
-
-        <InvestorList>::insert(investor_did, new_investor);
-        Ok(())
+    pub fn do_create_simple_token_issuer(issuer_did: &Vec<u8>, key: &Key) -> Result {
+        Self::add_role_to_key(issuer_did, key, IdentityRole::SimpleTokenIssuer)
     }
 
     pub fn is_issuer(did: &Vec<u8>) -> bool {
-        let user = Self::issuer_list(did);
-        user.did == *did && user.access_level == 1 && user.active
+        <DidRecords<T>>::get(did).has_role(IdentityRole::Issuer)
     }
 
-    pub fn is_simple_token_issuer(did: Vec<u8>) -> bool {
-        let user = Self::simple_token_issuer_list(did.clone());
-        user.did == did && user.access_level == 1 && user.active
+    pub fn is_issuer_of(issuer_did: &Vec<u8>, master_did: &Vec<u8>) -> bool {
+        Self::has_role_for_did(issuer_did, master_did, IdentityRole::Issuer)
     }
 
-    pub fn is_investor(did: Vec<u8>) -> bool {
-        let user = Self::investor_list(did.clone());
-        user.did == did && user.access_level == 1 && user.active
+    pub fn is_simple_token_issuer_of(st_issuer_did: &Vec<u8>, master_did: &Vec<u8>) -> bool {
+        Self::has_role_for_did(st_issuer_did, master_did, IdentityRole::SimpleTokenIssuer)
     }
 
-    pub fn is_claim_issuer(did: &Vec<u8>, issuer_did: &Vec<u8>) -> bool {
+    pub fn is_simple_token_issuer(did: &Vec<u8>) -> bool {
+        <DidRecords<T>>::get(did).has_role(IdentityRole::SimpleTokenIssuer)
+    }
+
+    pub fn is_investor(investor_did: &Vec<u8>, master_did: &Vec<u8>) -> bool {
+        Self::has_role_for_did(investor_did, master_did, IdentityRole::Investor)
+    }
+
+    pub fn is_claim_issuer(issuer_did: &Vec<u8>, master_did: &Vec<u8>) -> bool {
+        Self::has_role_for_did(issuer_did, master_did, IdentityRole::ClaimIssuer)
+    }
+
+    /// It checks if `did` has role `role` for master key of `key_did`.
+    fn has_role_for_did(did: &Vec<u8>, key_did: &Vec<u8>, role: IdentityRole) -> bool {
+        let key = <DidRecords<T>>::get(key_did).master_key;
+        Self::has_role_for_key(did, &key, role)
+    }
+
+    /// It checks if `did` has role `role` for signing key `key`.
+    fn has_role_for_key(did: &Vec<u8>, key: &Key, role: IdentityRole) -> bool {
         let did_record = <DidRecords<T>>::get(did);
-        let issuer_record = <DidRecords<T>>::get(issuer_did);
-
-        issuer_record
+        did_record
             .signing_keys
             .iter()
-            .find(|&rk| *rk == did_record.master_key)
-            .map_or(false, |rk| rk.has_role(IdentityRole::ClaimIssuer))
-        // <ClaimIssuers>::get(did).contains(issuer_did)
+            .find(|&rk| rk == key)
+            .map_or(false, |rk| rk.has_role(role))
     }
 
     pub fn is_signing_key(did: &Vec<u8>, key: &Key) -> bool {
@@ -896,7 +875,7 @@ mod tests {
             assert_ok!(Identity::add_signing_keys(
                 claim_issuer.clone(),
                 claim_issuer_did.clone(),
-                vec![Key::from(owner_id.encode())]
+                vec![Key::try_from(owner_id.encode()).unwrap()]
             ));
 
             // Create issuer and claim issuer
@@ -953,7 +932,7 @@ mod tests {
     fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
         with_externalities(&mut build_ext(), || {
             let owner_id = Identity::owner();
-            let owner_key = Key::from(owner_id.encode());
+            let owner_key = Key::try_from(owner_id.encode()).unwrap();
             let (_owner, owner_did) = make_account(owner_id).unwrap();
             let (a, a_did) = make_account(2).unwrap();
             let (_b, b_did) = make_account(3).unwrap();
@@ -984,7 +963,7 @@ mod tests {
     fn revoking_claims() {
         with_externalities(&mut build_ext(), || {
             let owner_id = Identity::owner();
-            let owner_key = Key::from(owner_id.encode());
+            let owner_key = Key::try_from(owner_id.encode()).unwrap();
             let (owner, owner_did) = make_account(Identity::owner()).unwrap();
             let (issuer, issuer_did) = make_account(2).unwrap();
 
@@ -1054,10 +1033,10 @@ mod tests {
     fn check_grants_test() {
         with_externalities(&mut build_ext(), || {
             let owner_id = Identity::owner();
-            let owner_key = Key::from(owner_id.encode());
+            let owner_key = Key::try_from(owner_id.encode()).unwrap();
             let (owner, _owner_did) = make_account(Identity::owner()).unwrap();
             let owner2_id = 2;
-            let owner2_key = Key::from(owner2_id.encode());
+            let owner2_key = Key::try_from(owner2_id.encode()).unwrap();
             let (_owner2, _owner2_did) = make_account(owner2_id).unwrap();
             let (issuer, issuer_did) = make_account(3).unwrap();
 

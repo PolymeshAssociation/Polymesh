@@ -1,4 +1,4 @@
-use rstd::prelude::Vec;
+use rstd::{convert::TryFrom, prelude::Vec};
 
 /// Size of key, when it is u64
 #[cfg(test)]
@@ -15,17 +15,47 @@ impl Key {
     }
 }
 
-impl From<Vec<u8>> for Key {
-    fn from(v: Vec<u8>) -> Self {
-        Key::from(v.as_slice())
+impl TryFrom<Vec<u8>> for Key {
+    type Error = &'static str;
+
+    fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
+        Key::try_from(v.as_slice())
     }
 }
 
-impl From<&[u8]> for Key {
-    fn from(s: &[u8]) -> Self {
-        let mut k = Key::new();
-        k.0.copy_from_slice(s);
-        k
+impl TryFrom<&Vec<u8>> for Key {
+    type Error = &'static str;
+
+    fn try_from(v: &Vec<u8>) -> Result<Self, Self::Error> {
+        Key::try_from(v.as_slice())
+    }
+}
+
+impl TryFrom<&str> for Key {
+    type Error = &'static str;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        Key::try_from(s.as_bytes())
+    }
+}
+
+impl TryFrom<&[u8]> for Key {
+    type Error = &'static str;
+
+    fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
+        if s.len() == KEY_SIZE {
+            let mut k = Key::new();
+            k.0.copy_from_slice(s);
+            Ok(k)
+        } else {
+            Err("Invalid size for a key")
+        }
+    }
+}
+
+impl From<[u8; KEY_SIZE]> for Key {
+    fn from(s: [u8; KEY_SIZE]) -> Self {
+        Key(s)
     }
 }
 
@@ -49,11 +79,17 @@ impl PartialEq<Vec<u8>> for Key {
 
 #[cfg(test)]
 mod tests {
-    use super::Key;
+    use super::{Key, KEY_SIZE};
+    use std::convert::TryFrom;
 
     #[test]
-    #[should_panic]
-    fn panic_build_test() {
-        let _rk_panic = Key::from("ABCDABCDx".as_bytes());
+    fn build_test() {
+        let k: [u8; KEY_SIZE] = [1u8; KEY_SIZE];
+
+        assert!(Key::try_from(k).is_ok());
+        assert!(Key::try_from("ABCDABCD".as_bytes()).is_ok());
+        assert!(Key::try_from("ABCDABCD".as_bytes().to_vec()).is_ok());
+
+        assert!(Key::try_from("ABCDABCDx".as_bytes()).is_err());
     }
 }
