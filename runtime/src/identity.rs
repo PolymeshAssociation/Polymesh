@@ -1,13 +1,19 @@
-use rstd::prelude::*;
-//use codec::Codec;
+use rstd::{prelude::*, marker::PhantomData};
 
 pub static DID_PREFIX: &'static str = "did:poly:";
 use crate::balances;
 
-use codec::Encode;
-use sr_primitives::traits::{CheckedAdd, CheckedSub};
+use codec::{Codec, Encode, Decode};
+use sr_primitives::{
+	traits::{CheckedAdd, CheckedSub, SignedExtension, Dispatchable},
+    weights::DispatchInfo,
+	transaction_validity::{
+		ValidTransaction, InvalidTransaction, TransactionValidity, TransactionValidityError,
+	},
+    DispatchError,
+};
 use srml_support::{
-    decl_event, decl_module, decl_storage,
+    decl_event, decl_module, decl_storage, Parameter,
     dispatch::Result,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
@@ -57,6 +63,8 @@ pub struct ClaimRecord<U> {
 pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+	/// An extrinsic call.
+	type Proposal: Parameter + Dispatchable<Origin=Self::Origin>;
 }
 
 decl_storage! {
@@ -73,6 +81,8 @@ decl_storage! {
 
         /// DID -> DID claim issuers
         pub ClaimIssuers get(claim_issuers): map Vec<u8> => Vec<Vec<u8>>;
+
+        pub CurrentDid get(current_did): Vec<u8>;
 
         /// DID -> Associated claims
         pub Claims get(claims): map Vec<u8> => Vec<ClaimRecord<T::Moment>>;
@@ -424,6 +434,28 @@ decl_module! {
             Ok(())
         }
 
+		fn forwardedCall(origin, target_did: Vec<u8>, proposal: Box<T::Proposal>) -> Result {
+			let sender = ensure_signed(origin)?;
+            let current_did = <CurrentDid>::get();
+            // Check that current_did is a signing key of target_did
+            // Assuming it is...
+            <CurrentDid>::put(&target_did);
+            // Also set current_did roles when acting as a signing key for target_did 
+            // Re-dispatch call - e.g. to asset::doSomething...
+            let new_origin = system::RawOrigin::Signed(sender).into();
+
+			let res = match proposal.dispatch(new_origin) {
+				Ok(_) => true,
+				Err(e) => {
+					let e: DispatchError = e.into();
+					sr_primitives::print(e);
+					false
+				}
+			};            
+			
+            Ok(())
+		}
+
         /// Adds new claim records with an attestation. Only called by issuer signing keys
         fn add_claim_with_attestation(origin, did: Vec<u8>, did_issuer: Vec<u8>, claims: Vec<Claim<T::Moment>>, attestation: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
@@ -561,6 +593,8 @@ decl_event!(
 
         /// DID
         NewIssuer(Vec<u8>),
+
+        CurrentDidSet(Vec<u8>),
     }
 );
 
@@ -577,6 +611,12 @@ impl<T: Trait> Module<T> {
 
         Self::deposit_event(RawEvent::NewIssuer(issuer_did));
 
+        Ok(())
+    }
+
+    pub fn set_current_did(current_did: Vec<u8>) -> Result {
+        <CurrentDid>::put(current_did.clone());
+        Self::deposit_event(RawEvent::CurrentDidSet(current_did));
         Ok(())
     }
 
@@ -654,6 +694,11 @@ impl<T: Trait> Module<T> {
 
         return true;
     }
+
+    pub fn did_from_signing_key(signing_key: &Vec<u8>) -> Vec<u8> {
+        return <SigningKeyDid>::get(signing_key);
+    }
+
 }
 
 /// Make sure the supplied slice is a valid Polymesh DID
@@ -686,6 +731,49 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
         }
         return false;
     }
+
+}
+
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+pub struct UpdateDid<T: Trait + Send + Sync>(PhantomData<T>);
+
+impl<T: Trait + Send + Sync> Default for UpdateDid<T> {
+	fn default() -> Self {
+		Self(PhantomData)
+	}
+}
+
+#[cfg(feature = "std")]
+impl<T: Trait + Send + Sync> std::fmt::Debug for UpdateDid<T> {
+	fn fmt(&self, _: &mut std::fmt::Formatter) -> std::fmt::Result {
+		Ok(())
+	}
+}
+
+impl<T: Trait + Send + Sync> SignedExtension for UpdateDid<T> {
+	type AccountId = T::AccountId;
+	type Call = T::Call;
+	type AdditionalSigned = ();
+	type Pre = ();
+
+	fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> { Ok(()) }
+
+	fn validate(
+		&self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		_: DispatchInfo,
+		_: usize,
+	) -> TransactionValidity {
+        // Grab the did associated with account id 
+        // Check that the DID has whatever claims we need, return Err if not
+        // Should also store roles associated with signing ley so that they can be overriden as well
+        // Store it in CurrentDid
+        let encoded_transactor = who.clone().encode();
+        <Module<T>>::set_current_did(<Module<T>>::did_from_signing_key(&encoded_transactor));
+        // Should clean up current_did at the end of the block ideally
+        return Ok(ValidTransaction::default());		
+	}
 }
 
 /// tests for this module

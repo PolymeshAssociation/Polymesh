@@ -510,6 +510,7 @@ impl percentage_tm::Trait for Runtime {
 
 impl identity::Trait for Runtime {
     type Event = Event;
+    type Proposal = Call;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -599,6 +600,7 @@ pub type SignedExtra = (
     system::CheckWeight<Runtime>,
     balances::TakeFees<Runtime>,
     contracts::CheckBlockGasLimit<Runtime>,
+    identity::UpdateDid<Runtime>
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;

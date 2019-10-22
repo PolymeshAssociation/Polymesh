@@ -73,6 +73,13 @@ decl_module! {
         // initialize the default event for this module
         fn deposit_event() = default;
 
+        pub fn do_something(origin) -> Result {
+            // For business logic that needs did & did_roles, we get the did and it's roles through 
+            // <identity::Module<T>>::current_did() and <identity::Module<T>>::current_did_roles()
+            Self::deposit_event(RawEvent::SetDid(<identity::Module<T>>::current_did()));
+            Ok(())
+        }
+
         // multiple tokens in one go
         pub fn batch_create_token(origin, did: Vec<u8>, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::TokenBalance>, divisible_values: Vec<bool>) -> Result {
             let sender = ensure_signed(origin)?;
@@ -647,6 +654,8 @@ decl_event! {
             // get_document() output
             // ticker, name, uri, hash, last modification date
             GetDocument(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Moment),
+
+            SetDid(Vec<u8>),
         }
 }
 
