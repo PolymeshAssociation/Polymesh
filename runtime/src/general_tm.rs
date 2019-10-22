@@ -115,9 +115,8 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(&ticker, &sender_did)
     }
 
-    pub fn fetch_value(did: &Vec<u8>, key: &Vec<u8>, trusted_issuers: &Vec<Vec<u8>>) -> Vec<u8> {
-        // TODO Fetch value from Identity module
-        return 1.encode();
+    pub fn fetch_value(did: Vec<u8>, key: Vec<u8>, trusted_issuers: Vec<Vec<u8>>) -> Option<Vec<u8>> {
+        <identity::Module<T>>::fetch_claim_value_multiple_issuers(did, key, trusted_issuers)
     }
 
     pub fn check_rule(
@@ -375,28 +374,42 @@ impl<T: Trait> Module<T> {
         to_did: &Vec<u8>,
         _value: T::TokenBalance,
     ) -> StdResult<u8, &'static str> {
+        // Transfer is valid if All reciever and sender rules of any asset rule are valid.
         let ticker = utils::bytes_to_upper(ticker.as_slice());
         let active_rules = Self::active_rules(ticker.clone());
         for active_rule in active_rules {
             let mut rule_broken = false;
             for sender_rule in active_rule.sender_rules {
                 for data in sender_rule.rules_data {
-                    let identity_value = Self::fetch_value(&from_did, &data.key, &active_rule.trusted_issuers);
-                    rule_broken =
-                        Self::check_rule(data.value, identity_value, data.data_type, data.operator);
+                    let identity_value = Self::fetch_value(from_did.clone(), data.key, active_rule.trusted_issuers.clone());
+                    rule_broken = match identity_value {
+                        None => { true },
+                        Some(x) => { Self::check_rule(data.value, x, data.data_type, data.operator) }
+                    };
+                    if rule_broken {
+                        break;
+                    }
                 }
                 if rule_broken {
                     break;
                 }
             }
+            if rule_broken {
+                continue;
+            }
             for receiver_rule in active_rule.receiver_rules {
+                for data in receiver_rule.rules_data {
+                    let identity_value = Self::fetch_value(from_did.clone(), data.key, active_rule.trusted_issuers.clone());
+                    rule_broken = match identity_value {
+                        None => { true },
+                        Some(x) => { Self::check_rule(data.value, x, data.data_type, data.operator) }
+                    };
+                    if rule_broken {
+                        break;
+                    }
+                }
                 if rule_broken {
                     break;
-                }
-                for data in receiver_rule.rules_data {
-                    let identity_value = Self::fetch_value(&from_did, &data.key, &active_rule.trusted_issuers);
-                    rule_broken =
-                        Self::check_rule(data.value, identity_value, data.data_type, data.operator);
                 }
             }
             if !rule_broken {
