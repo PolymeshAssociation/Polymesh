@@ -767,14 +767,20 @@ impl<T: Trait + Send + Sync> SignedExtension for UpdateDid<T> {
 		_: DispatchInfo,
 		_: usize,
 	) -> TransactionValidity {
+        // Called before every transaction is processed, so makes available the current Did
+        // globally through CurrentDid in the identity SRML.
+        // CurrentDid can be overriden when forwarding calls
+
+        // Extrinsics in business logic modules should only care about this Did (and it's associated roles)
+        // not the actual origin (other than to check the message has been signed correctly)
+
         // Grab the did associated with account id 
         // Check that the DID has whatever claims we need, return Err if not
-        // Should also store roles associated with signing ley so that they can be overriden as well
-        // Store it in CurrentDid
-        // e.g.
         // let current_did = <Module<T>>::did_from_signing_key(&encoded_transactor);
         // let ok = T::has_valid_kyc(current_did);
         // if !ok return Err
+        // Should also store roles associated with signing ley so that they can be overriden as well
+        // Store it in CurrentDid
         let encoded_transactor = who.clone().encode();
         <Module<T>>::set_current_did(<Module<T>>::did_from_signing_key(&encoded_transactor));
         // Should clean up current_did at the end of the block ideally
