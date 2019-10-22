@@ -438,7 +438,9 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
             let current_did = <CurrentDid>::get();
             // Check that current_did is a signing key of target_did
-            // Assuming it is...
+            // ensure!(isSigningKey(current_did, target_did))
+            // Check that target_did has a KYC (this has already been done for current_did in the SignedExtension)
+            // ensure!(has_valid_kyc(target_did));
             <CurrentDid>::put(&target_did);
             // Also set current_did roles when acting as a signing key for target_did 
             // Re-dispatch call - e.g. to asset::doSomething...
@@ -769,6 +771,10 @@ impl<T: Trait + Send + Sync> SignedExtension for UpdateDid<T> {
         // Check that the DID has whatever claims we need, return Err if not
         // Should also store roles associated with signing ley so that they can be overriden as well
         // Store it in CurrentDid
+        // e.g.
+        // let current_did = <Module<T>>::did_from_signing_key(&encoded_transactor);
+        // let ok = T::has_valid_kyc(current_did);
+        // if !ok return Err
         let encoded_transactor = who.clone().encode();
         <Module<T>>::set_current_did(<Module<T>>::did_from_signing_key(&encoded_transactor));
         // Should clean up current_did at the end of the block ideally
