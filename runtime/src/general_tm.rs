@@ -1,10 +1,8 @@
 use crate::asset::{self, AssetTrait};
 use crate::constants::*;
-use crate::identity::{self, InvestorList};
+use crate::identity;
 use crate::utils;
 use codec::{Decode, Encode};
-
-use codec::Encode;
 use core::result::Result as StdResult;
 use rstd::prelude::*;
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
@@ -62,7 +60,7 @@ decl_module! {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
 
@@ -81,7 +79,7 @@ decl_module! {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(<identity::Module<T>>::is_signing_key(did.clone(), &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
 
@@ -112,7 +110,7 @@ decl_event!(
 impl<T: Trait> Module<T> {
     pub fn is_owner(_ticker: Vec<u8>, sender_did: Vec<u8>) -> bool {
         let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        T::Asset::is_owner(ticker.clone(), sender_did)
+        T::Asset::is_owner(&ticker, &sender_did)
     }
 
     pub fn fetch_value(did: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
@@ -374,8 +372,8 @@ impl<T: Trait> Module<T> {
         from_did: &Vec<u8>,
         to_did: &Vec<u8>,
         _value: T::TokenBalance,
-    ) -> Result {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
+    ) -> StdResult<u8, &'static str> {
+        let ticker = utils::bytes_to_upper(ticker.as_slice());
         let active_rules = Self::active_rules(ticker.clone());
         for active_rule in active_rules {
             let mut rule_broken = false;
@@ -400,12 +398,12 @@ impl<T: Trait> Module<T> {
                 }
             }
             if !rule_broken {
-                return Ok(());
+                return Ok(ERC1400_TRANSFER_SUCCESS);
             }
         }
 
         sr_primitives::print("Identity TM restrictions not satisfied");
-        Err("Cannot Transfer: Identity TM restrictions not satisfied")
+        Ok(ERC1400_TRANSFER_FAILURE)
 
         // let now = <timestamp::Module<T>>::get();
         // // issuance case
