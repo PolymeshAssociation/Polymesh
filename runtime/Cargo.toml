@@ -17,7 +17,6 @@ serde = { version = "1.0.101", default-features = false }
 serde_derive = { version = "1.0.101", optional = true }
 safe-mix = { version = "1.0.0", default-features = false }
 primitives = { package = "polymesh-primitives", path = "../primitives", default-features = false }
-curated-validation = { package = "curated-validation", path = "../curated-validation", default-features = false }
 codec = { package = "parity-scale-codec", version = "~1.0.0", default-features = false, features = ["derive"] }
 substrate-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
@@ -54,12 +53,14 @@ substrate-session = { git = "https://github.com/paritytech/substrate", default-f
 authority-discovery = { package = "srml-authority-discovery", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 authority-discovery-primitives = { package = "substrate-authority-discovery-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 srml-staking-reward-curve = { git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+phragmen = { package = "substrate-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.2" }
 
 [features]
-default = ["std"]
+equalize = []
+default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [
@@ -73,6 +74,7 @@ std = [
 	"substrate-primitives/std",
 	"client/std",
 	"offchain-primitives/std",
+	"phragmen/std",
 	"rstd/std",
 	"sr-io/std",
 	"srml-support/std",
@@ -104,5 +106,4 @@ std = [
 	"babe/std",
 	"babe-primitives/std",
     "substrate-session/std",
-    "curated-validation/std"
 ]
