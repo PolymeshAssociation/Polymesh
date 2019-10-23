@@ -8,14 +8,24 @@ use rstd::prelude::*;
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 
-// pub enum Types {
-//     U8, U16, U32, U64, U128,
-//     BYTES, STRING,
-// }
+#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum DataTypes {
+    U8, U16, U32, U64, U128,
+    Bool, VecU8,
+}
 
-// pub enum Operators {
-//     EQUAL_TO, NOT_EQUAL_TO, LESS_THAN, GREATER_THAN, LESS_OR_EQUAL_TO, GREATER_OR_EQUAL_TO,
-// }
+#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum Operators {
+    EqualTo, NotEqualTo, LessThan, GreaterThan, LessOrEqualTo, GreaterOrEqualTo,
+}
+
+impl Default for Operators {
+    fn default() -> Self { Operators::EqualTo }
+}
+
+impl Default for DataTypes {
+    fn default() -> Self { DataTypes::VecU8 }
+}
 
 /// The module's configuration trait.
 pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
@@ -44,8 +54,8 @@ pub struct AssetRule {
 pub struct RuleData {
     key: Vec<u8>,
     value: Vec<u8>,
-    data_type: u8, // 0u8 1u16 2u32 3u64 4u128, 5bool, 6Vec<u8>
-    operator: u8,  // 0= 1! 2< 3> 4<= 5>=
+    data_type: DataTypes,
+    operator: Operators,
 }
 
 decl_storage! {
@@ -122,216 +132,201 @@ impl<T: Trait> Module<T> {
     pub fn check_rule(
         rule_data: Vec<u8>,
         identity_data: Vec<u8>,
-        data_type: u8,
-        operator: u8,
+        data_type: DataTypes,
+        operator: Operators,
     ) -> bool {
         let mut rule_broken = false;
         match data_type {
-            0 => {
+            DataTypes::U8 => {
                 let rule_value = u8::decode(&mut &rule_data[..]).unwrap();
                 let identity_value: u8 = u8::decode(&mut &identity_data[..]).unwrap();
                 match operator {
-                    0 => {
+                    Operators::EqualTo => {
                         if rule_value != identity_value {
                             rule_broken = true;
                         }
                     }
-                    1 => {
+                    Operators::NotEqualTo => {
                         if rule_value == identity_value {
                             rule_broken = true;
                         }
                     }
-                    2 => {
+                    Operators::LessThan => {
                         if rule_value >= identity_value {
                             rule_broken = true;
                         }
                     }
-                    3 => {
+                    Operators::GreaterThan => {
                         if rule_value <= identity_value {
                             rule_broken = true;
                         }
                     }
-                    4 => {
+                    Operators::LessOrEqualTo => {
                         if rule_value > identity_value {
                             rule_broken = true;
                         }
                     }
-                    5 => {
+                    Operators::GreaterOrEqualTo => {
                         if rule_value < identity_value {
                             rule_broken = true;
                         }
                     }
-                    _ => {
-                        rule_broken = true;
-                    }
                 }
             }
-            1 => {
+            DataTypes::U16 => {
                 let rule_value = u16::decode(&mut &rule_data[..]).unwrap();
                 let identity_value = u16::decode(&mut &identity_data[..]).unwrap();
                 match operator {
-                    0 => {
+                    Operators::EqualTo => {
                         if rule_value != identity_value {
                             rule_broken = true;
                         }
                     }
-                    1 => {
+                    Operators::NotEqualTo => {
                         if rule_value == identity_value {
                             rule_broken = true;
                         }
                     }
-                    2 => {
+                    Operators::LessThan => {
                         if rule_value >= identity_value {
                             rule_broken = true;
                         }
                     }
-                    3 => {
+                    Operators::GreaterThan => {
                         if rule_value <= identity_value {
                             rule_broken = true;
                         }
                     }
-                    4 => {
+                    Operators::LessOrEqualTo => {
                         if rule_value > identity_value {
                             rule_broken = true;
                         }
                     }
-                    5 => {
+                    Operators::GreaterOrEqualTo => {
                         if rule_value < identity_value {
                             rule_broken = true;
                         }
                     }
-                    _ => {
-                        rule_broken = true;
-                    }
                 }
             }
-            2 => {
+            DataTypes::U32 => {
                 let rule_value = u32::decode(&mut &rule_data[..]).unwrap();
                 let identity_value = u32::decode(&mut &identity_data[..]).unwrap();
                 match operator {
-                    0 => {
+                    Operators::EqualTo => {
                         if rule_value != identity_value {
                             rule_broken = true;
                         }
                     }
-                    1 => {
+                    Operators::NotEqualTo => {
                         if rule_value == identity_value {
                             rule_broken = true;
                         }
                     }
-                    2 => {
+                    Operators::LessThan => {
                         if rule_value >= identity_value {
                             rule_broken = true;
                         }
                     }
-                    3 => {
+                    Operators::GreaterThan => {
                         if rule_value <= identity_value {
                             rule_broken = true;
                         }
                     }
-                    4 => {
+                    Operators::LessOrEqualTo => {
                         if rule_value > identity_value {
                             rule_broken = true;
                         }
                     }
-                    5 => {
+                    Operators::GreaterOrEqualTo => {
                         if rule_value < identity_value {
                             rule_broken = true;
                         }
                     }
-                    _ => {
-                        rule_broken = true;
-                    }
                 }
             }
-            3 => {
+            DataTypes::U64 => {
                 let rule_value = u64::decode(&mut &rule_data[..]).unwrap();
                 let identity_value = u64::decode(&mut &identity_data[..]).unwrap();
                 match operator {
-                    0 => {
+                    Operators::EqualTo => {
                         if rule_value != identity_value {
                             rule_broken = true;
                         }
                     }
-                    1 => {
+                    Operators::NotEqualTo => {
                         if rule_value == identity_value {
                             rule_broken = true;
                         }
                     }
-                    2 => {
+                    Operators::LessThan => {
                         if rule_value >= identity_value {
                             rule_broken = true;
                         }
                     }
-                    3 => {
+                    Operators::GreaterThan => {
                         if rule_value <= identity_value {
                             rule_broken = true;
                         }
                     }
-                    4 => {
+                    Operators::LessOrEqualTo => {
                         if rule_value > identity_value {
                             rule_broken = true;
                         }
                     }
-                    5 => {
+                    Operators::GreaterOrEqualTo => {
                         if rule_value < identity_value {
                             rule_broken = true;
                         }
                     }
-                    _ => {
-                        rule_broken = true;
-                    }
                 }
             }
-            4 => {
+            DataTypes::U128 => {
                 let rule_value = u128::decode(&mut &rule_data[..]).unwrap();
                 let identity_value = u128::decode(&mut &identity_data[..]).unwrap();
                 match operator {
-                    0 => {
+                    Operators::EqualTo => {
                         if rule_value != identity_value {
                             rule_broken = true;
                         }
                     }
-                    1 => {
+                    Operators::NotEqualTo => {
                         if rule_value == identity_value {
                             rule_broken = true;
                         }
                     }
-                    2 => {
+                    Operators::LessThan => {
                         if rule_value >= identity_value {
                             rule_broken = true;
                         }
                     }
-                    3 => {
+                    Operators::GreaterThan => {
                         if rule_value <= identity_value {
                             rule_broken = true;
                         }
                     }
-                    4 => {
+                    Operators::LessOrEqualTo => {
                         if rule_value > identity_value {
                             rule_broken = true;
                         }
                     }
-                    5 => {
+                    Operators::GreaterOrEqualTo => {
                         if rule_value < identity_value {
                             rule_broken = true;
                         }
                     }
-                    _ => {
-                        rule_broken = true;
-                    }
                 }
             }
-            5 => {
+            DataTypes::Bool => {
                 let rule_value = bool::decode(&mut &rule_data[..]).unwrap();
                 let identity_value = bool::decode(&mut &identity_data[..]).unwrap();
                 match operator {
-                    0 => {
+                    Operators::EqualTo => {
                         if rule_value != identity_value {
                             rule_broken = true;
                         }
                     }
-                    1 => {
+                    Operators::NotEqualTo => {
                         if rule_value == identity_value {
                             rule_broken = true;
                         }
@@ -341,16 +336,16 @@ impl<T: Trait> Module<T> {
                     }
                 }
             }
-            6 => {
+            DataTypes::VecU8 => {
                 let rule_value = Vec::<u8>::decode(&mut &rule_data[..]).unwrap();
                 let identity_value = Vec::<u8>::decode(&mut &identity_data[..]).unwrap();
                 match operator {
-                    0 => {
+                    Operators::EqualTo => {
                         if rule_value != identity_value {
                             rule_broken = true;
                         }
                     }
-                    1 => {
+                    Operators::NotEqualTo => {
                         if rule_value == identity_value {
                             rule_broken = true;
                         }
@@ -359,9 +354,6 @@ impl<T: Trait> Module<T> {
                         rule_broken = true;
                     }
                 }
-            }
-            _ => {
-                rule_broken = true;
             }
         }
         return rule_broken;
@@ -419,60 +411,6 @@ impl<T: Trait> Module<T> {
 
         sr_primitives::print("Identity TM restrictions not satisfied");
         Ok(ERC1400_TRANSFER_FAILURE)
-
-        // let now = <timestamp::Module<T>>::get();
-        // // issuance case
-        // if from == T::AccountId::default() {
-        //     ensure!(
-        //         Self::_check_investor_status(to.clone()).is_ok(),
-        //         "Account is not active"
-        //     );
-        //     ensure!(
-        //         Self::is_whitelisted(_ticker.clone(), to).is_ok(),
-        //         "to account is not whitelisted"
-        //     );
-        //     runtime_io::print("GTM: Passed from the issuance case");
-        //     return Ok(());
-        // } else if to == T::AccountId::default() {
-        //     // burn case
-        //     ensure!(
-        //         Self::_check_investor_status(from.clone()).is_ok(),
-        //         "Account is not active"
-        //     );
-        //     ensure!(
-        //         Self::is_whitelisted(_ticker.clone(), from).is_ok(),
-        //         "from account is not whitelisted"
-        //     );
-        //     runtime_io::print("GTM: Passed from the burn case");
-        //     return Ok(());
-        // } else {
-        //     // loop through existing whitelists
-        //     let whitelist_count = Self::whitelist_count();
-        //     ensure!(
-        //         Self::_check_investor_status(from.clone()).is_ok(),
-        //         "Account is not active"
-        //     );
-        //     ensure!(
-        //         Self::_check_investor_status(to.clone()).is_ok(),
-        //         "Account is not active"
-        //     );
-        //     for x in 0..whitelist_count {
-        //         let whitelist_for_from =
-        //             Self::whitelist_for_restriction((ticker.clone(), x, from.clone()));
-        //         let whitelist_for_to =
-        //             Self::whitelist_for_restriction((ticker.clone(), x, to.clone()));
-
-        //         if (whitelist_for_from.can_send_after > T::Moment::sa(0)
-        //             && now >= whitelist_for_from.can_send_after)
-        //             && (whitelist_for_to.can_receive_after > T::Moment::sa(0)
-        //                 && now > whitelist_for_to.can_receive_after)
-        //         {
-        //             return Ok(());
-        //         }
-        //     }
-        // }
-        // runtime_io::print("GTM: Not going through the restriction");
-        // Err("Cannot Transfer: General TM restrictions not satisfied")
     }
 }
 
