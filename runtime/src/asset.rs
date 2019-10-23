@@ -165,11 +165,12 @@ decl_module! {
         pub fn create_token(origin, did: Vec<u8>, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, divisible: bool) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, & Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender_key), "sender must be a signing key for DID");
 
-            ensure!(<identity::Module<T>>::is_issuer(&did),"DID is not an issuer");
+            ensure!(<identity::Module<T>>::is_issuer_of_key(&did, &sender_key),"DID is not an issuer");
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
@@ -899,8 +900,10 @@ mod tests {
 
     use std::sync::{Arc, Mutex};
 
-    use crate::exemption;
-    use crate::identity;
+    use crate::{
+        entity::{IdentityRole, Key},
+        exemption, identity,
+    };
 
     type SessionIndex = u32;
     type AuthorityId = u64;
@@ -1108,6 +1111,19 @@ mod tests {
             identity::Module::<Test>::do_create_issuer(&owner_did, &owner_key)
                 .expect("Could not make token.owner an issuer");
 
+            // Add itself as issuer.
+            // TODO Check if this should be added automatically.
+            assert_ok!(Identity::add_signing_keys(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                vec![owner_key.clone()]
+            ));
+            assert_ok!(Identity::set_roles(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                vec![IdentityRole::Issuer]
+            ));
+
             // Issuance is successful
             assert_ok!(Asset::create_token(
                 Origin::signed(owner_acc),
@@ -1195,6 +1211,12 @@ mod tests {
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
             Identity::register_did(Origin::signed(alice_acc), alice_did.clone(), vec![])
                 .expect("Could not create alice_did");
+
+            assert_ok!(Identity::add_signing_keys(
+                Origin::signed(alice_acc),
+                alice_did.clone(),
+                vec![owner_key.clone()]
+            ));
             identity::Module::<Test>::do_create_investor(&alice_did, &owner_key)
                 .expect("Could not make token.owner an issuer");
             let bob_acc = 3;
@@ -1203,6 +1225,12 @@ mod tests {
             Balances::make_free_balance_be(&bob_acc, 1_000_000);
             Identity::register_did(Origin::signed(bob_acc), bob_did.clone(), vec![])
                 .expect("Could not create bob_did");
+
+            assert_ok!(Identity::add_signing_keys(
+                Origin::signed(bob_acc),
+                bob_did.clone(),
+                vec![owner_key.clone()]
+            ));
             identity::Module::<Test>::do_create_investor(&bob_did, &owner_key)
                 .expect("Could not make token.owner an issuer");
             Identity::fund_poly(Origin::signed(owner_acc), owner_did.clone(), 500_000)
@@ -1212,6 +1240,16 @@ mod tests {
                 .expect("Could not make token.owner an issuer");
 
             // Issuance is successful
+            assert_ok!(Identity::add_signing_keys(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                vec![owner_key.clone()]
+            ));
+            assert_ok!(Identity::set_roles(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                vec![IdentityRole::Issuer, IdentityRole::Investor]
+            ));
             assert_ok!(Asset::create_token(
                 Origin::signed(owner_acc),
                 owner_did.clone(),

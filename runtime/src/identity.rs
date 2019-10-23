@@ -24,7 +24,7 @@ pub struct DidRecord<U> {
 }
 
 impl<U> DidRecord<U> {
-    pub fn has_role(&self, role: IdentityRole) -> bool {
+    pub fn has_signing_keys_role(&self, role: IdentityRole) -> bool {
         self.signing_keys
             .iter()
             .find(|&rk| rk.has_role(role))
@@ -163,7 +163,7 @@ decl_module! {
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
-        fn add_signing_keys(origin, did: Vec<u8>, additional_keys: Vec<Key>) -> Result {
+        pub fn add_signing_keys(origin, did: Vec<u8>, additional_keys: Vec<Key>) -> Result {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
@@ -173,11 +173,11 @@ decl_module! {
             let record = <DidRecords<T>>::get(&did);
             ensure!(record.master_key == sender_key, "Sender must hold the master key");
 
-            for key in &additional_keys {
+            /*for key in &additional_keys {
                 if <SigningKeyDid>::exists(key) {
                     ensure!(<SigningKeyDid>::get(key) == did, "One signing key can only belong to one DID");
                 }
-            }
+            }*/
 
             for key in &additional_keys {
                 <SigningKeyDid>::insert(key, did.clone());
@@ -363,7 +363,7 @@ decl_module! {
             ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
 
             let sender_key = Key::try_from( sender.encode())?;
-            ensure!(Self::is_claim_issuer(&did, &did_issuer) || Self::is_master_key(&did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
+            ensure!(Self::is_claim_issuer(&did, &did_issuer) /*|| Self::is_master_key(&did, &sender_key)*/, "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             ensure!(Self::is_signing_key(&did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
@@ -569,6 +569,11 @@ impl<T: Trait> Module<T> {
         ensure!(<DidRecords<T>>::exists(did), "Investor DID does not exist");
         let record = <DidRecords<T>>::get(did);
 
+        // You are trying to add a role to did's master key. It is not needed.
+        if record.master_key == *key {
+            return Ok(());
+        }
+
         // Target did has sender's master key in its signing keys.
         ensure!(
             record.signing_keys.iter().find(|&rk| rk == key).is_some(),
@@ -607,11 +612,14 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn is_issuer(did: &Vec<u8>) -> bool {
-        <DidRecords<T>>::get(did).has_role(IdentityRole::Issuer)
+        <DidRecords<T>>::get(did).has_signing_keys_role(IdentityRole::Issuer)
     }
 
-    pub fn is_issuer_of(issuer_did: &Vec<u8>, master_did: &Vec<u8>) -> bool {
+    pub fn is_issuer_of_did(issuer_did: &Vec<u8>, master_did: &Vec<u8>) -> bool {
         Self::has_role_for_did(issuer_did, master_did, IdentityRole::Issuer)
+    }
+    pub fn is_issuer_of_key(issuer_did: &Vec<u8>, key: &Key) -> bool {
+        Self::has_role_for_key(issuer_did, key, IdentityRole::Issuer)
     }
 
     pub fn is_simple_token_issuer_of(st_issuer_did: &Vec<u8>, master_did: &Vec<u8>) -> bool {
@@ -619,7 +627,7 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn is_simple_token_issuer(did: &Vec<u8>) -> bool {
-        <DidRecords<T>>::get(did).has_role(IdentityRole::SimpleTokenIssuer)
+        <DidRecords<T>>::get(did).has_signing_keys_role(IdentityRole::SimpleTokenIssuer)
     }
 
     pub fn is_investor(investor_did: &Vec<u8>, master_did: &Vec<u8>) -> bool {
@@ -639,11 +647,16 @@ impl<T: Trait> Module<T> {
     /// It checks if `did` has role `role` for signing key `key`.
     fn has_role_for_key(did: &Vec<u8>, key: &Key, role: IdentityRole) -> bool {
         let did_record = <DidRecords<T>>::get(did);
+        /*
+          if did_record.master_key == *key {
+            true
+        } else {*/
         did_record
             .signing_keys
             .iter()
             .find(|&rk| rk == key)
             .map_or(false, |rk| rk.has_role(role))
+        // }
     }
 
     pub fn is_signing_key(did: &Vec<u8>, key: &Key) -> bool {
@@ -893,11 +906,6 @@ mod tests {
                 claim_issuer_did.clone(),
                 vec![IdentityRole::ClaimIssuer]
             ));
-            /*assert_ok!(Identity::add_claim_issuer(
-                owner.clone(),
-                owner_did.clone(),
-                claim_issuer_did.clone()
-            ));*/
 
             // Add Claims by master & claim_issuer
             let claims = vec![Claim {
@@ -929,9 +937,25 @@ mod tests {
                 ),
                 "did_issuer must be a claim issuer or master key for DID"
             );
+            // TODO: Is it valid? Can any user create claims for itself?
             assert_err!(
-                Identity::add_claim(owner.clone(), owner_did.clone(), issuer_did, claims),
-                "Sender must hold a claim issuer\'s signing key"
+                Identity::add_claim(
+                    issuer.clone(),
+                    issuer_did.clone(),
+                    issuer_did.clone(),
+                    claims.clone()
+                ),
+                "did_issuer must be a claim issuer or master key for DID"
+            );
+
+            assert_err!(
+                Identity::add_claim(
+                    issuer.clone(),
+                    issuer_did.clone(),
+                    claim_issuer_did.clone(),
+                    claims.clone()
+                ),
+                "did_issuer must be a claim issuer or master key for DID"
             );
         });
     }
@@ -1011,6 +1035,7 @@ mod tests {
                 ),
                 "did_issuer must be a claim issuer for DID"
             );
+            // TODO Should this fail?
             assert_err!(
                 Identity::revoke_claim(
                     claim_issuer.clone(),

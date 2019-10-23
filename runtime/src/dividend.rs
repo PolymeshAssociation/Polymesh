@@ -451,8 +451,8 @@ mod tests {
     };
 
     use crate::{
-        asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
-        simple_token::SimpleTokenRecord,
+        asset::SecurityToken, balances, entity::IdentityRole, exemption, general_tm, identity,
+        percentage_tm, registry, simple_token::SimpleTokenRecord,
     };
 
     type SessionIndex = u32;
@@ -735,6 +735,13 @@ mod tests {
             <identity::DidRecords<Test>>::mutate(&payout_owner_did, |record| {
                 record.balance = 1_000_000;
             });
+
+            assert_ok!(Identity::add_signing_keys(
+                Origin::signed(payout_owner_acc),
+                payout_owner_did.clone(),
+                vec![token_owner_key.clone()]
+            ));
+
             identity::Module::<Test>::do_create_issuer(&token.owner_did, &token_owner_key)
                 .expect("Could not make token.owner_did an issuer");
             identity::Module::<Test>::do_create_simple_token_issuer(
@@ -744,6 +751,21 @@ mod tests {
             .expect("Could not make payout_token.owner_did an issuer");
             identity::Module::<Test>::do_create_investor(&token.owner_did, &token_owner_key)
                 .expect("Could not make token.owner_did an investor");
+
+            assert_ok!(Identity::add_signing_keys(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                vec![token_owner_key.clone()]
+            ));
+            assert_ok!(Identity::set_roles(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                vec![
+                    IdentityRole::SimpleTokenIssuer,
+                    IdentityRole::Issuer,
+                    IdentityRole::Investor
+                ]
+            ));
 
             // Share issuance is successful
             assert_ok!(Asset::create_token(
@@ -772,6 +794,12 @@ mod tests {
             <identity::DidRecords<Test>>::mutate(investor_did.clone(), |record| {
                 record.balance = 1_000_000;
             });
+
+            Identity::add_signing_keys(
+                Origin::signed(investor_acc),
+                investor_did.clone(),
+                vec![token_owner_key.clone()],
+            );
             identity::Module::<Test>::do_create_investor(&investor_did, &token_owner_key)
                 .expect("Could not create an investor");
             let amount_invested = 50_000;

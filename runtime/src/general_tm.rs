@@ -209,7 +209,7 @@ impl<T: Trait> Module<T> {
     fn _check_investor_status(holder_did: &Vec<u8>) -> Result {
         let investor = <identity::DidRecords<T>>::get(holder_did);
         ensure!(
-            investor.has_role(IdentityRole::Investor),
+            investor.has_signing_keys_role(IdentityRole::Investor),
             "Account is not an investor"
         );
         Ok(())
