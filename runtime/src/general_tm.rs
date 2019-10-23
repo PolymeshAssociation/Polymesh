@@ -47,13 +47,13 @@ pub struct Rule {
 pub struct AssetRule {
     sender_rules: Vec<Rule>,
     receiver_rules: Vec<Rule>,
-    trusted_issuers: Vec<Vec<u8>>,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct RuleData {
     key: Vec<u8>,
     value: Vec<u8>,
+    trusted_issuers: Vec<Vec<u8>>,
     data_type: DataTypes,
     operator: Operators,
 }
@@ -373,7 +373,7 @@ impl<T: Trait> Module<T> {
             let mut rule_broken = false;
             for sender_rule in active_rule.sender_rules {
                 for data in sender_rule.rules_data {
-                    let identity_value = Self::fetch_value(from_did.clone(), data.key, active_rule.trusted_issuers.clone());
+                    let identity_value = Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
                     rule_broken = match identity_value {
                         None => { true },
                         Some(x) => { Self::check_rule(data.value, x, data.data_type, data.operator) }
@@ -391,7 +391,7 @@ impl<T: Trait> Module<T> {
             }
             for receiver_rule in active_rule.receiver_rules {
                 for data in receiver_rule.rules_data {
-                    let identity_value = Self::fetch_value(from_did.clone(), data.key, active_rule.trusted_issuers.clone());
+                    let identity_value = Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
                     rule_broken = match identity_value {
                         None => { true },
                         Some(x) => { Self::check_rule(data.value, x, data.data_type, data.operator) }
