@@ -10,21 +10,35 @@ use system::{self, ensure_signed};
 
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum DataTypes {
-    U8, U16, U32, U64, U128,
-    Bool, VecU8,
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    Bool,
+    VecU8,
 }
 
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Operators {
-    EqualTo, NotEqualTo, LessThan, GreaterThan, LessOrEqualTo, GreaterOrEqualTo,
+    EqualTo,
+    NotEqualTo,
+    LessThan,
+    GreaterThan,
+    LessOrEqualTo,
+    GreaterOrEqualTo,
 }
 
 impl Default for Operators {
-    fn default() -> Self { Operators::EqualTo }
+    fn default() -> Self {
+        Operators::EqualTo
+    }
 }
 
 impl Default for DataTypes {
-    fn default() -> Self { DataTypes::VecU8 }
+    fn default() -> Self {
+        DataTypes::VecU8
+    }
 }
 
 /// The module's configuration trait.
@@ -125,7 +139,11 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(&ticker, &sender_did)
     }
 
-    pub fn fetch_value(did: Vec<u8>, key: Vec<u8>, trusted_issuers: Vec<Vec<u8>>) -> Option<Vec<u8>> {
+    pub fn fetch_value(
+        did: Vec<u8>,
+        key: Vec<u8>,
+        trusted_issuers: Vec<Vec<u8>>,
+    ) -> Option<Vec<u8>> {
         <identity::Module<T>>::fetch_claim_value_multiple_issuers(did, key, trusted_issuers)
     }
 
@@ -373,10 +391,11 @@ impl<T: Trait> Module<T> {
             let mut rule_broken = false;
             for sender_rule in active_rule.sender_rules {
                 for data in sender_rule.rules_data {
-                    let identity_value = Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
+                    let identity_value =
+                        Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
                     rule_broken = match identity_value {
-                        None => { true },
-                        Some(x) => { Self::check_rule(data.value, x, data.data_type, data.operator) }
+                        None => true,
+                        Some(x) => Self::check_rule(data.value, x, data.data_type, data.operator),
                     };
                     if rule_broken {
                         break;
@@ -391,10 +410,11 @@ impl<T: Trait> Module<T> {
             }
             for receiver_rule in active_rule.receiver_rules {
                 for data in receiver_rule.rules_data {
-                    let identity_value = Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
+                    let identity_value =
+                        Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
                     rule_broken = match identity_value {
-                        None => { true },
-                        Some(x) => { Self::check_rule(data.value, x, data.data_type, data.operator) }
+                        None => true,
+                        Some(x) => Self::check_rule(data.value, x, data.data_type, data.operator),
                     };
                     if rule_broken {
                         break;
