@@ -36,9 +36,18 @@
             "Operator"
        ]
     },
-    "RoledKey": {
+    "KType": {
+        "_enum": [
+            "External",
+            "Identity",
+            "Multisig",
+            "Relayer"
+        ]
+    },
+    "SigningKey": {
         "key": "Key",
-        "roles": "KRole"
+        "type": "KType",
+        "roles": "Vec<KRole>"
     },
     "IdentityRole": {
         "_enum": [
@@ -57,7 +66,7 @@
     "DidRecord": {
         "roles": "Vec<IdentityRole>",
         "master_key": "Key",
-        "signing_keys": "Vec<RoledKey>",
+        "signing_keys": "Vec<SigningKey>",
         "balance": "Balance"
     },
     "Claim": {
