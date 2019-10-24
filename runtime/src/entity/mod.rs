@@ -10,5 +10,5 @@ pub use did_record::DidRecord;
 pub mod key;
 pub use key::Key;
 
-pub mod roled_key;
-pub use roled_key::{KRole, RoledKey};
+pub mod signing_key;
+pub use signing_key::{KeyRole, SigningKey, SigningKeyType};

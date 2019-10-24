@@ -3,7 +3,7 @@ use rstd::{convert::TryFrom, prelude::*};
 pub static DID_PREFIX: &'static str = "did:poly:";
 use crate::{
     balances,
-    entity::{DidRecord, KRole, Key, RoledKey},
+    entity::{DidRecord, Key, KeyRole, SigningKey},
 };
 
 use codec::Encode;
@@ -80,7 +80,7 @@ decl_module! {
         }
 
         /// Register signing keys for a new DID. Uses origin key as the master key
-        pub fn register_did(origin, did: Vec<u8>, signing_keys: Vec<RoledKey>) -> Result {
+        pub fn register_did(origin, did: Vec<u8>, signing_keys: Vec<SigningKey>) -> Result {
             let sender = ensure_signed(origin)?;
             let master_key = Key::try_from( sender.encode())?;
 
@@ -153,7 +153,7 @@ decl_module! {
                         .find( |&rk| rk == add_key)
                         .is_none()
                     })
-                    .map( |add_key| RoledKey::from(add_key.clone()))
+                    .map( |add_key| SigningKey::from(add_key.clone()))
                     .collect::<Vec<_>>();
 
                 (*record).signing_keys.append( &mut new_roled_keys);
@@ -204,7 +204,7 @@ decl_module! {
             Ok(())
         }
 
-        pub fn set_key_roles(origin, did: Vec<u8>, roles: Vec<KRole>) -> Result {
+        pub fn set_key_roles(origin, did: Vec<u8>, roles: Vec<KeyRole>) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from( sender.encode())?;
 
@@ -487,7 +487,7 @@ decl_event!(
         Moment = <T as timestamp::Trait>::Moment,
     {
         /// DID, master key account ID, signing keys
-        NewDid(Vec<u8>, AccountId, Vec<RoledKey>),
+        NewDid(Vec<u8>, AccountId, Vec<SigningKey>),
 
         /// DID, new keys
         SigningKeysAdded(Vec<u8>, Vec<Key>),
@@ -536,7 +536,7 @@ decl_event!(
 impl<T: Trait> Module<T> {
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
-    fn update_roles(target_did: &Vec<u8>, key: &Key, roles: Vec<KRole>) -> Result {
+    fn update_roles(target_did: &Vec<u8>, key: &Key, roles: Vec<KeyRole>) -> Result {
         <DidRecords<T>>::mutate(target_did, |record| {
             // First filter avoids duplication of key.
             let mut signing_keys = record
@@ -546,13 +546,13 @@ impl<T: Trait> Module<T> {
                 .cloned()
                 .collect::<Vec<_>>();
 
-            signing_keys.push(RoledKey::new(key.clone(), roles));
+            signing_keys.push(SigningKey::new(key.clone(), roles));
             (*record).signing_keys = signing_keys;
         });
         Ok(())
     }
 
-    fn do_set_key_roles(target_did: &Vec<u8>, key: &Key, roles: Vec<KRole>) -> Result {
+    fn do_set_key_roles(target_did: &Vec<u8>, key: &Key, roles: Vec<KeyRole>) -> Result {
         // Target did existence
         ensure!(
             <DidRecords<T>>::exists(target_did),
@@ -570,7 +570,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// It adds `role` role to `did` for signing key `key`.
-    pub fn add_role_to_key(did: &Vec<u8>, key: &Key, role: KRole) -> Result {
+    pub fn add_role_to_key(did: &Vec<u8>, key: &Key, role: KeyRole) -> Result {
         ensure!(<DidRecords<T>>::exists(did), "Investor DID does not exist");
         let record = <DidRecords<T>>::get(did);
 

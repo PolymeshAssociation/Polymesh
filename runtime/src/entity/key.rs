@@ -9,6 +9,8 @@ const KEY_SIZE: usize = 32;
 #[derive(codec::Encode, codec::Decode, Default, Eq, Clone, Debug)]
 pub struct Key([u8; KEY_SIZE]);
 
+/// It stores a simple key.
+/// It uses fixed size to avoid allocations.
 impl Key {
     pub fn new() -> Self {
         Key([0u8; KEY_SIZE])
@@ -85,10 +87,11 @@ mod tests {
     #[test]
     fn build_test() {
         let k: [u8; KEY_SIZE] = [1u8; KEY_SIZE];
+        let k2 = "ABCDABCD".as_bytes().to_vec();
 
         assert!(Key::try_from(k).is_ok());
-        assert!(Key::try_from("ABCDABCD".as_bytes()).is_ok());
-        assert!(Key::try_from("ABCDABCD".as_bytes().to_vec()).is_ok());
+        assert!(Key::try_from(k2.as_slice()).is_ok());
+        assert!(Key::try_from(k2).is_ok());
 
         assert!(Key::try_from("ABCDABCDx".as_bytes()).is_err());
     }
