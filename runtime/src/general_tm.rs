@@ -7,17 +7,7 @@ use core::result::Result as StdResult;
 use rstd::prelude::*;
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
-
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum DataTypes {
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
-    Bool,
-    VecU8,
-}
+use identity::{ClaimValue, DataTypes};
 
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Operators {
@@ -32,12 +22,6 @@ pub enum Operators {
 impl Default for Operators {
     fn default() -> Self {
         Operators::EqualTo
-    }
-}
-
-impl Default for DataTypes {
-    fn default() -> Self {
-        DataTypes::VecU8
     }
 }
 
@@ -68,7 +52,6 @@ pub struct RuleData {
     key: Vec<u8>,
     value: Vec<u8>,
     trusted_issuers: Vec<Vec<u8>>,
-    data_type: DataTypes,
     operator: Operators,
 }
 
@@ -143,7 +126,7 @@ impl<T: Trait> Module<T> {
         did: Vec<u8>,
         key: Vec<u8>,
         trusted_issuers: Vec<Vec<u8>>,
-    ) -> Option<Vec<u8>> {
+    ) -> Option<ClaimValue> {
         <identity::Module<T>>::fetch_claim_value_multiple_issuers(did, key, trusted_issuers)
     }
 
@@ -395,7 +378,7 @@ impl<T: Trait> Module<T> {
                         Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
                     rule_broken = match identity_value {
                         None => true,
-                        Some(x) => Self::check_rule(data.value, x, data.data_type, data.operator),
+                        Some(x) => Self::check_rule(data.value, x.value, x.data_type, data.operator),
                     };
                     if rule_broken {
                         break;
@@ -414,7 +397,7 @@ impl<T: Trait> Module<T> {
                         Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
                     rule_broken = match identity_value {
                         None => true,
-                        Some(x) => Self::check_rule(data.value, x, data.data_type, data.operator),
+                        Some(x) => Self::check_rule(data.value, x.value, x.data_type, data.operator),
                     };
                     if rule_broken {
                         break;

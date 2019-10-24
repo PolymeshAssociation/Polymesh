@@ -40,14 +40,36 @@ pub struct DidRecord<U> {
 pub struct Claim<U> {
     issuance_date: U,
     expiry: U,
-    data_type: u8,
-    value: Vec<u8>,
+    claim_value: ClaimValue,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimMetaData {
     claim_key: Vec<u8>,
     claim_issuer: Vec<u8>,
+}
+
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct ClaimValue {
+    pub data_type: DataTypes,
+    pub value: Vec<u8>,
+}
+
+#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum DataTypes {
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    Bool,
+    VecU8,
+}
+
+impl Default for DataTypes {
+    fn default() -> Self {
+        DataTypes::VecU8
+    }
 }
 
 /// The module's configuration trait.
@@ -598,7 +620,7 @@ impl<T: Trait> Module<T> {
         did: Vec<u8>,
         claim_key: Vec<u8>,
         claim_issuer: Vec<u8>,
-    ) -> Option<Vec<u8>> {
+    ) -> Option<ClaimValue> {
         let claim_meta_data = ClaimMetaData {
             claim_key: claim_key,
             claim_issuer: claim_issuer,
@@ -607,7 +629,7 @@ impl<T: Trait> Module<T> {
             let now = <timestamp::Module<T>>::get();
             let claim = <Claims<T>>::get((did, claim_meta_data));
             if claim.expiry > now {
-                return Some(claim.value);
+                return Some(claim.claim_value);
             }
         }
         return None;
@@ -617,7 +639,7 @@ impl<T: Trait> Module<T> {
         did: Vec<u8>,
         claim_key: Vec<u8>,
         claim_issuers: Vec<Vec<u8>>,
-    ) -> Option<Vec<u8>> {
+    ) -> Option<ClaimValue> {
         for claim_issuer in claim_issuers {
             let claim_value = Self::fetch_claim_value(did.clone(), claim_key.clone(), claim_issuer);
             if claim_value.is_some() {
