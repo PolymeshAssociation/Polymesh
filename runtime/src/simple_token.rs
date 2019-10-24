@@ -57,7 +57,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
-            ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
+            // ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
             <identity::DidRecords<T>>::mutate(&did, |record| -> Result {

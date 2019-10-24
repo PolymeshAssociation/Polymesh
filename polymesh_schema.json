@@ -29,23 +29,33 @@
         "jurisdiction": "u16"
     },
     "Key": "[u8;32]",
-    "IdentityRole": {
+    "KRole": {
         "_enum": [
             "Full",
             "Admin",
-            "Operator",
-            "Issuer",
-            "Validator",
-            "ClaimIssuer",
-            "Investor",
-            "NodeRunner"
+            "Operator"
        ]
     },
     "RoledKey": {
         "key": "Key",
-        "roles": "IdentityRole"
+        "roles": "KRole"
+    },
+    "IdentityRole" {
+        "_enum": [
+            "Issuer",
+            "SimpleTokenIssuer",
+            "Validator",
+            "ClaimIssuer",
+            "Investor",
+            "NodeRunner",
+            "PM",
+            "KYCAMLClaimIssuer",
+            "AccreditedInvestorClaimIssuer",
+            "VerifiedIdentityClaimIssuer"
+       ]
     },
     "DidRecord": {
+        "roles": "Vec<IdentityRole>",
         "master_key": "Key",
         "signing_keys": "Vec<RoledKey>",
         "balance": "Balance"

@@ -80,7 +80,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(&did, &sender_key), "sender must be a signing key for DID");
-            ensure!(<identity::Module<T>>::is_issuer(&did),"DID is not an issuer");
 
             // Ensure we get a complete set of parameters for every token
             ensure!((names.len() == tickers.len()) == (total_supply_values.len() == divisible_values.len()), "Inconsistent token param vector lengths");
@@ -170,7 +169,6 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(&did, &sender_key), "sender must be a signing key for DID");
 
-            ensure!(<identity::Module<T>>::is_issuer_of_key(&did, &sender_key),"DID is not an issuer");
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
@@ -323,8 +321,6 @@ decl_module! {
         pub fn issue(origin, did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
             let upper_ticker = utils::bytes_to_upper(&ticker);
             let sender = ensure_signed(origin)?;
-
-            let _verified_grants = <identity::Module<T>>::check_default_grants(&did)?;
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(&did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
@@ -900,10 +896,7 @@ mod tests {
 
     use std::sync::{Arc, Mutex};
 
-    use crate::{
-        entity::{IdentityRole, Key},
-        exemption, identity,
-    };
+    use crate::{entity::Key, exemption, identity};
 
     type SessionIndex = u32;
     type AuthorityId = u64;
@@ -1108,8 +1101,8 @@ mod tests {
             Identity::fund_poly(Origin::signed(owner_acc), owner_did.clone(), 500_000)
                 .expect("Could not add funds to DID");
 
-            identity::Module::<Test>::do_create_issuer(&owner_did, &owner_key)
-                .expect("Could not make token.owner an issuer");
+            // identity::Module::<Test>::do_create_issuer(&owner_did, &owner_key)
+            //    .expect("Could not make token.owner an issuer");
 
             // Add itself as issuer.
             // TODO Check if this should be added automatically.
@@ -1117,11 +1110,6 @@ mod tests {
                 Origin::signed(owner_acc),
                 owner_did.clone(),
                 vec![owner_key.clone()]
-            ));
-            assert_ok!(Identity::set_roles(
-                Origin::signed(owner_acc),
-                owner_did.clone(),
-                vec![IdentityRole::Issuer]
             ));
 
             // Issuance is successful
@@ -1139,7 +1127,10 @@ mod tests {
         });
     }
 
+    /// # TODO
+    /// It should be re-enable once issuer claim is re-enabled.
     #[test]
+    #[ignore]
     fn non_issuers_cant_create_tokens() {
         with_externalities(&mut identity_owned_by_1(), || {
             let owner_did = "did:poly:1".as_bytes().to_vec();
@@ -1188,7 +1179,7 @@ mod tests {
 
             let owner_acc = 1;
             let owner_did = "did:poly:1".as_bytes().to_vec();
-            let owner_key = Key::try_from(owner_acc.encode()).unwrap();
+            // let owner_key = Key::try_from(owner_acc.encode()).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -1202,8 +1193,8 @@ mod tests {
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
             Identity::register_did(Origin::signed(owner_acc), owner_did.clone(), vec![])
                 .expect("Could not create owner_did");
-            identity::Module::<Test>::do_create_investor(&owner_did, &owner_key)
-                .expect("Could not make token.owner an issuer");
+            // identity::Module::<Test>::do_create_investor(&owner_did)
+            //    .expect("Could not make token.owner an issuer");
 
             let alice_acc = 2;
             let alice_did = "did:poly:alice".as_bytes().to_vec();
@@ -1211,45 +1202,23 @@ mod tests {
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
             Identity::register_did(Origin::signed(alice_acc), alice_did.clone(), vec![])
                 .expect("Could not create alice_did");
-
-            assert_ok!(Identity::add_signing_keys(
-                Origin::signed(alice_acc),
-                alice_did.clone(),
-                vec![owner_key.clone()]
-            ));
-            identity::Module::<Test>::do_create_investor(&alice_did, &owner_key)
-                .expect("Could not make token.owner an issuer");
+            // identity::Module::<Test>::do_create_investor(alice_did.clone())
+            //    .expect("Could not make token.owner an issuer");
             let bob_acc = 3;
             let bob_did = "did:poly:bob".as_bytes().to_vec();
 
             Balances::make_free_balance_be(&bob_acc, 1_000_000);
             Identity::register_did(Origin::signed(bob_acc), bob_did.clone(), vec![])
                 .expect("Could not create bob_did");
-
-            assert_ok!(Identity::add_signing_keys(
-                Origin::signed(bob_acc),
-                bob_did.clone(),
-                vec![owner_key.clone()]
-            ));
-            identity::Module::<Test>::do_create_investor(&bob_did, &owner_key)
-                .expect("Could not make token.owner an issuer");
+            // identity::Module::<Test>::do_create_investor(bob_did.clone())
+            //     .expect("Could not make token.owner an issuer");
             Identity::fund_poly(Origin::signed(owner_acc), owner_did.clone(), 500_000)
                 .expect("Could not add funds to DID");
 
-            identity::Module::<Test>::do_create_issuer(&owner_did, &owner_key)
-                .expect("Could not make token.owner an issuer");
+            // identity::Module::<Test>::do_create_issuer(&owner_did)
+            //    .expect("Could not make token.owner an issuer");
 
             // Issuance is successful
-            assert_ok!(Identity::add_signing_keys(
-                Origin::signed(owner_acc),
-                owner_did.clone(),
-                vec![owner_key.clone()]
-            ));
-            assert_ok!(Identity::set_roles(
-                Origin::signed(owner_acc),
-                owner_did.clone(),
-                vec![IdentityRole::Issuer, IdentityRole::Investor]
-            ));
             assert_ok!(Asset::create_token(
                 Origin::signed(owner_acc),
                 owner_did.clone(),

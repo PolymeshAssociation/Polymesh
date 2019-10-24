@@ -1,6 +1,6 @@
 use crate::asset::{self, AssetTrait};
 use crate::constants::*;
-use crate::entity::{IdentityRole, Key};
+use crate::entity::Key;
 use crate::identity;
 use crate::utils;
 
@@ -206,12 +206,13 @@ impl<T: Trait> Module<T> {
         Err("Not whitelisted")
     }
 
-    fn _check_investor_status(holder_did: &Vec<u8>) -> Result {
-        let investor = <identity::DidRecords<T>>::get(holder_did);
+    fn _check_investor_status(_holder_did: &Vec<u8>) -> Result {
+        // TODO check with claim.
+        /*let investor = <identity::DidRecords<T>>::get(holder_did);
         ensure!(
             investor.has_signing_keys_role(IdentityRole::Investor),
             "Account is not an investor"
-        );
+        );*/
         Ok(())
     }
 }
