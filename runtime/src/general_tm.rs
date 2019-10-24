@@ -104,6 +104,18 @@ decl_module! {
 
             Ok(())
         }
+
+        fn test(origin, ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance) -> Result {
+            let sender = ensure_signed(origin)?;
+            let general_status_code =
+                Self::verify_restriction(&ticker, &from_did, &to_did, value)?;
+            if general_status_code != ERC1400_TRANSFER_SUCCESS {
+                sr_primitives::print("satisfied");
+            } else {
+                sr_primitives::print("not satisfied2");
+            }
+            Ok(())
+        }
     }
 }
 
