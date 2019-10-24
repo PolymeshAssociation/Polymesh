@@ -414,7 +414,7 @@ decl_module! {
         }
 
         /// Adds new claim record or edits an exisitng one. Only called by did_issuer's signing key
-        fn add_claim(origin, did: Vec<u8>, claim_key: Vec<u8>, did_issuer: Vec<u8>, claim: Claim<T::Moment>) -> Result {
+        fn add_claim(origin, did: Vec<u8>, claim_key: Vec<u8>, did_issuer: Vec<u8>, expiry: <T as timestamp::Trait>::Moment, claim_value: ClaimValue) -> Result {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
@@ -431,6 +431,14 @@ decl_module! {
                 claim_issuer: did_issuer,
             };
 
+            let now = <timestamp::Module<T>>::get();
+
+            let claim = Claim {
+                issuance_date: now,
+                expiry: expiry,
+                claim_value: claim_value,
+            };
+
             <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
 
             <ClaimKeys>::mutate(&did, |old_claim_data| {
@@ -443,6 +451,9 @@ decl_module! {
 
             Ok(())
         }
+
+        // Only for testing. Remove once UI can encode/decode properly
+        //fn add_u128_claim(origin, did: Vec<u8>, claim_key: Vec<u8>, did_issuer: Vec<u8>, expiry: T:Moment, claim_value: ClaimValue) -> Result {
 
         /// Marks the specified claim as revoked
         fn revoke_claim(origin, did: Vec<u8>, claim_key: Vec<u8>, did_issuer: Vec<u8>) -> Result {
