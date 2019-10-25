@@ -14,9 +14,10 @@ use sr_primitives::{
     },
 };
 use system::{self, ensure_signed};
+use staking;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: staking::Trait {
      /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -54,35 +55,7 @@ decl_module! {
 	}
 }
 
-#[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq)]
-pub struct CheckValidatorPermission<T: Trait + Send + Sync>(rstd::marker::PhantomData<T>);
 
-#[cfg(feature = "std")]
-impl<T: Trait + Send + Sync> std::fmt::Debug for CheckValidatorPermission<T> {
-    fn fmt(&self, _: &mut std::fmt::Formatter) -> std::fmt::Result {
-        Ok(())
-    }
-}
-
-impl<T: Trait + Send + Sync> SignedExtension for CheckValidatorPermission<T> {
-    type AccountId = T::AccountId;
-    type Call = T::Call;
-    type AdditionalSigned = ();
-    type Pre = ();
-
-    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> { Ok(()) }
-
-    fn validate(
-        &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        _: DispatchInfo,
-        _: usize,
-    ) -> TransactionValidity {
-
-         return Ok(ValidTransaction::default());
-    }
-}
 
 
 

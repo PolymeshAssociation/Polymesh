@@ -26,6 +26,16 @@ use sr_primitives::{
     weights::Weight,
     ApplyResult,
 };
+use sr_primitives::{
+    weights::{DispatchInfo, SimpleDispatchInfo},
+    transaction_validity::{
+        ValidTransaction, TransactionValidityError,
+        InvalidTransaction,
+    },
+    traits::{
+        SignedExtension,
+    },
+};
 use sr_staking_primitives::SessionIndex;
 use srml_support::{
     construct_runtime, parameter_types,
@@ -605,7 +615,7 @@ pub type SignedExtra = (
     system::CheckWeight<Runtime>,
     balances::TakeFees<Runtime>,
     contracts::CheckBlockGasLimit<Runtime>,
-    permissioned_validators::CheckValidatorPermission<Runtime>
+    CheckValidatorPermission
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
@@ -728,5 +738,42 @@ impl_runtime_apis! {
             let seed = seed.as_ref().map(|s| rstd::str::from_utf8(&s).expect("Seed is an utf8 string"));
             SessionKeys::generate(seed)
         }
+    }
+}
+
+
+#[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct CheckValidatorPermission;
+
+impl SignedExtension for CheckValidatorPermission {
+    type AccountId = AccountId;
+    type Call = Call;
+    type AdditionalSigned = ();
+    type Pre = ();
+
+    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> { Ok(()) }
+
+    #[cfg(feature = "std")]
+    fn validate(
+        &self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        _: DispatchInfo,
+        _: usize,
+    ) -> TransactionValidity {
+
+        match call {
+            Call::Staking(staking::Call::bond(_, _, _)) => {
+                println!(
+                    "CheckValidatorPermission: who={}, bond()",
+                    who,
+                );
+                Ok(Default::default())
+            },
+            _ => InvalidTransaction::ExhaustsResources.into(),
+        };
+
+        return Ok(ValidTransaction::default());
     }
 }
