@@ -1,15 +1,15 @@
-use crate::asset::AssetTrait;
-use crate::balances;
-use crate::entity::Key;
-use crate::general_tm;
-use crate::identity;
-use crate::simple_token::{self, SimpleTokenTrait};
-use crate::utils;
-use srml_support::traits::Currency;
+use crate::{
+    asset::AssetTrait,
+    balances, general_tm, identity,
+    simple_token::{self, SimpleTokenTrait},
+    utils,
+};
+use primitives::Key;
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use srml_support::traits::Currency;
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 

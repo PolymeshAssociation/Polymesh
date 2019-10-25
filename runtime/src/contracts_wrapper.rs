@@ -13,11 +13,12 @@
 //!   - Initially restrict list of accounts that can put_code
 //!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
 
-use rstd::{convert::TryFrom, prelude::*};
+use crate::identity;
+use primitives::Key;
 
-use crate::{entity::Key, identity};
 use codec::Encode;
 use contracts::{CodeHash, Gas, Schedule};
+use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::StaticLookup;
 use srml_support::traits::Currency;
 use srml_support::{decl_module, decl_storage, dispatch::Result, ensure};

@@ -1,10 +1,13 @@
+use parity_scale_codec::{Decode, Encode};
 use rstd::prelude::Vec;
 
-#[derive(codec::Encode, codec::Decode, Default, Clone, Debug)]
+/// A string container where `PartialEq` uses ignore case sensitive.
+#[derive(Encode, Decode, Default, Clone, Debug)]
 pub struct IgnoredCaseString(Vec<u8>);
 
 impl IgnoredCaseString {
-    fn as_vec(&self) -> &Vec<u8> {
+    /// It returns a reference to internal data.
+    pub fn as_vec(&self) -> &Vec<u8> {
         &self.0
     }
 }

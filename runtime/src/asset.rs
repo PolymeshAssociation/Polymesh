@@ -1,12 +1,13 @@
 use crate::balances;
 use crate::constants::*;
 use crate::general_tm;
+use crate::identity;
 use crate::percentage_tm;
 use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
-use crate::{entity::Key, identity};
 use codec::Encode;
 use core::result::Result as StdResult;
+use primitives::Key;
 use rstd::{convert::TryFrom, prelude::*};
 use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
@@ -882,6 +883,8 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{exemption, identity};
+    use primitives::Key;
 
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
@@ -892,11 +895,8 @@ mod tests {
         Perbill,
     };
     use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
-    use substrate_primitives::{Blake2Hasher, H256};
-
     use std::sync::{Arc, Mutex};
-
-    use crate::{entity::Key, exemption, identity};
+    use substrate_primitives::{Blake2Hasher, H256};
 
     type SessionIndex = u32;
     type AuthorityId = u64;
@@ -948,6 +948,7 @@ mod tests {
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = u64;
+        // type AccountId = <AnySignature as Verify>::Signer;
         type Lookup = IdentityLookup<u64>;
         type WeightMultiplierUpdate = ();
         type Header = Header;
@@ -1081,7 +1082,7 @@ mod tests {
     fn issuers_can_create_tokens() {
         with_externalities(&mut identity_owned_by_1(), || {
             let owner_acc = 1;
-            let owner_key = Key::try_from(owner_acc.encode()).unwrap();
+            let _owner_key = Key::try_from(owner_acc.encode()).unwrap();
             let owner_did = "did:poly:1".as_bytes().to_vec();
 
             // Raise the owner's base currency balance
@@ -1103,14 +1104,6 @@ mod tests {
 
             // identity::Module::<Test>::do_create_issuer(&owner_did, &owner_key)
             //    .expect("Could not make token.owner an issuer");
-
-            // Add itself as issuer.
-            // TODO Check if this should be added automatically.
-            assert_ok!(Identity::add_signing_keys(
-                Origin::signed(owner_acc),
-                owner_did.clone(),
-                vec![owner_key.clone()]
-            ));
 
             // Issuance is successful
             assert_ok!(Asset::create_token(

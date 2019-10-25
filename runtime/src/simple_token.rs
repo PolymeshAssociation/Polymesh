@@ -1,11 +1,9 @@
 //! SimpleToken
 //!
 //! This module implements a simple SimpleToken API on top of Polymesh.
+use crate::{balances, identity, utils};
+use primitives::Key;
 
-use crate::balances;
-use crate::entity::Key;
-use crate::identity;
-use crate::utils;
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
 

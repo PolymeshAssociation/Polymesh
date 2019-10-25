@@ -1,9 +1,5 @@
-use crate::asset::AssetTrait;
-use crate::constants::*;
-use crate::entity::Key;
-use crate::exemption;
-use crate::identity;
-use crate::utils;
+use crate::{asset::AssetTrait, constants::*, exemption, identity, utils};
+use primitives::Key;
 
 use codec::Encode;
 use core::result::Result as StdResult;

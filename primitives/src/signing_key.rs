@@ -1,5 +1,7 @@
-use crate::entity::Key;
+use parity_scale_codec::{Decode, Encode};
 use rstd::{prelude::Vec, vec};
+
+use crate::Key;
 
 // use crate::entity::IgnoredCaseString;
 
@@ -8,22 +10,25 @@ use rstd::{prelude::Vec, vec};
 /// 2. Review documents:
 ///     - [MESH-235](https://polymath.atlassian.net/browse/MESH-235)
 ///     - [Polymesh: Roles/Permissions](https://docs.google.com/document/d/12u-rMavow4fvidsFlLcLe7DAXuqWk8XUHOBV9kw05Z8/)
-///
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[allow(missing_docs)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum KeyRole {
     Full,
     Admin,
     Operator,
+    Custom(u8),
 }
 
 /// Signing key type.
 /// See [MESH-378](https://polymath.atlassian.net/browse/MESH-378)
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[allow(missing_docs)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum SigningKeyType {
     External,
     Identity,
     Multisig,
     Relayer,
+    Custom(u8),
 }
 
 impl Default for SigningKeyType {
@@ -33,7 +38,8 @@ impl Default for SigningKeyType {
 }
 
 /// A signing key contains a type and a group of roles.
-#[derive(codec::Encode, codec::Decode, Default, Clone, Eq, Debug)]
+#[allow(missing_docs)]
+#[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 pub struct SigningKey {
     pub key: Key,
     pub key_type: SigningKeyType,
@@ -41,6 +47,7 @@ pub struct SigningKey {
 }
 
 impl SigningKey {
+    /// It creates an 'External' signing key.
     pub fn new(key: Key, roles: Vec<KeyRole>) -> Self {
         Self {
             key,

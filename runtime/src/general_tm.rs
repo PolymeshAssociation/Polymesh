@@ -1,8 +1,9 @@
-use crate::asset::{self, AssetTrait};
-use crate::constants::*;
-use crate::entity::Key;
-use crate::identity;
-use crate::utils;
+use crate::{
+    asset::{self, AssetTrait},
+    constants::*,
+    identity, utils,
+};
+use primitives::Key;
 
 use codec::Encode;
 use core::result::Result as StdResult;

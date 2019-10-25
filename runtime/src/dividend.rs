@@ -1,4 +1,6 @@
-use crate::balances;
+use crate::{asset, balances, identity, simple_token, utils};
+use primitives::Key;
+
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
 /// A runtime module template with necessary imports
@@ -12,8 +14,6 @@ use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
-
-use crate::{asset, entity::Key, identity, simple_token, utils};
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -691,7 +691,7 @@ mod tests {
         let identity_owner_id = 1;
         with_externalities(&mut identity_owned_by(identity_owner_id), || {
             let token_owner_acc = 1;
-            let token_owner_key = Key::try_from(token_owner_acc.encode()).unwrap();
+            let _token_owner_key = Key::try_from(token_owner_acc.encode()).unwrap();
             let payout_owner_acc = 2;
             let token_owner_did = "did:poly:1".as_bytes().to_vec();
             let payout_owner_did = "did:poly:2".as_bytes().to_vec();
@@ -735,12 +735,6 @@ mod tests {
             <identity::DidRecords<Test>>::mutate(&payout_owner_did, |record| {
                 record.balance = 1_000_000;
             });
-
-            assert_ok!(Identity::add_signing_keys(
-                Origin::signed(payout_owner_acc),
-                payout_owner_did.clone(),
-                vec![token_owner_key.clone()]
-            ));
 
             // identity::Module::<Test>::do_create_issuer(&token.owner_did, &token_owner_key)
             //    .expect("Could not make token.owner_did an issuer");

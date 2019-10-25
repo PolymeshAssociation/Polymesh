@@ -1,21 +1,14 @@
-use rstd::{convert::TryFrom, prelude::Vec};
+use parity_scale_codec::{Decode, Encode};
+use rstd::{convert::TryFrom, default::Default, prelude::Vec};
 
 /// Size of key, when it is u64
-#[cfg(test)]
-const KEY_SIZE: usize = 8;
-#[cfg(not(test))]
+const KEY_SIZE_TEST: usize = 8;
 const KEY_SIZE: usize = 32;
 
-#[derive(codec::Encode, codec::Decode, Default, Eq, Clone, Debug)]
-pub struct Key([u8; KEY_SIZE]);
-
 /// It stores a simple key.
-/// It uses fixed size to avoid allocations.
-impl Key {
-    pub fn new() -> Self {
-        Key([0u8; KEY_SIZE])
-    }
-}
+/// It uses fixed size to avoid dynamic memory allocation.
+#[derive(Encode, Decode, Default, Eq, Clone, Debug)]
+pub struct Key([u8; KEY_SIZE]);
 
 impl TryFrom<Vec<u8>> for Key {
     type Error = &'static str;
@@ -45,13 +38,13 @@ impl TryFrom<&[u8]> for Key {
     type Error = &'static str;
 
     fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
-        if s.len() == KEY_SIZE {
-            let mut k = Key::new();
-            k.0.copy_from_slice(s);
-            Ok(k)
-        } else {
-            Err("Invalid size for a key")
-        }
+        let mut k = Key::default();
+        match s.len() {
+            KEY_SIZE => k.0.copy_from_slice(s),
+            KEY_SIZE_TEST => k.0[..KEY_SIZE_TEST].copy_from_slice(s),
+            _ => return Err("Invalid size for a key"),
+        };
+        Ok(k)
     }
 }
 
@@ -69,13 +62,20 @@ impl PartialEq for Key {
 
 impl PartialEq<&[u8]> for Key {
     fn eq(&self, other: &&[u8]) -> bool {
-        self.0 == *other
+        match other.len() {
+            KEY_SIZE => self.0 == *other,
+            KEY_SIZE_TEST => {
+                self.0[..KEY_SIZE_TEST] == **other
+                    && self.0[KEY_SIZE_TEST..] == [0u8; KEY_SIZE - KEY_SIZE_TEST]
+            }
+            _ => false,
+        }
     }
 }
 
 impl PartialEq<Vec<u8>> for Key {
     fn eq(&self, other: &Vec<u8>) -> bool {
-        self.0 == other.as_slice()
+        self == &other.as_slice()
     }
 }
 

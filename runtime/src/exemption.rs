@@ -1,5 +1,8 @@
-use crate::asset::{self, AssetTrait};
-use crate::{entity::Key, identity, utils};
+use crate::{
+    asset::{self, AssetTrait},
+    identity, utils,
+};
+use primitives::Key;
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};

@@ -1,10 +1,9 @@
 use rstd::{convert::TryFrom, prelude::*};
 
 pub static DID_PREFIX: &'static str = "did:poly:";
-use crate::{
-    balances,
-    entity::{DidRecord, Key, KeyRole, SigningKey},
-};
+use crate::balances;
+
+use primitives::{DidRecord, Key, KeyRole, SigningKey};
 
 use codec::Encode;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
