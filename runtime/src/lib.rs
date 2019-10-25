@@ -769,11 +769,14 @@ impl SignedExtension for CheckValidatorPermission {
                     "CheckValidatorPermission: who={}, bond()",
                     who,
                 );
-                Ok(Default::default())
-            },
-            _ => InvalidTransaction::ExhaustsResources.into(),
-        };
 
-        return Ok(ValidTransaction::default());
+                if !PermissionedValidators::is_compliant() {
+                    return InvalidTransaction::ExhaustsResources.into()
+                }
+
+                Ok(ValidTransaction::default())
+            },
+            _ => Ok(ValidTransaction::default()),
+        }
     }
 }
