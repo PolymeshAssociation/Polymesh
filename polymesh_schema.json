@@ -46,15 +46,17 @@
         "data_type": "DataTypes",
         "value": "Vec<u8>"
     },
-    "DataTypes": [
-        "U8",
-        "U16",
-        "U32",
-        "U64",
-        "U128",
-        "Bool",
-        "VecU8"
-    ],
+    "DataTypes": {
+        "_enum": [
+            "U8",
+            "U16",
+            "U32",
+            "U64",
+            "U128",
+            "Bool",
+            "VecU8"
+        ]
+    },
     "Rule": {
         "topic": "u32",
         "schema": "u32",
@@ -64,14 +66,16 @@
         "sender_rules": "Vec<Rule>",
         "receiver_rules":"Vec<Rule>"
     },
-    "Operators": [
-        "EqualTo",
-        "NotEqualTo",
-        "LessThan",
-        "GreaterThan",
-        "LessOrEqualTo",
-        "GreaterOrEqualTo"
-    ],
+    "Operators": {
+        "_enum": [
+            "EqualTo",
+            "NotEqualTo",
+            "LessThan",
+            "GreaterThan",
+            "LessOrEqualTo",
+            "GreaterOrEqualTo"
+        ]
+    },
     "RuleData": {
         "key": "Vec<u8>",
         "value": "Vec<u8>",
