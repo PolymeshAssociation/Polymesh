@@ -53,3 +53,24 @@ pub type BlockId = generic::BlockId<Block>;
 
 /// Opaque, encoded, unchecked extrinsic.
 pub use runtime_primitives::OpaqueExtrinsic as UncheckedExtrinsic;
+
+/// Utility byte container where equality comparision are ignored case.
+pub mod ignored_case_string;
+pub use ignored_case_string::IgnoredCaseString;
+
+/// Role for identities.
+pub mod identity_role;
+pub use identity_role::IdentityRole;
+
+/// Identity information.
+/// Each DID is associated with this kind of record.
+pub mod did_record;
+pub use did_record::DidRecord;
+
+/// Key is strong type which stores bytes representing the key.
+pub mod key;
+pub use key::Key;
+
+/// This module contains entities related with signing keys.
+pub mod signing_key;
+pub use signing_key::{KeyRole, SigningKey, SigningKeyType};

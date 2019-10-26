@@ -1,12 +1,9 @@
-use crate::asset::AssetTrait;
-use crate::constants::*;
-use crate::exemption;
-use crate::identity;
-use crate::utils;
+use crate::{asset::AssetTrait, constants::*, exemption, identity, utils};
+use primitives::Key;
 
 use codec::Encode;
 use core::result::Result as StdResult;
-use rstd::prelude::*;
+use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -45,7 +42,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&upper_ticker, &did),"Sender DID must be the token owner");
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
