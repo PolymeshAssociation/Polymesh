@@ -62,6 +62,10 @@ pub use ignored_case_string::IgnoredCaseString;
 pub mod identity_role;
 pub use identity_role::IdentityRole;
 
+/// Polymesh Distributed Identity.
+pub mod did;
+pub use did::Did;
+
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod did_record;
