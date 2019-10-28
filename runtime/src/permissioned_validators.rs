@@ -1,24 +1,18 @@
 use rstd::prelude::*;
 
 use srml_support::{
-    decl_event, decl_module, decl_storage, dispatch::Result
+    decl_event, decl_module, decl_storage, dispatch::Result,
+    traits::{ChangeMembers, InitializeMembers},
 };
 use sr_primitives::{
-    weights::{DispatchInfo, SimpleDispatchInfo},
-    transaction_validity::{
-        ValidTransaction, TransactionValidityError,
-        InvalidTransaction, TransactionValidity,
-    },
-    traits::{
-        SignedExtension,
-    },
+    weights::{SimpleDispatchInfo},
 };
 use system::{self, ensure_signed};
 use staking;
 
 /// The module's configuration trait.
 pub trait Trait: staking::Trait {
-     /// The overarching event type.
+    /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
@@ -32,10 +26,10 @@ decl_event!(
 	pub enum Event<T> where
 	    AccountId = <T as system::Trait>::AccountId
 	{
-		/// The given member was removed. See the transaction for who.
-		MemberRemoved(AccountId),
 		/// An entity has issued a candidacy. See the transaction for who.
-		CandidateAdded(AccountId),
+		ValidatorAdded(AccountId),
+		/// The given member was removed. See the transaction for who.
+		ValidatorRemoved(AccountId),
 	}
 );
 
@@ -49,8 +43,37 @@ decl_module! {
 			let who = ensure_signed(origin)?;
 
 			// here we are raising the Something event
-			Self::deposit_event(RawEvent::CandidateAdded(member));
+			Self::deposit_event(RawEvent::ValidatorAdded(member));
 			Ok(())
+		}
+
+        /// Add a potential new validator to the pool of validators.
+        /// Staking module checks `Members` to ensure validators have
+        /// completed KYB compliance
+		#[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+		fn add_validator_candidate(origin, member: T::AccountId) {
+			let mut members = <Members<T>>::get();
+			let index = members.binary_search(&member).err().ok_or("already a member")?;
+			members.insert(index, member.clone());
+			<Members<T>>::put(&members);
+
+			// T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
+
+			Self::deposit_event(RawEvent::ValidatorAdded(member));
+		}
+
+        /// Removes a validator from the pool of validators. This can
+        /// happen when a validator loses KYB compliance
+		#[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+		fn remove_validator(origin, member: T::AccountId) {
+			let mut members = <Members<T>>::get();
+			let index = members.binary_search(&member).ok().ok_or("not a member")?;
+			members.remove(index);
+			<Members<T>>::put(&members);
+
+			// T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
+
+			Self::deposit_event(RawEvent::ValidatorRemoved(member));
 		}
 	}
 }
@@ -60,42 +83,6 @@ impl<T: Trait> Module<T> {
         false
     }
 }
-
-//#[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq)]
-//pub struct CheckValidatorPermission<T: Trait + Send + Sync>(rstd::marker::PhantomData<T>);
-//
-//#[cfg(feature = "std")]
-//impl<T: Trait + Send + Sync> std::fmt::Debug for CheckValidatorPermission<T> {
-//    fn fmt(&self, _: &mut std::fmt::Formatter) -> std::fmt::Result {
-//        Ok(())
-//    }
-//}
-//
-//impl<T: Trait + Send + Sync> SignedExtension for CheckValidatorPermission<T> {
-//    type AccountId = T::AccountId;
-//    type Call = T::Call;
-//    type AdditionalSigned = ();
-//    type Pre = ();
-//
-//    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> { Ok(()) }
-//
-//    fn validate(
-//        &self,
-//        who: &Self::AccountId,
-//        call: &Self::Call,
-//        _: DispatchInfo,
-//        _: usize,
-//    ) -> TransactionValidity {
-//
-//        match call {
-//            Call::Staking(_) => Ok(Default::default()),
-//            _ => InvalidTransaction::ExhaustsResources.into(),
-//        };
-//
-//        return Ok(ValidTransaction::default());
-//    }
-//}
-
 
 /// tests for this module
 #[cfg(test)]

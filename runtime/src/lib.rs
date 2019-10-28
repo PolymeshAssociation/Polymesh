@@ -25,12 +25,9 @@ use sr_primitives::{
     transaction_validity::TransactionValidity,
     weights::Weight,
     ApplyResult,
-};
-use sr_primitives::{
-    weights::{DispatchInfo, SimpleDispatchInfo},
+    weights::{DispatchInfo},
     transaction_validity::{
-        ValidTransaction, TransactionValidityError,
-        InvalidTransaction,
+        ValidTransaction, InvalidTransaction, TransactionValidityError,
     },
     traits::{
         SignedExtension,
