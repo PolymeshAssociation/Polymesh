@@ -57,14 +57,9 @@
             "VecU8"
         ]
     },
-    "Rule": {
-        "topic": "u32",
-        "schema": "u32",
-        "rules_data": "Vec<RuleData>"
-    },
     "AssetRule": {
-        "sender_rules": "Vec<Rule>",
-        "receiver_rules":"Vec<Rule>"
+        "sender_rules": "Vec<RuleData>",
+        "receiver_rules":"Vec<RuleData>"
     },
     "Operators": {
         "_enum": [

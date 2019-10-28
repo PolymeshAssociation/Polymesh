@@ -35,16 +35,9 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct Rule {
-    topic: u32,
-    schema: u32,
-    rules_data: Vec<RuleData>, // Array of {key value operator}
-}
-
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetRule {
-    sender_rules: Vec<Rule>,
-    receiver_rules: Vec<Rule>,
+    sender_rules: Vec<RuleData>,
+    receiver_rules: Vec<RuleData>,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
@@ -109,7 +102,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let general_status_code =
                 Self::verify_restriction(&ticker, &from_did, &to_did, value)?;
-            if general_status_code != ERC1400_TRANSFER_SUCCESS {
+            if general_status_code == ERC1400_TRANSFER_SUCCESS {
                 sr_primitives::print("satisfied");
             } else {
                 sr_primitives::print("not satisfied2");
@@ -385,17 +378,12 @@ impl<T: Trait> Module<T> {
         for active_rule in active_rules {
             let mut rule_broken = false;
             for sender_rule in active_rule.sender_rules {
-                for data in sender_rule.rules_data {
-                    let identity_value =
-                        Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
-                    rule_broken = match identity_value {
-                        None => true,
-                        Some(x) => Self::check_rule(data.value, x.value, x.data_type, data.operator),
-                    };
-                    if rule_broken {
-                        break;
-                    }
-                }
+                let identity_value =
+                    Self::fetch_value(from_did.clone(), sender_rule.key, sender_rule.trusted_issuers);
+                rule_broken = match identity_value {
+                    None => true,
+                    Some(x) => Self::check_rule(sender_rule.value, x.value, x.data_type, sender_rule.operator),
+                };
                 if rule_broken {
                     break;
                 }
@@ -404,17 +392,12 @@ impl<T: Trait> Module<T> {
                 continue;
             }
             for receiver_rule in active_rule.receiver_rules {
-                for data in receiver_rule.rules_data {
-                    let identity_value =
-                        Self::fetch_value(from_did.clone(), data.key, data.trusted_issuers);
-                    rule_broken = match identity_value {
-                        None => true,
-                        Some(x) => Self::check_rule(data.value, x.value, x.data_type, data.operator),
-                    };
-                    if rule_broken {
-                        break;
-                    }
-                }
+                let identity_value =
+                    Self::fetch_value(from_did.clone(), receiver_rule.key, receiver_rule.trusted_issuers);
+                rule_broken = match identity_value {
+                    None => true,
+                    Some(x) => Self::check_rule(receiver_rule.value, x.value, x.data_type, receiver_rule.operator),
+                };
                 if rule_broken {
                     break;
                 }
