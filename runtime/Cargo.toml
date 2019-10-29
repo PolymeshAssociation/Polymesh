@@ -53,12 +53,14 @@ substrate-session = { git = "https://github.com/paritytech/substrate", default-f
 authority-discovery = { package = "srml-authority-discovery", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 authority-discovery-primitives = { package = "substrate-authority-discovery-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 srml-staking-reward-curve = { git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+phragmen = { package = "substrate-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.2" }
 
 [features]
-default = ["std"]
+equalize = []
+default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [
@@ -73,6 +75,7 @@ std = [
 	"client/std",
 	"offchain-primitives/std",
 	"rstd/std",
+	"phragmen/std",
 	"sr-io/std",
 	"srml-support/std",
 	"authorship/std",

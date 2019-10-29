@@ -7,6 +7,11 @@ use srml_support::{
 use sr_primitives::{
     weights::{SimpleDispatchInfo},
 };
+use session::{historical::OnSessionEnding, SelectInitialValidators};
+use sr_staking_primitives::{
+    SessionIndex,
+    offence::{OnOffenceHandler, OffenceDetails, Offence, ReportOffence},
+};
 use system::{self, ensure_signed};
 use staking;
 
@@ -39,14 +44,6 @@ decl_module! {
 		// Initializing events
 		fn deposit_event() = default;
 
-		pub fn add_member(origin, member: T::AccountId) -> Result {
-			let who = ensure_signed(origin)?;
-
-			// here we are raising the Something event
-			Self::deposit_event(RawEvent::ValidatorAdded(member));
-			Ok(())
-		}
-
         /// Add a potential new validator to the pool of validators.
         /// Staking module checks `Members` to ensure validators have
         /// completed KYB compliance
@@ -78,8 +75,15 @@ decl_module! {
 	}
 }
 
+//impl<T: Trait> session::OnSessionEnding<T::AccountId> for Module<T> {
+//    fn on_session_ending(_ending: SessionIndex, start_session: SessionIndex) -> Option<Vec<T::AccountId>> {
+//        staking::new_session(start_session - 1).map(|(new, _old)| new)
+//    }
+//}
+
 impl<T: Trait> Module<T> {
     pub fn is_compliant() -> bool {
+
         false
     }
 }

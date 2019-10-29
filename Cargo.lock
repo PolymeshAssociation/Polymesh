@@ -2568,6 +2568,7 @@ dependencies = [
  "substrate-consensus-babe-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "substrate-inherents 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "substrate-offchain-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "substrate-phragmen 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "substrate-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "substrate-serializer 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "substrate-session 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",

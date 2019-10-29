@@ -74,7 +74,7 @@ mod registry;
 mod simple_token;
 mod sto_capped;
 mod utils;
-mod permissioned_validators;
+//mod permissioned_validators;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -276,10 +276,6 @@ impl staking::Trait for Runtime {
     type SessionInterface = Self;
     type Time = Timestamp;
     type RewardCurve = RewardCurve;
-}
-
-impl permissioned_validators::Trait for Runtime {
-    type Event = Event;
 }
 
 parameter_types! {
@@ -555,7 +551,7 @@ construct_runtime!(
 
 		// Consensus srml_support.
 		Authorship: authorship::{Module, Call, Storage},
-		PermissionedValidators: permissioned_validators::{Module, Call, Storage, Event<T>},
+		//PermissionedValidators: permissioned_validators::{Module, Call, Storage, Event<T>},
 		Staking: staking::{default, OfflineWorker},
 		Offences: offences::{Module, Call, Storage, Event},
 		Session: session::{Module, Call, Storage, Event, Config<T>},
@@ -767,9 +763,9 @@ impl SignedExtension for CheckValidatorPermission {
                     who,
                 );
 
-                if !PermissionedValidators::is_compliant() {
-                    return InvalidTransaction::ExhaustsResources.into()
-                }
+//                if !PermissionedValidators::is_compliant() {
+//                    return InvalidTransaction::ExhaustsResources.into()
+//                }
 
                 Ok(ValidTransaction::default())
             },
