@@ -143,8 +143,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-use rstd::prelude::*;
-use rstd::{cmp, mem, result};
+use rstd::{cmp, convert::TryFrom, mem, prelude::*, result};
 use sr_primitives::traits::{
     Bounded, CheckedAdd, CheckedSub, Convert, MaybeSerializeDebug, Member, SaturatedConversion,
     Saturating, SignedExtension, SimpleArithmetic, StaticLookup, Zero,
@@ -164,6 +163,7 @@ use srml_support::{decl_event, decl_module, decl_storage, Parameter, StorageValu
 use system::{ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 
 use crate::identity::IdentityTrait;
+use primitives::Key;
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 
@@ -1293,7 +1293,11 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
         // pay any fees.
         let fee = Self::compute_fee(len, info, self.0);
 
-        let encoded_transactor = who.clone().encode();
+        let encoded_transactor = match Key::try_from(who.encode()) {
+            Ok(key) => key,
+            Err(_) => return InvalidTransaction::BadProof.into(),
+        };
+
         if <T::Identity>::signing_key_charge_did(&encoded_transactor) {
             sr_primitives::print("Charging fee to identity");
             if !<T::Identity>::charge_poly(&encoded_transactor, fee) {

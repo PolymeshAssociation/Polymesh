@@ -1,6 +1,8 @@
-use crate::balances;
+use crate::{asset, balances, identity, simple_token, utils};
+use primitives::Key;
+
 use codec::Encode;
-use rstd::prelude::*;
+use rstd::{convert::TryFrom, prelude::*};
 /// A runtime module template with necessary imports
 
 /// Feel free to remove or edit this file as needed.
@@ -12,8 +14,6 @@ use rstd::prelude::*;
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
-
-use crate::{asset, identity, simple_token, utils};
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -88,7 +88,7 @@ decl_module! {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
@@ -175,7 +175,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
@@ -221,7 +221,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
@@ -248,7 +248,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Check if sender wasn't already paid their share
             ensure!(!<UserPayoutCompleted>::get((did.clone(), ticker.clone(), dividend_id)), "User was already paid their share");
@@ -330,7 +330,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
@@ -691,6 +691,7 @@ mod tests {
         let identity_owner_id = 1;
         with_externalities(&mut identity_owned_by(identity_owner_id), || {
             let token_owner_acc = 1;
+            let _token_owner_key = Key::try_from(token_owner_acc.encode()).unwrap();
             let payout_owner_acc = 2;
             let token_owner_did = "did:poly:1".as_bytes().to_vec();
             let payout_owner_did = "did:poly:2".as_bytes().to_vec();
@@ -734,12 +735,16 @@ mod tests {
             <identity::DidRecords<Test>>::mutate(&payout_owner_did, |record| {
                 record.balance = 1_000_000;
             });
-            identity::Module::<Test>::do_create_issuer(token.owner_did.clone())
-                .expect("Could not make token.owner_did an issuer");
-            identity::Module::<Test>::do_create_simple_token_issuer(payout_token.owner_did.clone())
-                .expect("Could not make payout_token.owner_did an issuer");
-            identity::Module::<Test>::do_create_investor(token.owner_did.clone())
-                .expect("Could not make token.owner_did an investor");
+
+            // identity::Module::<Test>::do_create_issuer(&token.owner_did, &token_owner_key)
+            //    .expect("Could not make token.owner_did an issuer");
+            // identity::Module::<Test>::do_create_simple_token_issuer(
+            //    &payout_token.owner_did,
+            //    &token_owner_key,
+            //)
+            //.expect("Could not make payout_token.owner_did an issuer");
+            //identity::Module::<Test>::do_create_investor(&token.owner_did, &token_owner_key)
+            //    .expect("Could not make token.owner_did an investor");
 
             // Share issuance is successful
             assert_ok!(Asset::create_token(
@@ -768,8 +773,9 @@ mod tests {
             <identity::DidRecords<Test>>::mutate(investor_did.clone(), |record| {
                 record.balance = 1_000_000;
             });
-            identity::Module::<Test>::do_create_investor(investor_did.clone())
-                .expect("Could not create an investor");
+
+            // identity::Module::<Test>::do_create_investor(&investor_did, &token_owner_key)
+            //    .expect("Could not create an investor");
             let amount_invested = 50_000;
 
             let now = Utc::now();
