@@ -1,3 +1,5 @@
+pub use polymesh_runtime;
+
 use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
@@ -10,7 +12,7 @@ use polymesh_runtime::{
     TechnicalCommitteeConfig, WASM_BINARY,
 };
 use primitives::{Pair, Public};
-use srml_staking::Forcing;
+use polymesh_runtime::staking::Forcing;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;

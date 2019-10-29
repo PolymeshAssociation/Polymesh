@@ -75,6 +75,7 @@ mod simple_token;
 mod sto_capped;
 mod utils;
 //mod permissioned_validators;
+pub mod staking;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
