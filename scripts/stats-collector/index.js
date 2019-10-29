@@ -15,6 +15,11 @@ const BOB = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
 let current_storage_size = 0;
 // Updated by the CLI option
 let STORAGE_DIR;
+let nonces = new Map();
+let alice, bob, dave;
+
+let success_count = 0;
+let fail_count = 0;
 
 const cli_opts = [
   {
@@ -23,12 +28,17 @@ const cli_opts = [
     type: Number,
     defaultValue: 1000
   },
-  { name: "tps", alias: "t", type: Boolean, defaultValue: false },
   {
     name: "claims", // How many claims to add to the `ntxs` DIDs
     alias: "c",
     type: Number,
     defaultValue: 10
+  },
+  {
+    name: "prepend", // Prepend for secretUrl for uniqueness
+    alias: "p",
+    type: String,
+    defaultValue: ""
   },
   {
     name: "dir", // Substrate storage dir
@@ -43,6 +53,7 @@ async function main() {
   const opts = cli(cli_opts);
   let n_txes = opts.ntxs;
   let n_claims = opts.claims;
+  let prepend = opts.prepend;
   STORAGE_DIR = opts.dir;
 
   console.log(
@@ -55,7 +66,8 @@ async function main() {
   );
   const customTypes = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
-  const ws_provider = new WsProvider("ws://127.0.0.1:9944");
+  // const ws_provider = new WsProvider("ws://78.47.58.121:9944/");
+  const ws_provider = new WsProvider("ws://127.0.0.1:9944/");
   const api = await ApiPromise.create({
     types: customTypes,
     provider: ws_provider
@@ -68,65 +80,67 @@ async function main() {
   );
   current_storage_size = initial_storage_size;
 
-  // Execute each stats collection stage
+  alice = keyring.addFromUri("//Alice", { name: "Alice" });
+  let aliceRawNonce = await api.query.system.accountNonce(alice.address);
+  let alice_nonce = new BN(aliceRawNonce.toString());
+  nonces.set(alice.address, alice_nonce);
 
-  // Optional base currency TPS test
-  if (opts.tps) {
-    console.log("=== TPS ===");
-    await tps(api, keyring, n_txes); // base currency transfer sanity-check
-    printAndUpdateStorageSize(STORAGE_DIR);
-  }
+  bob = keyring.addFromUri("//Bob", { name: "Bob" });
+  let bobRawNonce = await api.query.system.accountNonce(bob.address);
+  let bob_nonce = new BN(bobRawNonce.toString());
+  nonces.set(bob.address, bob_nonce);
 
-  let alice = keyring.addFromUri("//Alice", { name: "Alice" });
-  let id_module_owner = keyring.addFromUri("//Dave", { name: "Dave" });
+  dave = keyring.addFromUri("//Dave", { name: "Dave" });
+  let daveRawNonce = await api.query.system.accountNonce(dave.address);
+  let dave_nonce = new BN(daveRawNonce.toString());
+  nonces.set(dave.address, dave_nonce);
+
   let accounts = [];
 
   // Create `n_txes` accounts
   for (let i = 0; i < n_txes; i++) {
     accounts.push(
-      keyring.addFromUri("//" + i.toString(), { name: i.toString() })
+      keyring.addFromUri("//" + prepend + i.toString(), { name: i.toString() })
     );
+    let accountRawNonce = await api.query.system.accountNonce(accounts[i].address);
+    let account_nonce = new BN(accountRawNonce.toString());
+    nonces.set(accounts[i].address, account_nonce);  
   }
 
-  let transfer_amount = 5000;
-  let alice_balance = api.query.balances.freeBalance(alice.address);
+  let transfer_amount = 5000000000;
+  printAndUpdateStorageSize(STORAGE_DIR);
 
-  // Check that Alice can afford distributing the funds
-  if (transfer_amount * accounts.length > alice_balance) {
-    console.error(
-      "Alice has insufficient balance (need " +
-        transfer_amount * accounts.length +
-        ", got " +
-        alice_balance +
-        ")"
-    );
-    process.exit();
-  }
+  // Execute each stats collection stage
+
+  // Base currency TPS test
+  console.log("=== TPS ===");
+  await tps(api, keyring, n_txes); // base currency transfer sanity-check
 
   console.log("=== DISTRIBUTE POLY === ");
-  await distributePoly(api, keyring, alice, accounts, transfer_amount);
-  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
+  await distributePoly(api, keyring, accounts, transfer_amount);
+  // printAndUpdateStorageSize(STORAGE_DIR, n_txes);
+  // console.log("Waiting for initial POLY distribution to generated accounts");
+  await blockTillPoolEmpty(api, n_txes);
 
   console.log("=== CREATE IDENTITIES ===");
-  let dids = await createIdentities(api, accounts);
-  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
-
-  console.log("=== TURN NEW DIDS INTO ISSUERS ===");
-  await makeDidsIssuers(api, dids, id_module_owner);
-  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
+  let dids = await createIdentities(api, accounts, prepend);
+  // printAndUpdateStorageSize(STORAGE_DIR, n_txes);
 
   console.log("=== ISSUE ONE SECURITY TOKEN PER DID ===");
-  await issueTokenPerDid(api, accounts, dids);
-  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
+  await issueTokenPerDid(api, accounts, dids, prepend);
+  // printAndUpdateStorageSize(STORAGE_DIR, n_txes);
 
   console.log("=== ADD CLAIM ISSUERS TO DIDS ===");
   await addClaimIssuersToDids(api, accounts, dids);
-  printAndUpdateStorageSize(STORAGE_DIR, n_txes);
+  // printAndUpdateStorageSize(STORAGE_DIR, n_txes);
 
   console.log("=== ADD CLAIMS TO DIDS ===");
   await addNClaimsToDids(api, accounts, dids, n_claims);
-  printAndUpdateStorageSize(STORAGE_DIR, n_txes * n_claims);
+  // printAndUpdateStorageSize(STORAGE_DIR, n_txes * n_claims);
 
+  await blockTillPoolEmpty(api, n_txes);
+
+  printAndUpdateStorageSize(STORAGE_DIR);
   console.log(`Total storage size delta: ${current_storage_size - initial_storage_size}KB`);
 
   console.log("DONE");
@@ -136,47 +150,92 @@ async function main() {
 // Spams the network with `n_txes` transfer transactions in an attempt to measure base
 // currency TPS.
 async function tps(api, keyring, n_txes) {
-  let alice = keyring.addFromUri("//Alice", { name: "Alice" });
-  let bob = keyring.addFromUri("//Bob", { name: "Bob" });
 
+  let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
+  sched_prog.start(n_txes);
   // Send one half from Alice to Bob
-  console.time("Transactions sent to the node in");
-  let aliceRawNonce = await api.query.system.accountNonce(alice.address);
-  let aliceNonce = new BN(aliceRawNonce.toString());
+  // console.time("Transactions sent to the node in");
   for (let j = 0; j < n_txes / 2; j++) {
-    const txHash = await api.tx.balances
+    await api.tx.balances
       .transfer(bob.address, 10)
       .signAndSend(
         alice,
-        { nonce: aliceNonce },
-        ({ events = [], status }) => {}
+        { nonce: nonces.get(alice.address) },
+        ({ events = [], status }) => {
+          if (status.isFinalized) {
+            console.group();
+            // console.log(
+            //   `Distribution Tx ${i} included at ${status.asFinalized}`
+            // );
+            transfer_ok = false;
+            events.forEach(({ phase, event: { data, method, section } }) => {
+              if (section == "balances" && method == "Transfer") {
+                transfer_ok = true;
+                // console.log(`New transfer to ${i}: Transfer ${data}`);
+              }
+            });
+
+            if (!transfer_ok) {
+              console.error(`transfer[TPS]: ${j} FAIL`);
+            } else {
+              console.log(`transfer[TPS]: ${j} SUCCESS`);
+            }
+            console.groupEnd();
+          }
+        }
       );
-    aliceNonce = aliceNonce.addn(1);
+    nonces.set(alice.address, nonces.get(alice.address).addn(1));
+    sched_prog.increment();
   }
-  console.log("Alice -> Bob scheduled");
+  // console.log("Alice -> Bob scheduled");
 
   // Send the other half from Bob to Alice to leave balances unaltered
-  let bobRawNonce = await api.query.system.accountNonce(bob.address);
-  let bobNonce = new BN(bobRawNonce.toString());
   for (let j = 0; j < n_txes / 2; j++) {
-    const txHash = await api.tx.balances
+    const unsub = await api.tx.balances
       .transfer(alice.address, 10)
-      .signAndSend(bob, { nonce: bobNonce });
-    bobNonce = bobNonce.addn(1);
-  }
-  console.log("Bob -> Alice scheduled");
+      .signAndSend(
+        bob,
+        { nonce: nonces.get(bob.address) },
+        ({ events = [], status }) => {
+          if (status.isFinalized) {
+            console.group();
+            // console.log(
+            //   `Distribution Tx ${i} included at ${status.asFinalized}`
+            // );
+            transfer_ok = false;
+            events.forEach(({ phase, event: { data, method, section } }) => {
+              if (section == "balances" && method == "Transfer") {
+                transfer_ok = true;
+                // console.log(`New transfer to ${i}: Transfer ${data}`);
+              }
+            });
 
-  await blockTillPoolEmpty(api, n_txes);
+            if (!transfer_ok) {
+              console.error(`transfer[TPS]: ${j} FAIL`);
+            } else {
+              console.log(`transfer[TPS]: ${j} SUCCESS`);
+            }
+
+            unsub();
+            console.groupEnd();
+          }
+        }
+      );
+    nonces.set(bob.address, nonces.get(bob.address).addn(1));
+    sched_prog.increment();
+
+  }
+  // console.log("Bob -> Alice scheduled");
+  sched_prog.stop();
+
+  // await blockTillPoolEmpty(api, n_txes);
 }
 
 // Sends transfer_amount to accounts[] from alice
-async function distributePoly(api, keyring, alice, accounts, transfer_amount) {
-  let aliceRawNonce = await api.query.system.accountNonce(alice.address);
-  let aliceNonce = new BN(aliceRawNonce.toString());
-
+async function distributePoly(api, keyring, accounts, transfer_amount) {
   let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
 
-  console.log("Scheduling");
+  // console.log("Scheduling");
   sched_prog.start(accounts.length);
 
   // Perform the transfers
@@ -185,23 +244,25 @@ async function distributePoly(api, keyring, alice, accounts, transfer_amount) {
       .transfer(accounts[i].address, transfer_amount)
       .signAndSend(
         alice,
-        { nonce: aliceNonce.addn(accounts.length - i - 1) },
+        { nonce: nonces.get(alice.address) },
         ({ events = [], status }) => {
           if (status.isFinalized) {
             console.group();
-            console.log(
-              `Distribution Tx ${i} included at ${status.asFinalized}`
-            );
+            // console.log(
+            //   `Distribution Tx ${i} included at ${status.asFinalized}`
+            // );
             transfer_ok = false;
             events.forEach(({ phase, event: { data, method, section } }) => {
               if (section == "balances" && method == "Transfer") {
                 transfer_ok = true;
-                console.log(`New transfer to ${i}: Transfer ${data}`);
+                // console.log(`New transfer to ${i}: Transfer ${data}`);
               }
             });
 
             if (!transfer_ok) {
-              console.error(`Transfer event ${i} not received`);
+              console.error(`transfer: ${i} FAIL`);
+            } else {
+              console.log(`transfer: ${i} SUCCESS`);
             }
 
             unsub();
@@ -209,174 +270,135 @@ async function distributePoly(api, keyring, alice, accounts, transfer_amount) {
           }
         }
       );
+    nonces.set(alice.address, nonces.get(alice.address).addn(1));
+    // console.log("Alice Nonce: " + nonces.get(alice.address));
     sched_prog.increment();
   }
 
   sched_prog.stop();
 
-  await blockTillPoolEmpty(api, accounts.length);
+  // await blockTillPoolEmpty(api, accounts.length);
 }
 
 // Create a new DID for each of accounts[]
-async function createIdentities(api, accounts) {
+async function createIdentities(api, accounts, prepend) {
   let dids = [];
 
   let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
 
-  console.log("Scheduling");
+  // console.log("Scheduling");
   sched_prog.start(accounts.length);
   for (let i = 0; i < accounts.length; i++) {
-    const did = "did:poly:" + i;
+    const did = "did:poly:" + prepend + i;
     dids.push(did);
 
     const unsub = await api.tx.identity
       .registerDid(did, [])
-      .signAndSend(accounts[i], ({ events = [], status }) => {
+      .signAndSend(accounts[i],
+        { nonce: nonces.get(accounts[i].address) },
+        ({ events = [], status }) => {
         if (status.isFinalized) {
           let new_did_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
+            // console.log(method, section, data);
             if (section == "identity" && method == "NewDid") {
               new_did_ok = true;
-              console.log(`Account ${i} now has a DID: NewDid ${data}`);
+              console.log(`registerDid: ${i} SUCCESS with DID: ${data}`);
             }
           });
 
           if (!new_did_ok) {
-            console.error(`NewDid event ${i} not received.`);
+            console.error(`registerDid: ${i} FAIL`);
           }
           unsub();
         }
       });
+    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
     sched_prog.increment();
   }
 
   sched_prog.stop();
 
-  await blockTillPoolEmpty(api, accounts.length);
+  // await blockTillPoolEmpty(api, accounts.length);
 
   return dids;
 }
 
-async function makeDidsIssuers(api, dids, id_module_owner) {
-  let nonce = new BN(
-    (await api.query.system.accountNonce(id_module_owner.address)).toString()
-  );
-
+async function issueTokenPerDid(api, accounts, dids, prepend) {
+  let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
+  sched_prog.start(dids.length);
   for (let i = 0; i < dids.length; i++) {
-    console.log(`Making DID ${i} an issuer`);
+    // console.log(`Creating token for DID ${i} ${accounts[i].address}`);
 
-    const unsub = await api.tx.identity
-      .createIssuer(dids[i])
-      .signAndSend(id_module_owner, { nonce }, ({ events = [], status }) => {
-        if (status.isFinalized) {
-          let new_issuer_ok = false;
-          events.forEach(({ phase, event: { data, method, section } }) => {
-            if (section == "identity" && method == "NewIssuer") {
-              new_issuer_ok = true;
-              console.log(`DID ${i} is now an issuer: NewIssuer ${data}`);
-            }
-          });
-
-          if (!new_issuer_ok) {
-            console.error(`DID ${i}: NewIssuer event not detected`);
-          }
-          unsub();
-        }
-      });
-    nonce = nonce.addn(1);
-  }
-
-  await blockTillPoolEmpty(api, dids.length);
-}
-
-async function issueTokenPerDid(api, accounts, dids) {
-  for (let i = 0; i < dids.length; i++) {
-    console.log(`Creating token for DID ${i} ${accounts[i].address}`);
-
-    const ticker = `token${i}`;
+    const ticker = `token${prepend}${i}`;
 
     const unsub = await api.tx.asset
-      .issueToken(dids[i], ticker, ticker, 1000000, true)
-      .signAndSend(accounts[i], ({ events = [], status }) => {
+      .createToken(dids[i], ticker, ticker, 1000000, true)
+      .signAndSend(accounts[i],
+        { nonce: nonces.get(accounts[i].address) },        
+        ({ events = [], status }) => {
         if (status.isFinalized) {
           let new_token_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
             if (section == "asset" && method == "IssuedToken") {
               new_token_ok = true;
-              console.log(`Successfully issued token for DID ${i}: ${data}`);
+              console.log(`createToken: ${i} SUCCESS with: ${data}`);
             }
           });
 
           if (!new_token_ok) {
-            console.error(`Could not issue token for DID ${i}`);
+            console.error(`createToken: ${i} FAIL`);
           }
           unsub();
         }
       });
+    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+    sched_prog.increment();
   }
-
-  await blockTillPoolEmpty(api, dids.length);
-}
-
-async function issueTokenPerDid(api, accounts, dids) {
-  for (let i = 0; i < dids.length; i++) {
-    console.log(`Creating token for DID ${i} ${accounts[i].address}`);
-
-    const ticker = `token${i}`;
-
-    const unsub = await api.tx.asset
-      .issueToken(dids[i], ticker, ticker, 1000000, true)
-      .signAndSend(accounts[i], ({ events = [], status }) => {
-        if (status.isFinalized) {
-          let new_token_ok = false;
-          events.forEach(({ phase, event: { data, method, section } }) => {
-            if (section == "asset" && method == "IssuedToken") {
-              new_token_ok = true;
-              console.log(`Successfully issued token for DID ${i}: ${data}`);
-            }
-          });
-
-          if (!new_token_ok) {
-            console.error(`Could not issue token for DID ${i}`);
-          }
-          unsub();
-        }
-      });
-  }
-
-  await blockTillPoolEmpty(api, dids.length);
+  sched_prog.stop();
+  // await blockTillPoolEmpty(api, dids.length);
 }
 
 async function addClaimIssuersToDids(api, accounts, dids) {
+  let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
+  sched_prog.start(dids.length);
   for (let i = 0; i < dids.length; i++) {
-    console.log(`Adding claim issuer for DID ${i} ${accounts[i].address}`);
+    // console.log(`Adding claim issuer for DID ${i} ${accounts[i].address}`);
 
     const unsub = await api.tx.identity
       .addClaimIssuer(dids[i], dids[i])
-      .signAndSend(accounts[i], ({ events = [], status }) => {
+      .signAndSend(accounts[i],
+        { nonce: nonces.get(accounts[i].address) },
+        ({ events = [], status }) => {
         if (status.isFinalized) {
           let new_issuer_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
             if (section == "identity" && method == "NewClaimIssuer") {
               new_issuer_ok = true;
               console.log(
-                `Successfully added a claim issuer for DID ${i}: ${data}`
+                `addClaimIssuersToDids: ${i} SUCCESS with: ${data}`
               );
             }
           });
 
           if (!new_issuer_ok) {
-            console.error(`Could not add claim issuer for DID ${i}`);
+            console.error(`addClaimIssuersToDids: ${i} FAIL`);
           }
           unsub();
         }
       });
-  }
+    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+    sched_prog.increment();
 
-  await blockTillPoolEmpty(api, dids.length);
+  }
+  sched_prog.stop();
+
+  // await blockTillPoolEmpty(api, dids.length);
 }
 
 async function addNClaimsToDids(api, accounts, dids, n_claims) {
+  let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
+  sched_prog.start(dids.length);
   for (let i = 0; i < dids.length; i++) {
     let claims = [];
     for (let j = 0; j < n_claims; j++) {
@@ -389,62 +411,81 @@ async function addNClaimsToDids(api, accounts, dids, n_claims) {
 
     const unsub = await api.tx.identity
       .addClaim(dids[i], dids[i], claims)
-      .signAndSend(accounts[i], ({ events = [], status }) => {
+      .signAndSend(accounts[i],
+        { nonce: nonces.get(accounts[i].address) },        
+        ({ events = [], status }) => {
         if (status.isFinalized) {
           let new_claim_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
             if (section == "identity" && method == "NewClaims") {
               new_claim_ok = true;
-              console.log(`Successfully added claims for DID ${i}: ${data}`);
+              console.log(`addClaim: ${i} SUCCESS with: ${data}`);
             }
           });
 
           if (!new_claim_ok) {
-            console.error(`Could not add claims for DID ${i}`);
+            console.error(`addClaim: ${i} FAIL`);
           }
           unsub();
         }
       });
-  }
+    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+    sched_prog.increment();
 
-  await blockTillPoolEmpty(api, dids.length);
+  }
+  sched_prog.stop();
+
+  // await blockTillPoolEmpty(api, dids.length);
 }
 
 async function blockTillPoolEmpty(api, expected_tx_count) {
-  console.log("Waiting on transaction pool to empty...");
-  const unsub = await api.rpc.chain.subscribeNewHeads(header => {
-    console.log("Block " + header.number + " Mined. Hash: " + header.hash);
-  });
-  let elapsed_total = 0; // How many seconds since first tx pool subscription
-  let elapsed_this_batch = 0; // How many seconds since last batch popped from the pool
-  let prev_pending_tx_count = 0; // How many txes on last loop run
-  let still_polling = true;
-  let tps_sum = 0;
-  while (still_polling) {
-    await api.rpc.author.pendingExtrinsics(pool => {
-      elapsed_total++;
-      elapsed_this_batch++;
-      if (pool.length < prev_pending_tx_count) {
-        let batch_len = prev_pending_tx_count - pool.length;
-        console.log(
-          `Current batch (${batch_len} txs) processed in ${elapsed_this_batch}s`
-        );
-        console.log("Current batch TPS:", batch_len / elapsed_this_batch);
-        elapsed_this_batch = 0;
+  console.log("Processing Transactions");
+  let prev_block_pending = 0;
+  let done_something = false;
+  const unsub = await api.rpc.chain.subscribeNewHeads(async header => {
+    console.log("Block: " + header.number + " Mined with Hash: " + header.hash);
+    return api.rpc.author.pendingExtrinsics(pool => {
+      // console.log("Queued: " + pool.length);
+      if (pool.length > 0) {
+        done_something = true;
       }
-      if (pool.length === 0) {
+      if (done_something && pool.length == 0) {
         unsub();
-        still_polling = false;
       }
-      prev_pending_tx_count = pool.length;
     });
+    // console.log("HEADER: " + JSON.stringify(header));
+  });
+  // let elapsed_total = 0; // How many seconds since first tx pool subscription
+  // let elapsed_this_batch = 0; // How many seconds since last batch popped from the pool
+  // let prev_pending_tx_count = 0; // How many txes on last loop run
+  // let still_polling = true;
+  // let tps_sum = 0;
+  // while (still_polling) {
+  //   await api.rpc.author.pendingExtrinsics(pool => {
+  //     console.log("Pending Transactions: ", pool.length);
+  //     elapsed_total++;
+  //     elapsed_this_batch++;
+  //     if (pool.length < prev_pending_tx_count) {
+  //       let batch_len = prev_pending_tx_count - pool.length;
+  //       console.log(
+  //         `Current batch (${batch_len} txs) processed in ${elapsed_this_batch}s`
+  //       );
+  //       console.log("Current batch TPS:", batch_len / elapsed_this_batch);
+  //       elapsed_this_batch = 0;
+  //     }
+  //     if (pool.length === 0) {
+  //       unsub();
+  //       still_polling = false;
+  //     }
+  //     prev_pending_tx_count = pool.length;
+  //   });
 
-    // Wait one second
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
+  //   // Wait one second
+  //   await new Promise(resolve => setTimeout(resolve, 1000));
+  // }
 
-  console.log(`Tx pool cleared in ${elapsed_total}s`);
-  console.log(`TPS: ${expected_tx_count / elapsed_total}`);
+  // console.log(`Tx pool cleared in ${elapsed_total}s`);
+  // console.log(`TPS: ${expected_tx_count / elapsed_total}`);
 }
 
 // Use the `du` command to obtain recursive directory size
@@ -462,11 +503,11 @@ function printAndUpdateStorageSize(dir, n_txs) {
   let new_storage_size = duDirSize(STORAGE_DIR);
   let storage_delta = new_storage_size - current_storage_size;
 
-  console.log(
-    `Current storage size (${STORAGE_DIR}): ${new_storage_size /
-      1024}MB (delta ${storage_delta}KB, ${storage_delta /
-      n_txs}KB per tx)`
-  );
+  // console.log(
+  //   `Current storage size (${STORAGE_DIR}): ${new_storage_size /
+  //     1024}MB (delta ${storage_delta}KB, ${storage_delta /
+  //     n_txs}KB per tx)`
+  // );
   current_storage_size = new_storage_size;
 }
 
