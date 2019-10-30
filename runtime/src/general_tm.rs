@@ -85,7 +85,7 @@ decl_module! {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
 
@@ -400,7 +400,7 @@ mod tests {
             unimplemented!();
         }
     }
-  
+
     fn _check_investor_status(_holder_did: &Vec<u8>) -> Result {
         // TODO check with claim.
         /*let investor = <identity::DidRecords<T>>::get(holder_did);
