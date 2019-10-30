@@ -2,10 +2,10 @@ use crate::asset::{self, AssetTrait};
 use crate::constants::*;
 use crate::identity;
 use crate::utils;
-use primitives::Key;
 use codec::Encode;
 use core::result::Result as StdResult;
 use identity::ClaimValue;
+use primitives::Key;
 use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -210,9 +210,7 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use crate::{
-        asset::SecurityToken, balances, exemption, identity, percentage_tm, registry,
-    };
+    use crate::{asset::SecurityToken, balances, exemption, identity, percentage_tm, registry};
 
     type SessionIndex = u32;
     type AuthorityId = u64;

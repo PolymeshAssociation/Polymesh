@@ -427,22 +427,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Only for testing. Remove once UI can encode/decode properly
-        fn add_u128_claim(
-            origin,
-            did: Vec<u8>,
-            claim_key: Vec<u8>,
-            did_issuer: Vec<u8>,
-            expiry: <T as timestamp::Trait>::Moment,
-            claim_value: u128
-        ) -> Result {
-            let claim_value = ClaimValue {
-                value: claim_value.encode(),
-                data_type: DataTypes::U128,
-            };
-            Self::add_claim(origin, did, claim_key, did_issuer, expiry, claim_value)
-        }
-
         /// Marks the specified claim as revoked
         fn revoke_claim(origin, did: Vec<u8>, claim_key: Vec<u8>, did_issuer: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
