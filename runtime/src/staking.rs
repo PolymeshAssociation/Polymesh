@@ -718,6 +718,9 @@ decl_module! {
                 return Err("can not bond with value less than minimum balance")
             }
 
+            // reject a bond if the controller doesn't pass compliance.
+            ensure!(Self::is_validator_compliant(&controller), "controller has not passed compliance");
+
             // You're auto-bonded forever, here. We might improve this by only bonding when
             // you actually validate/nominate and remove once you unbond __everything__.
             <Bonded<T>>::insert(&stash, controller.clone());
@@ -749,6 +752,8 @@ decl_module! {
 
             let controller = Self::bonded(&stash).ok_or("not a stash")?;
             let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
+
+            ensure!(Self::is_validator_compliant(&controller), "controller has not passed compliance");
 
             let stash_balance = T::Currency::free_balance(&stash);
 
@@ -862,6 +867,7 @@ decl_module! {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or("not a controller")?;
             let stash = &ledger.stash;
+            ensure!(Self::is_validator_compliant(&controller), "controller has not passed compliance");
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
         }
@@ -1181,9 +1187,9 @@ impl<T: Trait> Module<T> {
             _ => return None,
         }
         let validators = T::SessionInterface::validators();
-        let permissioned_validators = <PermissionedValidators<T>>::get();
         let prior = validators
             .into_iter()
+            .filter(|e| Self::is_validator_compliant(e))
             .map(|v| {
                 let e = Self::stakers(&v);
                 (v, e)
