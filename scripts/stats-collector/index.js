@@ -5,20 +5,23 @@ const BN = require("bn.js");
 const cli = require("command-line-args");
 const cliProg = require("cli-progress");
 const childProc = require("child_process");
+const colors = require('colors');
 
 const fs = require("fs");
 const path = require("path");
 
-const BOB = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
-
 // Helps track the size delta for
 let current_storage_size = 0;
+
 // Updated by the CLI option
 let STORAGE_DIR;
 let nonces = new Map();
 let alice, bob, dave;
+let master_keys = [];
+let signing_keys = [];
 
 let fail_count = 0;
+let fail_type = {};
 
 const cli_opts = [
   {
@@ -56,8 +59,7 @@ async function main() {
   STORAGE_DIR = opts.dir;
 
   console.log(
-    `Welcome to Polymesh Stats Collector. Performing ${n_txes} txes per stat,` +
-      `${n_claims} claims per DID.`
+    `Welcome to Polymesh Stats Collector. Creating ${n_txes} accounts and DIDs, with ${n_claims} claims per DID.`
   );
 
   const filePath = path.join(
@@ -94,103 +96,85 @@ async function main() {
   let dave_nonce = new BN(daveRawNonce.toString());
   nonces.set(dave.address, dave_nonce);
 
-  let accounts = [];
-
-  // Create `n_txes` accounts
+  // Create `n_txes` master key accounts
   for (let i = 0; i < n_txes; i++) {
-    accounts.push(
-      keyring.addFromUri("//" + prepend + i.toString(), { name: i.toString() })
+    master_keys.push(
+      keyring.addFromUri("//IssuerMK" + prepend + i.toString(), { name: i.toString() })
     );
-    let accountRawNonce = await api.query.system.accountNonce(accounts[i].address);
+    let accountRawNonce = await api.query.system.accountNonce(master_keys[i].address);
     let account_nonce = new BN(accountRawNonce.toString());
-    nonces.set(accounts[i].address, account_nonce);  
+    nonces.set(master_keys[i].address, account_nonce);  
+  }
+
+  // Create `n_txes` signing key accounts
+  for (let i = 0; i < n_txes; i++) {
+    signing_keys.push(
+      keyring.addFromUri("//IssuerSK" + prepend + i.toString(), { name: i.toString() })
+    );
+    let accountRawNonce = await api.query.system.accountNonce(signing_keys[i].address);
+    let account_nonce = new BN(accountRawNonce.toString());
+    nonces.set(signing_keys[i].address, account_nonce);  
   }
 
   let transfer_amount = 5000000000;
-  printAndUpdateStorageSize(STORAGE_DIR);
+  updateStorageSize(STORAGE_DIR);
 
   // Execute each stats collection stage
   const init_tasks = {
-    'Submit  : TPS': n_txes,
-    'Complete: TPS': n_txes,
-    'Submit  : DISTRIBUTE POLY': n_txes,
-    'Complete: DISTRIBUTE POLY': n_txes,
-    'Submit  : CREATE IDENTITIES': n_txes,
-    'Complete: CREATE IDENTITIES': n_txes,
+    'Submit  : TPS                 ': n_txes,
+    'Complete: TPS                 ': n_txes,
+    'Submit  : DISTRIBUTE POLY     ': n_txes * 2,
+    'Complete: DISTRIBUTE POLY     ': n_txes * 2,
+    'Submit  : CREATE IDENTITIES   ': n_txes,
+    'Complete: CREATE IDENTITIES   ': n_txes,
+    'Submit  : ADD SIGNING KEYS    ': n_txes,
+    'Complete: ADD SIGNING KEYS    ': n_txes,
     'Submit  : ISSUE SECURITY TOKEN': n_txes,
     'Complete: ISSUE SECURITY TOKEN': n_txes,
-    'Submit  : ADD CLAIM ISSUERS': n_txes,
-    'Complete: ADD CLAIM ISSUERS': n_txes,
-    'Submit  : ADD CLAIMS': n_txes,
-    'Complete: ADD CLAIMS': n_txes,
+    'Submit  : ADD CLAIM ISSUERS   ': n_txes,
+    'Complete: ADD CLAIM ISSUERS   ': n_txes,
+    'Submit  : ADD CLAIMS          ': n_txes,
+    'Complete: ADD CLAIMS          ': n_txes,
   };
   const init_bars = [];
   
   // create new container
-  console.log("Submitting");
+  console.log("=== Processing Transactions ===");
   const init_multibar = new cliProg.MultiBar({
-    format: ' {bar} | "{task}" | {value}/{total}',
+    format: colors.cyan('{bar}') + ' | {task} | {value}/{total}',
     hideCursor: true,
     barCompleteChar: '\u2588',
     barIncompleteChar: '\u2591',
     clearOnComplete: false,
     stopOnComplete: true
-  });
+  }, cliProg.Presets.shades_grey);
 
   for (let task in init_tasks){
     const size = init_tasks[task];
     init_bars.push(init_multibar.create(size, 0, {task: task}));
   }
 
-  // const comp_bars = [];
-
-  // // create new container
-  // console.log("Completed");
-  // const comp_multibar = new cliProg.MultiBar({
-  //   format: ' {bar} | "{task}" | {value}/{total}',
-  //   hideCursor: true,
-  //   barCompleteChar: '\u2588',
-  //   barIncompleteChar: '\u2591',
-  //   clearOnComplete: false,
-  //   stopOnComplete: true
-  // });
-
-  // for (let task in init_tasks){
-  //   const size = init_tasks[task];
-  //   comp_bars.push(comp_multibar.create(size, 0, {task: task}));
-  // }
-
-  // Base currency TPS test
-  // console.log("=== TPS ===");
   await tps(api, keyring, n_txes, init_bars[0], init_bars[1]); // base currency transfer sanity-check
-
-  // console.log("=== DISTRIBUTE POLY === ");
-  await distributePoly(api, keyring, accounts, transfer_amount, init_bars[2], init_bars[3]);
-  // printAndUpdateStorageSize(STORAGE_DIR, n_txes);
-  // console.log("Waiting for initial POLY distribution to generated accounts");
+  await distributePoly(api, keyring, master_keys.concat(signing_keys), transfer_amount, init_bars[2], init_bars[3]);
   await blockTillPoolEmpty(api, n_txes);
-  // init_multibar.stop();
-  // console.log("=== CREATE IDENTITIES ===");
-  let dids = await createIdentities(api, accounts, prepend, init_bars[4], init_bars[5]);
-  // printAndUpdateStorageSize(STORAGE_DIR, n_txes);
-
-  // console.log("=== ISSUE ONE SECURITY TOKEN PER DID ===");
-  await issueTokenPerDid(api, accounts, dids, prepend, init_bars[6], init_bars[7]);
-  // printAndUpdateStorageSize(STORAGE_DIR, n_txes);
-
-  // console.log("=== ADD CLAIM ISSUERS TO DIDS ===");
-  await addClaimIssuersToDids(api, accounts, dids, init_bars[8], init_bars[9]);
-  // printAndUpdateStorageSize(STORAGE_DIR, n_txes);
-
-  // console.log("=== ADD CLAIMS TO DIDS ===");
-  await addNClaimsToDids(api, accounts, dids, n_claims, init_bars[10], init_bars[11]);
-  // printAndUpdateStorageSize(STORAGE_DIR, n_txes * n_claims);
-
+  let dids = await createIdentities(api, master_keys, prepend, init_bars[4], init_bars[5]);
+  await addSigningKeys(api, master_keys, dids, signing_keys, prepend, init_bars[6], init_bars[7]);
+  await issueTokenPerDid(api, master_keys, dids, prepend, init_bars[8], init_bars[9]);
+  await addClaimIssuersToDids(api, master_keys, dids, init_bars[10], init_bars[11]);
+  await addNClaimsToDids(api, master_keys, dids, n_claims, init_bars[12], init_bars[13]);
   await blockTillPoolEmpty(api, n_txes);
 
-  printAndUpdateStorageSize(STORAGE_DIR);
+  updateStorageSize(STORAGE_DIR);
+
+  init_multibar.stop();
+  console.log('\n');
   console.log(`Total storage size delta: ${current_storage_size - initial_storage_size}KB`);
-  console.log(`Number of failures: ${fail_count}`)
+  console.log(`Total number of failures: ${fail_count}`)
+  if (fail_count > 0) {
+    for (let err in fail_type) {
+      console.log(`\t` + err + ":" + fail_type[err]);
+    }
+  }
   console.log("DONE");
   process.exit();
 }
@@ -198,11 +182,8 @@ async function main() {
 // Spams the network with `n_txes` transfer transactions in an attempt to measure base
 // currency TPS.
 async function tps(api, keyring, n_txes, submitBar, completeBar) {
-
-  // let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
-  // sched_prog.start(n_txes);
+  fail_type["TPS"] = 0;
   // Send one half from Alice to Bob
-  // console.time("Transactions sent to the node in");
   for (let j = 0; j < Math.floor(n_txes / 2); j++) {
     const unsub = await api.tx.balances
       .transfer(bob.address, 10)
@@ -211,38 +192,27 @@ async function tps(api, keyring, n_txes, submitBar, completeBar) {
         { nonce: nonces.get(alice.address) },
         ({ events = [], status }) => {
           if (status.isFinalized) {
-            // console.group();
-            // console.log(
-            //   `Distribution Tx ${i} included at ${status.asFinalized}`
-            // );
             let transfer_ok = false;
             events.forEach(({ phase, event: { data, method, section } }) => {
               if (section == "balances" && method == "Transfer") {
                 completeBar.increment();
                 transfer_ok = true;
-                // break;
-                // console.log(`New transfer to ${i}: Transfer ${data}`);
               }
             });
 
             if (!transfer_ok) {
-              // console.error(`transfer[TPS]: ${j} FAIL`);
               fail_count++;
+              fail_type["TPS"]++;
               completeBar.increment();
-            } else {
-              // console.log(`transfer[TPS]: ${j} SUCCESS`);
             }
 
             unsub();
-            // console.groupEnd();
           }
         }
       );
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
-    // sched_prog.increment();
     submitBar.increment();
   }
-  // console.log("Alice -> Bob scheduled");
 
   // Send the other half from Bob to Alice to leave balances unaltered
   for (let j = Math.floor(n_txes / 2); j < n_txes; j++) {
@@ -253,48 +223,33 @@ async function tps(api, keyring, n_txes, submitBar, completeBar) {
         { nonce: nonces.get(bob.address) },
         ({ events = [], status }) => {
           if (status.isFinalized) {
-            // console.group();
-            // console.log(
-            //   `Distribution Tx ${i} included at ${status.asFinalized}`
-            // );
             let transfer_ok = false;
             events.forEach(({ phase, event: { data, method, section } }) => {
               if (section == "balances" && method == "Transfer") {
-                transfer_ok = true;
                 completeBar.increment();
-                // console.log(`New transfer to ${i}: Transfer ${data}`);
+                transfer_ok = true;
               }
             });
 
             if (!transfer_ok) {
-              console.error(`transfer[TPS]: ${j} FAIL`);
               fail_count++;
               completeBar.increment();
-            } else {
-              // console.log(`transfer[TPS]: ${j} SUCCESS`);
+              fail_type["TPS"]++;
             }
 
             unsub();
-            // console.groupEnd();
           }
         }
       );
     nonces.set(bob.address, nonces.get(bob.address).addn(1));
-    // sched_prog.increment();
     submitBar.increment();
   }
-  // console.log("Bob -> Alice scheduled");
-  // bar.stop();
 
-  // await blockTillPoolEmpty(api, n_txes);
 }
 
 // Sends transfer_amount to accounts[] from alice
 async function distributePoly(api, keyring, accounts, transfer_amount, submitBar, completeBar) {
-  // let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
-
-  // console.log("Scheduling");
-  // sched_prog.start(accounts.length);
+  fail_type["DISTRIBUTE POLY"] = 0;
 
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
@@ -304,57 +259,35 @@ async function distributePoly(api, keyring, accounts, transfer_amount, submitBar
         alice,
         { nonce: nonces.get(alice.address) },
         ({ events = [], status }) => {
-          // console.log("status: " + JSON.stringify(status));
-          // console.log("events: " + events.length + " : " + JSON.stringify(events));
           if (status.isFinalized) {
-            // console.group();
-            // console.log(
-            //   `Distribution Tx ${i} included at ${status.asFinalized}`
-            // );
             let transfer_ok = false;
             events.forEach(({ phase, event: { data, method, section } }) => {
-              // console.log("Checking event");
               if (section == "balances" && method == "Transfer") {
                 transfer_ok = true;
                 completeBar.increment();
-                // console.log("Match");
-                // console.log(`New transfer to ${i}: Transfer ${data}`);
               }
             });
 
             if (!transfer_ok) {
-              // console.error(`transfer: ${i} FAIL`);
               fail_count++;
               completeBar.increment();
-
-            } else {
-              // console.log(`transfer: ${i} SUCCESS`);
+              fail_type["DISTRIBUTE POLY"]++;
             }
 
             unsub();
-            // console.groupEnd();
           }
         }
       );
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
-    // console.log("Alice Nonce: " + nonces.get(alice.address));
-    // sched_prog.increment();
     submitBar.increment();
   }
 
-  // sched_prog.stop();
-
-  // await blockTillPoolEmpty(api, accounts.length);
 }
 
 // Create a new DID for each of accounts[]
 async function createIdentities(api, accounts, prepend, submitBar, completeBar) {
   let dids = [];
-
-  // let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
-
-  // console.log("Scheduling");
-  // sched_prog.start(accounts.length);
+  fail_type["CREATE IDENTITIES"] = 0;
   for (let i = 0; i < accounts.length; i++) {
     const did = "did:poly:" + prepend + i;
     dids.push(did);
@@ -367,19 +300,16 @@ async function createIdentities(api, accounts, prepend, submitBar, completeBar) 
         if (status.isFinalized) {
           let new_did_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
-            // console.log("Doing Something;");
             if (section == "identity" && method == "NewDid") {
               new_did_ok = true;
               completeBar.increment();
-              // console.log(`registerDid: ${i} SUCCESS with DID: ${data[0]}`);
             }
           });
 
           if (!new_did_ok) {
-            // console.error(`registerDid: ${i} FAIL`);
             fail_count++;
             completeBar.increment();
-
+            fail_type["CREATE IDENTITIES"]++;
           }
           unsub();
         }
@@ -388,18 +318,78 @@ async function createIdentities(api, accounts, prepend, submitBar, completeBar) 
     submitBar.increment();
   }
 
-  // sched_prog.stop();
+  return dids;
+}
 
-  // await blockTillPoolEmpty(api, accounts.length);
+// Attach a signing key to each DID
+async function addSigningKeys(api, accounts, dids, signing_accounts, prepend, submitBar, completeBar) {
+  fail_type["ADD SIGNING KEY"] = 0;
+  for (let i = 0; i < accounts.length; i++) {
+    const unsub = await api.tx.identity
+      .addSigningKeys(dids[i], [])
+      .signAndSend(accounts[i],
+        { nonce: nonces.get(accounts[i].address) },
+        ({ events = [], status }) => {
+        if (status.isFinalized) {
+          let tx_ok = false;
+          events.forEach(({ phase, event: { data, method, section } }) => {
+            if (section == "identity" && method == "SigningKeysAdded") {
+              tx_ok = true;
+              completeBar.increment();
+            }
+          });
+
+          if (!tx_ok) {
+            fail_count++;
+            completeBar.increment();
+            fail_type["ADD SIGNING KEY"]++;
+          }
+          unsub();
+        }
+      });
+    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+    submitBar.increment();
+  }
+
+  return dids;
+}
+
+// Attach a signing key to each DID
+async function addSigningKeys(api, accounts, dids, signing_accounts, prepend, submitBar, completeBar) {
+  fail_type["ADD SIGNING KEY"] = 0;
+  for (let i = 0; i < accounts.length; i++) {
+    const unsub = await api.tx.identity
+      .addSigningKeys(dids[i], [])
+      .signAndSend(accounts[i],
+        { nonce: nonces.get(accounts[i].address) },
+        ({ events = [], status }) => {
+        if (status.isFinalized) {
+          let tx_ok = false;
+          events.forEach(({ phase, event: { data, method, section } }) => {
+            if (section == "identity" && method == "SigningKeysAdded") {
+              tx_ok = true;
+              completeBar.increment();
+            }
+          });
+
+          if (!tx_ok) {
+            fail_count++;
+            completeBar.increment();
+            fail_type["ADD SIGNING KEY"]++;
+          }
+          unsub();
+        }
+      });
+    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+    submitBar.increment();
+  }
 
   return dids;
 }
 
 async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, completeBar) {
-  // let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
-  // sched_prog.start(dids.length);
+  fail_type["ISSUE SECURITY TOKEN"] = 0;
   for (let i = 0; i < dids.length; i++) {
-    // console.log(`Creating token for DID ${i} ${accounts[i].address}`);
 
     const ticker = `token${prepend}${i}`;
 
@@ -413,16 +403,14 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
           events.forEach(({ phase, event: { data, method, section } }) => {
             if (section == "asset" && method == "IssuedToken") {
               new_token_ok = true;
-              // console.log(`createToken: ${i} SUCCESS with: ${data[0]}`);
               completeBar.increment();
             }
           });
 
           if (!new_token_ok) {
-            // console.error(`createToken: ${i} FAIL`);
             fail_count++;
             completeBar.increment();
-
+            fail_type["ISSUE SECURITY TOKEN"]++;
           }
           unsub();
         }
@@ -430,15 +418,11 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
     submitBar.increment();
   }
-  // sched_prog.stop();
-  // await blockTillPoolEmpty(api, dids.length);
 }
 
 async function addClaimIssuersToDids(api, accounts, dids, submitBar, completeBar) {
-  // let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
-  // sched_prog.start(dids.length);
+  fail_type["ADD CLAIM ISSUERS"] = 0;
   for (let i = 0; i < dids.length; i++) {
-    // console.log(`Adding claim issuer for DID ${i} ${accounts[i].address}`);
 
     const unsub = await api.tx.identity
       .addClaimIssuer(dids[i], dids[i])
@@ -450,18 +434,14 @@ async function addClaimIssuersToDids(api, accounts, dids, submitBar, completeBar
           events.forEach(({ phase, event: { data, method, section } }) => {
             if (section == "identity" && method == "NewClaimIssuer") {
               new_issuer_ok = true;
-              // console.log(
-              //   `addClaimIssuersToDids: ${i} SUCCESS with: ${data[0]}`
-              // );
               completeBar.increment();
             }
           });
 
           if (!new_issuer_ok) {
-            // console.error(`addClaimIssuersToDids: ${i} FAIL`);
             fail_count++;
             completeBar.increment();
-
+            fail_type["ADD CLAIM ISSUERS"]++;
           }
           unsub();
         }
@@ -470,14 +450,10 @@ async function addClaimIssuersToDids(api, accounts, dids, submitBar, completeBar
     submitBar.increment();
 
   }
-  // sched_prog.stop();
-
-  // await blockTillPoolEmpty(api, dids.length);
 }
 
 async function addNClaimsToDids(api, accounts, dids, n_claims, submitBar, completeBar) {
-  // let sched_prog = new cliProg.SingleBar({}, cliProg.Presets.shades_classic);
-  // sched_prog.start(dids.length);
+  fail_type["ADD CLAIMS"] = 0;
   for (let i = 0; i < dids.length; i++) {
     let claims = [];
     for (let j = 0; j < n_claims; j++) {
@@ -499,37 +475,28 @@ async function addNClaimsToDids(api, accounts, dids, n_claims, submitBar, comple
             if (section == "identity" && method == "NewClaims") {
               new_claim_ok = true;
               completeBar.increment();
-              // console.log(`addClaim: ${i} SUCCESS with: ${data[0]}`);
             }
           });
 
           if (!new_claim_ok) {
-            // console.error(`addClaim: ${i} FAIL`);
             fail_count++;
             completeBar.increment();
-
+            fail_type["ADD CLAIMS"]++;
           }
           unsub();
         }
       });
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
     submitBar.increment();
-
-  }
-  // sched_prog.stop();
-
-  // await blockTillPoolEmpty(api, dids.length);
+  }  
 }
 
 async function blockTillPoolEmpty(api, expected_tx_count) {
-  // console.log("Processing Transactions");
   let prev_block_pending = 0;
   let done_something = false;
   let done = false;
   const unsub = await api.rpc.chain.subscribeNewHeads(async header => {
-    // console.log("Block: " + header.number + " Mined with Hash: " + header.hash);
     let pool = await api.rpc.author.pendingExtrinsics();
-    // console.log("Queued: " + pool.length);
     if (pool.length > 0) {
       done_something = true;
     }
@@ -537,43 +504,12 @@ async function blockTillPoolEmpty(api, expected_tx_count) {
       unsub();
       done = true;
     }
-    // console.log("HEADER: " + JSON.stringify(header));
   });
   while (!done) {
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
   await new Promise(resolve => setTimeout(resolve, 3000));
-  // let elapsed_total = 0; // How many seconds since first tx pool subscription
-  // let elapsed_this_batch = 0; // How many seconds since last batch popped from the pool
-  // let prev_pending_tx_count = 0; // How many txes on last loop run
-  // let still_polling = true;
-  // let tps_sum = 0;
-  // while (still_polling) {
-  //   await api.rpc.author.pendingExtrinsics(pool => {
-  //     console.log("Pending Transactions: ", pool.length);
-  //     elapsed_total++;
-  //     elapsed_this_batch++;
-  //     if (pool.length < prev_pending_tx_count) {
-  //       let batch_len = prev_pending_tx_count - pool.length;
-  //       console.log(
-  //         `Current batch (${batch_len} txs) processed in ${elapsed_this_batch}s`
-  //       );
-  //       console.log("Current batch TPS:", batch_len / elapsed_this_batch);
-  //       elapsed_this_batch = 0;
-  //     }
-  //     if (pool.length === 0) {
-  //       unsub();
-  //       still_polling = false;
-  //     }
-  //     prev_pending_tx_count = pool.length;
-  //   });
-
-  //   // Wait one second
-  //   await new Promise(resolve => setTimeout(resolve, 1000));
-  // }
-
-  // console.log(`Tx pool cleared in ${elapsed_total}s`);
-  // console.log(`TPS: ${expected_tx_count / elapsed_total}`);
+  
 }
 
 // Use the `du` command to obtain recursive directory size
@@ -586,16 +522,11 @@ function duDirSize(dir) {
   return new Number(results[1]);
 }
 
-function printAndUpdateStorageSize(dir, n_txs) {
+function updateStorageSize(dir, n_txs) {
   n_txs = n_txs > 0 ? n_txs : 1;
   let new_storage_size = duDirSize(STORAGE_DIR);
   let storage_delta = new_storage_size - current_storage_size;
 
-  // console.log(
-  //   `Current storage size (${STORAGE_DIR}): ${new_storage_size /
-  //     1024}MB (delta ${storage_delta}KB, ${storage_delta /
-  //     n_txs}KB per tx)`
-  // );
   current_storage_size = new_storage_size;
 }
 

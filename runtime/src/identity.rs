@@ -570,7 +570,7 @@ impl<T: Trait> Module<T> {
 
     /// It adds `role` role to `did` for signing key `key`.
     pub fn add_role_to_key(did: &Vec<u8>, key: &Key, role: KeyRole) -> Result {
-        ensure!(<DidRecords<T>>::exists(did), "Investor DID does not exist");
+        ensure!(<DidRecords<T>>::exists(did), "DID must already exist");
         let record = <DidRecords<T>>::get(did);
 
         // You are trying to add a role to did's master key. It is not needed.
