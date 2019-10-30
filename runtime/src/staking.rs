@@ -120,7 +120,7 @@
 //! ### Example: Rewarding a validator by id.
 //!
 //! ```
-//! use support::{decl_module, dispatch::Result};
+//! use srml_support::{decl_module, dispatch::Result};
 //! use system::ensure_signed;
 //! use srml_staking::{self as staking};
 //!
@@ -608,6 +608,10 @@ decl_storage! {
         /// All slashes that have occurred in a given era.
         EraSlashJournal get(era_slash_journal):
             map EraIndex => Vec<SlashJournalEntry<T::AccountId, BalanceOf<T>>>;
+
+        /// Validators that have gone through compliance requirements and are permitted
+        /// to participate in validation.
+        PermissionedValidators get(permissioned_alidators): Vec<T::AccountId>;
     }
     add_extra_genesis {
         config(stakers):
@@ -652,6 +656,10 @@ decl_event!(
         /// An old slashing report from a prior era was discarded because it could
         /// not be processed.
         OldSlashingReportDiscarded(SessionIndex),
+		/// An entity has issued a candidacy. See the transaction for who.
+		PermissionedValidatorAdded(AccountId),
+		/// The given member was removed. See the transaction for who.
+		PermissionedValidatorRemoved(AccountId),
     }
 );
 
@@ -957,6 +965,31 @@ decl_module! {
             ValidatorCount::put(new);
         }
 
+        /// Add a potential new validator to the pool of validators.
+        /// Staking module checks `PermissionedValidators` to ensure validators have
+        /// completed KYB compliance
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn add_permissioned_validator(origin, controller: T::AccountId) {
+            let mut validators = <PermissionedValidators<T>>::get();
+            let index = validators.binary_search(&controller).err().ok_or("already a validator")?;
+            validators.insert(index, controller.clone());
+            <PermissionedValidators<T>>::put(&validators);
+
+            Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
+        }
+
+        /// Removes a validator from the pool of validators. This can
+        /// happen when a validator loses KYB compliance
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn remove_permissioned_validator(origin, controller: T::AccountId) {
+            let mut validators = <PermissionedValidators<T>>::get();
+            let index = validators.binary_search(&controller).ok().ok_or("not a validator")?;
+            validators.remove(index);
+            <PermissionedValidators<T>>::put(&validators);
+
+            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
+        }
+
         // ----- Root calls.
 
         /// Force there to be no new eras indefinitely.
@@ -1148,6 +1181,7 @@ impl<T: Trait> Module<T> {
             _ => return None,
         }
         let validators = T::SessionInterface::validators();
+        let permissioned_validators = <PermissionedValidators<T>>::get();
         let prior = validators
             .into_iter()
             .map(|v| {
@@ -1429,6 +1463,12 @@ impl<T: Trait> Module<T> {
                 }
             }
         });
+    }
+
+    /// Is the stash account one of the permissioned validators?
+    pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
+        //TODO: Get DID associated with stash and check they have a KYB attestation etc.
+        false
     }
 }
 
