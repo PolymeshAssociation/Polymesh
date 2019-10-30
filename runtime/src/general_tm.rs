@@ -2,10 +2,11 @@ use crate::asset::{self, AssetTrait};
 use crate::constants::*;
 use crate::identity;
 use crate::utils;
+use primitives::Key;
 use codec::Encode;
 use core::result::Result as StdResult;
 use identity::ClaimValue;
-use rstd::prelude::*;
+use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 
@@ -64,7 +65,8 @@ decl_module! {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &sender.encode()), "sender must be a signing key for DID");
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
 
@@ -398,20 +400,15 @@ mod tests {
             unimplemented!();
         }
     }
-
-    lazy_static! {
-        static ref TOKEN_MAP: Arc<
-            Mutex<
-            HashMap<
-            Vec<u8>,
-            SecurityToken<
-                <Test as utils::Trait>::TokenBalance,
-                >,
-                >,
-                >,
-                > = Arc::new(Mutex::new(HashMap::new()));
-        /// Because Rust's Mutex is not recursive a second symbolic lock is necessary
-        static ref TOKEN_MAP_OUTER_LOCK: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
+  
+    fn _check_investor_status(_holder_did: &Vec<u8>) -> Result {
+        // TODO check with claim.
+        /*let investor = <identity::DidRecords<T>>::get(holder_did);
+        ensure!(
+            investor.has_signing_keys_role(IdentityRole::Investor),
+            "Account is not an investor"
+        );*/
+        Ok(())
     }
 
     type DividendModule = Module<Test>;
