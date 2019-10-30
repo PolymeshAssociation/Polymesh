@@ -1,12 +1,12 @@
 use crate::balances;
+use crate::general_tm::Operators;
+use crate::identity::DataTypes;
 use codec::{Codec, Decode};
 use rstd::prelude::*;
 use session;
 use sr_primitives::traits::{Member, SimpleArithmetic};
 use srml_support::Parameter;
 use system;
-use crate::general_tm::Operators;
-use crate::identity::DataTypes;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + session::Trait {

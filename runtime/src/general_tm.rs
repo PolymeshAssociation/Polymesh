@@ -4,10 +4,10 @@ use crate::identity;
 use crate::utils;
 use codec::Encode;
 use core::result::Result as StdResult;
+use identity::ClaimValue;
 use rstd::prelude::*;
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
-use identity::ClaimValue;
 
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Operators {
@@ -136,11 +136,19 @@ impl<T: Trait> Module<T> {
         for active_rule in active_rules {
             let mut rule_broken = false;
             for sender_rule in active_rule.sender_rules {
-                let identity_value =
-                    Self::fetch_value(from_did.clone(), sender_rule.key, sender_rule.trusted_issuers);
+                let identity_value = Self::fetch_value(
+                    from_did.clone(),
+                    sender_rule.key,
+                    sender_rule.trusted_issuers,
+                );
                 rule_broken = match identity_value {
                     None => true,
-                    Some(x) => utils::check_rule(sender_rule.value, x.value, x.data_type, sender_rule.operator),
+                    Some(x) => utils::check_rule(
+                        sender_rule.value,
+                        x.value,
+                        x.data_type,
+                        sender_rule.operator,
+                    ),
                 };
                 if rule_broken {
                     break;
@@ -150,11 +158,19 @@ impl<T: Trait> Module<T> {
                 continue;
             }
             for receiver_rule in active_rule.receiver_rules {
-                let identity_value =
-                    Self::fetch_value(from_did.clone(), receiver_rule.key, receiver_rule.trusted_issuers);
+                let identity_value = Self::fetch_value(
+                    from_did.clone(),
+                    receiver_rule.key,
+                    receiver_rule.trusted_issuers,
+                );
                 rule_broken = match identity_value {
                     None => true,
-                    Some(x) => utils::check_rule(receiver_rule.value, x.value, x.data_type, receiver_rule.operator),
+                    Some(x) => utils::check_rule(
+                        receiver_rule.value,
+                        x.value,
+                        x.data_type,
+                        receiver_rule.operator,
+                    ),
                 };
                 if rule_broken {
                     break;
