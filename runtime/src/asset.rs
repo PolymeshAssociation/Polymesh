@@ -1221,36 +1221,6 @@ mod tests {
                 true
             ));
 
-            general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(owner_acc),
-                owner_did.clone(),
-                token.name.clone(),
-                0,
-                owner_did.clone(),
-                (now - Duration::hours(1)).timestamp() as u64,
-            )
-            .expect("Could not configure general_tm for owner");
-
-            general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(owner_acc),
-                owner_did.clone(),
-                token.name.clone(),
-                0,
-                alice_did.clone(),
-                (now - Duration::hours(1)).timestamp() as u64,
-            )
-            .expect("Could not configure general_tm for alice");
-
-            general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(owner_acc),
-                owner_did.clone(),
-                token.name.clone(),
-                0,
-                bob_did.clone(),
-                (now - Duration::hours(1)).timestamp() as u64,
-            )
-            .expect("Could not configure general_tm for bob");
-
             // A correct entry is added
             assert_eq!(Asset::token_details(token.name.clone()), token);
 

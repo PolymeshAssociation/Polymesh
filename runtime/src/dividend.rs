@@ -783,23 +783,6 @@ mod tests {
                 map
             };
 
-            // Add all whitelist entries for investor, token owner and payout_token owner
-            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
-                token.name.clone(),
-                0,
-                investor_did.clone(),
-                (now - Duration::hours(1)).timestamp() as u64,
-            ));
-            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
-                token.name.clone(),
-                0,
-                token_owner_did.clone(),
-                (now - Duration::hours(1)).timestamp() as u64,
-            ));
             drop(outer);
 
             // Transfer tokens to investor
