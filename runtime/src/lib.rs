@@ -572,7 +572,7 @@ construct_runtime!(
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Registry: registry::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
-        GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
+        GeneralTM: general_tm::{Module, Call, Storage, Event},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},

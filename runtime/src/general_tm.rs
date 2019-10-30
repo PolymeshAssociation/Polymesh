@@ -30,7 +30,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
     // TODO: Add other types and constants required configure this module.
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::TokenBalance>;
 }
 
@@ -58,6 +58,8 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        fn deposit_event() = default;
+
         fn add_asset_rule(origin, did: Vec<u8>, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
@@ -72,7 +74,7 @@ decl_module! {
                 }
             });
 
-            //Self::deposit_event(RawEvent::NewAssetRule(ticker, asset_rule));
+            Self::deposit_event(Event::NewAssetRule(ticker, asset_rule));
 
             Ok(())
         }
@@ -93,31 +95,17 @@ decl_module! {
                     .collect();
             });
 
-            //Self::deposit_event(RawEvent::RemoveAssetRule(ticker, asset_rule));
+            Self::deposit_event(Event::RemoveAssetRule(ticker, asset_rule));
 
-            Ok(())
-        }
-
-        fn test(origin, ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, value: T::TokenBalance) -> Result {
-            let sender = ensure_signed(origin)?;
-            let general_status_code =
-                Self::verify_restriction(&ticker, &from_did, &to_did, value)?;
-            if general_status_code == ERC1400_TRANSFER_SUCCESS {
-                sr_primitives::print("satisfied");
-            } else {
-                sr_primitives::print("not satisfied2");
-            }
             Ok(())
         }
     }
 }
 
 decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as system::Trait>::AccountId,
-    {
-        NewAssetRule(Vec<u8>, AssetRule, AccountId),
+    pub enum Event {
+        NewAssetRule(Vec<u8>, AssetRule),
+        RemoveAssetRule(Vec<u8>, AssetRule),
     }
 );
 
