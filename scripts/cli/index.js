@@ -23,6 +23,9 @@ let claim_keys = [];
 
 let fail_count = 0;
 let fail_type = {};
+let block_sizes = {};
+
+let synced_block = 0;
 
 const cli_opts = [
   {
@@ -54,6 +57,12 @@ const cli_opts = [
     alias: "d",
     type: String,
     defaultValue: "/tmp/pmesh-primary-node"
+  },
+  {
+    name: "fast", // Substrate storage dir
+    alias: "f",
+    type: Boolean,
+    defaultValue: false
   }
 ];
 
@@ -64,6 +73,8 @@ async function main() {
   let n_claim_accounts = opts.claim_accounts;
   let n_claims = opts.claims;
   let prepend = opts.prepend;
+  let fast = opts.fast;
+
   STORAGE_DIR = opts.dir;
 
   console.log(
@@ -176,24 +187,28 @@ async function main() {
     init_bars.push(init_multibar.create(size, 0, {task: task}));
   }
 
-  await tps(api, keyring, n_accounts, init_bars[0], init_bars[1]); // base currency transfer sanity-check
-  await distributePoly(api, keyring, master_keys.concat(signing_keys).concat(claim_keys), transfer_amount, init_bars[2], init_bars[3]);
+  // Get current block
+  let current_header = await api.rpc.chain.getHeader();
+  synced_block = parseInt(current_header.number);
+
+  await tps(api, keyring, n_accounts, init_bars[0], init_bars[1], fast); // base currency transfer sanity-check
+  await distributePoly(api, keyring, master_keys.concat(signing_keys).concat(claim_keys), transfer_amount, init_bars[2], init_bars[3], fast);
   // Need to wait until POLY has been distributed to pay for the next set of transactions
   await blockTillPoolEmpty(api, n_accounts);
 
-  let issuer_dids = await createIdentities(api, master_keys, "issuer", prepend, init_bars[4], init_bars[5]);
-  await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7]);
-  await addSigningKeyRoles(api, master_keys, issuer_dids, signing_keys, init_bars[8], init_bars[9]);
-  await issueTokenPerDid(api, master_keys, issuer_dids, prepend, init_bars[10], init_bars[11]);
-  let claim_issuer_dids = await createIdentities(api, claim_keys, "claim_issuer", prepend, init_bars[12], init_bars[13]);
+  let issuer_dids = await createIdentities(api, master_keys, "issuer", prepend, init_bars[4], init_bars[5], fast);
+  await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7], fast);
+  await addSigningKeyRoles(api, master_keys, issuer_dids, signing_keys, init_bars[8], init_bars[9], fast);
+  await issueTokenPerDid(api, master_keys, issuer_dids, prepend, init_bars[10], init_bars[11], fast);
+  let claim_issuer_dids = await createIdentities(api, claim_keys, "claim_issuer", prepend, init_bars[12], init_bars[13], fast);
   // Need to wait until identites have been created before we use them
   await blockTillPoolEmpty(api, n_accounts);
 
-  await addClaimIssuersToDids(api, master_keys, issuer_dids, claim_issuer_dids, init_bars[14], init_bars[15]);
+  await addClaimIssuersToDids(api, master_keys, issuer_dids, claim_issuer_dids, init_bars[14], init_bars[15], fast);
   // Need to wait until identites have been added as claim issuers
   await blockTillPoolEmpty(api, n_accounts);
 
-  await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids, n_claims, init_bars[16], init_bars[17]);
+  await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids, n_claims, init_bars[16], init_bars[17], fast);
   // All transactions subitted, wait for queue to empty
   await blockTillPoolEmpty(api, n_accounts);
   await new Promise(resolve => setTimeout(resolve, 3000));
@@ -207,72 +222,95 @@ async function main() {
       console.log(`\t` + err + ":" + fail_type[err]);
     }
   }
+  console.log(`Transactions processed:`);
+  for (let block_number in block_sizes) {
+    console.log(`\tBlock Number: ` + block_number + " Processed: " + block_sizes[block_number]);
+  }
   console.log("DONE");
   process.exit();
 }
 
 // Spams the network with `n_accounts` transfer transactions in an attempt to measure base
 // currency TPS.
-async function tps(api, keyring, n_accounts, submitBar, completeBar) {
+async function tps(api, keyring, n_accounts, submitBar, completeBar, fast) {
   fail_type["TPS"] = 0;
   // Send one half from Alice to Bob
   for (let j = 0; j < Math.floor(n_accounts / 2); j++) {
-    const unsub = await api.tx.balances
+
+    if (fast) {
+      await api.tx.balances
       .transfer(bob.address, 10)
       .signAndSend(
         alice,
-        { nonce: nonces.get(alice.address) });//,
-      //   ({ events = [], status }) => {
-      //     if (status.isFinalized) {
-      //       let transfer_ok = false;
-      //       events.forEach(({ phase, event: { data, method, section } }) => {
-      //         if (section == "balances" && method == "Transfer") {
-      //           completeBar.increment();
-      //           transfer_ok = true;
-      //         }
-      //       });
+        { nonce: nonces.get(alice.address) });
+    } else {
+      const unsub = await api.tx.balances
+      .transfer(bob.address, 10)
+      .signAndSend(
+        alice,
+        { nonce: nonces.get(alice.address) },
+        ({ events = [], status }) => {
+          if (status.isFinalized) {
+            let transfer_ok = false;
+            events.forEach(({ phase, event: { data, method, section } }) => {
+              if (section == "balances" && method == "Transfer") {
+                completeBar.increment();
+                transfer_ok = true;
+              }
+            });
 
-      //       if (!transfer_ok) {
-      //         fail_count++;
-      //         fail_type["TPS"]++;
-      //         completeBar.increment();
-      //       }
+            if (!transfer_ok) {
+              fail_count++;
+              fail_type["TPS"]++;
+              completeBar.increment();
+            }
 
-      //       unsub();
-      //     }
-      //   }
-      // );
+            unsub();
+          }
+        }
+      );
+    }
+    
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
     submitBar.increment();
   }
 
   // Send the other half from Bob to Alice to leave balances unaltered
   for (let j = Math.floor(n_accounts / 2); j < n_accounts; j++) {
-    const unsub = await api.tx.balances
+    if (fast) {
+      const unsub = await api.tx.balances
       .transfer(alice.address, 10)
       .signAndSend(
         bob,
-        { nonce: nonces.get(bob.address) });//,
-      //   ({ events = [], status }) => {
-      //     if (status.isFinalized) {
-      //       let transfer_ok = false;
-      //       events.forEach(({ phase, event: { data, method, section } }) => {
-      //         if (section == "balances" && method == "Transfer") {
-      //           completeBar.increment();
-      //           transfer_ok = true;
-      //         }
-      //       });
+        { nonce: nonces.get(bob.address) });
+    } else {
+      const unsub = await api.tx.balances
+      .transfer(alice.address, 10)
+      .signAndSend(
+        bob,
+        { nonce: nonces.get(bob.address) },
+        ({ events = [], status }) => {
+          if (status.isFinalized) {
+            let transfer_ok = false;
+            events.forEach(({ phase, event: { data, method, section } }) => {
+              if (section == "balances" && method == "Transfer") {
+                completeBar.increment();
+                transfer_ok = true;
+              }
+            });
 
-      //       if (!transfer_ok) {
-      //         fail_count++;
-      //         completeBar.increment();
-      //         fail_type["TPS"]++;
-      //       }
+            if (!transfer_ok) {
+              fail_count++;
+              completeBar.increment();
+              fail_type["TPS"]++;
+            }
 
-      //       unsub();
-      //     }
-      //   }
-      // );
+            unsub();
+          }
+        }
+      );
+    }
+
     nonces.set(bob.address, nonces.get(bob.address).addn(1));
     submitBar.increment();
   }
@@ -530,8 +568,17 @@ async function blockTillPoolEmpty(api, expected_tx_count) {
   let done_something = false;
   let done = false;
   const unsub = await api.rpc.chain.subscribeNewHeads(async header => {
-    console.log(header);
-    // let block = await api.rpc.chain.getBlock(header.block)
+    // console.log("CHECK: " + header.number + ":" + synced_block);
+    if (header.number > synced_block) {
+      for (let i = synced_block + 1; i <= header.number; i++) {
+        // console.log("Getting; " + i);
+        let block_hash = await api.rpc.chain.getBlockHash(i);
+        let block = await api.rpc.chain.getBlock(block_hash);
+        // console.log(JSON.stringify(block));
+        // console.log(block);
+        block_sizes[i] = block["block"]["extrinsics"].length;  
+      }
+    }
     let pool = await api.rpc.author.pendingExtrinsics();
     if (pool.length > 0) {
       done_something = true;
