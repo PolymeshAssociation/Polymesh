@@ -487,22 +487,22 @@ decl_module! {
             }
 
             // Target did has sender's master key in its signing keys.
-            ensure!(
-                record.signing_keys.iter().find(|&rk| rk == &target_key).is_some(),
-                "Sender is not part of did's signing keys"
-            );
+            let skey_found = record.signing_keys.iter().find(|&rk| rk == &target_key);
 
-            // Get current roles of `key` at `investor_did`.
-            let mut new_roles = match record.signing_keys.iter().find(|&rk| rk == &target_key) {
-                Some(ref rk) => rk.roles.iter().chain( roles.iter()).cloned().collect(),
-                None => roles.clone()
-            };
+            // NOTE: `.unwrap()` is safe due to this `ensure`.
+            ensure!( skey_found.is_some(), "Sender is not part of did's signing keys");
+            let mut skey = skey_found.cloned().unwrap();
 
-            // Sort result and remove duplicates.
-            new_roles.sort();
-            new_roles.dedup();
+            // Swap roles at signing key with sanitized new roles.
+            let mut unique_roles = roles.clone();
+            unique_roles.sort();
+            unique_roles.dedup();
 
-            Self::update_roles(&did, &target_key, new_roles)
+            rstd::mem::swap( &mut skey.roles, &mut unique_roles);
+
+            Self::do_update_signing_key(&did, &skey)?;
+            Self::deposit_event( RawEvent::SigningKeyRolesUpdated( did, skey, unique_roles));
+            Ok(())
         }
     }
 }
@@ -522,6 +522,9 @@ decl_event!(
 
         /// DID, the keys that got removed
         SigningKeysRemoved(Vec<u8>, Vec<Key>),
+
+        /// DID, updated signing key, previous roles
+        SigningKeyRolesUpdated(Vec<u8>, SigningKey, Vec<KeyRole>),
 
         /// DID, old master key account ID, new key
         NewMasterKey(Vec<u8>, AccountId, Key),
@@ -564,17 +567,17 @@ decl_event!(
 impl<T: Trait> Module<T> {
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
-    fn update_roles(target_did: &Vec<u8>, key: &Key, roles: Vec<KeyRole>) -> Result {
-        <DidRecords<T>>::mutate(target_did, |record| {
-            // First filter avoids duplication of key.
+    fn do_update_signing_key(did: &Vec<u8>, skey: &SigningKey) -> Result {
+        <DidRecords<T>>::mutate(did, |record| {
+            // First filter to avoid duplication of signed key (based on its key).
             let mut signing_keys = record
                 .signing_keys
                 .iter()
-                .filter(|&rk| rk != key)
+                .filter(|&rk| *rk != skey.key)
                 .cloned()
                 .collect::<Vec<_>>();
 
-            signing_keys.push(SigningKey::new(key.clone(), roles));
+            signing_keys.push(skey.clone());
             (*record).signing_keys = signing_keys;
         });
         Ok(())
@@ -1061,5 +1064,67 @@ mod tests {
             bob_did,
             vec![dave_signing_key]
         ));
+    }
+
+    #[test]
+    fn update_signing_key_roles() {
+        with_externalities(
+            &mut build_ext(),
+            &update_signing_key_roles_with_externalities,
+        );
+    }
+
+    fn update_signing_key_roles_with_externalities() {
+        let (alice_acc, bob_acc, charlie_acc) = (1u64, 2u64, 3u64);
+        let (bob_key, charlie_key) = (
+            Key::try_from(bob_acc.encode()).unwrap(),
+            Key::try_from(charlie_acc.encode()).unwrap(),
+        );
+
+        // Create keys using non-default type.
+        let bob_signing_key = SigningKey::new(bob_key.clone(), vec![KeyRole::Operator]);
+        let charlie_signing_key = SigningKey::new(charlie_key.clone(), vec![KeyRole::Admin]);
+
+        // Add signing keys with non-default type.
+        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        assert_ok!(Identity::add_signing_keys(
+            alice.clone(),
+            alice_did.clone(),
+            vec![bob_signing_key, charlie_signing_key]
+        ));
+
+        // Update signing keys.
+        assert_ok!(Identity::set_role_to_signing_key(
+            alice.clone(),
+            alice_did.clone(),
+            bob_key.clone(),
+            vec![KeyRole::Operator, KeyRole::Admin]
+        ));
+        assert_ok!(Identity::set_role_to_signing_key(
+            alice.clone(),
+            alice_did.clone(),
+            charlie_key.clone(),
+            vec![]
+        ));
+
+        // Check that record has expected values.
+        let alice_record = Identity::did_records(&alice_did);
+
+        let sk_bob_found = alice_record
+            .signing_keys
+            .iter()
+            .find(|sk| sk.key == bob_key);
+        assert!(sk_bob_found.is_some());
+        assert_eq!(
+            sk_bob_found.unwrap().roles,
+            vec![KeyRole::Admin, KeyRole::Operator]
+        );
+
+        let sk_charlie_found = alice_record
+            .signing_keys
+            .iter()
+            .find(|sk| sk.key == charlie_key);
+        assert!(sk_charlie_found.is_some());
+        assert_eq!(sk_charlie_found.unwrap().roles.len(), 0);
     }
 }
