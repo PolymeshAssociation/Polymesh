@@ -1,4 +1,5 @@
 use crate::asset::{self, AssetTrait};
+use crate::balances;
 use crate::constants::*;
 use crate::identity;
 use crate::utils;
@@ -27,7 +28,9 @@ impl Default for Operators {
 }
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
+pub trait Trait:
+    timestamp::Trait + system::Trait + balances::Trait + utils::Trait + identity::Trait
+{
     // TODO: Add other types and constants required configure this module.
 
     /// The overarching event type.
@@ -192,21 +195,26 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use chrono::{prelude::*, Duration};
     use sr_io::{with_externalities, TestExternalities};
     use sr_primitives::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         Perbill,
     };
+    use srml_support::traits::Currency;
     use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types};
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
+
     // use crate::{
     //     asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
     //     simple_token::SimpleTokenRecord,
     // };
-    use crate::{balances, identity};
+    use crate::{
+        asset::SecurityToken, balances, exemption, identity, identity::DataTypes, percentage_tm,
+        registry,
+    };
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -235,7 +243,6 @@ mod tests {
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
-
         type Call = ();
         type WeightMultiplierUpdate = ();
         type BlockHashCount = BlockHashCount;
@@ -261,7 +268,6 @@ mod tests {
         type TransactionPayment = ();
         type DustRemoval = ();
         type TransferPayment = ();
-
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
@@ -350,5 +356,147 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
+    }
+
+    impl asset::Trait for Test {
+        type Event = ();
+        type Currency = balances::Module<Test>;
+    }
+
+    impl percentage_tm::Trait for Test {
+        type Event = ();
+    }
+
+    impl registry::Trait for Test {}
+
+    impl exemption::Trait for Test {
+        type Event = ();
+        type Asset = asset::Module<Test>;
+    }
+
+    impl Trait for Test {
+        type Event = ();
+        type Asset = asset::Module<Test>;
+    }
+
+    type Identity = identity::Module<Test>;
+    type GeneralTM = Module<Test>;
+    type Balances = balances::Module<Test>;
+    type Asset = asset::Module<Test>;
+
+    /// Build a genesis identity instance owned by the specified account
+    fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
+        let mut t = system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+        identity::GenesisConfig::<Test> {
+            owner: id,
+            did_creation_fee: 250,
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        sr_io::TestExternalities::new(t)
+    }
+
+    fn make_account(id: u64) -> Result<(<Test as system::Trait>::Origin, Vec<u8>), &'static str> {
+        let signed_id = Origin::signed(id);
+        let did = format!("did:poly:{}", id).as_bytes().to_vec();
+
+        Identity::register_did(signed_id.clone(), did.clone(), vec![])?;
+        Ok((signed_id, did))
+    }
+
+    #[test]
+    fn should_add_and_verify_assetrule() {
+        let identity_owner_id = 1;
+        with_externalities(&mut identity_owned_by(identity_owner_id), || {
+            let token_owner_acc = 1;
+            let owner_key = Key::try_from(identity_owner_id.encode()).unwrap();
+            let token_owner_did = "did:poly:1".as_bytes().to_vec();
+
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                vec![],
+            )
+            .expect("Could not create token_owner_did");
+
+            // Share issuance is successful
+            assert_ok!(Asset::create_token(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+
+            assert_ok!(Identity::add_signing_keys(
+                claim_issuer.clone(),
+                claim_issuer_did.clone(),
+                vec![owner_key.clone()]
+            ));
+
+            let claim_value = ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "some_value".as_bytes().to_vec(),
+            };
+
+            assert_ok!(Identity::add_claim(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                "some_key".as_bytes().to_vec(),
+                claim_issuer_did.clone(),
+                100u64,
+                claim_value.clone()
+            ));
+
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let sender_rule = RuleData {
+                key: "some_key".as_bytes().to_vec(),
+                value: "some_value".as_bytes().to_vec(),
+                trusted_issuers: vec![claim_issuer_did.clone()],
+                operator: Operators::EqualTo,
+            };
+
+            let x = vec![sender_rule];
+            let y = vec![];
+
+            let asset_rule = AssetRule {
+                sender_rules: x,
+                receiver_rules: y,
+            };
+
+            // Allow all transfers
+            assert_ok!(GeneralTM::add_asset_rule(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                asset_rule
+            ));
+
+            // Transfer tokens to investor
+            assert_ok!(Asset::transfer(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token_owner_did.clone(),
+                token.total_supply
+            ));
+        });
     }
 }

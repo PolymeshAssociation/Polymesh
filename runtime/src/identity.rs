@@ -375,7 +375,7 @@ decl_module! {
         }
 
         /// Adds new claim record or edits an exisitng one. Only called by did_issuer's signing key
-        fn add_claim(
+        pub fn add_claim(
             origin,
             did: Vec<u8>,
             claim_key: Vec<u8>,
@@ -421,7 +421,7 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked
-        fn revoke_claim(origin, did: Vec<u8>, claim_key: Vec<u8>, did_issuer: Vec<u8>) -> Result {
+        pub fn revoke_claim(origin, did: Vec<u8>, claim_key: Vec<u8>, did_issuer: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
