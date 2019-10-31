@@ -87,8 +87,8 @@ async function main() {
   );
   const customTypes = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
-  const ws_provider = new WsProvider("ws://78.47.58.121:9944/");
-  // const ws_provider = new WsProvider("ws://127.0.0.1:9944/");
+  // const ws_provider = new WsProvider("ws://78.47.58.121:9944/");
+  const ws_provider = new WsProvider("ws://127.0.0.1:9944/");
   const api = await ApiPromise.create({
     types: customTypes,
     provider: ws_provider
@@ -371,7 +371,9 @@ async function distributePoly(api, keyring, accounts, transfer_amount, submitBar
 // Create a new DID for each of accounts[]
 async function createIdentities(api, accounts, identity_type, prepend, submitBar, completeBar, fast) {
   let dids = [];
-  fail_type["CREATE IDENTITIES"] = 0;
+  if (!("CREATE IDENTITIES" in fail_type)) {
+    fail_type["CREATE IDENTITIES"] = 0;
+  }
   for (let i = 0; i < accounts.length; i++) {
     const did = "did:poly:" + identity_type + prepend + i;
     dids.push(did);
@@ -415,14 +417,19 @@ async function createIdentities(api, accounts, identity_type, prepend, submitBar
 async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
   fail_type["ADD SIGNING KEY"] = 0;
   for (let i = 0; i < accounts.length; i++) {
+    let signing_key = {
+      key: signing_accounts[i].address,
+      key_type: 0,
+      roles: []
+    }
     if (fast) {
       const unsub = await api.tx.identity
-      .addSigningKeys(dids[i], [signing_accounts[i].address])
+      .addSigningKeys(dids[i], [signing_key])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {    
       const unsub = await api.tx.identity
-        .addSigningKeys(dids[i], [signing_accounts[i].address])
+        .addSigningKeys(dids[i], [signing_key])
         .signAndSend(accounts[i],
           { nonce: nonces.get(accounts[i].address) },
           ({ events = [], status }) => {
