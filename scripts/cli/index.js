@@ -20,6 +20,7 @@ let alice, bob, dave;
 let master_keys = [];
 let signing_keys = [];
 let claim_keys = [];
+let sk_roles = [[0], [1], [2], [1, 2]];
 
 let fail_count = 0;
 let fail_type = {};
@@ -116,6 +117,8 @@ async function main() {
   nonces.set(dave.address, dave_nonce);
 
   // Create `n_accounts` master key accounts
+
+  console.log("Generating Master Keys");
   for (let i = 0; i < n_accounts; i++) {
     master_keys.push(
       keyring.addFromUri("//IssuerMK" + prepend + i.toString(), { name: i.toString() })
@@ -126,6 +129,7 @@ async function main() {
   }
 
   // Create `n_accounts` signing key accounts
+  console.log("Generating Signing Keys");
   for (let i = 0; i < n_accounts; i++) {
     signing_keys.push(
       keyring.addFromUri("//IssuerSK" + prepend + i.toString(), { name: i.toString() })
@@ -136,6 +140,7 @@ async function main() {
   }
 
   // Create `n_accounts` claim key accounts
+  console.log("Generating Claim Keys");
   for (let i = 0; i < n_claim_accounts; i++) {
     claim_keys.push(
       keyring.addFromUri("//ClaimIssuerMK" + prepend + i.toString(), { name: i.toString() })
@@ -452,12 +457,12 @@ async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitB
   for (let i = 0; i < accounts.length; i++) {
     if (fast) {
       const unsub = await api.tx.identity
-      .setKeyRoles(dids[i], [])
+      .setRoleToSigningKey(dids[i], signing_accounts[i].address, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-      .setKeyRoles(dids[i], [])
+      .setRoleToSigningKey(dids[i], signing_accounts[i].address, [])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
