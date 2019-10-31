@@ -830,7 +830,7 @@ mod tests {
 
             let claim_value = ClaimValue {
                 data_type: DataTypes::VecU8,
-                value: "some_value".as_bytes().to_vec()
+                value: "some_value".as_bytes().to_vec(),
             };
 
             assert_ok!(Identity::add_claim(
@@ -921,7 +921,7 @@ mod tests {
 
             let claim_value = ClaimValue {
                 data_type: DataTypes::VecU8,
-                value: "some_value".as_bytes().to_vec()
+                value: "some_value".as_bytes().to_vec(),
             };
 
             assert_ok!(Identity::add_claim(

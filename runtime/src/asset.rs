@@ -1227,9 +1227,9 @@ mod tests {
 
             let x = vec![];
             let y = vec![];
-            let asset_rule = general_tm::AssetRule{
+            let asset_rule = general_tm::AssetRule {
                 sender_rules: x,
-                receiver_rules: y
+                receiver_rules: y,
             };
 
             // Allow all transfers
