@@ -65,6 +65,15 @@ decl_storage! {
         // The documents attached to the tokens
         // (ticker, document name) -> (URI, document hash)
         Documents get(documents): map (Vec<u8>, Vec<u8>) => (Vec<u8>, Vec<u8>, T::Moment);
+        // Allowance provided to the custodian
+        // (ticker, custodian, token holder) -> balance
+        pub CustodianAllowance get(custodian_allowance): map(Vec<u8>, Vec<u8>, Vec<u8>) => T::TokenBalance;
+        // Total custodian allowance for a given token holder
+        // (ticker, token holder) -> balance
+        pub TotalCustodyAllowance get(total_custody_allowance): map(Vec<u8>, Vec<u8>) => T::TokenBalance;
+        // Store the nonce for offchain signature to increase the custody allowance
+        // (ticker, token holder, nonce) -> bool
+        OffChainCustodyAllowanceNonce get(off_chain_custody_allowance_nonce): map(Vec<u8>, Vec<u8>, u16) => bool;
     }
 }
 
@@ -229,8 +238,10 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(&did, & Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
+            // Check whether the custody allowance remain intact or not
+            Self::_check_custody_allowance(&ticker, &did, value)?;
             ensure!(Self::_is_valid_transfer(&ticker, &did, &to_did, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
-
+            
             Self::_transfer(&ticker, &did, &to_did, value)
         }
 
@@ -287,9 +298,10 @@ decl_module! {
 
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
+            // Check whether the custody allowance remain intact or not
+            Self::_check_custody_allowance(&ticker, &from_did, value)?;
 
             ensure!(Self::_is_valid_transfer(&ticker, &from_did, &to_did, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
-
             Self::_transfer(&ticker, &from_did, &to_did, value)?;
 
             // Change allowance afterwards
@@ -404,10 +416,11 @@ decl_module! {
             let updated_burner_balance = burner_balance
                 .checked_sub(&value)
                 .ok_or("overflow in calculating balance")?;
+            // Check whether the custody allowance remain intact or not
+            Self::_check_custody_allowance(&upper_ticker, &did, value)?;
 
             // verify transfer check
             ensure!(Self::_is_valid_transfer(&upper_ticker, &did, &vec![], value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
-
             //Decrease total supply
             let mut token = Self::token_details(&upper_ticker);
             token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
@@ -449,7 +462,8 @@ decl_module! {
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist");
             let allowance = Self::allowance(&ticker_from_did_did);
             ensure!(allowance >= value, "Not enough allowance");
-
+            // Check whether the custody allowance remain intact or not
+            Self::_check_custody_allowance(&upper_ticker, &did, value)?;
             ensure!(Self::_is_valid_transfer( &upper_ticker, &from_did, &vec![], value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
@@ -591,6 +605,92 @@ decl_module! {
         <Documents<T>>::remove((ticker, name));
         Ok(())
     }
+
+    // ERC-2258 Implementation
+    pub fn increase_custody_allowance(origin, ticker: Vec<u8>, holder_did: Vec<u8>, custodian_did: Vec<u8>, value: T::TokenBalance) -> Result {
+        let ticker = utils::bytes_to_upper(ticker.as_slice());
+        let sender = ensure_signed(origin)?;
+        // Check that sender is allowed to act on behalf of `did`
+        ensure!(
+            <identity::Module<T>>::is_signing_key(&holder_did, &Key::try_from(sender.encode())?),
+            "sender must be a signing key for DID"
+        );
+        let new_custody_allowance = Self::total_custody_allowance((ticker.clone(), holder_did.clone()))
+            .checked_add(&value)
+            .ok_or("total custody allowance get overflowed")?;
+        // Ensure that balance of the token holder should greater than or equal to the total custody allowance + value
+        ensure!(Self::balance_of((ticker.clone(), holder_did.clone())) >= new_custody_allowance, "Insufficient balance of holder did");
+        // Ensure the valid DID
+        ensure!(<identity::DidRecords<T>>::exists(&custodian_did), "Invalid custodian DID");
+        let mut current_allowance = Self::custodian_allowance((ticker.clone(), custodian_did.clone(), holder_did.clone()));
+        let old_allowance = current_allowance;
+        current_allowance = current_allowance.checked_add(&value).ok_or("allowance get overflowed")?;
+        // Update Storage
+        <CustodianAllowance<T>>::insert((ticker.clone(), custodian_did.clone(), holder_did.clone()), &current_allowance);
+        <TotalCustodyAllowance<T>>::insert((ticker.clone(), holder_did.clone()), new_custody_allowance);
+        Self::deposit_event(RawEvent::CustodyAllowanceChanged(ticker.clone(), holder_did.clone(), custodian_did.clone(), old_allowance, current_allowance));
+        Ok(())
+    }
+
+    pub fn increase_custody_allowance_of(origin, ticker: Vec<u8>, holder_did: Vec<u8>, custodian_did: Vec<u8>, caller_did: Vec<u8>,  value: T::TokenBalance, nonce: u16, signature: Vec<u8>) -> Result {
+        let ticker = utils::bytes_to_upper(ticker.as_slice());
+        let sender = ensure_signed(origin)?;
+        
+        ensure!(!Self::off_chain_custody_allowance_nonce((ticker.clone(), holder_did.clone(), nonce)), "Signature already used");
+        // TODO:
+        // Validate the signature and get the signing key for the holder_did
+        // signature decoding
+        // Valid holder_did
+        // Check that sender is allowed to act on behalf of `did`
+        ensure!(
+            <identity::Module<T>>::is_signing_key(&caller_did, &Key::try_from(sender.encode())?),
+            "sender must be a signing key for DID"
+        );
+        let new_custody_allowance = Self::total_custody_allowance((ticker.clone(), holder_did.clone()))
+            .checked_add(&value)
+            .ok_or("total custody allowance get overflowed")?;
+        // Ensure that balance of the token holder should greater than or equal to the total custody allowance + value
+        ensure!(Self::balance_of((ticker.clone(), holder_did.clone())) >= new_custody_allowance, "Insufficient balance of holder did");
+        // Ensure the valid DID
+        ensure!(<identity::DidRecords<T>>::exists(&custodian_did), "Invalid custodian DID");
+        
+        let mut current_allowance = Self::custodian_allowance((ticker.clone(), custodian_did.clone(), holder_did.clone()));
+        let old_allowance = current_allowance;
+        current_allowance = current_allowance.checked_add(&value).ok_or("allowance get overflowed")?;
+        // Update Storage
+        <CustodianAllowance<T>>::insert((ticker.clone(), custodian_did.clone(), holder_did.clone()), &current_allowance);
+        <TotalCustodyAllowance<T>>::insert((ticker.clone(), holder_did.clone()), new_custody_allowance);
+        Self::deposit_event(RawEvent::CustodyAllowanceChanged(ticker.clone(), holder_did.clone(), custodian_did.clone(), old_allowance, current_allowance));
+        Ok(())
+    }
+
+    pub fn transfer_by_custodian(origin, ticker: Vec<u8>, holder_did: Vec<u8>, custodian_did: Vec<u8>, receiver_did: Vec<u8>, value: T::TokenBalance) -> Result {
+        let ticker = utils::bytes_to_upper(ticker.as_slice());
+        let sender = ensure_signed(origin)?;
+        // Check that sender is allowed to act on behalf of `did`
+        ensure!(
+            <identity::Module<T>>::is_signing_key(&custodian_did, &Key::try_from(sender.encode())?),
+            "sender must be a signing key for DID"
+        );
+        let mut custodian_allowance = Self::custodian_allowance((ticker.clone(), custodian_did.clone(), holder_did.clone()));
+        // Check whether the custodian has enough allowance or not
+        ensure!(custodian_allowance >= value, "Insufficient allowance");
+        // using checked_sub (safe math) to avoid underflow
+        custodian_allowance = custodian_allowance.checked_sub(&value).ok_or("underflow in calculating allowance")?;
+        // using checked_sub (safe math) to avoid underflow
+        let new_total_allowance = Self::total_custody_allowance((ticker.clone(), holder_did.clone()))
+            .checked_sub(&value)
+            .ok_or("underflow in calculating the total allowance")?;
+        // Validate the transfer
+        ensure!(Self::_is_valid_transfer(&ticker, &holder_did, &receiver_did, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+        Self::_transfer(&ticker, &holder_did, &receiver_did, value)?;
+        // Update Storage of allowance
+        <CustodianAllowance<T>>::insert((ticker.clone(), custodian_did.clone(), holder_did.clone()), &custodian_allowance);
+        <TotalCustodyAllowance<T>>::insert((ticker.clone(), holder_did.clone()), new_total_allowance);
+        Self::deposit_event(RawEvent::CustodyTransfer(ticker.clone(), custodian_did.clone(), holder_did.clone(), receiver_did.clone(), value));
+        Ok(())
+    }
+
 }
 }
 
@@ -648,6 +748,12 @@ decl_event! {
             // get_document() output
             // ticker, name, uri, hash, last modification date
             GetDocument(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Moment),
+
+            // ticker, custodian did, holder/from did, to did, amount
+            CustodyTransfer(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Balance),
+
+            // ticker, holder did, custodian did, oldAllowance, newAllowance
+            CustodyAllowanceChanged(Vec<u8>, Vec<u8>, Vec<u8>, Balance, Balance),
         }
 }
 
@@ -876,6 +982,13 @@ impl<T: Trait> Module<T> {
         let token = Self::token_details(ticker);
         // Check the granularity
         <T as utils::Trait>::as_u128(value) % token.granularity == (0 as u128)
+    }
+
+    fn _check_custody_allowance(ticker: &Vec<u8>, holder_did: &Vec<u8>, value: T::TokenBalance) -> Result {
+        let ticker_holder_did = (ticker.clone(), holder_did.clone());
+        let balance_after_transfer = Self::balance_of(&ticker_holder_did).checked_sub(&value).ok_or("underflow in balance deduction")?;
+        ensure!(balance_after_transfer >= Self::total_custody_allowance(&ticker_holder_did), "Insufficient balance for transfer");
+        Ok(())
     }
 }
 
