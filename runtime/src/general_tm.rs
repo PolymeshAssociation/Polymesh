@@ -206,9 +206,7 @@ mod tests {
     //     asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
     //     simple_token::SimpleTokenRecord,
     // };
-    use crate::{
-        balances, identity,
-    };
+    use crate::{balances, identity};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -353,5 +351,4 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
     }
-
 }
