@@ -203,13 +203,6 @@ decl_module! {
             Ok(())
         }
 
-        pub fn set_key_roles(origin, did: Vec<u8>, roles: Vec<KeyRole>) -> Result {
-            let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from( sender.encode())?;
-
-            Self::do_set_key_roles( &did, &sender_key, roles)
-        }
-
         /// Sets a new master key for a DID. Only called by master key owner.
         fn set_master_key(origin, did: Vec<u8>, new_key: Key) -> Result {
             let sender = ensure_signed(origin)?;
@@ -478,6 +471,42 @@ decl_module! {
 
             Ok(())
         }
+
+        /// It sets roles for an specific `target_key` key.
+        /// Only the master key of an identity is able to set signing key roles.
+        fn set_role_to_signing_key(origin, did: Vec<u8>, target_key: Key, roles: Vec<KeyRole>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from( sender.encode())?;
+
+            ensure!(<DidRecords<T>>::exists(&did), "DID does not exist");
+            let record = <DidRecords<T>>::get(&did);
+
+            ensure!( record.master_key == sender_key,
+                "Only master key of an identity is able to update signing key roles");
+
+            // You are trying to add a role to did's master key. It is not needed.
+            if record.master_key == target_key {
+                return Ok(());
+            }
+
+            // Target did has sender's master key in its signing keys.
+            ensure!(
+                record.signing_keys.iter().find(|&rk| rk == &target_key).is_some(),
+                "Sender is not part of did's signing keys"
+            );
+
+            // Get current roles of `key` at `investor_did`.
+            let mut new_roles = match record.signing_keys.iter().find(|&rk| rk == &target_key) {
+                Some(ref rk) => rk.roles.iter().chain( roles.iter()).cloned().collect(),
+                None => roles.clone()
+            };
+
+            // Sort result and remove duplicates.
+            new_roles.sort();
+            new_roles.dedup();
+
+            Self::update_roles(&did, &target_key, new_roles)
+        }
     }
 }
 
@@ -552,53 +581,6 @@ impl<T: Trait> Module<T> {
             (*record).signing_keys = signing_keys;
         });
         Ok(())
-    }
-
-    fn do_set_key_roles(target_did: &Vec<u8>, key: &Key, roles: Vec<KeyRole>) -> Result {
-        // Target did existence
-        ensure!(
-            <DidRecords<T>>::exists(target_did),
-            "DID must already exist"
-        );
-        let record = <DidRecords<T>>::get(target_did);
-
-        // Target did has sender's master key in its signing keys.
-        ensure!(
-            record.signing_keys.iter().find(|&rk| rk == key).is_some(),
-            "Sender is not part of did's signing keys"
-        );
-
-        Self::update_roles(target_did, key, roles)
-    }
-
-    /// It adds `role` role to `did` for signing key `key`.
-    pub fn add_role_to_key(did: &Vec<u8>, key: &Key, role: KeyRole) -> Result {
-        ensure!(<DidRecords<T>>::exists(did), "DID must already exist");
-        let record = <DidRecords<T>>::get(did);
-
-        // You are trying to add a role to did's master key. It is not needed.
-        if record.master_key == *key {
-            return Ok(());
-        }
-
-        // Target did has sender's master key in its signing keys.
-        ensure!(
-            record.signing_keys.iter().find(|&rk| rk == key).is_some(),
-            "Sender is not part of did's signing keys"
-        );
-
-        // Get current roles of `key` at `investor_did`.
-        let mut new_roles = match record.signing_keys.iter().find(|&rk| rk == key) {
-            Some(ref rk) => rk.roles.clone(),
-            None => Vec::with_capacity(1),
-        };
-
-        // Add new role, sort result and remove duplicates.
-        new_roles.push(role);
-        new_roles.sort();
-        new_roles.dedup();
-
-        Self::update_roles(&did, key, new_roles)
     }
 
     pub fn is_claim_issuer(did: &Vec<u8>, issuer_did: &Vec<u8>) -> bool {
@@ -959,5 +941,72 @@ mod tests {
                 claim
             ));
         });
+    }
+
+    #[test]
+    fn only_master_key_can_add_signing_key_roles() {
+        with_externalities(
+            &mut build_ext(),
+            &only_master_key_can_add_signing_key_roles_with_externalities,
+        );
+    }
+
+    fn only_master_key_can_add_signing_key_roles_with_externalities() {
+        let (alice_acc, bob_acc, charlie_acc) = (1u64, 2u64, 3u64);
+        let (bob_key, charlie_key) = (
+            Key::try_from(bob_acc.encode()).unwrap(),
+            Key::try_from(charlie_acc.encode()).unwrap(),
+        );
+        let (alice, alice_did) = make_account(alice_acc).unwrap();
+
+        assert_ok!(Identity::add_signing_keys(
+            alice.clone(),
+            alice_did.clone(),
+            vec![bob_key.clone(), charlie_key.clone()]
+        ));
+
+        // Only `alice` is able to update `bob`'s roles and `charlie`'s roles.
+        assert_ok!(Identity::set_role_to_signing_key(
+            alice.clone(),
+            alice_did.clone(),
+            bob_key.clone(),
+            vec![KeyRole::Operator]
+        ));
+        assert_ok!(Identity::set_role_to_signing_key(
+            alice.clone(),
+            alice_did.clone(),
+            charlie_key.clone(),
+            vec![KeyRole::Admin, KeyRole::Operator]
+        ));
+
+        // Bob tries to get better role by himself at `alice` Identity.
+        assert_err!(
+            Identity::set_role_to_signing_key(
+                Origin::signed(bob_acc),
+                alice_did.clone(),
+                bob_key.clone(),
+                vec![KeyRole::Full]
+            ),
+            "Only master key of an identity is able to update signing key roles"
+        );
+
+        // Bob tries to remove Charlie's roles at `alice` Identity.
+        assert_err!(
+            Identity::set_role_to_signing_key(
+                Origin::signed(bob_acc),
+                alice_did.clone(),
+                charlie_key,
+                vec![]
+            ),
+            "Only master key of an identity is able to update signing key roles"
+        );
+
+        // Alice over-write some roles.
+        assert_ok!(Identity::set_role_to_signing_key(
+            alice.clone(),
+            alice_did,
+            bob_key,
+            vec![]
+        ));
     }
 }
