@@ -1059,6 +1059,7 @@ mod tests {
     type Asset = Module<Test>;
     type Balances = balances::Module<Test>;
     type Identity = identity::Module<Test>;
+    type GeneralTM = general_tm::Module<Test>;
 
     lazy_static! {
         static ref INVESTOR_MAP_OUTER_LOCK: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
@@ -1223,6 +1224,21 @@ mod tests {
 
             // A correct entry is added
             assert_eq!(Asset::token_details(token.name.clone()), token);
+
+            let x = vec![];
+            let y = vec![];
+            let asset_rule = general_tm::AssetRule{
+                sender_rules: x,
+                receiver_rules: y
+            };
+
+            // Allow all transfers
+            assert_ok!(GeneralTM::add_asset_rule(
+                Origin::signed(owner_acc),
+                owner_did.clone(),
+                token.name.clone(),
+                asset_rule
+            ));
 
             assert_ok!(Asset::transfer(
                 Origin::signed(owner_acc),
