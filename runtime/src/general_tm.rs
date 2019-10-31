@@ -188,282 +188,170 @@ impl<T: Trait> Module<T> {
     }
 }
 
-// /// tests for this module
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+/// tests for this module
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     use chrono::{prelude::*, Duration};
-//     use lazy_static::lazy_static;
-//     use sr_io::with_externalities;
-//     use sr_primitives::{
-//         testing::{Header, UintAuthorityId},
-//         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-//         Perbill,
-//     };
-//     use srml_support::traits::Currency;
-//     use srml_support::{assert_ok, impl_outer_origin, parameter_types};
-//     use substrate_primitives::{Blake2Hasher, H256};
+    use sr_io::{with_externalities, TestExternalities};
+    use sr_primitives::{
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
+        Perbill,
+    };
+    use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types};
+    use std::result::Result;
+    use substrate_primitives::{Blake2Hasher, H256};
+    // use crate::{
+    //     asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
+    //     simple_token::SimpleTokenRecord,
+    // };
+    use crate::{
+        balances, identity,
+    };
 
-//     use std::{
-//         collections::HashMap,
-//         sync::{Arc, Mutex},
-//     };
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
 
-//     use crate::{asset::SecurityToken, balances, exemption, identity, percentage_tm, registry};
+    // For testing the module, we construct most of a mock runtime. This means
+    // first constructing a configuration type (`Test`) which `impl`s each of the
+    // configuration traits of modules we want to use.
+    #[derive(Clone, Eq, PartialEq)]
+    pub struct Test;
 
-//     type SessionIndex = u32;
-//     type AuthorityId = u64;
-//     type BlockNumber = u64;
+    parameter_types! {
+        pub const BlockHashCount: u32 = 250;
+        pub const MaximumBlockWeight: u32 = 4096;
+        pub const MaximumBlockLength: u32 = 4096;
+        pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    }
 
-//     pub struct TestOnSessionEnding;
-//     impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
-//         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
-//             None
-//         }
-//     }
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
 
-//     pub struct TestSessionHandler;
-//     impl session::SessionHandler<AuthorityId> for TestSessionHandler {
-//         fn on_new_session<Ks: OpaqueKeys>(
-//             _changed: bool,
-//             _validators: &[(AuthorityId, Ks)],
-//             _queued_validators: &[(AuthorityId, Ks)],
-//         ) {
-//         }
+        type Call = ();
+        type WeightMultiplierUpdate = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type Version = ();
+    }
 
-//         fn on_disabled(_validator_index: usize) {}
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 0;
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const TransactionBaseFee: u64 = 0;
+        pub const TransactionByteFee: u64 = 0;
+    }
 
-//         fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
-//     }
+    impl balances::Trait for Test {
+        type Balance = u128;
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type TransactionPayment = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
 
-//     impl_outer_origin! {
-//         pub enum Origin for Test {}
-//     }
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+        type TransactionBaseFee = TransactionBaseFee;
+        type TransactionByteFee = TransactionByteFee;
+        type WeightToFee = ConvertInto;
+        type Identity = identity::Module<Test>;
+    }
 
-//     // For testing the module, we construct most of a mock runtime. This means
-//     // first constructing a configuration type (`Test`) which `impl`s each of the
-//     // configuration traits of modules we want to use.
-//     #[derive(Clone, Eq, PartialEq)]
-//     pub struct Test;
-//     parameter_types! {
-//         pub const BlockHashCount: u32 = 250;
-//         pub const MaximumBlockWeight: u32 = 4 * 1024 * 1024;
-//         pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
-//         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-//     }
-//     impl system::Trait for Test {
-//         type Origin = Origin;
-//         type Call = ();
-//         type Index = u64;
-//         type BlockNumber = u64;
-//         type Hash = H256;
-//         type Hashing = BlakeTwo256;
-//         type AccountId = u64;
-//         type Lookup = IdentityLookup<u64>;
-//         type WeightMultiplierUpdate = ();
-//         type Header = Header;
-//         type Event = ();
-//         type BlockHashCount = BlockHashCount;
-//         type MaximumBlockWeight = MaximumBlockWeight;
-//         type AvailableBlockRatio = AvailableBlockRatio;
-//         type MaximumBlockLength = MaximumBlockLength;
-//         type Version = ();
-//     }
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
+    }
 
-//     parameter_types! {
-//         pub const Period: BlockNumber = 1;
-//         pub const Offset: BlockNumber = 0;
-//         pub const ExistentialDeposit: u64 = 0;
-//         pub const TransferFee: u64 = 0;
-//         pub const CreationFee: u64 = 0;
-//         pub const TransactionBaseFee: u64 = 0;
-//         pub const TransactionByteFee: u64 = 0;
-//     }
+    impl timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
 
-//     parameter_types! {
-//         pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
-//     }
+    impl utils::Trait for Test {
+        type TokenBalance = u128;
+        fn as_u128(v: Self::TokenBalance) -> u128 {
+            v
+        }
+        fn as_tb(v: u128) -> Self::TokenBalance {
+            v
+        }
+        fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
+            v
+        }
+        fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
+            v
+        }
+        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+            v
+        }
+    }
 
-//     impl session::Trait for Test {
-//         type OnSessionEnding = TestOnSessionEnding;
-//         type Keys = UintAuthorityId;
-//         type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
-//         type SessionHandler = TestSessionHandler;
-//         type Event = ();
-//         type ValidatorId = AuthorityId;
-//         type ValidatorIdOf = ConvertInto;
-//         type SelectInitialValidators = ();
-//         type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
-//     }
+    type SessionIndex = u32;
+    type AuthorityId = u64;
+    type BlockNumber = u64;
 
-//     impl session::historical::Trait for Test {
-//         type FullIdentification = ();
-//         type FullIdentificationOf = ();
-//     }
+    pub struct TestOnSessionEnding;
+    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+        fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
+            None
+        }
+    }
 
-//     impl balances::Trait for Test {
-//         type Balance = u128;
-//         type OnFreeBalanceZero = ();
-//         type OnNewAccount = ();
-//         type Event = ();
-//         type TransactionPayment = ();
-//         type DustRemoval = ();
-//         type TransferPayment = ();
-//         type ExistentialDeposit = ExistentialDeposit;
-//         type TransferFee = TransferFee;
-//         type CreationFee = CreationFee;
-//         type TransactionBaseFee = TransactionBaseFee;
-//         type TransactionByteFee = TransactionByteFee;
-//         type WeightToFee = ConvertInto;
-//         type Identity = identity::Module<Test>;
-//     }
+    pub struct TestSessionHandler;
+    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+        fn on_new_session<Ks: OpaqueKeys>(
+            _changed: bool,
+            _validators: &[(AuthorityId, Ks)],
+            _queued_validators: &[(AuthorityId, Ks)],
+        ) {
+        }
 
-//     impl asset::Trait for Test {
-//         type Event = ();
-//         type Currency = balances::Module<Test>;
-//     }
+        fn on_disabled(_validator_index: usize) {}
 
-//     impl identity::Trait for Test {
-//         type Event = ();
-//     }
+        fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+    }
 
-//     impl exemption::Trait for Test {
-//         type Event = ();
-//         type Asset = Module<Test>;
-//     }
+    parameter_types! {
+        pub const Period: BlockNumber = 1;
+        pub const Offset: BlockNumber = 0;
+        pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+    }
 
-//     impl percentage_tm::Trait for Test {
-//         type Event = ();
-//     }
+    impl session::Trait for Test {
+        type OnSessionEnding = TestOnSessionEnding;
+        type Keys = UintAuthorityId;
+        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type SessionHandler = TestSessionHandler;
+        type Event = ();
+        type ValidatorId = AuthorityId;
+        type ValidatorIdOf = ConvertInto;
+        type SelectInitialValidators = ();
+        type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    }
 
-//     parameter_types! {
-//         pub const MinimumPeriod: u64 = 3;
-//     }
+    impl session::historical::Trait for Test {
+        type FullIdentification = ();
+        type FullIdentificationOf = ();
+    }
 
-//     impl timestamp::Trait for Test {
-//         type Moment = u64;
-//         type OnTimestampSet = ();
-//         type MinimumPeriod = MinimumPeriod;
-//     }
+    impl identity::Trait for Test {
+        type Event = ();
+    }
 
-//     impl utils::Trait for Test {
-//         type TokenBalance = u128;
-//         fn as_u128(v: Self::TokenBalance) -> u128 {
-//             v
-//         }
-//         fn as_tb(v: u128) -> Self::TokenBalance {
-//             v
-//         }
-//         fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
-//             v
-//         }
-//         fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
-//             v
-//         }
-//         fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
-//             v
-//         }
-//     }
-
-//     impl registry::Trait for Test {}
-
-//     impl Trait for Test {
-//         type Event = ();
-//     }
-//     impl asset::AssetTrait<<Test as utils::Trait>::TokenBalance> for Module<Test> {
-//         fn is_owner(ticker: &Vec<u8>, sender_did: &Vec<u8>) -> bool {
-//             if let Some(token) = TOKEN_MAP.lock().unwrap().get(ticker) {
-//                 token.owner_did == *sender_did
-//             } else {
-//                 false
-//             }
-//         }
-
-//         fn _mint_from_sto(
-//             _ticker: &[u8],
-//             _sender_did: &Vec<u8>,
-//             _tokens_purchased: <Test as utils::Trait>::TokenBalance,
-//         ) -> Result {
-//             unimplemented!();
-//         }
-
-//         /// Get the asset `id` balance of `who`.
-//         fn balance(_ticker: &[u8], _did: Vec<u8>) -> <Test as utils::Trait>::TokenBalance {
-//             unimplemented!();
-//         }
-
-//         // Get the total supply of an asset `id`
-//         fn total_supply(_ticker: &[u8]) -> <Test as utils::Trait>::TokenBalance {
-//             unimplemented!();
-//         }
-//     }
-
-//     fn _check_investor_status(_holder_did: &Vec<u8>) -> Result {
-//         // TODO check with claim.
-//         /*let investor = <identity::DidRecords<T>>::get(holder_did);
-//         ensure!(
-//             investor.has_signing_keys_role(IdentityRole::Investor),
-//             "Account is not an investor"
-//         );*/
-//         Ok(())
-//     }
-
-//     type DividendModule = Module<Test>;
-//     type Balances = balances::Module<Test>;
-//     type Asset = asset::Module<Test>;
-//     type Identity = identity::Module<Test>;
-
-//     /// Build a genesis identity instance owned by the specified account
-//     fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
-//         let mut t = system::GenesisConfig::default()
-//             .build_storage::<Test>()
-//             .unwrap();
-//         identity::GenesisConfig::<Test> {
-//             owner: id,
-//             did_creation_fee: 250,
-//         }
-//         .assimilate_storage(&mut t)
-//         .unwrap();
-//         sr_io::TestExternalities::new(t)
-//     }
-
-//     #[test]
-//     fn verify_transfer_should_work() {
-//         let identity_owner_id = 1;
-//         with_externalities(&mut identity_owned_by(identity_owner_id), || {
-//             let token_owner_acc = 1;
-//             let token_owner_did = "did:poly:1".as_bytes().to_vec();
-
-//             // A token representing 1M shares
-//             let token = SecurityToken {
-//                 name: vec![0x01],
-//                 owner_did: token_owner_did.clone(),
-//                 total_supply: 1_000_000,
-//                 granularity: 1,
-//                 decimals: 18,
-//             };
-
-//             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
-//             Identity::register_did(
-//                 Origin::signed(token_owner_acc),
-//                 token_owner_did.clone(),
-//                 vec![],
-//             )
-//             .expect("Could not create token_owner_did");
-
-//             identity::Module::<Test>::do_create_issuer(token.owner_did.clone())
-//                 .expect("Could not make token.owner_did an issuer");
-
-//             // Share issuance is successful
-//             assert_ok!(Asset::create_token(
-//                 Origin::signed(token_owner_acc),
-//                 token_owner_did.clone(),
-//                 token.name.clone(),
-//                 token.name.clone(),
-//                 token.total_supply,
-//                 true
-//             ));
-//         });
-//     }
-// }
+}
