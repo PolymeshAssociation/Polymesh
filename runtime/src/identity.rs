@@ -828,27 +828,28 @@ mod tests {
                 vec![owner_key.clone()]
             ));
 
-            // Add Claims by master & claim_issuer
-            let claims = vec![Claim {
-                topic: 1,
-                schema: 1,
-                bytes: vec![],
-                expiry: 10,
-            }];
+            let claim_value = ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "some_value".as_bytes().to_vec()
+            };
 
             assert_ok!(Identity::add_claim(
                 owner.clone(),
                 owner_did.clone(),
+                "some_key".as_bytes().to_vec(),
                 claim_issuer_did.clone(),
-                claims.clone()
+                100u64,
+                claim_value.clone()
             ));
 
             assert_err!(
                 Identity::add_claim(
                     claim_issuer.clone(),
                     owner_did.clone(),
+                    "some_key".as_bytes().to_vec(),
                     issuer_did.clone(),
-                    claims.clone()
+                    100u64,
+                    claim_value.clone()
                 ),
                 "did_issuer must be a claim issuer or master key for DID"
             );
@@ -856,8 +857,10 @@ mod tests {
                 Identity::add_claim(
                     issuer.clone(),
                     issuer_did.clone(),
+                    "some_key".as_bytes().to_vec(),
                     claim_issuer_did.clone(),
-                    claims.clone()
+                    100u64,
+                    claim_value.clone()
                 ),
                 "Sender must hold a claim issuer\'s signing key"
             );
@@ -916,53 +919,35 @@ mod tests {
                 claim_issuer_did.clone()
             ));
 
-            // Add Claims by master & claim_issuer
-            let claim = Claim {
-                topic: 1,
-                schema: 1,
-                bytes: vec![],
-                expiry: 10,
+            let claim_value = ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "some_value".as_bytes().to_vec()
             };
 
             assert_ok!(Identity::add_claim(
                 owner.clone(),
                 owner_did.clone(),
+                "some_key".as_bytes().to_vec(),
                 claim_issuer_did.clone(),
-                vec![claim.clone()]
+                100u64,
+                claim_value.clone()
             ));
 
             assert_err!(
                 Identity::revoke_claim(
                     issuer.clone(),
                     issuer_did.clone(),
-                    claim_issuer_did.clone(),
-                    claim.clone()
+                    "some_key".as_bytes().to_vec(),
+                    claim_issuer_did.clone()
                 ),
-                "did_issuer must be a claim issuer for DID"
-            );
-            // TODO Should this fail?
-            assert_err!(
-                Identity::revoke_claim(
-                    claim_issuer.clone(),
-                    claim_issuer_did.clone(),
-                    claim_issuer_did.clone(),
-                    claim.clone()
-                ),
-                "did_issuer must be a claim issuer for DID"
+                "Sender must hold a claim issuer\'s signing key"
             );
 
             assert_ok!(Identity::revoke_claim(
                 owner.clone(),
                 owner_did.clone(),
-                claim_issuer_did.clone(),
-                claim.clone()
-            ));
-            // TODO Revoke claim twice??
-            assert_ok!(Identity::revoke_claim(
-                owner,
-                owner_did,
-                claim_issuer_did,
-                claim
+                "some_key".as_bytes().to_vec(),
+                claim_issuer_did.clone()
             ));
         });
     }
