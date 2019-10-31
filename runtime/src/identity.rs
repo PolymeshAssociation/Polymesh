@@ -122,7 +122,7 @@ decl_module! {
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
-        pub fn add_signing_keys(origin, did: Vec<u8>, additional_keys: Vec<Key>) -> Result {
+        pub fn add_signing_keys(origin, did: Vec<u8>, additional_keys: Vec<SigningKey>) -> Result {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
@@ -132,14 +132,14 @@ decl_module! {
             let record = <DidRecords<T>>::get(&did);
             ensure!(record.master_key == sender_key, "Sender must hold the master key");
 
-            for key in &additional_keys {
-                if <SigningKeyDid>::exists(key) {
-                    ensure!(<SigningKeyDid>::get(key) == did, "One signing key can only belong to one DID");
+            for skey in &additional_keys {
+                if <SigningKeyDid>::exists(&skey.key) {
+                    ensure!(<SigningKeyDid>::get(&skey.key) == did, "One signing key can only belong to one DID");
                 }
             }
 
-            for key in &additional_keys {
-                <SigningKeyDid>::insert(key, did.clone());
+            for skey in &additional_keys {
+                <SigningKeyDid>::insert(&skey.key, did.clone());
             }
 
             <DidRecords<T>>::mutate(&did,
@@ -152,7 +152,7 @@ decl_module! {
                         .find( |&rk| rk == add_key)
                         .is_none()
                     })
-                    .map( |add_key| SigningKey::from(add_key.clone()))
+                    .cloned()
                     .collect::<Vec<_>>();
 
                 (*record).signing_keys.append( &mut new_roled_keys);
@@ -521,7 +521,7 @@ decl_event!(
         NewDid(Vec<u8>, AccountId, Vec<SigningKey>),
 
         /// DID, new keys
-        SigningKeysAdded(Vec<u8>, Vec<Key>),
+        SigningKeysAdded(Vec<u8>, Vec<SigningKey>),
 
         /// DID, the keys that got removed
         SigningKeysRemoved(Vec<u8>, Vec<Key>),
@@ -655,6 +655,7 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use primitives::SigningKeyType;
 
     use sr_io::{with_externalities, TestExternalities};
     use sr_primitives::{
@@ -801,7 +802,7 @@ mod tests {
             assert_ok!(Identity::add_signing_keys(
                 claim_issuer.clone(),
                 claim_issuer_did.clone(),
-                vec![owner_key.clone()]
+                vec![SigningKey::from(owner_key.clone())]
             ));
 
             // Add Claims by master & claim_issuer
@@ -852,7 +853,7 @@ mod tests {
             assert_ok!(Identity::add_signing_keys(
                 a.clone(),
                 a_did.clone(),
-                vec![owner_key.clone()]
+                vec![SigningKey::from(owner_key.clone())]
             ));
 
             // Check master key on master and signing_keys.
@@ -883,7 +884,7 @@ mod tests {
             assert_ok!(Identity::add_signing_keys(
                 claim_issuer.clone(),
                 claim_issuer_did.clone(),
-                vec![owner_key]
+                vec![SigningKey::from(owner_key)]
             ));
 
             assert_ok!(Identity::add_claim_issuer(
@@ -962,7 +963,10 @@ mod tests {
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
             alice_did.clone(),
-            vec![bob_key.clone(), charlie_key.clone()]
+            vec![
+                SigningKey::from(bob_key.clone()),
+                SigningKey::from(charlie_key.clone())
+            ]
         ));
 
         // Only `alice` is able to update `bob`'s roles and `charlie`'s roles.
@@ -1007,6 +1011,58 @@ mod tests {
             alice_did,
             bob_key,
             vec![]
+        ));
+    }
+
+    #[test]
+    fn add_signing_keys_with_specific_type() {
+        with_externalities(
+            &mut build_ext(),
+            &add_signing_keys_with_specific_type_with_externalities,
+        );
+    }
+
+    /// It tests that signing key can be added using non-default key type
+    /// (`SigningKeyType::External`).
+    fn add_signing_keys_with_specific_type_with_externalities() {
+        let (alice_acc, bob_acc, charlie_acc, dave_acc) = (1u64, 2u64, 3u64, 4u64);
+        let (bob_key, charlie_key, dave_key) = (
+            Key::try_from(bob_acc.encode()).unwrap(),
+            Key::try_from(charlie_acc.encode()).unwrap(),
+            Key::try_from(dave_acc.encode()).unwrap(),
+        );
+
+        // Create keys using non-default type.
+        let bob_signing_key = SigningKey {
+            key: bob_key,
+            roles: vec![],
+            key_type: SigningKeyType::Identity,
+        };
+        let charlie_signing_key = SigningKey {
+            key: charlie_key,
+            key_type: SigningKeyType::Relayer,
+            roles: vec![],
+        };
+        let dave_signing_key = SigningKey {
+            key: dave_key,
+            key_type: SigningKeyType::Multisig,
+            roles: vec![],
+        };
+
+        // Add signing keys with non-default type.
+        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        assert_ok!(Identity::add_signing_keys(
+            alice,
+            alice_did,
+            vec![bob_signing_key, charlie_signing_key]
+        ));
+
+        // Register did with non-default type.
+        let bob_did = format!("did:poly:{}", bob_acc).as_bytes().to_vec();
+        assert_ok!(Identity::register_did(
+            Origin::signed(bob_acc),
+            bob_did,
+            vec![dave_signing_key]
         ));
     }
 }
