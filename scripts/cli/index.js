@@ -617,14 +617,10 @@ async function blockTillPoolEmpty(api, expected_tx_count) {
   let done_something = false;
   let done = false;
   const unsub = await api.rpc.chain.subscribeNewHeads(async header => {
-    console.log("CHECK: " + header.number + ":" + synced_block);
     if (header.number > synced_block) {
       for (let i = synced_block + 1; i <= header.number; i++) {
-        // console.log("Getting; " + i);
         let block_hash = await api.rpc.chain.getBlockHash(i);
         let block = await api.rpc.chain.getBlock(block_hash);
-        // console.log(JSON.stringify(block));
-        // console.log(block);
         block_sizes[i] = block["block"]["extrinsics"].length;
         if (block_sizes[i] > 2) {
           done_something = true;
@@ -632,9 +628,6 @@ async function blockTillPoolEmpty(api, expected_tx_count) {
       }
     }
     let pool = await api.rpc.author.pendingExtrinsics();
-    // if (pool.length > 0) {
-    //   done_something = true;
-    // }
     if (done_something && pool.length == 0) {
       unsub();
       done = true;
