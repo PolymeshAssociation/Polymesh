@@ -25,8 +25,10 @@ let sk_roles = [[0], [1], [2], [1, 2]];
 let fail_count = 0;
 let fail_type = {};
 let block_sizes = {};
+let block_times = {};
 
 let synced_block = 0;
+let synced_block_ts = 0;
 
 const cli_opts = [
   {
@@ -83,7 +85,7 @@ async function main() {
   );
 
   const filePath = path.join(
-    __dirname + "/../../../polymesh/polymesh_schema.json"
+    __dirname + "/../../../Polymesh/polymesh_schema.json"
   );
   const customTypes = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
@@ -195,6 +197,10 @@ async function main() {
   // Get current block
   let current_header = await api.rpc.chain.getHeader();
   synced_block = parseInt(current_header.number);
+  let current_block_hash = await api.rpc.chain.getBlockHash(synced_block);
+  let current_block = await api.rpc.chain.getBlock(current_block_hash);
+  let timestamp_extrinsic = current_block["block"]["extrinsics"][0];
+  synced_block_ts = parseInt(JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw));
 
   await tps(api, keyring, n_accounts, init_bars[0], init_bars[1], fast); // base currency transfer sanity-check
   await distributePoly(api, keyring, master_keys.concat(signing_keys).concat(claim_keys), transfer_amount, init_bars[2], init_bars[3], fast);
@@ -229,7 +235,7 @@ async function main() {
   }
   console.log(`Transactions processed:`);
   for (let block_number in block_sizes) {
-    console.log(`\tBlock Number: ` + block_number + " Processed: " + block_sizes[block_number]);
+    console.log(`\tBlock Number: ` + block_number + " Processed: " + block_sizes[block_number] + " Time (ms): " + block_times[block_number]);
   }
   console.log("DONE");
   process.exit();
@@ -629,14 +635,20 @@ async function blockTillPoolEmpty(api, expected_tx_count) {
   let done_something = false;
   let done = false;
   const unsub = await api.rpc.chain.subscribeNewHeads(async header => {
-    if (header.number > synced_block) {
-      for (let i = synced_block + 1; i <= header.number; i++) {
+    let last_synced_block = synced_block;
+    if (header.number > last_synced_block) {
+      for (let i = last_synced_block + 1; i <= header.number; i++) {
         let block_hash = await api.rpc.chain.getBlockHash(i);
         let block = await api.rpc.chain.getBlock(block_hash);
         block_sizes[i] = block["block"]["extrinsics"].length;
         if (block_sizes[i] > 2) {
           done_something = true;
         }
+        let timestamp_extrinsic = block["block"]["extrinsics"][0];
+        let new_block_ts = parseInt(JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw));
+        block_times[i] = new_block_ts - synced_block_ts;
+        synced_block_ts = new_block_ts;
+        synced_block = i;
       }
     }
     let pool = await api.rpc.author.pendingExtrinsics();
