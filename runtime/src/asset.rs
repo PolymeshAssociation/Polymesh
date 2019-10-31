@@ -241,7 +241,7 @@ decl_module! {
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, &did, value)?;
             ensure!(Self::_is_valid_transfer(&ticker, &did, &to_did, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
-            
+
             Self::_transfer(&ticker, &did, &to_did, value)
         }
 
@@ -635,7 +635,7 @@ decl_module! {
     pub fn increase_custody_allowance_of(origin, ticker: Vec<u8>, holder_did: Vec<u8>, custodian_did: Vec<u8>, caller_did: Vec<u8>,  value: T::TokenBalance, nonce: u16, signature: Vec<u8>) -> Result {
         let ticker = utils::bytes_to_upper(ticker.as_slice());
         let sender = ensure_signed(origin)?;
-        
+
         ensure!(!Self::off_chain_custody_allowance_nonce((ticker.clone(), holder_did.clone(), nonce)), "Signature already used");
         // TODO:
         // Validate the signature and get the signing key for the holder_did
@@ -653,7 +653,7 @@ decl_module! {
         ensure!(Self::balance_of((ticker.clone(), holder_did.clone())) >= new_custody_allowance, "Insufficient balance of holder did");
         // Ensure the valid DID
         ensure!(<identity::DidRecords<T>>::exists(&custodian_did), "Invalid custodian DID");
-        
+
         let mut current_allowance = Self::custodian_allowance((ticker.clone(), custodian_did.clone(), holder_did.clone()));
         let old_allowance = current_allowance;
         current_allowance = current_allowance.checked_add(&value).ok_or("allowance get overflowed")?;
@@ -984,10 +984,19 @@ impl<T: Trait> Module<T> {
         <T as utils::Trait>::as_u128(value) % token.granularity == (0 as u128)
     }
 
-    fn _check_custody_allowance(ticker: &Vec<u8>, holder_did: &Vec<u8>, value: T::TokenBalance) -> Result {
+    fn _check_custody_allowance(
+        ticker: &Vec<u8>,
+        holder_did: &Vec<u8>,
+        value: T::TokenBalance,
+    ) -> Result {
         let ticker_holder_did = (ticker.clone(), holder_did.clone());
-        let balance_after_transfer = Self::balance_of(&ticker_holder_did).checked_sub(&value).ok_or("underflow in balance deduction")?;
-        ensure!(balance_after_transfer >= Self::total_custody_allowance(&ticker_holder_did), "Insufficient balance for transfer");
+        let balance_after_transfer = Self::balance_of(&ticker_holder_did)
+            .checked_sub(&value)
+            .ok_or("underflow in balance deduction")?;
+        ensure!(
+            balance_after_transfer >= Self::total_custody_allowance(&ticker_holder_did),
+            "Insufficient balance for transfer"
+        );
         Ok(())
     }
 }
