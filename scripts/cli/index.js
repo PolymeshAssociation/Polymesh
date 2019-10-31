@@ -235,7 +235,7 @@ async function main() {
   }
   console.log(`Transactions processed:`);
   for (let block_number in block_sizes) {
-    console.log(`\tBlock Number: ` + block_number + " Processed: " + block_sizes[block_number] + " Time (ms): " + block_times[block_number]);
+    console.log(`\tBlock Number: ` + block_number + "\t\tProcessed: " + block_sizes[block_number] + "\tTime (ms): " + block_times[block_number]);
   }
   console.log("DONE");
   process.exit();
