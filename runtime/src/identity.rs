@@ -323,6 +323,9 @@ decl_module! {
             let record = <DidRecords<T>>::get(&did);
             ensure!(record.master_key == sender_key, "Sender must hold the master key");
 
+            // Check that claim issuer did exists
+            ensure!(<DidRecords<T>>::exists(&did), "Claim Issuer DID must already exist");
+
             <ClaimIssuers>::mutate(did.clone(), |old_claim_issuers| {
                 if !old_claim_issuers.contains(&did_issuer) {
                     old_claim_issuers.push(did_issuer.clone());
