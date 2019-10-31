@@ -308,22 +308,23 @@ decl_module! {
         }
 
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
+        fn add_claim_issuer(origin, did: Vec<u8>, claim_issuer_did: Vec<u8>) -> Result {
+            let sender_key = ensure_signed(origin)?.encode();
 
             // Verify that sender key is current master key
-            let sender_key = sender.encode();
             let record = <DidRecords<T>>::get(&did);
             ensure!(record.master_key == sender_key, "Sender must hold the master key");
 
-            <ClaimIssuers>::mutate(did.clone(), |old_claim_issuers| {
-                if !old_claim_issuers.contains(&did_issuer) {
-                    old_claim_issuers.push(did_issuer.clone());
+            // Master key shouldn't be added itself as claim issuer.
+            ensure!( did != claim_issuer_did, "Master key cannot add itself as claim issuer");
+
+            <ClaimIssuers>::mutate(&did, |old_claim_issuers| {
+                if !old_claim_issuers.contains(&claim_issuer_did) {
+                    old_claim_issuers.push(claim_issuer_did.clone());
                 }
             });
 
-            Self::deposit_event(RawEvent::NewClaimIssuer(did, did_issuer));
-
+            Self::deposit_event(RawEvent::NewClaimIssuer(did, claim_issuer_did));
             Ok(())
         }
 
@@ -1126,5 +1127,36 @@ mod tests {
             .find(|sk| sk.key == charlie_key);
         assert!(sk_charlie_found.is_some());
         assert_eq!(sk_charlie_found.unwrap().roles.len(), 0);
+    }
+
+    #[test]
+    fn add_claim_issuer_tests() {
+        with_externalities(&mut build_ext(), &add_claim_issuer_tests_with_externalities);
+    }
+
+    fn add_claim_issuer_tests_with_externalities() {
+        // Register identities
+        let (alice_acc, bob_acc, charlie_acc) = (1u64, 2u64, 3u64);
+        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (_bob, bob_did) = make_account(bob_acc).unwrap();
+
+        // Check `add_claim_issuer` constraints.
+        assert_ok!(Identity::add_claim_issuer(
+            alice.clone(),
+            alice_did.clone(),
+            bob_did.clone()
+        ));
+        assert_err!(
+            Identity::add_claim_issuer(
+                Origin::signed(charlie_acc),
+                alice_did.clone(),
+                bob_did.clone()
+            ),
+            "Sender must hold the master key"
+        );
+        assert_err!(
+            Identity::add_claim_issuer(alice, alice_did.clone(), alice_did),
+            "Master key cannot add itself as claim issuer"
+        );
     }
 }
