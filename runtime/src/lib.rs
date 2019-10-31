@@ -21,11 +21,8 @@ use sr_primitives::{
     create_runtime_str,
     curve::PiecewiseLinear,
     generic, impl_opaque_keys, key_types,
-    traits::SignedExtension,
     traits::{BlakeTwo256, Block as BlockT, StaticLookup},
     transaction_validity::TransactionValidity,
-    transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
-    weights::DispatchInfo,
     weights::Weight,
     ApplyResult,
 };

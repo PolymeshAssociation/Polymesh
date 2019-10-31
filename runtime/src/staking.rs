@@ -587,7 +587,7 @@ decl_storage! {
 
         /// Validators that have gone through compliance requirements and are permitted
         /// to participate in validation.
-        PermissionedValidators get(permissioned_alidators): Vec<T::AccountId>;
+        pub PermissionedValidators get(permissioned_alidators): Vec<T::AccountId>;
     }
     add_extra_genesis {
         config(stakers):
@@ -846,7 +846,6 @@ decl_module! {
             ensure!(Self::is_validator_compliant(&controller), "controller has not passed compliance");
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
-            <PermissionedValidators<T>>::insert(&controller);
         }
 
         /// Declare the desire to nominate `targets` for the origin controller.
