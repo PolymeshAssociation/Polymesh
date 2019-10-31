@@ -21,17 +21,13 @@ use sr_primitives::{
     create_runtime_str,
     curve::PiecewiseLinear,
     generic, impl_opaque_keys, key_types,
+    traits::SignedExtension,
     traits::{BlakeTwo256, Block as BlockT, StaticLookup},
     transaction_validity::TransactionValidity,
+    transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
+    weights::DispatchInfo,
     weights::Weight,
     ApplyResult,
-    weights::{DispatchInfo},
-    transaction_validity::{
-        ValidTransaction, InvalidTransaction, TransactionValidityError,
-    },
-    traits::{
-        SignedExtension,
-    },
 };
 use sr_staking_primitives::SessionIndex;
 use srml_support::{
@@ -72,10 +68,9 @@ mod identity;
 mod percentage_tm;
 mod registry;
 mod simple_token;
+pub mod staking;
 mod sto_capped;
 mod utils;
-//mod permissioned_validators;
-pub mod staking;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -552,7 +547,6 @@ construct_runtime!(
 
 		// Consensus srml_support.
 		Authorship: authorship::{Module, Call, Storage},
-		//PermissionedValidators: permissioned_validators::{Module, Call, Storage, Event<T>},
 		Staking: staking::{default, OfflineWorker},
 		Offences: offences::{Module, Call, Storage, Event},
 		Session: session::{Module, Call, Storage, Event, Config<T>},
@@ -609,7 +603,6 @@ pub type SignedExtra = (
     system::CheckWeight<Runtime>,
     balances::TakeFees<Runtime>,
     contracts::CheckBlockGasLimit<Runtime>,
-    CheckValidatorPermission
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
@@ -731,46 +724,6 @@ impl_runtime_apis! {
         fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
             let seed = seed.as_ref().map(|s| rstd::str::from_utf8(&s).expect("Seed is an utf8 string"));
             SessionKeys::generate(seed)
-        }
-    }
-}
-
-
-#[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct CheckValidatorPermission;
-
-impl SignedExtension for CheckValidatorPermission {
-    type AccountId = AccountId;
-    type Call = Call;
-    type AdditionalSigned = ();
-    type Pre = ();
-
-    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> { Ok(()) }
-
-    #[cfg(feature = "std")]
-    fn validate(
-        &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        _: DispatchInfo,
-        _: usize,
-    ) -> TransactionValidity {
-
-        match call {
-            Call::Staking(staking::Call::bond(_, _, _)) => {
-                println!(
-                    "CheckValidatorPermission: who={}, bond()",
-                    who,
-                );
-
-//                if !PermissionedValidators::is_compliant() {
-//                    return InvalidTransaction::ExhaustsResources.into()
-//                }
-
-                Ok(ValidTransaction::default())
-            },
-            _ => Ok(ValidTransaction::default()),
         }
     }
 }
