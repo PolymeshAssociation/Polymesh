@@ -669,6 +669,7 @@ mod tests {
     type DividendModule = Module<Test>;
     type Balances = balances::Module<Test>;
     type Asset = asset::Module<Test>;
+    type GeneralTM = general_tm::Module<Test>;
     type SimpleToken = simple_token::Module<Test>;
     type Identity = identity::Module<Test>;
 
@@ -790,6 +791,21 @@ mod tests {
             };
 
             drop(outer);
+
+            let x = vec![];
+            let y = vec![];
+            let asset_rule = general_tm::AssetRule{
+                sender_rules: x,
+                receiver_rules: y
+            };
+
+            // Allow all transfers
+            assert_ok!(GeneralTM::add_asset_rule(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                asset_rule
+            ));
 
             // Transfer tokens to investor
             assert_ok!(Asset::transfer(
