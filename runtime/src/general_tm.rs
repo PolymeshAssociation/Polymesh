@@ -440,13 +440,14 @@ mod tests {
                 token.total_supply,
                 true
             ));
-
+            let claim_issuer_acc = 3;
+            Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
             let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
 
-            assert_ok!(Identity::add_signing_keys(
-                claim_issuer.clone(),
-                claim_issuer_did.clone(),
-                vec![owner_key.clone()]
+            assert_ok!(Identity::add_claim_issuer(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                claim_issuer_did.clone()
             ));
 
             let claim_value = ClaimValue {
@@ -455,7 +456,7 @@ mod tests {
             };
 
             assert_ok!(Identity::add_claim(
-                Origin::signed(token_owner_acc),
+                Origin::signed(claim_issuer_acc),
                 token_owner_did.clone(),
                 "some_key".as_bytes().to_vec(),
                 claim_issuer_did.clone(),
@@ -490,13 +491,13 @@ mod tests {
             ));
 
             // Transfer tokens to investor
-            assert_ok!(Asset::transfer(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
-                token.name.clone(),
-                token_owner_did.clone(),
-                token.total_supply
-            ));
+            // assert_ok!(Asset::transfer(
+            //     Origin::signed(token_owner_acc),
+            //     token_owner_did.clone(),
+            //     token.name.clone(),
+            //     token_owner_did.clone(),
+            //     token.total_supply
+            // ));
         });
     }
 }

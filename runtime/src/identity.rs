@@ -330,7 +330,7 @@ decl_module! {
         }
 
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
+        pub fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Verify that sender key is current master key
