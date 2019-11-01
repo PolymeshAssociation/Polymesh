@@ -460,7 +460,7 @@ mod tests {
                 token_owner_did.clone(),
                 "some_key".as_bytes().to_vec(),
                 claim_issuer_did.clone(),
-                99999999999999999999u64,
+                99999999999999999u64,
                 claim_value.clone()
             ));
 
@@ -476,6 +476,108 @@ mod tests {
 
             let x = vec![sender_rule];
             let y = vec![];
+
+            let asset_rule = AssetRule {
+                sender_rules: x,
+                receiver_rules: y,
+            };
+
+            // Allow all transfers
+            assert_ok!(GeneralTM::add_asset_rule(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                asset_rule
+            ));
+
+            //Transfer tokens to investor
+            assert_ok!(Asset::transfer(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token_owner_did.clone(),
+                token.total_supply
+            ));
+        });
+    }
+
+    #[test]
+    fn should_add_and_verify_complex_assetrule() {
+        let identity_owner_id = 1;
+        with_externalities(&mut identity_owned_by(identity_owner_id), || {
+            let token_owner_acc = 1;
+            let owner_key = Key::try_from(identity_owner_id.encode()).unwrap();
+            let token_owner_did = "did:poly:1".as_bytes().to_vec();
+
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                vec![],
+            )
+            .expect("Could not create token_owner_did");
+
+            // Share issuance is successful
+            assert_ok!(Asset::create_token(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+            let claim_issuer_acc = 3;
+            Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
+            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+
+            assert_ok!(Identity::add_claim_issuer(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                claim_issuer_did.clone()
+            ));
+
+            let claim_value = ClaimValue {
+                data_type: DataTypes::U8,
+                value: 10u8.encode(),
+            };
+
+            assert_ok!(Identity::add_claim(
+                Origin::signed(claim_issuer_acc),
+                token_owner_did.clone(),
+                "some_key".as_bytes().to_vec(),
+                claim_issuer_did.clone(),
+                99999999999999999u64,
+                claim_value.clone()
+            ));
+
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let sender_rule = RuleData {
+                key: "some_key".as_bytes().to_vec(),
+                value: 5u8.encode(),
+                trusted_issuers: vec![claim_issuer_did.clone()],
+                operator: Operators::GreaterThan,
+            };
+
+            let receiver_rule = RuleData {
+                key: "some_key".as_bytes().to_vec(),
+                value: 15u8.encode(),
+                trusted_issuers: vec![claim_issuer_did.clone()],
+                operator: Operators::LessThan,
+            };
+
+            let x = vec![sender_rule];
+            let y = vec![receiver_rule];
 
             let asset_rule = AssetRule {
                 sender_rules: x,
