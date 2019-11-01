@@ -56,22 +56,22 @@ pub fn check_rule(
                     }
                 }
                 Operators::LessThan => {
-                    if rule_value >= identity_value {
-                        rule_broken = true;
-                    }
-                }
-                Operators::GreaterThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
+                Operators::GreaterThan => {
+                    if rule_value >= identity_value {
+                        rule_broken = true;
+                    }
+                }
                 Operators::LessOrEqualTo => {
-                    if rule_value > identity_value {
+                    if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
                 Operators::GreaterOrEqualTo => {
-                    if rule_value < identity_value {
+                    if rule_value > identity_value {
                         rule_broken = true;
                     }
                 }
@@ -92,22 +92,22 @@ pub fn check_rule(
                     }
                 }
                 Operators::LessThan => {
-                    if rule_value >= identity_value {
-                        rule_broken = true;
-                    }
-                }
-                Operators::GreaterThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
+                Operators::GreaterThan => {
+                    if rule_value >= identity_value {
+                        rule_broken = true;
+                    }
+                }
                 Operators::LessOrEqualTo => {
-                    if rule_value > identity_value {
+                    if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
                 Operators::GreaterOrEqualTo => {
-                    if rule_value < identity_value {
+                    if rule_value > identity_value {
                         rule_broken = true;
                     }
                 }
@@ -128,22 +128,22 @@ pub fn check_rule(
                     }
                 }
                 Operators::LessThan => {
-                    if rule_value >= identity_value {
-                        rule_broken = true;
-                    }
-                }
-                Operators::GreaterThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
+                Operators::GreaterThan => {
+                    if rule_value >= identity_value {
+                        rule_broken = true;
+                    }
+                }
                 Operators::LessOrEqualTo => {
-                    if rule_value > identity_value {
+                    if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
                 Operators::GreaterOrEqualTo => {
-                    if rule_value < identity_value {
+                    if rule_value > identity_value {
                         rule_broken = true;
                     }
                 }
@@ -164,22 +164,22 @@ pub fn check_rule(
                     }
                 }
                 Operators::LessThan => {
-                    if rule_value >= identity_value {
-                        rule_broken = true;
-                    }
-                }
-                Operators::GreaterThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
+                Operators::GreaterThan => {
+                    if rule_value >= identity_value {
+                        rule_broken = true;
+                    }
+                }
                 Operators::LessOrEqualTo => {
-                    if rule_value > identity_value {
+                    if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
                 Operators::GreaterOrEqualTo => {
-                    if rule_value < identity_value {
+                    if rule_value > identity_value {
                         rule_broken = true;
                     }
                 }
@@ -200,22 +200,22 @@ pub fn check_rule(
                     }
                 }
                 Operators::LessThan => {
-                    if rule_value >= identity_value {
-                        rule_broken = true;
-                    }
-                }
-                Operators::GreaterThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
+                Operators::GreaterThan => {
+                    if rule_value >= identity_value {
+                        rule_broken = true;
+                    }
+                }
                 Operators::LessOrEqualTo => {
-                    if rule_value > identity_value {
+                    if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
                 Operators::GreaterOrEqualTo => {
-                    if rule_value < identity_value {
+                    if rule_value > identity_value {
                         rule_broken = true;
                     }
                 }
@@ -241,8 +241,8 @@ pub fn check_rule(
             }
         }
         DataTypes::VecU8 => {
-            let rule_value = Vec::<u8>::decode(&mut &rule_data[..]).unwrap();
-            let identity_value = Vec::<u8>::decode(&mut &identity_data[..]).unwrap();
+            let rule_value = rule_data;
+            let identity_value = identity_data;
             match operator {
                 Operators::EqualTo => {
                     if rule_value != identity_value {
