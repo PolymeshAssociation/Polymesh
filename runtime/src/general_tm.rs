@@ -460,7 +460,7 @@ mod tests {
                 token_owner_did.clone(),
                 "some_key".as_bytes().to_vec(),
                 claim_issuer_did.clone(),
-                100u64,
+                99999999999999999999u64,
                 claim_value.clone()
             ));
 
@@ -490,14 +490,14 @@ mod tests {
                 asset_rule
             ));
 
-            // Transfer tokens to investor
-            // assert_ok!(Asset::transfer(
-            //     Origin::signed(token_owner_acc),
-            //     token_owner_did.clone(),
-            //     token.name.clone(),
-            //     token_owner_did.clone(),
-            //     token.total_supply
-            // ));
+            //Transfer tokens to investor
+            assert_ok!(Asset::transfer(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token_owner_did.clone(),
+                token.total_supply
+            ));
         });
     }
 }
