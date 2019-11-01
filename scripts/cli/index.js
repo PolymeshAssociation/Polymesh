@@ -35,7 +35,7 @@ const cli_opts = [
     name: "accounts", // Number of transactions/accounts to use per step
     alias: "n",
     type: Number,
-    defaultValue: 1000
+    defaultValue: 30
   },
   {
     name: "claim_accounts", // Number of transactions/accounts to use per step
