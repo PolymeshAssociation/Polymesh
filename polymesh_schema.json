@@ -29,14 +29,14 @@
         "jurisdiction": "u16"
     },
     "Key": "[u8;32]",
-    "KRole": {
+    "KeyRole": {
         "_enum": [
             "Full",
             "Admin",
             "Operator"
        ]
     },
-    "KType": {
+    "SigningKeyType": {
         "_enum": [
             "External",
             "Identity",
@@ -46,8 +46,8 @@
     },
     "SigningKey": {
         "key": "Key",
-        "type": "KType",
-        "roles": "Vec<KRole>"
+        "type": "SigningKeyType",
+        "roles": "Vec<KeyRole>"
     },
     "IdentityRole": {
         "_enum": [
