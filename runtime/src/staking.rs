@@ -204,9 +204,8 @@
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sr_staking::inflation;
-
 use codec::{Decode, Encode, HasCompact};
+use log::{debug, error, info, trace};
 use phragmen::{elect, equalize, ExtendedBalance, Support, SupportMap, ACCURACY};
 use rstd::{prelude::*, result};
 use session::{historical::OnSessionEnding, SelectInitialValidators};
@@ -221,6 +220,7 @@ use sr_primitives::{
 };
 #[cfg(feature = "std")]
 use sr_primitives::{Deserialize, Serialize};
+use sr_staking::inflation;
 use sr_staking_primitives::{
     offence::{Offence, OffenceDetails, OnOffenceHandler, ReportOffence},
     SessionIndex,
@@ -414,6 +414,23 @@ type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 type MomentOf<T> = <<T as Trait>::Time as Time>::Moment;
 
+/// Indicates the status of compliance requirements
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
+pub enum Compliance {
+    /// Compliance requirements not met.
+    Pending,
+    /// KYC compliant. Eligible to participate in validation.
+    Active,
+}
+
+/// Represents a requirement that must be met to be eligible to become a validator
+#[derive(Encode, Decode, Clone)]
+pub struct PermissionedValidator<T: Trait> {
+    pub compliance: Compliance,
+    pub account: T::AccountId,
+    pub joined_at: T::BlockNumber,
+}
+
 /// Means for interacting with a specialized version of the `session` trait.
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `session::Trait`
@@ -587,7 +604,10 @@ decl_storage! {
 
         /// Validators that have gone through compliance requirements and are permitted
         /// to participate in validation.
-        pub PermissionedValidators get(permissioned_alidators): Vec<T::AccountId>;
+        pub EligibleValidators get(eligible_validators): Vec<T::AccountId>;
+
+        /// Validators that have NOT met compliance requirements.
+        pub IneligibleValidators get(ineligible_validators): Vec<T::AccountId>;
     }
     add_extra_genesis {
         config(stakers):
@@ -694,9 +714,6 @@ decl_module! {
                 return Err("can not bond with value less than minimum balance")
             }
 
-            // reject a bond if the controller doesn't pass compliance.
-            ensure!(Self::is_validator_compliant(&controller), "controller has not passed compliance");
-
             // You're auto-bonded forever, here. We might improve this by only bonding when
             // you actually validate/nominate and remove once you unbond __everything__.
             <Bonded<T>>::insert(&stash, controller.clone());
@@ -728,8 +745,6 @@ decl_module! {
 
             let controller = Self::bonded(&stash).ok_or("not a stash")?;
             let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
-
-            ensure!(Self::is_validator_compliant(&controller), "controller has not passed compliance");
 
             let stash_balance = T::Currency::free_balance(&stash);
 
@@ -948,14 +963,16 @@ decl_module! {
         }
 
         /// Add a potential new validator to the pool of validators.
-        /// Staking module checks `PermissionedValidators` to ensure validators have
+        /// Staking module checks `EligibleValidators` to ensure validators have
         /// completed KYB compliance
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn add_permissioned_validator(origin, controller: T::AccountId) {
-            let mut validators = <PermissionedValidators<T>>::get();
+        fn add_qualified_validator(origin, controller: T::AccountId) {
+            let mut validators = <EligibleValidators<T>>::get();
             let index = validators.binary_search(&controller).err().ok_or("already a validator")?;
             validators.insert(index, controller.clone());
-            <PermissionedValidators<T>>::put(&validators);
+            <EligibleValidators<T>>::put(&validators);
+
+//            <session::Module<T>>::rotate_session();
 
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
         }
@@ -963,11 +980,11 @@ decl_module! {
         /// Removes a validator from the pool of validators. This can
         /// happen when a validator loses KYB compliance
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn remove_permissioned_validator(origin, controller: T::AccountId) {
-            let mut validators = <PermissionedValidators<T>>::get();
+        fn remove_unqualified_validator(origin, controller: T::AccountId) {
+            let mut validators = <EligibleValidators<T>>::get();
             let index = validators.binary_search(&controller).ok().ok_or("not a validator")?;
             validators.remove(index);
-            <PermissionedValidators<T>>::put(&validators);
+            <EligibleValidators<T>>::put(&validators);
 
             Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
         }
@@ -994,6 +1011,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(10_000)]
         fn force_new_era(origin) {
             ensure_root(origin)?;
+            info!("New era");
             ForceEra::put(Forcing::ForceNew);
         }
 
@@ -1162,10 +1180,12 @@ impl<T: Trait> Module<T> {
             Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
             _ => return None,
         }
+
+        info!("New session");
+
         let validators = T::SessionInterface::validators();
         let prior = validators
             .into_iter()
-            .filter(|e| Self::is_validator_compliant(e))
             .map(|v| {
                 let e = Self::stakers(&v);
                 (v, e)
@@ -1447,11 +1467,43 @@ impl<T: Trait> Module<T> {
         });
     }
 
+    /// Is the given account id in `EligibleValidators`
+    fn is_eligible_to_validate(who: &T::AccountId) -> bool {
+        <EligibleValidators<T>>::get().contains(who)
+    }
+
     /// Is the stash account one of the permissioned validators?
     pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
         //TODO: Get DID associated with stash and check they have a KYB attestation etc.
         false
     }
+
+    //    /// A non-deterministic method that checks compliance requirements and organizes validators into
+    //    /// `EligibleValidators` and `IneligibleValidators`
+    //    pub fn check_compliance_requirements() {
+    //        let (passed1, failed1): (Vec<_>, Vec<_>) = Self::eligible_validators()
+    //            .into_iter()
+    //            .partition(|account| Self::is_validator_compliant(account));
+    //
+    //        let passed1: Vec<_> = passed1.into_iter().collect();
+    //        let failed1: Vec<_> = failed1.into_iter().collect();
+    //
+    //        let (passed2, failed2): (Vec<_>, Vec<_>) = Self::ineligible_validators()
+    //            .into_iter()
+    //            .partition(|account| Self::is_validator_compliant(account));
+    //
+    //        let passed2: Vec<_> = passed2.into_iter().collect();
+    //        let failed2: Vec<_> = failed2.into_iter().collect();
+    //
+    //        let mut current_values = Self::ineligible_validators();
+    //        current_values
+    //            .filter(|e| !Self::is_eligible_to_validate(e))
+    //            .collect();
+    //        current_values.append(&mut Self::new_values());
+    //
+    //        <EligibleValidators<T>>::put(passed1);
+    //        <IneligibleValidators<T>>::put(failed1);
+    //    }
 }
 
 impl<T: Trait> session::OnSessionEnding<T::AccountId> for Module<T> {
@@ -1459,6 +1511,7 @@ impl<T: Trait> session::OnSessionEnding<T::AccountId> for Module<T> {
         _ending: SessionIndex,
         start_session: SessionIndex,
     ) -> Option<Vec<T::AccountId>> {
+        info!("On session ending 1");
         Self::new_session(start_session - 1).map(|(new, _old)| new)
     }
 }
@@ -1471,6 +1524,7 @@ impl<T: Trait> OnSessionEnding<T::AccountId, Exposure<T::AccountId, BalanceOf<T>
         Vec<T::AccountId>,
         Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>,
     )> {
+        info!("On session ending 2");
         Self::new_session(start_session - 1)
     }
 }

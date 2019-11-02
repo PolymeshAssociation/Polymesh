@@ -12,7 +12,7 @@ yaml-rust = { version = "0.4.3", default-features = false }
 lazy_static = { version = "1.4.0", default-features = false }
 bitvec = { version = "0.15.2", default-features = false, features = ["alloc"] }
 rustc-hex = { version = "2.0.1", default-features = false }
-log = { version = "0.4.8", optional = true }
+log = { version = "0.4.8"}
 serde = { version = "1.0.101", default-features = false }
 serde_derive = { version = "1.0.101", optional = true }
 safe-mix = { version = "1.0.0", default-features = false }
@@ -101,7 +101,7 @@ std = [
 	"version/std",
 	"serde_derive",
 	"serde/std",
-	"log",
+#	"log",
 	"safe-mix/std",
 	"babe/std",
 	"babe-primitives/std",
