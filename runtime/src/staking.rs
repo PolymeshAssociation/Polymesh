@@ -414,8 +414,7 @@ type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 type MomentOf<T> = <<T as Trait>::Time as Time>::Moment;
 
-/// Indicates the status of compliance requirements
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub enum Compliance {
     /// Compliance requirements not met.
     Pending,
@@ -423,12 +422,32 @@ pub enum Compliance {
     Active,
 }
 
+impl Default for Compliance {
+    fn default() -> Self {
+        Compliance::Pending
+    }
+}
+
 /// Represents a requirement that must be met to be eligible to become a validator
-#[derive(Encode, Decode, Clone)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct PermissionedValidator<T: Trait> {
+    /// Indicates the status of KYC compliance
     pub compliance: Compliance,
+    // The controller account
     pub account: T::AccountId,
+    /// Joined time in terms of block number
     pub joined_at: T::BlockNumber,
+}
+
+impl<T: Trait> Default for PermissionedValidator<T> {
+    fn default() -> Self {
+        Self {
+            compliance: Compliance::default(),
+            account: T::AccountId::default(),
+            joined_at: T::BlockNumber::default(),
+        }
+    }
 }
 
 /// Means for interacting with a specialized version of the `session` trait.
@@ -608,6 +627,10 @@ decl_storage! {
 
         /// Validators that have NOT met compliance requirements.
         pub IneligibleValidators get(ineligible_validators): Vec<T::AccountId>;
+
+        /// The map from (wannabe) validators to the status of compliance
+        pub PermissionedValidators get(permissioned_validators):
+            map T::AccountId => PermissionedValidator<T>;
     }
     add_extra_genesis {
         config(stakers):
@@ -963,29 +986,36 @@ decl_module! {
         }
 
         /// Add a potential new validator to the pool of validators.
-        /// Staking module checks `EligibleValidators` to ensure validators have
+        /// Staking module checks `PermissionedValidators` to ensure validators have
         /// completed KYB compliance
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn add_qualified_validator(origin, controller: T::AccountId) {
-            let mut validators = <EligibleValidators<T>>::get();
-            let index = validators.binary_search(&controller).err().ok_or("already a validator")?;
-            validators.insert(index, controller.clone());
-            <EligibleValidators<T>>::put(&validators);
+            ensure!(!<PermissionedValidators<T>>::exists(&controller), "account already exists in permissioned_validators");
 
-//            <session::Module<T>>::rotate_session();
+            <PermissionedValidators<T>>::insert(&controller, PermissionedValidator {
+                compliance: Compliance::Active,
+                account: controller.clone(),
+                joined_at: <system::Module<T>>::block_number()
+            });
 
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
+
+            // <session::Module<T>>::rotate_session();
         }
 
-        /// Removes a validator from the pool of validators. This can
-        /// happen when a validator loses KYB compliance
+        /// Update status of compliance as `Pending`
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn remove_unqualified_validator(origin, controller: T::AccountId) {
-            let mut validators = <EligibleValidators<T>>::get();
-            let index = validators.binary_search(&controller).ok().ok_or("not a validator")?;
-            validators.remove(index);
-            <EligibleValidators<T>>::put(&validators);
+        fn compliance_failed(origin, controller: T::AccountId) {
+            ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
+            <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Pending );
+            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
+        }
 
+        /// Update status of compliance as `Active`
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn compliance_passed(origin, controller: T::AccountId) {
+            ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
+            <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Active );
             Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
         }
 
@@ -1467,9 +1497,10 @@ impl<T: Trait> Module<T> {
         });
     }
 
-    /// Is the given account id in `EligibleValidators`
-    fn is_eligible_to_validate(who: &T::AccountId) -> bool {
-        <EligibleValidators<T>>::get().contains(who)
+    /// Does the given account id have compliance status `Active`
+    fn is_eligible_to_validate(account_id: &T::AccountId) -> bool {
+        let validator = Self::permissioned_validators(account_id);
+        validator.compliance == Compliance::Active
     }
 
     /// Is the stash account one of the permissioned validators?
@@ -1477,33 +1508,6 @@ impl<T: Trait> Module<T> {
         //TODO: Get DID associated with stash and check they have a KYB attestation etc.
         false
     }
-
-    //    /// A non-deterministic method that checks compliance requirements and organizes validators into
-    //    /// `EligibleValidators` and `IneligibleValidators`
-    //    pub fn check_compliance_requirements() {
-    //        let (passed1, failed1): (Vec<_>, Vec<_>) = Self::eligible_validators()
-    //            .into_iter()
-    //            .partition(|account| Self::is_validator_compliant(account));
-    //
-    //        let passed1: Vec<_> = passed1.into_iter().collect();
-    //        let failed1: Vec<_> = failed1.into_iter().collect();
-    //
-    //        let (passed2, failed2): (Vec<_>, Vec<_>) = Self::ineligible_validators()
-    //            .into_iter()
-    //            .partition(|account| Self::is_validator_compliant(account));
-    //
-    //        let passed2: Vec<_> = passed2.into_iter().collect();
-    //        let failed2: Vec<_> = failed2.into_iter().collect();
-    //
-    //        let mut current_values = Self::ineligible_validators();
-    //        current_values
-    //            .filter(|e| !Self::is_eligible_to_validate(e))
-    //            .collect();
-    //        current_values.append(&mut Self::new_values());
-    //
-    //        <EligibleValidators<T>>::put(passed1);
-    //        <IneligibleValidators<T>>::put(failed1);
-    //    }
 }
 
 impl<T: Trait> session::OnSessionEnding<T::AccountId> for Module<T> {
@@ -1700,5 +1704,451 @@ where
         } else {
             <Module<T>>::deposit_event(RawEvent::OldSlashingReportDiscarded(offence_session))
         }
+    }
+}
+
+/// Tests for this module
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::balances;
+    use crate::identity;
+    use std::{cell::RefCell, collections::HashSet};
+
+    use sr_io::{with_externalities, TestExternalities};
+    use sr_primitives::{
+        testing::{Header, UintAuthorityId},
+        traits::{
+            BlakeTwo256, Convert, ConvertInto, IdentityLookup, OnInitialize, OpaqueKeys,
+            SaturatedConversion,
+        },
+        Perbill,
+    };
+    use srml_support::traits::{Currency, FindAuthor, Get};
+    use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use std::result::Result;
+    use substrate_primitives::{Blake2Hasher, H256};
+
+    /// Mock types for testing
+    /// The AccountId alias in this test module.
+    pub type AccountId = u64;
+    pub type BlockNumber = u64;
+    pub type Balance = u128;
+
+    pub struct CurrencyToVoteHandler;
+    impl Convert<u64, u64> for CurrencyToVoteHandler {
+        fn convert(x: u64) -> u64 {
+            x
+        }
+    }
+    impl Convert<u128, u64> for CurrencyToVoteHandler {
+        fn convert(x: u128) -> u64 {
+            x.saturated_into()
+        }
+    }
+    impl Convert<u128, u128> for CurrencyToVoteHandler {
+        fn convert(x: u128) -> u128 {
+            x
+        }
+    }
+
+    thread_local! {
+        static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
+        static EXISTENTIAL_DEPOSIT: RefCell<u64> = RefCell::new(0);
+    }
+
+    pub struct TestSessionHandler;
+    impl session::SessionHandler<AccountId> for TestSessionHandler {
+        fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
+
+        fn on_new_session<Ks: OpaqueKeys>(
+            _changed: bool,
+            validators: &[(AccountId, Ks)],
+            _queued_validators: &[(AccountId, Ks)],
+        ) {
+            SESSION.with(|x| {
+                *x.borrow_mut() = (
+                    validators.iter().map(|x| x.0.clone()).collect(),
+                    HashSet::new(),
+                )
+            });
+        }
+
+        fn on_disabled(validator_index: usize) {
+            SESSION.with(|d| {
+                let mut d = d.borrow_mut();
+                let value = d.0[validator_index];
+                d.1.insert(value);
+            })
+        }
+    }
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    /// Author of block is always 11
+    pub struct Author11;
+    impl FindAuthor<u64> for Author11 {
+        fn find_author<'a, I>(_digests: I) -> Option<u64>
+        where
+            I: 'a + IntoIterator<Item = (srml_support::ConsensusEngineId, &'a [u8])>,
+        {
+            Some(11)
+        }
+    }
+
+    // For testing the module, we construct most of a mock runtime. This means
+    // first constructing a configuration type (`Test`) which `impl`s each of the
+    // configuration traits of modules we want to use.
+    #[derive(Clone, Eq, PartialEq)]
+    pub struct Test;
+    parameter_types! {
+        pub const BlockHashCount: u64 = 250;
+        pub const MaximumBlockWeight: u32 = 1024;
+        pub const MaximumBlockLength: u32 = 2 * 1024;
+        pub const AvailableBlockRatio: Perbill = Perbill::one();
+    }
+
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Call = ();
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type WeightMultiplierUpdate = ();
+        type Event = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type Version = ();
+    }
+
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 0;
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const TransactionBaseFee: u64 = 0;
+        pub const TransactionByteFee: u64 = 0;
+    }
+
+    impl balances::Trait for Test {
+        type Balance = u128;
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type TransactionPayment = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
+
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+        type TransactionBaseFee = TransactionBaseFee;
+        type TransactionByteFee = TransactionByteFee;
+        type WeightToFee = ConvertInto;
+        type Identity = identity::Module<Test>;
+    }
+
+    impl identity::Trait for Test {
+        type Event = ();
+    }
+
+    parameter_types! {
+        pub const Period: BlockNumber = 1;
+        pub const Offset: BlockNumber = 0;
+        pub const UncleGenerations: u64 = 0;
+        pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+    }
+
+    impl session::Trait for Test {
+        type OnSessionEnding = session::historical::NoteHistoricalRoot<Test, Staking>;
+        type Keys = UintAuthorityId;
+        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type SessionHandler = TestSessionHandler;
+        type Event = ();
+        type ValidatorId = AccountId;
+        type ValidatorIdOf = self::StashOf<Test>;
+        type SelectInitialValidators = Staking;
+        type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    }
+
+    impl session::historical::Trait for Test {
+        type FullIdentification = crate::staking::Exposure<AccountId, Balance>;
+        type FullIdentificationOf = crate::staking::ExposureOf<Test>;
+    }
+
+    impl authorship::Trait for Test {
+        type FindAuthor = Author11;
+        type UncleGenerations = UncleGenerations;
+        type FilterUncle = ();
+        type EventHandler = Module<Test>;
+    }
+
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
+    }
+
+    impl timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
+
+    srml_staking_reward_curve::build! {
+        const I_NPOS: PiecewiseLinear<'static> = curve!(
+            min_inflation: 0_025_000,
+            max_inflation: 0_100_000,
+            ideal_stake: 0_500_000,
+            falloff: 0_050_000,
+            max_piece_count: 40,
+            test_precision: 0_005_000,
+        );
+    }
+
+    parameter_types! {
+        pub const SessionsPerEra: SessionIndex = 3;
+        pub const BondingDuration: EraIndex = 3;
+        pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
+    }
+
+    impl super::Trait for Test {
+        type Currency = balances::Module<Self>;
+        type Time = timestamp::Module<Self>;
+        type CurrencyToVote = CurrencyToVoteHandler;
+        type OnRewardMinted = ();
+        type Event = ();
+        type Slash = ();
+        type Reward = ();
+        type SessionsPerEra = SessionsPerEra;
+        type BondingDuration = BondingDuration;
+        type SessionInterface = Self;
+        type RewardCurve = RewardCurve;
+    }
+
+    type Staking = super::Module<Test>;
+
+    // This function basically just builds a genesis storage key/value store according to
+    // our desired mockup.
+    fn new_test_ext() -> TestExternalities<Blake2Hasher> {
+        system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap()
+            .into()
+    }
+
+    pub struct ExtBuilder {
+        existential_deposit: u64,
+        validator_pool: bool,
+        nominate: bool,
+        validator_count: u32,
+        minimum_validator_count: u32,
+        fair: bool,
+        num_validators: Option<u32>,
+        invulnerables: Vec<u64>,
+    }
+
+    impl Default for ExtBuilder {
+        fn default() -> Self {
+            Self {
+                existential_deposit: 0,
+                validator_pool: false,
+                nominate: true,
+                validator_count: 2,
+                minimum_validator_count: 0,
+                fair: true,
+                num_validators: None,
+                invulnerables: vec![],
+            }
+        }
+    }
+
+    impl ExtBuilder {
+        pub fn existential_deposit(mut self, existential_deposit: u64) -> Self {
+            self.existential_deposit = existential_deposit;
+            self
+        }
+        pub fn validator_pool(mut self, validator_pool: bool) -> Self {
+            self.validator_pool = validator_pool;
+            self
+        }
+        pub fn nominate(mut self, nominate: bool) -> Self {
+            self.nominate = nominate;
+            self
+        }
+        pub fn validator_count(mut self, count: u32) -> Self {
+            self.validator_count = count;
+            self
+        }
+        pub fn minimum_validator_count(mut self, count: u32) -> Self {
+            self.minimum_validator_count = count;
+            self
+        }
+        pub fn fair(mut self, is_fair: bool) -> Self {
+            self.fair = is_fair;
+            self
+        }
+        pub fn num_validators(mut self, num_validators: u32) -> Self {
+            self.num_validators = Some(num_validators);
+            self
+        }
+        pub fn invulnerables(mut self, invulnerables: Vec<u64>) -> Self {
+            self.invulnerables = invulnerables;
+            self
+        }
+        pub fn set_associated_consts(&self) {
+            EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
+        }
+        pub fn build(self) -> TestExternalities<Blake2Hasher> {
+            self.set_associated_consts();
+            let mut storage = system::GenesisConfig::default()
+                .build_storage::<Test>()
+                .unwrap();
+            let balance_factor = if self.existential_deposit > 0 { 256 } else { 1 };
+
+            let num_validators = self.num_validators.unwrap_or(self.validator_count);
+            let validators = (0..num_validators)
+                .map(|x| ((x + 1) * 10 + 1) as u64)
+                .collect::<Vec<_>>();
+
+            let _ = balances::GenesisConfig::<Test> {
+                balances: vec![
+                    (1, 10 * balance_factor),
+                    (2, 20 * balance_factor),
+                    (3, 300 * balance_factor),
+                    (4, 400 * balance_factor),
+                    (10, balance_factor),
+                    (11, balance_factor * 1000),
+                    (20, balance_factor),
+                    (21, balance_factor * 2000),
+                    (30, balance_factor),
+                    (31, balance_factor * 2000),
+                    (40, balance_factor),
+                    (41, balance_factor * 2000),
+                    (100, 2000 * balance_factor),
+                    (101, 2000 * balance_factor),
+                    // This allow us to have a total_payout different from 0.
+                    (999, 1_000_000_000_000),
+                ],
+                vesting: vec![],
+            }
+            .assimilate_storage(&mut storage);
+
+            let stake_21 = if self.fair { 1000 } else { 2000 };
+            let stake_31 = if self.validator_pool {
+                balance_factor * 1000
+            } else {
+                1
+            };
+            let status_41 = if self.validator_pool {
+                StakerStatus::<AccountId>::Validator
+            } else {
+                StakerStatus::<AccountId>::Idle
+            };
+            let nominated = if self.nominate { vec![11, 21] } else { vec![] };
+            let _ = GenesisConfig::<Test> {
+                current_era: 0,
+                stakers: vec![
+                    // (stash, controller, staked_amount, status)
+                    (
+                        11,
+                        10,
+                        balance_factor * 1000,
+                        StakerStatus::<AccountId>::Validator,
+                    ),
+                    (21, 20, stake_21, StakerStatus::<AccountId>::Validator),
+                    (31, 30, stake_31, StakerStatus::<AccountId>::Validator),
+                    (41, 40, balance_factor * 1000, status_41),
+                    // nominator
+                    (
+                        101,
+                        100,
+                        balance_factor * 500,
+                        StakerStatus::<AccountId>::Nominator(nominated),
+                    ),
+                ],
+                validator_count: self.validator_count,
+                minimum_validator_count: self.minimum_validator_count,
+                invulnerables: self.invulnerables,
+                slash_reward_fraction: Perbill::from_percent(10),
+                ..Default::default()
+            }
+            .assimilate_storage(&mut storage);
+
+            let _ = session::GenesisConfig::<Test> {
+                keys: validators
+                    .iter()
+                    .map(|x| (*x, UintAuthorityId(*x)))
+                    .collect(),
+            }
+            .assimilate_storage(&mut storage);
+
+            let mut ext = storage.into();
+            with_externalities(&mut ext, || {
+                let validators = Session::validators();
+                SESSION.with(|x| *x.borrow_mut() = (validators.clone(), HashSet::new()));
+            });
+            ext
+        }
+    }
+
+    pub fn start_era(era_index: EraIndex) {
+        start_session((era_index * 3).into());
+        assert_eq!(Staking::current_era(), era_index);
+    }
+
+    pub fn start_session(session_index: SessionIndex) {
+        // Compensate for session delay
+        let session_index = session_index + 1;
+        for i in Session::current_index()..session_index {
+            System::set_block_number((i + 1).into());
+            Timestamp::set_timestamp(System::block_number() * 1000);
+            Session::on_initialize(System::block_number());
+        }
+
+        assert_eq!(Session::current_index(), session_index);
+    }
+
+    pub type System = system::Module<Test>;
+    pub type Balances = balances::Module<Test>;
+    pub type Session = session::Module<Test>;
+    pub type Timestamp = timestamp::Module<Test>;
+
+    #[test]
+    fn should_initialize_stakers_and_validators() {
+        // Verifies initial conditions of mock
+        with_externalities(&mut ExtBuilder::default().build(), || {
+            assert_eq!(Staking::bonded(&11), Some(10)); // Account 11 is stashed and locked, and account 10 is the controller
+            assert_eq!(Staking::bonded(&21), Some(20)); // Account 21 is stashed and locked, and account 20 is the controller
+            assert_eq!(Staking::bonded(&1), None); // Account 1 is not a stashed
+
+            // Account 10 controls the stash from account 11, which is 100 * balance_factor units
+            assert_eq!(
+                Staking::ledger(&10),
+                Some(StakingLedger {
+                    stash: 11,
+                    total: 1000,
+                    active: 1000,
+                    unlocking: vec![]
+                })
+            );
+            // Account 20 controls the stash from account 21, which is 200 * balance_factor units
+            assert_eq!(
+                Staking::ledger(&20),
+                Some(StakingLedger {
+                    stash: 21,
+                    total: 1000,
+                    active: 1000,
+                    unlocking: vec![]
+                })
+            );
+            // Account 1 does not control any stash
+            assert_eq!(Staking::ledger(&1), None);
+        });
     }
 }
