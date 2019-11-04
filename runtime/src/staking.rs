@@ -492,7 +492,7 @@ where
     }
 }
 
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + session::Trait {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 
@@ -1000,7 +1000,7 @@ decl_module! {
 
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
 
-            // <session::Module<T>>::rotate_session();
+            <session::Module<T>>::rotate_session();
         }
 
         /// Update status of compliance as `Pending`
@@ -1041,7 +1041,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(10_000)]
         fn force_new_era(origin) {
             ensure_root(origin)?;
-            info!("New era");
             ForceEra::put(Forcing::ForceNew);
         }
 
@@ -1210,8 +1209,6 @@ impl<T: Trait> Module<T> {
             Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
             _ => return None,
         }
-
-        info!("New session");
 
         let validators = T::SessionInterface::validators();
         let prior = validators
@@ -2149,6 +2146,106 @@ mod tests {
             );
             // Account 1 does not control any stash
             assert_eq!(Staking::ledger(&1), None);
+        });
+    }
+
+    #[test]
+    fn session_and_eras_work() {
+        with_externalities(&mut ExtBuilder::default().build(), || {
+            assert_eq!(Staking::current_era(), 0);
+
+            // Block 1: No change.
+            start_session(0);
+            assert_eq!(Session::current_index(), 1);
+            assert_eq!(Staking::current_era(), 0);
+
+            // Block 2: Simple era change.
+            start_session(2);
+            assert_eq!(Session::current_index(), 3);
+            assert_eq!(Staking::current_era(), 1);
+
+            // Block 3: Schedule an era length change; no visible changes.
+            start_session(3);
+            assert_eq!(Session::current_index(), 4);
+            assert_eq!(Staking::current_era(), 1);
+
+            // Block 4: Era change kicks in.
+            start_session(5);
+            assert_eq!(Session::current_index(), 6);
+            assert_eq!(Staking::current_era(), 2);
+
+            // Block 5: No change.
+            start_session(6);
+            assert_eq!(Session::current_index(), 7);
+            assert_eq!(Staking::current_era(), 2);
+
+            // Block 6: No change.
+            start_session(7);
+            assert_eq!(Session::current_index(), 8);
+            assert_eq!(Staking::current_era(), 2);
+
+            // Block 7: Era increment.
+            start_session(8);
+            assert_eq!(Session::current_index(), 9);
+            assert_eq!(Staking::current_era(), 3);
+        });
+    }
+
+    #[test]
+    fn validator_payment_prefs_work() {
+        // Test that validator preferences are correctly honored
+        // Note: unstake threshold is being directly tested in slashing tests.
+        // This test will focus on validator payment.
+        with_externalities(&mut ExtBuilder::default().build(), || {
+            // Initial config
+            let validator_cut = 5;
+            let stash_initial_balance = Balances::total_balance(&11);
+
+            // check the balance of a validator accounts.
+            assert_eq!(Balances::total_balance(&10), 1);
+            // check the balance of a validator's stash accounts.
+            assert_eq!(Balances::total_balance(&11), stash_initial_balance);
+            // and the nominator (to-be)
+            let _ = Balances::make_free_balance_be(&2, 500);
+
+            // add a dummy nominator.
+            <Stakers<Test>>::insert(
+                &11,
+                Exposure {
+                    own: 500, // equal division indicates that the reward will be equally divided among validator and nominator.
+                    total: 1000,
+                    others: vec![IndividualExposure { who: 2, value: 500 }],
+                },
+            );
+            <Payee<Test>>::insert(&2, RewardDestination::Stash);
+            <Validators<Test>>::insert(
+                &11,
+                ValidatorPrefs {
+                    validator_payment: validator_cut,
+                },
+            );
+
+            // Compute total payout now for whole duration as other parameter won't change
+            let total_payout_0 = current_total_payout_for_duration(3000);
+            assert!(total_payout_0 > 100); // Test is meaningfull if reward something
+            <Module<Test>>::reward_by_ids(vec![(11, 1)]);
+
+            start_era(1);
+
+            // whats left to be shared is the sum of 3 rounds minus the validator's cut.
+            let shared_cut = total_payout_0 - validator_cut;
+            // Validator's payee is Staked account, 11, reward will be paid here.
+            assert_eq!(
+                Balances::total_balance(&11),
+                stash_initial_balance + shared_cut / 2 + validator_cut
+            );
+            // Controller account will not get any reward.
+            assert_eq!(Balances::total_balance(&10), 1);
+            // Rest of the reward will be shared and paid to the nominator in stake.
+            assert_eq!(Balances::total_balance(&2), 500 + shared_cut / 2);
+
+            check_exposure_all();
+            check_nominator_all();
         });
     }
 }
