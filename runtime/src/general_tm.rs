@@ -64,7 +64,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
-        pub fn add_asset_rule(origin, did: Vec<u8>, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+        pub fn add_active_rule(origin, did: Vec<u8>, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
@@ -84,7 +84,7 @@ decl_module! {
             Ok(())
         }
 
-        pub fn remove_asset_rule(origin, did: Vec<u8>, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+        pub fn remove_active_rule(origin, did: Vec<u8>, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
@@ -104,6 +104,21 @@ decl_module! {
 
             Ok(())
         }
+
+        pub fn reset_active_rules(origin, did: Vec<u8>, _ticker: Vec<u8>) -> Result {
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            let sender = ensure_signed(origin)?;
+
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+
+            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+
+            <ActiveRules>::remove(ticker.clone());
+
+            Self::deposit_event(Event::ResetAssetRules(ticker));
+
+            Ok(())
+        }
     }
 }
 
@@ -111,6 +126,7 @@ decl_event!(
     pub enum Event {
         NewAssetRule(Vec<u8>, AssetRule),
         RemoveAssetRule(Vec<u8>, AssetRule),
+        ResetAssetRules(Vec<u8>),
     }
 );
 
@@ -182,6 +198,7 @@ impl<T: Trait> Module<T> {
                 }
             }
             if !rule_broken {
+                sr_primitives::print("Satisfied Identity TM restrictions");
                 return Ok(ERC1400_TRANSFER_SUCCESS);
             }
         }
@@ -207,10 +224,6 @@ mod tests {
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
 
-    // use crate::{
-    //     asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
-    //     simple_token::SimpleTokenRecord,
-    // };
     use crate::{
         asset::SecurityToken, balances, exemption, identity, identity::DataTypes, percentage_tm,
         registry,
@@ -483,7 +496,7 @@ mod tests {
             };
 
             // Allow all transfers
-            assert_ok!(GeneralTM::add_asset_rule(
+            assert_ok!(GeneralTM::add_active_rule(
                 Origin::signed(token_owner_acc),
                 token_owner_did.clone(),
                 token.name.clone(),
@@ -584,8 +597,7 @@ mod tests {
                 receiver_rules: y,
             };
 
-            // Allow all transfers
-            assert_ok!(GeneralTM::add_asset_rule(
+            assert_ok!(GeneralTM::add_active_rule(
                 Origin::signed(token_owner_acc),
                 token_owner_did.clone(),
                 token.name.clone(),
@@ -600,6 +612,70 @@ mod tests {
                 token_owner_did.clone(),
                 token.total_supply
             ));
+        });
+    }
+
+    #[test]
+    fn should_reset_assetrules() {
+        let identity_owner_id = 1;
+        with_externalities(&mut identity_owned_by(identity_owner_id), || {
+            let token_owner_acc = 1;
+            let owner_key = Key::try_from(identity_owner_id.encode()).unwrap();
+            let token_owner_did = "did:poly:1".as_bytes().to_vec();
+
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                vec![],
+            )
+            .expect("Could not create token_owner_did");
+
+            // Share issuance is successful
+            assert_ok!(Asset::create_token(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            let x = vec![];
+            let y = vec![];
+
+            let asset_rule = AssetRule {
+                sender_rules: x,
+                receiver_rules: y,
+            };
+
+            assert_ok!(GeneralTM::add_active_rule(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                asset_rule
+            ));
+
+            let asset_rules = GeneralTM::active_rules(token.name.clone());
+            assert_eq!(asset_rules.len(), 1);
+
+            assert_ok!(GeneralTM::reset_active_rules(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone()
+            ));
+
+            let asset_rules_new = GeneralTM::active_rules(token.name.clone());
+            assert_eq!(asset_rules_new.len(), 0);
         });
     }
 }

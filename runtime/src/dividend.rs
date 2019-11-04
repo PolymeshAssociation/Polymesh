@@ -800,7 +800,7 @@ mod tests {
             };
 
             // Allow all transfers
-            assert_ok!(GeneralTM::add_asset_rule(
+            assert_ok!(GeneralTM::add_active_rule(
                 Origin::signed(token_owner_acc),
                 token_owner_did.clone(),
                 token.name.clone(),
