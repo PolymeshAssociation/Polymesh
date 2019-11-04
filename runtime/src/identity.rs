@@ -468,7 +468,7 @@ decl_module! {
 
             <DidRecords<T>>::mutate(&did,
                 |record| {
-                    (*record).freezed_signing_keys.append( &mut record.signing_keys);
+                    (*record).frozen_signing_keys.append( &mut record.signing_keys);
                 });
             Ok(())
         }
@@ -479,7 +479,7 @@ decl_module! {
 
             <DidRecords<T>>::mutate(&did,
                 |record| {
-                    (*record).signing_keys.append( &mut  record.freezed_signing_keys);
+                    (*record).signing_keys.append( &mut  record.frozen_signing_keys);
                 });
             Ok(())
         }
@@ -1098,7 +1098,7 @@ mod tests {
 
         let did_rec_1 = Identity::did_records(alice_did.clone());
         assert_eq!(did_rec_1.signing_keys.len(), 0);
-        assert_eq!(did_rec_1.freezed_signing_keys, signing_keys_v1);
+        assert_eq!(did_rec_1.frozen_signing_keys, signing_keys_v1);
 
         // Add new signing keys.
         let signing_keys_v2 = vec![dave_signing_key];
@@ -1109,7 +1109,7 @@ mod tests {
         ));
         let did_rec_2 = Identity::did_records(alice_did.clone());
         assert_eq!(did_rec_2.signing_keys, signing_keys_v2);
-        assert_eq!(did_rec_2.freezed_signing_keys, signing_keys_v1);
+        assert_eq!(did_rec_2.frozen_signing_keys, signing_keys_v1);
 
         // 2nd freeze
         let all_signing_keys = signing_keys_v1
@@ -1123,7 +1123,7 @@ mod tests {
         ));
         let did_rec_3 = Identity::did_records(alice_did.clone());
         assert_eq!(did_rec_3.signing_keys, Vec::<SigningKey>::new());
-        assert_eq!(did_rec_3.freezed_signing_keys, all_signing_keys);
+        assert_eq!(did_rec_3.frozen_signing_keys, all_signing_keys);
 
         // unfreeze all
         assert_err!(
@@ -1137,6 +1137,6 @@ mod tests {
 
         let did_rec_4 = Identity::did_records(alice_did.clone());
         assert_eq!(did_rec_4.signing_keys, all_signing_keys);
-        assert_eq!(did_rec_4.freezed_signing_keys, Vec::<SigningKey>::new());
+        assert_eq!(did_rec_4.frozen_signing_keys, Vec::<SigningKey>::new());
     }
 }
