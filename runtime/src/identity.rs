@@ -123,14 +123,8 @@ decl_module! {
 
         /// Adds new signing keys for a DID. Only called by master key owner.
         pub fn add_signing_keys(origin, did: Vec<u8>, additional_keys: Vec<SigningKey>) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
-
-            // Verify that sender key is current master key
-            let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
-            ensure!(record.master_key == sender_key, "Sender must hold the master key");
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, &did)?;
 
             for skey in &additional_keys {
                 if <SigningKeyDid>::exists(&skey.key) {
@@ -165,14 +159,8 @@ decl_module! {
 
         /// Removes specified signing keys of a DID if present. Only called by master key owner.
         fn remove_signing_keys(origin, did: Vec<u8>, keys_to_remove: Vec<Key>) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            // Verify that sender key is current master key
-            let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
-            ensure!(record.master_key == sender_key, "Sender must hold the master key");
-
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, &did)?;
 
             for key in &keys_to_remove {
                 if <SigningKeyDid>::exists(key) {
@@ -206,13 +194,8 @@ decl_module! {
         /// Sets a new master key for a DID. Only called by master key owner.
         fn set_master_key(origin, did: Vec<u8>, new_key: Key) -> Result {
             let sender = ensure_signed(origin)?;
-
-            // Verify that sender key is current master key
-            let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
-            ensure!(record.master_key == sender_key, "Sender must hold the master key");
-
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
+            let sender_key = Key::try_from( sender.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, &did)?;
 
             <DidRecords<T>>::mutate(&did,
             |record| {
@@ -220,7 +203,6 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::NewMasterKey(did, sender, new_key));
-
             Ok(())
         }
 
@@ -254,15 +236,7 @@ decl_module! {
         /// Withdraws funds from a DID. Only called by master key owner.
         fn withdrawy_poly(origin, did: Vec<u8>, amount: <T as balances::Trait>::Balance) -> Result {
             let sender = ensure_signed(origin)?;
-
-            // Verify that sender key is current master key
-            let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
-            ensure!(record.master_key == sender_key, "Sender must hold the master key");
-
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
-
-            let record = <DidRecords<T>>::get(&did);
+            let record = Self::grant_check_only_master_key( &Key::try_from( sender.encode())?, &did)?;
 
             // We must know that new balance is valid without creating side effects
             let new_record_balance = record.balance.checked_sub(&amount).ok_or("underflow occured when decreasing DID balance")?;
@@ -309,12 +283,8 @@ decl_module! {
 
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
         fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            // Verify that sender key is current master key
-            let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
-            ensure!(record.master_key == sender_key, "Sender must hold the master key");
+            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+            let _grant_checked = Self::grant_check_only_master_key( &sender_key, &did)?;
 
             <ClaimIssuers>::mutate(did.clone(), |old_claim_issuers| {
                 if !old_claim_issuers.contains(&did_issuer) {
@@ -323,20 +293,14 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::NewClaimIssuer(did, did_issuer));
-
             Ok(())
         }
 
         /// Removes a claim issuer DID. Only called by master key owner.
         fn remove_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+            let _grant_checked = Self::grant_check_only_master_key( &sender_key, &did)?;
 
-            // Verify that sender key is current master key
-            let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
-            ensure!(record.master_key == sender_key, "Sender must hold the master key");
-
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
             ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
 
             <ClaimIssuers>::mutate(&did, |old_claim_issuers| {
@@ -348,7 +312,6 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::RemovedClaimIssuer(did, did_issuer));
-
             Ok(())
         }
 
@@ -472,14 +435,8 @@ decl_module! {
         /// It sets roles for an specific `target_key` key.
         /// Only the master key of an identity is able to set signing key roles.
         fn set_role_to_signing_key(origin, did: Vec<u8>, target_key: Key, roles: Vec<KeyRole>) -> Result {
-            let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from( sender.encode())?;
-
-            ensure!(<DidRecords<T>>::exists(&did), "DID does not exist");
-            let record = <DidRecords<T>>::get(&did);
-
-            ensure!( record.master_key == sender_key,
-                "Only master key of an identity is able to update signing key roles");
+            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+            let record = Self::grant_check_only_master_key( &sender_key, &did)?;
 
             // You are trying to add a role to did's master key. It is not needed.
             if record.master_key == target_key {
@@ -503,6 +460,28 @@ decl_module! {
             new_roles.dedup();
 
             Self::update_roles(&did, &target_key, new_roles)
+        }
+
+        fn freeze_signing_keys(origin, did: Vec<u8>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, &did)?;
+
+            <DidRecords<T>>::mutate(&did,
+                |record| {
+                    (*record).freezed_signing_keys.append( &mut record.signing_keys);
+                });
+            Ok(())
+        }
+
+        fn unfreeze_signing_keys(origin, did: Vec<u8>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, &did)?;
+
+            <DidRecords<T>>::mutate(&did,
+                |record| {
+                    (*record).signing_keys.append( &mut  record.freezed_signing_keys);
+                });
+            Ok(())
         }
     }
 }
@@ -613,6 +592,24 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::PolyChargedFromDid(did, amount));
 
         return true;
+    }
+
+    /// It checks that `sender_key` is the master key of `did` Identifier and that
+    /// did exists.
+    /// # Return
+    /// A result object containing the `DidRecord` of `did`.
+    pub fn grant_check_only_master_key(
+        sender_key: &Key,
+        did: &Vec<u8>,
+    ) -> rstd::result::Result<DidRecord<<T as balances::Trait>::Balance>, &'static str> {
+        ensure!(<DidRecords<T>>::exists(did), "DID does not exist");
+        let record = <DidRecords<T>>::get(did);
+        ensure!(
+            *sender_key == record.master_key,
+            "Only master key of an identity is able to execute this operation"
+        );
+
+        Ok(record)
     }
 }
 
@@ -988,7 +985,7 @@ mod tests {
                 bob_key.clone(),
                 vec![KeyRole::Full]
             ),
-            "Only master key of an identity is able to update signing key roles"
+            "Only master key of an identity is able to execute this operation"
         );
 
         // Bob tries to remove Charlie's roles at `alice` Identity.
@@ -999,7 +996,7 @@ mod tests {
                 charlie_key,
                 vec![]
             ),
-            "Only master key of an identity is able to update signing key roles"
+            "Only master key of an identity is able to execute this operation"
         );
 
         // Alice over-write some roles.
@@ -1061,5 +1058,85 @@ mod tests {
             bob_did,
             vec![dave_signing_key]
         ));
+    }
+
+    #[test]
+    fn freeze_signing_keys_test() {
+        with_externalities(&mut build_ext(), &freeze_signing_keys_with_externalities);
+    }
+
+    fn freeze_signing_keys_with_externalities() {
+        let (alice_acc, bob_acc, charlie_acc, dave_acc) = (1u64, 2u64, 3u64, 4u64);
+        let (bob_key, charlie_key, dave_key) = (
+            Key::try_from(bob_acc.encode()).unwrap(),
+            Key::try_from(charlie_acc.encode()).unwrap(),
+            Key::try_from(dave_acc.encode()).unwrap(),
+        );
+
+        let bob_signing_key = SigningKey::new(bob_key, vec![KeyRole::Admin]);
+        let charlie_signing_key = SigningKey::new(charlie_key, vec![KeyRole::Operator]);
+        let dave_signing_key = SigningKey::new(dave_key, vec![]);
+
+        // Add signing keys.
+        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let signing_keys_v1 = vec![bob_signing_key, charlie_signing_key];
+        assert_ok!(Identity::add_signing_keys(
+            alice.clone(),
+            alice_did.clone(),
+            signing_keys_v1.clone()
+        ));
+
+        // Freeze signing keys: bob & charlie.
+        assert_err!(
+            Identity::freeze_signing_keys(Origin::signed(bob_acc), alice_did.clone()),
+            "Only master key of an identity is able to execute this operation"
+        );
+        assert_ok!(Identity::freeze_signing_keys(
+            alice.clone(),
+            alice_did.clone()
+        ));
+
+        let did_rec_1 = Identity::did_records(alice_did.clone());
+        assert_eq!(did_rec_1.signing_keys.len(), 0);
+        assert_eq!(did_rec_1.freezed_signing_keys, signing_keys_v1);
+
+        // Add new signing keys.
+        let signing_keys_v2 = vec![dave_signing_key];
+        assert_ok!(Identity::add_signing_keys(
+            alice.clone(),
+            alice_did.clone(),
+            signing_keys_v2.clone()
+        ));
+        let did_rec_2 = Identity::did_records(alice_did.clone());
+        assert_eq!(did_rec_2.signing_keys, signing_keys_v2);
+        assert_eq!(did_rec_2.freezed_signing_keys, signing_keys_v1);
+
+        // 2nd freeze
+        let all_signing_keys = signing_keys_v1
+            .iter()
+            .chain(signing_keys_v2.iter())
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_ok!(Identity::freeze_signing_keys(
+            alice.clone(),
+            alice_did.clone()
+        ));
+        let did_rec_3 = Identity::did_records(alice_did.clone());
+        assert_eq!(did_rec_3.signing_keys, Vec::<SigningKey>::new());
+        assert_eq!(did_rec_3.freezed_signing_keys, all_signing_keys);
+
+        // unfreeze all
+        assert_err!(
+            Identity::unfreeze_signing_keys(Origin::signed(bob_acc), alice_did.clone()),
+            "Only master key of an identity is able to execute this operation"
+        );
+        assert_ok!(Identity::unfreeze_signing_keys(
+            alice.clone(),
+            alice_did.clone()
+        ));
+
+        let did_rec_4 = Identity::did_records(alice_did.clone());
+        assert_eq!(did_rec_4.signing_keys, all_signing_keys);
+        assert_eq!(did_rec_4.freezed_signing_keys, Vec::<SigningKey>::new());
     }
 }
