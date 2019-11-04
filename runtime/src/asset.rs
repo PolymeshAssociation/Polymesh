@@ -883,15 +883,19 @@ impl<T: Trait> Module<T> {
         if balance_after_transfer < value {
             balance_after_transfer = <T as utils::Trait>::as_tb(0 as u128);
         } else {
-            balance_after_transfer =  balance_after_transfer - value;
+            balance_after_transfer = balance_after_transfer - value;
         }
         let general_status_code =
             <general_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?;
-        Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS && balance_after_transfer >= Self::total_custody_allowance(&ticker_holder_did) {
-            general_status_code
-        } else {
-            <percentage_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?
-        })
+        Ok(
+            if general_status_code != ERC1400_TRANSFER_SUCCESS
+                && balance_after_transfer >= Self::total_custody_allowance(&ticker_holder_did)
+            {
+                general_status_code
+            } else {
+                <percentage_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?
+            },
+        )
     }
 
     // the SimpleToken standard transfer function
