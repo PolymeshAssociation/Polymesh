@@ -1240,9 +1240,7 @@ impl<T: Trait<I>, I: Instance> TakeFees<T, I> {
     ///   - _weight-fee_: This amount is computed based on the weight of the transaction. Unlike
     ///      size-fee, this is not input dependent and reflects the _complexity_ of the execution
     ///      and the time it consumes.
-    ///   - (optional) _tip_: if included in the transaction, it will be added on top. Only signed
-    ///      transactions can have a tip.
-    fn compute_fee(len: usize, info: DispatchInfo, tip: T::Balance) -> T::Balance {
+    fn compute_fee(len: usize, info: DispatchInfo) -> T::Balance {
         let len_fee = if info.pay_length_fee() {
             let len = T::Balance::from(len as u32);
             let base = T::TransactionBaseFee::get();
@@ -1263,7 +1261,7 @@ impl<T: Trait<I>, I: Instance> TakeFees<T, I> {
             T::WeightToFee::convert(adjusted_weight)
         };
 
-        len_fee.saturating_add(weight_fee).saturating_add(tip)
+        len_fee.saturating_add(weight_fee)
     }
 }
 
@@ -1290,8 +1288,11 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
         info: DispatchInfo,
         len: usize,
     ) -> TransactionValidity {
+        if self.0 != Zero::zero() {
+            return InvalidTransaction::Payment.into();
+        }
         // pay any fees.
-        let fee = Self::compute_fee(len, info, self.0);
+        let fee = Self::compute_fee(len, info);
 
         let encoded_transactor = match Key::try_from(who.encode()) {
             Ok(key) => key,
