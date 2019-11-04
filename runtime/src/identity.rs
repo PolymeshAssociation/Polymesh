@@ -174,16 +174,12 @@ decl_module! {
 
             <DidRecords<T>>::mutate(&did,
             |record| {
-                // Filter out keys meant for deletion
-                let keys = record.signing_keys
-                    .iter()
-                    .filter(|&roled_key| keys_to_remove.iter()
-                        .find(|&rk| roled_key == rk)
-                        .is_none())
-                    .cloned()
-                    .collect::<Vec<_>>();
+                let not_in_keys_to_remove = |skey: &SigningKey| keys_to_remove.iter()
+                        .find(|&rk| skey == rk)
+                        .is_none();
 
-                (*record).signing_keys = keys;
+                (*record).signing_keys.retain( |skey| not_in_keys_to_remove(&skey));
+                (*record).frozen_signing_keys.retain( |skey| not_in_keys_to_remove(&skey));
             });
 
             Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
@@ -1060,6 +1056,7 @@ mod tests {
         ));
     }
 
+    /// It verifies that frozen keys are recovered after `unfreeze` call.
     #[test]
     fn freeze_signing_keys_test() {
         with_externalities(&mut build_ext(), &freeze_signing_keys_with_externalities);
@@ -1138,5 +1135,52 @@ mod tests {
         let did_rec_4 = Identity::did_records(alice_did.clone());
         assert_eq!(did_rec_4.signing_keys, all_signing_keys);
         assert_eq!(did_rec_4.frozen_signing_keys, Vec::<SigningKey>::new());
+    }
+
+    /// It double-checks that frozen keys are removed too.
+    #[test]
+    fn remove_frozen_signing_keys_test() {
+        with_externalities(
+            &mut build_ext(),
+            &remove_frozen_signing_keys_with_externalities,
+        );
+    }
+
+    fn remove_frozen_signing_keys_with_externalities() {
+        let (alice_acc, bob_acc, charlie_acc) = (1u64, 2u64, 3u64);
+        let (bob_key, charlie_key) = (
+            Key::try_from(bob_acc.encode()).unwrap(),
+            Key::try_from(charlie_acc.encode()).unwrap(),
+        );
+
+        let bob_signing_key = SigningKey::new(bob_key.clone(), vec![KeyRole::Admin]);
+        let charlie_signing_key = SigningKey::new(charlie_key, vec![KeyRole::Operator]);
+
+        // Add signing keys.
+        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let signing_keys_v1 = vec![bob_signing_key, charlie_signing_key.clone()];
+        assert_ok!(Identity::add_signing_keys(
+            alice.clone(),
+            alice_did.clone(),
+            signing_keys_v1.clone()
+        ));
+
+        // Freeze all signing keys
+        assert_ok!(Identity::freeze_signing_keys(
+            alice.clone(),
+            alice_did.clone()
+        ));
+
+        // Remove Bob's key.
+        assert_ok!(Identity::remove_signing_keys(
+            alice.clone(),
+            alice_did.clone(),
+            vec![bob_key.clone()]
+        ));
+
+        // Check DidRecord.
+        let did_rec = Identity::did_records(alice_did.clone());
+        assert_eq!(did_rec.frozen_signing_keys, vec![charlie_signing_key]);
+        assert_eq!(did_rec.signing_keys.len(), 0);
     }
 }
