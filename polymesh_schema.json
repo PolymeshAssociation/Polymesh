@@ -28,9 +28,45 @@
         "active": "bool",
         "jurisdiction": "u16"
     },
+    "Key": "[u8;32]",
+    "KeyRole": {
+        "_enum": [
+            "Full",
+            "Admin",
+            "Operator"
+       ]
+    },
+    "SigningKeyType": {
+        "_enum": [
+            "External",
+            "Identity",
+            "Multisig",
+            "Relayer"
+        ]
+    },
+    "SigningKey": {
+        "key": "Key",
+        "type": "SigningKeyType",
+        "roles": "Vec<KeyRole>"
+    },
+    "IdentityRole": {
+        "_enum": [
+            "Issuer",
+            "SimpleTokenIssuer",
+            "Validator",
+            "ClaimIssuer",
+            "Investor",
+            "NodeRunner",
+            "PM",
+            "KYCAMLClaimIssuer",
+            "AccreditedInvestorClaimIssuer",
+            "VerifiedIdentityClaimIssuer"
+       ]
+    },
     "DidRecord": {
-        "master_key": "Vec<u8>",
-        "signing_keys": "Vec<Vec<u8>>",
+        "roles": "Vec<IdentityRole>",
+        "master_key": "Key",
+        "signing_keys": "Vec<SigningKey>",
         "balance": "Balance"
     },
     "Claim": {

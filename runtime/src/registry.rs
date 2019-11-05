@@ -45,9 +45,9 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         pub fn print_ticker_availability(origin, ticker: Vec<u8>) -> Result {
             let _sender = ensure_signed(origin)?;
-            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            let upper_ticker = utils::bytes_to_upper(&ticker);
 
-            if <Tokens>::exists(ticker.clone()) {
+            if <Tokens>::exists(&upper_ticker) {
                 sr_primitives::print("Ticker not available");
             } else {
                 sr_primitives::print("Ticker available");
@@ -55,28 +55,26 @@ decl_module! {
 
             Ok(())
         }
-
-
     }
 }
 
 impl<T: Trait> Module<T> {
-    pub fn get(ticker: Vec<u8>) -> Option<RegistryEntry> {
-        let ticker = utils::bytes_to_upper(ticker.as_slice());
+    pub fn get(ticker: &Vec<u8>) -> Option<RegistryEntry> {
+        let upper_ticker = utils::bytes_to_upper(ticker);
 
-        if <Tokens>::exists(ticker.clone()) {
-            Some(<Tokens>::get(ticker))
+        if <Tokens>::exists(&upper_ticker) {
+            Some(<Tokens>::get(upper_ticker))
         } else {
             None
         }
     }
 
-    pub fn put(ticker: Vec<u8>, entry: &RegistryEntry) -> Result {
-        let ticker = utils::bytes_to_upper(ticker.as_slice());
+    pub fn put(ticker: &Vec<u8>, entry: &RegistryEntry) -> Result {
+        let upper_ticker = utils::bytes_to_upper(ticker);
 
-        ensure!(!<Tokens>::exists(ticker.clone()), "Token ticker exists");
+        ensure!(!<Tokens>::exists(&upper_ticker), "Token ticker exists");
 
-        <Tokens>::insert(ticker.clone(), entry);
+        <Tokens>::insert(upper_ticker, entry);
 
         Ok(())
     }
@@ -87,26 +85,14 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
-    use chrono::{prelude::*, Duration};
-    use lazy_static::lazy_static;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+        traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
-    use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
-    use yaml_rust::{Yaml, YamlLoader};
-
-    use std::{
-        collections::HashMap,
-        fs::read_to_string,
-        path::PathBuf,
-        sync::{Arc, Mutex},
-    };
-
-    use crate::identity::{self, IdentityTrait, Investor, InvestorList};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -162,16 +148,16 @@ mod tests {
                 owner_did: "did:poly:some_did".as_bytes().to_vec(),
             };
 
-            assert_ok!(Registry::put("SOMETOKEN".as_bytes().to_vec(), &entry));
+            assert_ok!(Registry::put(&"SOMETOKEN".as_bytes().to_vec(), &entry));
 
             // Verify that the entry corresponds to what we intended to insert
             assert_eq!(
-                Registry::get("SOMETOKEN".as_bytes().to_vec()),
+                Registry::get(&"SOMETOKEN".as_bytes().to_vec()),
                 Some(entry.clone())
             );
 
             // Effectively treated as identical ticker
-            assert!(Registry::put("sOmEtOkEn".as_bytes().to_vec(), &entry).is_err());
+            assert!(Registry::put(&"sOmEtOkEn".as_bytes().to_vec(), &entry).is_err());
         });
     }
 }
