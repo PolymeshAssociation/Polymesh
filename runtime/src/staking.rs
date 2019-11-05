@@ -630,7 +630,7 @@ decl_storage! {
 
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
-            map T::AccountId => PermissionedValidator<T>;
+            linked_map T::AccountId => PermissionedValidator<T>;
     }
     add_extra_genesis {
         config(stakers):
@@ -1208,6 +1208,8 @@ impl<T: Trait> Module<T> {
             _ => return None,
         }
 
+        Self::refresh_compliance_statuses();
+
         let validators = T::SessionInterface::validators();
         let prior = validators
             .into_iter()
@@ -1499,6 +1501,30 @@ impl<T: Trait> Module<T> {
         validator.compliance == Compliance::Active
     }
 
+    /// Non-deterministic method that checks KYC status of each validator and persists
+    /// any changes to compliance status.
+    fn refresh_compliance_statuses() {
+        let accounts = <PermissionedValidators<T>>::enumerate()
+            .map(|(who, _)| who)
+            .collect::<Vec<T::AccountId>>();
+
+        for account in accounts {
+            let mut validator = <PermissionedValidators<T>>::get(account.clone());
+            if validator.compliance == Compliance::Active && !Self::is_validator_compliant(&account)
+            {
+                validator.compliance = Compliance::Pending;
+                <PermissionedValidators<T>>::remove(&account);
+                <PermissionedValidators<T>>::insert(account.clone(), validator.clone());
+            } else if validator.compliance == Compliance::Pending
+                && Self::is_validator_compliant(&account)
+            {
+                validator.compliance = Compliance::Active;
+                <PermissionedValidators<T>>::remove(&account);
+                <PermissionedValidators<T>>::insert(account.clone(), validator.clone());
+            }
+        }
+    }
+
     /// Is the stash account one of the permissioned validators?
     pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
         //TODO: Get DID associated with stash and check they have a KYB attestation etc.
@@ -1721,7 +1747,9 @@ mod tests {
         Perbill,
     };
     use srml_support::traits::{Currency, FindAuthor, Get};
-    use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{
+        assert_eq_uvec, assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types,
+    };
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
 
@@ -2146,5 +2174,27 @@ mod tests {
             // Account 1 does not control any stash
             assert_eq!(Staking::ledger(&1), None);
         });
+    }
+
+    #[test]
+    fn should_store_permissioned_validators() {
+        with_externalities(
+            &mut ExtBuilder::default()
+                .minimum_validator_count(2)
+                .validator_count(2)
+                .num_validators(2)
+                .validator_pool(true)
+                .nominate(false)
+                .build(),
+            || {
+                assert_ok!(Staking::add_qualified_validator(Origin::signed(100), 10));
+                assert_ok!(Staking::add_qualified_validator(Origin::signed(100), 20));
+
+                assert_ok!(Staking::compliance_failed(Origin::signed(100), 20));
+
+                assert_eq!(Staking::is_eligible_to_validate(&10), true);
+                assert_eq!(Staking::is_eligible_to_validate(&20), false);
+            },
+        );
     }
 }
