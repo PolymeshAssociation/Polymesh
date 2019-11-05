@@ -46,6 +46,9 @@ decl_storage! {
         /// DID -> identity info
         pub DidRecords get(did_records): map Vec<u8> => DidRecord<T::Balance>;
 
+        /// DID -> bool that indicates if signing keys are frozen.
+        pub IsDidFrozen get(is_did_frozen): map Vec<u8> => bool;
+
         /// DID -> DID claim issuers
         pub ClaimIssuers get(claim_issuers): map Vec<u8> => Vec<Vec<u8>>;
 
@@ -69,7 +72,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
-
 
         fn set_charge_did(origin, charge_did: bool) -> Result {
             let sender = ensure_signed(origin)?;
@@ -537,11 +539,12 @@ impl<T: Trait> Module<T> {
     /// # IMPORTANT
     /// If signing keys are frozen this function always returns false.
     pub fn is_signing_key(did: &Vec<u8>, key: &Key) -> bool {
-        let record = <DidRecords<T>>::get(did);
-
-        !record.are_signing_keys_frozen
-            && (record.signing_keys.iter().find(|&rk| rk == key).is_some()
-                || record.master_key == *key)
+        if !Self::is_did_frozen(did) {
+            let record = <DidRecords<T>>::get(did);
+            record.signing_keys.iter().find(|&rk| rk == key).is_some() || record.master_key == *key
+        } else {
+            return false;
+        }
     }
 
     /// Use `did` as reference.
@@ -592,9 +595,11 @@ impl<T: Trait> Module<T> {
         let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
         let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
-        <DidRecords<T>>::mutate(did, |record| {
-            (*record).are_signing_keys_frozen = freeze;
-        });
+        if freeze {
+            <IsDidFrozen>::insert(did, true);
+        } else {
+            <IsDidFrozen>::remove(did);
+        }
         Ok(())
     }
 }
