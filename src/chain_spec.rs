@@ -5,6 +5,7 @@ use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
 use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY, time::*};
+use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
     AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
     GenesisConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys,
@@ -12,7 +13,6 @@ use polymesh_runtime::{
     TechnicalCommitteeConfig, WASM_BINARY,
 };
 use primitives::{Pair, Public};
-use polymesh_runtime::staking::Forcing;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
