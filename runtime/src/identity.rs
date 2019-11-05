@@ -543,7 +543,7 @@ impl<T: Trait> Module<T> {
             let record = <DidRecords<T>>::get(did);
             record.signing_keys.iter().find(|&rk| rk == key).is_some() || record.master_key == *key
         } else {
-            return false;
+            false
         }
     }
 
