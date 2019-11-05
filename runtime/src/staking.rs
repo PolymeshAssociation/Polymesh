@@ -621,13 +621,6 @@ decl_storage! {
         EraSlashJournal get(era_slash_journal):
             map EraIndex => Vec<SlashJournalEntry<T::AccountId, BalanceOf<T>>>;
 
-        /// Validators that have gone through compliance requirements and are permitted
-        /// to participate in validation.
-        pub EligibleValidators get(eligible_validators): Vec<T::AccountId>;
-
-        /// Validators that have NOT met compliance requirements.
-        pub IneligibleValidators get(ineligible_validators): Vec<T::AccountId>;
-
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
             linked_map T::AccountId => PermissionedValidator<T>;
@@ -988,6 +981,7 @@ decl_module! {
         /// Add a potential new validator to the pool of validators.
         /// Staking module checks `PermissionedValidators` to ensure validators have
         /// completed KYB compliance
+        /// TODO: MESH-400 To be only called by technical committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn add_qualified_validator(origin, controller: T::AccountId) {
             ensure!(!<PermissionedValidators<T>>::exists(&controller), "account already exists in permissioned_validators");
@@ -1002,6 +996,7 @@ decl_module! {
         }
 
         /// Update status of compliance as `Pending`
+        /// TODO: MESH-400 To be only called by technical committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_failed(origin, controller: T::AccountId) {
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
@@ -1010,6 +1005,7 @@ decl_module! {
         }
 
         /// Update status of compliance as `Active`
+        /// TODO: MESH-400 To be only called by technical committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_passed(origin, controller: T::AccountId) {
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
