@@ -174,12 +174,9 @@ decl_module! {
 
             <DidRecords<T>>::mutate(&did,
             |record| {
-                let not_in_keys_to_remove = |skey: &SigningKey| keys_to_remove.iter()
+                (*record).signing_keys.retain( |skey| keys_to_remove.iter()
                         .find(|&rk| skey == rk)
-                        .is_none();
-
-                (*record).signing_keys.retain( |skey| not_in_keys_to_remove(&skey));
-                (*record).frozen_signing_keys.retain( |skey| not_in_keys_to_remove(&skey));
+                        .is_none());
             });
 
             Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
@@ -442,33 +439,17 @@ decl_module! {
             // Find key in `DidRecord::signing_keys` or in `DidRecord::frozen_signing_keys`.
             if let Some(ref _signing_key) = record.signing_keys.iter().find(|&sk| sk == &target_key) {
                 Self::update_signing_key_roles(&did, &target_key, roles)
-            } else if let Some(ref _frozen_signing_key) = record.frozen_signing_keys.iter().find( |&fk| fk == &target_key) {
-                Self::update_frozen_signing_key_roles(&did, &target_key, roles)
             } else {
                 Err( "Sender is not part of did's signing keys")
             }
         }
 
         fn freeze_signing_keys(origin, did: Vec<u8>) -> Result {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, &did)?;
-
-            <DidRecords<T>>::mutate(&did,
-                |record| {
-                    (*record).frozen_signing_keys.append( &mut record.signing_keys);
-                });
-            Ok(())
+            Self::set_frozen_signing_key_flags( origin, &did, true)
         }
 
         fn unfreeze_signing_keys(origin, did: Vec<u8>) -> Result {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, &did)?;
-
-            <DidRecords<T>>::mutate(&did,
-                |record| {
-                    (*record).signing_keys.append( &mut  record.frozen_signing_keys);
-                });
-            Ok(())
+            Self::set_frozen_signing_key_flags( origin, &did, false)
         }
     }
 }
@@ -548,36 +529,19 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn update_frozen_signing_key_roles(
-        target_did: &Vec<u8>,
-        key: &Key,
-        mut roles: Vec<KeyRole>,
-    ) -> Result {
-        roles.sort();
-        roles.dedup();
-
-        <DidRecords<T>>::mutate(target_did, |record| {
-            if let Some(mut fk) = (*record)
-                .frozen_signing_keys
-                .iter()
-                .find(|fk| *fk == key)
-                .cloned()
-            {
-                fk.roles = roles;
-                (*record).frozen_signing_keys.retain(|fk| fk != key);
-                (*record).frozen_signing_keys.push(fk);
-            }
-        });
-        Ok(())
-    }
-
     pub fn is_claim_issuer(did: &Vec<u8>, issuer_did: &Vec<u8>) -> bool {
         <ClaimIssuers>::get(did).contains(issuer_did)
     }
 
+    /// It checks if `key` is a signing key of `did` identity.
+    /// # IMPORTANT
+    /// If signing keys are frozen this function always returns false.
     pub fn is_signing_key(did: &Vec<u8>, key: &Key) -> bool {
         let record = <DidRecords<T>>::get(did);
-        record.signing_keys.iter().find(|&rk| rk == key).is_some() || record.master_key == *key
+
+        !record.are_signing_keys_frozen
+            && (record.signing_keys.iter().find(|&rk| rk == key).is_some()
+                || record.master_key == *key)
     }
 
     /// Use `did` as reference.
@@ -622,6 +586,16 @@ impl<T: Trait> Module<T> {
         );
 
         Ok(record)
+    }
+
+    fn set_frozen_signing_key_flags(origin: T::Origin, did: &Vec<u8>, freeze: bool) -> Result {
+        let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+        let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
+
+        <DidRecords<T>>::mutate(did, |record| {
+            (*record).are_signing_keys_frozen = freeze;
+        });
+        Ok(())
     }
 }
 
@@ -1088,16 +1062,18 @@ mod tests {
 
         let bob_signing_key = SigningKey::new(bob_key.clone(), vec![KeyRole::Admin]);
         let charlie_signing_key = SigningKey::new(charlie_key, vec![KeyRole::Operator]);
-        let dave_signing_key = SigningKey::new(dave_key, vec![]);
+        let dave_signing_key = SigningKey::new(dave_key.clone(), vec![]);
 
         // Add signing keys.
         let (alice, alice_did) = make_account(alice_acc).unwrap();
-        let signing_keys_v1 = vec![bob_signing_key, charlie_signing_key];
+        let signing_keys_v1 = vec![bob_signing_key.clone(), charlie_signing_key];
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
             alice_did.clone(),
             signing_keys_v1.clone()
         ));
+
+        assert_eq!(Identity::is_signing_key(&alice_did, &bob_key), true);
 
         // Freeze signing keys: bob & charlie.
         assert_err!(
@@ -1109,36 +1085,16 @@ mod tests {
             alice_did.clone()
         ));
 
-        let did_rec_1 = Identity::did_records(alice_did.clone());
-        assert_eq!(did_rec_1.signing_keys.len(), 0);
-        assert_eq!(did_rec_1.frozen_signing_keys, signing_keys_v1);
+        assert_eq!(Identity::is_signing_key(&alice_did, &bob_key), false);
 
         // Add new signing keys.
-        let signing_keys_v2 = vec![dave_signing_key];
+        let signing_keys_v2 = vec![dave_signing_key.clone()];
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
             alice_did.clone(),
             signing_keys_v2.clone()
         ));
-        let did_rec_2 = Identity::did_records(alice_did.clone());
-        assert_eq!(did_rec_2.signing_keys, signing_keys_v2);
-        assert_eq!(did_rec_2.frozen_signing_keys, signing_keys_v1);
-
-        // 2nd freeze
-        let mut all_signing_keys = signing_keys_v1
-            .iter()
-            .chain(signing_keys_v2.iter())
-            .cloned()
-            .collect::<Vec<_>>();
-        all_signing_keys.sort();
-
-        assert_ok!(Identity::freeze_signing_keys(
-            alice.clone(),
-            alice_did.clone()
-        ));
-        let did_rec_3 = Identity::did_records(alice_did.clone());
-        assert_eq!(did_rec_3.signing_keys, Vec::<SigningKey>::new());
-        assert_eq!(did_rec_3.frozen_signing_keys, all_signing_keys);
+        assert_eq!(Identity::is_signing_key(&alice_did, &dave_key), false);
 
         // update role of frozen keys.
         assert_ok!(Identity::set_role_to_signing_key(
@@ -1146,20 +1102,6 @@ mod tests {
             alice_did.clone(),
             bob_key.clone(),
             vec![KeyRole::Operator]
-        ));
-        let did_rec_5 = Identity::did_records(alice_did.clone());
-        let frozen_bob_key = did_rec_5
-            .frozen_signing_keys
-            .iter()
-            .find(|fk| *fk == &bob_key)
-            .expect("Bob key is not found in frozen signed keys");
-        assert_eq!(frozen_bob_key.roles, vec![KeyRole::Operator]);
-
-        assert_ok!(Identity::set_role_to_signing_key(
-            alice.clone(),
-            alice_did.clone(),
-            bob_key.clone(),
-            vec![KeyRole::Admin]
         ));
 
         // unfreeze all
@@ -1172,11 +1114,7 @@ mod tests {
             alice_did.clone()
         ));
 
-        let mut did_rec_4 = Identity::did_records(alice_did.clone());
-        did_rec_4.signing_keys.sort();
-
-        assert_eq!(did_rec_4.signing_keys, all_signing_keys);
-        assert_eq!(did_rec_4.frozen_signing_keys, Vec::<SigningKey>::new());
+        assert_eq!(Identity::is_signing_key(&alice_did, &dave_key), true);
     }
 
     /// It double-checks that frozen keys are removed too.
@@ -1222,7 +1160,6 @@ mod tests {
 
         // Check DidRecord.
         let did_rec = Identity::did_records(alice_did.clone());
-        assert_eq!(did_rec.frozen_signing_keys, vec![charlie_signing_key]);
-        assert_eq!(did_rec.signing_keys.len(), 0);
+        assert_eq!(did_rec.signing_keys, vec![charlie_signing_key]);
     }
 }

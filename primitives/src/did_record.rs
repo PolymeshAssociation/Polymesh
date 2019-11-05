@@ -10,7 +10,7 @@ pub struct DidRecord<U> {
     pub roles: Vec<IdentityRole>,
     pub master_key: Key,
     pub signing_keys: Vec<SigningKey>,
-    pub frozen_signing_keys: Vec<SigningKey>,
+    pub are_signing_keys_frozen: bool,
     pub balance: U,
 }
 
