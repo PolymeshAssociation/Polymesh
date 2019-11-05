@@ -1,5 +1,5 @@
 use crate::{asset, balances, identity, simple_token, utils};
-use primitives::Key;
+use primitives::{ Key, IdentityId };
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
@@ -97,7 +97,8 @@ decl_module! {
             // TODO: Change to checking DID balance
             let balance = if payout_ticker.is_empty() {
                 // Check for POLY
-                <T as utils::Trait>::balance_to_token_balance(<identity::DidRecords<T>>::get(&did).balance)
+                let did_record = <identity::DidRecords<T>>::get( IdentityId::try_from(did.as_slice())?);
+                <T as utils::Trait>::balance_to_token_balance( did_record.balance)
             } else {
                 // Check for token
                 <simple_token::BalanceOf<T>>::get((payout_ticker.clone(), did.clone()))
@@ -144,7 +145,8 @@ decl_module! {
             let new_balance = balance.checked_sub(&amount).ok_or("Overflow calculating new owner balance")?;
             if payout_ticker.is_empty() {
                 let new_balance = <T as utils::Trait>::token_balance_to_balance(new_balance);
-                <identity::DidRecords<T>>::mutate(&did, |record| record.balance = new_balance );
+                let identityId = IdentityId::try_from(did.as_slice())?;
+                <identity::DidRecords<T>>::mutate( identityId, |record| record.balance = new_balance );
             } else {
                 <simple_token::BalanceOf<T>>::insert((payout_ticker.clone(), did.clone()), new_balance);
             }
@@ -207,7 +209,8 @@ decl_module! {
                     Ok(())
                 })?;
             } else {
-                <identity::DidRecords<T>>::mutate(&did, |record| -> Result {
+                let identityId = IdentityId::try_from(did.as_slice())?;
+                <identity::DidRecords<T>>::mutate(identityId, |record| -> Result {
                     let new_balance = record.balance.checked_add(&<T as utils::Trait>::token_balance_to_balance(entry.amount)).ok_or("Could not add amount back to asset owner DID")?;
                     record.balance = new_balance;
                     Ok(())
@@ -311,7 +314,8 @@ decl_module! {
             } else {
                 // Convert to balances::Trait::Balance
                 let share = <T as utils::Trait>::token_balance_to_balance(share);
-                <identity::DidRecords<T>>::mutate(&did, |record| -> Result {
+                let identityId = IdentityId::try_from( did.as_slice())?;
+                <identity::DidRecords<T>>::mutate(identityId, |record| -> Result {
                     let new_balance = record.balance.checked_add(&share).ok_or("Could not add amount back to asset owner DID")?;
                     record.balance = new_balance;
                     Ok(())
@@ -355,7 +359,8 @@ decl_module! {
                     Ok(())
                 })?;
             } else {
-                <identity::DidRecords<T>>::mutate(&did, |record| -> Result {
+                let identityId = IdentityId::try_from(did.as_slice())?;
+                <identity::DidRecords<T>>::mutate(identityId, |record| -> Result {
                     let new_balance = record.balance.checked_add(&<T as utils::Trait>::token_balance_to_balance(entry.amount_left)).ok_or("Could not add amount back to asset owner DID")?;
                     record.balance = new_balance;
                     Ok(())
@@ -729,10 +734,12 @@ mod tests {
             .expect("Could not create payout_owner_did");
 
             // Raise the owners' base currency balance
-            <identity::DidRecords<Test>>::mutate(&token_owner_did, |record| {
+            let identity_onwer = IdentityId::try_from(token_owner_did.as_slice())?;
+            <identity::DidRecords<Test>>::mutate(identity_onwer, |record| {
                 record.balance = 1_000_000;
             });
-            <identity::DidRecords<Test>>::mutate(&payout_owner_did, |record| {
+            let identity_payout = IdentityId::try_from(payout_owner_did.as_slice())?;
+            <identity::DidRecords<Test>>::mutate(identity_payout, |record| {
                 record.balance = 1_000_000;
             });
 
@@ -770,7 +777,7 @@ mod tests {
             let investor_did = "did:poly:3".as_bytes().to_vec();
             Identity::register_did(Origin::signed(investor_acc), investor_did.clone(), vec![])
                 .expect("Could not create investor_did");
-            <identity::DidRecords<Test>>::mutate(investor_did.clone(), |record| {
+            <identity::DidRecords<Test>>::mutate( IdentityId::try_from( investor_did.as_slice())?, |record| {
                 record.balance = 1_000_000;
             });
 

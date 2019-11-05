@@ -3,7 +3,7 @@ use rstd::{convert::TryFrom, prelude::*};
 pub static DID_PREFIX: &'static str = "did:poly:";
 use crate::balances;
 
-use primitives::{DidRecord, Key, KeyRole, SigningKey};
+use primitives::{IdentityId, DidRecord, Key, KeyRole, SigningKey};
 
 use codec::Encode;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
@@ -44,7 +44,7 @@ decl_storage! {
         Owner get(owner) config(): T::AccountId;
 
         /// DID -> identity info
-        pub DidRecords get(did_records): map Vec<u8> => DidRecord<T::Balance>;
+        pub DidRecords get(did_records): map IdentityId => DidRecord<T::Balance>;
 
         /// DID -> DID claim issuers
         pub ClaimIssuers get(claim_issuers): map Vec<u8> => Vec<Vec<u8>>;
@@ -124,12 +124,13 @@ decl_module! {
         /// Adds new signing keys for a DID. Only called by master key owner.
         pub fn add_signing_keys(origin, did: Vec<u8>, additional_keys: Vec<Key>) -> Result {
             let sender = ensure_signed(origin)?;
+            let identityId = IdentityId::try_from( did.as_slice())?;
 
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(&identityId), "DID must already exist");
 
             // Verify that sender key is current master key
             let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
+            let record = <DidRecords<T>>::get(&identityId);
             ensure!(record.master_key == sender_key, "Sender must hold the master key");
 
             for key in &additional_keys {
@@ -142,7 +143,7 @@ decl_module! {
                 <SigningKeyDid>::insert(key, did.clone());
             }
 
-            <DidRecords<T>>::mutate(&did,
+            <DidRecords<T>>::mutate(&identityId,
             |record| {
                 // Concatenate new keys while making sure the key set is
                 // unique
@@ -169,10 +170,12 @@ decl_module! {
 
             // Verify that sender key is current master key
             let sender_key = sender.encode();
-            let record = <DidRecords<T>>::get(&did);
+
+            let identityId = IdentityId::try_from( did.as_slice())?;
+            let record = <DidRecords<T>>::get(&identityId);
             ensure!(record.master_key == sender_key, "Sender must hold the master key");
 
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(&identityId), "DID must already exist");
 
             for key in &keys_to_remove {
                 if <SigningKeyDid>::exists(key) {
@@ -184,7 +187,7 @@ decl_module! {
                 <SigningKeyDid>::remove(key);
             }
 
-            <DidRecords<T>>::mutate(&did,
+            <DidRecords<T>>::mutate(&identityId,
             |record| {
                 // Filter out keys meant for deletion
                 let keys = record.signing_keys
