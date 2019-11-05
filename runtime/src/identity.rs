@@ -439,23 +439,14 @@ decl_module! {
                 return Ok(());
             }
 
-            // Target did has sender's master key in its signing keys.
-            ensure!(
-                record.signing_keys.iter().find(|&rk| rk == &target_key).is_some(),
-                "Sender is not part of did's signing keys"
-            );
-
-            // Get current roles of `key` at `investor_did`.
-            let mut new_roles = match record.signing_keys.iter().find(|&rk| rk == &target_key) {
-                Some(ref rk) => rk.roles.iter().chain( roles.iter()).cloned().collect(),
-                None => roles.clone()
-            };
-
-            // Sort result and remove duplicates.
-            new_roles.sort();
-            new_roles.dedup();
-
-            Self::update_roles(&did, &target_key, new_roles)
+            // Find key in `DidRecord::signing_keys` or in `DidRecord::frozen_signing_keys`.
+            if let Some(ref _signing_key) = record.signing_keys.iter().find(|&sk| sk == &target_key) {
+                Self::update_signing_key_roles(&did, &target_key, roles)
+            } else if let Some(ref _frozen_signing_key) = record.frozen_signing_keys.iter().find( |&fk| fk == &target_key) {
+                Self::update_frozen_signing_key_roles(&did, &target_key, roles)
+            } else {
+                Err( "Sender is not part of did's signing keys")
+            }
         }
 
         fn freeze_signing_keys(origin, did: Vec<u8>) -> Result {
@@ -539,18 +530,43 @@ decl_event!(
 impl<T: Trait> Module<T> {
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
-    fn update_roles(target_did: &Vec<u8>, key: &Key, roles: Vec<KeyRole>) -> Result {
-        <DidRecords<T>>::mutate(target_did, |record| {
-            // First filter avoids duplication of key.
-            let mut signing_keys = record
-                .signing_keys
-                .iter()
-                .filter(|&rk| rk != key)
-                .cloned()
-                .collect::<Vec<_>>();
+    fn update_signing_key_roles(
+        target_did: &Vec<u8>,
+        key: &Key,
+        mut roles: Vec<KeyRole>,
+    ) -> Result {
+        roles.sort();
+        roles.dedup();
 
-            signing_keys.push(SigningKey::new(key.clone(), roles));
-            (*record).signing_keys = signing_keys;
+        <DidRecords<T>>::mutate(target_did, |record| {
+            if let Some(mut sk) = (*record).signing_keys.iter().find(|sk| *sk == key).cloned() {
+                sk.roles = roles;
+                (*record).signing_keys.retain(|sk| sk != key);
+                (*record).signing_keys.push(sk);
+            }
+        });
+        Ok(())
+    }
+
+    fn update_frozen_signing_key_roles(
+        target_did: &Vec<u8>,
+        key: &Key,
+        mut roles: Vec<KeyRole>,
+    ) -> Result {
+        roles.sort();
+        roles.dedup();
+
+        <DidRecords<T>>::mutate(target_did, |record| {
+            if let Some(mut fk) = (*record)
+                .frozen_signing_keys
+                .iter()
+                .find(|fk| *fk == key)
+                .cloned()
+            {
+                fk.roles = roles;
+                (*record).frozen_signing_keys.retain(|fk| fk != key);
+                (*record).frozen_signing_keys.push(fk);
+            }
         });
         Ok(())
     }
@@ -1070,7 +1086,7 @@ mod tests {
             Key::try_from(dave_acc.encode()).unwrap(),
         );
 
-        let bob_signing_key = SigningKey::new(bob_key, vec![KeyRole::Admin]);
+        let bob_signing_key = SigningKey::new(bob_key.clone(), vec![KeyRole::Admin]);
         let charlie_signing_key = SigningKey::new(charlie_key, vec![KeyRole::Operator]);
         let dave_signing_key = SigningKey::new(dave_key, vec![]);
 
@@ -1109,11 +1125,13 @@ mod tests {
         assert_eq!(did_rec_2.frozen_signing_keys, signing_keys_v1);
 
         // 2nd freeze
-        let all_signing_keys = signing_keys_v1
+        let mut all_signing_keys = signing_keys_v1
             .iter()
             .chain(signing_keys_v2.iter())
             .cloned()
             .collect::<Vec<_>>();
+        all_signing_keys.sort();
+
         assert_ok!(Identity::freeze_signing_keys(
             alice.clone(),
             alice_did.clone()
@@ -1121,6 +1139,28 @@ mod tests {
         let did_rec_3 = Identity::did_records(alice_did.clone());
         assert_eq!(did_rec_3.signing_keys, Vec::<SigningKey>::new());
         assert_eq!(did_rec_3.frozen_signing_keys, all_signing_keys);
+
+        // update role of frozen keys.
+        assert_ok!(Identity::set_role_to_signing_key(
+            alice.clone(),
+            alice_did.clone(),
+            bob_key.clone(),
+            vec![KeyRole::Operator]
+        ));
+        let did_rec_5 = Identity::did_records(alice_did.clone());
+        let frozen_bob_key = did_rec_5
+            .frozen_signing_keys
+            .iter()
+            .find(|fk| *fk == &bob_key)
+            .expect("Bob key is not found in frozen signed keys");
+        assert_eq!(frozen_bob_key.roles, vec![KeyRole::Operator]);
+
+        assert_ok!(Identity::set_role_to_signing_key(
+            alice.clone(),
+            alice_did.clone(),
+            bob_key.clone(),
+            vec![KeyRole::Admin]
+        ));
 
         // unfreeze all
         assert_err!(
@@ -1132,7 +1172,9 @@ mod tests {
             alice_did.clone()
         ));
 
-        let did_rec_4 = Identity::did_records(alice_did.clone());
+        let mut did_rec_4 = Identity::did_records(alice_did.clone());
+        did_rec_4.signing_keys.sort();
+
         assert_eq!(did_rec_4.signing_keys, all_signing_keys);
         assert_eq!(did_rec_4.frozen_signing_keys, Vec::<SigningKey>::new());
     }
