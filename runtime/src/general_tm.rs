@@ -155,7 +155,7 @@ impl<T: Trait> Module<T> {
             // loop through existing whitelists
             let whitelist_count = Self::whitelist_count();
             if whitelist_count > 0 {
-                sr_primitives::print("We have at least one entry to verify");
+                //sr_primitives::print("We have at least one entry to verify");
             }
             if !Self::_check_investor_status(from_did).is_ok() {
                 sr_primitives::print("from account is not active");
