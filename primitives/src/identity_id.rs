@@ -23,7 +23,7 @@ impl IdentityId {
 
 impl Display for IdentityId {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "did:poly:{:32x}", self.0)
+        write!(f, "did:poly:{:032x}", self.0)
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{asset, balances, identity, simple_token, utils};
-use primitives::{ Key, IdentityId };
+use primitives::{IdentityId, Key};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
@@ -698,8 +698,8 @@ mod tests {
             let token_owner_acc = 1;
             let _token_owner_key = Key::try_from(token_owner_acc.encode()).unwrap();
             let payout_owner_acc = 2;
-            let token_owner_did = "did:poly:1".as_bytes().to_vec();
-            let payout_owner_did = "did:poly:2".as_bytes().to_vec();
+            let token_owner_did = IdentityId::from(1).to_string().as_bytes().to_vec();
+            let payout_owner_did = IdentityId::from(2).to_string().as_bytes().to_vec();
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -734,11 +734,13 @@ mod tests {
             .expect("Could not create payout_owner_did");
 
             // Raise the owners' base currency balance
-            let identity_onwer = IdentityId::try_from(token_owner_did.as_slice())?;
+            let identity_onwer =
+                IdentityId::try_from(token_owner_did.as_slice()).expect("Invalid onwer identityId");
             <identity::DidRecords<Test>>::mutate(identity_onwer, |record| {
                 record.balance = 1_000_000;
             });
-            let identity_payout = IdentityId::try_from(payout_owner_did.as_slice())?;
+            let identity_payout = IdentityId::try_from(payout_owner_did.as_slice())
+                .expect("Invalid payout identityId");
             <identity::DidRecords<Test>>::mutate(identity_payout, |record| {
                 record.balance = 1_000_000;
             });
@@ -774,10 +776,12 @@ mod tests {
             // Prepare a whitelisted investor
             let investor_acc = 3;
             Balances::make_free_balance_be(&investor_acc, 1_000_000);
-            let investor_did = "did:poly:3".as_bytes().to_vec();
+            let investor_did = IdentityId::from(3).to_string().as_bytes().to_vec();
             Identity::register_did(Origin::signed(investor_acc), investor_did.clone(), vec![])
                 .expect("Could not create investor_did");
-            <identity::DidRecords<Test>>::mutate( IdentityId::try_from( investor_did.as_slice())?, |record| {
+            let investor_idenity = IdentityId::try_from(investor_did.as_slice())
+                .expect("Investor identity is not well-formed");
+            <identity::DidRecords<Test>>::mutate(investor_idenity, |record| {
                 record.balance = 1_000_000;
             });
 

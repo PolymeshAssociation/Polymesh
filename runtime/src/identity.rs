@@ -3,7 +3,7 @@ use rstd::{convert::TryFrom, prelude::*};
 pub static DID_PREFIX: &'static str = "did:poly:";
 use crate::balances;
 
-use primitives::{IdentityId, DidRecord, Key, KeyRole, SigningKey};
+use primitives::{DidRecord, IdentityId, Key, KeyRole, SigningKey};
 
 use codec::Encode;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
@@ -89,7 +89,8 @@ decl_module! {
             validate_did(did.as_slice())?;
 
             // Make sure there's no pre-existing entry for the DID
-            ensure!(!<DidRecords<T>>::exists(&did), "DID must be unique");
+            let id = IdentityId::try_from(did.as_slice())?;
+            ensure!(!<DidRecords<T>>::exists(&id), "DID must be unique");
 
             // TODO: Subtract the fee
             let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
@@ -116,7 +117,7 @@ decl_module! {
                 ..Default::default()
             };
 
-            <DidRecords<T>>::insert(&did, record);
+            <DidRecords<T>>::insert(&id, record);
 
             Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
 
@@ -138,7 +139,7 @@ decl_module! {
                 <SigningKeyDid>::insert(&skey.key, did.clone());
             }
 
-            <DidRecords<T>>::mutate(&identityId,
+            <DidRecords<T>>::mutate( IdentityId::try_from( did.as_slice())?,
             |record| {
                 // Concatenate new keys while making sure the key set is
                 // unique
@@ -194,7 +195,7 @@ decl_module! {
             let sender_key = Key::try_from( sender.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, &did)?;
 
-            <DidRecords<T>>::mutate(&did,
+            <DidRecords<T>>::mutate(IdentityId::try_from(did.as_slice())?,
             |record| {
                 (*record).master_key = new_key.clone();
             });
@@ -207,9 +208,9 @@ decl_module! {
         pub fn fund_poly(origin, did: Vec<u8>, amount: <T as balances::Trait>::Balance) -> Result {
             let sender = ensure_signed(origin)?;
 
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did.as_slice())?), "DID must already exist");
 
-            let record = <DidRecords<T>>::get(&did);
+            let record = <DidRecords<T>>::get(IdentityId::try_from(did.as_slice())?);
 
             // We must know that new balance is valid without creating side effects
             let new_record_balance = record.balance.checked_add(&amount).ok_or("overflow occured when increasing DID balance")?;
@@ -221,7 +222,7 @@ decl_module! {
                 ExistenceRequirement::KeepAlive
                 )?;
 
-            <DidRecords<T>>::mutate(&did, |record| {
+            <DidRecords<T>>::mutate(IdentityId::try_from(did.as_slice())?, |record| {
                 (*record).balance = new_record_balance;
             });
 
@@ -240,7 +241,7 @@ decl_module! {
 
             let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(&sender, amount)?;
 
-            <DidRecords<T>>::mutate(&did, |record| {
+            <DidRecords<T>>::mutate(IdentityId::try_from(did.as_slice())?, |record| {
                 (*record).balance = new_record_balance;
             });
 
@@ -256,8 +257,8 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(Self::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            let from_record = <DidRecords<T>>::get(did.clone());
-            let to_record = <DidRecords<T>>::get(to_did.clone());
+            let from_record = <DidRecords<T>>::get(IdentityId::try_from(did.as_slice())?);
+            let to_record = <DidRecords<T>>::get(IdentityId::try_from(to_did.as_slice())?);
 
             // Same for `from`
             let new_from_balance = from_record.balance.checked_sub(&amount).ok_or("Sender must have sufficient funds")?;
@@ -266,12 +267,12 @@ decl_module! {
             let new_to_balance = to_record.balance.checked_add(&amount).ok_or("Failed to increase to_did balance")?;
 
             // Alter from record
-            <DidRecords<T>>::mutate(did, |record| {
+            <DidRecords<T>>::mutate(IdentityId::try_from(did.as_slice())?, |record| {
                 record.balance = new_from_balance;
             });
 
             // Alter to record
-            <DidRecords<T>>::mutate(to_did, |record| {
+            <DidRecords<T>>::mutate(IdentityId::try_from(to_did.as_slice())?, |record| {
                 record.balance = new_to_balance;
             });
 
@@ -298,7 +299,7 @@ decl_module! {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let _grant_checked = Self::grant_check_only_master_key( &sender_key, &did)?;
 
-            ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did_issuer.as_slice())?), "claim issuer DID must already exist");
 
             <ClaimIssuers>::mutate(&did, |old_claim_issuers| {
                 *old_claim_issuers = old_claim_issuers
@@ -316,8 +317,8 @@ decl_module! {
         fn add_claim(origin, did: Vec<u8>, did_issuer: Vec<u8>, claims: Vec<Claim<T::Moment>>) -> Result {
             let sender = ensure_signed(origin)?;
 
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did.as_slice())?), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did_issuer.as_slice())?), "claim issuer DID must already exist");
 
             let sender_key = Key::try_from( sender.encode())?;
             ensure!(Self::is_claim_issuer(&did, &did_issuer) || Self::is_master_key(&did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
@@ -349,8 +350,8 @@ decl_module! {
         fn add_claim_with_attestation(origin, did: Vec<u8>, did_issuer: Vec<u8>, claims: Vec<Claim<T::Moment>>, attestation: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
 
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did.as_slice())?), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did_issuer.as_slice())?), "claim issuer DID must already exist");
 
             let sender_key = Key::try_from( sender.encode())?;
             ensure!(Self::is_claim_issuer(&did, &did_issuer) || Self::is_master_key(&did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
@@ -382,8 +383,8 @@ decl_module! {
         fn revoke_claim(origin, did: Vec<u8>, did_issuer: Vec<u8>, claim: Claim<T::Moment>) -> Result {
             let sender = ensure_signed(origin)?;
 
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did.as_slice())?), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did_issuer.as_slice())?), "claim issuer DID must already exist");
             ensure!(Self::is_claim_issuer(&did, &did_issuer), "did_issuer must be a claim issuer for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
@@ -407,8 +408,8 @@ decl_module! {
         fn revoke_all(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
 
-            ensure!(<DidRecords<T>>::exists(did.clone()), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(did_issuer.clone()), "claim issuer DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did.as_slice())?), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(IdentityId::try_from(did_issuer.as_slice())?), "claim issuer DID must already exist");
             ensure!(Self::is_claim_issuer(&did, &did_issuer), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
@@ -523,7 +524,7 @@ impl<T: Trait> Module<T> {
         roles.sort();
         roles.dedup();
 
-        <DidRecords<T>>::mutate(target_did, |record| {
+        <DidRecords<T>>::mutate(IdentityId::try_from(target_did.as_slice())?, |record| {
             if let Some(mut sk) = (*record).signing_keys.iter().find(|sk| *sk == key).cloned() {
                 sk.roles = roles;
                 (*record).signing_keys.retain(|sk| sk != key);
@@ -542,7 +543,7 @@ impl<T: Trait> Module<T> {
     /// If signing keys are frozen this function always returns false.
     pub fn is_signing_key(did: &Vec<u8>, key: &Key) -> bool {
         if !Self::is_did_frozen(did) {
-            let record = <DidRecords<T>>::get(did);
+            let record = <DidRecords<T>>::get(IdentityId::try_from(did.as_slice()).unwrap());
             record.signing_keys.iter().find(|&rk| rk == key).is_some() || record.master_key == *key
         } else {
             false
@@ -551,22 +552,23 @@ impl<T: Trait> Module<T> {
 
     /// Use `did` as reference.
     pub fn is_master_key(did: &Vec<u8>, key: &Key) -> bool {
-        key == &<DidRecords<T>>::get(did).master_key
+        key == &<DidRecords<T>>::get(IdentityId::try_from(did.as_slice()).unwrap()).master_key
     }
 
     /// Withdraws funds from a DID balance
     pub fn charge_poly(did: Vec<u8>, amount: T::Balance) -> bool {
-        if !<DidRecords<T>>::exists(did.clone()) {
+        let id = IdentityId::try_from(did.as_slice()).unwrap();
+        if !<DidRecords<T>>::exists(&id) {
             return false;
         }
 
-        let record = <DidRecords<T>>::get(did.clone());
+        let record = <DidRecords<T>>::get(&id);
 
         if record.balance < amount {
             return false;
         }
 
-        <DidRecords<T>>::mutate(did.clone(), |record| {
+        <DidRecords<T>>::mutate(&id, |record| {
             (*record).balance = record.balance - amount;
         });
 
@@ -583,8 +585,11 @@ impl<T: Trait> Module<T> {
         sender_key: &Key,
         did: &Vec<u8>,
     ) -> rstd::result::Result<DidRecord<<T as balances::Trait>::Balance>, &'static str> {
-        ensure!(<DidRecords<T>>::exists(did), "DID does not exist");
-        let record = <DidRecords<T>>::get(did);
+        ensure!(
+            <DidRecords<T>>::exists(IdentityId::try_from(did.as_slice())?),
+            "DID does not exist"
+        );
+        let record = <DidRecords<T>>::get(IdentityId::try_from(did.as_slice())?);
         ensure!(
             *sender_key == record.master_key,
             "Only master key of an identity is able to execute this operation"
@@ -746,7 +751,7 @@ mod tests {
         id: u64,
     ) -> Result<(<IdentityTest as system::Trait>::Origin, Vec<u8>), &'static str> {
         let signed_id = Origin::signed(id);
-        let did = format!("did:poly:{}", id).as_bytes().to_vec();
+        let did = format!("did:poly:{:032x}", id).as_bytes().to_vec();
 
         Identity::register_did(signed_id.clone(), did.clone(), vec![])?;
         Ok((signed_id, did))
@@ -755,7 +760,8 @@ mod tests {
     #[test]
     fn dids_are_unique() {
         with_externalities(&mut build_ext(), || {
-            let did_1 = "did:poly:1".as_bytes().to_vec();
+            let did_1 = IdentityId::from(1).to_string().as_bytes().to_vec();
+            let did_2 = IdentityId::from(2).to_string().as_bytes().to_vec();
 
             assert_ok!(Identity::register_did(
                 Origin::signed(1),
@@ -763,11 +769,7 @@ mod tests {
                 vec![]
             ));
 
-            assert_ok!(Identity::register_did(
-                Origin::signed(2),
-                "did:poly:2".as_bytes().to_vec(),
-                vec![]
-            ));
+            assert_ok!(Identity::register_did(Origin::signed(2), did_2, vec![]));
 
             assert_err!(
                 Identity::register_did(Origin::signed(3), did_1, vec![]),
@@ -1045,7 +1047,10 @@ mod tests {
         ));
 
         // Register did with non-default type.
-        let bob_did = format!("did:poly:{}", bob_acc).as_bytes().to_vec();
+        let bob_did = IdentityId::from(bob_acc as u128)
+            .to_string()
+            .as_bytes()
+            .to_vec();
         assert_ok!(Identity::register_did(
             Origin::signed(bob_acc),
             bob_did,
@@ -1166,7 +1171,9 @@ mod tests {
         ));
 
         // Check DidRecord.
-        let did_rec = Identity::did_records(alice_did.clone());
+        let alice_identity =
+            IdentityId::try_from(alice_did.as_slice()).expect("Alice identity is not well-formed");
+        let did_rec = Identity::did_records(alice_identity);
         assert_eq!(did_rec.signing_keys, vec![charlie_signing_key]);
     }
 }

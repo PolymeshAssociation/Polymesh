@@ -884,7 +884,7 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use crate::{exemption, identity};
-    use primitives::Key;
+    use primitives::{IdentityId, Key};
 
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
@@ -1083,23 +1083,24 @@ mod tests {
         with_externalities(&mut identity_owned_by_1(), || {
             let owner_acc = 1;
             let _owner_key = Key::try_from(owner_acc.encode()).unwrap();
-            let owner_did = "did:poly:1".as_bytes().to_vec();
+            let owner_did = IdentityId::from(owner_acc as u128);
+            let owner_did_vec = owner_did.to_string().as_bytes().to_vec();
 
             // Raise the owner's base currency balance
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
-            Identity::register_did(Origin::signed(owner_acc), owner_did.clone(), vec![])
+            Identity::register_did(Origin::signed(owner_acc), owner_did_vec.clone(), vec![])
                 .expect("Could not create owner_did");
 
             // Expected token entry
             let token = SecurityToken {
                 name: vec![0x01],
-                owner_did: owner_did.clone(),
+                owner_did: owner_did_vec.clone(),
                 total_supply: 1_000_000,
                 granularity: 1,
                 decimals: 18,
             };
 
-            Identity::fund_poly(Origin::signed(owner_acc), owner_did.clone(), 500_000)
+            Identity::fund_poly(Origin::signed(owner_acc), owner_did_vec.clone(), 500_000)
                 .expect("Could not add funds to DID");
 
             // identity::Module::<Test>::do_create_issuer(&owner_did, &owner_key)
@@ -1108,7 +1109,7 @@ mod tests {
             // Issuance is successful
             assert_ok!(Asset::create_token(
                 Origin::signed(owner_acc),
-                owner_did.clone(),
+                owner_did_vec.clone(),
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
@@ -1126,7 +1127,7 @@ mod tests {
     #[ignore]
     fn non_issuers_cant_create_tokens() {
         with_externalities(&mut identity_owned_by_1(), || {
-            let owner_did = "did:poly:1".as_bytes().to_vec();
+            let owner_did = IdentityId::from(1u128).to_string().as_bytes().to_vec();
             let owner_acc = 1;
 
             // Expected token entry
@@ -1171,7 +1172,7 @@ mod tests {
             <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let owner_acc = 1;
-            let owner_did = "did:poly:1".as_bytes().to_vec();
+            let owner_did = IdentityId::from(1u128).to_string().as_bytes().to_vec();
             // let owner_key = Key::try_from(owner_acc.encode()).unwrap();
 
             // Expected token entry
@@ -1190,7 +1191,7 @@ mod tests {
             //    .expect("Could not make token.owner an issuer");
 
             let alice_acc = 2;
-            let alice_did = "did:poly:alice".as_bytes().to_vec();
+            let alice_did = IdentityId::from(2u128).to_string().as_bytes().to_vec();
 
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
             Identity::register_did(Origin::signed(alice_acc), alice_did.clone(), vec![])
@@ -1198,7 +1199,7 @@ mod tests {
             // identity::Module::<Test>::do_create_investor(alice_did.clone())
             //    .expect("Could not make token.owner an issuer");
             let bob_acc = 3;
-            let bob_did = "did:poly:bob".as_bytes().to_vec();
+            let bob_did = IdentityId::from(3u128).to_string().as_bytes().to_vec();
 
             Balances::make_free_balance_be(&bob_acc, 1_000_000);
             Identity::register_did(Origin::signed(bob_acc), bob_did.clone(), vec![])

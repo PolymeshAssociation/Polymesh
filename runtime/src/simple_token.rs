@@ -2,7 +2,7 @@
 //!
 //! This module implements a simple SimpleToken API on top of Polymesh.
 use crate::{balances, identity, utils};
-use primitives::Key;
+use primitives::{IdentityId, Key};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
@@ -58,7 +58,8 @@ decl_module! {
             // ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
-            <identity::DidRecords<T>>::mutate(&did, |record| -> Result {
+            let id = IdentityId::try_from(did.as_slice())?;
+            <identity::DidRecords<T>>::mutate( id, |record| -> Result {
                 record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
                 Ok(())
             })?;
