@@ -70,7 +70,6 @@ impl TryFrom<&[u8]> for IdentityId {
 
     fn try_from(did: &[u8]) -> Result<Self, Self::Error> {
         let did_str = str::from_utf8(did).map_err(|_| "DID is not valid UTF-8")?;
-
         IdentityId::try_from(did_str)
     }
 }
