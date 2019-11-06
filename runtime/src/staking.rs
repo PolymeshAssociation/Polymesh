@@ -1209,7 +1209,10 @@ impl<T: Trait> Module<T> {
         let validators = T::SessionInterface::validators();
         let prior = validators
             .into_iter()
-            .filter(|v| Self::is_validator_compliant(v))
+            .filter(|stash| match Self::bonded(stash) {
+                Some(controller) => Self::is_validator_compliant(&controller),
+                None => false,
+            })
             .map(|v| {
                 let e = Self::stakers(&v);
                 (v, e)
