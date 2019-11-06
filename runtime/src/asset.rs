@@ -1294,6 +1294,7 @@ mod tests {
     fn checkpoints_fuzz_test() {
         println!("Starting");
         for i in 0..10 {
+            // When fuzzing in local, feel free to bump this number to add more fuzz runs.
             with_externalities(&mut identity_owned_by_1(), || {
                 let now = Utc::now();
                 <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
@@ -1355,10 +1356,10 @@ mod tests {
                 let mut alice_balance: [u128; 100] = [0; 100];
                 let mut rng = rand::thread_rng();
                 for j in 1..100 {
-                    let transfer = rng.gen_bool(0.5);
+                    let transfers = rng.gen_range(0, 10);
                     owner_balance[j] = owner_balance[j - 1];
                     alice_balance[j] = alice_balance[j - 1];
-                    if transfer {
+                    for _k in 0..transfers {
                         if j == 1 {
                             owner_balance[0] -= 1;
                             alice_balance[0] += 1;
@@ -1372,7 +1373,6 @@ mod tests {
                             alice_did.clone(),
                             1
                         ));
-                        //println!("{}", transfer);
                     }
                     assert_ok!(Asset::create_checkpoint(
                         Origin::signed(owner_acc),
