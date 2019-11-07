@@ -220,11 +220,6 @@ decl_module! {
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
         pub fn claim(origin, did: Vec<u8>, ticker: Vec<u8>, dividend_id: u32) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
-
             // Check if sender wasn't already paid their share
             ensure!(!<UserPayoutCompleted>::get((did.clone(), ticker.clone(), dividend_id)), "User was already paid their share");
 
@@ -314,7 +309,6 @@ decl_module! {
             } else {
                 return Err("Claiming unclaimed payouts requires an end date");
             }
-
 
             // Transfer the computed amount
             if let Some(ref payout_ticker) = entry.payout_currency {
