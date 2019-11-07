@@ -36,8 +36,6 @@ pub struct Dividend<U, V> {
     amount_left: U,
     /// Whether the owner has claimed remaining funds
     remaining_claimed: bool,
-    /// Whether the dividend was cancelled
-    canceled: bool,
     /// An optional timestamp of payout start
     matures_at: Option<V>,
     /// An optional timestamp for payout end
@@ -164,7 +162,6 @@ decl_module! {
                 amount,
                 amount_left: amount,
                 remaining_claimed: false,
-                canceled: false,
                 matures_at: if matures_at > zero_ts { Some(matures_at) } else { None },
                 expires_at: if expires_at > zero_ts { Some(expires_at) } else { None },
                 payout_currency: if payout_ticker.is_empty() { None } else { Some(payout_ticker.clone())},
@@ -201,12 +198,6 @@ decl_module! {
 
             ensure!(starts_in_future, "Cancellable dividend must mature in the future");
 
-            // Flip `canceled`
-            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
-                entry.canceled = true;
-                Ok(())
-            })?;
-
             // Pay amount back to owner
             if let Some(ref payout_ticker) = entry.payout_currency {
                 <simple_token::BalanceOf<T>>::mutate((payout_ticker.clone(), did.clone()), |balance: &mut T::TokenBalance| -> Result {
@@ -222,6 +213,7 @@ decl_module! {
                     Ok(())
                 })?;
             }
+            <Dividends<T>>::remove((ticker.clone(), dividend_id));
             Ok(())
         }
 
@@ -244,9 +236,6 @@ decl_module! {
 
             // Check if the owner hadn't yanked the remaining amount out
             ensure!(!dividend.remaining_claimed, "The remaining payout funds were already claimed");
-
-            // Check if the dividend was not canceled
-            ensure!(!dividend.canceled, "Dividend was canceled");
 
             let now = <timestamp::Module<T>>::get();
 
@@ -811,7 +800,6 @@ mod tests {
                 amount: 500_000,
                 amount_left: 500_000,
                 remaining_claimed: false,
-                canceled: false,
                 matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
                 expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
                 payout_currency: Some(payout_token.ticker.clone()),
