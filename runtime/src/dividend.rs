@@ -36,8 +36,6 @@ pub struct Dividend<U, V> {
     amount_left: U,
     /// Whether the owner has claimed remaining funds
     remaining_claimed: bool,
-    /// Whether claiming dividends is enabled
-    active: bool,
     /// Whether the dividend was cancelled
     canceled: bool,
     /// An optional timestamp of payout start
@@ -95,7 +93,6 @@ decl_module! {
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
 
             // Check if sender has enough funds in payout currency
-            // TODO: Change to checking DID balance
             let balance = if payout_ticker.is_empty() {
                 if <identity::Module<T>>::signing_key_charge_did(&Key::try_from(sender.encode())?) {
                     <T as utils::Trait>::balance_to_token_balance(<identity::DidRecords<T>>::get(&did).balance)
@@ -167,7 +164,6 @@ decl_module! {
                 amount,
                 amount_left: amount,
                 remaining_claimed: false,
-                active: false,
                 canceled: false,
                 matures_at: if matures_at > zero_ts { Some(matures_at) } else { None },
                 expires_at: if expires_at > zero_ts { Some(expires_at) } else { None },
@@ -193,7 +189,7 @@ decl_module! {
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
 
-            // Check that the dividend has not started yet or is not active
+            // Check that the dividend has not started yet
             let entry: Dividend<_, _> = Self::get_dividend(&ticker, dividend_id).ok_or("Dividend not found")?;
             let now = <timestamp::Module<T>>::get();
 
@@ -203,7 +199,7 @@ decl_module! {
                 false
             };
 
-            ensure!(starts_in_future || !entry.active, "Cancellable dividend must mature in the future or be inactive");
+            ensure!(starts_in_future, "Cancellable dividend must mature in the future");
 
             // Flip `canceled`
             <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
@@ -229,32 +225,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Enables withdrawal of dividend funds for asset `ticker`.
-        pub fn activate(origin, did: Vec<u8>, ticker: Vec<u8>, dividend_id: u32) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
-
-            // Check that sender owns the asset token
-            ensure!(<asset::Module<T>>::_is_owner(&ticker, &did), "User is not the owner of the asset");
-
-            // Check that the dividend exists
-            let ticker_dividend_id = (ticker.clone(), dividend_id);
-            ensure!(<Dividends<T>>::exists(&ticker_dividend_id), "No dividend entry for supplied ticker and ID");
-
-            // Flip `active`
-            <Dividends<T>>::mutate(&ticker_dividend_id, |entry| -> Result {
-                entry.active = true;
-                Ok(())
-            })?;
-
-            // Dispatch event
-            Self::deposit_event(RawEvent::DividendActivated(ticker, dividend_id));
-
-            Ok(())
-        }
-
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
         pub fn claim(origin, did: Vec<u8>, ticker: Vec<u8>, dividend_id: u32) -> Result {
@@ -274,9 +244,6 @@ decl_module! {
 
             // Check if the owner hadn't yanked the remaining amount out
             ensure!(!dividend.remaining_claimed, "The remaining payout funds were already claimed");
-
-            // Check if the dividend is active
-            ensure!(dividend.active, "Dividend not active");
 
             // Check if the dividend was not canceled
             ensure!(!dividend.canceled, "Dividend was canceled");
@@ -844,7 +811,6 @@ mod tests {
                 amount: 500_000,
                 amount_left: 500_000,
                 remaining_claimed: false,
-                active: false,
                 canceled: false,
                 matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
                 expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
