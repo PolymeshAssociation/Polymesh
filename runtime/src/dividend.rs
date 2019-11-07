@@ -219,7 +219,7 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        pub fn claim(origin, did: Vec<u8>, ticker: Vec<u8>, dividend_id: u32) -> Result {
+        pub fn claim(_origin, did: Vec<u8>, ticker: Vec<u8>, dividend_id: u32) -> Result {
             // Check if sender wasn't already paid their share
             ensure!(!<UserPayoutCompleted>::get((did.clone(), ticker.clone(), dividend_id)), "User was already paid their share");
 
@@ -826,14 +826,6 @@ mod tests {
                 DividendModule::get_dividend(&token.name, 0),
                 Some(dividend.clone())
             );
-
-            // Start payout
-            assert_ok!(DividendModule::activate(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
-                token.name.clone(),
-                0
-            ));
 
             // Claim investor's share
             assert_ok!(DividendModule::claim(
