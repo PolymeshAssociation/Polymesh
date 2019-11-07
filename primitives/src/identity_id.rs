@@ -9,7 +9,7 @@ const _UUID_LEN: usize = 32usize;
 const _POLY_DID_LEN: usize = _POLY_DID_PREFIX_LEN + _UUID_LEN;
 
 /// Polymesh Distributed ID.
-#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Debug)]
+#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct IdentityId(u128);
 
 impl IdentityId {
