@@ -1,5 +1,6 @@
 use crate::{asset, balances, identity, simple_token, utils};
 use primitives::Key;
+use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
@@ -96,8 +97,11 @@ decl_module! {
             // Check if sender has enough funds in payout currency
             // TODO: Change to checking DID balance
             let balance = if payout_ticker.is_empty() {
-                // Check for POLY
-                <T as utils::Trait>::balance_to_token_balance(<identity::DidRecords<T>>::get(&did).balance)
+                if <identity::Module<T>>::signing_key_charge_did(&Key::try_from(sender.encode())?) {
+                    <T as utils::Trait>::balance_to_token_balance(<identity::DidRecords<T>>::get(&did).balance)
+                } else {
+                    <T as utils::Trait>::balance_to_token_balance(<balances::FreeBalance<T>>::get(&sender))
+                }
             } else {
                 // Check for token
                 <simple_token::BalanceOf<T>>::get((payout_ticker.clone(), did.clone()))
@@ -141,10 +145,19 @@ decl_module! {
             }
 
             // Subtract the amount
-            let new_balance = balance.checked_sub(&amount).ok_or("Overflow calculating new owner balance")?;
+            let new_balance = balance.checked_sub(&amount).ok_or("Underflow calculating new owner balance")?;
             if payout_ticker.is_empty() {
                 let new_balance = <T as utils::Trait>::token_balance_to_balance(new_balance);
-                <identity::DidRecords<T>>::mutate(&did, |record| record.balance = new_balance );
+                if <identity::Module<T>>::signing_key_charge_did(&Key::try_from(sender.encode())?) {
+                    <identity::DidRecords<T>>::mutate(&did, |record| record.balance = new_balance );
+                } else {
+                    let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
+                        &sender,
+                        <T as utils::Trait>::token_balance_to_balance(amount),
+                        WithdrawReason::Reserve,
+                        ExistenceRequirement::KeepAlive
+                    )?;
+                }
             } else {
                 <simple_token::BalanceOf<T>>::insert((payout_ticker.clone(), did.clone()), new_balance);
             }

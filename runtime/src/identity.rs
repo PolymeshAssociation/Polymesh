@@ -602,6 +602,17 @@ impl<T: Trait> Module<T> {
         }
         Ok(())
     }
+
+    pub fn signing_key_charge_did(signing_key: &Key) -> bool {
+        if <SigningKeyDid>::exists(signing_key) {
+            if Self::is_signing_key(&<SigningKeyDid>::get(signing_key), signing_key) {
+                if <ChargeDid>::exists(signing_key) {
+                    return <ChargeDid>::get(signing_key);
+                }
+            }
+        }
+        return false;
+    }
 }
 
 /// Make sure the supplied slice is a valid Polymesh DID
@@ -625,14 +636,7 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
     }
 
     fn signing_key_charge_did(signing_key: &Key) -> bool {
-        if <SigningKeyDid>::exists(signing_key) {
-            if Self::is_signing_key(&<SigningKeyDid>::get(signing_key), signing_key) {
-                if <ChargeDid>::exists(signing_key) {
-                    return <ChargeDid>::get(signing_key);
-                }
-            }
-        }
-        return false;
+        Self::signing_key_charge_did(&signing_key)
     }
 }
 
