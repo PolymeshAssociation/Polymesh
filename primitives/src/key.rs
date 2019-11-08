@@ -1,5 +1,10 @@
 use parity_scale_codec::{Decode, Encode};
-use rstd::{convert::TryFrom, default::Default, prelude::Vec};
+use rstd::{
+    cmp::{Ord, PartialOrd},
+    convert::TryFrom,
+    default::Default,
+    prelude::Vec,
+};
 
 /// Size of key, when it is u64
 const KEY_SIZE_TEST: usize = 8;
@@ -7,7 +12,7 @@ const KEY_SIZE: usize = 32;
 
 /// It stores a simple key.
 /// It uses fixed size to avoid dynamic memory allocation.
-#[derive(Encode, Decode, Default, Eq, Clone, Debug)]
+#[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Clone, Debug)]
 pub struct Key([u8; KEY_SIZE]);
 
 impl TryFrom<Vec<u8>> for Key {
