@@ -58,6 +58,11 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
+        /// Adds a ballot
+        ///
+        /// # Arguments
+        ///
+        /// * `did` - DID of the token owner. Sender must be a signing key or master key of this DID
         pub fn add_ballot(origin, did: Vec<u8>, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot) -> Result {
             let sender = ensure_signed(origin)?;
             let upper_ticker = utils::bytes_to_upper(&ticker);
@@ -96,7 +101,27 @@ decl_module! {
 
             Ok(())
         }
+
+        pub fn vote(origin, did: Vec<u8>, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T:TokenBalance>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let upper_ticker = utils::bytes_to_upper(&ticker);
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+
+            // Ensure the existence of the ballot
+            ensure!(<Ballots>::exists(&upper_ticker, &ballot_name), "Ballot does not exist");
+
+            if <Votes>::exists(&upper_ticker, &did, &ballot_name) {
+                //User wants to change their vote. We first need to subtract their existing vote.
+                let vote = <Votes>::get(&upper_ticker, &did, &ballot_name);
+
+            }
+
+            Ok(())
+        }
     }
+
 }
 
 decl_event!(
