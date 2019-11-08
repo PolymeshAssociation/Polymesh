@@ -4,7 +4,7 @@ use parity_scale_codec::{Decode, Encode};
 use rstd::prelude::*;
 
 const _POLY_DID_PREFIX: &'static str = "did:poly:";
-const _POLY_DID_PREFIX_LEN: usize = _POLY_DID_PREFIX.len();
+const _POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
 const _UUID_LEN: usize = 32usize;
 const _POLY_DID_LEN: usize = _POLY_DID_PREFIX_LEN + _UUID_LEN;
 
