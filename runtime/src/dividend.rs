@@ -436,14 +436,16 @@ mod tests {
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
     use sr_io::with_externalities;
+    use sr_primitives::traits::Verify;
     use sr_primitives::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-        Perbill,
+        AnySignature, Perbill,
     };
     use srml_support::traits::Currency;
     use srml_support::{assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
+    use test_client::{self, AccountKeyring};
 
     use std::{
         collections::HashMap,
@@ -456,8 +458,10 @@ mod tests {
     };
 
     type SessionIndex = u32;
-    type AuthorityId = u64;
+    type AuthorityId = <AnySignature as Verify>::Signer;
     type BlockNumber = u64;
+    type OffChainSignature = AnySignature;
+    type AccountId = <AnySignature as Verify>::Signer;
 
     pub struct TestOnSessionEnding;
     impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
@@ -502,8 +506,8 @@ mod tests {
         type BlockNumber = u64;
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<u64>;
+        type AccountId = AccountId;
+        type Lookup = IdentityLookup<AccountId>;
         type WeightMultiplierUpdate = ();
         type Header = Header;
         type Event = ();
@@ -601,6 +605,7 @@ mod tests {
 
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        type OffChainSignature = OffChainSignature;
         fn as_u128(v: Self::TokenBalance) -> u128 {
             v
         }
@@ -673,12 +678,12 @@ mod tests {
     type Identity = identity::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by_1() -> sr_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         identity::GenesisConfig::<Test> {
-            owner: id,
+            owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
         }
         .assimilate_storage(&mut t)
@@ -688,13 +693,12 @@ mod tests {
 
     #[test]
     fn correct_dividend_must_work() {
-        let identity_owner_id = 1;
-        with_externalities(&mut identity_owned_by(identity_owner_id), || {
-            let token_owner_acc = 1;
+        with_externalities(&mut identity_owned_by_1(), || {
+            let token_owner_acc = AccountId::from(AccountKeyring::Bob);
             let _token_owner_key = Key::try_from(token_owner_acc.encode()).unwrap();
-            let payout_owner_acc = 2;
-            let token_owner_did = "did:poly:1".as_bytes().to_vec();
-            let payout_owner_did = "did:poly:2".as_bytes().to_vec();
+            let payout_owner_acc = AccountId::from(AccountKeyring::Charlie);
+            let token_owner_did = "did:poly:bob".as_bytes().to_vec();
+            let payout_owner_did = "did:poly:charlie".as_bytes().to_vec();
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -714,7 +718,7 @@ mod tests {
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
             Identity::register_did(
-                Origin::signed(token_owner_acc),
+                Origin::signed(token_owner_acc.clone()),
                 token_owner_did.clone(),
                 vec![],
             )
@@ -722,7 +726,7 @@ mod tests {
 
             Balances::make_free_balance_be(&payout_owner_acc, 1_000_000);
             Identity::register_did(
-                Origin::signed(payout_owner_acc),
+                Origin::signed(payout_owner_acc.clone()),
                 payout_owner_did.clone(),
                 vec![],
             )
@@ -736,19 +740,9 @@ mod tests {
                 record.balance = 1_000_000;
             });
 
-            // identity::Module::<Test>::do_create_issuer(&token.owner_did, &token_owner_key)
-            //    .expect("Could not make token.owner_did an issuer");
-            // identity::Module::<Test>::do_create_simple_token_issuer(
-            //    &payout_token.owner_did,
-            //    &token_owner_key,
-            //)
-            //.expect("Could not make payout_token.owner_did an issuer");
-            //identity::Module::<Test>::do_create_investor(&token.owner_did, &token_owner_key)
-            //    .expect("Could not make token.owner_did an investor");
-
             // Share issuance is successful
             assert_ok!(Asset::create_token(
-                Origin::signed(token_owner_acc),
+                Origin::signed(token_owner_acc.clone()),
                 token_owner_did.clone(),
                 token.name.clone(),
                 token.name.clone(),
@@ -758,24 +752,26 @@ mod tests {
 
             // Issuance for payout token is successful
             assert_ok!(SimpleToken::create_token(
-                Origin::signed(payout_owner_acc),
+                Origin::signed(payout_owner_acc.clone()),
                 payout_owner_did.clone(),
                 payout_token.ticker.clone(),
                 payout_token.total_supply
             ));
 
             // Prepare a whitelisted investor
-            let investor_acc = 3;
+            let investor_acc = AccountId::from(AccountKeyring::Dave);
             Balances::make_free_balance_be(&investor_acc, 1_000_000);
-            let investor_did = "did:poly:3".as_bytes().to_vec();
-            Identity::register_did(Origin::signed(investor_acc), investor_did.clone(), vec![])
-                .expect("Could not create investor_did");
+            let investor_did = "did:poly:dave".as_bytes().to_vec();
+            Identity::register_did(
+                Origin::signed(investor_acc.clone()),
+                investor_did.clone(),
+                vec![],
+            )
+            .expect("Could not create investor_did");
             <identity::DidRecords<Test>>::mutate(investor_did.clone(), |record| {
                 record.balance = 1_000_000;
             });
 
-            // identity::Module::<Test>::do_create_investor(&investor_did, &token_owner_key)
-            //    .expect("Could not create an investor");
             let amount_invested = 50_000;
 
             let now = Utc::now();
@@ -791,7 +787,7 @@ mod tests {
 
             // Add all whitelist entries for investor, token owner and payout_token owner
             assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(token_owner_acc),
+                Origin::signed(token_owner_acc.clone()),
                 token_owner_did.clone(),
                 token.name.clone(),
                 0,
@@ -799,7 +795,7 @@ mod tests {
                 (now - Duration::hours(1)).timestamp() as u64,
             ));
             assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(token_owner_acc),
+                Origin::signed(token_owner_acc.clone()),
                 token_owner_did.clone(),
                 token.name.clone(),
                 0,
@@ -810,7 +806,7 @@ mod tests {
 
             // Transfer tokens to investor
             assert_ok!(Asset::transfer(
-                Origin::signed(token_owner_acc),
+                Origin::signed(token_owner_acc.clone()),
                 token_owner_did.clone(),
                 token.name.clone(),
                 investor_did.clone(),
@@ -819,7 +815,7 @@ mod tests {
 
             // Create checkpoint for token
             assert_ok!(Asset::create_checkpoint(
-                Origin::signed(token_owner_acc),
+                Origin::signed(token_owner_acc.clone()),
                 token_owner_did.clone(),
                 token.name.clone()
             ));
@@ -841,7 +837,7 @@ mod tests {
 
             // Transfer payout tokens to asset owner
             assert_ok!(SimpleToken::transfer(
-                Origin::signed(payout_owner_acc),
+                Origin::signed(payout_owner_acc.clone()),
                 payout_owner_did.clone(),
                 payout_token.ticker.clone(),
                 token_owner_did.clone(),
@@ -850,7 +846,7 @@ mod tests {
 
             // Create the dividend for asset
             assert_ok!(DividendModule::new(
-                Origin::signed(token_owner_acc),
+                Origin::signed(token_owner_acc.clone()),
                 token_owner_did.clone(),
                 dividend.amount,
                 token.name.clone(),
@@ -868,7 +864,7 @@ mod tests {
 
             // Start payout
             assert_ok!(DividendModule::activate(
-                Origin::signed(token_owner_acc),
+                Origin::signed(token_owner_acc.clone()),
                 token_owner_did.clone(),
                 token.name.clone(),
                 0
@@ -876,7 +872,7 @@ mod tests {
 
             // Claim investor's share
             assert_ok!(DividendModule::claim(
-                Origin::signed(investor_acc),
+                Origin::signed(investor_acc.clone()),
                 investor_did.clone(),
                 token.name.clone(),
                 0,

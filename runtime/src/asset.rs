@@ -5,12 +5,12 @@ use crate::identity;
 use crate::percentage_tm;
 use crate::registry::{self, RegistryEntry, TokenType};
 use crate::utils;
-use codec::{Decode, Encode};
+use codec::Encode;
 use core::result::Result as StdResult;
 use primitives::Key;
 use rstd::{convert::TryFrom, prelude::*};
 use session;
-use sr_primitives::traits::{CheckedAdd, CheckedSub, Member, Verify};
+use sr_primitives::traits::{CheckedAdd, CheckedSub, Verify};
 use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -30,7 +30,7 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     //type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64>;
     type Currency: Currency<Self::AccountId>;
-    type OffChainSignature: Verify<Signer = Self::AccountId> + Member + Decode + Encode;
+    // type OffChainSignature: Verify<Signer = Self::AccountId> + Member + Decode + Encode;
 }
 
 // struct to store the token details
@@ -643,13 +643,13 @@ decl_module! {
         Ok(())
     }
 
-    pub fn increase_custody_allowance_of(origin, ticker: Vec<u8>, holder_did: Vec<u8>, holder_accountId: T::AccountId, custodian_did: Vec<u8>, caller_did: Vec<u8>,  value: T::TokenBalance, nonce: u16, signature: T::OffChainSignature) -> Result {
+    pub fn increase_custody_allowance_of(origin, ticker: Vec<u8>, holder_did: Vec<u8>, holder_account_id: T::AccountId, custodian_did: Vec<u8>, caller_did: Vec<u8>,  value: T::TokenBalance, nonce: u16, signature: T::OffChainSignature) -> Result {
         let ticker = utils::bytes_to_upper(ticker.as_slice());
         let sender = ensure_signed(origin)?;
 
-        ensure!(!Self::off_chain_custody_allowance_nonce((ticker.clone(), holder_did.clone(), nonce)), "Signature already used");
+        ensure!(!Self::off_chain_custody_allowance_nonce((ticker.clone(), holder_did.clone(), nonce.clone())), "Signature already used");
         // TODO:
-        // re-validate the holder_accountId should present as the signing key in the holder_did
+        // re-validate the holder_account_id should present as the signing key in the holder_did
         let msg = SignData {
             custodian_did: custodian_did.clone(),
             holder_did: holder_did.clone(),
@@ -657,8 +657,8 @@ decl_module! {
             value,
             nonce
         };
-        // holder_accountId should be a part of the holder_did
-        ensure!(signature.verify(&msg.encode()[..], &holder_accountId), "Invalid signature");
+        // holder_account_id should be a part of the holder_did
+        ensure!(signature.verify(&msg.encode()[..], &holder_account_id), "Invalid signature");
         ensure!(
             <identity::Module<T>>::is_signing_key(&caller_did, &Key::try_from(sender.encode())?),
             "sender must be a signing key for DID"
@@ -671,13 +671,13 @@ decl_module! {
         // Ensure the valid DID
         ensure!(<identity::DidRecords<T>>::exists(&custodian_did), "Invalid custodian DID");
 
-        let mut current_allowance = Self::custodian_allowance((ticker.clone(), holder_did.clone(), custodian_did.clone()));
-        let old_allowance = current_allowance;
-        current_allowance = current_allowance.checked_add(&value).ok_or("allowance get overflowed")?;
+        let old_allowance = Self::custodian_allowance((ticker.clone(), holder_did.clone(), custodian_did.clone()));
+        let new_current_allowance = old_allowance.checked_add(&value).ok_or("allowance get overflowed")?;
         // Update Storage
-        <CustodianAllowance<T>>::insert((ticker.clone(), custodian_did.clone(), holder_did.clone()), &current_allowance);
+        <CustodianAllowance<T>>::insert((ticker.clone(), holder_did.clone(), custodian_did.clone()), &new_current_allowance);
         <TotalCustodyAllowance<T>>::insert((ticker.clone(), holder_did.clone()), new_custody_allowance);
-        Self::deposit_event(RawEvent::CustodyAllowanceChanged(ticker.clone(), holder_did.clone(), custodian_did.clone(), old_allowance, current_allowance));
+        <OffChainCustodyAllowanceNonce>::insert((ticker.clone(), holder_did.clone(), nonce), true);
+        Self::deposit_event(RawEvent::CustodyAllowanceChanged(ticker.clone(), holder_did.clone(), custodian_did.clone(), old_allowance, new_current_allowance));
         Ok(())
     }
 
@@ -1049,7 +1049,6 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use crate::{exemption, identity};
-    use primitives::Key;
 
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
@@ -1057,15 +1056,18 @@ mod tests {
     use sr_primitives::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-        Perbill,
+        AnySignature, Perbill,
     };
     use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
     use std::sync::{Arc, Mutex};
     use substrate_primitives::{Blake2Hasher, H256};
+    use test_client::{self, AccountKeyring};
 
     type SessionIndex = u32;
-    type AuthorityId = u64;
+    type AuthorityId = <AnySignature as Verify>::Signer;
     type BlockNumber = u64;
+    type AccountId = <AnySignature as Verify>::Signer;
+    type OffChainSignature = AnySignature;
 
     pub struct TestOnSessionEnding;
     impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
@@ -1112,9 +1114,9 @@ mod tests {
         type BlockNumber = BlockNumber;
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        // type AccountId = <AnySignature as Verify>::Signer;
-        type Lookup = IdentityLookup<u64>;
+        //type AccountId = u64;
+        type AccountId = AccountId;
+        type Lookup = IdentityLookup<AccountId>;
         type WeightMultiplierUpdate = ();
         type Header = Header;
         type Event = ();
@@ -1199,6 +1201,7 @@ mod tests {
 
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        type OffChainSignature = OffChainSignature;
         fn as_u128(v: Self::TokenBalance) -> u128 {
             v
         }
@@ -1230,12 +1233,12 @@ mod tests {
     }
 
     /// Build a genesis identity instance owned by account No. 1
-    fn identity_owned_by_1() -> sr_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         identity::GenesisConfig::<Test> {
-            owner: 1,
+            owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
         }
         .assimilate_storage(&mut t)
@@ -1245,14 +1248,13 @@ mod tests {
 
     #[test]
     fn issuers_can_create_tokens() {
-        with_externalities(&mut identity_owned_by_1(), || {
-            let owner_acc = 1;
-            let _owner_key = Key::try_from(owner_acc.encode()).unwrap();
-            let owner_did = "did:poly:1".as_bytes().to_vec();
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let owner_did = "did:poly:dave".as_bytes().to_vec();
 
             // Raise the owner's base currency balance
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
-            Identity::register_did(Origin::signed(owner_acc), owner_did.clone(), vec![])
+            Identity::register_did(Origin::signed(owner_acc.clone()), owner_did.clone(), vec![])
                 .expect("Could not create owner_did");
 
             // Expected token entry
@@ -1264,15 +1266,16 @@ mod tests {
                 decimals: 18,
             };
 
-            Identity::fund_poly(Origin::signed(owner_acc), owner_did.clone(), 500_000)
-                .expect("Could not add funds to DID");
-
-            // identity::Module::<Test>::do_create_issuer(&owner_did, &owner_key)
-            //    .expect("Could not make token.owner an issuer");
+            Identity::fund_poly(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                500_000,
+            )
+            .expect("Could not add funds to DID");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
-                Origin::signed(owner_acc),
+                Origin::signed(owner_acc.clone()),
                 owner_did.clone(),
                 token.name.clone(),
                 token.name.clone(),
@@ -1290,9 +1293,8 @@ mod tests {
     #[test]
     #[ignore]
     fn non_issuers_cant_create_tokens() {
-        with_externalities(&mut identity_owned_by_1(), || {
-            let owner_did = "did:poly:1".as_bytes().to_vec();
-            let owner_acc = 1;
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let owner_did = "did:poly:dave".as_bytes().to_vec();
 
             // Expected token entry
             let token = SecurityToken {
@@ -1303,18 +1305,18 @@ mod tests {
                 decimals: 18,
             };
 
-            let wrong_acc = owner_acc + 1;
+            let wrong_acc = AccountId::from(AccountKeyring::Bob);
 
             Balances::make_free_balance_be(&wrong_acc, 1_000_000);
 
-            let wrong_did = "did:poly:wrong".as_bytes().to_vec();
-            Identity::register_did(Origin::signed(wrong_acc), wrong_did.clone(), vec![])
+            let wrong_did = "did:poly:bob".as_bytes().to_vec();
+            Identity::register_did(Origin::signed(wrong_acc.clone()), wrong_did.clone(), vec![])
                 .expect("Could not create other DID");
 
             // Issuance is unsuccessful
             assert_noop!(
                 Asset::create_token(
-                    Origin::signed(owner_acc + 1),
+                    Origin::signed(wrong_acc.clone()),
                     wrong_did.clone(),
                     token.name.clone(),
                     token.name.clone(),
@@ -1331,13 +1333,12 @@ mod tests {
 
     #[test]
     fn valid_transfers_pass() {
-        with_externalities(&mut identity_owned_by_1(), || {
+        with_externalities(&mut identity_owned_by_alice(), || {
             let now = Utc::now();
             <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
-            let owner_acc = 1;
-            let owner_did = "did:poly:1".as_bytes().to_vec();
-            // let owner_key = Key::try_from(owner_acc.encode()).unwrap();
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let owner_did = "did:poly:dave".as_bytes().to_vec();
 
             // Expected token entry
             let token = SecurityToken {
@@ -1349,36 +1350,33 @@ mod tests {
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
-            Identity::register_did(Origin::signed(owner_acc), owner_did.clone(), vec![])
+            Identity::register_did(Origin::signed(owner_acc.clone()), owner_did.clone(), vec![])
                 .expect("Could not create owner_did");
-            // identity::Module::<Test>::do_create_investor(&owner_did)
-            //    .expect("Could not make token.owner an issuer");
 
-            let alice_acc = 2;
-            let alice_did = "did:poly:alice".as_bytes().to_vec();
+            let alice_acc = AccountId::from(AccountKeyring::Charlie);
+            let alice_did = "did:poly:charlie".as_bytes().to_vec();
 
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
-            Identity::register_did(Origin::signed(alice_acc), alice_did.clone(), vec![])
+            Identity::register_did(Origin::signed(alice_acc.clone()), alice_did.clone(), vec![])
                 .expect("Could not create alice_did");
-            // identity::Module::<Test>::do_create_investor(alice_did.clone())
-            //    .expect("Could not make token.owner an issuer");
-            let bob_acc = 3;
+
+            let bob_acc = AccountId::from(AccountKeyring::Bob);
             let bob_did = "did:poly:bob".as_bytes().to_vec();
 
             Balances::make_free_balance_be(&bob_acc, 1_000_000);
-            Identity::register_did(Origin::signed(bob_acc), bob_did.clone(), vec![])
+            Identity::register_did(Origin::signed(bob_acc.clone()), bob_did.clone(), vec![])
                 .expect("Could not create bob_did");
-            // identity::Module::<Test>::do_create_investor(bob_did.clone())
-            //     .expect("Could not make token.owner an issuer");
-            Identity::fund_poly(Origin::signed(owner_acc), owner_did.clone(), 500_000)
-                .expect("Could not add funds to DID");
 
-            // identity::Module::<Test>::do_create_issuer(&owner_did)
-            //    .expect("Could not make token.owner an issuer");
+            Identity::fund_poly(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                500_000,
+            )
+            .expect("Could not add funds to DID");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
-                Origin::signed(owner_acc),
+                Origin::signed(owner_acc.clone()),
                 owner_did.clone(),
                 token.name.clone(),
                 token.name.clone(),
@@ -1387,7 +1385,7 @@ mod tests {
             ));
 
             general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(owner_acc),
+                Origin::signed(owner_acc.clone()),
                 owner_did.clone(),
                 token.name.clone(),
                 0,
@@ -1397,7 +1395,7 @@ mod tests {
             .expect("Could not configure general_tm for owner");
 
             general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(owner_acc),
+                Origin::signed(owner_acc.clone()),
                 owner_did.clone(),
                 token.name.clone(),
                 0,
@@ -1407,7 +1405,7 @@ mod tests {
             .expect("Could not configure general_tm for alice");
 
             general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(owner_acc),
+                Origin::signed(owner_acc.clone()),
                 owner_did.clone(),
                 token.name.clone(),
                 0,
@@ -1420,13 +1418,472 @@ mod tests {
             assert_eq!(Asset::token_details(token.name.clone()), token);
 
             assert_ok!(Asset::transfer(
-                Origin::signed(owner_acc),
+                Origin::signed(owner_acc.clone()),
                 owner_did.clone(),
                 token.name.clone(),
                 alice_did.clone(),
                 500
             ));
         })
+    }
+
+    #[test]
+    fn valid_custodian_allowance() {
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let owner_did = "did:poly:dave".as_bytes().to_vec();
+
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            Balances::make_free_balance_be(&owner_acc, 1_000_000);
+            Identity::register_did(Origin::signed(owner_acc.clone()), owner_did.clone(), vec![])
+                .expect("Could not create owner_did");
+
+            let investor1_acc = AccountId::from(AccountKeyring::Bob);
+            let investor1_did = "did:poly:bob".as_bytes().to_vec();
+
+            Balances::make_free_balance_be(&investor1_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(investor1_acc.clone()),
+                investor1_did.clone(),
+                vec![],
+            )
+            .expect("Could not create investor1_did");
+
+            let investor2_acc = AccountId::from(AccountKeyring::Charlie);
+            let investor2_did = "did:poly:charlie".as_bytes().to_vec();
+
+            Balances::make_free_balance_be(&investor2_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(investor2_acc.clone()),
+                investor2_did.clone(),
+                vec![],
+            )
+            .expect("Could not create investor2_did");
+
+            let custodian_acc = AccountId::from(AccountKeyring::Eve);
+            let custodian_did = "did:poly:eve".as_bytes().to_vec();
+
+            Balances::make_free_balance_be(&custodian_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(custodian_acc.clone()),
+                custodian_did.clone(),
+                vec![],
+            )
+            .expect("Could not create custodian_did");
+
+            // Issuance is successful
+            assert_ok!(Asset::create_token(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            assert_eq!(
+                Asset::balance_of((token.name.clone(), token.owner_did.clone())),
+                token.total_supply
+            );
+
+            assert_eq!(Asset::token_details(token.name.clone()), token);
+
+            general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                token.name.clone(),
+                0,
+                investor1_did.clone(),
+                (now - Duration::hours(1)).timestamp() as u64,
+            )
+            .expect("Could not configure general_tm for owner");
+
+            general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                token.name.clone(),
+                0,
+                investor2_did.clone(),
+                (now - Duration::hours(1)).timestamp() as u64,
+            )
+            .expect("Could not configure general_tm for owner");
+
+            // Mint some tokens to investor1
+            assert_ok!(Asset::issue(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                token.name.clone(),
+                investor1_did.clone(),
+                200_00_00 as u128,
+                vec![0x0]
+            ));
+
+            assert_eq!(
+                Asset::balance_of((token.name.clone(), investor1_did.clone())),
+                200_00_00 as u128
+            );
+
+            // Failed to add custodian because of insufficient balance
+            assert_noop!(
+                Asset::increase_custody_allowance(
+                    Origin::signed(investor1_acc.clone()),
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    custodian_did.clone(),
+                    250_00_00 as u128
+                ),
+                "Insufficient balance of holder did"
+            );
+
+            // Failed to add/increase the custodian allowance because of Invalid custodian did
+            let custodian_did_not_register = "did:poly:eve_custodian".as_bytes().to_vec();
+            assert_noop!(
+                Asset::increase_custody_allowance(
+                    Origin::signed(investor1_acc.clone()),
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    custodian_did_not_register.clone(),
+                    50_00_00 as u128
+                ),
+                "Invalid custodian DID"
+            );
+
+            // Add custodian
+            assert_ok!(Asset::increase_custody_allowance(
+                Origin::signed(investor1_acc.clone()),
+                token.name.clone(),
+                investor1_did.clone(),
+                custodian_did.clone(),
+                50_00_00 as u128
+            ));
+
+            assert_eq!(
+                Asset::custodian_allowance((
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    custodian_did.clone()
+                )),
+                50_00_00 as u128
+            );
+
+            assert_eq!(
+                Asset::total_custody_allowance((token.name.clone(), investor1_did.clone())),
+                50_00_00 as u128
+            );
+
+            // Transfer the token upto the limit
+            assert_ok!(Asset::transfer(
+                Origin::signed(investor1_acc.clone()),
+                investor1_did.clone(),
+                token.name.clone(),
+                investor2_did.clone(),
+                140_00_00 as u128
+            ));
+
+            assert_eq!(
+                Asset::balance_of((token.name.clone(), investor2_did.clone())),
+                140_00_00 as u128
+            );
+
+            // Try to Transfer the tokens beyond the limit
+            assert_noop!(
+                Asset::transfer(
+                    Origin::signed(investor1_acc.clone()),
+                    investor1_did.clone(),
+                    token.name.clone(),
+                    investor2_did.clone(),
+                    50_00_00 as u128
+                ),
+                "Insufficient balance for transfer"
+            );
+
+            // Should fail to transfer the token by the custodian because of invalid signing key
+            assert_noop!(
+                Asset::transfer_by_custodian(
+                    Origin::signed(investor2_acc.clone()),
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    custodian_did.clone(),
+                    investor2_did.clone(),
+                    45_00_00 as u128
+                ),
+                "sender must be a signing key for DID"
+            );
+
+            // Should fail to transfer the token by the custodian because of insufficient allowance
+            assert_noop!(
+                Asset::transfer_by_custodian(
+                    Origin::signed(custodian_acc.clone()),
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    custodian_did.clone(),
+                    investor2_did.clone(),
+                    55_00_00 as u128
+                ),
+                "Insufficient allowance"
+            );
+
+            // Successfully transfer by the custodian
+            assert_ok!(Asset::transfer_by_custodian(
+                Origin::signed(custodian_acc.clone()),
+                token.name.clone(),
+                investor1_did.clone(),
+                custodian_did.clone(),
+                investor2_did.clone(),
+                45_00_00 as u128
+            ));
+        });
+    }
+
+    #[test]
+    fn valid_custodian_allowance_of() {
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let owner_did = "did:poly:dave".as_bytes().to_vec();
+
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            Balances::make_free_balance_be(&owner_acc, 1_000_000);
+            Identity::register_did(Origin::signed(owner_acc.clone()), owner_did.clone(), vec![])
+                .expect("Could not create owner_did");
+
+            let investor1_acc = AccountId::from(AccountKeyring::Bob);
+            let investor1_did = "did:poly:bob".as_bytes().to_vec();
+
+            Balances::make_free_balance_be(&investor1_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(investor1_acc.clone()),
+                investor1_did.clone(),
+                vec![],
+            )
+            .expect("Could not create investor1_did");
+
+            let investor2_acc = AccountId::from(AccountKeyring::Charlie);
+            let investor2_did = "did:poly:charlie".as_bytes().to_vec();
+
+            Balances::make_free_balance_be(&investor2_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(investor2_acc.clone()),
+                investor2_did.clone(),
+                vec![],
+            )
+            .expect("Could not create investor2_did");
+
+            let custodian_acc = AccountId::from(AccountKeyring::Eve);
+            let custodian_did = "did:poly:eve".as_bytes().to_vec();
+
+            Balances::make_free_balance_be(&custodian_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(custodian_acc.clone()),
+                custodian_did.clone(),
+                vec![],
+            )
+            .expect("Could not create custodian_did");
+
+            // Issuance is successful
+            assert_ok!(Asset::create_token(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            assert_eq!(
+                Asset::balance_of((token.name.clone(), token.owner_did.clone())),
+                token.total_supply
+            );
+
+            assert_eq!(Asset::token_details(token.name.clone()), token);
+
+            general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                token.name.clone(),
+                0,
+                investor1_did.clone(),
+                (now - Duration::hours(1)).timestamp() as u64,
+            )
+            .expect("Could not configure general_tm for owner");
+
+            general_tm::Module::<Test>::add_to_whitelist(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                token.name.clone(),
+                0,
+                investor2_did.clone(),
+                (now - Duration::hours(1)).timestamp() as u64,
+            )
+            .expect("Could not configure general_tm for owner");
+
+            // Mint some tokens to investor1
+            assert_ok!(Asset::issue(
+                Origin::signed(owner_acc.clone()),
+                owner_did.clone(),
+                token.name.clone(),
+                investor1_did.clone(),
+                200_00_00 as u128,
+                vec![0x0]
+            ));
+
+            assert_eq!(
+                Asset::balance_of((token.name.clone(), investor1_did.clone())),
+                200_00_00 as u128
+            );
+
+            let msg = SignData {
+                custodian_did: custodian_did.clone(),
+                holder_did: investor1_did.clone(),
+                ticker: token.name.clone(),
+                value: 50_00_00 as u128,
+                nonce: 1,
+            };
+
+            let investor1Key = AccountKeyring::Bob;
+
+            // Add custodian
+            assert_ok!(Asset::increase_custody_allowance_of(
+                Origin::signed(investor2_acc.clone()),
+                token.name.clone(),
+                investor1_did.clone(),
+                investor1_acc.clone(),
+                custodian_did.clone(),
+                investor2_did.clone(),
+                50_00_00 as u128,
+                1,
+                OffChainSignature::from(investor1Key.sign(&msg.encode()))
+            ));
+
+            assert_eq!(
+                Asset::custodian_allowance((
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    custodian_did.clone()
+                )),
+                50_00_00 as u128
+            );
+
+            assert_eq!(
+                Asset::total_custody_allowance((token.name.clone(), investor1_did.clone())),
+                50_00_00 as u128
+            );
+
+            // use the same signature with the same nonce should fail
+            assert_noop!(
+                Asset::increase_custody_allowance_of(
+                    Origin::signed(investor2_acc.clone()),
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    investor1_acc.clone(),
+                    custodian_did.clone(),
+                    investor2_did.clone(),
+                    50_00_00 as u128,
+                    1,
+                    OffChainSignature::from(investor1Key.sign(&msg.encode()))
+                ),
+                "Signature already used"
+            );
+
+            // use the same signature with the different nonce should fail
+            assert_noop!(
+                Asset::increase_custody_allowance_of(
+                    Origin::signed(investor2_acc.clone()),
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    investor1_acc.clone(),
+                    custodian_did.clone(),
+                    investor2_did.clone(),
+                    50_00_00 as u128,
+                    3,
+                    OffChainSignature::from(investor1Key.sign(&msg.encode()))
+                ),
+                "Invalid signature"
+            );
+
+            // Transfer the token upto the limit
+            assert_ok!(Asset::transfer(
+                Origin::signed(investor1_acc.clone()),
+                investor1_did.clone(),
+                token.name.clone(),
+                investor2_did.clone(),
+                140_00_00 as u128
+            ));
+
+            assert_eq!(
+                Asset::balance_of((token.name.clone(), investor2_did.clone())),
+                140_00_00 as u128
+            );
+
+            // Try to Transfer the tokens beyond the limit
+            assert_noop!(
+                Asset::transfer(
+                    Origin::signed(investor1_acc.clone()),
+                    investor1_did.clone(),
+                    token.name.clone(),
+                    investor2_did.clone(),
+                    50_00_00 as u128
+                ),
+                "Insufficient balance for transfer"
+            );
+
+            // Should fail to transfer the token by the custodian because of invalid signing key
+            assert_noop!(
+                Asset::transfer_by_custodian(
+                    Origin::signed(investor2_acc.clone()),
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    custodian_did.clone(),
+                    investor2_did.clone(),
+                    45_00_00 as u128
+                ),
+                "sender must be a signing key for DID"
+            );
+
+            // Should fail to transfer the token by the custodian because of insufficient allowance
+            assert_noop!(
+                Asset::transfer_by_custodian(
+                    Origin::signed(custodian_acc.clone()),
+                    token.name.clone(),
+                    investor1_did.clone(),
+                    custodian_did.clone(),
+                    investor2_did.clone(),
+                    55_00_00 as u128
+                ),
+                "Insufficient allowance"
+            );
+
+            // Successfully transfer by the custodian
+            assert_ok!(Asset::transfer_by_custodian(
+                Origin::signed(custodian_acc.clone()),
+                token.name.clone(),
+                investor1_did.clone(),
+                custodian_did.clone(),
+                investor2_did.clone(),
+                45_00_00 as u128
+            ));
+        });
     }
 
     /*

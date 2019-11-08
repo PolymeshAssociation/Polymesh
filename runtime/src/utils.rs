@@ -1,14 +1,16 @@
 use crate::balances;
 use codec::Codec;
+use codec::{Decode, Encode};
 use rstd::prelude::*;
 use session;
-use sr_primitives::traits::{Member, SimpleArithmetic};
+use sr_primitives::traits::{Member, SimpleArithmetic, Verify};
 use srml_support::Parameter;
 use system;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + session::Trait {
     type TokenBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy;
+    type OffChainSignature: Verify<Signer = Self::AccountId> + Member + Decode + Encode;
     fn as_u128(v: Self::TokenBalance) -> u128;
     fn as_tb(v: u128) -> Self::TokenBalance;
     fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance;
