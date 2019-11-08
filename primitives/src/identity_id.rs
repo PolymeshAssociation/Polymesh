@@ -8,13 +8,26 @@ const _POLY_DID_PREFIX_LEN: usize = _POLY_DID_PREFIX.len();
 const _UUID_LEN: usize = 32usize;
 const _POLY_DID_LEN: usize = _POLY_DID_PREFIX_LEN + _UUID_LEN;
 
-/// Polymesh Distributed ID.
+/// Polymesh Identifier ID.
+/// It is stored internally as an `u128` but it can be load from string with the following format:
+/// "did:poly:<32 Hex characters>".
+///
+/// # From str
+/// The current implementation of `TryFrom<&str>` requires exactly 32 hexadecimal characters for
+/// code part of DID.
+/// Valid examples are the following:
+///  - "did:poly:ab01cd12ef34ab01cd12ef34ab01cd12"
+/// Invalid examples:
+///  - "did:poly:ab01"
+///  - "did:poly:1"
+///  - "DID:poly:..."
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct IdentityId(u128);
 
 impl IdentityId {
-    /// Generate a ramdomized IdentityId.
-    /// TODO It is not random
+    /// Generate a randomized `IdentityId`.
+    /// # TODO
+    /// It is not random yet. The implementation could use hash of accountId + nonce.
     pub fn generate() -> Self {
         // let v = rand::random::<u128>();
         IdentityId(0u128)
