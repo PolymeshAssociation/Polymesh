@@ -449,13 +449,9 @@ decl_module! {
         fn freeze_signing_keys(origin, did: Vec<u8>) -> Result {
             Self::set_frozen_signing_key_flags( origin, &did, true)
         }
-            unique_roles.dedup();
 
         fn unfreeze_signing_keys(origin, did: Vec<u8>) -> Result {
             Self::set_frozen_signing_key_flags( origin, &did, false)
-            Self::do_update_signing_key(&did, &skey)?;
-            Self::deposit_event( RawEvent::SigningKeyRolesUpdated( did, skey, unique_roles));
-            Ok(())
         }
     }
 }
@@ -525,16 +521,23 @@ impl<T: Trait> Module<T> {
         key: &Key,
         mut roles: Vec<KeyRole>,
     ) -> Result {
+        // Remove duplicates.
         roles.sort();
         roles.dedup();
 
+        let mut new_sk: Option<SigningKey> = None;
+
         <DidRecords<T>>::mutate(target_did, |record| {
             if let Some(mut sk) = (*record).signing_keys.iter().find(|sk| *sk == key).cloned() {
-                sk.roles = roles;
+                rstd::mem::swap(&mut sk.roles, &mut roles);
                 (*record).signing_keys.retain(|sk| sk != key);
-                (*record).signing_keys.push(sk);
+                (*record).signing_keys.push(sk.clone());
+                new_sk = Some(sk);
             }
         });
+
+        Self::deposit_event( RawEvent::SigningKeyRolesUpdated( target_did.clone(),
+                new_sk.unwrap_or_else( || SigningKey::default()), roles));
         Ok(())
     }
 
