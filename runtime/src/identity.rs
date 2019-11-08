@@ -79,7 +79,8 @@ decl_module! {
             Ok(())
         }
 
-        pub fn register_did_2(origin, did: IdentityId, signing_keys: Vec<SigningKey>) -> Result {
+        /// Register signing keys for a new DID. Uses origin key as the master key
+        pub fn register_did(origin, did: IdentityId, signing_keys: Vec<SigningKey>) -> Result {
             let sender = ensure_signed(origin)?;
             let master_key = Key::try_from( sender.encode())?;
 
@@ -114,48 +115,6 @@ decl_module! {
             <DidRecords<T>>::insert(did, record);
 
             Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
-            Ok(())
-        }
-
-
-
-        /// Register signing keys for a new DID. Uses origin key as the master key
-        pub fn register_did(origin, did: IdentityId, signing_keys: Vec<SigningKey>) -> Result {
-            let sender = ensure_signed(origin)?;
-            let master_key = Key::try_from( sender.encode())?;
-
-            // Make sure there's no pre-existing entry for the DID
-            ensure!(!<DidRecords<T>>::exists(did), "DID must be unique");
-
-            // TODO: Subtract the fee
-            let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
-                &sender,
-                Self::did_creation_fee(),
-                WithdrawReason::Fee,
-                ExistenceRequirement::KeepAlive
-                )?;
-
-            for roled_key in &signing_keys {
-                let key = &roled_key.key;
-                if <SigningKeyDid>::exists(key) {
-                    ensure!(<SigningKeyDid>::get(key) == did, "One signing key can only belong to one DID");
-                }
-            }
-
-            for roled_key in &signing_keys {
-                <SigningKeyDid>::insert( &roled_key.key, did);
-            }
-
-            let record = DidRecord {
-                signing_keys: signing_keys.clone(),
-                master_key,
-                ..Default::default()
-            };
-
-            <DidRecords<T>>::insert(did, record);
-
-            Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
-
             Ok(())
         }
 
@@ -1175,24 +1134,4 @@ mod tests {
         let did_rec = Identity::did_records(alice_did);
         assert_eq!(did_rec.signing_keys, vec![charlie_signing_key]);
     }
-
-    /*
-    #[bench]
-    fn bench_did(b: &mut Bencher) {
-        with_externalities(&mut build_ext(), || {
-            let owner_id = Identity::owner();
-            let owner_id_signed = Origin::signed(owner_id);
-            let owner_key = Key::try_from(owner_id.encode()).unwrap();
-
-            let dids = (0..1000)
-                .map(|i| IdentityId::from(i as u128))
-                .collect::<Vec<_>>();
-
-            b.iter(|| {
-                dids.iter().for_each(|did| {
-                    Identity::register_did_2(owner_id_signed.clone(), did.clone(), vec![])
-                })?
-            })
-        });
-    }*/
 }
