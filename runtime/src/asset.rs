@@ -648,8 +648,7 @@ decl_module! {
         let sender = ensure_signed(origin)?;
 
         ensure!(!Self::off_chain_custody_allowance_nonce((ticker.clone(), holder_did.clone(), nonce.clone())), "Signature already used");
-        // TODO:
-        // re-validate the holder_account_id should present as the signing key in the holder_did
+
         let msg = SignData {
             custodian_did: custodian_did.clone(),
             holder_did: holder_did.clone(),
@@ -662,6 +661,11 @@ decl_module! {
         ensure!(
             <identity::Module<T>>::is_signing_key(&caller_did, &Key::try_from(sender.encode())?),
             "sender must be a signing key for DID"
+        );
+        // Validate the holder signing key
+        ensure!(
+            <identity::Module<T>>::is_signing_key(&holder_did, &Key::try_from(holder_account_id.encode())?),
+            "holder signing key must be a signing key for holder DID"
         );
         let new_custody_allowance = Self::total_custody_allowance((ticker.clone(), holder_did.clone()))
             .checked_add(&value)
