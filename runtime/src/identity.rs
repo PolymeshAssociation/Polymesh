@@ -536,8 +536,11 @@ impl<T: Trait> Module<T> {
             }
         });
 
-        Self::deposit_event( RawEvent::SigningKeyRolesUpdated( target_did.clone(),
-                new_sk.unwrap_or_else( || SigningKey::default()), roles));
+        Self::deposit_event(RawEvent::SigningKeyRolesUpdated(
+            target_did.clone(),
+            new_sk.unwrap_or_else(|| SigningKey::default()),
+            roles,
+        ));
         Ok(())
     }
 
