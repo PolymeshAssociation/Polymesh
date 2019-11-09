@@ -277,17 +277,20 @@ decl_module! {
         }
 
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        fn add_claim_issuer(origin, did: Vec<u8>, did_issuer: Vec<u8>) -> Result {
+        fn add_claim_issuer(origin, did: Vec<u8>, claim_issuer_did: Vec<u8>) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let _grant_checked = Self::grant_check_only_master_key( &sender_key, &did)?;
 
-            <ClaimIssuers>::mutate(did.clone(), |old_claim_issuers| {
-                if !old_claim_issuers.contains(&did_issuer) {
-                    old_claim_issuers.push(did_issuer.clone());
+            // Master key shouldn't be added itself as claim issuer.
+            ensure!( did != claim_issuer_did, "Master key cannot add itself as claim issuer");
+
+            <ClaimIssuers>::mutate(&did, |old_claim_issuers| {
+                if !old_claim_issuers.contains(&claim_issuer_did) {
+                    old_claim_issuers.push(claim_issuer_did.clone());
                 }
             });
 
-            Self::deposit_event(RawEvent::NewClaimIssuer(did, did_issuer));
+            Self::deposit_event(RawEvent::NewClaimIssuer(did, claim_issuer_did));
             Ok(())
         }
 
@@ -1168,16 +1171,45 @@ mod tests {
             alice.clone(),
             alice_did.clone()
         ));
-
         // Remove Bob's key.
         assert_ok!(Identity::remove_signing_keys(
             alice.clone(),
             alice_did.clone(),
             vec![bob_key.clone()]
         ));
-
         // Check DidRecord.
         let did_rec = Identity::did_records(alice_did.clone());
         assert_eq!(did_rec.signing_keys, vec![charlie_signing_key]);
+    }
+
+    #[test]
+    fn add_claim_issuer_tests() {
+        with_externalities(&mut build_ext(), &add_claim_issuer_tests_with_externalities);
+    }
+
+    fn add_claim_issuer_tests_with_externalities() {
+        // Register identities
+        let (alice_acc, bob_acc, charlie_acc) = (1u64, 2u64, 3u64);
+        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (_bob, bob_did) = make_account(bob_acc).unwrap();
+
+        // Check `add_claim_issuer` constraints.
+        assert_ok!(Identity::add_claim_issuer(
+            alice.clone(),
+            alice_did.clone(),
+            bob_did.clone()
+        ));
+        assert_err!(
+            Identity::add_claim_issuer(
+                Origin::signed(charlie_acc),
+                alice_did.clone(),
+                bob_did.clone()
+            ),
+            "Only master key of an identity is able to execute this operation"
+        );
+        assert_err!(
+            Identity::add_claim_issuer(alice, alice_did.clone(), alice_did),
+            "Master key cannot add itself as claim issuer"
+        );
     }
 }
