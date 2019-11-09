@@ -472,6 +472,9 @@ decl_event!(
         /// DID, the keys that got removed
         SigningKeysRemoved(Vec<u8>, Vec<Key>),
 
+        /// DID, updated signing key, previous roles
+        SigningKeyRolesUpdated(Vec<u8>, SigningKey, Vec<KeyRole>),
+
         /// DID, old master key account ID, new key
         NewMasterKey(Vec<u8>, AccountId, Key),
 
@@ -518,16 +521,26 @@ impl<T: Trait> Module<T> {
         key: &Key,
         mut roles: Vec<KeyRole>,
     ) -> Result {
+        // Remove duplicates.
         roles.sort();
         roles.dedup();
 
+        let mut new_sk: Option<SigningKey> = None;
+
         <DidRecords<T>>::mutate(target_did, |record| {
             if let Some(mut sk) = (*record).signing_keys.iter().find(|sk| *sk == key).cloned() {
-                sk.roles = roles;
+                rstd::mem::swap(&mut sk.roles, &mut roles);
                 (*record).signing_keys.retain(|sk| sk != key);
-                (*record).signing_keys.push(sk);
+                (*record).signing_keys.push(sk.clone());
+                new_sk = Some(sk);
             }
         });
+
+        Self::deposit_event(RawEvent::SigningKeyRolesUpdated(
+            target_did.clone(),
+            new_sk.unwrap_or_else(|| SigningKey::default()),
+            roles,
+        ));
         Ok(())
     }
 
