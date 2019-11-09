@@ -471,7 +471,7 @@ decl_event!(
         SigningKeysRemoved(IdentityId, Vec<Key>),
 
         /// DID, updated signing key, previous roles
-        SigningKeyRolesUpdated(Vec<u8>, SigningKey, Vec<KeyRole>),
+        SigningKeyRolesUpdated(IdentityId, SigningKey, Vec<KeyRole>),
 
         /// DID, old master key account ID, new key
         NewMasterKey(IdentityId, AccountId, Key),
@@ -535,7 +535,7 @@ impl<T: Trait> Module<T> {
         });
 
         Self::deposit_event(RawEvent::SigningKeyRolesUpdated(
-            target_did.clone(),
+            target_did,
             new_sk.unwrap_or_else(|| SigningKey::default()),
             roles,
         ));
