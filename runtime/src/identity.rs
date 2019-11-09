@@ -299,7 +299,7 @@ decl_module! {
         }
 
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        fn add_claim_issuer(origin, did: Vec<u8>, claim_issuer_did: Vec<u8>) -> Result {
+        pub fn add_claim_issuer(origin, did: Vec<u8>, claim_issuer_did: Vec<u8>) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let _grant_checked = Self::grant_check_only_master_key( &sender_key, &did)?;
 
