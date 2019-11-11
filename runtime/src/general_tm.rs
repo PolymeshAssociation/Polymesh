@@ -3,7 +3,7 @@ use crate::{
     constants::*,
     identity, utils,
 };
-use primitives::Key;
+use primitives::{IdentityId, Key};
 
 use codec::Encode;
 use core::result::Result as StdResult;
@@ -22,7 +22,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Whitelist<U> {
-    investor: Vec<u8>,
+    investor: IdentityId,
     can_send_after: U,
     can_receive_after: U,
 }
@@ -34,7 +34,7 @@ decl_storage! {
         WhitelistsByToken get(whitelists_by_token): map (Vec<u8>, u32) => Vec<Whitelist<T::Moment>>;
 
         // (Ticker, ID, DID) -> whitelist entry
-        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (Vec<u8>, u32, Vec<u8>) => Whitelist<T::Moment>;
+        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (Vec<u8>, u32, IdentityId) => Whitelist<T::Moment>;
 
         WhitelistEntriesCount get(whitelist_entries_count): map (Vec<u8>,u32) => u64;
         WhitelistCount get(whitelist_count): u32;
@@ -49,17 +49,17 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        pub fn add_to_whitelist(origin, did: Vec<u8>, ticker: Vec<u8>, whitelist_id: u32, investor_did: Vec<u8>, expiry: T::Moment) -> Result {
+        pub fn add_to_whitelist(origin, did: IdentityId, ticker: Vec<u8>, whitelist_id: u32, investor_did: IdentityId, expiry: T::Moment) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let upper_ticker = utils::bytes_to_upper(&ticker);
-            ensure!(Self::is_owner(&upper_ticker, &did),"Sender must be the token owner");
+            ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
             let whitelist = Whitelist {
-                investor: investor_did.clone(),
+                investor: investor_did,
                 can_send_after:expiry.clone(),
                 can_receive_after:expiry
             };
@@ -107,7 +107,7 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(ticker: &Vec<u8>, sender_did: &Vec<u8>) -> bool {
+    pub fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
         let upper_ticker = utils::bytes_to_upper(ticker);
         T::Asset::is_owner(&upper_ticker, sender_did)
         // let token = T::Asset::token_details(token_id);
@@ -117,46 +117,54 @@ impl<T: Trait> Module<T> {
     ///  Sender restriction verification
     pub fn verify_restriction(
         ticker: &Vec<u8>,
-        from_did: &Vec<u8>,
-        to_did: &Vec<u8>,
+        from_did_opt: Option<IdentityId>,
+        to_did_opt: Option<IdentityId>,
         _value: T::TokenBalance,
     ) -> StdResult<u8, &'static str> {
         let upper_ticker = utils::bytes_to_upper(ticker);
         let now = <timestamp::Module<T>>::get();
-        let empty_did: Vec<u8> = vec![];
 
         // issuance case
-        if *from_did == empty_did {
-            if !Self::_check_investor_status(to_did).is_ok() {
-                sr_primitives::print("to account is not active");
-                return Ok(ERC1400_INVALID_RECEIVER);
-            }
+        if from_did_opt.is_none() {
+            if let Some(to_did) = to_did_opt.clone() {
+                if !Self::_check_investor_status(to_did).is_ok() {
+                    sr_primitives::print("to account is not active");
+                    return Ok(ERC1400_INVALID_RECEIVER);
+                }
 
-            if !Self::is_whitelisted(&upper_ticker, to_did).is_ok() {
-                sr_primitives::print("to account is not whitelisted");
-                return Ok(ERC1400_INVALID_RECEIVER);
-            }
+                if !Self::is_whitelisted(&upper_ticker, to_did).is_ok() {
+                    sr_primitives::print("to account is not whitelisted");
+                    return Ok(ERC1400_INVALID_RECEIVER);
+                }
 
-            sr_primitives::print("GTM: Passed from the issuance case");
-            return Ok(ERC1400_TRANSFER_SUCCESS);
-        } else if *to_did == empty_did {
-            if !Self::_check_investor_status(from_did).is_ok() {
-                sr_primitives::print("from account is not active");
-                return Ok(ERC1400_INVALID_SENDER);
+                sr_primitives::print("GTM: Passed from the issuance case");
+                return Ok(ERC1400_TRANSFER_SUCCESS);
             }
+        } else if to_did_opt.is_none() {
+            if let Some(from_did) = from_did_opt.clone() {
+                if !Self::_check_investor_status(from_did).is_ok() {
+                    sr_primitives::print("from account is not active");
+                    return Ok(ERC1400_INVALID_SENDER);
+                }
 
-            if !Self::is_whitelisted(&upper_ticker, from_did).is_ok() {
-                sr_primitives::print("from account is not whitelisted");
-                return Ok(ERC1400_INVALID_SENDER);
+                if !Self::is_whitelisted(&upper_ticker, from_did).is_ok() {
+                    sr_primitives::print("from account is not whitelisted");
+                    return Ok(ERC1400_INVALID_SENDER);
+                }
+                sr_primitives::print("GTM: Passed from the burn case");
+                return Ok(ERC1400_TRANSFER_SUCCESS);
             }
-            sr_primitives::print("GTM: Passed from the burn case");
-            return Ok(ERC1400_TRANSFER_SUCCESS);
         } else {
             // loop through existing whitelists
             let whitelist_count = Self::whitelist_count();
             if whitelist_count > 0 {
                 sr_primitives::print("We have at least one entry to verify");
             }
+
+            // Safe because `is_none` is checked.
+            let from_did = from_did_opt.unwrap();
+            let to_did = to_did_opt.unwrap();
+
             if !Self::_check_investor_status(from_did).is_ok() {
                 sr_primitives::print("from account is not active");
                 return Ok(ERC1400_INVALID_SENDER);
@@ -167,9 +175,8 @@ impl<T: Trait> Module<T> {
             }
             for x in 0..whitelist_count {
                 let whitelist_for_from =
-                    Self::whitelist_for_restriction((ticker.clone(), x, from_did.clone()));
-                let whitelist_for_to =
-                    Self::whitelist_for_restriction((ticker.clone(), x, to_did.clone()));
+                    Self::whitelist_for_restriction((ticker.clone(), x, from_did));
+                let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(), x, to_did));
 
                 if (whitelist_for_from.can_send_after > 0.into()
                     && now >= whitelist_for_from.can_send_after)
@@ -184,7 +191,7 @@ impl<T: Trait> Module<T> {
         Ok(ERC1400_TRANSFER_FAILURE)
     }
 
-    pub fn is_whitelisted(ticker: &[u8], holder_did: &Vec<u8>) -> Result {
+    pub fn is_whitelisted(ticker: &[u8], holder_did: IdentityId) -> Result {
         let upper_ticker = utils::bytes_to_upper(ticker);
         let now = <timestamp::Module<T>>::get();
         ensure!(
@@ -207,7 +214,7 @@ impl<T: Trait> Module<T> {
         Err("Not whitelisted")
     }
 
-    fn _check_investor_status(_holder_did: &Vec<u8>) -> Result {
+    fn _check_investor_status(_holder_did: IdentityId) -> Result {
         // TODO check with claim.
         /*let investor = <identity::DidRecords<T>>::get(holder_did);
         ensure!(
