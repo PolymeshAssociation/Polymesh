@@ -1289,7 +1289,9 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
         len: usize,
     ) -> TransactionValidity {
         if self.0 != Zero::zero() {
-            return InvalidTransaction::Payment.into();
+            // Tip must be set to zero.
+            // This is enforced to curb front running.
+            return InvalidTransaction::Custom(7).into();
         }
         // pay any fees.
         let fee = Self::compute_fee(len, info);
