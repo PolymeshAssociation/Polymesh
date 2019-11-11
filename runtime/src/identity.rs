@@ -561,9 +561,9 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn fetch_claim_value(
-        did: Vec<u8>,
+        did: IdentityId,
         claim_key: Vec<u8>,
-        claim_issuer: Vec<u8>,
+        claim_issuer: IdentityId,
     ) -> Option<ClaimValue> {
         let claim_meta_data = ClaimMetaData {
             claim_key: claim_key,
@@ -580,9 +580,9 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn fetch_claim_value_multiple_issuers(
-        did: Vec<u8>,
+        did: IdentityId,
         claim_key: Vec<u8>,
-        claim_issuers: Vec<Vec<u8>>,
+        claim_issuers: Vec<IdentityId>,
     ) -> Option<ClaimValue> {
         for claim_issuer in claim_issuers {
             let claim_value = Self::fetch_claim_value(did.clone(), claim_key.clone(), claim_issuer);

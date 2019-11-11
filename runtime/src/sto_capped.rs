@@ -337,8 +337,8 @@ impl<T: Trait> Module<T> {
     }
 
     fn _pre_validation(
-        ticker: &Vec<u8>,
-        did: IdentityId,
+        _ticker: &Vec<u8>,
+        _did: IdentityId,
         selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> Result {
         // Validate that buyer is whitelisted for primary issuance.

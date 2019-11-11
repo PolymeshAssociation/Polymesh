@@ -71,7 +71,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
             <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
                 if !old_asset_rules.contains(&asset_rule) {
@@ -84,13 +84,13 @@ decl_module! {
             Ok(())
         }
 
-        pub fn remove_active_rule(origin, did: Vec<u8>, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+        pub fn remove_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
             <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
                 *old_asset_rules = old_asset_rules
@@ -105,13 +105,13 @@ decl_module! {
             Ok(())
         }
 
-        pub fn reset_active_rules(origin, did: Vec<u8>, _ticker: Vec<u8>) -> Result {
+        pub fn reset_active_rules(origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
+            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
             <ActiveRules>::remove(ticker.clone());
 
@@ -137,9 +137,9 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn fetch_value(
-        did: Vec<u8>,
+        did: IdentityId,
         key: Vec<u8>,
-        trusted_issuers: Vec<Vec<u8>>,
+        trusted_issuers: Vec<IdentityId>,
     ) -> Option<ClaimValue> {
         <identity::Module<T>>::fetch_claim_value_multiple_issuers(did, key, trusted_issuers)
     }
@@ -156,47 +156,56 @@ impl<T: Trait> Module<T> {
         let active_rules = Self::active_rules(ticker.clone());
         for active_rule in active_rules {
             let mut rule_broken = false;
-            for sender_rule in active_rule.sender_rules {
-                let identity_value = Self::fetch_value(
-                    from_did.clone(),
-                    sender_rule.key,
-                    sender_rule.trusted_issuers,
-                );
-                rule_broken = match identity_value {
-                    None => true,
-                    Some(x) => utils::check_rule(
-                        sender_rule.value,
-                        x.value,
-                        x.data_type,
-                        sender_rule.operator,
-                    ),
-                };
+
+            if from_did_opt.is_some() {
+                let from_did = from_did_opt.unwrap();
+                for sender_rule in active_rule.sender_rules {
+                    let identity_value = Self::fetch_value(
+                        from_did.clone(),
+                        sender_rule.key,
+                        sender_rule.trusted_issuers,
+                    );
+                    rule_broken = match identity_value {
+                        None => true,
+                        Some(x) => utils::check_rule(
+                            sender_rule.value,
+                            x.value,
+                            x.data_type,
+                            sender_rule.operator,
+                        ),
+                    };
+                    if rule_broken {
+                        break;
+                    }
+                }
                 if rule_broken {
-                    break;
+                    continue;
                 }
             }
-            if rule_broken {
-                continue;
-            }
-            for receiver_rule in active_rule.receiver_rules {
-                let identity_value = Self::fetch_value(
-                    from_did.clone(),
-                    receiver_rule.key,
-                    receiver_rule.trusted_issuers,
-                );
-                rule_broken = match identity_value {
-                    None => true,
-                    Some(x) => utils::check_rule(
-                        receiver_rule.value,
-                        x.value,
-                        x.data_type,
-                        receiver_rule.operator,
-                    ),
-                };
-                if rule_broken {
-                    break;
+
+            if to_did_opt.is_some() {
+                let to_did = to_did_opt.unwrap();
+                for receiver_rule in active_rule.receiver_rules {
+                    let identity_value = Self::fetch_value(
+                        to_did.clone(),
+                        receiver_rule.key,
+                        receiver_rule.trusted_issuers,
+                    );
+                    rule_broken = match identity_value {
+                        None => true,
+                        Some(x) => utils::check_rule(
+                            receiver_rule.value,
+                            x.value,
+                            x.data_type,
+                            receiver_rule.operator,
+                        ),
+                    };
+                    if rule_broken {
+                        break;
+                    }
                 }
             }
+
             if !rule_broken {
                 sr_primitives::print("Satisfied Identity TM restrictions");
                 return Ok(ERC1400_TRANSFER_SUCCESS);
