@@ -371,7 +371,7 @@ decl_module! {
 
             // After checks are ensured introduce side effects
             for i in 0..investor_dids.len() {
-                Self::_update_checkpoint(&ticker, &investor_dids[i], current_balances[i]);
+                Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
 
                 <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i]), updated_balances[i]);
 
@@ -909,8 +909,8 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use crate::{exemption, identity};
-    use rand::Rng;
     use primitives::{IdentityId, Key};
+    use rand::Rng;
 
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
