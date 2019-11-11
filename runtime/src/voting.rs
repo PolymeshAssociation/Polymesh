@@ -38,7 +38,7 @@ decl_storage! {
         // Mapping from ticker to vector of Ballot names. Helper data for the UI.
         pub BallotNames get(ballot_names): map Vec<u8> -> Vec<Vec<u8>>;
         // Helper data to make voting cheaper.
-        // (BallotName, ProposalName) -> NoOfChoices
+        // (ticker, BallotName) -> NoOfChoices
         pub TotalChoices get(total_choices): map (Vec<u8>, Vec<u8>) -> u64;
         // (Ticker, BallotName, DID) -> Vector of vote weights.
         // weight at 0 index means weight for choice 1 of proposal 1.
@@ -62,7 +62,6 @@ decl_module! {
         /// Adds a ballot
         ///
         /// # Arguments
-        ///
         /// * `did` - DID of the token owner. Sender must be a signing key or master key of this DID
         pub fn add_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot) -> Result {
             let sender = ensure_signed(origin)?;
@@ -111,13 +110,36 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Ensure the existence of the ballot
-            ensure!(<Ballots>::exists(&upper_ticker, &ballot_name), "Ballot does not exist");
+            ensure!(<Ballots>::exists((&upper_ticker, &ballot_name)), "Ballot does not exist");.
+            let ballot = <Ballots>::get((&upper_ticker, &ballot_name));
 
-            if <Votes>::exists(&upper_ticker, &did, &ballot_name) {
-                //User wants to change their vote. We first need to subtract their existing vote.
-                let vote = <Votes>::get(&upper_ticker, &did, &ballot_name);
+            // Ensure vote is valid
+            ensure!(votes.len() == <TotalChoices>::get((&upper_ticker, &ballot_name), "Invalid vote");
 
+            let total_votes = <T as utils::Trait>::as_tb(0);
+            for vote in votes {
+                total_votes += vote;
             }
+
+            ensure!(total_votes <= <asset::Module<T>>::get_balance_at(&ticker, did, ballot.checkpoint_id), "Not enough balance");
+
+            if <Votes>::exists(&upper_ticker, &ballot_name, &did) {
+                //User wants to change their vote. We first need to subtract their existing vote.
+                let previous_votes = <Votes>::get((&upper_ticker, &ballot_name, &did));
+                <Results>::mutate((&upper_ticker, &ballot_name), |results| {
+                    for i in 0..results.len() {
+                        results[i] -= previous_votes[i];
+                    }
+                });
+            }
+
+            <Results>::mutate((&upper_ticker, &ballot_name), |results| {
+                for i in 0..results.len() {
+                    results[i] += votes[i];
+                }
+            });
+
+            <Votes>::insert((&upper_ticker, &ballot_name, &did), votes);
 
             Ok(())
         }
