@@ -9,7 +9,7 @@ use runtime::identity;
 
 use bencher::Bencher;
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use sr_io::{with_externalities, TestExternalities};
 use sr_primitives::{
     testing::Header,
@@ -111,7 +111,7 @@ fn bench_register_did(b: &mut Bencher) {
     with_externalities(&mut build_ext(), || {
         let owner_id = Identity::owner();
         let owner_id_signed = Origin::signed(owner_id);
-        let owner_key = Key::try_from(owner_id.encode()).unwrap();
+        let _owner_key = Key::try_from(owner_id.encode()).unwrap();
 
         let dids = (0..1000)
             .map(|i| IdentityId::from(i as u128))
@@ -119,7 +119,7 @@ fn bench_register_did(b: &mut Bencher) {
 
         b.iter(|| {
             dids.iter().for_each(|did| {
-                Identity::register_did(owner_id_signed.clone(), *did, vec![]);
+                let _rs = Identity::register_did(owner_id_signed.clone(), *did, vec![]);
             })
         });
     });
