@@ -1,5 +1,5 @@
 use crate::{asset::AssetTrait, constants::*, exemption, identity, utils};
-use primitives::Key;
+use primitives::{IdentityId, Key};
 
 use codec::Encode;
 use core::result::Result as StdResult;
@@ -37,14 +37,14 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        fn toggle_maximum_percentage_restriction(origin, did: Vec<u8>, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
+        fn toggle_maximum_percentage_restriction(origin, did: IdentityId, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
             let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            ensure!(Self::is_owner(&upper_ticker, &did),"Sender DID must be the token owner");
+            ensure!(Self::is_owner(&upper_ticker, did),"Sender DID must be the token owner");
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
 
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
@@ -66,7 +66,7 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(ticker: &Vec<u8>, sender_did: &Vec<u8>) -> bool {
+    pub fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
         let upper_ticker = utils::bytes_to_upper(ticker);
         T::Asset::is_owner(&upper_ticker, sender_did)
     }
@@ -74,8 +74,8 @@ impl<T: Trait> Module<T> {
     // Transfer restriction verification logic
     pub fn verify_restriction(
         ticker: &[u8],
-        _from_did: &Vec<u8>,
-        to_did: &Vec<u8>,
+        _from_did_opt: Option<IdentityId>,
+        to_did_opt: Option<IdentityId>,
         value: T::TokenBalance,
     ) -> StdResult<u8, &'static str> {
         let upper_ticker = utils::bytes_to_upper(ticker);
@@ -83,32 +83,37 @@ impl<T: Trait> Module<T> {
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
         // TODO: Mould the integer into the module identity
-        let is_exempted = <exemption::Module<T>>::is_exempted(&upper_ticker, 2, to_did.clone());
-        if max_percentage != 0 && !is_exempted {
-            let new_balance = (T::Asset::balance(&upper_ticker, to_did.clone()))
-                .checked_add(&value)
-                .ok_or("Balance of to will get overflow")?;
-            let total_supply = T::Asset::total_supply(&upper_ticker);
+        if let Some(to_did) = to_did_opt.clone() {
+            let is_exempted = <exemption::Module<T>>::is_exempted(&upper_ticker, 2, to_did);
+            if max_percentage != 0 && !is_exempted {
+                let new_balance = (T::Asset::balance(&upper_ticker, to_did))
+                    .checked_add(&value)
+                    .ok_or("Balance of to will get overflow")?;
+                let total_supply = T::Asset::total_supply(&upper_ticker);
 
-            let percentage_balance = (new_balance
-                .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(18))))
-                .ok_or("unsafe multiplication")?)
-            .checked_div(&total_supply)
-            .ok_or("unsafe division")?;
+                let percentage_balance = (new_balance
+                    .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(18))))
+                    .ok_or("unsafe multiplication")?)
+                .checked_div(&total_supply)
+                .ok_or("unsafe division")?;
 
-            let allowed_token_amount = (<T as utils::Trait>::as_tb(max_percentage as u128))
-                .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(16))))
-                .ok_or("unsafe percentage multiplication")?;
+                let allowed_token_amount = (<T as utils::Trait>::as_tb(max_percentage as u128))
+                    .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(16))))
+                    .ok_or("unsafe percentage multiplication")?;
 
-            if percentage_balance > allowed_token_amount {
-                sr_primitives::print(
-                    "It is failing because it is not validating the PercentageTM restrictions",
-                );
-                return Ok(APP_FUNDS_LIMIT_REACHED);
+                if percentage_balance > allowed_token_amount {
+                    sr_primitives::print(
+                        "It is failing because it is not validating the PercentageTM restrictions",
+                    );
+                    return Ok(APP_FUNDS_LIMIT_REACHED);
+                }
             }
+            sr_primitives::print("It is passing thorugh the PercentageTM");
+            Ok(ERC1400_TRANSFER_SUCCESS)
+        } else {
+            sr_primitives::print("to account is not active");
+            Ok(ERC1400_INVALID_RECEIVER)
         }
-        sr_primitives::print("It is passing thorugh the PercentageTM");
-        Ok(ERC1400_TRANSFER_SUCCESS)
     }
 }
 
