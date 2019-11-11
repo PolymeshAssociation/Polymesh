@@ -6,6 +6,7 @@ edition = "2018"
 # build = "build.rs"
 
 [dependencies]
+bencher = "0.1.5"
 rand = "0.7.2"
 serde_json = { version = "1.0.40", default-features = false }
 chrono = { version = "0.4.9", default-features = false }
@@ -107,9 +108,6 @@ std = [
 	"babe-primitives/std",
     "substrate-session/std"
 ]
-
-[dev-dependencies]
-bencher = "0.1.5"
 
 [[bench]]
 name = "bench_identity"
