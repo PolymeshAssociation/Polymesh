@@ -6,7 +6,7 @@ use crate::utils;
 use codec::Encode;
 use core::result::Result as StdResult;
 use identity::ClaimValue;
-use primitives::Key;
+use primitives::{IdentityId, Key};
 use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -48,7 +48,7 @@ pub struct AssetRule {
 pub struct RuleData {
     key: Vec<u8>,
     value: Vec<u8>,
-    trusted_issuers: Vec<Vec<u8>>,
+    trusted_issuers: Vec<IdentityId>,
     operator: Operators,
 }
 
@@ -64,12 +64,12 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
-        pub fn add_active_rule(origin, did: Vec<u8>, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+        pub fn add_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(ticker.clone(), did.clone()), "user is not authorized");
 
@@ -131,9 +131,9 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(_ticker: Vec<u8>, sender_did: Vec<u8>) -> bool {
-        let ticker = utils::bytes_to_upper(_ticker.as_slice());
-        T::Asset::is_owner(&ticker, &sender_did)
+    pub fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
+        let upper_ticker = utils::bytes_to_upper(ticker);
+        T::Asset::is_owner(&upper_ticker, sender_did)
     }
 
     pub fn fetch_value(
@@ -147,8 +147,8 @@ impl<T: Trait> Module<T> {
     ///  Sender restriction verification
     pub fn verify_restriction(
         ticker: &Vec<u8>,
-        from_did: &Vec<u8>,
-        to_did: &Vec<u8>,
+        from_did_opt: Option<IdentityId>,
+        to_did_opt: Option<IdentityId>,
         _value: T::TokenBalance,
     ) -> StdResult<u8, &'static str> {
         // Transfer is valid if All reciever and sender rules of any asset rule are valid.

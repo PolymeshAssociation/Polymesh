@@ -4,7 +4,7 @@ use crate::{
     simple_token::{self, SimpleTokenTrait},
     utils,
 };
-use primitives::Key;
+use primitives::{IdentityId, Key};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
@@ -26,7 +26,7 @@ pub trait Trait:
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct STO<V, W> {
-    beneficiary_did: Vec<u8>,
+    beneficiary_did: IdentityId,
     cap: V,
     sold: V,
     rate: u64,
@@ -37,7 +37,7 @@ pub struct STO<V, W> {
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Investment<V, W> {
-    investor_did: Vec<u8>,
+    investor_did: IdentityId,
     amount_paid: V,
     tokens_purchased: V,
     last_purchase_date: W,
@@ -62,10 +62,10 @@ decl_storage! {
         TokensCountForSto get(tokens_count_for_sto): map(Vec<u8>, u32) => u32;
         // To track the investment data of the investor corresponds to ticker
         //[asset_ticker][sto_id][DID] => Investment structure
-        InvestmentData get(investment_data): map(Vec<u8>, u32, Vec<u8>) => Investment<T::TokenBalance, T::Moment>;
+        InvestmentData get(investment_data): map(Vec<u8>, u32, IdentityId) => Investment<T::TokenBalance, T::Moment>;
         // To track the investment amount of the investor corresponds to ticker using SimpleToken
         // [asset_ticker][simple_token_ticker][sto_id][accountId] => Invested balance
-        SimpleTokenSpent get(simple_token_token_spent): map(Vec<u8>, Vec<u8>, u32, Vec<u8>) => T::TokenBalance;
+        SimpleTokenSpent get(simple_token_token_spent): map(Vec<u8>, Vec<u8>, u32, IdentityId) => T::TokenBalance;
 
     }
 }
@@ -79,9 +79,9 @@ decl_module! {
 
         pub fn launch_sto(
             origin,
-            did: Vec<u8>,
+            did: IdentityId,
             _ticker: Vec<u8>,
-            beneficiary_did: Vec<u8>,
+            beneficiary_did: IdentityId,
             cap: T::TokenBalance,
             rate: u64,
             start_date: T::Moment,
@@ -91,11 +91,11 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sold:T::TokenBalance = 0.into();
-            ensure!(Self::is_owner(&ticker, &did),"Sender must be the token owner");
+            ensure!(Self::is_owner(&ticker, did),"Sender must be the token owner");
 
             let sto = STO {
                 beneficiary_did,
@@ -131,16 +131,16 @@ decl_module! {
             Ok(())
         }
 
-        pub fn buy_tokens(origin, did: Vec<u8>,  _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> Result {
+        pub fn buy_tokens(origin, did: IdentityId,  _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let mut selected_sto = Self::stos_by_token((ticker.clone(), sto_id));
             // Pre validation checks
-            ensure!(Self::_pre_validation(&_ticker, &did, selected_sto.clone()).is_ok(), "Invalidate investment");
+            ensure!(Self::_pre_validation(&_ticker, did, selected_sto.clone()).is_ok(), "Invalidate investment");
             // Make sure sender has enough balance
             let sender_balance = <balances::Module<T> as Currency<_>>::free_balance(&sender);
             ensure!(sender_balance >= value,"Insufficient funds");
@@ -157,7 +157,7 @@ decl_module! {
                 .ok_or("overflow while calculating tokens sold")?;
 
             // Mint tokens and update STO
-            T::Asset::_mint_from_sto(&ticker, &did, token_amount_value.0)?;
+            T::Asset::_mint_from_sto(&ticker, did, token_amount_value.0)?;
 
             // Transfer poly to token owner
             // TODO: transfer between DIDs
@@ -182,11 +182,11 @@ decl_module! {
             Ok(())
         }
 
-        pub fn modify_allowed_tokens(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32, simple_token_ticker: Vec<u8>, modify_status: bool) -> Result {
+        pub fn modify_allowed_tokens(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32, simple_token_ticker: Vec<u8>, modify_status: bool) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
@@ -196,7 +196,7 @@ decl_module! {
             // or STO should be in non-active stage
             ensure!(now < selected_sto.start_date || !selected_sto.active, "STO is already started");
 
-            ensure!(Self::is_owner(&ticker,&did), "Not authorised to execute this function");
+            ensure!(Self::is_owner(&ticker,did), "Not authorised to execute this function");
 
             let token_index = Self::token_index_for_sto((ticker.clone(), sto_id, simple_token_ticker.clone()));
             let token_count = Self::tokens_count_for_sto((ticker.clone(), sto_id));
@@ -226,11 +226,11 @@ decl_module! {
 
         }
 
-        pub fn buy_tokens_by_simple_token(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32, value: T::TokenBalance, simple_token_ticker: Vec<u8>) -> Result {
+        pub fn buy_tokens_by_simple_token(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32, value: T::TokenBalance, simple_token_ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
@@ -238,7 +238,7 @@ decl_module! {
             ensure!(Self::token_index_for_sto((ticker.clone(), sto_id, simple_token_ticker.clone())) != None, "Given token is not a permitted investment currency");
             let mut selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
             // Pre validation checks
-            ensure!(Self::_pre_validation(&_ticker, &did, selected_sto.clone()).is_ok(), "Invalidate investment");
+            ensure!(Self::_pre_validation(&_ticker, did, selected_sto.clone()).is_ok(), "Invalidate investment");
             // Make sure sender has enough balance
             ensure!(T::SimpleTokenTrait::balance_of(simple_token_ticker.clone(), did.clone()) >= value, "Insufficient balance");
 
@@ -257,9 +257,9 @@ decl_module! {
                                     .ok_or("overflow while updating the simple_token investment value")?;
 
             // Mint tokens and update STO
-            let _minted_tokes = T::Asset::_mint_from_sto(&ticker, &did, token_amount_value.0);
+            let _minted_tokes = T::Asset::_mint_from_sto(&ticker, did, token_amount_value.0);
             // Transfer the simple_token invested token to beneficiary account
-            T::SimpleTokenTrait::transfer(&did, &simple_token_ticker, &selected_sto.beneficiary_did, token_amount_value.1)?;
+            T::SimpleTokenTrait::transfer(did, &simple_token_ticker, selected_sto.beneficiary_did, token_amount_value.1)?;
 
             // Update storage values
             Self::_update_storage(
@@ -275,11 +275,11 @@ decl_module! {
             Ok(())
         }
 
-        pub fn pause_sto(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32) -> Result {
+        pub fn pause_sto(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             // Check valid STO id
@@ -295,11 +295,11 @@ decl_module! {
             Ok(())
         }
 
-        pub fn unpause_sto(origin, did: Vec<u8>, _ticker: Vec<u8>, sto_id: u32) -> Result {
+        pub fn unpause_sto(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             // Check valid STO id
@@ -326,19 +326,19 @@ decl_event!(
         ModifyAllowedTokens(Vec<u8>, Vec<u8>, u32, bool),
         //Emit when Asset get purchased by the investor
         // Ticker, SimpleToken token, sto_id, investor DID, amount invested, amount of token purchased
-        AssetPurchase(Vec<u8>, Vec<u8>, u32, Vec<u8>, Balance, Balance),
+        AssetPurchase(Vec<u8>, Vec<u8>, u32, IdentityId, Balance, Balance),
     }
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(ticker: &Vec<u8>, did: &Vec<u8>) -> bool {
+    pub fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool {
         let upper_ticker = utils::bytes_to_upper(ticker.as_slice());
         T::Asset::is_owner(&upper_ticker, did)
     }
 
     fn _pre_validation(
         ticker: &Vec<u8>,
-        did: &Vec<u8>,
+        did: IdentityId,
         selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> Result {
         // Validate that buyer is whitelisted for primary issuance.
@@ -384,7 +384,7 @@ impl<T: Trait> Module<T> {
     fn _update_storage(
         ticker: Vec<u8>,
         sto_id: u32,
-        did: Vec<u8>,
+        did: IdentityId,
         investment_amount: T::TokenBalance,
         new_tokens_minted: T::TokenBalance,
         simple_token_ticker: Vec<u8>,
@@ -392,8 +392,8 @@ impl<T: Trait> Module<T> {
         selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> Result {
         // Store Investment DATA
-        let mut investor_holder = Self::investment_data((ticker.clone(), sto_id, did.clone()));
-        if investor_holder.investor_did == Vec::<u8>::default() {
+        let mut investor_holder = Self::investment_data((ticker.clone(), sto_id, did));
+        if investor_holder.investor_did == IdentityId::default() {
             investor_holder.investor_did = did.clone();
         }
         investor_holder.tokens_purchased = investor_holder
@@ -404,12 +404,7 @@ impl<T: Trait> Module<T> {
 
         if simple_token_ticker != vec![0] {
             <SimpleTokenSpent<T>>::insert(
-                (
-                    ticker.clone(),
-                    simple_token_ticker.clone(),
-                    sto_id,
-                    did.clone(),
-                ),
+                (ticker.clone(), simple_token_ticker.clone(), sto_id, did),
                 simple_token_investment,
             );
         } else {
