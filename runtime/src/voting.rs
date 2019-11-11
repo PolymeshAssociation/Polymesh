@@ -3,7 +3,7 @@ use crate::{
     identity,
     utils,
 };
-
+use primitives::{IdentityId, Key};
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
@@ -38,12 +38,13 @@ decl_storage! {
         // Mapping from ticker to vector of Ballot names. Helper data for the UI.
         pub BallotNames get(ballot_names): map Vec<u8> -> Vec<Vec<u8>>;
         // Helper data to make voting cheaper.
+        // (BallotName, ProposalName) -> NoOfChoices
         pub TotalChoices get(total_choices): map (Vec<u8>, Vec<u8>) -> u64;
         // (Ticker, BallotName, DID) -> Vector of vote weights.
         // weight at 0 index means weight for choice 1 of proposal 1.
         // weight at 1 index means weight for choice 2 of proposal 1.
         // User must enter 0 vote weight if they don't want to vote for a choice.
-        pub Votes get(votes): map (Vec<u8>, Vec<u8>, Vec<u8>) -> Vec<T:TokenBalance>;
+        pub Votes get(votes): map (Vec<u8>, Vec<u8>, IdentityId) -> Vec<T:TokenBalance>;
         // (Ticker, BallotName) -> Vector of current vote weights.
         // weight at 0 index means weight for choice 1 of proposal 1.
         // weight at 1 index means weight for choice 2 of proposal 1.
@@ -63,12 +64,12 @@ decl_module! {
         /// # Arguments
         ///
         /// * `did` - DID of the token owner. Sender must be a signing key or master key of this DID
-        pub fn add_ballot(origin, did: Vec<u8>, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot) -> Result {
+        pub fn add_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot) -> Result {
             let sender = ensure_signed(origin)?;
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, &did),"Sender must be the token owner");
 
             // Ensure the uniqueness of the ballot
@@ -102,12 +103,12 @@ decl_module! {
             Ok(())
         }
 
-        pub fn vote(origin, did: Vec<u8>, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T:TokenBalance>) -> Result {
+        pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T:TokenBalance>) -> Result {
             let sender = ensure_signed(origin)?;
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Ensure the existence of the ballot
             ensure!(<Ballots>::exists(&upper_ticker, &ballot_name), "Ballot does not exist");
