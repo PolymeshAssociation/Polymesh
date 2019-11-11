@@ -56,12 +56,12 @@ pub mod constants;
 use constants::{currency::*, time::*};
 
 mod asset;
-mod balances;
+pub mod balances;
 mod contracts_wrapper;
 mod dividend;
 mod exemption;
 mod general_tm;
-mod identity;
+pub mod identity;
 mod percentage_tm;
 mod registry;
 mod simple_token;
