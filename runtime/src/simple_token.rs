@@ -2,7 +2,7 @@
 //!
 //! This module implements a simple SimpleToken API on top of Polymesh.
 use crate::{balances, identity, utils};
-use primitives::Key;
+use primitives::{IdentityId, Key};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
@@ -23,16 +23,16 @@ pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trai
 pub struct SimpleTokenRecord<U> {
     pub ticker: Vec<u8>,
     pub total_supply: U,
-    pub owner_did: Vec<u8>,
+    pub owner_did: IdentityId,
 }
 
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as SimpleToken {
         // ticker, owner DID, spender DID -> allowance amount
-        Allowance get(allowance): map (Vec<u8>, Vec<u8>, Vec<u8>) => T::TokenBalance;
+        Allowance get(allowance): map (Vec<u8>, IdentityId, IdentityId) => T::TokenBalance;
         // ticker, DID
-        pub BalanceOf get(balance_of): map (Vec<u8>, Vec<u8>) => T::TokenBalance;
+        pub BalanceOf get(balance_of): map (Vec<u8>, IdentityId) => T::TokenBalance;
         // How much creating a new SimpleToken token costs in base currency
         CreationFee get(creation_fee) config(): T::Balance;
         // Token Details
@@ -48,17 +48,17 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        pub fn create_token(origin, did: Vec<u8>, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+        pub fn create_token(origin, did: IdentityId, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
             // ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
-            <identity::DidRecords<T>>::mutate(&did, |record| -> Result {
+            <identity::DidRecords<T>>::mutate( did, |record| -> Result {
                 record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
                 Ok(())
             })?;
@@ -80,15 +80,15 @@ decl_module! {
             Ok(())
         }
 
-        fn approve(origin, did: Vec<u8>, ticker: Vec<u8>, spender_did: Vec<u8>, value: T::TokenBalance) -> Result {
+        fn approve(origin, did: IdentityId, ticker: Vec<u8>, spender_did: IdentityId, value: T::TokenBalance) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker_did = (ticker.clone(), did.clone());
             ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            let ticker_did_spender_did = (ticker.clone(), did.clone(), spender_did.clone());
+            let ticker_did_spender_did = (ticker.clone(), did, spender_did);
             let allowance = Self::allowance(&ticker_did_spender_did);
             let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
             <Allowance<T>>::insert(&ticker_did_spender_did, updated_allowance);
@@ -98,28 +98,28 @@ decl_module! {
             Ok(())
         }
 
-        pub fn transfer(origin, did: Vec<u8>, ticker: Vec<u8>, to_did: Vec<u8>, amount: T::TokenBalance) -> Result {
+        pub fn transfer(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, amount: T::TokenBalance) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            Self::_transfer(&ticker, &did, &to_did, amount)
+            Self::_transfer(&ticker, did, to_did, amount)
         }
 
-        fn transfer_from(origin, did: Vec<u8>, ticker: Vec<u8>, from_did: Vec<u8>, to_did: Vec<u8>, amount: T::TokenBalance) -> Result {
+        fn transfer_from(origin, did: IdentityId, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, amount: T::TokenBalance) -> Result {
             let spender = ensure_signed(origin)?;
 
             // Check that spender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, &Key::try_from(spender.encode())?), "spender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(spender.encode())?), "spender must be a signing key for DID");
 
-            let ticker_from_did_did = (ticker.clone(), from_did.clone(), did.clone());
+            let ticker_from_did_did = (ticker.clone(), from_did, did);
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist.");
             let allowance = Self::allowance(&ticker_from_did_did);
             ensure!(allowance >= amount, "Not enough allowance.");
 
             // Needs to happen before allowance subtraction so that the from balance is checked in _transfer
-            Self::_transfer(&ticker, &from_did, &to_did, amount)?;
+            Self::_transfer(&ticker, from_did, to_did, amount)?;
 
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&amount).ok_or("overflow in calculating allowance")?;
@@ -138,31 +138,31 @@ decl_event!(
         TokenBalance = <T as utils::Trait>::TokenBalance,
     {
         // ticker, from DID, spender DID, amount
-        Approval(Vec<u8>, Vec<u8>, Vec<u8>, TokenBalance),
+        Approval(Vec<u8>, IdentityId, IdentityId, TokenBalance),
         // ticker, owner DID, supply
-        TokenCreated(Vec<u8>, Vec<u8>, TokenBalance),
+        TokenCreated(Vec<u8>, IdentityId, TokenBalance),
         // ticker, from DID, to DID, amount
-        Transfer(Vec<u8>, Vec<u8>, Vec<u8>, TokenBalance),
+        Transfer(Vec<u8>, IdentityId, IdentityId, TokenBalance),
     }
 );
 
 pub trait SimpleTokenTrait<V> {
-    fn transfer(sender_did: &Vec<u8>, ticker: &Vec<u8>, to_did: &Vec<u8>, amount: V) -> Result;
+    fn transfer(sender_did: IdentityId, ticker: &Vec<u8>, to_did: IdentityId, amount: V) -> Result;
 
-    fn balance_of(ticker: Vec<u8>, owner_did: Vec<u8>) -> V;
+    fn balance_of(ticker: Vec<u8>, owner_did: IdentityId) -> V;
 }
 
 impl<T: Trait> SimpleTokenTrait<T::TokenBalance> for Module<T> {
     fn transfer(
-        sender_did: &Vec<u8>,
+        sender_did: IdentityId,
         ticker: &Vec<u8>,
-        to_did: &Vec<u8>,
+        to_did: IdentityId,
         amount: T::TokenBalance,
     ) -> Result {
         Self::_transfer(ticker, sender_did, to_did, amount)
     }
 
-    fn balance_of(ticker: Vec<u8>, owner_did: Vec<u8>) -> T::TokenBalance {
+    fn balance_of(ticker: Vec<u8>, owner_did: IdentityId) -> T::TokenBalance {
         Self::balance_of((ticker, owner_did))
     }
 }
@@ -170,8 +170,8 @@ impl<T: Trait> SimpleTokenTrait<T::TokenBalance> for Module<T> {
 impl<T: Trait> Module<T> {
     fn _transfer(
         ticker: &Vec<u8>,
-        from_did: &Vec<u8>,
-        to_did: &Vec<u8>,
+        from_did: IdentityId,
+        to_did: IdentityId,
         amount: T::TokenBalance,
     ) -> Result {
         let ticker_from_did = (ticker.clone(), from_did.clone());
@@ -194,12 +194,7 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(&ticker_from_did, new_from_balance);
         <BalanceOf<T>>::insert(&ticker_to_did, new_to_balance);
 
-        Self::deposit_event(RawEvent::Transfer(
-            ticker.clone(),
-            from_did.clone(),
-            to_did.clone(),
-            amount,
-        ));
+        Self::deposit_event(RawEvent::Transfer(ticker.clone(), from_did, to_did, amount));
         Ok(())
     }
 }
