@@ -3,9 +3,9 @@ extern crate bencher;
 
 extern crate polymesh_runtime as runtime;
 
-use runtime::identity;
+use primitives::{IdentityId, Key};
 use runtime::balances;
-use primitives::{ IdentityId, Key };
+use runtime::identity;
 
 use bencher::Bencher;
 
@@ -17,8 +17,8 @@ use sr_primitives::{
     Perbill,
 };
 use srml_support::{impl_outer_origin, parameter_types};
-use substrate_primitives::{Blake2Hasher, H256};
 use std::convert::TryFrom;
+use substrate_primitives::{Blake2Hasher, H256};
 
 impl_outer_origin! {
     pub enum Origin for IdentityTest {}
@@ -98,22 +98,6 @@ impl identity::Trait for IdentityTest {
 }
 
 type Identity = identity::Module<IdentityTest>;
-
-
-fn a(bench: &mut Bencher) {
-    bench.iter(|| {
-        (0..1000).fold(0, |x, y| x + y)
-    })
-}
-
-fn b(bench: &mut Bencher) {
-    const N: usize = 1024;
-    bench.iter(|| {
-        vec![0u8; N]
-    });
-
-    bench.bytes = N as u64;
-}
 
 /// Create externalities
 fn build_ext() -> TestExternalities<Blake2Hasher> {
