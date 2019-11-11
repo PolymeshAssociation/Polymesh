@@ -2,6 +2,7 @@
 
 use crate::utils;
 use codec::{Decode, Encode};
+use primitives::IdentityId;
 use rstd::prelude::*;
 use srml_support::{decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
@@ -16,7 +17,7 @@ pub enum TokenType {
 #[derive(Clone, Debug, Eq, PartialEq, Default, Encode, Decode)]
 pub struct RegistryEntry {
     pub token_type: u32,
-    pub owner_did: Vec<u8>,
+    pub owner_did: IdentityId,
 }
 
 /// Default on TokenType is there only to please the storage macro.
@@ -145,7 +146,7 @@ mod tests {
         with_externalities(&mut new_test_ext(), || {
             let entry = RegistryEntry {
                 token_type: TokenType::AssetToken as u32,
-                owner_did: "did:poly:some_did".as_bytes().to_vec(),
+                owner_did: IdentityId::from(42),
             };
 
             assert_ok!(Registry::put(&"SOMETOKEN".as_bytes().to_vec(), &entry));

@@ -14,7 +14,7 @@
 //!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
 
 use crate::identity;
-use primitives::Key;
+use primitives::{IdentityId, Key};
 
 use codec::Encode;
 use contracts::{CodeHash, Gas, Schedule};
@@ -33,7 +33,7 @@ pub trait Trait: contracts::Trait + identity::Trait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
-        pub CodeHashDid: map CodeHash<T> => Option<Vec<u8>>;
+        pub CodeHashDid: map CodeHash<T> => Option<IdentityId>;
     }
 }
 
@@ -50,14 +50,14 @@ decl_module! {
         // Simply forwards to the `put_code` function in the Contract module.
         pub fn put_code(
             origin,
-            did: Vec<u8>,
+            did: IdentityId,
             #[compact] gas_limit: Gas,
             code: Vec<u8>
         ) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(&did, & Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signing_key(did, & Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Call underlying function
             let new_origin = system::RawOrigin::Signed(sender).into();
