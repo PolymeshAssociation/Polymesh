@@ -420,11 +420,13 @@ mod tests {
         sr_io::TestExternalities::new(t)
     }
 
-    fn make_account(id: u64) -> Result<(<Test as system::Trait>::Origin, Vec<u8>), &'static str> {
+    fn make_account(
+        id: u64,
+    ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(id);
-        let did = format!("did:poly:{}", id).as_bytes().to_vec();
+        let did = IdentityId::from(id as u128);
 
-        Identity::register_did(signed_id.clone(), did.clone(), vec![])?;
+        Identity::register_did(signed_id.clone(), did, vec![])?;
         Ok((signed_id, did))
     }
 
@@ -434,7 +436,7 @@ mod tests {
         with_externalities(&mut identity_owned_by(identity_owner_id), || {
             let token_owner_acc = 1;
             let owner_key = Key::try_from(identity_owner_id.encode()).unwrap();
-            let token_owner_did = "did:poly:1".as_bytes().to_vec();
+            let token_owner_did = IdentityId::from(token_owner_acc as u128);
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -529,7 +531,7 @@ mod tests {
         with_externalities(&mut identity_owned_by(identity_owner_id), || {
             let token_owner_acc = 1;
             let owner_key = Key::try_from(identity_owner_id.encode()).unwrap();
-            let token_owner_did = "did:poly:1".as_bytes().to_vec();
+            let token_owner_did = IdentityId::from(token_owner_acc as u128);
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -630,7 +632,7 @@ mod tests {
         with_externalities(&mut identity_owned_by(identity_owner_id), || {
             let token_owner_acc = 1;
             let owner_key = Key::try_from(identity_owner_id.encode()).unwrap();
-            let token_owner_did = "did:poly:1".as_bytes().to_vec();
+            let token_owner_did = IdentityId::from(token_owner_acc as u128);
 
             // A token representing 1M shares
             let token = SecurityToken {
