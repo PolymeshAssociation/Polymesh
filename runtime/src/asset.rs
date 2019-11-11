@@ -883,7 +883,7 @@ mod tests {
     use crate::{exemption, identity};
     use primitives::{IdentityId, Key};
 
-    use chrono::{prelude::*, Duration};
+    use chrono::prelude::*;
     use lazy_static::lazy_static;
     use sr_io::with_externalities;
     use sr_primitives::{

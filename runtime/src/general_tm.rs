@@ -221,15 +221,15 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{prelude::*, Duration};
-    use sr_io::{with_externalities, TestExternalities};
+    use chrono::prelude::*;
+    use sr_io::with_externalities;
     use sr_primitives::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         Perbill,
     };
     use srml_support::traits::Currency;
-    use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{assert_ok, impl_outer_origin, parameter_types};
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
 
@@ -435,7 +435,6 @@ mod tests {
         let identity_owner_id = 1;
         with_externalities(&mut identity_owned_by(identity_owner_id), || {
             let token_owner_acc = 1;
-            let owner_key = Key::try_from(identity_owner_id.encode()).unwrap();
             let token_owner_did = IdentityId::from(token_owner_acc as u128);
 
             // A token representing 1M shares
@@ -466,7 +465,7 @@ mod tests {
             ));
             let claim_issuer_acc = 3;
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+            let (_claim_issuer, claim_issuer_did) = make_account(3).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
                 Origin::signed(token_owner_acc),
@@ -530,7 +529,6 @@ mod tests {
         let identity_owner_id = 1;
         with_externalities(&mut identity_owned_by(identity_owner_id), || {
             let token_owner_acc = 1;
-            let owner_key = Key::try_from(identity_owner_id.encode()).unwrap();
             let token_owner_did = IdentityId::from(token_owner_acc as u128);
 
             // A token representing 1M shares
@@ -561,7 +559,7 @@ mod tests {
             ));
             let claim_issuer_acc = 3;
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+            let (_claim_issuer, claim_issuer_did) = make_account(3).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
                 Origin::signed(token_owner_acc),
@@ -631,7 +629,6 @@ mod tests {
         let identity_owner_id = 1;
         with_externalities(&mut identity_owned_by(identity_owner_id), || {
             let token_owner_acc = 1;
-            let owner_key = Key::try_from(identity_owner_id.encode()).unwrap();
             let token_owner_did = IdentityId::from(token_owner_acc as u128);
 
             // A token representing 1M shares
