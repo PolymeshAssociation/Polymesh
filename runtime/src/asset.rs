@@ -1286,7 +1286,7 @@ mod tests {
                 <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
                 let owner_acc = 1;
-                let owner_did = "did:poly:1".as_bytes().to_vec();
+                let owner_did = IdentityId::from(1u128);
 
                 // Expected token entry
                 let token = SecurityToken {
@@ -1302,7 +1302,7 @@ mod tests {
                     .expect("Could not create owner_did");
 
                 let alice_acc = 2;
-                let alice_did = "did:poly:alice".as_bytes().to_vec();
+                let alice_did = IdentityId::from(2u128);
 
                 Balances::make_free_balance_be(&alice_acc, 1_000_000);
                 Identity::register_did(Origin::signed(alice_acc), alice_did.clone(), vec![])
@@ -1367,51 +1367,51 @@ mod tests {
                     ));
                     let x: u64 = u64::try_from(j).unwrap();
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &owner_did, 0),
+                        Asset::get_balance_at(&token.name, owner_did, 0),
                         owner_balance[j]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &alice_did, 0),
+                        Asset::get_balance_at(&token.name, alice_did, 0),
                         alice_balance[j]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &owner_did, 1),
+                        Asset::get_balance_at(&token.name, owner_did, 1),
                         owner_balance[1]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &alice_did, 1),
+                        Asset::get_balance_at(&token.name, alice_did, 1),
                         alice_balance[1]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &owner_did, x - 1),
+                        Asset::get_balance_at(&token.name, owner_did, x - 1),
                         owner_balance[j - 1]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &alice_did, x - 1),
+                        Asset::get_balance_at(&token.name, alice_did, x - 1),
                         alice_balance[j - 1]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &owner_did, x),
+                        Asset::get_balance_at(&token.name, owner_did, x),
                         owner_balance[j]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &alice_did, x),
+                        Asset::get_balance_at(&token.name, alice_did, x),
                         alice_balance[j]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &owner_did, x + 1),
+                        Asset::get_balance_at(&token.name, owner_did, x + 1),
                         owner_balance[j]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &alice_did, x + 1),
+                        Asset::get_balance_at(&token.name, alice_did, x + 1),
                         alice_balance[j]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &owner_did, 1000),
+                        Asset::get_balance_at(&token.name, owner_did, 1000),
                         owner_balance[j]
                     );
                     assert_eq!(
-                        Asset::get_balance_at(&token.name, &alice_did, 1000),
+                        Asset::get_balance_at(&token.name, alice_did, 1000),
                         alice_balance[j]
                     );
                 }
