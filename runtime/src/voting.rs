@@ -109,9 +109,15 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            // Ensure the existence of the ballot
-            ensure!(<Ballots>::exists((&upper_ticker, &ballot_name)), "Ballot does not exist");.
+            // Ensure validity the ballot
+            ensure!(<Ballots>::exists((&upper_ticker, &ballot_name)), "Ballot does not exist");
             let ballot = <Ballots>::get((&upper_ticker, &ballot_name));
+            let now = <timestamp::Module<T>>::get();
+            ensure!(ballot.voting_start >= now, "Voting hasn't started yet");
+            ensure!(ballot.voting_end <= now, "Voting ended already");
+
+            let count = <asset::TotalCheckpoints>::get(&upper_ticker);
+            ensure!(ballot.checkpoint_id <= count, "Checkpoint has not be created yet");
 
             // Ensure vote is valid
             ensure!(votes.len() == <TotalChoices>::get((&upper_ticker, &ballot_name), "Invalid vote");
@@ -144,7 +150,6 @@ decl_module! {
             Ok(())
         }
     }
-
 }
 
 decl_event!(
