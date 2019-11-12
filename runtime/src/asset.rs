@@ -688,6 +688,11 @@ impl<T: Trait> AssetTrait<T::TokenBalance> for Module<T> {
         let upper_ticker = utils::bytes_to_upper(ticker);
         return Self::token_details(upper_ticker).total_supply;
     }
+
+    fn get_balance_at(ticker: &Vec<u8>, did: IdentityId, at: u32) -> T::TokenBalance {
+        let upper_ticker = utils::bytes_to_upper(ticker);
+        return Self::get_balance_at(&upper_ticker, did, at);
+    }
 }
 
 /// All functions in the decl_module macro become part of the public interface of the module
