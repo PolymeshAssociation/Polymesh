@@ -887,21 +887,32 @@ impl<T: Trait> Module<T> {
         to_did: IdentityId,
         value: T::TokenBalance,
     ) -> StdResult<u8, &'static str> {
-        let mut balance_after_transfer: T::TokenBalance = Self::balance_of((ticker.clone(), from_did));
+        let mut balance_after_transfer: T::TokenBalance =
+            Self::balance_of((ticker.clone(), from_did));
         if balance_after_transfer < value {
             balance_after_transfer = <T as utils::Trait>::as_tb(0 as u128);
         } else {
             balance_after_transfer = balance_after_transfer - value;
         }
-        let general_status_code =
-            <general_tm::Module<T>>::verify_restriction(ticker, Some(from_did), Some(to_did), value)?;
+        let general_status_code = <general_tm::Module<T>>::verify_restriction(
+            ticker,
+            Some(from_did),
+            Some(to_did),
+            value,
+        )?;
         Ok(
             if general_status_code != ERC1400_TRANSFER_SUCCESS
-                && balance_after_transfer >= Self::total_custody_allowance((ticker.clone(), from_did))
+                && balance_after_transfer
+                    >= Self::total_custody_allowance((ticker.clone(), from_did))
             {
                 general_status_code
             } else {
-                <percentage_tm::Module<T>>::verify_restriction(ticker, Some(from_did), Some(to_did), value)?
+                <percentage_tm::Module<T>>::verify_restriction(
+                    ticker,
+                    Some(from_did),
+                    Some(to_did),
+                    value,
+                )?
             },
         )
     }
@@ -1059,7 +1070,7 @@ mod tests {
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         AnySignature, Perbill,
     };
-    use srml_support::{assert_ok, assert_noop, impl_outer_origin, parameter_types};
+    use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
     use std::sync::{Arc, Mutex};
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
@@ -1266,12 +1277,8 @@ mod tests {
                 decimals: 18,
             };
 
-            Identity::fund_poly(
-                Origin::signed(owner_acc.clone()),
-                owner_did,
-                500_000,
-            )
-            .expect("Could not add funds to DID");
+            Identity::fund_poly(Origin::signed(owner_acc.clone()), owner_did, 500_000)
+                .expect("Could not add funds to DID");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
@@ -1350,12 +1357,8 @@ mod tests {
             Identity::register_did(Origin::signed(bob_acc.clone()), bob_did, vec![])
                 .expect("Could not create bob_did");
 
-            Identity::fund_poly(
-                Origin::signed(owner_acc.clone()),
-                owner_did,
-                500_000,
-            )
-            .expect("Could not add funds to DID");
+            Identity::fund_poly(Origin::signed(owner_acc.clone()), owner_did, 500_000)
+                .expect("Could not add funds to DID");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
@@ -1436,34 +1439,22 @@ mod tests {
             let investor1_did = IdentityId::from(2u128);
 
             Balances::make_free_balance_be(&investor1_acc, 1_000_000);
-            Identity::register_did(
-                Origin::signed(investor1_acc.clone()),
-                investor1_did,
-                vec![],
-            )
-            .expect("Could not create investor1_did");
+            Identity::register_did(Origin::signed(investor1_acc.clone()), investor1_did, vec![])
+                .expect("Could not create investor1_did");
 
             let investor2_acc = AccountId::from(AccountKeyring::Charlie);
             let investor2_did = IdentityId::from(3u128);
 
             Balances::make_free_balance_be(&investor2_acc, 1_000_000);
-            Identity::register_did(
-                Origin::signed(investor2_acc.clone()),
-                investor2_did,
-                vec![],
-            )
-            .expect("Could not create investor2_did");
+            Identity::register_did(Origin::signed(investor2_acc.clone()), investor2_did, vec![])
+                .expect("Could not create investor2_did");
 
             let custodian_acc = AccountId::from(AccountKeyring::Eve);
             let custodian_did = IdentityId::from(4u128);
 
             Balances::make_free_balance_be(&custodian_acc, 1_000_000);
-            Identity::register_did(
-                Origin::signed(custodian_acc.clone()),
-                custodian_did,
-                vec![],
-            )
-            .expect("Could not create custodian_did");
+            Identity::register_did(Origin::signed(custodian_acc.clone()), custodian_did, vec![])
+                .expect("Could not create custodian_did");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
@@ -1552,11 +1543,7 @@ mod tests {
             ));
 
             assert_eq!(
-                Asset::custodian_allowance((
-                    token.name.clone(),
-                    investor1_did,
-                    custodian_did
-                )),
+                Asset::custodian_allowance((token.name.clone(), investor1_did, custodian_did)),
                 50_00_00 as u128
             );
 
@@ -1655,34 +1642,22 @@ mod tests {
             let investor1_did = IdentityId::from(2u128);
 
             Balances::make_free_balance_be(&investor1_acc, 1_000_000);
-            Identity::register_did(
-                Origin::signed(investor1_acc.clone()),
-                investor1_did,
-                vec![],
-            )
-            .expect("Could not create investor1_did");
+            Identity::register_did(Origin::signed(investor1_acc.clone()), investor1_did, vec![])
+                .expect("Could not create investor1_did");
 
             let investor2_acc = AccountId::from(AccountKeyring::Charlie);
             let investor2_did = IdentityId::from(3u128);
 
             Balances::make_free_balance_be(&investor2_acc, 1_000_000);
-            Identity::register_did(
-                Origin::signed(investor2_acc.clone()),
-                investor2_did,
-                vec![],
-            )
-            .expect("Could not create investor2_did");
+            Identity::register_did(Origin::signed(investor2_acc.clone()), investor2_did, vec![])
+                .expect("Could not create investor2_did");
 
             let custodian_acc = AccountId::from(AccountKeyring::Eve);
             let custodian_did = IdentityId::from(4u128);
 
             Balances::make_free_balance_be(&custodian_acc, 1_000_000);
-            Identity::register_did(
-                Origin::signed(custodian_acc.clone()),
-                custodian_did,
-                vec![],
-            )
-            .expect("Could not create custodian_did");
+            Identity::register_did(Origin::signed(custodian_acc.clone()), custodian_did, vec![])
+                .expect("Could not create custodian_did");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
@@ -1760,11 +1735,7 @@ mod tests {
             ));
 
             assert_eq!(
-                Asset::custodian_allowance((
-                    token.name.clone(),
-                    investor1_did,
-                    custodian_did
-                )),
+                Asset::custodian_allowance((token.name.clone(), investor1_did, custodian_did)),
                 50_00_00 as u128
             );
 

@@ -718,12 +718,20 @@ mod tests {
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
-            Identity::register_did(Origin::signed(token_owner_acc.clone()), token_owner_did, vec![])
-                .expect("Could not create token_owner_did");
+            Identity::register_did(
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
+                vec![],
+            )
+            .expect("Could not create token_owner_did");
 
             Balances::make_free_balance_be(&payout_owner_acc, 1_000_000);
-            Identity::register_did(Origin::signed(payout_owner_acc.clone()), payout_owner_did, vec![])
-                .expect("Could not create payout_owner_did");
+            Identity::register_did(
+                Origin::signed(payout_owner_acc.clone()),
+                payout_owner_did,
+                vec![],
+            )
+            .expect("Could not create payout_owner_did");
 
             // Raise the owners' base currency balance
             <identity::DidRecords<Test>>::mutate(token_owner_did, |record| {
