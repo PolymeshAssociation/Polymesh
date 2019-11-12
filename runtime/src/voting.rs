@@ -1,19 +1,17 @@
 use crate::{
-    asset::AssetTrait,
-    identity,
-    utils,
+    asset::{self, AssetTrait},
+    identity, utils,
 };
-use primitives::{IdentityId, Key};
 use codec::Encode;
+use primitives::{IdentityId, Key};
 use rstd::{convert::TryFrom, prelude::*};
-use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use srml_support::traits::Currency;
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::trait {
+pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Asset: asset::AssetTrait<Self::TokenBalance>;
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
@@ -34,21 +32,21 @@ pub struct Proposal {
 decl_storage! {
     trait Store for Module<T: Trait> as Voting {
         // Mapping of ticker and ballot name -> ballot details
-        pub Ballots get(ballots): map (Vec<u8>, Vec<u8>) -> Ballot<T::Moment>;
+        pub Ballots get(ballots): map(Vec<u8>, Vec<u8>) => Ballot<T::Moment>;
         // Mapping from ticker to vector of Ballot names. Helper data for the UI.
-        pub BallotNames get(ballot_names): map Vec<u8> -> Vec<Vec<u8>>;
+        pub BallotNames get(ballot_names): map Vec<u8> => Vec<Vec<u8>>;
         // Helper data to make voting cheaper.
         // (ticker, BallotName) -> NoOfChoices
-        pub TotalChoices get(total_choices): map (Vec<u8>, Vec<u8>) -> u64;
+        pub TotalChoices get(total_choices): map (Vec<u8>, Vec<u8>) => u64;
         // (Ticker, BallotName, DID) -> Vector of vote weights.
         // weight at 0 index means weight for choice 1 of proposal 1.
         // weight at 1 index means weight for choice 2 of proposal 1.
         // User must enter 0 vote weight if they don't want to vote for a choice.
-        pub Votes get(votes): map (Vec<u8>, Vec<u8>, IdentityId) -> Vec<T:TokenBalance>;
+        pub Votes get(votes): map (Vec<u8>, Vec<u8>, IdentityId) => Vec<T::TokenBalance>;
         // (Ticker, BallotName) -> Vector of current vote weights.
         // weight at 0 index means weight for choice 1 of proposal 1.
         // weight at 1 index means weight for choice 2 of proposal 1.
-        pub Results get(results): map (Vec<u8>, Vec<u8>) -> Vec<T:TokenBalance>;
+        pub Results get(results): map (Vec<u8>, Vec<u8>) => Vec<T::TokenBalance>;
     }
 }
 
@@ -63,7 +61,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `did` - DID of the token owner. Sender must be a signing key or master key of this DID
-        pub fn add_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot) -> Result {
+        pub fn add_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> Result {
             let sender = ensure_signed(origin)?;
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
@@ -102,7 +100,7 @@ decl_module! {
             Ok(())
         }
 
-        pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T:TokenBalance>) -> Result {
+        pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T::TokenBalance>) -> Result {
             let sender = ensure_signed(origin)?;
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
@@ -120,14 +118,14 @@ decl_module! {
             ensure!(ballot.checkpoint_id <= count, "Checkpoint has not be created yet");
 
             // Ensure vote is valid
-            ensure!(votes.len() == <TotalChoices>::get((&upper_ticker, &ballot_name), "Invalid vote");
+            ensure!(votes.len() == <TotalChoices>::get((&upper_ticker, &ballot_name)), "Invalid vote");
 
             let total_votes = <T as utils::Trait>::as_tb(0);
             for vote in votes {
                 total_votes += vote;
             }
 
-            ensure!(total_votes <= <asset::Module<T>>::get_balance_at(&ticker, did, ballot.checkpoint_id), "Not enough balance");
+            ensure!(total_votes <= T::Asset::get_balance_at(&ticker, did, ballot.checkpoint_id), "Not enough balance");
 
             if <Votes>::exists(&upper_ticker, &ballot_name, &did) {
                 //User wants to change their vote. We first need to subtract their existing vote.
@@ -147,6 +145,8 @@ decl_module! {
 
             <Votes>::insert((&upper_ticker, &ballot_name, &did), votes);
 
+            Self::deposit_event(RawEvent::BallotCreated(upper_ticker, ballot_name, votes));
+
             Ok(())
         }
     }
@@ -155,10 +155,12 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        Ballot = T::Ballot,
+        TokenBalance = <T as utils::Trait>::TokenBalance,
+        Moment = <T as timestamp::Trait>::Moment,
     {
         // (Ticker, BallotName, BallotDetails)
-        BallotCreated(Vec<u8>, Vec<u8>, Ballot),
+        BallotCreated(Vec<u8>, Vec<u8>, Ballot<Moment>),
+        VoteCast(Vec<u8>, Vec<u8>, Vec<TokenBalance>),
     }
 );
 
@@ -171,6 +173,4 @@ impl<T: Trait> Module<T> {
 
 /// tests for this module
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

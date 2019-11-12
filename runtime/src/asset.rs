@@ -660,6 +660,7 @@ pub trait AssetTrait<V> {
     fn balance(ticker: &[u8], did: IdentityId) -> V;
     fn _mint_from_sto(ticker: &[u8], sender_did: IdentityId, tokens_purchased: V) -> Result;
     fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool;
+    fn get_balance_at(ticker: &Vec<u8>, did: IdentityId, at: u32) -> V;
 }
 
 impl<T: Trait> AssetTrait<T::TokenBalance> for Module<T> {

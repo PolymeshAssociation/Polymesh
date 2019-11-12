@@ -67,6 +67,7 @@ mod registry;
 mod simple_token;
 mod sto_capped;
 mod utils;
+mod voting;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -499,6 +500,11 @@ impl general_tm::Trait for Runtime {
     type Asset = Asset;
 }
 
+impl voting::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+}
+
 impl sto_capped::Trait for Runtime {
     type Event = Event;
     type SimpleTokenTrait = SimpleToken;
@@ -573,6 +579,7 @@ construct_runtime!(
         Registry: registry::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
+        Voting: voting::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
