@@ -120,18 +120,18 @@ decl_module! {
             ensure!(ballot.checkpoint_id <= count, "Checkpoint has not be created yet");
 
             // Ensure vote is valid
-            ensure!(votes.len() == <TotalChoices>::get(&upper_ticker_ballot_name).try_into().unwrap(), "Invalid vote");
+            ensure!(u64::try_from(votes.len()).unwrap() == <TotalChoices>::get(&upper_ticker_ballot_name), "Invalid vote");
 
-            let total_votes = <T as utils::Trait>::as_tb(0);
-            for vote in votes {
-                total_votes += vote;
+            let mut total_votes = <T as utils::Trait>::as_tb(0);
+            for vote in &votes {
+                total_votes += *vote;
             }
 
-            ensure!(total_votes <= T::Asset::get_balance_at(&ticker, did, ballot.checkpoint_id), "Not enough balance");
-
-            if <Votes<T>>::exists((upper_ticker, ballot_name, did)) {
+            ensure!(total_votes <= T::Asset::get_balance_at(&upper_ticker, did, ballot.checkpoint_id), "Not enough balance");
+            let upper_ticker_ballot_name_did = (upper_ticker.clone(), ballot_name.clone(), did.clone());
+            if <Votes<T>>::exists(&upper_ticker_ballot_name_did) {
                 //User wants to change their vote. We first need to subtract their existing vote.
-                let previous_votes = <Votes<T>>::get((upper_ticker, ballot_name, did));
+                let previous_votes = <Votes<T>>::get(&upper_ticker_ballot_name_did);
                 <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
                     for i in 0..results.len() {
                         results[i] -= previous_votes[i];
@@ -145,7 +145,7 @@ decl_module! {
                 }
             });
 
-            <Votes<T>>::insert((upper_ticker, ballot_name, did), votes);
+            <Votes<T>>::insert(&upper_ticker_ballot_name_did, votes.clone());
 
             Self::deposit_event(RawEvent::VoteCast(upper_ticker, ballot_name, votes));
 
