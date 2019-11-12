@@ -21,7 +21,7 @@ const _POLY_DID_LEN: usize = _POLY_DID_PREFIX_LEN + _UUID_LEN;
 ///  - "did:poly:ab01"
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
-#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct IdentityId(u128);
 
 impl IdentityId {
