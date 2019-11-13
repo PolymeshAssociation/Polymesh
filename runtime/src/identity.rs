@@ -849,18 +849,9 @@ mod tests {
     #[test]
     fn only_claim_issuers_can_add_claims() {
         with_externalities(&mut build_ext(), || {
-            let owner_id = Identity::owner();
-            let owner_key = Key::try_from(owner_id.encode()).unwrap();
-            let (owner, owner_did) = make_account(owner_id).unwrap();
-
+            let (_owner, owner_did) = make_account(Identity::owner()).unwrap();
             let (issuer, issuer_did) = make_account(2).unwrap();
             let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
-
-            assert_ok!(Identity::add_signing_keys(
-                claim_issuer.clone(),
-                claim_issuer_did.clone(),
-                vec![SigningKey::from(owner_key.clone())]
-            ));
 
             // Add Claims by master & claim_issuer
             let claims = vec![Claim {
@@ -871,8 +862,8 @@ mod tests {
             }];
 
             assert_ok!(Identity::add_claim(
-                owner.clone(),
-                owner_did,
+                claim_issuer.clone(),
+                claim_issuer_did,
                 claim_issuer_did,
                 claims.clone()
             ));
@@ -924,23 +915,23 @@ mod tests {
     #[test]
     fn revoking_claims() {
         with_externalities(&mut build_ext(), || {
-            let owner_id = Identity::owner();
-            let owner_key = Key::try_from(owner_id.encode()).unwrap();
             let (owner, owner_did) = make_account(Identity::owner()).unwrap();
             let (issuer, issuer_did) = make_account(2).unwrap();
-
             let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
-            assert_ok!(Identity::add_signing_keys(
-                claim_issuer.clone(),
-                claim_issuer_did.clone(),
-                vec![SigningKey::from(owner_key)]
-            ));
 
             assert_ok!(Identity::add_claim_issuer(
                 owner.clone(),
-                owner_did.clone(),
-                claim_issuer_did.clone()
+                owner_did,
+                claim_issuer_did
             ));
+
+            /*
+            let claim_issuer_sk = SigningKey {
+            assert_ok!(Identity::add_signing_keys(
+                owner.clone(),
+                owner_did,
+                vec![ ]));
+            */
 
             // Add Claims by master & claim_issuer
             let claim = Claim {
@@ -951,27 +942,17 @@ mod tests {
             };
 
             assert_ok!(Identity::add_claim(
-                owner.clone(),
-                owner_did.clone(),
-                claim_issuer_did.clone(),
+                claim_issuer.clone(),
+                claim_issuer_did,
+                claim_issuer_did,
                 vec![claim.clone()]
             ));
 
             assert_err!(
                 Identity::revoke_claim(
                     issuer.clone(),
-                    issuer_did.clone(),
-                    claim_issuer_did.clone(),
-                    claim.clone()
-                ),
-                "did_issuer must be a claim issuer for DID"
-            );
-            // TODO Should this fail?
-            assert_err!(
-                Identity::revoke_claim(
-                    claim_issuer.clone(),
-                    claim_issuer_did.clone(),
-                    claim_issuer_did.clone(),
+                    issuer_did,
+                    claim_issuer_did,
                     claim.clone()
                 ),
                 "did_issuer must be a claim issuer for DID"
@@ -979,13 +960,14 @@ mod tests {
 
             assert_ok!(Identity::revoke_claim(
                 owner.clone(),
-                owner_did.clone(),
-                claim_issuer_did.clone(),
+                owner_did,
+                claim_issuer_did,
                 claim.clone()
             ));
+
             // TODO Revoke claim twice??
             assert_ok!(Identity::revoke_claim(
-                owner,
+                owner.clone(),
                 owner_did,
                 claim_issuer_did,
                 claim
