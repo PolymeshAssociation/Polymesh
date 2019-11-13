@@ -163,7 +163,7 @@ use srml_support::{decl_event, decl_module, decl_storage, Parameter, StorageValu
 use system::{ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 
 use crate::identity::IdentityTrait;
-use primitives::Key;
+use primitives::{Key, TransactionError};
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 
@@ -1291,7 +1291,7 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
         if self.0 != Zero::zero() {
             // Tip must be set to zero.
             // This is enforced to curb front running.
-            return InvalidTransaction::Custom(7).into();
+            return InvalidTransaction::Custom(TransactionError::ZeroTip as u8).into();
         }
         // pay any fees.
         let fee = Self::compute_fee(len, info);
