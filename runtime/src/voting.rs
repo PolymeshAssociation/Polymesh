@@ -62,6 +62,9 @@ decl_module! {
         ///
         /// # Arguments
         /// * `did` - DID of the token owner. Sender must be a signing key or master key of this DID
+        /// * `ticker` - Ticker of the token for which ballot is to be created
+        /// * `ballot_name` - Name of the ballot
+        /// * `ballot_details` - Other details of the ballot
         pub fn add_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> Result {
             let sender = ensure_signed(origin)?;
             let upper_ticker = utils::bytes_to_upper(&ticker);
@@ -70,6 +73,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
+            // This avoids cloning the variables to make the same tupple again and again.
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
             // Ensure the uniqueness of the ballot
             ensure!(!<Ballots<T>>::exists(&upper_ticker_ballot_name), "A ballot with same name already exisits");
@@ -77,7 +81,7 @@ decl_module! {
             let now = <timestamp::Module<T>>::get();
 
             ensure!(now < ballot_details.voting_end, "Voting end date in past");
-            ensure!(ballot_details.voting_end < ballot_details.voting_start, "Voting end date before voting start date");
+            ensure!(ballot_details.voting_end > ballot_details.voting_start, "Voting end date before voting start date");
             ensure!(ballot_details.proposals.len() > 0, "No proposal submitted");
 
             // NB: Checkpoint ID is not verified here to allow creating ballots that will become active in future.
@@ -101,6 +105,13 @@ decl_module! {
             Ok(())
         }
 
+        /// Casts a vote
+        ///
+        /// # Arguments
+        /// * `did` - DID of the voter. Sender must be a signing key or master key of this DID
+        /// * `ticker` - Ticker of the token for which vote is to be cast
+        /// * `ballot_name` - Name of the ballot
+        /// * `votes` - The actual vote to be cast
         pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T::TokenBalance>) -> Result {
             let sender = ensure_signed(origin)?;
             let upper_ticker = utils::bytes_to_upper(&ticker);
@@ -108,13 +119,14 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
+            // This avoids cloning the variables to make the same tupple again and again.
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
             // Ensure validity the ballot
             ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exist");
             let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
             let now = <timestamp::Module<T>>::get();
-            ensure!(ballot.voting_start >= now, "Voting hasn't started yet");
-            ensure!(ballot.voting_end <= now, "Voting ended already");
+            ensure!(ballot.voting_start <= now, "Voting hasn't started yet");
+            ensure!(ballot.voting_end > now, "Voting ended already");
 
             let count = <asset::TotalCheckpoints>::get(&upper_ticker);
             ensure!(ballot.checkpoint_id <= count, "Checkpoint has not be created yet");
@@ -151,6 +163,49 @@ decl_module! {
 
             Ok(())
         }
+
+        /// Cancels a vote by setting it as expired
+        ///
+        /// # Arguments
+        /// * `did` - DID of the token owner. Sender must be a signing key or master key of this DID
+        /// * `ticker` - Ticker of the token for which ballot is to be cancelled
+        /// * `ballot_name` - Name of the ballot
+        pub fn cancel_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let upper_ticker = utils::bytes_to_upper(&ticker);
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
+
+            // This avoids cloning the variables to make the same tupple again and again.
+            let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
+
+            // Ensure the existance of valid ballot
+            ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exisit");
+            let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
+            let now = <timestamp::Module<T>>::get();
+            ensure!(now > ballot.voting_end, "Voting already ended");
+
+            // Clearing results
+            <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
+                for i in 0..results.len() {
+                    results[i] = <T as utils::Trait>::as_tb(0);
+                }
+            });
+
+            // NB Not deleting the ballot to prevent someone from
+            // deleting a ballot mid vote and creating a new one with same name to confuse voters.
+
+            // This will prevent further voting. Essentially, canceling the ballot
+            <Ballots<T>>::mutate(&upper_ticker_ballot_name, |ballot_details| {
+                ballot_details.voting_end = now;
+            });
+
+            Self::deposit_event(RawEvent::BallotCancelled(upper_ticker, ballot_name));
+
+            Ok(())
+        }
     }
 }
 
@@ -163,6 +218,7 @@ decl_event!(
         // (Ticker, BallotName, BallotDetails)
         BallotCreated(Vec<u8>, Vec<u8>, Ballot<Moment>),
         VoteCast(Vec<u8>, Vec<u8>, Vec<TokenBalance>),
+        BallotCancelled(Vec<u8>, Vec<u8>),
     }
 );
 
