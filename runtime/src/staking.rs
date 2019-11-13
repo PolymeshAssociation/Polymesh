@@ -431,21 +431,15 @@ impl Default for Compliance {
 /// Represents a requirement that must be met to be eligible to become a validator
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PermissionedValidator<T: Trait> {
+pub struct PermissionedValidator {
     /// Indicates the status of KYC compliance
     pub compliance: Compliance,
-    // The controller account
-    pub account: T::AccountId,
-    /// Joined time in terms of block number
-    pub joined_at: T::BlockNumber,
 }
 
-impl<T: Trait> Default for PermissionedValidator<T> {
+impl Default for PermissionedValidator {
     fn default() -> Self {
         Self {
             compliance: Compliance::default(),
-            account: T::AccountId::default(),
-            joined_at: T::BlockNumber::default(),
         }
     }
 }
@@ -623,7 +617,7 @@ decl_storage! {
 
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
-            linked_map T::AccountId => PermissionedValidator<T>;
+            linked_map T::AccountId => PermissionedValidator;
     }
     add_extra_genesis {
         config(stakers):
@@ -987,9 +981,7 @@ decl_module! {
             ensure!(!<PermissionedValidators<T>>::exists(&controller), "account already exists in permissioned_validators");
 
             <PermissionedValidators<T>>::insert(&controller, PermissionedValidator {
-                compliance: Compliance::Active,
-                account: controller.clone(),
-                joined_at: <system::Module<T>>::block_number()
+                compliance: Compliance::Active
             });
 
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
@@ -1209,10 +1201,6 @@ impl<T: Trait> Module<T> {
         let validators = T::SessionInterface::validators();
         let prior = validators
             .into_iter()
-            .filter(|stash| match Self::bonded(stash) {
-                Some(controller) => Self::is_validator_compliant(&controller),
-                None => false,
-            })
             .map(|v| {
                 let e = Self::stakers(&v);
                 (v, e)
@@ -1311,6 +1299,7 @@ impl<T: Trait> Module<T> {
             Self::minimum_validator_count().max(1) as usize,
             <Validators<T>>::enumerate()
                 .map(|(who, _)| who)
+                .filter(|v| Self::is_validator_compliant(v))
                 .collect::<Vec<T::AccountId>>(),
             <Nominators<T>>::enumerate().collect(),
             Self::slashable_balance_of,
@@ -1536,7 +1525,6 @@ impl<T: Trait> session::OnSessionEnding<T::AccountId> for Module<T> {
         _ending: SessionIndex,
         start_session: SessionIndex,
     ) -> Option<Vec<T::AccountId>> {
-        info!("On session ending 1");
         Self::new_session(start_session - 1).map(|(new, _old)| new)
     }
 }
@@ -1549,7 +1537,6 @@ impl<T: Trait> OnSessionEnding<T::AccountId, Exposure<T::AccountId, BalanceOf<T>
         Vec<T::AccountId>,
         Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>,
     )> {
-        info!("On session ending 2");
         Self::new_session(start_session - 1)
     }
 }
