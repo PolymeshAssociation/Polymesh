@@ -82,6 +82,6 @@ pub use signing_key::{KeyRole, SigningKey, SigningKeyType};
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
-    /// 0-6 are use by substrate. Skipping them to avoid confusion
+    /// 0-6 are used by substrate. Skipping them to avoid confusion
     ZeroTip = 7,
 }
