@@ -1,9 +1,10 @@
 {
     "TokenBalance": "u128",
+    "IdentityId":"u128",
     "SecurityToken": {
         "name": "Vec<u8>",
         "total_supply": "TokenBalance",
-        "owner_did": "Vec<u8>",
+        "owner_did": "IdentityId",
         "granularity": "u128",
         "decimals": "u16"
     },
@@ -13,17 +14,17 @@
         "can_transfer": "bool"
     },
     "Whitelist": {
-        "investor_did": "Vec<u8>",
+        "investor_did": "IdentityId",
         "canSendAfter": "Moment",
         "canReceiveAfter": "Moment"
     },
     "Issuer": {
-        "did": "Vec<u8>",
+        "did": "IdentityId",
         "access_level": "u16",
         "active": "bool"
     },
     "Investor": {
-        "did": "Vec<u8>",
+        "did": "IdentityId",
         "access_level": "u16",
         "active": "bool",
         "jurisdiction": "u16"
@@ -78,11 +79,11 @@
     "ClaimRecord": {
         "claim": "Claim",
         "revoked": "bool",
-        "issued_by": "Vec<u8>",
+        "issued_by": "IdentityId",
         "attestation": "Vec<u8>"
     },
     "STO": {
-        "beneficiary_did": "Vec<u8>",
+        "beneficiary_did": "IdentityId",
         "cap": "TokenBalance",
         "sold": "TokenBalance",
         "rate": "u64",
@@ -91,7 +92,7 @@
         "active": "bool"
     },
     "Investment": {
-        "investor_did": "Vec<u8>",
+        "investor_did": "IdentityId",
         "amount_paid": "TokenBalance",
         "tokens_purchased": "TokenBalance",
         "last_purchase_date": "Moment"
@@ -99,7 +100,7 @@
     "SimpleTokenRecord": {
         "ticker": "Vec<u8>",
         "total_supply": "TokenBalance",
-        "owner_did": "Vec<u8>"
+        "owner_did": "IdentityId"
     },
     "FeeOf": "Balance",
     "TSMoment": "u64",
@@ -114,6 +115,17 @@
     },
     "RegistryEntry": {
         "token_type": "u32",
-        "owner_did": "Vec<u8>"
+        "owner_did": "IdentityId"
+    },
+    "Proposal": {
+        "title": "Vec<u8>",
+        "info_link": "Vec<u8>",
+        "choices": "Vec<Vec<u8>>"
+    },
+    "Ballot": {
+        "checkpoint_id": "u32",
+        "voting_start": "Moment",
+        "voting_end": "Moment",
+        "proposals": "Vec<Proposal>"
     }
 }
