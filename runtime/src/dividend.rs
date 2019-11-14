@@ -46,7 +46,7 @@ pub struct Dividend<U, V> {
     /// The payout SimpleToken currency ticker. None means POLY
     payout_currency: Option<Vec<u8>>,
     /// The checkpoint
-    checkpoint_id: u32,
+    checkpoint_id: u64,
 }
 
 // This module's storage items.
@@ -82,7 +82,7 @@ decl_module! {
                    matures_at: T::Moment,
                    expires_at: T::Moment,
                    payout_ticker: Vec<u8>,
-                   checkpoint_id: u32
+                   checkpoint_id: u64
                   ) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(ticker.as_slice());
