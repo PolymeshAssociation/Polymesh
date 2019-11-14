@@ -8,7 +8,13 @@
 //!
 //! ## Overview
 //!
-//! The Balances module provides functions for:
+//! This is modified implementation of substrate's balances SRML. 
+//! The modifications made are as follows:
+//!
+//! - Added ability to pay transaction fees from identity's balance instead of user's balance.
+//! - To curb front running, sending a tip along with your transaction is now prohibited.
+//!
+//! The Original Balances module provides functions for:
 //!
 //! - Getting and setting free balances.
 //! - Retrieving total, reserved and unreserved balances.
