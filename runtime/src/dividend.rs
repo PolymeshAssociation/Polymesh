@@ -670,6 +670,7 @@ mod tests {
     type DividendModule = Module<Test>;
     type Balances = balances::Module<Test>;
     type Asset = asset::Module<Test>;
+    type GeneralTM = general_tm::Module<Test>;
     type SimpleToken = simple_token::Module<Test>;
     type Identity = identity::Module<Test>;
 
@@ -780,24 +781,20 @@ mod tests {
                 map
             };
 
-            // Add all whitelist entries for investor, token owner and payout_token owner
-            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(token_owner_acc),
-                token_owner_did,
-                token.name.clone(),
-                0,
-                investor_did,
-                (now - Duration::hours(1)).timestamp() as u64,
-            ));
-            assert_ok!(general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(token_owner_acc),
-                token_owner_did,
-                token.name.clone(),
-                0,
-                token_owner_did,
-                (now - Duration::hours(1)).timestamp() as u64,
-            ));
             drop(outer);
+
+            let asset_rule = general_tm::AssetRule {
+                sender_rules: vec![],
+                receiver_rules: vec![],
+            };
+
+            // Allow all transfers
+            assert_ok!(GeneralTM::add_active_rule(
+                Origin::signed(token_owner_acc),
+                token_owner_did,
+                token.name.clone(),
+                asset_rule
+            ));
 
             // Transfer tokens to investor
             assert_ok!(Asset::transfer(
