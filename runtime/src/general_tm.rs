@@ -1,96 +1,121 @@
-use crate::{
-    asset::{self, AssetTrait},
-    constants::*,
-    identity, utils,
-};
-use primitives::{IdentityId, Key};
-
+use crate::asset::{self, AssetTrait};
+use crate::balances;
+use crate::constants::*;
+use crate::identity;
+use crate::utils;
 use codec::Encode;
 use core::result::Result as StdResult;
+use identity::ClaimValue;
+use primitives::{IdentityId, Key};
 use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 
+#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum Operators {
+    EqualTo,
+    NotEqualTo,
+    LessThan,
+    GreaterThan,
+    LessOrEqualTo,
+    GreaterOrEqualTo,
+}
+
+impl Default for Operators {
+    fn default() -> Self {
+        Operators::EqualTo
+    }
+}
+
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
+pub trait Trait:
+    timestamp::Trait + system::Trait + balances::Trait + utils::Trait + identity::Trait
+{
     // TODO: Add other types and constants required configure this module.
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::TokenBalance>;
 }
 
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
-pub struct Whitelist<U> {
-    investor: IdentityId,
-    can_send_after: U,
-    can_receive_after: U,
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct AssetRule {
+    pub sender_rules: Vec<RuleData>,
+    pub receiver_rules: Vec<RuleData>,
+}
+
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct RuleData {
+    key: Vec<u8>,
+    value: Vec<u8>,
+    trusted_issuers: Vec<IdentityId>,
+    operator: Operators,
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
-
-        // Tokens can have multiple whitelists that (for now) check entries individually within each other
-        WhitelistsByToken get(whitelists_by_token): map (Vec<u8>, u32) => Vec<Whitelist<T::Moment>>;
-
-        // (Ticker, ID, DID) -> whitelist entry
-        WhitelistForTokenAndAddress get(whitelist_for_restriction): map (Vec<u8>, u32, IdentityId) => Whitelist<T::Moment>;
-
-        WhitelistEntriesCount get(whitelist_entries_count): map (Vec<u8>,u32) => u64;
-        WhitelistCount get(whitelist_count): u32;
-
+        // (Asset -> AssetRules)
+        pub ActiveRules get(active_rules): map Vec<u8> => Vec<AssetRule>;
     }
 }
 
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        // Initializing events
-        // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        pub fn add_to_whitelist(origin, did: IdentityId, ticker: Vec<u8>, whitelist_id: u32, investor_did: IdentityId, expiry: T::Moment) -> Result {
+        pub fn add_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            let upper_ticker = utils::bytes_to_upper(&ticker);
-            ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
+            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
-            let whitelist = Whitelist {
-                investor: investor_did,
-                can_send_after:expiry.clone(),
-                can_receive_after:expiry
-            };
+            <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
+                if !old_asset_rules.contains(&asset_rule) {
+                    old_asset_rules.push(asset_rule.clone());
+                }
+            });
 
-            //Get whitelist entries for this token + whitelistId
-            let ticker_whitelist_id = (upper_ticker.clone(), whitelist_id);
-            let mut whitelists_for_token = Self::whitelists_by_token(&ticker_whitelist_id);
+            Self::deposit_event(Event::NewAssetRule(ticker, asset_rule));
 
-            //Get how many entries this whiteslist has and increase it if we are adding a new entry
-            let entries_count = Self::whitelist_entries_count(&ticker_whitelist_id);
+            Ok(())
+        }
 
-            // TODO: Make sure we are only increasing the count if it's a new entry and not just an update of an existing entry
-            let new_entries_count = entries_count.checked_add(1).ok_or("overflow in calculating next entry count")?;
-            <WhitelistEntriesCount>::insert( &ticker_whitelist_id, new_entries_count);
+        pub fn remove_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            let sender = ensure_signed(origin)?;
 
-            // If this is the first entry for this whitelist, increase the whitelists count so then we can loop through them.
-            if new_entries_count == 1 {
-                let whitelist_count = Self::whitelist_count();
-                let new_whitelist_count = whitelist_count.checked_add(1).ok_or("overflow in calculating next whitelist count")?;
-                <WhitelistCount>::put(new_whitelist_count);
-            }
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            whitelists_for_token.push(whitelist.clone());
+            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
-            //PABLO: TODO: don't add the restriction to the array if it already exists
-            <WhitelistsByToken<T>>::insert(&ticker_whitelist_id, whitelists_for_token);
+            <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
+                *old_asset_rules = old_asset_rules
+                    .iter()
+                    .cloned()
+                    .filter(|an_asset_rule| *an_asset_rule != asset_rule)
+                    .collect();
+            });
 
-            <WhitelistForTokenAndAddress<T>>::insert((upper_ticker, whitelist_id, investor_did),whitelist);
+            Self::deposit_event(Event::RemoveAssetRule(ticker, asset_rule));
 
-            sr_primitives::print("Created restriction!!!");
-            //<general_tm::Module<T>>::add_to_whitelist(sender,token_id,investor_did,expiry);
+            Ok(())
+        }
+
+        pub fn reset_active_rules(origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            let sender = ensure_signed(origin)?;
+
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+
+            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+
+            <ActiveRules>::remove(ticker.clone());
+
+            Self::deposit_event(Event::ResetAssetRules(ticker));
 
             Ok(())
         }
@@ -98,11 +123,10 @@ decl_module! {
 }
 
 decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as system::Trait>::AccountId,
-    {
-        Example(u32, AccountId, AccountId),
+    pub enum Event {
+        NewAssetRule(Vec<u8>, AssetRule),
+        RemoveAssetRule(Vec<u8>, AssetRule),
+        ResetAssetRules(Vec<u8>),
     }
 );
 
@@ -110,8 +134,14 @@ impl<T: Trait> Module<T> {
     pub fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
         let upper_ticker = utils::bytes_to_upper(ticker);
         T::Asset::is_owner(&upper_ticker, sender_did)
-        // let token = T::Asset::token_details(token_id);
-        // token.owner == sender
+    }
+
+    pub fn fetch_value(
+        did: IdentityId,
+        key: Vec<u8>,
+        trusted_issuers: Vec<IdentityId>,
+    ) -> Option<ClaimValue> {
+        <identity::Module<T>>::fetch_claim_value_multiple_issuers(did, key, trusted_issuers)
     }
 
     ///  Sender restriction verification
@@ -121,160 +151,533 @@ impl<T: Trait> Module<T> {
         to_did_opt: Option<IdentityId>,
         _value: T::TokenBalance,
     ) -> StdResult<u8, &'static str> {
-        let upper_ticker = utils::bytes_to_upper(ticker);
-        let now = <timestamp::Module<T>>::get();
+        // Transfer is valid if All reciever and sender rules of any asset rule are valid.
+        let ticker = utils::bytes_to_upper(ticker.as_slice());
+        let active_rules = Self::active_rules(ticker.clone());
+        for active_rule in active_rules {
+            let mut rule_broken = false;
 
-        // issuance case
-        if from_did_opt.is_none() {
-            if let Some(to_did) = to_did_opt.clone() {
-                if !Self::_check_investor_status(to_did).is_ok() {
-                    sr_primitives::print("to account is not active");
-                    return Ok(ERC1400_INVALID_RECEIVER);
+            if let Some(from_did) = from_did_opt {
+                for sender_rule in active_rule.sender_rules {
+                    let identity_value = Self::fetch_value(
+                        from_did.clone(),
+                        sender_rule.key,
+                        sender_rule.trusted_issuers,
+                    );
+                    rule_broken = match identity_value {
+                        None => true,
+                        Some(x) => utils::is_rule_broken(
+                            sender_rule.value,
+                            x.value,
+                            x.data_type,
+                            sender_rule.operator,
+                        ),
+                    };
+                    if rule_broken {
+                        break;
+                    }
                 }
-
-                if !Self::is_whitelisted(&upper_ticker, to_did).is_ok() {
-                    sr_primitives::print("to account is not whitelisted");
-                    return Ok(ERC1400_INVALID_RECEIVER);
+                if rule_broken {
+                    continue;
                 }
+            }
 
-                sr_primitives::print("GTM: Passed from the issuance case");
+            if let Some(to_did) = to_did_opt {
+                for receiver_rule in active_rule.receiver_rules {
+                    let identity_value = Self::fetch_value(
+                        to_did.clone(),
+                        receiver_rule.key,
+                        receiver_rule.trusted_issuers,
+                    );
+                    rule_broken = match identity_value {
+                        None => true,
+                        Some(x) => utils::is_rule_broken(
+                            receiver_rule.value,
+                            x.value,
+                            x.data_type,
+                            receiver_rule.operator,
+                        ),
+                    };
+                    if rule_broken {
+                        break;
+                    }
+                }
+            }
+
+            if !rule_broken {
+                sr_primitives::print("Satisfied Identity TM restrictions");
                 return Ok(ERC1400_TRANSFER_SUCCESS);
-            }
-        } else if to_did_opt.is_none() {
-            if let Some(from_did) = from_did_opt.clone() {
-                if !Self::_check_investor_status(from_did).is_ok() {
-                    sr_primitives::print("from account is not active");
-                    return Ok(ERC1400_INVALID_SENDER);
-                }
-
-                if !Self::is_whitelisted(&upper_ticker, from_did).is_ok() {
-                    sr_primitives::print("from account is not whitelisted");
-                    return Ok(ERC1400_INVALID_SENDER);
-                }
-                sr_primitives::print("GTM: Passed from the burn case");
-                return Ok(ERC1400_TRANSFER_SUCCESS);
-            }
-        } else {
-            // loop through existing whitelists
-            let whitelist_count = Self::whitelist_count();
-            if whitelist_count > 0 {
-                //sr_primitives::print("We have at least one entry to verify");
-            }
-
-            // Safe because `is_none` is checked.
-            let from_did = from_did_opt.unwrap();
-            let to_did = to_did_opt.unwrap();
-
-            if !Self::_check_investor_status(from_did).is_ok() {
-                sr_primitives::print("from account is not active");
-                return Ok(ERC1400_INVALID_SENDER);
-            }
-            if !Self::_check_investor_status(to_did).is_ok() {
-                sr_primitives::print("to account is not active");
-                return Ok(ERC1400_INVALID_RECEIVER);
-            }
-            for x in 0..whitelist_count {
-                let whitelist_for_from =
-                    Self::whitelist_for_restriction((ticker.clone(), x, from_did));
-                let whitelist_for_to = Self::whitelist_for_restriction((ticker.clone(), x, to_did));
-
-                if (whitelist_for_from.can_send_after > 0.into()
-                    && now >= whitelist_for_from.can_send_after)
-                    && (whitelist_for_to.can_receive_after > 0.into()
-                        && now > whitelist_for_to.can_receive_after)
-                {
-                    return Ok(ERC1400_TRANSFER_SUCCESS);
-                }
             }
         }
-        sr_primitives::print("GTM: Not going through the restriction");
+
+        sr_primitives::print("Identity TM restrictions not satisfied");
         Ok(ERC1400_TRANSFER_FAILURE)
-    }
-
-    pub fn is_whitelisted(ticker: &[u8], holder_did: IdentityId) -> Result {
-        let upper_ticker = utils::bytes_to_upper(ticker);
-        let now = <timestamp::Module<T>>::get();
-        ensure!(
-            Self::_check_investor_status(holder_did).is_ok(),
-            "Account is not active"
-        );
-        // loop through existing whitelists
-        let whitelist_count = Self::whitelist_count();
-
-        for x in 0..whitelist_count {
-            let whitelist_for_holder =
-                Self::whitelist_for_restriction((upper_ticker.clone(), x, holder_did.clone()));
-
-            if whitelist_for_holder.can_send_after > 0.into()
-                && now >= whitelist_for_holder.can_send_after
-            {
-                return Ok(());
-            }
-        }
-        Err("Not whitelisted")
-    }
-
-    fn _check_investor_status(_holder_did: IdentityId) -> Result {
-        // TODO check with claim.
-        /*let investor = <identity::DidRecords<T>>::get(holder_did);
-        ensure!(
-            investor.has_signing_keys_role(IdentityRole::Investor),
-            "Account is not an investor"
-        );*/
-        Ok(())
     }
 }
 
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    /*
-     *    use super::*;
-     *
-     *    use substrate_primitives::{Blake2Hasher, H256};
-     *    use sr_io::with_externalities;
-     *    use sr_primitives::{
-     *        testing::{Digest, DigestItem, Header},
-     *        traits::{BlakeTwo256, IdentityLookup},
-     *        BuildStorage,
-     *    };
-     *    use srml_support::{assert_ok, impl_outer_origin};
-     *
-     *    impl_outer_origin! {
-     *        pub enum Origin for Test {}
-     *    }
-     *
-     *    // For testing the module, we construct most of a mock runtime. This means
-     *    // first constructing a configuration type (`Test`) which `impl`s each of the
-     *    // configuration traits of modules we want to use.
-     *    #[derive(Clone, Eq, PartialEq)]
-     *    pub struct Test;
-     *    impl system::Trait for Test {
-     *        type Origin = Origin;
-     *        type Index = u64;
-     *        type BlockNumber = u64;
-     *        type Hash = H256;
-     *        type Hashing = BlakeTwo256;
-     *        type Digest = H256;
-     *        type AccountId = u64;
-     *        type Lookup = IdentityLookup<Self::AccountId>;
-     *        type Header = Header;
-     *        type Event = ();
-     *        type Log = DigestItem;
-     *    }
-     *    impl Trait for Test {
-     *        type Event = ();
-     *    }
-     *    type TransferValidationModule = Module<Test>;
-     *
-     *    // This function basically just builds a genesis storage key/value store according to
-     *    // our desired mockup.
-     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::default()
-     *            .build_storage()
-     *            .unwrap()
-     *            .0
-     *            .into()
-     *    }
-     */
+    use super::*;
+    use chrono::prelude::*;
+    use sr_io::with_externalities;
+    use sr_primitives::{
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
+        Perbill,
+    };
+    use srml_support::traits::Currency;
+    use srml_support::{assert_ok, impl_outer_origin, parameter_types};
+    use std::result::Result;
+    use substrate_primitives::{Blake2Hasher, H256};
+
+    use crate::{
+        asset::SecurityToken, balances, exemption, identity, identity::DataTypes, percentage_tm,
+        registry,
+    };
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    // For testing the module, we construct most of a mock runtime. This means
+    // first constructing a configuration type (`Test`) which `impl`s each of the
+    // configuration traits of modules we want to use.
+    #[derive(Clone, Eq, PartialEq)]
+    pub struct Test;
+
+    parameter_types! {
+        pub const BlockHashCount: u32 = 250;
+        pub const MaximumBlockWeight: u32 = 4096;
+        pub const MaximumBlockLength: u32 = 4096;
+        pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    }
+
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+        type Call = ();
+        type WeightMultiplierUpdate = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type Version = ();
+    }
+
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 0;
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const TransactionBaseFee: u64 = 0;
+        pub const TransactionByteFee: u64 = 0;
+    }
+
+    impl balances::Trait for Test {
+        type Balance = u128;
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type TransactionPayment = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+        type TransactionBaseFee = TransactionBaseFee;
+        type TransactionByteFee = TransactionByteFee;
+        type WeightToFee = ConvertInto;
+        type Identity = identity::Module<Test>;
+    }
+
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
+    }
+
+    impl timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
+
+    impl utils::Trait for Test {
+        type TokenBalance = u128;
+        fn as_u128(v: Self::TokenBalance) -> u128 {
+            v
+        }
+        fn as_tb(v: u128) -> Self::TokenBalance {
+            v
+        }
+        fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
+            v
+        }
+        fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
+            v
+        }
+        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+            v
+        }
+    }
+
+    type SessionIndex = u32;
+    type AuthorityId = u64;
+    type BlockNumber = u64;
+
+    pub struct TestOnSessionEnding;
+    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+        fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
+            None
+        }
+    }
+
+    pub struct TestSessionHandler;
+    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+        fn on_new_session<Ks: OpaqueKeys>(
+            _changed: bool,
+            _validators: &[(AuthorityId, Ks)],
+            _queued_validators: &[(AuthorityId, Ks)],
+        ) {
+        }
+
+        fn on_disabled(_validator_index: usize) {}
+
+        fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+    }
+
+    parameter_types! {
+        pub const Period: BlockNumber = 1;
+        pub const Offset: BlockNumber = 0;
+        pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+    }
+
+    impl session::Trait for Test {
+        type OnSessionEnding = TestOnSessionEnding;
+        type Keys = UintAuthorityId;
+        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type SessionHandler = TestSessionHandler;
+        type Event = ();
+        type ValidatorId = AuthorityId;
+        type ValidatorIdOf = ConvertInto;
+        type SelectInitialValidators = ();
+        type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    }
+
+    impl session::historical::Trait for Test {
+        type FullIdentification = ();
+        type FullIdentificationOf = ();
+    }
+
+    impl identity::Trait for Test {
+        type Event = ();
+    }
+
+    impl asset::Trait for Test {
+        type Event = ();
+        type Currency = balances::Module<Test>;
+    }
+
+    impl percentage_tm::Trait for Test {
+        type Event = ();
+    }
+
+    impl registry::Trait for Test {}
+
+    impl exemption::Trait for Test {
+        type Event = ();
+        type Asset = asset::Module<Test>;
+    }
+
+    impl Trait for Test {
+        type Event = ();
+        type Asset = asset::Module<Test>;
+    }
+
+    type Identity = identity::Module<Test>;
+    type GeneralTM = Module<Test>;
+    type Balances = balances::Module<Test>;
+    type Asset = asset::Module<Test>;
+
+    /// Build a genesis identity instance owned by the specified account
+    fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
+        let mut t = system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+        identity::GenesisConfig::<Test> {
+            owner: id,
+            did_creation_fee: 250,
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        sr_io::TestExternalities::new(t)
+    }
+
+    fn make_account(
+        id: u64,
+    ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+        let signed_id = Origin::signed(id);
+        let did = IdentityId::from(id as u128);
+
+        Identity::register_did(signed_id.clone(), did, vec![])?;
+        Ok((signed_id, did))
+    }
+
+    #[test]
+    fn should_add_and_verify_assetrule() {
+        let identity_owner_id = 1;
+        with_externalities(&mut identity_owned_by(identity_owner_id), || {
+            let token_owner_acc = 1;
+            let token_owner_did = IdentityId::from(token_owner_acc as u128);
+
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                vec![],
+            )
+            .expect("Could not create token_owner_did");
+
+            // Share issuance is successful
+            assert_ok!(Asset::create_token(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+            let claim_issuer_acc = 3;
+            Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
+            let (_claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+
+            assert_ok!(Identity::add_claim_issuer(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                claim_issuer_did.clone()
+            ));
+
+            let claim_value = ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "some_value".as_bytes().to_vec(),
+            };
+
+            assert_ok!(Identity::add_claim(
+                Origin::signed(claim_issuer_acc),
+                token_owner_did.clone(),
+                "some_key".as_bytes().to_vec(),
+                claim_issuer_did.clone(),
+                99999999999999999u64,
+                claim_value.clone()
+            ));
+
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let sender_rule = RuleData {
+                key: "some_key".as_bytes().to_vec(),
+                value: "some_value".as_bytes().to_vec(),
+                trusted_issuers: vec![claim_issuer_did.clone()],
+                operator: Operators::EqualTo,
+            };
+
+            let x = vec![sender_rule];
+
+            let asset_rule = AssetRule {
+                sender_rules: x,
+                receiver_rules: vec![],
+            };
+
+            // Allow all transfers
+            assert_ok!(GeneralTM::add_active_rule(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                asset_rule
+            ));
+
+            //Transfer tokens to investor
+            assert_ok!(Asset::transfer(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token_owner_did.clone(),
+                token.total_supply
+            ));
+        });
+    }
+
+    #[test]
+    fn should_add_and_verify_complex_assetrule() {
+        let identity_owner_id = 1;
+        with_externalities(&mut identity_owned_by(identity_owner_id), || {
+            let token_owner_acc = 1;
+            let token_owner_did = IdentityId::from(token_owner_acc as u128);
+
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                vec![],
+            )
+            .expect("Could not create token_owner_did");
+
+            // Share issuance is successful
+            assert_ok!(Asset::create_token(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+            let claim_issuer_acc = 3;
+            Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
+            let (_claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+
+            assert_ok!(Identity::add_claim_issuer(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                claim_issuer_did.clone()
+            ));
+
+            let claim_value = ClaimValue {
+                data_type: DataTypes::U8,
+                value: 10u8.encode(),
+            };
+
+            assert_ok!(Identity::add_claim(
+                Origin::signed(claim_issuer_acc),
+                token_owner_did.clone(),
+                "some_key".as_bytes().to_vec(),
+                claim_issuer_did.clone(),
+                99999999999999999u64,
+                claim_value.clone()
+            ));
+
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let sender_rule = RuleData {
+                key: "some_key".as_bytes().to_vec(),
+                value: 5u8.encode(),
+                trusted_issuers: vec![claim_issuer_did.clone()],
+                operator: Operators::GreaterThan,
+            };
+
+            let receiver_rule = RuleData {
+                key: "some_key".as_bytes().to_vec(),
+                value: 15u8.encode(),
+                trusted_issuers: vec![claim_issuer_did.clone()],
+                operator: Operators::LessThan,
+            };
+
+            let x = vec![sender_rule];
+            let y = vec![receiver_rule];
+
+            let asset_rule = AssetRule {
+                sender_rules: x,
+                receiver_rules: y,
+            };
+
+            assert_ok!(GeneralTM::add_active_rule(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                asset_rule
+            ));
+
+            //Transfer tokens to investor
+            assert_ok!(Asset::transfer(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token_owner_did.clone(),
+                token.total_supply
+            ));
+        });
+    }
+
+    #[test]
+    fn should_reset_assetrules() {
+        let identity_owner_id = 1;
+        with_externalities(&mut identity_owned_by(identity_owner_id), || {
+            let token_owner_acc = 1;
+            let token_owner_did = IdentityId::from(token_owner_acc as u128);
+
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+            Identity::register_did(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                vec![],
+            )
+            .expect("Could not create token_owner_did");
+
+            // Share issuance is successful
+            assert_ok!(Asset::create_token(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            let asset_rule = AssetRule {
+                sender_rules: vec![],
+                receiver_rules: vec![],
+            };
+
+            assert_ok!(GeneralTM::add_active_rule(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone(),
+                asset_rule
+            ));
+
+            let asset_rules = GeneralTM::active_rules(token.name.clone());
+            assert_eq!(asset_rules.len(), 1);
+
+            assert_ok!(GeneralTM::reset_active_rules(
+                Origin::signed(token_owner_acc),
+                token_owner_did.clone(),
+                token.name.clone()
+            ));
+
+            let asset_rules_new = GeneralTM::active_rules(token.name.clone());
+            assert_eq!(asset_rules_new.len(), 0);
+        });
+    }
 }

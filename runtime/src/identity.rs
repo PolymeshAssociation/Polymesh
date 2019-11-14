@@ -16,19 +16,38 @@ use system::{self, ensure_signed};
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
-    topic: u32,
-    schema: u32,
-    bytes: Vec<u8>,
+    issuance_date: U,
     expiry: U,
+    claim_value: ClaimValue,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct ClaimRecord<U> {
-    claim: Claim<U>,
-    revoked: bool,
-    /// issuer DID
-    issued_by: IdentityId,
-    attestation: Vec<u8>,
+pub struct ClaimMetaData {
+    claim_key: Vec<u8>,
+    claim_issuer: IdentityId,
+}
+
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct ClaimValue {
+    pub data_type: DataTypes,
+    pub value: Vec<u8>,
+}
+
+#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum DataTypes {
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    Bool,
+    VecU8,
+}
+
+impl Default for DataTypes {
+    fn default() -> Self {
+        DataTypes::VecU8
+    }
 }
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
@@ -60,8 +79,11 @@ decl_storage! {
         /// DID -> DID claim issuers
         pub ClaimIssuers get(claim_issuers): map IdentityId => Vec<IdentityId>;
 
-        /// DID -> Associated claims
-        pub Claims get(claims): map IdentityId => Vec<ClaimRecord<T::Moment>>;
+        /// (DID, claim_key, claim_issuer) -> Associated claims
+        pub Claims get(claims): map(IdentityId, ClaimMetaData) => Claim<T::Moment>;
+
+        /// DID -> array of (claim_key and claim_issuer)
+        pub ClaimKeys get(claim_keys): map IdentityId => Vec<ClaimMetaData>;
 
         // Account => DID
         pub KeyToIdentityIds get(key_to_idenitity_ids): map Key => LinkedKeyInfo;
@@ -285,7 +307,7 @@ decl_module! {
         }
 
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        fn add_claim_issuer(origin, did: IdentityId, claim_issuer_did: IdentityId) -> Result {
+        pub fn add_claim_issuer(origin, did: IdentityId, claim_issuer_did: IdentityId) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
 
@@ -321,8 +343,15 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds new claim records. Only called by did_issuer's signing key
-        fn add_claim(origin, did: IdentityId, did_issuer: IdentityId, claims: Vec<Claim<T::Moment>>) -> Result {
+        /// Adds new claim record or edits an exisitng one. Only called by did_issuer's signing key
+        pub fn add_claim(
+            origin,
+            did: IdentityId,
+            claim_key: Vec<u8>,
+            did_issuer: IdentityId,
+            expiry: <T as timestamp::Trait>::Moment,
+            claim_value: ClaimValue
+        ) -> Result {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords<T>>::exists(did), "DID must already exist");
@@ -334,106 +363,59 @@ decl_module! {
             // Verify that sender key is one of did_issuer's signing keys
             ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
-            <Claims<T>>::mutate(did, |claim_records| {
-                let mut new_records = claims
-                    .iter()
-                    .cloned()
-                    .map(|claim| ClaimRecord {
-                        claim,
-                        revoked: false,
-                        issued_by: did_issuer,
-                        attestation: Vec::new(),
-                    })
-                    .collect();
+            let claim_meta_data = ClaimMetaData {
+                claim_key: claim_key,
+                claim_issuer: did_issuer,
+            };
 
-                claim_records.append(&mut new_records);
+            let now = <timestamp::Module<T>>::get();
+
+            let claim = Claim {
+                issuance_date: now,
+                expiry: expiry,
+                claim_value: claim_value,
+            };
+
+            <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
+
+            <ClaimKeys>::mutate(&did, |old_claim_data| {
+                if !old_claim_data.contains(&claim_meta_data) {
+                    old_claim_data.push(claim_meta_data.clone());
+                }
             });
 
-            Self::deposit_event(RawEvent::NewClaims(did, did_issuer, claims));
-
-            Ok(())
-        }
-
-        /// Adds new claim records with an attestation. Only called by issuer signing keys
-        fn add_claim_with_attestation(origin, did: IdentityId, did_issuer: IdentityId, claims: Vec<Claim<T::Moment>>, attestation: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            ensure!(<DidRecords<T>>::exists(did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(did_issuer), "claim issuer DID must already exist");
-
-            let sender_key = Key::try_from( sender.encode())?;
-            ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
-
-            // Verify that sender key is one of did_issuer's signing keys
-            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
-
-            <Claims<T>>::mutate(did, |claim_records| {
-                let mut new_records = claims
-                    .iter()
-                    .cloned()
-                    .map(|claim| ClaimRecord {
-                        claim,
-                        revoked: false,
-                        issued_by: did_issuer.clone(),
-                        attestation: attestation.clone(),
-                    })
-                    .collect();
-
-                claim_records.append(&mut new_records);
-            });
-
-            Self::deposit_event(RawEvent::NewClaimsWithAttestation(did, did_issuer, claims, attestation));
+            Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
 
             Ok(())
         }
 
         /// Marks the specified claim as revoked
-        fn revoke_claim(origin, did: IdentityId, did_issuer: IdentityId, claim: Claim<T::Moment>) -> Result {
+        pub fn revoke_claim(origin, did: IdentityId, claim_key: Vec<u8>, did_issuer: IdentityId) -> Result {
             let sender = ensure_signed(origin)?;
 
-            ensure!(<DidRecords<T>>::exists(did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(did_issuer), "claim issuer DID must already exist");
-            ensure!(Self::is_claim_issuer(did, did_issuer), "did_issuer must be a claim issuer for DID");
+            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
+            ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = Key::try_from( sender.encode())?;
             ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
-            <Claims<T>>::mutate(did, |claim_records| {
-                claim_records
-                    .iter_mut()
-                    .for_each(|record| if record.issued_by == did_issuer && record.claim == claim {
-                        (*record).revoked = true;
-                })
+            let claim_meta_data = ClaimMetaData {
+                claim_key: claim_key,
+                claim_issuer: did_issuer,
+            };
+
+            <Claims<T>>::remove((did.clone(), claim_meta_data.clone()));
+
+            <ClaimKeys>::mutate(&did, |old_claim_metadata| {
+                *old_claim_metadata = old_claim_metadata
+                    .iter()
+                    .filter(|&metadata| *metadata != claim_meta_data)
+                    .cloned()
+                    .collect();
             });
 
-            Self::deposit_event(RawEvent::RevokedClaim(did, did_issuer, claim));
-
-            Ok(())
-        }
-
-        /// Marks all claims of an issuer as revoked
-        fn revoke_all(origin, did: IdentityId, did_issuer: IdentityId) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            ensure!(<DidRecords<T>>::exists(did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(did_issuer), "claim issuer DID must already exist");
-            ensure!(Self::is_claim_issuer(did, did_issuer), "did_issuer must be a claim issuer or master key for DID");
-
-            // Verify that sender key is one of did_issuer's signing keys
-            let sender_key = Key::try_from( sender.encode())?;
-            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
-
-            <Claims<T>>::mutate(did.clone(), |claim_records| {
-
-                claim_records
-                    .iter_mut()
-                    .for_each(|record| if record.issued_by == did_issuer {
-                        (*record).revoked = true;
-                })
-            });
-
-            Self::deposit_event(RawEvent::RevokedAllClaims(did, did_issuer));
+            Self::deposit_event(RawEvent::RevokedClaim(did, claim_meta_data));
 
             Ok(())
         }
@@ -508,16 +490,10 @@ decl_event!(
         RemovedClaimIssuer(IdentityId, IdentityId),
 
         /// DID, claim issuer DID, claims
-        NewClaims(IdentityId, IdentityId, Vec<Claim<Moment>>),
-
-        /// DID, claim issuer DID, claims, attestation
-        NewClaimsWithAttestation(IdentityId, IdentityId, Vec<Claim<Moment>>, Vec<u8>),
+        NewClaims(IdentityId, ClaimMetaData, Claim<Moment>),
 
         /// DID, claim issuer DID, claim
-        RevokedClaim(IdentityId, IdentityId, Claim<Moment>),
-
-        /// DID, claim issuer DID
-        RevokedAllClaims(IdentityId, IdentityId),
+        RevokedClaim(IdentityId, ClaimMetaData),
 
         /// DID
         NewIssuer(IdentityId),
@@ -600,6 +576,39 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::PolyChargedFromDid(id, amount));
 
         return true;
+    }
+
+    pub fn fetch_claim_value(
+        did: IdentityId,
+        claim_key: Vec<u8>,
+        claim_issuer: IdentityId,
+    ) -> Option<ClaimValue> {
+        let claim_meta_data = ClaimMetaData {
+            claim_key: claim_key,
+            claim_issuer: claim_issuer,
+        };
+        if <Claims<T>>::exists((did.clone(), claim_meta_data.clone())) {
+            let now = <timestamp::Module<T>>::get();
+            let claim = <Claims<T>>::get((did, claim_meta_data));
+            if claim.expiry > now {
+                return Some(claim.claim_value);
+            }
+        }
+        return None;
+    }
+
+    pub fn fetch_claim_value_multiple_issuers(
+        did: IdentityId,
+        claim_key: Vec<u8>,
+        claim_issuers: Vec<IdentityId>,
+    ) -> Option<ClaimValue> {
+        for claim_issuer in claim_issuers {
+            let claim_value = Self::fetch_claim_value(did.clone(), claim_key.clone(), claim_issuer);
+            if claim_value.is_some() {
+                return claim_value;
+            }
+        }
+        return None;
     }
 
     /// It checks that `sender_key` is the master key of `did` Identifier and that
@@ -864,27 +873,40 @@ mod tests {
             let (issuer, issuer_did) = make_account(2).unwrap();
             let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
 
-            // Add Claims by master & claim_issuer
-            let claims = vec![Claim {
-                topic: 1,
-                schema: 1,
-                bytes: vec![],
-                expiry: 10,
-            }];
+            let claim_value = ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "some_value".as_bytes().to_vec(),
+            };
 
             assert_ok!(Identity::add_claim(
                 claim_issuer.clone(),
                 claim_issuer_did,
-                claim_issuer_did,
-                claims.clone()
+                "some_key".as_bytes().to_vec(),
+                claim_issuer_did.clone(),
+                100u64,
+                claim_value.clone()
             ));
 
             assert_err!(
-                Identity::add_claim(claim_issuer.clone(), owner_did, issuer_did, claims.clone()),
+                Identity::add_claim(
+                    claim_issuer.clone(),
+                    owner_did.clone(),
+                    "some_key".as_bytes().to_vec(),
+                    issuer_did.clone(),
+                    100u64,
+                    claim_value.clone()
+                ),
                 "did_issuer must be a claim issuer or master key for DID"
             );
             assert_err!(
-                Identity::add_claim(issuer.clone(), issuer_did, claim_issuer_did, claims.clone()),
+                Identity::add_claim(
+                    issuer.clone(),
+                    issuer_did.clone(),
+                    "some_key".as_bytes().to_vec(),
+                    claim_issuer_did.clone(),
+                    100u64,
+                    claim_value.clone()
+                ),
                 "Sender must hold a claim issuer\'s signing key"
             );
         });
@@ -936,39 +958,35 @@ mod tests {
                 claim_issuer_did
             ));
 
-            // Add Claims by master & claim_issuer
-            let claim = Claim {
-                topic: 1,
-                schema: 1,
-                bytes: vec![],
-                expiry: 10,
+            let claim_value = ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "some_value".as_bytes().to_vec(),
             };
 
             assert_ok!(Identity::add_claim(
                 claim_issuer.clone(),
                 claim_issuer_did,
+                "some_key".as_bytes().to_vec(),
                 claim_issuer_did,
-                vec![claim.clone()]
+                100u64,
+                claim_value.clone()
             ));
 
             assert_err!(
-                Identity::revoke_claim(issuer.clone(), issuer_did, claim_issuer_did, claim.clone()),
-                "did_issuer must be a claim issuer for DID"
+                Identity::revoke_claim(
+                    issuer.clone(),
+                    issuer_did,
+                    "some_key".as_bytes().to_vec(),
+                    claim_issuer_did
+                ),
+                "Sender must hold a claim issuer\'s signing key"
             );
 
             assert_ok!(Identity::revoke_claim(
                 claim_issuer.clone(),
                 owner_did,
-                claim_issuer_did,
-                claim.clone()
-            ));
-
-            // TODO Revoke claim twice??
-            assert_ok!(Identity::revoke_claim(
-                claim_issuer.clone(),
-                owner_did,
-                claim_issuer_did,
-                claim
+                "some_key".as_bytes().to_vec(),
+                claim_issuer_did
             ));
         });
     }
