@@ -260,7 +260,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(Self::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(Self::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let from_record = <DidRecords<T>>::get(did);
             let to_record = <DidRecords<T>>::get(to_did);
@@ -332,7 +332,7 @@ decl_module! {
             ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            ensure!(Self::is_signing_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
+            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did, |claim_records| {
                 let mut new_records = claims
@@ -365,7 +365,7 @@ decl_module! {
             ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            ensure!(Self::is_signing_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
+            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did, |claim_records| {
                 let mut new_records = claims
@@ -397,7 +397,7 @@ decl_module! {
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = Key::try_from( sender.encode())?;
-            ensure!(Self::is_signing_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
+            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did, |claim_records| {
                 claim_records
@@ -422,7 +422,7 @@ decl_module! {
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = Key::try_from( sender.encode())?;
-            ensure!(Self::is_signing_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
+            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did.clone(), |claim_records| {
 
@@ -563,7 +563,7 @@ impl<T: Trait> Module<T> {
     /// # IMPORTANT
     /// If signing keys are frozen this function always returns false.
     /// Master key cannot be frozen.
-    pub fn is_signing_key(did: IdentityId, key: &Key) -> bool {
+    pub fn is_authorized_key(did: IdentityId, key: &Key) -> bool {
         let record = <DidRecords<T>>::get(did);
         if record.master_key == *key {
             return true;
@@ -717,7 +717,7 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
                 && linked_key_info.identities.len() == 1
             {
                 let id = linked_key_info.identities[0];
-                if Self::is_signing_key(id, signing_key) && <ChargeDid>::exists(signing_key) {
+                if Self::is_authorized_key(id, signing_key) && <ChargeDid>::exists(signing_key) {
                     return <ChargeDid>::get(signing_key);
                 }
             }
@@ -908,10 +908,10 @@ mod tests {
             ));
 
             // Check master key on master and signing_keys.
-            assert!(Identity::is_signing_key(owner_did, &owner_key));
-            assert!(Identity::is_signing_key(a_did, &charlie_sig_key.key));
+            assert!(Identity::is_authorized_key(owner_did, &owner_key));
+            assert!(Identity::is_authorized_key(a_did, &charlie_sig_key.key));
 
-            assert!(Identity::is_signing_key(b_did, &charlie_sig_key.key) == false);
+            assert!(Identity::is_authorized_key(b_did, &charlie_sig_key.key) == false);
 
             // ... and remove that key.
             assert_ok!(Identity::remove_signing_keys(
@@ -919,7 +919,7 @@ mod tests {
                 a_did.clone(),
                 vec![charlie_sig_key.key.clone()]
             ));
-            assert!(Identity::is_signing_key(a_did, &charlie_sig_key.key) == false);
+            assert!(Identity::is_authorized_key(a_did, &charlie_sig_key.key) == false);
         });
     }
 
@@ -1116,7 +1116,7 @@ mod tests {
             signing_keys_v1.clone()
         ));
 
-        assert_eq!(Identity::is_signing_key(alice_did, &bob_key), true);
+        assert_eq!(Identity::is_authorized_key(alice_did, &bob_key), true);
 
         // Freeze signing keys: bob & charlie.
         assert_err!(
@@ -1128,7 +1128,7 @@ mod tests {
             alice_did.clone()
         ));
 
-        assert_eq!(Identity::is_signing_key(alice_did, &bob_key), false);
+        assert_eq!(Identity::is_authorized_key(alice_did, &bob_key), false);
 
         // Add new signing keys.
         let signing_keys_v2 = vec![dave_signing_key.clone()];
@@ -1137,7 +1137,7 @@ mod tests {
             alice_did.clone(),
             signing_keys_v2.clone()
         ));
-        assert_eq!(Identity::is_signing_key(alice_did, &dave_key), false);
+        assert_eq!(Identity::is_authorized_key(alice_did, &dave_key), false);
 
         // update role of frozen keys.
         assert_ok!(Identity::set_role_to_signing_key(
@@ -1157,7 +1157,7 @@ mod tests {
             alice_did.clone()
         ));
 
-        assert_eq!(Identity::is_signing_key(alice_did, &dave_key), true);
+        assert_eq!(Identity::is_authorized_key(alice_did, &dave_key), true);
     }
 
     /// It double-checks that frozen keys are removed too.

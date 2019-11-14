@@ -84,7 +84,7 @@ decl_module! {
             let sender_key = Key::try_from( sender.encode())?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &sender_key), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &sender_key), "sender must be a signing key for DID");
 
             // Ensure we get a complete set of parameters for every token
             ensure!((names.len() == tickers.len()) == (total_supply_values.len() == divisible_values.len()), "Inconsistent token param vector lengths");
@@ -172,7 +172,7 @@ decl_module! {
             let sender_key = Key::try_from(sender.encode())?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &sender_key), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &sender_key), "sender must be a signing key for DID");
 
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
@@ -231,7 +231,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, & Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::_is_valid_transfer(&ticker, Some(did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
@@ -244,7 +244,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
@@ -262,7 +262,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), did)), "Account does not own this token");
 
@@ -281,7 +281,7 @@ decl_module! {
             let spender = ensure_signed(_origin)?;
 
             // Check that spender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, & Key::try_from( spender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( spender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let ticker_from_did_did = (ticker.clone(), from_did, did);
@@ -309,7 +309,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
             Self::_create_checkpoint(&ticker)
@@ -320,7 +320,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&upper_ticker, did), "user is not authorized");
             Self::_mint(&upper_ticker, to_did, value)
@@ -331,7 +331,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from( sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
 
@@ -387,7 +387,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Granularity check
             ensure!(
@@ -427,7 +427,7 @@ decl_module! {
             let sender = ensure_signed(_origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // Granularity check
             ensure!(
@@ -475,7 +475,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&ticker, did), "user is not token owner");
 
             // Granularity check
@@ -513,7 +513,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
             ensure!(granularity != 0_u128, "Invalid granularity");
@@ -572,7 +572,7 @@ decl_module! {
         let sender = ensure_signed(origin)?;
 
         // Check that sender is allowed to act on behalf of `did`
-        ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+        ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
         ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
         <Documents<T>>::insert((ticker, name), (uri, document_hash, <timestamp::Module<T>>::get()));
@@ -584,7 +584,7 @@ decl_module! {
         let sender = ensure_signed(origin)?;
 
         // Check that sender is allowed to act on behalf of `did`
-        ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+        ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
         ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
         <Documents<T>>::remove((ticker, name));
