@@ -33,7 +33,7 @@ pub fn bytes_to_upper(v: &[u8]) -> Vec<u8> {
         .collect()
 }
 
-pub fn check_rule(
+pub fn is_rule_broken(
     rule_data: Vec<u8>,
     identity_data: Vec<u8>,
     data_type: DataTypes,
@@ -42,8 +42,13 @@ pub fn check_rule(
     let mut rule_broken = false;
     match data_type {
         DataTypes::U8 => {
-            let rule_value = u8::decode(&mut &rule_data[..]).unwrap();
-            let identity_value: u8 = u8::decode(&mut &identity_data[..]).unwrap();
+            let rule_value_result = u8::decode(&mut &rule_data[..]);
+            let identity_value_result = u8::decode(&mut &identity_data[..]);
+            if rule_value_result.is_err() || identity_value_result.is_err() {
+                return true;
+            }
+            let rule_value = rule_value_result.unwrap_or_default();
+            let identity_value = identity_value_result.unwrap_or_default();
             match operator {
                 Operators::EqualTo => {
                     if rule_value != identity_value {
@@ -78,8 +83,13 @@ pub fn check_rule(
             }
         }
         DataTypes::U16 => {
-            let rule_value = u16::decode(&mut &rule_data[..]).unwrap();
-            let identity_value = u16::decode(&mut &identity_data[..]).unwrap();
+            let rule_value_result = u16::decode(&mut &rule_data[..]);
+            let identity_value_result = u16::decode(&mut &identity_data[..]);
+            if rule_value_result.is_err() || identity_value_result.is_err() {
+                return true;
+            }
+            let rule_value = rule_value_result.unwrap_or_default();
+            let identity_value = identity_value_result.unwrap_or_default();
             match operator {
                 Operators::EqualTo => {
                     if rule_value != identity_value {
@@ -114,8 +124,13 @@ pub fn check_rule(
             }
         }
         DataTypes::U32 => {
-            let rule_value = u32::decode(&mut &rule_data[..]).unwrap();
-            let identity_value = u32::decode(&mut &identity_data[..]).unwrap();
+            let rule_value_result = u32::decode(&mut &rule_data[..]);
+            let identity_value_result = u32::decode(&mut &identity_data[..]);
+            if rule_value_result.is_err() || identity_value_result.is_err() {
+                return true;
+            }
+            let rule_value = rule_value_result.unwrap_or_default();
+            let identity_value = identity_value_result.unwrap_or_default();
             match operator {
                 Operators::EqualTo => {
                     if rule_value != identity_value {
@@ -150,8 +165,13 @@ pub fn check_rule(
             }
         }
         DataTypes::U64 => {
-            let rule_value = u64::decode(&mut &rule_data[..]).unwrap();
-            let identity_value = u64::decode(&mut &identity_data[..]).unwrap();
+            let rule_value_result = u64::decode(&mut &rule_data[..]);
+            let identity_value_result = u64::decode(&mut &identity_data[..]);
+            if rule_value_result.is_err() || identity_value_result.is_err() {
+                return true;
+            }
+            let rule_value = rule_value_result.unwrap_or_default();
+            let identity_value = identity_value_result.unwrap_or_default();
             match operator {
                 Operators::EqualTo => {
                     if rule_value != identity_value {
@@ -186,8 +206,13 @@ pub fn check_rule(
             }
         }
         DataTypes::U128 => {
-            let rule_value = u128::decode(&mut &rule_data[..]).unwrap();
-            let identity_value = u128::decode(&mut &identity_data[..]).unwrap();
+            let rule_value_result = u128::decode(&mut &rule_data[..]);
+            let identity_value_result = u128::decode(&mut &identity_data[..]);
+            if rule_value_result.is_err() || identity_value_result.is_err() {
+                return true;
+            }
+            let rule_value = rule_value_result.unwrap_or_default();
+            let identity_value = identity_value_result.unwrap_or_default();
             match operator {
                 Operators::EqualTo => {
                     if rule_value != identity_value {
@@ -222,8 +247,13 @@ pub fn check_rule(
             }
         }
         DataTypes::Bool => {
-            let rule_value = bool::decode(&mut &rule_data[..]).unwrap();
-            let identity_value = bool::decode(&mut &identity_data[..]).unwrap();
+            let rule_value_result = bool::decode(&mut &rule_data[..]);
+            let identity_value_result = bool::decode(&mut &identity_data[..]);
+            if rule_value_result.is_err() || identity_value_result.is_err() {
+                return true;
+            }
+            let rule_value = rule_value_result.unwrap_or_default();
+            let identity_value = identity_value_result.unwrap_or_default();
             match operator {
                 Operators::EqualTo => {
                     if rule_value != identity_value {
