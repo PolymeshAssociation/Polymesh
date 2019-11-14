@@ -8,7 +8,7 @@
 //!
 //! ## Overview
 //!
-//! This is modified implementation of substrate's balances SRML. 
+//! This is a modified implementation of substrate's balances SRML. 
 //! The modifications made are as follows:
 //!
 //! - Added ability to pay transaction fees from identity's balance instead of user's balance.
