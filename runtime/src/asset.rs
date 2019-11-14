@@ -708,7 +708,7 @@ impl<T: Trait> Module<T> {
 
     pub fn get_balance_at(ticker: &Vec<u8>, did: IdentityId, at: u64) -> T::TokenBalance {
         let upper_ticker = utils::bytes_to_upper(ticker);
-        let ticker_did = (upper_ticker.clone(), did.clone());
+        let ticker_did = (upper_ticker.clone(), did);
         if !<TotalCheckpoints>::exists(upper_ticker.clone()) ||
             at == 0 || //checkpoints start from 1
             at > Self::total_checkpoints_of(&upper_ticker)
@@ -719,7 +719,9 @@ impl<T: Trait> Module<T> {
 
         if <UserCheckpoints>::exists(&ticker_did) {
             let user_checkpoints = Self::user_checkpoints(&ticker_did);
-            if at > *user_checkpoints.last().unwrap() {
+            if at > *user_checkpoints.last().unwrap_or(&0) {
+                // Using unwrap_or to be defensive.
+                // or part should never be triggered due to the check on 2 lines above
                 // User has not transacted after checkpoint creation.
                 // This means their current balance = their balance at that cp.
                 return Self::balance_of(&ticker_did);
@@ -728,7 +730,7 @@ impl<T: Trait> Module<T> {
             // and the user has data for that checkpoint
             return Self::balance_at_checkpoint((
                 upper_ticker.clone(),
-                did.clone(),
+                did,
                 Self::find_ceiling(&user_checkpoints, at),
             ));
         }
@@ -848,7 +850,7 @@ impl<T: Trait> Module<T> {
             let ticker_user_did_checkpont = (ticker.clone(), user_did, checkpoint_count);
             if !<CheckpointBalance<T>>::exists(&ticker_user_did_checkpont) {
                 <CheckpointBalance<T>>::insert(&ticker_user_did_checkpont, user_balance);
-                <UserCheckpoints>::mutate((ticker.clone(), user_did.clone()), |user_checkpoints| {
+                <UserCheckpoints>::mutate((ticker.clone(), user_did), |user_checkpoints| {
                     user_checkpoints.push(checkpoint_count);
                 });
             }
