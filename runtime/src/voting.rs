@@ -75,6 +75,7 @@ decl_module! {
 
             // This avoids cloning the variables to make the same tupple again and again.
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
+
             // Ensure the uniqueness of the ballot
             ensure!(!<Ballots<T>>::exists(&upper_ticker_ballot_name), "A ballot with same name already exisits");
 
@@ -119,8 +120,9 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
-            // This avoids cloning the variables to make the same tupple again and again.
+            // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
+
             // Ensure validity the ballot
             ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exist");
             let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
@@ -128,21 +130,24 @@ decl_module! {
             ensure!(ballot.voting_start <= now, "Voting hasn't started yet");
             ensure!(ballot.voting_end > now, "Voting ended already");
 
+            // Ensure validity of checkpoint
             let count = <asset::TotalCheckpoints>::get(&upper_ticker);
             ensure!(ballot.checkpoint_id <= count, "Checkpoint has not be created yet");
 
             // Ensure vote is valid
             ensure!(u64::try_from(votes.len()).unwrap() == <TotalChoices>::get(&upper_ticker_ballot_name), "Invalid vote");
-
             let mut total_votes = <T as utils::Trait>::as_tb(0);
             for vote in &votes {
                 total_votes += *vote;
             }
-
             ensure!(total_votes <= T::Asset::get_balance_at(&upper_ticker, did, ballot.checkpoint_id), "Not enough balance");
+
+            // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name_did = (upper_ticker.clone(), ballot_name.clone(), did.clone());
+
+            // Check if user has already voted for this ballot or if they are voting for the first time
             if <Votes<T>>::exists(&upper_ticker_ballot_name_did) {
-                //User wants to change their vote. We first need to subtract their existing vote.
+                //User wants to change their vote. We first need to subtract their existing vote
                 let previous_votes = <Votes<T>>::get(&upper_ticker_ballot_name_did);
                 <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
                     for i in 0..results.len() {
@@ -151,12 +156,14 @@ decl_module! {
                 });
             }
 
+            // Adding users' vote to the result
             <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
                 for i in 0..results.len() {
                     results[i] += votes[i];
                 }
             });
 
+            // Storing users' vote onchain. This is needed when user wants to their change vote
             <Votes<T>>::insert(&upper_ticker_ballot_name_did, votes.clone());
 
             Self::deposit_event(RawEvent::VoteCast(upper_ticker, ballot_name, votes));
@@ -178,7 +185,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
-            // This avoids cloning the variables to make the same tupple again and again.
+            // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
 
             // Ensure the existance of valid ballot
@@ -195,7 +202,7 @@ decl_module! {
             });
 
             // NB Not deleting the ballot to prevent someone from
-            // deleting a ballot mid vote and creating a new one with same name to confuse voters.
+            // deleting a ballot mid vote and creating a new one with same name to confuse voters
 
             // This will prevent further voting. Essentially, canceling the ballot
             <Ballots<T>>::mutate(&upper_ticker_ballot_name, |ballot_details| {
@@ -217,7 +224,11 @@ decl_event!(
     {
         // (Ticker, BallotName, BallotDetails)
         BallotCreated(Vec<u8>, Vec<u8>, Ballot<Moment>),
+
+        // (Ticker, BallotName, Vote)
         VoteCast(Vec<u8>, Vec<u8>, Vec<TokenBalance>),
+
+        // (Ticker, BallotName)
         BallotCancelled(Vec<u8>, Vec<u8>),
     }
 );
