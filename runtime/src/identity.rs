@@ -31,6 +31,9 @@ pub struct ClaimRecord<U> {
     attestation: Vec<u8>,
 }
 
+/// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
+/// Master key or extenal type signing key are restricted to be linked to just one identity.
+/// Other types of signing key could be associated with more that one identity.
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct LinkedKeyInfo {
     pub key_type: KeyType,
@@ -645,6 +648,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// It links `key` key to `did` identity as a `key_type` type.
     fn link_key_to_did(key: &Key, key_type: KeyType, did: IdentityId) {
         if <KeyToIdentityIds>::exists(key) {
             <KeyToIdentityIds>::mutate(key, |linked_key_info| {
@@ -666,6 +670,8 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// It unlinks the `key` key from `did`.
+    /// If there is no more associated identities, its full entry is removed.
     fn unlink_key_to_did(key: &Key, did: IdentityId) {
         if <KeyToIdentityIds>::exists(key) {
             let identities = <KeyToIdentityIds>::get(key).identities;
