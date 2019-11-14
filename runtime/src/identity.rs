@@ -398,9 +398,7 @@ decl_module! {
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = Key::try_from( sender.encode())?;
 
-            // TODO `Self::is_signing_key(...)` is always false, because `sender_key` has an
-            // `IdentityId` and any external key can be linked with just one DID.
-            ensure!(Self::is_signing_key(did_issuer, &sender_key) || Self::is_master_key(did, &sender_key), "Sender must hold a claim issuer's signing key");
+            ensure!(Self::is_signing_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did, |claim_records| {
                 claim_records
@@ -565,13 +563,18 @@ impl<T: Trait> Module<T> {
     /// It checks if `key` is a signing key of `did` identity.
     /// # IMPORTANT
     /// If signing keys are frozen this function always returns false.
+    /// Master key cannot be frozen.
     pub fn is_signing_key(did: IdentityId, key: &Key) -> bool {
-        if !Self::is_did_frozen(did) {
-            let record = <DidRecords<T>>::get(did);
-            record.signing_keys.iter().find(|&rk| rk == key).is_some() || record.master_key == *key
-        } else {
-            false
+        let record = <DidRecords<T>>::get(did);
+        if record.master_key == *key {
+            return true;
         }
+
+        if !Self::is_did_frozen(did) {
+            return record.signing_keys.iter().find(|&rk| rk == key).is_some();
+        }
+
+        return false;
     }
 
     /// Use `did` as reference.
@@ -955,7 +958,7 @@ mod tests {
             );
 
             assert_ok!(Identity::revoke_claim(
-                owner.clone(),
+                claim_issuer.clone(),
                 owner_did,
                 claim_issuer_did,
                 claim.clone()
@@ -963,7 +966,7 @@ mod tests {
 
             // TODO Revoke claim twice??
             assert_ok!(Identity::revoke_claim(
-                owner.clone(),
+                claim_issuer.clone(),
                 owner_did,
                 claim_issuer_did,
                 claim
