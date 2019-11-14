@@ -59,13 +59,13 @@ decl_storage! {
         // cost in base currency to create a token
         AssetCreationFee get(asset_creation_fee) config(): T::Balance;
         // Checkpoints created per token
-        pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u32;
+        pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u64;
         // Total supply of the token at the checkpoint
-        pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u32) => T::TokenBalance;
+        pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u64) => T::TokenBalance;
         // Balance of a DID at a checkpoint; (ticker, DID, checkpoint ID)
-        CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, IdentityId, u32) => Option<T::TokenBalance>;
-        // Last checkpoint updated for a DID's balance; (ticker, DID) -> last checkpoint ID
-        LatestUserCheckpoint get(latest_user_checkpoint): map (Vec<u8>, IdentityId) => u32;
+        CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, IdentityId, u64) => T::TokenBalance;
+        // Last checkpoint updated for a DID's balance; (ticker, DID) -> List of checkpoints where user balance changed
+        UserCheckpoints get(user_checkpoints): map (Vec<u8>, IdentityId) => Vec<u64>;
         // The documents attached to the tokens
         // (ticker, document name) -> (URI, document hash)
         Documents get(documents): map (Vec<u8>, Vec<u8>) => (Vec<u8>, Vec<u8>, T::Moment);
@@ -315,14 +315,6 @@ decl_module! {
             Self::_create_checkpoint(&ticker)
         }
 
-        // called by issuer to create checkpoints
-        pub fn balance_at(_origin, ticker: Vec<u8>, owner_did: IdentityId, checkpoint: u32) -> Result {
-            let upper_ticker = utils::bytes_to_upper(&ticker);
-            let balance = Self::get_balance_at(&upper_ticker, owner_did, checkpoint);
-            Self::deposit_event(RawEvent::BalanceAt(upper_ticker, owner_did, checkpoint, balance));
-            Ok(())
-        }
-
         pub fn issue(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::TokenBalance, _data: Vec<u8>) -> Result {
             let upper_ticker = utils::bytes_to_upper(&ticker);
             let sender = ensure_signed(origin)?;
@@ -349,6 +341,9 @@ decl_module! {
             // A helper vec for calculated new investor balances
             let mut updated_balances = Vec::with_capacity(investor_dids.len());
 
+            // A helper vec for calculated new investor balances
+            let mut current_balances = Vec::with_capacity(investor_dids.len());
+
             // Get current token details for supply update
             let mut token = Self::token_details(ticker.clone());
 
@@ -359,8 +354,8 @@ decl_module! {
                     "Invalid granularity"
                 );
 
-                let current_balance = Self::balance_of((ticker.clone(), investor_dids[i]));
-                updated_balances.push(current_balance
+                current_balances.push(Self::balance_of((ticker.clone(), investor_dids[i].clone())));
+                updated_balances.push(current_balances[i]
                     .checked_add(&values[i])
                     .ok_or("overflow in calculating balance")?);
 
@@ -376,7 +371,7 @@ decl_module! {
 
             // After checks are ensured introduce side effects
             for i in 0..investor_dids.len() {
-                Self::_update_checkpoint(&ticker, investor_dids[i], updated_balances[i]);
+                Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
 
                 <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i]), updated_balances[i]);
 
@@ -610,9 +605,6 @@ decl_event! {
             // event when an approval is made
             // ticker, owner DID, spender DID, value
             Approval(Vec<u8>, IdentityId, IdentityId, Balance),
-            // event - used for testing in the absence of custom getters
-            // ticker, owner DID, checkpoint, balance
-            BalanceAt(Vec<u8>, IdentityId, u32, Balance),
 
             // ticker, beneficiary DID, value
             Issued(Vec<u8>, IdentityId, Balance),
@@ -714,28 +706,64 @@ impl<T: Trait> Module<T> {
         Self::token_details(upper_ticker).total_supply
     }
 
-    pub fn get_balance_at(ticker: &Vec<u8>, did: IdentityId, mut at: u32) -> T::TokenBalance {
+    pub fn get_balance_at(ticker: &Vec<u8>, did: IdentityId, at: u64) -> T::TokenBalance {
         let upper_ticker = utils::bytes_to_upper(ticker);
-        let max = Self::total_checkpoints_of(&upper_ticker);
-
-        if at > max {
-            at = max;
-        }
-
         let ticker_did = (upper_ticker.clone(), did);
-        if <LatestUserCheckpoint>::exists(&ticker_did) {
-            let latest_checkpoint = Self::latest_user_checkpoint(&ticker_did);
-            if at <= latest_checkpoint {
-                while at > 0u32 {
-                    match Self::balance_at_checkpoint((upper_ticker.clone(), did, at)) {
-                        Some(x) => return x,
-                        None => at -= 1,
-                    }
-                }
-            }
+        if !<TotalCheckpoints>::exists(upper_ticker.clone()) ||
+            at == 0 || //checkpoints start from 1
+            at > Self::total_checkpoints_of(&upper_ticker)
+        {
+            // No checkpoints data exist
+            return Self::balance_of(&ticker_did);
         }
 
-        return Self::balance_of(ticker_did);
+        if <UserCheckpoints>::exists(&ticker_did) {
+            let user_checkpoints = Self::user_checkpoints(&ticker_did);
+            if at > *user_checkpoints.last().unwrap_or(&0) {
+                // Using unwrap_or to be defensive.
+                // or part should never be triggered due to the check on 2 lines above
+                // User has not transacted after checkpoint creation.
+                // This means their current balance = their balance at that cp.
+                return Self::balance_of(&ticker_did);
+            }
+            // Uses the first checkpoint that was created after target checpoint
+            // and the user has data for that checkpoint
+            return Self::balance_at_checkpoint((
+                upper_ticker.clone(),
+                did,
+                Self::find_ceiling(&user_checkpoints, at),
+            ));
+        }
+        // User has no checkpoint data.
+        // This means that user's balance has not changed since first checkpoint was created.
+        // Maybe the user never held any balance.
+        return Self::balance_of(&ticker_did);
+    }
+
+    fn find_ceiling(arr: &Vec<u64>, key: u64) -> u64 {
+        // This function assumes that key <= last element of the array,
+        // the array consists of unique sorted elements,
+        // array len > 0
+        let mut end = arr.len();
+        let mut start = 0;
+        let mut mid = (start + end) / 2;
+
+        while mid != 0 && end >= start {
+            // Due to our assumptions, we can even remove end >= start condition from here
+            if key > arr[mid - 1] && key <= arr[mid] {
+                // This condition and the fact that key <= last element of the array mean that
+                // start should never become greater than end.
+                return arr[mid];
+            } else if key > arr[mid] {
+                start = mid + 1;
+            } else {
+                end = mid;
+            }
+            mid = (start + end) / 2;
+        }
+
+        // This should only be reached when mid becomes 0.
+        return arr[0];
     }
 
     fn _is_valid_transfer(
@@ -822,7 +850,9 @@ impl<T: Trait> Module<T> {
             let ticker_user_did_checkpont = (ticker.clone(), user_did, checkpoint_count);
             if !<CheckpointBalance<T>>::exists(&ticker_user_did_checkpont) {
                 <CheckpointBalance<T>>::insert(&ticker_user_did_checkpont, user_balance);
-                <LatestUserCheckpoint>::insert((ticker.clone(), user_did), checkpoint_count);
+                <UserCheckpoints>::mutate((ticker.clone(), user_did), |user_checkpoints| {
+                    user_checkpoints.push(checkpoint_count);
+                });
             }
         }
     }
@@ -882,6 +912,7 @@ mod tests {
     use super::*;
     use crate::{exemption, identity};
     use primitives::{IdentityId, Key};
+    use rand::Rng;
 
     use chrono::{prelude::*, Duration};
     use lazy_static::lazy_static;
@@ -1245,6 +1276,151 @@ mod tests {
                 500
             ));
         })
+    }
+
+    #[test]
+    fn checkpoints_fuzz_test() {
+        println!("Starting");
+        for i in 0..10 {
+            // When fuzzing in local, feel free to bump this number to add more fuzz runs.
+            with_externalities(&mut identity_owned_by_1(), || {
+                let now = Utc::now();
+                <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+                let owner_acc = 1;
+                let owner_did = IdentityId::from(1u128);
+
+                // Expected token entry
+                let token = SecurityToken {
+                    name: vec![0x01],
+                    owner_did: owner_did.clone(),
+                    total_supply: 1_000_000,
+                    granularity: 1,
+                    decimals: 18,
+                };
+
+                Balances::make_free_balance_be(&owner_acc, 1_000_000);
+                Identity::register_did(Origin::signed(owner_acc), owner_did.clone(), vec![])
+                    .expect("Could not create owner_did");
+
+                let alice_acc = 2;
+                let alice_did = IdentityId::from(2u128);
+
+                Balances::make_free_balance_be(&alice_acc, 1_000_000);
+                Identity::register_did(Origin::signed(alice_acc), alice_did.clone(), vec![])
+                    .expect("Could not create alice_did");
+
+                // Issuance is successful
+                assert_ok!(Asset::create_token(
+                    Origin::signed(owner_acc),
+                    owner_did.clone(),
+                    token.name.clone(),
+                    token.name.clone(),
+                    token.total_supply,
+                    true
+                ));
+
+                general_tm::Module::<Test>::add_to_whitelist(
+                    Origin::signed(owner_acc),
+                    owner_did.clone(),
+                    token.name.clone(),
+                    0,
+                    owner_did.clone(),
+                    (now - Duration::hours(1)).timestamp() as u64,
+                )
+                .expect("Could not configure general_tm for owner");
+
+                general_tm::Module::<Test>::add_to_whitelist(
+                    Origin::signed(owner_acc),
+                    owner_did.clone(),
+                    token.name.clone(),
+                    0,
+                    alice_did.clone(),
+                    (now - Duration::hours(1)).timestamp() as u64,
+                )
+                .expect("Could not configure general_tm for alice");
+
+                let mut owner_balance: [u128; 100] = [1_000_000; 100];
+                let mut alice_balance: [u128; 100] = [0; 100];
+                let mut rng = rand::thread_rng();
+                for j in 1..100 {
+                    let transfers = rng.gen_range(0, 10);
+                    owner_balance[j] = owner_balance[j - 1];
+                    alice_balance[j] = alice_balance[j - 1];
+                    for _k in 0..transfers {
+                        if j == 1 {
+                            owner_balance[0] -= 1;
+                            alice_balance[0] += 1;
+                        }
+                        owner_balance[j] -= 1;
+                        alice_balance[j] += 1;
+                        assert_ok!(Asset::transfer(
+                            Origin::signed(owner_acc),
+                            owner_did.clone(),
+                            token.name.clone(),
+                            alice_did.clone(),
+                            1
+                        ));
+                    }
+                    assert_ok!(Asset::create_checkpoint(
+                        Origin::signed(owner_acc),
+                        owner_did.clone(),
+                        token.name.clone(),
+                    ));
+                    let x: u64 = u64::try_from(j).unwrap();
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, owner_did, 0),
+                        owner_balance[j]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, alice_did, 0),
+                        alice_balance[j]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, owner_did, 1),
+                        owner_balance[1]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, alice_did, 1),
+                        alice_balance[1]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, owner_did, x - 1),
+                        owner_balance[j - 1]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, alice_did, x - 1),
+                        alice_balance[j - 1]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, owner_did, x),
+                        owner_balance[j]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, alice_did, x),
+                        alice_balance[j]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, owner_did, x + 1),
+                        owner_balance[j]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, alice_did, x + 1),
+                        alice_balance[j]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, owner_did, 1000),
+                        owner_balance[j]
+                    );
+                    assert_eq!(
+                        Asset::get_balance_at(&token.name, alice_did, 1000),
+                        alice_balance[j]
+                    );
+                }
+            });
+            println!("Instance {} done", i);
+        }
+        println!("Done");
     }
 
     /*
