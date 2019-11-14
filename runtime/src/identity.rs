@@ -394,7 +394,10 @@ decl_module! {
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = Key::try_from( sender.encode())?;
-            ensure!(Self::is_signing_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
+
+            // TODO `Self::is_signing_key(...)` is always false, because `sender_key` has an
+            // `IdentityId` and any external key can be linked with just one DID.
+            ensure!(Self::is_signing_key(did_issuer, &sender_key) || Self::is_master_key(did, &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did, |claim_records| {
                 claim_records
@@ -925,14 +928,6 @@ mod tests {
                 claim_issuer_did
             ));
 
-            /*
-            let claim_issuer_sk = SigningKey {
-            assert_ok!(Identity::add_signing_keys(
-                owner.clone(),
-                owner_did,
-                vec![ ]));
-            */
-
             // Add Claims by master & claim_issuer
             let claim = Claim {
                 topic: 1,
@@ -949,12 +944,7 @@ mod tests {
             ));
 
             assert_err!(
-                Identity::revoke_claim(
-                    issuer.clone(),
-                    issuer_did,
-                    claim_issuer_did,
-                    claim.clone()
-                ),
+                Identity::revoke_claim(issuer.clone(), issuer_did, claim_issuer_did, claim.clone()),
                 "did_issuer must be a claim issuer for DID"
             );
 
