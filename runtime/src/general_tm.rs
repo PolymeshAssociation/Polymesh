@@ -157,8 +157,7 @@ impl<T: Trait> Module<T> {
         for active_rule in active_rules {
             let mut rule_broken = false;
 
-            if from_did_opt.is_some() {
-                let from_did = from_did_opt.unwrap();
+            if let Some(from_did) = from_did_opt {
                 for sender_rule in active_rule.sender_rules {
                     let identity_value = Self::fetch_value(
                         from_did.clone(),
@@ -167,7 +166,7 @@ impl<T: Trait> Module<T> {
                     );
                     rule_broken = match identity_value {
                         None => true,
-                        Some(x) => utils::check_rule(
+                        Some(x) => utils::is_rule_broken(
                             sender_rule.value,
                             x.value,
                             x.data_type,
@@ -183,7 +182,7 @@ impl<T: Trait> Module<T> {
                 }
             }
 
-            if to_did_opt.is_some() {
+            if let Some(to_did) = to_did_opt {
                 let to_did = to_did_opt.unwrap();
                 for receiver_rule in active_rule.receiver_rules {
                     let identity_value = Self::fetch_value(
@@ -193,7 +192,7 @@ impl<T: Trait> Module<T> {
                     );
                     rule_broken = match identity_value {
                         None => true,
-                        Some(x) => utils::check_rule(
+                        Some(x) => utils::is_rule_broken(
                             receiver_rule.value,
                             x.value,
                             x.data_type,
@@ -498,11 +497,10 @@ mod tests {
             };
 
             let x = vec![sender_rule];
-            let y = vec![];
 
             let asset_rule = AssetRule {
                 sender_rules: x,
-                receiver_rules: y,
+                receiver_rules: vec![],
             };
 
             // Allow all transfers
@@ -658,12 +656,9 @@ mod tests {
                 true
             ));
 
-            let x = vec![];
-            let y = vec![];
-
             let asset_rule = AssetRule {
-                sender_rules: x,
-                receiver_rules: y,
+                sender_rules: vec![],
+                receiver_rules: vec![],
             };
 
             assert_ok!(GeneralTM::add_active_rule(

@@ -1208,11 +1208,9 @@ mod tests {
             // A correct entry is added
             assert_eq!(Asset::token_details(token.name.clone()), token);
 
-            let x = vec![];
-            let y = vec![];
             let asset_rule = general_tm::AssetRule {
-                sender_rules: x,
-                receiver_rules: y,
+                sender_rules: vec![],
+                receiver_rules: vec![],
             };
 
             // Allow all transfers
