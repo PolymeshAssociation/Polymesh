@@ -78,3 +78,10 @@ pub use key::{Key, KeyType};
 /// This module contains entities related with signing keys.
 pub mod signing_key;
 pub use signing_key::{KeyRole, SigningKey};
+
+/// Represents custom transaction errors.
+#[repr(u8)]
+pub enum TransactionError {
+    /// 0-6 are used by substrate. Skipping them to avoid confusion
+    ZeroTip = 7,
+}
