@@ -18,7 +18,7 @@ serde = { version = "1.0.102", default-features = false }
 serde_derive = { version = "1.0.102", optional = true }
 safe-mix = { version = "1.0.0", default-features = false }
 primitives = { package = "polymesh-primitives", path = "../primitives", default-features = false }
-codec = { package = "parity-scale-codec", version = "~1.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 substrate-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 sr-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
