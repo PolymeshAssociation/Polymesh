@@ -1,17 +1,44 @@
+//! # Dividend Module
+//!
+//! The Dividend module provides functionality for distributing dividends to tokenholders.
+//!
+//! ## Overview
+//!
+//! The Balances module provides functions for:
+//!
+//! - Paying dividends
+//! - Termination existing dividends
+//! - claiming dividends
+//! - Claiming back unclaimed dividends
+//!
+//! ### Terminology
+//!
+//! - **Payout Currency:** It is the ticker of the currency in which dividends are to be paid.
+//! An empty ticker represents Poly.
+//! - **Dividend maturity date:** It is the date after which dividends can be claimed by tokenholders
+//! - **Dividend expiry date:** Tokenholders can claim dividends before this date.
+//! After this date, issuer can reclaim the remaining dividend.
+//!
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `new` - Creates a new dividend
+//! - `cancel` - Cancels an existing dividend
+//! - `claim` - Allows tokenholders to claim/collect their fair share of the dividend
+//! - `claim_unclaimed` - Allows token issuer to claim unclaimed dividend
+//!
+//! ### Public Functions
+//!
+//! - `get_dividend` - Returns details about a dividend
+
 use crate::{asset, balances, identity, simple_token, utils};
 use primitives::{IdentityId, Key};
 use srml_support::traits::{Currency, ExistenceRequirement, WithdrawReason};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
-/// A runtime module template with necessary imports
-
-/// Feel free to remove or edit this file as needed.
-/// If you change the name of this file, make sure to update its references in runtime/src/lib.rs
-/// If you remove this file, you can remove those references
-
-/// For more guidance on Substrate modules, see the example module
-/// https://github.com/paritytech/substrate/blob/master/srml/example/src/lib.rs
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
@@ -28,6 +55,7 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
+/// Details about the dividend
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct Dividend<U, V> {
     /// Total amount to be distributed
@@ -49,15 +77,15 @@ pub struct Dividend<U, V> {
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as dividend {
-        // Dividend records; (ticker, dividend ID) => dividend entry
-        // Note: contrary to checkpoint IDs, dividend IDs are 0-indexed.
+        /// Dividend records; (ticker, dividend ID) => dividend entry
+        /// Note: contrary to checkpoint IDs, dividend IDs are 0-indexed.
         Dividends get(dividends): map (Vec<u8>, u32) => Dividend<T::TokenBalance, T::Moment>;
 
-        // How many dividends were created for a ticker so far; (ticker) => count
+        /// How many dividends were created for a ticker so far; (ticker) => count
         DividendCount get(dividend_count): map (Vec<u8>) => u32;
 
-        // Payout flags, decide whether a user already was paid their dividend
-        // (DID, ticker, dividend_id) -> whether they got their payout
+        /// Payout flags, decide whether a user already was paid their dividend
+        /// (DID, ticker, dividend_id) -> whether they got their payout
         UserPayoutCompleted get(payout_completed): map (IdentityId, Vec<u8>, u32) => bool;
     }
 }
@@ -67,20 +95,19 @@ decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
-        // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
         /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
         /// None in payout_currency means POLY payout.
         pub fn new(origin,
-                   did: IdentityId,
-                   amount: T::TokenBalance,
-                   ticker: Vec<u8>,
-                   matures_at: T::Moment,
-                   expires_at: T::Moment,
-                   payout_ticker: Vec<u8>,
-                   checkpoint_id: u32
-                  ) -> Result {
+            did: IdentityId,
+            amount: T::TokenBalance,
+            ticker: Vec<u8>,
+            matures_at: T::Moment,
+            expires_at: T::Moment,
+            payout_ticker: Vec<u8>,
+            checkpoint_id: u32
+        ) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker = utils::bytes_to_upper(ticker.as_slice());
 
@@ -176,7 +203,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Lets the owner cancel a dividend before start date or activation
+        /// Lets the owner cancel a dividend before start/maturity date
         pub fn cancel(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
             let sender = ensure_signed(origin)?;
 
@@ -214,6 +241,9 @@ decl_module! {
                 })?;
             }
             <Dividends<T>>::remove((ticker.clone(), dividend_id));
+
+            Self::deposit_event(RawEvent::DividendCanceled(ticker, dividend_id));
+
             Ok(())
         }
 
@@ -344,16 +374,16 @@ decl_event!(
     where
         TokenBalance = <T as utils::Trait>::TokenBalance,
     {
-        // ticker, amount, dividend ID
+        /// A new dividend was created (ticker, amount, dividend ID)
         DividendCreated(Vec<u8>, TokenBalance, u32),
 
-        // ticker, dividend ID
-        DividendActivated(Vec<u8>, u32),
+        /// A dividend was canceled (ticker, dividend ID)
+        DividendCanceled(Vec<u8>, u32),
 
-        // who, ticker, dividend ID, share
+        /// Dividend was paid to a user (who, ticker, dividend ID, share)
         DividendPaidOutToUser(IdentityId, Vec<u8>, u32, TokenBalance),
 
-        // ticker, dividend ID, amount
+        /// Unclaimed dividend was claimed back (ticker, dividend ID, amount)
         DividendRemainingClaimed(Vec<u8>, u32, TokenBalance),
     }
 );
