@@ -397,7 +397,6 @@ decl_module! {
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = Key::try_from( sender.encode())?;
-
             ensure!(Self::is_signing_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             <Claims<T>>::mutate(did, |claim_records| {
