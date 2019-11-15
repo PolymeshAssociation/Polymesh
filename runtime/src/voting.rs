@@ -36,10 +36,7 @@ use crate::{
 };
 use codec::Encode;
 use primitives::{IdentityId, Key};
-use rstd::{
-    convert::{TryFrom, TryInto},
-    prelude::*,
-};
+use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 
@@ -124,17 +121,22 @@ decl_module! {
             // NB: Checkpoint ID is not verified here to allow creating ballots that will become active in future.
             // Voting will only be allowed on checkpoints that exist.
 
-            let mut total_choices:u64 = 0u64;
+            let mut total_choices:usize = 0usize;
 
             for proposal in &ballot_details.proposals {
                 ensure!(proposal.choices.len() > 0, "No choice submitted");
-                total_choices += u64::try_from(proposal.choices.len()).unwrap();
+                total_choices += proposal.choices.len();
+            }
+
+            if let Ok(total_choices_u64) = u64::try_from(total_choices) {
+                <TotalChoices>::insert(&upper_ticker_ballot_name, total_choices_u64);
+            } else {
+                return Err("Could not decode choices")
             }
 
             <Ballots<T>>::insert(&upper_ticker_ballot_name, ballot_details.clone());
-            <TotalChoices>::insert(&upper_ticker_ballot_name, total_choices.clone());
 
-            let initial_results = vec![<T as utils::Trait>::as_tb(0); total_choices.try_into().unwrap()];
+            let initial_results = vec![<T as utils::Trait>::as_tb(0); total_choices];
             <Results<T>>::insert(&upper_ticker_ballot_name, initial_results);
 
             Self::deposit_event(RawEvent::BallotCreated(upper_ticker, ballot_name, ballot_details));
@@ -171,7 +173,12 @@ decl_module! {
             ensure!(ballot.checkpoint_id <= count, "Checkpoint has not be created yet");
 
             // Ensure vote is valid
-            ensure!(u64::try_from(votes.len()).unwrap() == <TotalChoices>::get(&upper_ticker_ballot_name), "Invalid vote");
+            if let Ok(votes_len) = u64::try_from(votes.len()) {
+                ensure!(votes_len == <TotalChoices>::get(&upper_ticker_ballot_name), "Invalid vote");
+            } else {
+                return Err("Invalid vote")
+            }
+
             let mut total_votes = <T as utils::Trait>::as_tb(0);
             for vote in &votes {
                 total_votes += *vote;
