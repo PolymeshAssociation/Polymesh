@@ -65,6 +65,7 @@ mod identity;
 mod percentage_tm;
 mod registry;
 mod simple_token;
+pub mod staking;
 mod sto_capped;
 mod utils;
 mod voting;
@@ -578,7 +579,7 @@ construct_runtime!(
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Registry: registry::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
-        GeneralTM: general_tm::{Module, Call, Storage, Event<T>},
+        GeneralTM: general_tm::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
