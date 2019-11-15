@@ -633,7 +633,7 @@ decl_module! {
         let sender = ensure_signed(origin)?;
         // Check that sender is allowed to act on behalf of `did`
         ensure!(
-            <identity::Module<T>>::is_signing_key(holder_did, &Key::try_from(sender.encode())?),
+            <identity::Module<T>>::is_authorized_key(holder_did, &Key::try_from(sender.encode())?),
             "sender must be a signing key for DID"
         );
         Self::_increase_custody_allowance(ticker.clone(), holder_did, custodian_did, value)?;
@@ -656,12 +656,12 @@ decl_module! {
         // holder_account_id should be a part of the holder_did
         ensure!(signature.verify(&msg.encode()[..], &holder_account_id), "Invalid signature");
         ensure!(
-            <identity::Module<T>>::is_signing_key(caller_did, &Key::try_from(sender.encode())?),
+            <identity::Module<T>>::is_authorized_key(caller_did, &Key::try_from(sender.encode())?),
             "sender must be a signing key for DID"
         );
         // Validate the holder signing key
         ensure!(
-            <identity::Module<T>>::is_signing_key(holder_did, &Key::try_from(holder_account_id.encode())?),
+            <identity::Module<T>>::is_authorized_key(holder_did, &Key::try_from(holder_account_id.encode())?),
             "holder signing key must be a signing key for holder DID"
         );
         Self::_increase_custody_allowance(ticker.clone(), holder_did, custodian_did, value)?;
@@ -674,7 +674,7 @@ decl_module! {
         let sender = ensure_signed(origin)?;
         // Check that sender is allowed to act on behalf of `did`
         ensure!(
-            <identity::Module<T>>::is_signing_key(custodian_did, &Key::try_from(sender.encode())?),
+            <identity::Module<T>>::is_authorized_key(custodian_did, &Key::try_from(sender.encode())?),
             "sender must be a signing key for DID"
         );
         let mut custodian_allowance = Self::custodian_allowance((ticker.clone(), holder_did, custodian_did));
