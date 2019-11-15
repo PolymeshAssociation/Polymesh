@@ -1,3 +1,35 @@
+//! # Voting Module
+//!
+//! The Voting module provides functionality for corporate voting.
+//!
+//! ## Overview
+//!
+//! The Voting module provides functions for:
+//!
+//! - Creating ballots that can include multiple proposals
+//! - Voting on proposals
+//! - Cancelling ballots
+//!
+//! ### Terminology
+//!
+//! - **Ballot:** It is a collection of proposals on which a tokenholder can vote.
+//!     Additional parameters include voting start date, voting end date and checkpoint id.
+//!     Checkpoint id is used to prevent double voting with same coins. When voting on a ballot,
+//!     the total number of votes that a tokenholder can cast is equal to their balance at the checkpoint.
+//!     Voters can distribute their votes accross all the proposals in the ballot.
+//! - **Proposal:** It is a suggestion or a question that can have an infinite number of choices that can be voted on.
+//!     Additional parameters include title of the proposal and a link from where more info can be fetched.
+//!     The most common proposal is of accept/reject type where the proposal has two choices, yes/no.
+//!     Any voting power that is not used is considered as abstain.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `add_ballot` - Creates a ballot.
+//! - `vote` - Casts a vote.
+//! - `cancel_ballot` - Cancels an existing ballot.
+
 use crate::{
     asset::{self, AssetTrait},
     identity, utils,
@@ -19,7 +51,7 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Ballot<V> {
-    checkpoint_id: u32, //To be increased to u64
+    checkpoint_id: u64,
     voting_start: V,
     voting_end: V,
     proposals: Vec<Proposal>,
@@ -34,19 +66,23 @@ pub struct Proposal {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Voting {
-        // Mapping of ticker and ballot name -> ballot details
+
+        /// Mapping of ticker and ballot name -> ballot details
         pub Ballots get(ballots): linked_map(Vec<u8>, Vec<u8>) => Ballot<T::Moment>;
-        // Helper data to make voting cheaper.
-        // (ticker, BallotName) -> NoOfChoices
+
+        /// Helper data to make voting cheaper.
+        /// (ticker, BallotName) -> NoOfChoices
         pub TotalChoices get(total_choices): map (Vec<u8>, Vec<u8>) => u64;
-        // (Ticker, BallotName, DID) -> Vector of vote weights.
-        // weight at 0 index means weight for choice 1 of proposal 1.
-        // weight at 1 index means weight for choice 2 of proposal 1.
-        // User must enter 0 vote weight if they don't want to vote for a choice.
+
+        /// (Ticker, BallotName, DID) -> Vector of vote weights.
+        /// weight at 0 index means weight for choice 1 of proposal 1.
+        /// weight at 1 index means weight for choice 2 of proposal 1.
+        /// User must enter 0 vote weight if they don't want to vote for a choice.
         pub Votes get(votes): map (Vec<u8>, Vec<u8>, IdentityId) => Vec<T::TokenBalance>;
-        // (Ticker, BallotName) -> Vector of current vote weights.
-        // weight at 0 index means weight for choice 1 of proposal 1.
-        // weight at 1 index means weight for choice 2 of proposal 1.
+
+        /// (Ticker, BallotName) -> Vector of current vote weights.
+        /// weight at 0 index means weight for choice 1 of proposal 1.
+        /// weight at 1 index means weight for choice 2 of proposal 1.
         pub Results get(results): map (Vec<u8>, Vec<u8>) => Vec<T::TokenBalance>;
     }
 }
@@ -54,8 +90,8 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+
         // Initializing events
-        // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
         /// Adds a ballot
@@ -222,19 +258,19 @@ decl_event!(
         TokenBalance = <T as utils::Trait>::TokenBalance,
         Moment = <T as timestamp::Trait>::Moment,
     {
-        // (Ticker, BallotName, BallotDetails)
+        /// A new ballot is created (Ticker, BallotName, BallotDetails)
         BallotCreated(Vec<u8>, Vec<u8>, Ballot<Moment>),
 
-        // (Ticker, BallotName, Vote)
+        /// A vote is cast (Ticker, BallotName, Vote)
         VoteCast(Vec<u8>, Vec<u8>, Vec<TokenBalance>),
 
-        // (Ticker, BallotName)
+        /// An existing ballot is cancelled (Ticker, BallotName)
         BallotCancelled(Vec<u8>, Vec<u8>),
     }
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool {
+    fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool {
         let upper_ticker = utils::bytes_to_upper(ticker.as_slice());
         T::Asset::is_owner(&upper_ticker, did)
     }

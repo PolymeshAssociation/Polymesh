@@ -654,7 +654,7 @@ mod tests {
         fn get_balance_at(
             ticker: &Vec<u8>,
             did: IdentityId,
-            at: u32,
+            at: u64,
         ) -> <Test as utils::Trait>::TokenBalance {
             unimplemented!();
         }
