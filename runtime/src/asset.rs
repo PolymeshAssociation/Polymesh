@@ -914,7 +914,7 @@ mod tests {
     use primitives::{IdentityId, Key};
     use rand::Rng;
 
-    use chrono::{prelude::*, Duration};
+    use chrono::prelude::*;
     use lazy_static::lazy_static;
     use sr_io::with_externalities;
     use sr_primitives::{
@@ -1087,6 +1087,7 @@ mod tests {
     type Asset = Module<Test>;
     type Balances = balances::Module<Test>;
     type Identity = identity::Module<Test>;
+    type GeneralTM = general_tm::Module<Test>;
 
     lazy_static! {
         static ref INVESTOR_MAP_OUTER_LOCK: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
@@ -1129,9 +1130,6 @@ mod tests {
 
             Identity::fund_poly(Origin::signed(owner_acc), owner_did, 500_000)
                 .expect("Could not add funds to DID");
-
-            // identity::Module::<Test>::do_create_issuer(&owner_did, &owner_key)
-            //    .expect("Could not make token.owner an issuer");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
@@ -1186,7 +1184,6 @@ mod tests {
 
             let owner_acc = 1;
             let owner_did = IdentityId::from(1u128);
-            // let owner_key = Key::try_from(owner_acc.encode()).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -1200,8 +1197,6 @@ mod tests {
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
             Identity::register_did(Origin::signed(owner_acc), owner_did, vec![])
                 .expect("Could not create owner_did");
-            // identity::Module::<Test>::do_create_investor(&owner_did)
-            //    .expect("Could not make token.owner an issuer");
 
             let alice_acc = 2;
             let alice_did = IdentityId::from(2u128);
@@ -1209,21 +1204,14 @@ mod tests {
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
             Identity::register_did(Origin::signed(alice_acc), alice_did, vec![])
                 .expect("Could not create alice_did");
-            // identity::Module::<Test>::do_create_investor(alice_did)
-            //    .expect("Could not make token.owner an issuer");
             let bob_acc = 3;
             let bob_did = IdentityId::from(3u128);
 
             Balances::make_free_balance_be(&bob_acc, 1_000_000);
             Identity::register_did(Origin::signed(bob_acc), bob_did, vec![])
                 .expect("Could not create bob_did");
-            // identity::Module::<Test>::do_create_investor(bob_did)
-            //     .expect("Could not make token.owner an issuer");
             Identity::fund_poly(Origin::signed(owner_acc), owner_did, 500_000)
                 .expect("Could not add funds to DID");
-
-            // identity::Module::<Test>::do_create_issuer(&owner_did)
-            //    .expect("Could not make token.owner an issuer");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
@@ -1235,38 +1223,21 @@ mod tests {
                 true
             ));
 
-            general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(owner_acc),
-                owner_did,
-                token.name.clone(),
-                0,
-                owner_did,
-                (now - Duration::hours(1)).timestamp() as u64,
-            )
-            .expect("Could not configure general_tm for owner");
-
-            general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(owner_acc),
-                owner_did,
-                token.name.clone(),
-                0,
-                alice_did,
-                (now - Duration::hours(1)).timestamp() as u64,
-            )
-            .expect("Could not configure general_tm for alice");
-
-            general_tm::Module::<Test>::add_to_whitelist(
-                Origin::signed(owner_acc),
-                owner_did,
-                token.name.clone(),
-                0,
-                bob_did,
-                (now - Duration::hours(1)).timestamp() as u64,
-            )
-            .expect("Could not configure general_tm for bob");
-
             // A correct entry is added
             assert_eq!(Asset::token_details(token.name.clone()), token);
+
+            let asset_rule = general_tm::AssetRule {
+                sender_rules: vec![],
+                receiver_rules: vec![],
+            };
+
+            // Allow all transfers
+            assert_ok!(GeneralTM::add_active_rule(
+                Origin::signed(owner_acc),
+                owner_did,
+                token.name.clone(),
+                asset_rule
+            ));
 
             assert_ok!(Asset::transfer(
                 Origin::signed(owner_acc),
@@ -1320,25 +1291,18 @@ mod tests {
                     true
                 ));
 
-                general_tm::Module::<Test>::add_to_whitelist(
-                    Origin::signed(owner_acc),
-                    owner_did.clone(),
-                    token.name.clone(),
-                    0,
-                    owner_did.clone(),
-                    (now - Duration::hours(1)).timestamp() as u64,
-                )
-                .expect("Could not configure general_tm for owner");
+                let asset_rule = general_tm::AssetRule {
+                    sender_rules: vec![],
+                    receiver_rules: vec![],
+                };
 
-                general_tm::Module::<Test>::add_to_whitelist(
+                // Allow all transfers
+                assert_ok!(GeneralTM::add_active_rule(
                     Origin::signed(owner_acc),
-                    owner_did.clone(),
+                    owner_did,
                     token.name.clone(),
-                    0,
-                    alice_did.clone(),
-                    (now - Duration::hours(1)).timestamp() as u64,
-                )
-                .expect("Could not configure general_tm for alice");
+                    asset_rule
+                ));
 
                 let mut owner_balance: [u128; 100] = [1_000_000; 100];
                 let mut alice_balance: [u128; 100] = [0; 100];
