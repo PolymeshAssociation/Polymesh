@@ -391,6 +391,7 @@ mod tests {
 
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        type OffChainSignature = OffChainSignature;
         fn as_u128(v: Self::TokenBalance) -> u128 {
             v
         }
