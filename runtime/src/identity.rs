@@ -114,12 +114,24 @@ decl_module! {
         pub fn register_did(origin, did: IdentityId, signing_keys: Vec<SigningKey>) -> Result {
             let sender = ensure_signed(origin)?;
             let master_key = Key::try_from( sender.encode())?;
+
+            // 1 Check constraints.
+            // 1.1. Master key is not linked to any identity.
             ensure!( Self::can_key_be_linked_to_did( &master_key, KeyType::External),
                 "Master key already belong to one DID");
-
-            // Make sure there's no pre-existing entry for the DID
+            // 1.2. Master key is not part of signing keys.
+            ensure!( signing_keys.iter().find( |sk| **sk == master_key).is_none(),
+                "Signing keys contains the master key");
+            // 1.3. Make sure there's no pre-existing entry for the DID
             ensure!(!<DidRecords<T>>::exists(did), "DID must be unique");
+            // 1.4. Signing keys can be linked to the new identity.
+            for sig_key in &signing_keys {
+                if !Self::can_key_be_linked_to_did( &sig_key.key, sig_key.key_type){
+                    return Err("One signing key can only belong to one DID");
+                }
+            }
 
+            // 2. Apply changes to our extrinsics.
             // TODO: Subtract the fee
             let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
                 &sender,
@@ -128,24 +140,18 @@ decl_module! {
                 ExistenceRequirement::KeepAlive
                 )?;
 
-            for sig_key in &signing_keys {
-                if !Self::can_key_be_linked_to_did( &sig_key.key, sig_key.key_type){
-                    return Err("One signing key can only belong to one DID");
-                }
-            }
-
-            // Link  master key and signing keys.
+            // 2.1. Link  master key and signing keys.
             Self::link_key_to_did( &master_key, KeyType::External, did);
             for sig_key in &signing_keys {
                 Self::link_key_to_did( &sig_key.key, sig_key.key_type, did);
             }
 
+            // 2.2. Create a new identity record.
             let record = DidRecord {
                 signing_keys: signing_keys.clone(),
                 master_key,
                 ..Default::default()
             };
-
             <DidRecords<T>>::insert(did, record);
 
             Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
@@ -870,6 +876,18 @@ mod tests {
             assert_err!(
                 Identity::register_did(Origin::signed(3), did_1, vec![]),
                 "DID must be unique"
+            );
+
+            // Err: Master key cannot be part of signing keys.
+            let did_3 = IdentityId::from(3);
+            let did_master_key = Key::try_from(3u64.encode()).unwrap();
+            assert_err!(
+                Identity::register_did(
+                    Origin::signed(3),
+                    did_3,
+                    vec![SigningKey::from(did_master_key)]
+                ),
+                "Signing keys contains the master key"
             );
         });
     }
