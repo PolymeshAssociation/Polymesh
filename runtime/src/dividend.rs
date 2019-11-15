@@ -650,6 +650,14 @@ mod tests {
         fn total_supply(_ticker: &[u8]) -> <Test as utils::Trait>::TokenBalance {
             unimplemented!();
         }
+
+        fn get_balance_at(
+            _ticker: &Vec<u8>,
+            _did: IdentityId,
+            _at: u64,
+        ) -> <Test as utils::Trait>::TokenBalance {
+            unimplemented!();
+        }
     }
 
     lazy_static! {
