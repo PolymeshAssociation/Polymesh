@@ -183,7 +183,6 @@ impl<T: Trait> Module<T> {
             }
 
             if let Some(to_did) = to_did_opt {
-                let to_did = to_did_opt.unwrap();
                 for receiver_rule in active_rule.receiver_rules {
                     let identity_value = Self::fetch_value(
                         to_did.clone(),

@@ -764,6 +764,7 @@ pub trait AssetTrait<V> {
     fn balance(ticker: &[u8], did: IdentityId) -> V;
     fn _mint_from_sto(ticker: &[u8], sender_did: IdentityId, tokens_purchased: V) -> Result;
     fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool;
+    fn get_balance_at(ticker: &Vec<u8>, did: IdentityId, at: u64) -> V;
 }
 
 impl<T: Trait> AssetTrait<T::TokenBalance> for Module<T> {
@@ -790,6 +791,11 @@ impl<T: Trait> AssetTrait<T::TokenBalance> for Module<T> {
     fn total_supply(ticker: &[u8]) -> T::TokenBalance {
         let upper_ticker = utils::bytes_to_upper(ticker);
         return Self::token_details(upper_ticker).total_supply;
+    }
+
+    fn get_balance_at(ticker: &Vec<u8>, did: IdentityId, at: u64) -> T::TokenBalance {
+        let upper_ticker = utils::bytes_to_upper(ticker);
+        return Self::get_balance_at(&upper_ticker, did, at);
     }
 }
 
