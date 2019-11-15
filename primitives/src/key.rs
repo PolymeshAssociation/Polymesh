@@ -10,6 +10,23 @@ use rstd::{
 const KEY_SIZE_TEST: usize = 8;
 const KEY_SIZE: usize = 32;
 
+/// Signing key type.
+#[allow(missing_docs)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+pub enum KeyType {
+    External,
+    Identity,
+    Multisig,
+    Relayer,
+    Custom(u8),
+}
+
+impl Default for KeyType {
+    fn default() -> Self {
+        KeyType::External
+    }
+}
+
 /// It stores a simple key.
 /// It uses fixed size to avoid dynamic memory allocation.
 #[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Clone, Debug)]
