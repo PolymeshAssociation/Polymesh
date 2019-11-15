@@ -337,15 +337,11 @@ impl<T: Trait> Module<T> {
     }
 
     fn _pre_validation(
-        ticker: &Vec<u8>,
-        did: IdentityId,
+        _ticker: &Vec<u8>,
+        _did: IdentityId,
         selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> Result {
-        // Validate that buyer is whitelisted for primary issuance.
-        ensure!(
-            <general_tm::Module<T>>::is_whitelisted(ticker, did).is_ok(),
-            "sender is not allowed to invest"
-        );
+        // TODO: Validate that buyer is whitelisted for primary issuance.
         // Check whether the sto is unpaused or not
         ensure!(selected_sto.active, "sto is paused");
         // Check whether the sto is already ended

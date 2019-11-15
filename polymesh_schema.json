@@ -70,16 +70,48 @@
         "balance": "Balance"
     },
     "Claim": {
-        "topic": "u32",
-        "schema": "u32",
-        "bytes": "Vec<u8>",
-        "expiry": "Moment"
+        "issuance_date": "Moment",
+        "expiry": "Moment",
+        "claim_value": "ClaimValue"
     },
-    "ClaimRecord": {
-        "claim": "Claim",
-        "revoked": "bool",
-        "issued_by": "Vec<u8>",
-        "attestation": "Vec<u8>"
+    "ClaimMetaData": {
+        "claim_key": "Vec<u8>",
+        "claim_issuer": "Vec<u8>"
+    },
+    "ClaimValue": {
+        "data_type": "DataTypes",
+        "value": "Vec<u8>"
+    },
+    "DataTypes": {
+        "_enum": [
+            "U8",
+            "U16",
+            "U32",
+            "U64",
+            "U128",
+            "Bool",
+            "VecU8"
+        ]
+    },
+    "AssetRule": {
+        "sender_rules": "Vec<RuleData>",
+        "receiver_rules":"Vec<RuleData>"
+    },
+    "Operators": {
+        "_enum": [
+            "EqualTo",
+            "NotEqualTo",
+            "LessThan",
+            "GreaterThan",
+            "LessOrEqualTo",
+            "GreaterOrEqualTo"
+        ]
+    },
+    "RuleData": {
+        "key": "Vec<u8>",
+        "value": "Vec<u8>",
+        "trusted_issuers": "Vec<Vec<u8>>",
+        "operator": "Operators"
     },
     "STO": {
         "beneficiary_did": "Vec<u8>",
