@@ -223,8 +223,7 @@ mod tests {
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::{Header, UintAuthorityId},
-        traits::Verify,
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
         AnySignature, Perbill,
     };
     use srml_support::traits::Currency;
