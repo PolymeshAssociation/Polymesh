@@ -78,7 +78,11 @@ decl_module! {
         // initialize the default event for this module
         fn deposit_event() = default;
 
-        // multiple tokens in one go
+        /// This function is use to create the multiple security tokens in a single transaction.
+        /// This function can be used for token migrations from one blockchain to another or can be used by any
+        /// whitelabler who wants to issue multiple tokens for their clients.
+        /// It accepts array of name, array of tickers, array of total supply & divisible status of the tokens to create the security tokens.
+        /// total supply provided for the token will be assigned to the owner of the token.
         pub fn batch_create_token(origin, did: IdentityId, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::TokenBalance>, divisible_values: Vec<bool>) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from( sender.encode())?;
@@ -162,9 +166,9 @@ decl_module! {
             Ok(())
         }
 
-        // initializes a new token
-        // takes a name, ticker, total supply for the token
-        // makes the initiating account the owner of the token
+        // Initializes a new security token
+        // takes a name, ticker, total supply for the security token
+        // makes the initiating account the owner of the security token
         // the balance of the owner is set to total supply
         pub fn create_token(origin, did: IdentityId, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, divisible: bool) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
@@ -224,8 +228,8 @@ decl_module! {
             Ok(())
         }
 
-        // transfer tokens from one account to another
-        // origin is assumed as sender
+        /// Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level
+        /// origin is assumed as sender signing key
         pub fn transfer(_origin, did: IdentityId, _ticker: Vec<u8>, to_did: IdentityId, value: T::TokenBalance) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
@@ -238,7 +242,16 @@ decl_module! {
             Self::_transfer(&ticker, did, to_did, value)
         }
 
-        /// Forces a transfer between two accounts. Can only be called by token owner
+        /// Forces a transfer between two DIDs & This can only be called by security token owner.
+        /// This function doesn't validate any type of restriction beside a valid KYC check
+        /// @param _origin signing key of the token owner DID.
+        /// @param did Token owner DID.
+        /// @param _ticker symbol of the token
+        /// @param from_did DID of the token holder from whom balance token will be transferred.
+        /// @param to_did DID of token holder to whom token balance will be transferred.
+        /// @param value Amount of tokens.
+        /// @param data Some off chain data to validate the restriction.
+        /// @param operator_data It is a string which describes the reason of this control transfer call.
         pub fn controller_transfer(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::TokenBalance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
