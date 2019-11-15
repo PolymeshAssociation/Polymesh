@@ -185,7 +185,7 @@ decl_module! {
             // Ensure validity of checkpoint
             ensure!(<asset::TotalCheckpoints>::exists(&upper_ticker), "No checkpoints created");
             let count = <asset::TotalCheckpoints>::get(&upper_ticker);
-            ensure!(ballot.checkpoint_id <= count, "Checkpoint has not be created yet");
+            ensure!(ballot.checkpoint_id <= count, "Checkpoint has not been created yet");
 
             // Ensure vote is valid
             if let Ok(votes_len) = u64::try_from(votes.len()) {
@@ -956,7 +956,7 @@ mod tests {
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "Checkpoint has not be created yet"
+                "Checkpoint has not been created yet"
             );
 
             assert_ok!(Asset::create_checkpoint(
@@ -1020,7 +1020,7 @@ mod tests {
                 vec![500, 0, 0, 0, 0]
             ));
 
-            let mut result = Voting::results((token.name.clone(), ballot_name.clone()));
+            result = Voting::results((token.name.clone(), ballot_name.clone()));
             assert_eq!(result.len(), 5, "Invalid result len");
             assert_eq!(result, [500, 0, 0, 0, 0], "Invalid result");
 
@@ -1033,7 +1033,7 @@ mod tests {
                 vec![0, 500, 0, 0, 0]
             ));
 
-            let mut result = Voting::results((token.name.clone(), ballot_name.clone()));
+            result = Voting::results((token.name.clone(), ballot_name.clone()));
             assert_eq!(result.len(), 5, "Invalid result len");
             assert_eq!(result, [500, 500, 0, 0, 0], "Invalid result");
         })
