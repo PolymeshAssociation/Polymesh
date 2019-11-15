@@ -24,7 +24,7 @@ use sr_primitives::{
     traits::{BlakeTwo256, Block as BlockT, StaticLookup},
     transaction_validity::TransactionValidity,
     weights::Weight,
-    ApplyResult,
+    AnySignature, ApplyResult,
 };
 use sr_staking_primitives::SessionIndex;
 use srml_support::{
@@ -475,6 +475,7 @@ impl asset::Trait for Runtime {
 
 impl utils::Trait for Runtime {
     type TokenBalance = u128;
+    type OffChainSignature = AnySignature;
     fn as_u128(v: Self::TokenBalance) -> u128 {
         v
     }

@@ -117,7 +117,7 @@ decl_module! {
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again.
@@ -170,7 +170,7 @@ decl_module! {
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
@@ -240,7 +240,7 @@ decl_module! {
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again
@@ -306,13 +306,14 @@ mod tests {
     use sr_io::{with_externalities, TestExternalities};
     use sr_primitives::{
         testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-        Perbill,
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        AnySignature, Perbill,
     };
     use srml_support::traits::Currency;
     use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types};
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
+    use test_client::{self, AccountKeyring};
 
     use crate::{
         asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
@@ -335,14 +336,20 @@ mod tests {
         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     }
 
+    type SessionIndex = u32;
+    type AuthorityId = <AnySignature as Verify>::Signer;
+    type BlockNumber = u64;
+    type AccountId = <AnySignature as Verify>::Signer;
+    type OffChainSignature = AnySignature;
+
     impl system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
+        type AccountId = AccountId;
+        type Lookup = IdentityLookup<AccountId>;
         type Header = Header;
         type Event = ();
         type Call = ();
@@ -391,6 +398,7 @@ mod tests {
 
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        type OffChainSignature = OffChainSignature;
         fn as_u128(v: Self::TokenBalance) -> u128 {
             v
         }
@@ -407,10 +415,6 @@ mod tests {
             v
         }
     }
-
-    type SessionIndex = u32;
-    type AuthorityId = u64;
-    type BlockNumber = u64;
 
     pub struct TestOnSessionEnding;
     impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
@@ -502,10 +506,11 @@ mod tests {
 
     fn make_account(
         id: u64,
+        account_id: AccountId,
     ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(id);
+        let signed_id = Origin::signed(account_id.clone());
         let did = IdentityId::from(id as u128);
-        Balances::make_free_balance_be(&id, 1_000_000);
+        Balances::make_free_balance_be(&account_id, 1_000_000);
         Identity::register_did(signed_id.clone(), did, vec![])?;
         Ok((signed_id, did))
     }
@@ -513,8 +518,10 @@ mod tests {
     #[test]
     fn add_ballot() {
         with_externalities(&mut build_ext(), || {
-            let (token_owner_acc, token_owner_did) = make_account(1).unwrap();
-            let (tokenholder_acc, tokenholder_did) = make_account(2).unwrap();
+            let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (token_owner_acc, token_owner_did) = make_account(1, _token_owner_acc).unwrap();
+            let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
+            let (tokenholder_acc, tokenholder_did) = make_account(2, _tokenholder_acc).unwrap();
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -689,8 +696,10 @@ mod tests {
     #[test]
     fn cancel_ballot() {
         with_externalities(&mut build_ext(), || {
-            let (token_owner_acc, token_owner_did) = make_account(1).unwrap();
-            let (tokenholder_acc, tokenholder_did) = make_account(2).unwrap();
+            let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (token_owner_acc, token_owner_did) = make_account(1, _token_owner_acc).unwrap();
+            let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
+            let (tokenholder_acc, tokenholder_did) = make_account(2, _tokenholder_acc).unwrap();
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -805,8 +814,10 @@ mod tests {
     #[test]
     fn vote() {
         with_externalities(&mut build_ext(), || {
-            let (token_owner_acc, token_owner_did) = make_account(1).unwrap();
-            let (tokenholder_acc, tokenholder_did) = make_account(2).unwrap();
+            let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (token_owner_acc, token_owner_did) = make_account(1, _token_owner_acc).unwrap();
+            let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
+            let (tokenholder_acc, tokenholder_did) = make_account(2, _tokenholder_acc).unwrap();
 
             // A token representing 1M shares
             let token = SecurityToken {
