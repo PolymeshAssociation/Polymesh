@@ -46,24 +46,38 @@ pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Tra
     type Asset: asset::AssetTrait<Self::TokenBalance>;
 }
 
+/// Details about ballots
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Ballot<V> {
+    /// The user's historic balance at this checkpoint is used as maximum vote weight
     checkpoint_id: u64,
+
+    /// Timestamp at which voting should start
     voting_start: V,
+
+    /// Timestamp at which voting should end
     voting_end: V,
+
+    /// Array of proposals that can be voted on
     proposals: Vec<Proposal>,
 }
 
+/// Details about proposals
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Proposal {
+    /// Title of the proposal
     title: Vec<u8>,
+
+    /// Link from where more information about the proposal can be fetched
     info_link: Vec<u8>,
-    choices: Vec<Vec<u8>>, //Choices excluding abstain. Voting power not used is considered abstained.
+
+    /// Choices for the proposal excluding abstain
+    /// Voting power not used is considered abstained
+    choices: Vec<Vec<u8>>,
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as Voting {
-
         /// Mapping of ticker and ballot name -> ballot details
         pub Ballots get(ballots): linked_map(Vec<u8>, Vec<u8>) => Ballot<T::Moment>;
 
@@ -285,4 +299,388 @@ impl<T: Trait> Module<T> {
 
 /// tests for this module
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+    use chrono::prelude::*;
+    use sr_io::{with_externalities, TestExternalities};
+    use sr_primitives::{
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
+        Perbill,
+    };
+    use srml_support::traits::Currency;
+    use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types};
+    use std::result::Result;
+    use substrate_primitives::{Blake2Hasher, H256};
+
+    use crate::{
+        asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
+    };
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    // For testing the module, we construct most of a mock runtime. This means
+    // first constructing a configuration type (`Test`) which `impl`s each of the
+    // configuration traits of modules we want to use.
+    #[derive(Clone, Eq, PartialEq)]
+    pub struct Test;
+
+    parameter_types! {
+        pub const BlockHashCount: u32 = 250;
+        pub const MaximumBlockWeight: u32 = 4096;
+        pub const MaximumBlockLength: u32 = 4096;
+        pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    }
+
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+        type Call = ();
+        type WeightMultiplierUpdate = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type Version = ();
+    }
+
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 0;
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const TransactionBaseFee: u64 = 0;
+        pub const TransactionByteFee: u64 = 0;
+    }
+
+    impl balances::Trait for Test {
+        type Balance = u128;
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type TransactionPayment = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+        type TransactionBaseFee = TransactionBaseFee;
+        type TransactionByteFee = TransactionByteFee;
+        type WeightToFee = ConvertInto;
+        type Identity = identity::Module<Test>;
+    }
+
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
+    }
+
+    impl timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
+
+    impl utils::Trait for Test {
+        type TokenBalance = u128;
+        fn as_u128(v: Self::TokenBalance) -> u128 {
+            v
+        }
+        fn as_tb(v: u128) -> Self::TokenBalance {
+            v
+        }
+        fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
+            v
+        }
+        fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
+            v
+        }
+        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+            v
+        }
+    }
+
+    type SessionIndex = u32;
+    type AuthorityId = u64;
+    type BlockNumber = u64;
+
+    pub struct TestOnSessionEnding;
+    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+        fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
+            None
+        }
+    }
+
+    pub struct TestSessionHandler;
+    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+        fn on_new_session<Ks: OpaqueKeys>(
+            _changed: bool,
+            _validators: &[(AuthorityId, Ks)],
+            _queued_validators: &[(AuthorityId, Ks)],
+        ) {
+        }
+
+        fn on_disabled(_validator_index: usize) {}
+
+        fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+    }
+
+    parameter_types! {
+        pub const Period: BlockNumber = 1;
+        pub const Offset: BlockNumber = 0;
+        pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+    }
+
+    impl session::Trait for Test {
+        type OnSessionEnding = TestOnSessionEnding;
+        type Keys = UintAuthorityId;
+        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type SessionHandler = TestSessionHandler;
+        type Event = ();
+        type ValidatorId = AuthorityId;
+        type ValidatorIdOf = ConvertInto;
+        type SelectInitialValidators = ();
+        type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    }
+
+    impl session::historical::Trait for Test {
+        type FullIdentification = ();
+        type FullIdentificationOf = ();
+    }
+
+    impl identity::Trait for Test {
+        type Event = ();
+    }
+
+    impl asset::Trait for Test {
+        type Event = ();
+        type Currency = balances::Module<Test>;
+    }
+
+    impl percentage_tm::Trait for Test {
+        type Event = ();
+    }
+
+    impl registry::Trait for Test {}
+
+    impl exemption::Trait for Test {
+        type Event = ();
+        type Asset = asset::Module<Test>;
+    }
+
+    impl general_tm::Trait for Test {
+        type Event = ();
+        type Asset = asset::Module<Test>;
+    }
+
+    impl Trait for Test {
+        type Event = ();
+        type Asset = asset::Module<Test>;
+    }
+
+    type Identity = identity::Module<Test>;
+    type GeneralTM = general_tm::Module<Test>;
+    type Voting = Module<Test>;
+    type Balances = balances::Module<Test>;
+    type Asset = asset::Module<Test>;
+
+    /// Create externalities
+    fn build_ext() -> TestExternalities<Blake2Hasher> {
+        system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap()
+            .into()
+    }
+
+    fn make_account(
+        id: u64,
+    ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+        let signed_id = Origin::signed(id);
+        let did = IdentityId::from(id as u128);
+        Balances::make_free_balance_be(&id, 1_000_000);
+        Identity::register_did(signed_id.clone(), did, vec![])?;
+        Ok((signed_id, did))
+    }
+
+    #[test]
+    fn should_add_ballot() {
+        with_externalities(&mut build_ext(), || {
+            let (token_owner_acc, token_owner_did) = make_account(1).unwrap();
+            let (tokenholder_acc, tokenholder_did) = make_account(2).unwrap();
+
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            // Share issuance is successful
+            assert_ok!(Asset::create_token(
+                token_owner_acc.clone(),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            assert_ok!(Asset::create_checkpoint(
+                token_owner_acc.clone(),
+                token_owner_did.clone(),
+                token.name.clone(),
+            ));
+
+            let now = Utc::now().timestamp() as u64;
+            <timestamp::Module<Test>>::set_timestamp(now);
+
+            let proposal1 = Proposal {
+                title: vec![0x01],
+                info_link: vec![0x01],
+                choices: vec![vec![0x01], vec![0x02]],
+            };
+            let proposal2 = Proposal {
+                title: vec![0x02],
+                info_link: vec![0x02],
+                choices: vec![vec![0x01], vec![0x02], vec![0x03]],
+            };
+
+            let ballot_name = vec![0x01];
+
+            let ballot_details = Ballot {
+                checkpoint_id: 1,
+                voting_start: now,
+                voting_end: now + now,
+                proposals: vec![proposal1.clone(), proposal2.clone()],
+            };
+
+            assert_err!(
+                Voting::add_ballot(
+                    token_owner_acc.clone(),
+                    tokenholder_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    ballot_details.clone()
+                ),
+                "sender must be a signing key for DID"
+            );
+
+            assert_err!(
+                Voting::add_ballot(
+                    tokenholder_acc.clone(),
+                    tokenholder_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    ballot_details.clone()
+                ),
+                "Sender must be the token owner"
+            );
+
+            let expired_ballot_details = Ballot {
+                checkpoint_id: 1,
+                voting_start: now,
+                voting_end: 0,
+                proposals: vec![proposal1.clone(), proposal2.clone()],
+            };
+
+            assert_err!(
+                Voting::add_ballot(
+                    token_owner_acc.clone(),
+                    token_owner_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    expired_ballot_details.clone()
+                ),
+                "Voting end date in past"
+            );
+
+            let invalid_date_ballot_details = Ballot {
+                checkpoint_id: 1,
+                voting_start: now + now + now,
+                voting_end: now + now,
+                proposals: vec![proposal1.clone(), proposal2.clone()],
+            };
+
+            assert_err!(
+                Voting::add_ballot(
+                    token_owner_acc.clone(),
+                    token_owner_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    invalid_date_ballot_details.clone()
+                ),
+                "Voting end date before voting start date"
+            );
+
+            let empty_ballot_details = Ballot {
+                checkpoint_id: 1,
+                voting_start: now,
+                voting_end: now + now,
+                proposals: vec![],
+            };
+
+            assert_err!(
+                Voting::add_ballot(
+                    token_owner_acc.clone(),
+                    token_owner_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    empty_ballot_details.clone()
+                ),
+                "No proposal submitted"
+            );
+
+            let empty_proposal = Proposal {
+                title: vec![0x02],
+                info_link: vec![0x02],
+                choices: vec![],
+            };
+
+            let no_choice_ballot_details = Ballot {
+                checkpoint_id: 1,
+                voting_start: now,
+                voting_end: now + now,
+                proposals: vec![proposal1.clone(), proposal2.clone(), empty_proposal],
+            };
+
+            assert_err!(
+                Voting::add_ballot(
+                    token_owner_acc.clone(),
+                    token_owner_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    no_choice_ballot_details.clone()
+                ),
+                "No choice submitted"
+            );
+
+            assert_ok!(Voting::add_ballot(
+                token_owner_acc.clone(),
+                token_owner_did.clone(),
+                token.name.clone(),
+                ballot_name.clone(),
+                ballot_details.clone()
+            ));
+
+            assert_err!(
+                Voting::add_ballot(
+                    token_owner_acc.clone(),
+                    token_owner_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    ballot_details.clone()
+                ),
+                "A ballot with same name already exisits"
+            );
+        });
+    }
+}
