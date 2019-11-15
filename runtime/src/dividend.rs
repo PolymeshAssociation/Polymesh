@@ -770,7 +770,7 @@ mod tests {
                 remaining_claimed: false,
                 matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
                 expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
-                payout_currency: Some(payout_token.ticker.clone()),
+                payout_currency: payout_token.ticker.clone(),
                 checkpoint_id,
             };
 
@@ -791,7 +791,7 @@ mod tests {
                 token.name.clone(),
                 dividend.matures_at.clone().unwrap(),
                 dividend.expires_at.clone().unwrap(),
-                dividend.payout_currency.clone().unwrap(),
+                dividend.payout_currency.clone(),
                 dividend.checkpoint_id
             ));
 
