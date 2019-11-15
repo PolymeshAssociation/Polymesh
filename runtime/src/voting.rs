@@ -117,7 +117,7 @@ decl_module! {
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again.
@@ -170,7 +170,7 @@ decl_module! {
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
@@ -240,7 +240,7 @@ decl_module! {
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again

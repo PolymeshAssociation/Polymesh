@@ -2,7 +2,7 @@ use rstd::{convert::TryFrom, prelude::*};
 
 use crate::balances;
 
-use primitives::{DidRecord, IdentityId, Key, KeyRole, SigningKey};
+use primitives::{DidRecord, IdentityId, Key, KeyRole, KeyType, SigningKey};
 
 use codec::Encode;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
@@ -50,6 +50,15 @@ impl Default for DataTypes {
     }
 }
 
+/// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
+/// Master key or extenal type signing key are restricted to be linked to just one identity.
+/// Other types of signing key could be associated with more that one identity.
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub enum LinkedKeyInfo {
+    Unique(IdentityId),
+    Group(Vec<IdentityId>),
+}
+
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     /// The overarching event type.
@@ -76,8 +85,8 @@ decl_storage! {
         /// DID -> array of (claim_key and claim_issuer)
         pub ClaimKeys get(claim_keys): map IdentityId => Vec<ClaimMetaData>;
 
-        // Signing key => DID
-        pub SigningKeyDid get(signing_key_did): map Key => IdentityId;
+        // Account => DID
+        pub KeyToIdentityIds get(key_to_identity_ids): map Key => Option<LinkedKeyInfo>;
 
         // Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map Key => bool;
@@ -106,9 +115,23 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let master_key = Key::try_from( sender.encode())?;
 
-            // Make sure there's no pre-existing entry for the DID
+            // 1 Check constraints.
+            // 1.1. Master key is not linked to any identity.
+            ensure!( Self::can_key_be_linked_to_did( &master_key, KeyType::External),
+                "Master key already belong to one DID");
+            // 1.2. Master key is not part of signing keys.
+            ensure!( signing_keys.iter().find( |sk| **sk == master_key).is_none(),
+                "Signing keys contains the master key");
+            // 1.3. Make sure there's no pre-existing entry for the DID
             ensure!(!<DidRecords<T>>::exists(did), "DID must be unique");
+            // 1.4. Signing keys can be linked to the new identity.
+            for sig_key in &signing_keys {
+                if !Self::can_key_be_linked_to_did( &sig_key.key, sig_key.key_type){
+                    return Err("One signing key can only belong to one DID");
+                }
+            }
 
+            // 2. Apply changes to our extrinsics.
             // TODO: Subtract the fee
             let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
                 &sender,
@@ -117,23 +140,18 @@ decl_module! {
                 ExistenceRequirement::KeepAlive
                 )?;
 
-            for roled_key in &signing_keys {
-                let key = &roled_key.key;
-                if <SigningKeyDid>::exists(key) {
-                    ensure!(<SigningKeyDid>::get(key) == did, "One signing key can only belong to one DID");
-                }
+            // 2.1. Link  master key and signing keys.
+            Self::link_key_to_did( &master_key, KeyType::External, did);
+            for sig_key in &signing_keys {
+                Self::link_key_to_did( &sig_key.key, sig_key.key_type, did);
             }
 
-            for roled_key in &signing_keys {
-                <SigningKeyDid>::insert( &roled_key.key, did.clone());
-            }
-
+            // 2.2. Create a new identity record.
             let record = DidRecord {
                 signing_keys: signing_keys.clone(),
                 master_key,
                 ..Default::default()
             };
-
             <DidRecords<T>>::insert(did, record);
 
             Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
@@ -146,14 +164,13 @@ decl_module! {
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             for skey in &additional_keys {
-                if <SigningKeyDid>::exists(&skey.key) {
-                    ensure!(<SigningKeyDid>::get(&skey.key) == did, "One signing key can only belong to one DID");
+                if !Self::can_key_be_linked_to_did( &skey.key, skey.key_type) {
+                    return Err( "One signing key can only belong to one DID");
                 }
             }
 
-            for skey in &additional_keys {
-                <SigningKeyDid>::insert(&skey.key, did);
-            }
+            additional_keys.iter()
+                .for_each( |skey| Self::link_key_to_did( &skey.key, skey.key_type, did));
 
             <DidRecords<T>>::mutate( did,
             |record| {
@@ -181,16 +198,26 @@ decl_module! {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
+            // Check that key is linked to that DID.
             for key in &keys_to_remove {
-                if <SigningKeyDid>::exists(key) {
-                    ensure!(<SigningKeyDid>::get(key) == did, "Signing key does not belong to this DID");
+                if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
+                    let error_msg = "Signing key does not belong to this DID";
+
+                    match linked_key_info {
+                        LinkedKeyInfo::Unique(link_did) => if did != link_did {
+                            return Err(error_msg);
+                        },
+                        LinkedKeyInfo::Group(link_dids) => if link_dids.into_iter().find( |id| did == *id).is_none() {
+                            return Err(error_msg);
+                        }
+                    }
                 }
             }
 
-            for key in &keys_to_remove {
-                <SigningKeyDid>::remove(key);
-            }
+            // Remove links between keys and DID
+            keys_to_remove.iter().for_each( |key| Self::unlink_key_to_did(key, did));
 
+            // Remove signing keys from DID records.
             <DidRecords<T>>::mutate(did,
             |record| {
                 (*record).signing_keys.retain( |skey| keys_to_remove.iter()
@@ -199,7 +226,6 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
-
             Ok(())
         }
 
@@ -208,6 +234,8 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from( sender.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
+
+            ensure!( Self::can_key_be_linked_to_did(&new_key, KeyType::External), "Master key can only belong to one DID");
 
             <DidRecords<T>>::mutate(did,
             |record| {
@@ -269,7 +297,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(Self::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(Self::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let from_record = <DidRecords<T>>::get(did);
             let to_record = <DidRecords<T>>::get(to_did);
@@ -348,7 +376,7 @@ decl_module! {
             ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            ensure!(Self::is_signing_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
+            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
                 claim_key: claim_key,
@@ -385,7 +413,7 @@ decl_module! {
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = Key::try_from( sender.encode())?;
-            ensure!(Self::is_signing_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
+            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
                 claim_key: claim_key,
@@ -525,13 +553,18 @@ impl<T: Trait> Module<T> {
     /// It checks if `key` is a signing key of `did` identity.
     /// # IMPORTANT
     /// If signing keys are frozen this function always returns false.
-    pub fn is_signing_key(did: IdentityId, key: &Key) -> bool {
-        if !Self::is_did_frozen(did) {
-            let record = <DidRecords<T>>::get(did);
-            record.signing_keys.iter().find(|&rk| rk == key).is_some() || record.master_key == *key
-        } else {
-            false
+    /// Master key cannot be frozen.
+    pub fn is_authorized_key(did: IdentityId, key: &Key) -> bool {
+        let record = <DidRecords<T>>::get(did);
+        if record.master_key == *key {
+            return true;
         }
+
+        if !Self::is_did_frozen(did) {
+            return record.signing_keys.iter().find(|&rk| rk == key).is_some();
+        }
+
+        return false;
     }
 
     /// Use `did` as reference.
@@ -622,6 +655,66 @@ impl<T: Trait> Module<T> {
         }
         Ok(())
     }
+
+    /// It checks that any sternal account can only be associated with at most one.
+    /// Master keys are considered as external accounts.
+    pub fn can_key_be_linked_to_did(key: &Key, key_type: KeyType) -> bool {
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
+            match linked_key_info {
+                LinkedKeyInfo::Unique(..) => false,
+                LinkedKeyInfo::Group(..) => key_type != KeyType::External,
+            }
+        } else {
+            true
+        }
+    }
+
+    /// It links `key` key to `did` identity as a `key_type` type.
+    /// # Errors
+    /// This function can be used if `can_key_be_linked_to_did` returns true. Otherwise, it will do
+    /// nothing.
+    fn link_key_to_did(key: &Key, key_type: KeyType, did: IdentityId) {
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
+            match linked_key_info {
+                LinkedKeyInfo::Group(mut dids) => {
+                    if !dids.contains(&did) && key_type != KeyType::External {
+                        dids.push(did);
+                        dids.sort();
+
+                        <KeyToIdentityIds>::insert(key, LinkedKeyInfo::Group(dids));
+                    }
+                }
+                _ => {
+                    // This case is protected by `can_key_be_linked_to_did`.
+                }
+            }
+        } else {
+            // Key is not yet linked to any identity, so no constraints.
+            let linked_key_info = match key_type {
+                KeyType::External => LinkedKeyInfo::Unique(did),
+                _ => LinkedKeyInfo::Group(vec![did]),
+            };
+            <KeyToIdentityIds>::insert(key, linked_key_info);
+        }
+    }
+
+    /// It unlinks the `key` key from `did`.
+    /// If there is no more associated identities, its full entry is removed.
+    fn unlink_key_to_did(key: &Key, did: IdentityId) {
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
+            match linked_key_info {
+                LinkedKeyInfo::Unique(..) => <KeyToIdentityIds>::remove(key),
+                LinkedKeyInfo::Group(mut dids) => {
+                    dids.retain(|ref_did| *ref_did != did);
+                    if dids.is_empty() {
+                        <KeyToIdentityIds>::remove(key);
+                    } else {
+                        <KeyToIdentityIds>::insert(key, LinkedKeyInfo::Group(dids));
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub trait IdentityTrait<T> {
@@ -630,21 +723,29 @@ pub trait IdentityTrait<T> {
 }
 
 impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
+    /// Only signing keys with one-to-one relation with Identity are allowed to charge poly.
     fn charge_poly(signing_key: &Key, amount: T::Balance) -> bool {
-        let id = <SigningKeyDid>::get(signing_key);
-        Self::charge_poly(id, amount)
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
+            if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
+                return Self::charge_poly(linked_id, amount);
+            }
+        }
+
+        false
     }
 
     fn signing_key_charge_did(signing_key: &Key) -> bool {
-        if <SigningKeyDid>::exists(signing_key) {
-            let id = <SigningKeyDid>::get(signing_key);
-            if Self::is_signing_key(id, signing_key) {
-                if <ChargeDid>::exists(signing_key) {
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
+            if let LinkedKeyInfo::Unique(identity) = linked_key_info {
+                if Self::is_authorized_key(identity, signing_key)
+                    && <ChargeDid>::exists(signing_key)
+                {
                     return <ChargeDid>::get(signing_key);
                 }
             }
         }
-        return false;
+
+        false
     }
 }
 
@@ -652,7 +753,7 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::SigningKeyType;
+    use primitives::KeyType;
 
     use sr_io::{with_externalities, TestExternalities};
     use sr_primitives::{
@@ -776,24 +877,27 @@ mod tests {
                 Identity::register_did(Origin::signed(3), did_1, vec![]),
                 "DID must be unique"
             );
+
+            // Err: Master key cannot be part of signing keys.
+            let did_3 = IdentityId::from(3);
+            let did_master_key = Key::try_from(3u64.encode()).unwrap();
+            assert_err!(
+                Identity::register_did(
+                    Origin::signed(3),
+                    did_3,
+                    vec![SigningKey::from(did_master_key)]
+                ),
+                "Signing keys contains the master key"
+            );
         });
     }
 
     #[test]
     fn only_claim_issuers_can_add_claims() {
         with_externalities(&mut build_ext(), || {
-            let owner_id = Identity::owner();
-            let owner_key = Key::try_from(owner_id.encode()).unwrap();
-            let (owner, owner_did) = make_account(owner_id).unwrap();
-
+            let (_owner, owner_did) = make_account(Identity::owner()).unwrap();
             let (issuer, issuer_did) = make_account(2).unwrap();
             let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
-
-            assert_ok!(Identity::add_signing_keys(
-                claim_issuer.clone(),
-                claim_issuer_did.clone(),
-                vec![SigningKey::from(owner_key.clone())]
-            ));
 
             let claim_value = ClaimValue {
                 data_type: DataTypes::VecU8,
@@ -801,8 +905,8 @@ mod tests {
             };
 
             assert_ok!(Identity::add_claim(
-                owner.clone(),
-                owner_did.clone(),
+                claim_issuer.clone(),
+                claim_issuer_did,
                 "some_key".as_bytes().to_vec(),
                 claim_issuer_did.clone(),
                 100u64,
@@ -842,48 +946,42 @@ mod tests {
             let (_owner, owner_did) = make_account(owner_id).unwrap();
             let (a, a_did) = make_account(2).unwrap();
             let (_b, b_did) = make_account(3).unwrap();
+            let charlie_sig_key =
+                SigningKey::new(Key::try_from(4u64.encode()).unwrap(), vec![KeyRole::Admin]);
 
             assert_ok!(Identity::add_signing_keys(
                 a.clone(),
                 a_did,
-                vec![SigningKey::from(owner_key.clone())]
+                vec![charlie_sig_key.clone()]
             ));
 
             // Check master key on master and signing_keys.
-            assert!(Identity::is_signing_key(owner_did, &owner_key));
-            assert!(Identity::is_signing_key(a_did, &owner_key));
+            assert!(Identity::is_authorized_key(owner_did, &owner_key));
+            assert!(Identity::is_authorized_key(a_did, &charlie_sig_key.key));
 
-            assert!(Identity::is_signing_key(b_did, &owner_key) == false);
+            assert!(Identity::is_authorized_key(b_did, &charlie_sig_key.key) == false);
 
             // ... and remove that key.
             assert_ok!(Identity::remove_signing_keys(
                 a.clone(),
                 a_did.clone(),
-                vec![owner_key.clone()]
+                vec![charlie_sig_key.key.clone()]
             ));
-            assert!(Identity::is_signing_key(a_did, &owner_key) == false);
+            assert!(Identity::is_authorized_key(a_did, &charlie_sig_key.key) == false);
         });
     }
 
     #[test]
     fn revoking_claims() {
         with_externalities(&mut build_ext(), || {
-            let owner_id = Identity::owner();
-            let owner_key = Key::try_from(owner_id.encode()).unwrap();
             let (owner, owner_did) = make_account(Identity::owner()).unwrap();
             let (issuer, issuer_did) = make_account(2).unwrap();
-
             let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
-            assert_ok!(Identity::add_signing_keys(
-                claim_issuer.clone(),
-                claim_issuer_did.clone(),
-                vec![SigningKey::from(owner_key)]
-            ));
 
             assert_ok!(Identity::add_claim_issuer(
                 owner.clone(),
-                owner_did.clone(),
-                claim_issuer_did.clone()
+                owner_did,
+                claim_issuer_did
             ));
 
             let claim_value = ClaimValue {
@@ -892,10 +990,10 @@ mod tests {
             };
 
             assert_ok!(Identity::add_claim(
-                owner.clone(),
-                owner_did.clone(),
+                claim_issuer.clone(),
+                claim_issuer_did,
                 "some_key".as_bytes().to_vec(),
-                claim_issuer_did.clone(),
+                claim_issuer_did,
                 100u64,
                 claim_value.clone()
             ));
@@ -903,18 +1001,18 @@ mod tests {
             assert_err!(
                 Identity::revoke_claim(
                     issuer.clone(),
-                    issuer_did.clone(),
+                    issuer_did,
                     "some_key".as_bytes().to_vec(),
-                    claim_issuer_did.clone()
+                    claim_issuer_did
                 ),
                 "Sender must hold a claim issuer\'s signing key"
             );
 
             assert_ok!(Identity::revoke_claim(
-                owner.clone(),
-                owner_did.clone(),
+                claim_issuer.clone(),
+                owner_did,
                 "some_key".as_bytes().to_vec(),
-                claim_issuer_did.clone()
+                claim_issuer_did
             ));
         });
     }
@@ -998,29 +1096,23 @@ mod tests {
     }
 
     /// It tests that signing key can be added using non-default key type
-    /// (`SigningKeyType::External`).
+    /// (`KeyType::External`).
     fn add_signing_keys_with_specific_type_with_externalities() {
         let (alice_acc, bob_acc, charlie_acc, dave_acc) = (1u64, 2u64, 3u64, 4u64);
-        let (bob_key, charlie_key, dave_key) = (
-            Key::try_from(bob_acc.encode()).unwrap(),
+        let (charlie_key, dave_key) = (
             Key::try_from(charlie_acc.encode()).unwrap(),
             Key::try_from(dave_acc.encode()).unwrap(),
         );
 
         // Create keys using non-default type.
-        let bob_signing_key = SigningKey {
-            key: bob_key,
-            roles: vec![],
-            key_type: SigningKeyType::Identity,
-        };
         let charlie_signing_key = SigningKey {
             key: charlie_key,
-            key_type: SigningKeyType::Relayer,
+            key_type: KeyType::Relayer,
             roles: vec![],
         };
         let dave_signing_key = SigningKey {
             key: dave_key,
-            key_type: SigningKeyType::Multisig,
+            key_type: KeyType::Multisig,
             roles: vec![],
         };
 
@@ -1029,7 +1121,7 @@ mod tests {
         assert_ok!(Identity::add_signing_keys(
             alice,
             alice_did,
-            vec![bob_signing_key, charlie_signing_key]
+            vec![charlie_signing_key, dave_signing_key.clone()]
         ));
 
         // Register did with non-default type.
@@ -1068,7 +1160,7 @@ mod tests {
             signing_keys_v1.clone()
         ));
 
-        assert_eq!(Identity::is_signing_key(alice_did, &bob_key), true);
+        assert_eq!(Identity::is_authorized_key(alice_did, &bob_key), true);
 
         // Freeze signing keys: bob & charlie.
         assert_err!(
@@ -1080,7 +1172,7 @@ mod tests {
             alice_did.clone()
         ));
 
-        assert_eq!(Identity::is_signing_key(alice_did, &bob_key), false);
+        assert_eq!(Identity::is_authorized_key(alice_did, &bob_key), false);
 
         // Add new signing keys.
         let signing_keys_v2 = vec![dave_signing_key.clone()];
@@ -1089,7 +1181,7 @@ mod tests {
             alice_did.clone(),
             signing_keys_v2.clone()
         ));
-        assert_eq!(Identity::is_signing_key(alice_did, &dave_key), false);
+        assert_eq!(Identity::is_authorized_key(alice_did, &dave_key), false);
 
         // update role of frozen keys.
         assert_ok!(Identity::set_role_to_signing_key(
@@ -1109,7 +1201,7 @@ mod tests {
             alice_did.clone()
         ));
 
-        assert_eq!(Identity::is_signing_key(alice_did, &dave_key), true);
+        assert_eq!(Identity::is_authorized_key(alice_did, &dave_key), true);
     }
 
     /// It double-checks that frozen keys are removed too.
@@ -1182,6 +1274,69 @@ mod tests {
         assert_err!(
             Identity::add_claim_issuer(alice, alice_did.clone(), alice_did),
             "Master key cannot add itself as claim issuer"
+        );
+    }
+
+    #[test]
+    fn enforce_uniqueness_keys_in_identity_tests() {
+        with_externalities(&mut build_ext(), &enforce_uniqueness_keys_in_identity);
+    }
+
+    fn enforce_uniqueness_keys_in_identity() {
+        let unique_error = "One signing key can only belong to one DID";
+        // Register identities
+        let (a_acc, b_acc, c_acc, d_acc) = (1u64, 2u64, 3u64, 4u64);
+        let (alice, alice_id) = make_account(a_acc).unwrap();
+        let (bob, bob_id) = make_account(b_acc).unwrap();
+
+        // Check external signed key uniqueness.
+        let charlie_key = Key::try_from(c_acc.encode()).unwrap();
+        let charlie_sk = SigningKey::new(charlie_key, vec![KeyRole::Operator]);
+        assert_ok!(Identity::add_signing_keys(
+            alice.clone(),
+            alice_id,
+            vec![charlie_sk.clone()]
+        ));
+
+        assert_err!(
+            Identity::add_signing_keys(bob.clone(), bob_id, vec![charlie_sk]),
+            unique_error
+        );
+
+        // Check non-external signed key non-uniqueness.
+        let dave_key = Key::try_from(d_acc.encode()).unwrap();
+        let dave_sk = SigningKey {
+            key: dave_key,
+            key_type: KeyType::Multisig,
+            roles: vec![KeyRole::Operator],
+        };
+        assert_ok!(Identity::add_signing_keys(
+            alice.clone(),
+            alice_id,
+            vec![dave_sk.clone()]
+        ));
+        assert_ok!(Identity::add_signing_keys(
+            bob.clone(),
+            bob_id,
+            vec![dave_sk]
+        ));
+
+        // Check that master key acts like external signed key.
+        let bob_key = Key::try_from(b_acc.encode()).unwrap();
+        let bob_sk_as_mutisig = SigningKey {
+            key: bob_key.clone(),
+            key_type: KeyType::Multisig,
+            roles: vec![KeyRole::Operator],
+        };
+        assert_err!(
+            Identity::add_signing_keys(alice.clone(), alice_id, vec![bob_sk_as_mutisig]),
+            unique_error
+        );
+
+        let bob_sk = SigningKey::new(bob_key, vec![KeyRole::Admin]);
+        assert_err!(
+            Identity::add_signing_keys(alice.clone(), alice_id, vec![bob_sk]),
+            unique_error
         );
     }
 }
