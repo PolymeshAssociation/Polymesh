@@ -183,6 +183,7 @@ decl_module! {
             ensure!(ballot.voting_end > now, "Voting ended already");
 
             // Ensure validity of checkpoint
+            ensure!(<asset::TotalCheckpoints>::exists(&upper_ticker), "No checkpoints created");
             let count = <asset::TotalCheckpoints>::get(&upper_ticker);
             ensure!(ballot.checkpoint_id <= count, "Checkpoint has not be created yet");
 
@@ -200,7 +201,7 @@ decl_module! {
             ensure!(total_votes <= T::Asset::get_balance_at(&upper_ticker, did, ballot.checkpoint_id), "Not enough balance");
 
             // This avoids cloning the variables to make the same tupple again and again
-            let upper_ticker_ballot_name_did = (upper_ticker.clone(), ballot_name.clone(), did.clone());
+            let upper_ticker_ballot_name_did = (upper_ticker.clone(), ballot_name.clone(), did);
 
             // Check if user has already voted for this ballot or if they are voting for the first time
             if <Votes<T>>::exists(&upper_ticker_ballot_name_did) {
@@ -518,7 +519,7 @@ mod tests {
             // A token representing 1M shares
             let token = SecurityToken {
                 name: vec![0x01],
-                owner_did: token_owner_did.clone(),
+                owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
                 decimals: 18,
@@ -527,7 +528,7 @@ mod tests {
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
-                token_owner_did.clone(),
+                token_owner_did,
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
@@ -536,7 +537,7 @@ mod tests {
 
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
-                token_owner_did.clone(),
+                token_owner_did,
                 token.name.clone(),
             ));
 
@@ -566,7 +567,7 @@ mod tests {
             assert_err!(
                 Voting::add_ballot(
                     token_owner_acc.clone(),
-                    tokenholder_did.clone(),
+                    tokenholder_did,
                     token.name.clone(),
                     ballot_name.clone(),
                     ballot_details.clone()
@@ -577,7 +578,7 @@ mod tests {
             assert_err!(
                 Voting::add_ballot(
                     tokenholder_acc.clone(),
-                    tokenholder_did.clone(),
+                    tokenholder_did,
                     token.name.clone(),
                     ballot_name.clone(),
                     ballot_details.clone()
@@ -595,7 +596,7 @@ mod tests {
             assert_err!(
                 Voting::add_ballot(
                     token_owner_acc.clone(),
-                    token_owner_did.clone(),
+                    token_owner_did,
                     token.name.clone(),
                     ballot_name.clone(),
                     expired_ballot_details.clone()
@@ -613,7 +614,7 @@ mod tests {
             assert_err!(
                 Voting::add_ballot(
                     token_owner_acc.clone(),
-                    token_owner_did.clone(),
+                    token_owner_did,
                     token.name.clone(),
                     ballot_name.clone(),
                     invalid_date_ballot_details.clone()
@@ -631,7 +632,7 @@ mod tests {
             assert_err!(
                 Voting::add_ballot(
                     token_owner_acc.clone(),
-                    token_owner_did.clone(),
+                    token_owner_did,
                     token.name.clone(),
                     ballot_name.clone(),
                     empty_ballot_details.clone()
@@ -655,7 +656,7 @@ mod tests {
             assert_err!(
                 Voting::add_ballot(
                     token_owner_acc.clone(),
-                    token_owner_did.clone(),
+                    token_owner_did,
                     token.name.clone(),
                     ballot_name.clone(),
                     no_choice_ballot_details.clone()
@@ -663,9 +664,10 @@ mod tests {
                 "No choice submitted"
             );
 
+            // Adding ballot
             assert_ok!(Voting::add_ballot(
                 token_owner_acc.clone(),
-                token_owner_did.clone(),
+                token_owner_did,
                 token.name.clone(),
                 ballot_name.clone(),
                 ballot_details.clone()
@@ -674,7 +676,7 @@ mod tests {
             assert_err!(
                 Voting::add_ballot(
                     token_owner_acc.clone(),
-                    token_owner_did.clone(),
+                    token_owner_did,
                     token.name.clone(),
                     ballot_name.clone(),
                     ballot_details.clone()
@@ -693,7 +695,7 @@ mod tests {
             // A token representing 1M shares
             let token = SecurityToken {
                 name: vec![0x01],
-                owner_did: token_owner_did.clone(),
+                owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
                 decimals: 18,
@@ -702,7 +704,7 @@ mod tests {
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
-                token_owner_did.clone(),
+                token_owner_did,
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
@@ -711,7 +713,7 @@ mod tests {
 
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
-                token_owner_did.clone(),
+                token_owner_did,
                 token.name.clone(),
             ));
 
@@ -741,7 +743,7 @@ mod tests {
             assert_err!(
                 Voting::cancel_ballot(
                     token_owner_acc.clone(),
-                    token_owner_did.clone(),
+                    token_owner_did,
                     token.name.clone(),
                     ballot_name.clone()
                 ),
@@ -750,7 +752,7 @@ mod tests {
 
             assert_ok!(Voting::add_ballot(
                 token_owner_acc.clone(),
-                token_owner_did.clone(),
+                token_owner_did,
                 token.name.clone(),
                 ballot_name.clone(),
                 ballot_details.clone()
@@ -759,7 +761,7 @@ mod tests {
             assert_err!(
                 Voting::cancel_ballot(
                     token_owner_acc.clone(),
-                    tokenholder_did.clone(),
+                    tokenholder_did,
                     token.name.clone(),
                     ballot_name.clone()
                 ),
@@ -769,7 +771,7 @@ mod tests {
             assert_err!(
                 Voting::cancel_ballot(
                     tokenholder_acc.clone(),
-                    tokenholder_did.clone(),
+                    tokenholder_did,
                     token.name.clone(),
                     ballot_name.clone()
                 ),
@@ -781,7 +783,7 @@ mod tests {
             assert_err!(
                 Voting::cancel_ballot(
                     token_owner_acc.clone(),
-                    token_owner_did.clone(),
+                    token_owner_did,
                     token.name.clone(),
                     ballot_name.clone()
                 ),
@@ -790,12 +792,250 @@ mod tests {
 
             <timestamp::Module<Test>>::set_timestamp(now);
 
+            // Cancelling ballot
             assert_ok!(Voting::cancel_ballot(
                 token_owner_acc.clone(),
-                token_owner_did.clone(),
+                token_owner_did,
                 token.name.clone(),
                 ballot_name.clone()
             ));
         });
+    }
+
+    #[test]
+    fn vote() {
+        with_externalities(&mut build_ext(), || {
+            let (token_owner_acc, token_owner_did) = make_account(1).unwrap();
+            let (tokenholder_acc, tokenholder_did) = make_account(2).unwrap();
+
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: token_owner_did,
+                total_supply: 1000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            // Share issuance is successful
+            assert_ok!(Asset::create_token(
+                token_owner_acc.clone(),
+                token_owner_did,
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            let asset_rule = general_tm::AssetRule {
+                sender_rules: vec![],
+                receiver_rules: vec![],
+            };
+
+            // Allow all transfers
+            assert_ok!(GeneralTM::add_active_rule(
+                token_owner_acc.clone(),
+                token_owner_did,
+                token.name.clone(),
+                asset_rule
+            ));
+
+            assert_ok!(Asset::transfer(
+                token_owner_acc.clone(),
+                token_owner_did,
+                token.name.clone(),
+                tokenholder_did,
+                500
+            ));
+
+            let now = Utc::now().timestamp() as u64;
+            <timestamp::Module<Test>>::set_timestamp(now);
+
+            let proposal1 = Proposal {
+                title: vec![0x01],
+                info_link: vec![0x01],
+                choices: vec![vec![0x01], vec![0x02]],
+            };
+            let proposal2 = Proposal {
+                title: vec![0x02],
+                info_link: vec![0x02],
+                choices: vec![vec![0x01], vec![0x02], vec![0x03]],
+            };
+
+            let ballot_name = vec![0x01];
+
+            let ballot_details = Ballot {
+                checkpoint_id: 2,
+                voting_start: now,
+                voting_end: now + now,
+                proposals: vec![proposal1.clone(), proposal2.clone()],
+            };
+
+            assert_ok!(Voting::add_ballot(
+                token_owner_acc.clone(),
+                token_owner_did,
+                token.name.clone(),
+                ballot_name.clone(),
+                ballot_details.clone()
+            ));
+
+            let votes = vec![100, 100, 100, 100, 100];
+
+            assert_err!(
+                Voting::vote(
+                    token_owner_acc.clone(),
+                    tokenholder_did,
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    votes.clone()
+                ),
+                "sender must be a signing key for DID"
+            );
+
+            assert_err!(
+                Voting::vote(
+                    token_owner_acc.clone(),
+                    token_owner_did,
+                    token.name.clone(),
+                    vec![0x02],
+                    votes.clone()
+                ),
+                "Ballot does not exist"
+            );
+
+            <timestamp::Module<Test>>::set_timestamp(now - 1);
+
+            assert_err!(
+                Voting::vote(
+                    token_owner_acc.clone(),
+                    token_owner_did,
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    votes.clone()
+                ),
+                "Voting hasn't started yet"
+            );
+
+            <timestamp::Module<Test>>::set_timestamp(now + now + 1);
+
+            assert_err!(
+                Voting::vote(
+                    token_owner_acc.clone(),
+                    token_owner_did,
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    votes.clone()
+                ),
+                "Voting ended already"
+            );
+
+            <timestamp::Module<Test>>::set_timestamp(now + 1);
+
+            assert_err!(
+                Voting::vote(
+                    token_owner_acc.clone(),
+                    token_owner_did,
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    votes.clone()
+                ),
+                "No checkpoints created"
+            );
+
+            assert_ok!(Asset::create_checkpoint(
+                token_owner_acc.clone(),
+                token_owner_did,
+                token.name.clone(),
+            ));
+
+            assert_err!(
+                Voting::vote(
+                    token_owner_acc.clone(),
+                    token_owner_did,
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    votes.clone()
+                ),
+                "Checkpoint has not be created yet"
+            );
+
+            assert_ok!(Asset::create_checkpoint(
+                token_owner_acc.clone(),
+                token_owner_did,
+                token.name.clone(),
+            ));
+
+            assert_err!(
+                Voting::vote(
+                    token_owner_acc.clone(),
+                    token_owner_did,
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    vec![100, 100, 100, 100]
+                ),
+                "Invalid vote"
+            );
+
+            assert_err!(
+                Voting::vote(
+                    token_owner_acc.clone(),
+                    token_owner_did,
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    vec![100, 100, 100, 100, 100, 100]
+                ),
+                "Invalid vote"
+            );
+
+            assert_err!(
+                Voting::vote(
+                    token_owner_acc.clone(),
+                    token_owner_did,
+                    token.name.clone(),
+                    ballot_name.clone(),
+                    vec![100, 100, 100, 100, 200]
+                ),
+                "Not enough balance"
+            );
+
+            // Initial vote
+            assert_ok!(Voting::vote(
+                token_owner_acc.clone(),
+                token_owner_did,
+                token.name.clone(),
+                ballot_name.clone(),
+                votes.clone()
+            ));
+
+            let mut result = Voting::results((token.name.clone(), ballot_name.clone()));
+            assert_eq!(result.len(), 5, "Invalid result len");
+            assert_eq!(result, [100, 100, 100, 100, 100], "Invalid result");
+
+            // Changed vote
+            assert_ok!(Voting::vote(
+                token_owner_acc.clone(),
+                token_owner_did,
+                token.name.clone(),
+                ballot_name.clone(),
+                vec![500, 0, 0, 0, 0]
+            ));
+
+            let mut result = Voting::results((token.name.clone(), ballot_name.clone()));
+            assert_eq!(result.len(), 5, "Invalid result len");
+            assert_eq!(result, [500, 0, 0, 0, 0], "Invalid result");
+
+            // Second vote
+            assert_ok!(Voting::vote(
+                tokenholder_acc.clone(),
+                tokenholder_did,
+                token.name.clone(),
+                ballot_name.clone(),
+                vec![0, 500, 0, 0, 0]
+            ));
+
+            let mut result = Voting::results((token.name.clone(), ballot_name.clone()));
+            assert_eq!(result.len(), 5, "Invalid result len");
+            assert_eq!(result, [500, 500, 0, 0, 0], "Invalid result");
+        })
     }
 }
