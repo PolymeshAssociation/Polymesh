@@ -249,7 +249,7 @@ decl_module! {
             ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exisit");
             let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
             let now = <timestamp::Module<T>>::get();
-            ensure!(now > ballot.voting_end, "Voting already ended");
+            ensure!(now < ballot.voting_end, "Voting already ended");
 
             // Clearing results
             <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
@@ -510,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    fn should_add_ballot() {
+    fn add_ballot() {
         with_externalities(&mut build_ext(), || {
             let (token_owner_acc, token_owner_did) = make_account(1).unwrap();
             let (tokenholder_acc, tokenholder_did) = make_account(2).unwrap();
@@ -681,6 +681,121 @@ mod tests {
                 ),
                 "A ballot with same name already exisits"
             );
+        });
+    }
+
+    #[test]
+    fn cancel_ballot() {
+        with_externalities(&mut build_ext(), || {
+            let (token_owner_acc, token_owner_did) = make_account(1).unwrap();
+            let (tokenholder_acc, tokenholder_did) = make_account(2).unwrap();
+
+            // A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                granularity: 1,
+                decimals: 18,
+            };
+
+            // Share issuance is successful
+            assert_ok!(Asset::create_token(
+                token_owner_acc.clone(),
+                token_owner_did.clone(),
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            assert_ok!(Asset::create_checkpoint(
+                token_owner_acc.clone(),
+                token_owner_did.clone(),
+                token.name.clone(),
+            ));
+
+            let now = Utc::now().timestamp() as u64;
+            <timestamp::Module<Test>>::set_timestamp(now);
+
+            let proposal1 = Proposal {
+                title: vec![0x01],
+                info_link: vec![0x01],
+                choices: vec![vec![0x01], vec![0x02]],
+            };
+            let proposal2 = Proposal {
+                title: vec![0x02],
+                info_link: vec![0x02],
+                choices: vec![vec![0x01], vec![0x02], vec![0x03]],
+            };
+
+            let ballot_name = vec![0x01];
+
+            let ballot_details = Ballot {
+                checkpoint_id: 1,
+                voting_start: now,
+                voting_end: now + now,
+                proposals: vec![proposal1.clone(), proposal2.clone()],
+            };
+
+            assert_err!(
+                Voting::cancel_ballot(
+                    token_owner_acc.clone(),
+                    token_owner_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone()
+                ),
+                "Ballot does not exisit"
+            );
+
+            assert_ok!(Voting::add_ballot(
+                token_owner_acc.clone(),
+                token_owner_did.clone(),
+                token.name.clone(),
+                ballot_name.clone(),
+                ballot_details.clone()
+            ));
+
+            assert_err!(
+                Voting::cancel_ballot(
+                    token_owner_acc.clone(),
+                    tokenholder_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone()
+                ),
+                "sender must be a signing key for DID"
+            );
+
+            assert_err!(
+                Voting::cancel_ballot(
+                    tokenholder_acc.clone(),
+                    tokenholder_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone()
+                ),
+                "Sender must be the token owner"
+            );
+
+            <timestamp::Module<Test>>::set_timestamp(now + now + now);
+
+            assert_err!(
+                Voting::cancel_ballot(
+                    token_owner_acc.clone(),
+                    token_owner_did.clone(),
+                    token.name.clone(),
+                    ballot_name.clone()
+                ),
+                "Voting already ended"
+            );
+
+            <timestamp::Module<Test>>::set_timestamp(now);
+
+            assert_ok!(Voting::cancel_ballot(
+                token_owner_acc.clone(),
+                token_owner_did.clone(),
+                token.name.clone(),
+                ballot_name.clone()
+            ));
         });
     }
 }
