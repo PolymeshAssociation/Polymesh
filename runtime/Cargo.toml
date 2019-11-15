@@ -6,19 +6,19 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
+serde_json = { version = "1.0.41", default-features = false }
 rand = "0.7.2"
-serde_json = { version = "1.0.40", default-features = false }
 chrono = { version = "0.4.9", default-features = false }
 yaml-rust = { version = "0.4.3", default-features = false }
 lazy_static = { version = "1.4.0", default-features = false }
 bitvec = { version = "0.15.2", default-features = false, features = ["alloc"] }
 rustc-hex = { version = "2.0.1", default-features = false }
-log = { version = "0.4.8", optional = true }
-serde = { version = "1.0.101", default-features = false }
-serde_derive = { version = "1.0.101", optional = true }
+log = { version = "0.4.8"}
+serde = { version = "1.0.102", default-features = false }
+serde_derive = { version = "1.0.102", optional = true }
 safe-mix = { version = "1.0.0", default-features = false }
 primitives = { package = "polymesh-primitives", path = "../primitives", default-features = false }
-codec = { package = "parity-scale-codec", version = "~1.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 substrate-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 sr-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
@@ -42,7 +42,7 @@ offences = { package = "srml-offences", git = "https://github.com/paritytech/sub
 sr-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 sr-staking-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 session = { package = "srml-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-staking = { package = "srml-staking", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+sr-staking = { package = "srml-staking", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 sudo = { package = "srml-sudo", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 system = { package = "srml-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 timestamp = { package = "srml-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
@@ -54,12 +54,14 @@ substrate-session = { git = "https://github.com/paritytech/substrate", default-f
 authority-discovery = { package = "srml-authority-discovery", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 authority-discovery-primitives = { package = "substrate-authority-discovery-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 srml-staking-reward-curve = { git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+phragmen = { package = "substrate-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.2" }
 
 [features]
-default = ["std"]
+equalize = []
+default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [
@@ -74,6 +76,7 @@ std = [
 	"client/std",
 	"offchain-primitives/std",
 	"rstd/std",
+	"phragmen/std",
 	"sr-io/std",
 	"srml-support/std",
 	"authorship/std",
@@ -91,7 +94,7 @@ std = [
 	"sr-primitives/std",
 	"sr-staking-primitives/std",
 	"session/std",
-	"staking/std",
+	"sr-staking/std",
 	"sudo/std",
 	"system/std",
 	"timestamp/std",
@@ -99,9 +102,9 @@ std = [
 	"version/std",
 	"serde_derive",
 	"serde/std",
-	"log",
+#	"log",
 	"safe-mix/std",
 	"babe/std",
 	"babe-primitives/std",
-    "substrate-session/std"
+    "substrate-session/std",
 ]
