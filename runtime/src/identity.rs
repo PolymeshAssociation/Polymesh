@@ -86,7 +86,7 @@ decl_storage! {
         pub ClaimKeys get(claim_keys): map IdentityId => Vec<ClaimMetaData>;
 
         // Account => DID
-        pub KeyToIdentityIds get(key_to_idenitity_ids): map Key => Option<LinkedKeyInfo>;
+        pub KeyToIdentityIds get(key_to_identity_ids): map Key => Option<LinkedKeyInfo>;
 
         // Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map Key => bool;
