@@ -53,10 +53,10 @@ impl Default for DataTypes {
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or extenal type signing key are restricted to be linked to just one identity.
 /// Other types of signing key could be associated with more that one identity.
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct LinkedKeyInfo {
-    pub key_type: KeyType,
-    pub identities: Vec<IdentityId>,
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub enum LinkedKeyInfo {
+    Unique(IdentityId),
+    Group(Vec<IdentityId>),
 }
 
 /// The module's configuration trait.
@@ -86,7 +86,7 @@ decl_storage! {
         pub ClaimKeys get(claim_keys): map IdentityId => Vec<ClaimMetaData>;
 
         // Account => DID
-        pub KeyToIdentityIds get(key_to_idenitity_ids): map Key => LinkedKeyInfo;
+        pub KeyToIdentityIds get(key_to_idenitity_ids): map Key => Option<LinkedKeyInfo>;
 
         // Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map Key => bool;
@@ -192,17 +192,26 @@ decl_module! {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
+            // Check that key is linked to that DID.
             for key in &keys_to_remove {
-                if <KeyToIdentityIds>::exists(key) {
-                    let identities = <KeyToIdentityIds>::get(key).identities;
-                    if identities.into_iter().find( |id| did == *id).is_none() {
-                        return Err("Signing key does not belong to this DID");
+                if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
+                    let error_msg = "Signing key does not belong to this DID";
+
+                    match linked_key_info {
+                        LinkedKeyInfo::Unique(link_did) => if did != link_did {
+                            return Err(error_msg);
+                        },
+                        LinkedKeyInfo::Group(link_dids) => if link_dids.into_iter().find( |id| did == *id).is_none() {
+                            return Err(error_msg);
+                        }
                     }
                 }
             }
 
+            // Remove links between keys and DID
             keys_to_remove.iter().for_each( |key| Self::unlink_key_to_did(key, did));
 
+            // Remove signing keys from DID records.
             <DidRecords<T>>::mutate(did,
             |record| {
                 (*record).signing_keys.retain( |skey| keys_to_remove.iter()
@@ -644,60 +653,59 @@ impl<T: Trait> Module<T> {
     /// It checks that any sternal account can only be associated with at most one.
     /// Master keys are considered as external accounts.
     pub fn can_key_be_linked_to_did(key: &Key, key_type: KeyType) -> bool {
-        if !<KeyToIdentityIds>::exists(key) {
-            true
-        } else {
-            // Key is already linked to an IdentityId.
-            match key_type {
-                KeyType::External => false,
-                _ => {
-                    // Previously registered as External should fail.
-                    let linked_key_info = <KeyToIdentityIds>::get(key);
-                    linked_key_info.key_type != KeyType::External
-                }
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
+            match linked_key_info {
+                LinkedKeyInfo::Unique(..) => false,
+                LinkedKeyInfo::Group(..) => key_type != KeyType::External,
             }
+        } else {
+            true
         }
     }
 
     /// It links `key` key to `did` identity as a `key_type` type.
+    /// # Errors
+    /// This function can be used if `can_key_be_linked_to_did` returns true. Otherwise, it will do
+    /// nothing.
     fn link_key_to_did(key: &Key, key_type: KeyType, did: IdentityId) {
-        if <KeyToIdentityIds>::exists(key) {
-            <KeyToIdentityIds>::mutate(key, |linked_key_info| {
-                let mut new_dids = linked_key_info.identities.clone();
-                new_dids.push(did);
-                new_dids.sort();
-                new_dids.dedup();
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
+            match linked_key_info {
+                LinkedKeyInfo::Group(mut dids) => {
+                    if !dids.contains(&did) && key_type != KeyType::External {
+                        dids.push(did);
+                        dids.sort();
 
-                (*linked_key_info).identities = new_dids;
-            });
+                        <KeyToIdentityIds>::insert(key, LinkedKeyInfo::Group(dids));
+                    }
+                }
+                _ => {
+                    // This case is protected by `can_key_be_linked_to_did`.
+                }
+            }
         } else {
-            <KeyToIdentityIds>::insert(
-                key,
-                LinkedKeyInfo {
-                    key_type,
-                    identities: vec![did],
-                },
-            );
+            // Key is not yet linked to any identity, so no constraints.
+            let linked_key_info = match key_type {
+                KeyType::External => LinkedKeyInfo::Unique(did),
+                _ => LinkedKeyInfo::Group(vec![did]),
+            };
+            <KeyToIdentityIds>::insert(key, linked_key_info);
         }
     }
 
     /// It unlinks the `key` key from `did`.
     /// If there is no more associated identities, its full entry is removed.
     fn unlink_key_to_did(key: &Key, did: IdentityId) {
-        if <KeyToIdentityIds>::exists(key) {
-            let identities = <KeyToIdentityIds>::get(key).identities;
-            if identities.len() == 1 && identities[0] == did {
-                <KeyToIdentityIds>::remove(key);
-            } else {
-                <KeyToIdentityIds>::mutate(key, |linked_key_info| {
-                    let new_dids = linked_key_info
-                        .identities
-                        .iter()
-                        .filter(|dids_item| **dids_item != did)
-                        .copied()
-                        .collect::<Vec<IdentityId>>();
-                    (*linked_key_info).identities = new_dids;
-                });
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
+            match linked_key_info {
+                LinkedKeyInfo::Unique(..) => <KeyToIdentityIds>::remove(key),
+                LinkedKeyInfo::Group(mut dids) => {
+                    dids.retain(|ref_did| *ref_did != did);
+                    if dids.is_empty() {
+                        <KeyToIdentityIds>::remove(key);
+                    } else {
+                        <KeyToIdentityIds>::insert(key, LinkedKeyInfo::Group(dids));
+                    }
+                }
             }
         }
     }
@@ -709,29 +717,29 @@ pub trait IdentityTrait<T> {
 }
 
 impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
-    /// TODO What types of key can make charges of Poly in an Instance?
+    /// Only signing keys with one-to-one relation with Identity are allowed to charge poly.
     fn charge_poly(signing_key: &Key, amount: T::Balance) -> bool {
-        let linked_key_info = <KeyToIdentityIds>::get(signing_key);
-        if linked_key_info.key_type == KeyType::External && linked_key_info.identities.len() == 1 {
-            Self::charge_poly(linked_key_info.identities[0], amount)
-        } else {
-            false
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
+            if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
+                return Self::charge_poly(linked_id, amount);
+            }
         }
+
+        false
     }
 
     fn signing_key_charge_did(signing_key: &Key) -> bool {
-        if <KeyToIdentityIds>::exists(signing_key) {
-            let linked_key_info = <KeyToIdentityIds>::get(signing_key);
-            if linked_key_info.key_type == KeyType::External
-                && linked_key_info.identities.len() == 1
-            {
-                let id = linked_key_info.identities[0];
-                if Self::is_authorized_key(id, signing_key) && <ChargeDid>::exists(signing_key) {
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
+            if let LinkedKeyInfo::Unique(identity) = linked_key_info {
+                if Self::is_authorized_key(identity, signing_key)
+                    && <ChargeDid>::exists(signing_key)
+                {
                     return <ChargeDid>::get(signing_key);
                 }
             }
         }
-        return false;
+
+        false
     }
 }
 
