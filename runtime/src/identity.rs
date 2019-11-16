@@ -656,6 +656,19 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    pub fn signing_key_charge_did(signing_key: &Key) -> bool {
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
+            if let LinkedKeyInfo::Unique(identity) = linked_key_info {
+                if Self::is_authorized_key(identity, signing_key)
+                    && <ChargeDid>::exists(signing_key)
+                {
+                    return <ChargeDid>::get(signing_key);
+                }
+            }
+        }
+        false
+    }
+
     /// It checks that any sternal account can only be associated with at most one.
     /// Master keys are considered as external accounts.
     pub fn can_key_be_linked_to_did(key: &Key, key_type: KeyType) -> bool {
@@ -735,17 +748,7 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
     }
 
     fn signing_key_charge_did(signing_key: &Key) -> bool {
-        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
-            if let LinkedKeyInfo::Unique(identity) = linked_key_info {
-                if Self::is_authorized_key(identity, signing_key)
-                    && <ChargeDid>::exists(signing_key)
-                {
-                    return <ChargeDid>::get(signing_key);
-                }
-            }
-        }
-
-        false
+        Self::signing_key_charge_did(&signing_key)
     }
 }
 
