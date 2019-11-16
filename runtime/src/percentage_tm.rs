@@ -1,3 +1,28 @@
+//! # Percentage Transfer Manager Module
+//!
+//! The PTM module provides functionality for restricting transfers based on an investors ownership percentage of the asset
+//!
+//! ## Overview
+//!
+//! The PTM module provides functions for:
+//!
+//! - Setting a percentage based transfer restriction
+//! - Removing a percentage based transfer restriction
+//!
+//! ### Use case
+//!
+//! An asset issuer can restrict token transfers that would breach a single investor owning more than a set percentage of the issued asset.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `toggle_maximum_percentage_restriction` - Sets a percentage restriction on a ticker - set to 0 to remove
+//!
+//! ### Public Functions
+//!
+//! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
+
 use crate::{asset::AssetTrait, constants::*, exemption, identity, utils};
 use primitives::{IdentityId, Key};
 
@@ -33,10 +58,9 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        // Initializing events
-        // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
+        /// Set a maximum percentage that can be owned by a single investor
         fn toggle_maximum_percentage_restriction(origin, did: IdentityId, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
             let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
@@ -71,7 +95,7 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(&upper_ticker, sender_did)
     }
 
-    // Transfer restriction verification logic
+    /// Transfer restriction verification logic
     pub fn verify_restriction(
         ticker: &[u8],
         _from_did_opt: Option<IdentityId>,

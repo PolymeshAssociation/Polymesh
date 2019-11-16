@@ -4,7 +4,7 @@
 //!
 //! ## Overview
 //!
-//! The Balances module provides functions for:
+//! The GTM module provides functions for:
 //!
 //! - Adding rules for allowing transfers
 //! - Removing rules that allow transfers
