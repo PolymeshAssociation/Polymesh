@@ -22,7 +22,7 @@
 //!
 //! ### Public Functions
 //!
-//! - `get` - Returns 
+//! - `get` - Returns
 //! - `put` - Checks if a transfer is a valid transfer and returns the result
 
 use crate::utils;
@@ -54,8 +54,7 @@ impl Default for TokenType {
 }
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait {
-}
+pub trait Trait: system::Trait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as Registry {
