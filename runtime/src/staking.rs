@@ -205,7 +205,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, HasCompact};
-use log::info;
 use phragmen::{elect, equalize, ExtendedBalance, Support, SupportMap, ACCURACY};
 use rstd::{prelude::*, result};
 use session::{historical::OnSessionEnding, SelectInitialValidators};
@@ -977,7 +976,7 @@ decl_module! {
         /// completed KYB compliance
         /// TODO: MESH-400 To be only called by technical committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn add_qualified_validator(origin, controller: T::AccountId) {
+        fn add_qualified_validator(_origin, controller: T::AccountId) {
             ensure!(!<PermissionedValidators<T>>::exists(&controller), "account already exists in permissioned_validators");
 
             <PermissionedValidators<T>>::insert(&controller, PermissionedValidator {
@@ -990,7 +989,7 @@ decl_module! {
         /// Update status of compliance as `Pending`
         /// TODO: MESH-400 To be only called by technical committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn compliance_failed(origin, controller: T::AccountId) {
+        fn compliance_failed(_origin, controller: T::AccountId) {
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
             <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Pending );
             Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
@@ -999,7 +998,7 @@ decl_module! {
         /// Update status of compliance as `Active`
         /// TODO: MESH-400 To be only called by technical committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn compliance_passed(origin, controller: T::AccountId) {
+        fn compliance_passed(_origin, controller: T::AccountId) {
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
             <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Active );
             Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
@@ -1514,7 +1513,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Is the stash account one of the permissioned validators?
-    pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
+    pub fn is_validator_compliant(_stash: &T::AccountId) -> bool {
         //TODO: Get DID associated with stash and check they have a KYB attestation etc.
         true
     }
@@ -1732,11 +1731,8 @@ mod tests {
         },
         Perbill,
     };
-    use srml_support::traits::{Currency, FindAuthor, Get};
-    use srml_support::{
-        assert_eq_uvec, assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types,
-    };
-    use std::result::Result;
+    use srml_support::traits::FindAuthor;
+    use srml_support::{assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
 
     /// Mock types for testing

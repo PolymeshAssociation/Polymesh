@@ -48,7 +48,7 @@ jobs:
             - debug-cache-{{ checksum "./runtime/Cargo.lock" }}
       - run:
           name: runtime tests
-          command: cargo test -p polymesh-runtime
+          command: cd runtime && cargo test && cd ..
           working_directory: .
       - save_cache:
           key: debug-cache-{{ checksum "./runtime/Cargo.lock" }}
