@@ -8,7 +8,13 @@
 //!
 //! ## Overview
 //!
-//! The Balances module provides functions for:
+//! This is a modified implementation of substrate's balances SRML.
+//! The modifications made are as follows:
+//!
+//! - Added ability to pay transaction fees from identity's balance instead of user's balance.
+//! - To curb front running, sending a tip along with your transaction is now prohibited.
+//!
+//! The Original Balances module provides functions for:
 //!
 //! - Getting and setting free balances.
 //! - Retrieving total, reserved and unreserved balances.
@@ -75,11 +81,7 @@
 //! The balances module defines the following extensions:
 //!
 //!   - [`TakeFees`]: Consumes fees proportional to the length and weight of the transaction.
-//!     Additionally, it can contain a single encoded payload as a `tip`. The inclusion priority
-//!     is increased proportional to the tip.
 //!
-//! Lookup the runtime aggregator file (e.g. `node/runtime`) to see the full list of signed
-//! extensions included in a chain.
 //!
 //! ## Usage
 //!
@@ -131,10 +133,6 @@
 //! }
 //! # fn main() {}
 //! ```
-//!
-//! ## Genesis config
-//!
-//! The Balances module depends on the [`GenesisConfig`](./struct.GenesisConfig.html).
 //!
 //! ## Assumptions
 //!
@@ -205,6 +203,7 @@ pub trait Subtrait<I: Instance = DefaultInstance>: system::Trait {
     /// Convert a weight value into a deductible fee based on the currency type.
     type WeightToFee: Convert<Weight, Self::Balance>;
 
+    /// Used to charge fee to identity rather than user directly
     type Identity: IdentityTrait<Self::Balance>;
 }
 
@@ -259,6 +258,7 @@ pub trait Trait<I: Instance = DefaultInstance>: system::Trait {
     /// Convert a weight value into a deductible fee based on the currency type.
     type WeightToFee: Convert<Weight, Self::Balance>;
 
+    /// Used to charge fee to identity rather than user directly
     type Identity: IdentityTrait<Self::Balance>;
 }
 
@@ -1281,6 +1281,8 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
         Ok(())
     }
 
+    /// Validate a transactions and charge fees to either the user or the identity.
+    /// By default, user is charged the fee but it's configurable in the Identity module
     fn validate(
         &self,
         who: &Self::AccountId,
