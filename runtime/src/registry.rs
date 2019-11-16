@@ -22,7 +22,7 @@
 //!
 //! ### Public Functions
 //!
-//! - `get` - Returns
+//! - `get` - Returns token details if the ticker is registered, None otherwise.
 //! - `put` - Checks if a transfer is a valid transfer and returns the result
 
 use crate::utils;
