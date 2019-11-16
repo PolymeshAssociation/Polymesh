@@ -1,3 +1,48 @@
+//! # General Transfer Manager Module
+//!
+//! The GTM module provides functionality for setting whitelisting rules for transfers
+//!
+//! ## Overview
+//!
+//! The Balances module provides functions for:
+//!
+//! - Adding rules for allowing transfers
+//! - Removing rules that allow transfers
+//! - Resetting all rules
+//!
+//! ### Use case
+//!
+//! This module is very versatile and offers infinite possibilities.
+//! The rules can dictate various requirements like:
+//!
+//! - Only accredited investors should be able to trade
+//! - Only valid KYC holders should be able to trade
+//! - Only those with credit score of greater than 800 should be able to purchase this token
+//! - People from Wakanda should only be able to trade with people from Wakanda
+//! - People from Gryffindor should not be able to trade with people from Slytherin (But allowed to trade with anyone else)
+//! - Only marvel supporters should be allowed to buy avengers token
+//!
+//! ### Terminology
+//!
+//! - **Active rules:** It is an array of Asset rules that are currently enforced for a ticker
+//! - **Asset rule:** Every asset rule contains an array for sender rules and an array for receiver rules
+//! - **sender rules:** These are rules that the sender of security tokens must follow
+//! - **receiver rules:** These are rules that the receiver of security tokens must follow
+//! - **Valid transfer:** For a transfer to be valid,
+//!     All reciever and sender rules of any of the active asset rule must be followed.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `add_active_rule` - Adds a new asset rule to ticker's active rules
+//! - `remove_active_rule` - Removes an asset rule from ticker's active rules
+//! - `reset_active_rules` - Reset(remove) all active rules of a tikcer
+//!
+//! ### Public Functions
+//!
+//! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
+
 use crate::asset::{self, AssetTrait};
 use crate::balances;
 use crate::constants::*;
@@ -11,6 +56,7 @@ use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 
+/// Type of operators that a rule can have
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Operators {
     EqualTo,
@@ -31,30 +77,42 @@ impl Default for Operators {
 pub trait Trait:
     timestamp::Trait + system::Trait + balances::Trait + utils::Trait + identity::Trait
 {
-    // TODO: Add other types and constants required configure this module.
-
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+
+    /// Asset module
     type Asset: asset::AssetTrait<Self::TokenBalance>;
 }
 
+/// An asset rule.
+/// All sender and receiver rules of the same asset rule must be true for tranfer to be valid
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetRule {
     pub sender_rules: Vec<RuleData>,
     pub receiver_rules: Vec<RuleData>,
 }
 
+/// Details about individual rules
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct RuleData {
+    /// Claim key
     key: Vec<u8>,
+
+    /// Claim target value. (RHS of operatior)
     value: Vec<u8>,
+
+    /// Array of trusted claim issuers
     trusted_issuers: Vec<IdentityId>,
+
+    /// Operator. The rule is "Actual claim value" Operator "Rule value defined in this struct"
+    /// Example: If the actual claim value is 5, value defined here is 10 and operator is NotEqualTo
+    /// Then the rule will be resolved as 5 != 10 which is true and hence the rule will pass
     operator: Operators,
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
-        // (Asset -> AssetRules)
+        /// List of active rules for a ticker (Ticker -> Array of AssetRules)
         pub ActiveRules get(active_rules): map Vec<u8> => Vec<AssetRule>;
     }
 }
@@ -64,6 +122,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
+        /// Adds an asset rule to active rules for a ticker
         pub fn add_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
@@ -84,6 +143,7 @@ decl_module! {
             Ok(())
         }
 
+        /// Removes a rule from active asset rules
         pub fn remove_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
@@ -105,6 +165,7 @@ decl_module! {
             Ok(())
         }
 
+        /// Removes all active rules of a ticker
         pub fn reset_active_rules(origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
@@ -131,12 +192,12 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
+    fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
         let upper_ticker = utils::bytes_to_upper(ticker);
         T::Asset::is_owner(&upper_ticker, sender_did)
     }
 
-    pub fn fetch_value(
+    fn fetch_value(
         did: IdentityId,
         key: Vec<u8>,
         trusted_issuers: Vec<IdentityId>,
