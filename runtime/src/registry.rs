@@ -1,4 +1,29 @@
-//! A runtime module providing a unique ticker registry
+//! # Registry Module - WIP
+//!
+//! The Registry module provides functionality for tracking asset issuers globally
+//!
+//! ## Overview
+//!
+//! The Registry module provides functions for:
+//!
+//! - Checkig whether a ticker has already been taken (across any asset class)
+//! - Registering the issuance of a new ticker with its asset class and owner
+//!
+//! ### Use case
+//!
+//! This module is called by the asset module when new assets are created.
+//! Ensures that tickers are unique in the global namespace
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `print_ticker_availability` - Prints ticker availability to console [TESTING]
+//!
+//! ### Public Functions
+//!
+//! - `get` - Returns 
+//! - `put` - Checks if a transfer is a valid transfer and returns the result
 
 use crate::utils;
 use codec::{Decode, Encode};
@@ -15,6 +40,7 @@ pub enum TokenType {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Encode, Decode)]
+/// Asset class and owning identity
 pub struct RegistryEntry {
     pub token_type: u32,
     pub owner_did: IdentityId,
@@ -29,14 +55,13 @@ impl Default for TokenType {
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
-    // TODO: Add other types and constants required configure this module.
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as Registry {
-        // Tokens by ticker. This represents the global namespace for tokens of all kinds. Entry
-        // keys MUST be in full caps. To ensure this the storage item is private and using the
-        // custom access methods is mandatory
+        /// Tokens by ticker. This represents the global namespace for tokens of all kinds. Entry
+        /// keys MUST be in full caps. To ensure this the storage item is private and using the
+        /// custom access methods is mandatory
         pub Tokens get(tokens): map Vec<u8> => RegistryEntry;
     }
 }
@@ -44,6 +69,7 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        /// DEBUG: prints ticker availablilty to console
         pub fn print_ticker_availability(origin, ticker: Vec<u8>) -> Result {
             let _sender = ensure_signed(origin)?;
             let upper_ticker = utils::bytes_to_upper(&ticker);
@@ -60,6 +86,7 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Returns whether a ticker has been taken as an Option
     pub fn get(ticker: &Vec<u8>) -> Option<RegistryEntry> {
         let upper_ticker = utils::bytes_to_upper(ticker);
 
@@ -70,6 +97,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Stores a new ticker with associated asset class and owner
     pub fn put(ticker: &Vec<u8>, entry: &RegistryEntry) -> Result {
         let upper_ticker = utils::bytes_to_upper(ticker);
 
