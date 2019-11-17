@@ -14,7 +14,7 @@
 //!
 //! In some cases the asset module may be unnecessary. For example a token representing USD may not need transfer restrictions
 //! that are typically associated with securities.
-//! 
+//!
 //! In other cases a simple token may be used to represent a wrapped asset that originates on a different chain, for example BTC,
 //! which by its nature does not need transfer restrictions.
 //!
