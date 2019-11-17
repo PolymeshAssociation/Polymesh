@@ -1,3 +1,48 @@
+//! # General Transfer Manager Module
+//!
+//! The GTM module provides functionality for setting whitelisting rules for transfers
+//!
+//! ## Overview
+//!
+//! The GTM module provides functions for:
+//!
+//! - Adding rules for allowing transfers
+//! - Removing rules that allow transfers
+//! - Resetting all rules
+//!
+//! ### Use case
+//!
+//! This module is very versatile and offers infinite possibilities.
+//! The rules can dictate various requirements like:
+//!
+//! - Only accredited investors should be able to trade
+//! - Only valid KYC holders should be able to trade
+//! - Only those with credit score of greater than 800 should be able to purchase this token
+//! - People from Wakanda should only be able to trade with people from Wakanda
+//! - People from Gryffindor should not be able to trade with people from Slytherin (But allowed to trade with anyone else)
+//! - Only marvel supporters should be allowed to buy avengers token
+//!
+//! ### Terminology
+//!
+//! - **Active rules:** It is an array of Asset rules that are currently enforced for a ticker
+//! - **Asset rule:** Every asset rule contains an array for sender rules and an array for receiver rules
+//! - **sender rules:** These are rules that the sender of security tokens must follow
+//! - **receiver rules:** These are rules that the receiver of security tokens must follow
+//! - **Valid transfer:** For a transfer to be valid,
+//!     All reciever and sender rules of any of the active asset rule must be followed.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `add_active_rule` - Adds a new asset rule to ticker's active rules
+//! - `remove_active_rule` - Removes an asset rule from ticker's active rules
+//! - `reset_active_rules` - Reset(remove) all active rules of a tikcer
+//!
+//! ### Public Functions
+//!
+//! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
+
 use crate::asset::{self, AssetTrait};
 use crate::balances;
 use crate::constants::*;
@@ -11,6 +56,7 @@ use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
 
+/// Type of operators that a rule can have
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Operators {
     EqualTo,
@@ -31,30 +77,42 @@ impl Default for Operators {
 pub trait Trait:
     timestamp::Trait + system::Trait + balances::Trait + utils::Trait + identity::Trait
 {
-    // TODO: Add other types and constants required configure this module.
-
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+
+    /// Asset module
     type Asset: asset::AssetTrait<Self::TokenBalance>;
 }
 
+/// An asset rule.
+/// All sender and receiver rules of the same asset rule must be true for tranfer to be valid
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetRule {
     pub sender_rules: Vec<RuleData>,
     pub receiver_rules: Vec<RuleData>,
 }
 
+/// Details about individual rules
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct RuleData {
+    /// Claim key
     key: Vec<u8>,
+
+    /// Claim target value. (RHS of operatior)
     value: Vec<u8>,
+
+    /// Array of trusted claim issuers
     trusted_issuers: Vec<IdentityId>,
+
+    /// Operator. The rule is "Actual claim value" Operator "Rule value defined in this struct"
+    /// Example: If the actual claim value is 5, value defined here is 10 and operator is NotEqualTo
+    /// Then the rule will be resolved as 5 != 10 which is true and hence the rule will pass
     operator: Operators,
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
-        // (Asset -> AssetRules)
+        /// List of active rules for a ticker (Ticker -> Array of AssetRules)
         pub ActiveRules get(active_rules): map Vec<u8> => Vec<AssetRule>;
     }
 }
@@ -64,12 +122,13 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
+        /// Adds an asset rule to active rules for a ticker
         pub fn add_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
@@ -84,11 +143,12 @@ decl_module! {
             Ok(())
         }
 
+        /// Removes a rule from active asset rules
         pub fn remove_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
@@ -105,11 +165,12 @@ decl_module! {
             Ok(())
         }
 
+        /// Removes all active rules of a ticker
         pub fn reset_active_rules(origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
@@ -131,12 +192,12 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
+    fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
         let upper_ticker = utils::bytes_to_upper(ticker);
         T::Asset::is_owner(&upper_ticker, sender_did)
     }
 
-    pub fn fetch_value(
+    fn fetch_value(
         did: IdentityId,
         key: Vec<u8>,
         trusted_issuers: Vec<IdentityId>,
@@ -183,7 +244,6 @@ impl<T: Trait> Module<T> {
             }
 
             if let Some(to_did) = to_did_opt {
-                let to_did = to_did_opt.unwrap();
                 for receiver_rule in active_rule.receiver_rules {
                     let identity_value = Self::fetch_value(
                         to_did.clone(),
@@ -224,13 +284,14 @@ mod tests {
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-        Perbill,
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        AnySignature, Perbill,
     };
     use srml_support::traits::Currency;
     use srml_support::{assert_ok, impl_outer_origin, parameter_types};
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
+    use test_client::{self, AccountKeyring};
 
     use crate::{
         asset::SecurityToken, balances, exemption, identity, identity::DataTypes, percentage_tm,
@@ -260,8 +321,8 @@ mod tests {
         type BlockNumber = u64;
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
+        type AccountId = AccountId;
+        type Lookup = IdentityLookup<AccountId>;
         type Header = Header;
         type Event = ();
         type Call = ();
@@ -302,6 +363,12 @@ mod tests {
         pub const MinimumPeriod: u64 = 3;
     }
 
+    type SessionIndex = u32;
+    type AuthorityId = <AnySignature as Verify>::Signer;
+    type BlockNumber = u64;
+    type AccountId = <AnySignature as Verify>::Signer;
+    type OffChainSignature = AnySignature;
+
     impl timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
@@ -310,6 +377,7 @@ mod tests {
 
     impl utils::Trait for Test {
         type TokenBalance = u128;
+        type OffChainSignature = OffChainSignature;
         fn as_u128(v: Self::TokenBalance) -> u128 {
             v
         }
@@ -326,10 +394,6 @@ mod tests {
             v
         }
     }
-
-    type SessionIndex = u32;
-    type AuthorityId = u64;
-    type BlockNumber = u64;
 
     pub struct TestOnSessionEnding;
     impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
@@ -406,12 +470,12 @@ mod tests {
     type Asset = asset::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by(id: u64) -> sr_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         identity::GenesisConfig::<Test> {
-            owner: id,
+            owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
         }
         .assimilate_storage(&mut t)
@@ -421,8 +485,9 @@ mod tests {
 
     fn make_account(
         id: u64,
+        account_id: AccountId,
     ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(id);
+        let signed_id = Origin::signed(account_id);
         let did = IdentityId::from(id as u128);
 
         Identity::register_did(signed_id.clone(), did, vec![])?;
@@ -431,10 +496,9 @@ mod tests {
 
     #[test]
     fn should_add_and_verify_assetrule() {
-        let identity_owner_id = 1;
-        with_externalities(&mut identity_owned_by(identity_owner_id), || {
-            let token_owner_acc = 1;
-            let token_owner_did = IdentityId::from(token_owner_acc as u128);
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let token_owner_acc = AccountId::from(AccountKeyring::Dave);
+            let token_owner_did = IdentityId::from(1u128);
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -447,29 +511,30 @@ mod tests {
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
             Identity::register_did(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 vec![],
             )
             .expect("Could not create token_owner_did");
 
             // Share issuance is successful
             assert_ok!(Asset::create_token(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
                 true
             ));
-            let claim_issuer_acc = 3;
+            let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-            let (_claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+            let (_claim_issuer, claim_issuer_did) =
+                make_account(3, claim_issuer_acc.clone()).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
-                claim_issuer_did.clone()
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
+                claim_issuer_did
             ));
 
             let claim_value = ClaimValue {
@@ -478,10 +543,10 @@ mod tests {
             };
 
             assert_ok!(Identity::add_claim(
-                Origin::signed(claim_issuer_acc),
-                token_owner_did.clone(),
+                Origin::signed(claim_issuer_acc.clone()),
+                token_owner_did,
                 "some_key".as_bytes().to_vec(),
-                claim_issuer_did.clone(),
+                claim_issuer_did,
                 99999999999999999u64,
                 claim_value.clone()
             ));
@@ -492,7 +557,7 @@ mod tests {
             let sender_rule = RuleData {
                 key: "some_key".as_bytes().to_vec(),
                 value: "some_value".as_bytes().to_vec(),
-                trusted_issuers: vec![claim_issuer_did.clone()],
+                trusted_issuers: vec![claim_issuer_did],
                 operator: Operators::EqualTo,
             };
 
@@ -505,18 +570,18 @@ mod tests {
 
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 token.name.clone(),
                 asset_rule
             ));
 
             //Transfer tokens to investor
             assert_ok!(Asset::transfer(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 token.name.clone(),
-                token_owner_did.clone(),
+                token_owner_did,
                 token.total_supply
             ));
         });
@@ -524,10 +589,9 @@ mod tests {
 
     #[test]
     fn should_add_and_verify_complex_assetrule() {
-        let identity_owner_id = 1;
-        with_externalities(&mut identity_owned_by(identity_owner_id), || {
-            let token_owner_acc = 1;
-            let token_owner_did = IdentityId::from(token_owner_acc as u128);
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let token_owner_acc = AccountId::from(AccountKeyring::Dave);
+            let token_owner_did = IdentityId::from(1u128);
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -540,29 +604,30 @@ mod tests {
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
             Identity::register_did(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 vec![],
             )
             .expect("Could not create token_owner_did");
 
             // Share issuance is successful
             assert_ok!(Asset::create_token(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
                 true
             ));
-            let claim_issuer_acc = 3;
+            let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-            let (_claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+            let (_claim_issuer, claim_issuer_did) =
+                make_account(3, claim_issuer_acc.clone()).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
-                Origin::signed(token_owner_acc),
+                Origin::signed(token_owner_acc.clone()),
                 token_owner_did.clone(),
-                claim_issuer_did.clone()
+                claim_issuer_did
             ));
 
             let claim_value = ClaimValue {
@@ -571,10 +636,10 @@ mod tests {
             };
 
             assert_ok!(Identity::add_claim(
-                Origin::signed(claim_issuer_acc),
-                token_owner_did.clone(),
+                Origin::signed(claim_issuer_acc.clone()),
+                token_owner_did,
                 "some_key".as_bytes().to_vec(),
-                claim_issuer_did.clone(),
+                claim_issuer_did,
                 99999999999999999u64,
                 claim_value.clone()
             ));
@@ -585,14 +650,14 @@ mod tests {
             let sender_rule = RuleData {
                 key: "some_key".as_bytes().to_vec(),
                 value: 5u8.encode(),
-                trusted_issuers: vec![claim_issuer_did.clone()],
+                trusted_issuers: vec![claim_issuer_did],
                 operator: Operators::GreaterThan,
             };
 
             let receiver_rule = RuleData {
                 key: "some_key".as_bytes().to_vec(),
                 value: 15u8.encode(),
-                trusted_issuers: vec![claim_issuer_did.clone()],
+                trusted_issuers: vec![claim_issuer_did],
                 operator: Operators::LessThan,
             };
 
@@ -605,16 +670,16 @@ mod tests {
             };
 
             assert_ok!(GeneralTM::add_active_rule(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 token.name.clone(),
                 asset_rule
             ));
 
             //Transfer tokens to investor
             assert_ok!(Asset::transfer(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 token.name.clone(),
                 token_owner_did.clone(),
                 token.total_supply
@@ -624,15 +689,14 @@ mod tests {
 
     #[test]
     fn should_reset_assetrules() {
-        let identity_owner_id = 1;
-        with_externalities(&mut identity_owned_by(identity_owner_id), || {
-            let token_owner_acc = 1;
-            let token_owner_did = IdentityId::from(token_owner_acc as u128);
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let token_owner_acc = AccountId::from(AccountKeyring::Dave);
+            let token_owner_did = IdentityId::from(1u128);
 
             // A token representing 1M shares
             let token = SecurityToken {
                 name: vec![0x01],
-                owner_did: token_owner_did.clone(),
+                owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
                 decimals: 18,
@@ -640,16 +704,16 @@ mod tests {
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
             Identity::register_did(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 vec![],
             )
             .expect("Could not create token_owner_did");
 
             // Share issuance is successful
             assert_ok!(Asset::create_token(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
@@ -662,8 +726,8 @@ mod tests {
             };
 
             assert_ok!(GeneralTM::add_active_rule(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 token.name.clone(),
                 asset_rule
             ));
@@ -672,8 +736,8 @@ mod tests {
             assert_eq!(asset_rules.len(), 1);
 
             assert_ok!(GeneralTM::reset_active_rules(
-                Origin::signed(token_owner_acc),
-                token_owner_did.clone(),
+                Origin::signed(token_owner_acc.clone()),
+                token_owner_did,
                 token.name.clone()
             ));
 

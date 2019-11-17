@@ -73,11 +73,11 @@ pub use did_record::DidRecord;
 
 /// Key is strong type which stores bytes representing the key.
 pub mod key;
-pub use key::Key;
+pub use key::{Key, KeyType};
 
 /// This module contains entities related with signing keys.
 pub mod signing_key;
-pub use signing_key::{KeyRole, SigningKey, SigningKeyType};
+pub use signing_key::{KeyRole, SigningKey};
 
 /// Represents custom transaction errors.
 #[repr(u8)]

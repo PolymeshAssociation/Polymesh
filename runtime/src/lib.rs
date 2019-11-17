@@ -24,7 +24,7 @@ use sr_primitives::{
     traits::{BlakeTwo256, Block as BlockT, StaticLookup},
     transaction_validity::TransactionValidity,
     weights::Weight,
-    ApplyResult,
+    AnySignature, ApplyResult,
 };
 use sr_staking_primitives::SessionIndex;
 use srml_support::{
@@ -68,6 +68,7 @@ mod simple_token;
 pub mod staking;
 mod sto_capped;
 mod utils;
+mod voting;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -474,6 +475,7 @@ impl asset::Trait for Runtime {
 
 impl utils::Trait for Runtime {
     type TokenBalance = u128;
+    type OffChainSignature = AnySignature;
     fn as_u128(v: Self::TokenBalance) -> u128 {
         v
     }
@@ -496,6 +498,11 @@ impl simple_token::Trait for Runtime {
 }
 
 impl general_tm::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+}
+
+impl voting::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
 }
@@ -574,6 +581,7 @@ construct_runtime!(
         Registry: registry::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event},
+        Voting: voting::{Module, Call, Storage, Event<T>},
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},

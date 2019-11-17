@@ -1,9 +1,10 @@
 {
     "TokenBalance": "u128",
+    "IdentityId":"u128",
     "SecurityToken": {
         "name": "Vec<u8>",
         "total_supply": "TokenBalance",
-        "owner_did": "Vec<u8>",
+        "owner_did": "IdentityId",
         "granularity": "u128",
         "decimals": "u16"
     },
@@ -13,17 +14,17 @@
         "can_transfer": "bool"
     },
     "Whitelist": {
-        "investor_did": "Vec<u8>",
+        "investor_did": "IdentityId",
         "canSendAfter": "Moment",
         "canReceiveAfter": "Moment"
     },
     "Issuer": {
-        "did": "Vec<u8>",
+        "did": "IdentityId",
         "access_level": "u16",
         "active": "bool"
     },
     "Investor": {
-        "did": "Vec<u8>",
+        "did": "IdentityId",
         "access_level": "u16",
         "active": "bool",
         "jurisdiction": "u16"
@@ -76,7 +77,7 @@
     },
     "ClaimMetaData": {
         "claim_key": "Vec<u8>",
-        "claim_issuer": "Vec<u8>"
+        "claim_issuer": "IdentityId"
     },
     "ClaimValue": {
         "data_type": "DataTypes",
@@ -110,11 +111,11 @@
     "RuleData": {
         "key": "Vec<u8>",
         "value": "Vec<u8>",
-        "trusted_issuers": "Vec<Vec<u8>>",
+        "trusted_issuers": "Vec<IdentityId>",
         "operator": "Operators"
     },
     "STO": {
-        "beneficiary_did": "Vec<u8>",
+        "beneficiary_did": "IdentityId",
         "cap": "TokenBalance",
         "sold": "TokenBalance",
         "rate": "u64",
@@ -123,7 +124,7 @@
         "active": "bool"
     },
     "Investment": {
-        "investor_did": "Vec<u8>",
+        "investor_did": "IdentityId",
         "amount_paid": "TokenBalance",
         "tokens_purchased": "TokenBalance",
         "last_purchase_date": "Moment"
@@ -131,7 +132,7 @@
     "SimpleTokenRecord": {
         "ticker": "Vec<u8>",
         "total_supply": "TokenBalance",
-        "owner_did": "Vec<u8>"
+        "owner_did": "IdentityId"
     },
     "FeeOf": "Balance",
     "TSMoment": "u64",
@@ -142,10 +143,29 @@
         "maturates_at": "Option<u64>",
         "expires_at": "Option<u64>",
         "payout_currency": "Option<Vec<u8>>",
-        "checkpoint_id": "u32"
+        "checkpoint_id": "u64"
     },
     "RegistryEntry": {
         "token_type": "u32",
         "owner_did": "Vec<u8>"
+    },
+    "SignData": {
+        "custodian_did": "Vec<u8>",
+        "holder_did": "Vec<u8>",
+        "ticker": "Vec<u8>",
+        "value": "TokenBalance",
+        "nonce": "u16"
+        "owner_did": "IdentityId"
+    },
+    "Proposal": {
+        "title": "Vec<u8>",
+        "info_link": "Vec<u8>",
+        "choices": "Vec<Vec<u8>>"
+    },
+    "Ballot": {
+        "checkpoint_id": "u64",
+        "voting_start": "Moment",
+        "voting_end": "Moment",
+        "proposals": "Vec<Proposal>"
     }
 }
