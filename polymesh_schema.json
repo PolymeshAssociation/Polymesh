@@ -76,13 +76,6 @@
         "bytes": "Vec<u8>",
         "expiry": "Moment"
     },
-<<<<<<< HEAD
-    "ClaimRecord": {
-        "claim": "Claim",
-        "revoked": "bool",
-        "issued_by": "IdentityId",
-        "attestation": "Vec<u8>"
-=======
     "ClaimMetaData": {
         "claim_key": "Vec<u8>",
         "claim_issuer": "IdentityId"
@@ -121,7 +114,6 @@
         "value": "Vec<u8>",
         "trusted_issuers": "Vec<IdentityId>",
         "operator": "Operators"
->>>>>>> master
     },
     "STO": {
         "beneficiary_did": "IdentityId",
