@@ -76,11 +76,52 @@
         "bytes": "Vec<u8>",
         "expiry": "Moment"
     },
+<<<<<<< HEAD
     "ClaimRecord": {
         "claim": "Claim",
         "revoked": "bool",
         "issued_by": "IdentityId",
         "attestation": "Vec<u8>"
+=======
+    "ClaimMetaData": {
+        "claim_key": "Vec<u8>",
+        "claim_issuer": "IdentityId"
+    },
+    "ClaimValue": {
+        "data_type": "DataTypes",
+        "value": "Vec<u8>"
+    },
+    "DataTypes": {
+        "_enum": [
+            "U8",
+            "U16",
+            "U32",
+            "U64",
+            "U128",
+            "Bool",
+            "VecU8"
+        ]
+    },
+    "AssetRule": {
+        "sender_rules": "Vec<RuleData>",
+        "receiver_rules":"Vec<RuleData>"
+    },
+    "Operators": {
+        "_enum": [
+            "EqualTo",
+            "NotEqualTo",
+            "LessThan",
+            "GreaterThan",
+            "LessOrEqualTo",
+            "GreaterOrEqualTo"
+        ]
+    },
+    "RuleData": {
+        "key": "Vec<u8>",
+        "value": "Vec<u8>",
+        "trusted_issuers": "Vec<IdentityId>",
+        "operator": "Operators"
+>>>>>>> master
     },
     "STO": {
         "beneficiary_did": "IdentityId",
@@ -111,10 +152,33 @@
         "maturates_at": "Option<u64>",
         "expires_at": "Option<u64>",
         "payout_currency": "Option<Vec<u8>>",
-        "checkpoint_id": "u32"
+        "checkpoint_id": "u64"
     },
     "RegistryEntry": {
         "token_type": "u32",
+<<<<<<< HEAD
         "owner_did": "IdentityId"
+=======
+        "owner_did": "Vec<u8>"
+    },
+    "SignData": {
+        "custodian_did": "Vec<u8>",
+        "holder_did": "Vec<u8>",
+        "ticker": "Vec<u8>",
+        "value": "TokenBalance",
+        "nonce": "u16"
+        "owner_did": "IdentityId"
+    },
+    "Proposal": {
+        "title": "Vec<u8>",
+        "info_link": "Vec<u8>",
+        "choices": "Vec<Vec<u8>>"
+    },
+    "Ballot": {
+        "checkpoint_id": "u64",
+        "voting_start": "Moment",
+        "voting_end": "Moment",
+        "proposals": "Vec<Proposal>"
+>>>>>>> master
     }
 }

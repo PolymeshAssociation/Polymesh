@@ -140,6 +140,11 @@ async function main() {
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(signing_keys[i].address, account_nonce);  
   }
+  let signing_key = signing_keys[0];
+  // console.log(signing_key);
+  // console.log(signing_keys[0].publicKey);
+  // console.log("RD:" + JSON.stringify(signing_keys[0]));
+
 
   // Create `n_accounts` claim key accounts
   console.log("Generating Claim Keys");
@@ -482,11 +487,10 @@ async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitB
         if (status.isFinalized) {
           let tx_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
-            //TODO: Capture event correctly
-            // if (section == "identity" && method == "SigningKeyRolesUpdated") {
+            if (section == "identity" && method == "SigningKeyRolesUpdated") {
               tx_ok = true;
               completeBar.increment();
-            // }
+            }
           });
 
           if (!tx_ok) {
@@ -588,22 +592,27 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, n_claims, submit
   fail_type["MAKE CLAIMS"] = 0;
   for (let i = 0; i < dids.length; i++) {
     let claims = [];
-    for (let j = 0; j < n_claims; j++) {
-      claims.push({
-        topic: 0,
-        schema: 0,
-        bytes: `claim${i}-${j}`
-      });
-    }
+    ///pub struct ClaimValue {
+    // pub data_type: DataTypes,
+    // pub value: Vec<u8>,
+    let claim_value = {data_type: 0, value: "0"};
+    // for (let j = 0; j < n_claims; j++) {
+    //   claims.push({
+    //     topic: 0,
+    //     schema: 0,
+    //     bytes: `claim${i}-${j}`
+    //   });
+    // }
+
     if (fast) {
       const unsub = await api.tx.identity
-      .addClaim(dids[i], claim_dids[i%claim_dids.length], claims)
+      .addClaim(dids[i], 0, claim_dids[i%claim_dids.length], 0, claim_value)
       .signAndSend(accounts[i%claim_dids.length],
         { nonce: nonces.get(accounts[i%claim_dids.length].address) });
     } else {
 
       const unsub = await api.tx.identity
-      .addClaim(dids[i], claim_dids[i%claim_dids.length], claims)
+      .addClaim(dids[i], 0, claim_dids[i%claim_dids.length], 0, claim_value)
       .signAndSend(accounts[i%claim_dids.length],
         { nonce: nonces.get(accounts[i%claim_dids.length].address) },        
         ({ events = [], status }) => {
