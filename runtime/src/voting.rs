@@ -516,7 +516,6 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
-                decimals: 18,
             };
 
             // Share issuance is successful
@@ -694,7 +693,6 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
-                decimals: 18,
             };
 
             // Share issuance is successful
@@ -812,7 +810,6 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1000,
                 granularity: 1,
-                decimals: 18,
             };
 
             // Share issuance is successful

@@ -42,7 +42,6 @@ pub struct SecurityToken<U> {
     pub total_supply: U,
     pub owner_did: IdentityId,
     pub granularity: u128,
-    pub decimals: u16,
 }
 
 // struct to store the token details
@@ -163,8 +162,7 @@ decl_module! {
                     name: names[i].clone(),
                     total_supply: total_supply_values[i],
                     owner_did: did,
-                    granularity: granularity,
-                    decimals: 18
+                    granularity: granularity
                 };
 
                 let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner_did: did };
@@ -173,7 +171,7 @@ decl_module! {
 
                 <Tokens<T>>::insert(&tickers[i], token);
                 <BalanceOf<T>>::insert((tickers[i].clone(), did), total_supply_values[i]);
-                Self::deposit_event(RawEvent::IssuedToken(tickers[i].clone(), total_supply_values[i], did, granularity, 18));
+                Self::deposit_event(RawEvent::IssuedToken(tickers[i].clone(), total_supply_values[i], did, granularity));
                 sr_primitives::print("Batch token initialized");
             }
 
@@ -226,8 +224,7 @@ decl_module! {
                 name,
                 total_supply,
                 owner_did: did,
-                granularity: granularity,
-                decimals: 18
+                granularity: granularity
             };
 
             let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner_did: did };
@@ -236,7 +233,7 @@ decl_module! {
 
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert((ticker.clone(), did), total_supply);
-            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, did, granularity, 18));
+            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, did, granularity));
             sr_primitives::print("Initialized!!!");
 
             Ok(())
@@ -725,8 +722,8 @@ decl_event! {
             ControllerRedemption(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
 
             // Event for creation of the asset
-            // ticker, total supply, owner DID, decimal
-            IssuedToken(Vec<u8>, Balance, IdentityId, u128, u16),
+            // ticker, total supply, owner DID
+            IssuedToken(Vec<u8>, Balance, IdentityId, u128),
             // Event for change granularity
             // ticker, granularity
             GranularityChanged(Vec<u8>, u128),
@@ -1282,7 +1279,6 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
-                decimals: 18,
             };
 
             Identity::fund_poly(Origin::signed(owner_acc.clone()), owner_did, 500_000)
@@ -1317,7 +1313,6 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
-                decimals: 18,
             };
 
             let wrong_acc = AccountId::from(AccountKeyring::Bob);
@@ -1344,7 +1339,6 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
-                decimals: 18,
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -1419,7 +1413,6 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
-                decimals: 18,
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -1615,7 +1608,6 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 granularity: 1,
-                decimals: 18,
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -1835,7 +1827,6 @@ mod tests {
                     owner_did: owner_did.clone(),
                     total_supply: 1_000_000,
                     granularity: 1,
-                    decimals: 18,
                 };
 
                 Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -2062,7 +2053,6 @@ mod tests {
      *                        owner: owner_id,
      *                        total_supply,
      *                        granularity: 1,
-     *                        decimals: 18,
      *                    };
      *                    println!("{:#?}", token_struct);
      *
