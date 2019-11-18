@@ -129,6 +129,7 @@ decl_module! {
 
                 let granularity = if !divisible_values[i] { (10 as u128).pow(18) } else { 1_u128 };
                 ensure!(total_supply_values[i] % granularity.into() == 0.into(), "Invalid Total supply");
+                ensure!(total_supply_values[i] <= (10 as u128).pow(18).into(), "Total supply above the limit");
 
                 // Ensure the uniqueness of the ticker
                 ensure!(!<Tokens<T>>::exists(tickers[i].clone()), "Ticker is already issued");
@@ -197,6 +198,7 @@ decl_module! {
 
             let granularity = if !divisible { (10 as u128).pow(18) } else { 1_u128 };
             ensure!(total_supply % granularity.into() == (0 as u128).into(), "Invalid Total supply");
+            ensure!(total_supply <= (10 as u128).pow(18).into(), "Total supply above the limit");
 
             ensure!(<registry::Module<T>>::get(&ticker).is_none(), "Ticker is already taken");
 
@@ -371,6 +373,11 @@ decl_module! {
                     Self::check_granularity(&ticker, values[i]),
                     "Invalid granularity"
                 );
+                let updated_total_supply = token
+                    .total_supply
+                    .checked_add(&values[i])
+                    .ok_or("overflow in calculating total supply")?;
+                ensure!(updated_total_supply <= (10 as u128).pow(18).into(), "Total supply above the limit");
 
                 current_balances.push(Self::balance_of((ticker.clone(), investor_dids[i].clone())));
                 updated_balances.push(current_balances[i]
@@ -381,10 +388,7 @@ decl_module! {
                 ensure!(Self::_is_valid_transfer(&ticker, None, Some(investor_dids[i]), values[i])? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
                 // New total supply must be valid
-                token.total_supply = token
-                    .total_supply
-                    .checked_add(&values[i])
-                    .ok_or("overflow in calculating balance")?;
+                token.total_supply = updated_total_supply;
             }
 
             // After checks are ensured introduce side effects
@@ -992,11 +996,16 @@ impl<T: Trait> Module<T> {
 
         // Read the token details
         let mut token = Self::token_details(ticker);
-        //Increase total suply
-        token.total_supply = token
+        let updated_total_supply = token
             .total_supply
             .checked_add(&value)
-            .ok_or("overflow in calculating balance")?;
+            .ok_or("overflow in calculating total supply")?;
+        ensure!(
+            updated_total_supply <= (10 as u128).pow(18).into(),
+            "Total supply above the limit"
+        );
+        //Increase total suply
+        token.total_supply = updated_total_supply;
 
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
 
