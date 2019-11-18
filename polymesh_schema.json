@@ -71,10 +71,9 @@
         "balance": "Balance"
     },
     "Claim": {
-        "topic": "u32",
-        "schema": "u32",
-        "bytes": "Vec<u8>",
-        "expiry": "Moment"
+        "issuance_date": "Moment",
+        "expiry": "Moment",
+        "claim_value": "ClaimValue"
     },
     "ClaimMetaData": {
         "claim_key": "Vec<u8>",
@@ -148,9 +147,6 @@
     },
     "RegistryEntry": {
         "token_type": "u32",
-<<<<<<< HEAD
-        "owner_did": "IdentityId"
-=======
         "owner_did": "Vec<u8>"
     },
     "SignData": {
@@ -171,6 +167,5 @@
         "voting_start": "Moment",
         "voting_end": "Moment",
         "proposals": "Vec<Proposal>"
->>>>>>> master
     }
 }
