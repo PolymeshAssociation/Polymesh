@@ -161,7 +161,7 @@ decl_module! {
         /// This function is use to create the multiple security tokens in a single transaction.
         /// This function can be used for token migrations from one blockchain to another or can be used by any
         /// whitelabler who wants to issue multiple tokens for their clients.
-        /// 
+        ///
         /// # Arguments
         /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `did` DID of the creator of the tokens
@@ -255,7 +255,7 @@ decl_module! {
         /// Initializes a new security token
         /// makes the initiating account the owner of the security token
         /// & the balance of the owner is set to total supply
-        /// 
+        ///
         /// # Arguments
         /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `did` DID of the creator of the token or the owner of the token
@@ -322,7 +322,7 @@ decl_module! {
         }
 
         /// Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level
-        /// 
+        ///
         /// # Arguments
         /// * `_origin` signing key of the sender
         /// * `did` DID of the `from` token holder, from whom tokens needs to transferred
@@ -345,7 +345,7 @@ decl_module! {
 
         /// Forces a transfer between two DIDs & This can only be called by security token owner.
         /// This function doesn't validate any type of restriction beside a valid KYC check
-        /// 
+        ///
         /// # Arguments
         /// * `_origin` signing key of the token owner DID.
         /// * `did` Token owner DID.
@@ -373,7 +373,7 @@ decl_module! {
 
         /// approve token transfer from one DID to DID
         /// once this is done, transfer_from can be called with corresponding values
-        /// 
+        ///
         /// # Arguments
         /// * `_origin` Signing key of the token owner (i.e sender)
         /// * `did` DID of the sender
@@ -398,7 +398,7 @@ decl_module! {
         }
 
         /// If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
-        /// 
+        ///
         /// # Arguments
         /// * `_origin` Signing key of spender
         /// * `did` DID of the spender
@@ -642,7 +642,7 @@ decl_module! {
         }
 
         /// Forces a redemption of an DID's tokens. Can only be called by token owner
-        /// 
+        ///
         /// # Arguments
         /// * `_origin` Signing key of the token owner
         /// * `did` DID of the token holder
@@ -715,7 +715,7 @@ decl_module! {
 
         /// Checks whether a transaction with given parameters can take place or not
         /// This function is state less function and used to validate the transfer before actual transfer call.
-        /// 
+        ///
         /// # Arguments
         /// * `_origin` Signing Key of the caller
         /// * `ticker` Ticker of the token
@@ -752,7 +752,7 @@ decl_module! {
         /// An ERC1594 transfer with data
         /// This function can be used by the exchanges of other third parties to dynamically validate the transaction
         /// by passing the data blob
-        /// 
+        ///
         /// # Arguments
         /// * `origin` Signing key of the sender
         /// * `did` DID from whom tokens will be transferred
@@ -806,7 +806,7 @@ decl_module! {
         }
 
         /// Used to set the details of the document, Only be called by the token owner
-        /// 
+        ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
         /// * `did` DID of the token owner
