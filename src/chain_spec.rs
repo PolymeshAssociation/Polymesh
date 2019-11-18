@@ -7,10 +7,9 @@ use polymesh_primitives::AccountId;
 use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY, time::*};
 use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
-    AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
-    GenesisConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys,
-    SimpleTokenConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-    TechnicalCommitteeConfig, WASM_BINARY,
+    AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, GovernanceCommitteeConfig,
+    IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys, SimpleTokenConfig,
+    StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use primitives::{Pair, Public};
 
@@ -200,29 +199,6 @@ fn testnet_genesis(
             ids: endowed_accounts.clone(),
         }),
         sudo: Some(SudoConfig { key: root_key }),
-        collective_Instance1: Some(CouncilConfig {
-            members: vec![],
-            phantom: Default::default(),
-        }),
-        collective_Instance2: Some(TechnicalCommitteeConfig {
-            members: vec![],
-            phantom: Default::default(),
-        }),
-        elections: Some(ElectionsConfig {
-            members: endowed_accounts
-                .iter()
-                .filter(|&endowed| {
-                    initial_authorities
-                        .iter()
-                        .find(|&(_, controller, _, _, _)| controller == endowed)
-                        .is_none()
-                })
-                .map(|a| (a.clone(), 1000000))
-                .collect(),
-            presentation_duration: 10 * MINUTES,
-            term_duration: 1 * DAYS,
-            desired_seats,
-        }),
         session: Some(SessionConfig {
             keys: initial_authorities
                 .iter()
@@ -234,7 +210,6 @@ fn testnet_genesis(
                 })
                 .collect::<Vec<_>>(),
         }),
-        membership_Instance1: Some(Default::default()),
         staking: Some(StakingConfig {
             current_era: 0,
             minimum_validator_count: 1,
@@ -248,7 +223,11 @@ fn testnet_genesis(
             slash_reward_fraction: Perbill::from_percent(10),
             ..Default::default()
         }),
-        democracy: Some(DemocracyConfig::default()),
+        membership_Instance1: Some(Default::default()),
+        collective_Instance1: Some(GovernanceCommitteeConfig {
+            members: vec![],
+            phantom: Default::default(),
+        }),
         im_online: Some(Default::default()),
         authority_discovery: Some(Default::default()),
         babe: Some(Default::default()),
