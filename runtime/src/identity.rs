@@ -146,7 +146,6 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        ///
         fn set_charge_did(origin, charge_did: bool) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from( sender.encode())?;
