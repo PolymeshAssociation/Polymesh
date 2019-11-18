@@ -1096,7 +1096,7 @@ mod tests {
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         AnySignature, Perbill,
     };
-    use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
     use std::sync::{Arc, Mutex};
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
@@ -1289,6 +1289,18 @@ mod tests {
                 total_supply: 1_000_000,
                 granularity: 1,
             };
+
+            assert_err!(
+                Asset::create_token(
+                    Origin::signed(owner_acc.clone()),
+                    owner_did,
+                    token.name.clone(),
+                    token.name.clone(),
+                    1_000_000_000_000_000_000_000_000, // Total supply over the limit
+                    true
+                ),
+                "Total supply above the limit"
+            );
 
             Identity::fund_poly(Origin::signed(owner_acc.clone()), owner_did, 500_000)
                 .expect("Could not add funds to DID");
