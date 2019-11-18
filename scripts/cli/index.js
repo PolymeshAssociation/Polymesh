@@ -9,6 +9,7 @@ const colors = require('colors');
 
 const fs = require("fs");
 const path = require("path");
+let did_counter = 0;
 
 // Helps track the size delta for
 let current_storage_size = 0;
@@ -386,8 +387,9 @@ async function createIdentities(api, accounts, identity_type, prepend, submitBar
     fail_type["CREATE IDENTITIES"] = 0;
   }
   for (let i = 0; i < accounts.length; i++) {
-    const did = "did:poly:" + identity_type + prepend + i;
-    dids.push(did);
+    const did = did_counter;
+    dids.push(did_counter);
+    did_counter++;
     if (fast) {
       await api.tx.identity
         .registerDid(did, [])
@@ -480,7 +482,7 @@ async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitB
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-      .setRoleToSigningKey(dids[i], signing_accounts[i].address, [])
+      .setRoleToSigningKey(dids[i], signing_accounts[i].address, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
