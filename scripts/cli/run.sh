@@ -22,7 +22,3 @@ pm2 start environment.config.js --only pmesh-primary-node
 sleep 2
 
 pm2 start environment.config.js --only "pmesh-peer-node-1,pmesh-peer-node-2"
-
-#sleep 1
-
-#pm2 start environment.config.js --only stats-collector

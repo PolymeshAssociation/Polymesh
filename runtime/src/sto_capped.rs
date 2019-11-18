@@ -91,7 +91,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sold:T::TokenBalance = 0.into();
@@ -135,7 +135,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let mut selected_sto = Self::stos_by_token((ticker.clone(), sto_id));
@@ -186,7 +186,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
@@ -230,7 +230,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
@@ -279,7 +279,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             // Check valid STO id
@@ -299,7 +299,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signing_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             // Check valid STO id
@@ -337,15 +337,11 @@ impl<T: Trait> Module<T> {
     }
 
     fn _pre_validation(
-        ticker: &Vec<u8>,
-        did: IdentityId,
+        _ticker: &Vec<u8>,
+        _did: IdentityId,
         selected_sto: STO<T::TokenBalance, T::Moment>,
     ) -> Result {
-        // Validate that buyer is whitelisted for primary issuance.
-        ensure!(
-            <general_tm::Module<T>>::is_whitelisted(ticker, did).is_ok(),
-            "sender is not allowed to invest"
-        );
+        // TODO: Validate that buyer is whitelisted for primary issuance.
         // Check whether the sto is unpaused or not
         ensure!(selected_sto.active, "sto is paused");
         // Check whether the sto is already ended
