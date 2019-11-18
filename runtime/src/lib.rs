@@ -469,25 +469,12 @@ impl sudo::Trait for Runtime {
 
 impl asset::Trait for Runtime {
     type Event = Event;
-    //type TokenBalance = u128;
+    //type Balance = u128;
     type Currency = Balances;
 }
 
 impl utils::Trait for Runtime {
-    type TokenBalance = u128;
     type OffChainSignature = AnySignature;
-    fn as_u128(v: Self::TokenBalance) -> u128 {
-        v
-    }
-    fn as_tb(v: u128) -> Self::TokenBalance {
-        v
-    }
-    fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
-        v
-    }
-    fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
-        v
-    }
     fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
         v
     }

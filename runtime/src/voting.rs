@@ -32,7 +32,7 @@
 
 use crate::{
     asset::{self, AssetTrait},
-    identity, utils,
+    balances, identity, utils,
 };
 use codec::Encode;
 use primitives::{IdentityId, Key};
@@ -43,7 +43,7 @@ use system::{self, ensure_signed};
 /// The module's configuration trait.
 pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::TokenBalance>;
+    type Asset: asset::AssetTrait<Self::Balance>;
 }
 
 /// Details about ballots
@@ -89,12 +89,12 @@ decl_storage! {
         /// weight at 0 index means weight for choice 1 of proposal 1.
         /// weight at 1 index means weight for choice 2 of proposal 1.
         /// User must enter 0 vote weight if they don't want to vote for a choice.
-        pub Votes get(votes): map (Vec<u8>, Vec<u8>, IdentityId) => Vec<T::TokenBalance>;
+        pub Votes get(votes): map (Vec<u8>, Vec<u8>, IdentityId) => Vec<T::Balance>;
 
         /// (Ticker, BallotName) -> Vector of current vote weights.
         /// weight at 0 index means weight for choice 1 of proposal 1.
         /// weight at 1 index means weight for choice 2 of proposal 1.
-        pub Results get(results): map (Vec<u8>, Vec<u8>) => Vec<T::TokenBalance>;
+        pub Results get(results): map (Vec<u8>, Vec<u8>) => Vec<T::Balance>;
     }
 }
 
@@ -150,7 +150,7 @@ decl_module! {
 
             <Ballots<T>>::insert(&upper_ticker_ballot_name, ballot_details.clone());
 
-            let initial_results = vec![<T as utils::Trait>::as_tb(0); total_choices];
+            let initial_results = vec![0.into(); total_choices];
             <Results<T>>::insert(&upper_ticker_ballot_name, initial_results);
 
             Self::deposit_event(RawEvent::BallotCreated(upper_ticker, ballot_name, ballot_details));
@@ -165,7 +165,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which vote is to be cast
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
-        pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T::TokenBalance>) -> Result {
+        pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> Result {
             let sender = ensure_signed(origin)?;
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
@@ -194,7 +194,7 @@ decl_module! {
                 return Err("Invalid vote")
             }
 
-            let mut total_votes = <T as utils::Trait>::as_tb(0);
+            let mut total_votes: T::Balance = 0.into();
             for vote in &votes {
                 total_votes += *vote;
             }
@@ -255,7 +255,7 @@ decl_module! {
             // Clearing results
             <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
                 for i in 0..results.len() {
-                    results[i] = <T as utils::Trait>::as_tb(0);
+                    results[i] = 0.into();
                 }
             });
 
@@ -277,14 +277,14 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        TokenBalance = <T as utils::Trait>::TokenBalance,
+        Balance = <T as balances::Trait>::Balance,
         Moment = <T as timestamp::Trait>::Moment,
     {
         /// A new ballot is created (Ticker, BallotName, BallotDetails)
         BallotCreated(Vec<u8>, Vec<u8>, Ballot<Moment>),
 
         /// A vote is cast (Ticker, BallotName, Vote)
-        VoteCast(Vec<u8>, Vec<u8>, Vec<TokenBalance>),
+        VoteCast(Vec<u8>, Vec<u8>, Vec<Balance>),
 
         /// An existing ballot is cancelled (Ticker, BallotName)
         BallotCancelled(Vec<u8>, Vec<u8>),
@@ -397,20 +397,7 @@ mod tests {
     }
 
     impl utils::Trait for Test {
-        type TokenBalance = u128;
         type OffChainSignature = OffChainSignature;
-        fn as_u128(v: Self::TokenBalance) -> u128 {
-            v
-        }
-        fn as_tb(v: u128) -> Self::TokenBalance {
-            v
-        }
-        fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
-            v
-        }
-        fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
-            v
-        }
         fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
             v
         }
