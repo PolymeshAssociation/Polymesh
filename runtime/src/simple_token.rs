@@ -58,6 +58,8 @@ decl_module! {
             // ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
+            ensure!(total_supply <= (10 as u128).pow(18).into(), "Total supply above the limit");
+
             <identity::DidRecords<T>>::mutate( did, |record| -> Result {
                 record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
                 Ok(())
