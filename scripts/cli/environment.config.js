@@ -27,11 +27,6 @@ module.exports = {
       env: {
         RUST_BACKTRACE: "1"
       }
-    },
-    {
-      name: "stats-collector",
-      script: "./index.js",
-      log_file: 'combined.log',
     }
   ]
 };
