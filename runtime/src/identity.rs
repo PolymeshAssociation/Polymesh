@@ -1,3 +1,21 @@
+//! # Identity module
+//!
+//! This module is used to manage identity concept.
+//! Identity concept allows different key to act as the common role.
+//! It also contains a common balance.
+//!
+//! # Identity information
+//! Identity contains the following data:
+//!  - `master_key`, owner of this identity.
+//!  - `signing_keys`. List of keys
+//!  - `roles`, roles of the identity.
+//!  - `balance`, that balance can be use by
+
+//! # Freeze signing keys
+//! It is an emergency action to block all signing keys of an identity and it can only be performed
+//! by its master key.
+//!
+//! This module stores information about Identities like `DidRecord` which has the following data:
 use rstd::{convert::TryFrom, prelude::*};
 
 use crate::balances;
@@ -40,6 +58,7 @@ pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
+        /// Module owner.
         Owner get(owner) config(): T::AccountId;
 
         /// DID -> identity info
@@ -72,6 +91,7 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
+        ///
         fn set_charge_did(origin, charge_did: bool) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from( sender.encode())?;
@@ -602,6 +622,10 @@ impl<T: Trait> Module<T> {
         Ok(record)
     }
 
+    /// It freezes/unfreezes the target `did` identity.
+    ///
+    /// # Errors
+    /// Only master key can freeze/unfreeze an identity.
     fn set_frozen_signing_key_flags(origin: T::Origin, did: IdentityId, freeze: bool) -> Result {
         let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
         let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
