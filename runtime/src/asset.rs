@@ -127,7 +127,7 @@ decl_module! {
                 ensure!(!seen_tickers.contains(&tickers[i]), "Duplicate tickers in token batch");
                 seen_tickers.push(tickers[i].clone());
 
-                let granularity = if !divisible_values[i] { (10 as u128).pow(18) } else { 1_u128 };
+                let granularity = if !divisible_values[i] { (10 as u128).pow(6) } else { 1_u128 };
                 ensure!(total_supply_values[i] % granularity.into() == 0.into(), "Invalid Total supply");
                 ensure!(total_supply_values[i] <= (10 as u128).pow(18).into(), "Total supply above the limit");
 
@@ -158,7 +158,7 @@ decl_module! {
 
             // Perform per-ticker issuance
             for i in 0..n_tokens {
-                let granularity = if !divisible_values[i] { (10 as u128).pow(18) } else { 1_u128 };
+                let granularity = if !divisible_values[i] { (10 as u128).pow(6) } else { 1_u128 };
                 let token = SecurityToken {
                     name: names[i].clone(),
                     total_supply: total_supply_values[i],
@@ -196,7 +196,7 @@ decl_module! {
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
-            let granularity = if !divisible { (10 as u128).pow(18) } else { 1_u128 };
+            let granularity = if !divisible { (10 as u128).pow(6) } else { 1_u128 };
             ensure!(total_supply % granularity.into() == (0 as u128).into(), "Invalid Total supply");
             ensure!(total_supply <= (10 as u128).pow(18).into(), "Total supply above the limit");
 
