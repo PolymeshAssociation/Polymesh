@@ -528,6 +528,9 @@ pub trait Trait: system::Trait {
 
     /// Required origin for removing a validator (can always be Root).
     type RemoveOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Required origin for changing compliance status (can always be Root).
+    type ComplianceOrigin: EnsureOrigin<Self::Origin>;
 }
 
 /// Mode of era-forcing.
@@ -1001,7 +1004,7 @@ decl_module! {
         /// Update status of compliance as `Pending`
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_failed(_origin, controller: T::AccountId) {
-            T::AddOrigin::try_origin(origin)
+            T::ComplianceOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
@@ -1014,7 +1017,7 @@ decl_module! {
         /// Update status of compliance as `Active`
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_passed(_origin, controller: T::AccountId) {
-            T::AddOrigin::try_origin(origin)
+            T::ComplianceOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
