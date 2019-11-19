@@ -125,9 +125,9 @@
 //! ### Example: Rewarding a validator by id.
 //!
 //! ```
-//! use support::{decl_module, dispatch::Result};
+//! use srml_support::{decl_module, dispatch::Result};
 //! use system::ensure_signed;
-//! use srml_staking::{self as staking};
+//! use staking::{self as staking};
 //!
 //! pub trait Trait: staking::Trait {}
 //!
@@ -1000,10 +1000,10 @@ decl_module! {
             ValidatorCount::put(new);
         }
 
-        /// Add a potential new validator to the pool of validators.
-        /// Staking module checks `PermissionedValidators` to ensure validators have
-        /// completed KYB compliance
-        /// TODO: MESH-400 To be only called by technical committee
+        /// Governance committee on 2/3 rds majority can introduce a new potential validator
+        /// to the pool of validators. Staking module uses `PermissionedValidators` to ensure
+        /// validators have completed KYB compliance and considers them for validation.
+        /// TODO: MESH-400 To be only called by governance committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn add_qualified_validator(_origin, controller: T::AccountId) {
             ensure!(!<PermissionedValidators<T>>::exists(&controller), "account already exists in permissioned_validators");
@@ -1015,8 +1015,9 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
         }
 
-        /// Update status of compliance as `Pending`
-        /// TODO: MESH-400 To be only called by technical committee
+        /// Governance committee on 2/3 rds majority can update the compliance status of a validator
+        /// as `Pending`.
+        /// TODO: MESH-400 To be only called by governance committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_failed(_origin, controller: T::AccountId) {
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
@@ -1024,8 +1025,9 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
         }
 
-        /// Update status of compliance as `Active`
-        /// TODO: MESH-400 To be only called by technical committee
+        /// Governance committee on 2/3 rds majority can update the compliance status of a validator
+        /// as `Active`.
+        /// TODO: MESH-400 To be only called by governance committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_passed(_origin, controller: T::AccountId) {
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
