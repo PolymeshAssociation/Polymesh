@@ -270,6 +270,11 @@ impl staking::Trait for Runtime {
     type SessionInterface = Self;
     type Time = Timestamp;
     type RewardCurve = RewardCurve;
+    type AddOrigin = collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type RemoveOrigin =
+        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type ComplianceOrigin =
+        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
 }
 
 type GovernanceCollective = collective::Instance1;
