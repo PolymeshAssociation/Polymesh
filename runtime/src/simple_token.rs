@@ -37,10 +37,10 @@ use primitives::{IdentityId, Key};
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
 
+use crate::constants::currency::MAX_SUPPLY;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
-use crate::constants::currency::MAX_SUPPLY;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trait {
