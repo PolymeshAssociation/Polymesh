@@ -5,7 +5,7 @@
         "name": "Vec<u8>",
         "total_supply": "Balance",
         "owner_did": "IdentityId",
-        "granularity": "u128"
+        "divisible": "bool"
     },
     "Restriction": {
         "name": "Vec<u8>",

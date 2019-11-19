@@ -12,7 +12,7 @@
 //!
 //! - Creating the tokens
 //! - Creation of checkpoints on the token level
-//! - Management of the token (Document mgt, Granularity mgt etc)
+//! - Management of the token (Document mgt etc)
 //! - Transfer/redeem functionality of the token
 //! - Custodian functionality
 //!
@@ -32,7 +32,7 @@
 //! - `redeem` - Used to redeem the security tokens
 //! - `redeem_from` - Used to redeem the security tokens by some other DID who has approval
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner
-//! - `change_granularity` - Change the granularity of the token. Only called by the token owner
+//! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not
 //! - `transfer_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob
 //! - `transfer_from_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob
@@ -62,6 +62,7 @@ use crate::{
 };
 use codec::Encode;
 use core::result::Result as StdResult;
+use currency::*;
 use primitives::{IdentityId, Key};
 use rstd::{convert::TryFrom, prelude::*};
 use session;
@@ -90,16 +91,16 @@ pub trait Trait:
     type Currency: Currency<Self::AccountId>;
 }
 
-// struct to store the token details
+/// struct to store the token details
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U> {
     pub name: Vec<u8>,
     pub total_supply: U,
     pub owner_did: IdentityId,
-    pub granularity: u128,
+    pub divisible: bool,
 }
 
-// struct to store the token details
+/// struct to store the token details
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct SignData<U> {
     custodian_did: IdentityId,
@@ -198,9 +199,11 @@ decl_module! {
                 ensure!(!seen_tickers.contains(&tickers[i]), "Duplicate tickers in token batch");
                 seen_tickers.push(tickers[i].clone());
 
-                let granularity = if !divisible_values[i] { (10 as u128).pow(6) } else { 1_u128 };
-                ensure!(total_supply_values[i] % granularity.into() == 0.into(), "Invalid Total supply");
-                ensure!(total_supply_values[i] <= (10 as u128).pow(18).into(), "Total supply above the limit");
+                if !divisible_values[i] {
+                    ensure!(total_supply_values[i] % ONE_UNIT.into() == 0.into(), "Invalid Total supply");
+                }
+
+                ensure!(total_supply_values[i] <= MAX_SUPPLY.into(), "Total supply above the limit");
 
                 // Ensure the uniqueness of the ticker
                 ensure!(!<Tokens<T>>::exists(tickers[i].clone()), "Ticker is already issued");
@@ -229,12 +232,11 @@ decl_module! {
 
             // Perform per-ticker issuance
             for i in 0..n_tokens {
-                let granularity = if !divisible_values[i] { (10 as u128).pow(6) } else { 1_u128 };
                 let token = SecurityToken {
                     name: names[i].clone(),
                     total_supply: total_supply_values[i],
                     owner_did: did,
-                    granularity: granularity
+                    divisible: divisible_values[i]
                 };
 
                 let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner_did: did };
@@ -243,7 +245,7 @@ decl_module! {
 
                 <Tokens<T>>::insert(&tickers[i], token);
                 <BalanceOf<T>>::insert((tickers[i].clone(), did), total_supply_values[i]);
-                Self::deposit_event(RawEvent::IssuedToken(tickers[i].clone(), total_supply_values[i], did, granularity));
+                Self::deposit_event(RawEvent::IssuedToken(tickers[i].clone(), total_supply_values[i], did, divisible_values[i]));
                 sr_primitives::print("Batch token initialized");
             }
 
@@ -274,9 +276,11 @@ decl_module! {
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
-            let granularity = if !divisible { (10 as u128).pow(6) } else { 1_u128 };
-            ensure!(total_supply % granularity.into() == (0 as u128).into(), "Invalid Total supply");
-            ensure!(total_supply <= (10 as u128).pow(18).into(), "Total supply above the limit");
+            if !divisible {
+                ensure!(total_supply % ONE_UNIT.into() == 0.into(), "Invalid Total supply");
+            }
+
+            ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
 
             ensure!(<registry::Module<T>>::get(&ticker).is_none(), "Ticker is already taken");
 
@@ -304,7 +308,7 @@ decl_module! {
                 name,
                 total_supply,
                 owner_did: did,
-                granularity: granularity
+                divisible: divisible
             };
 
             let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner_did: did };
@@ -313,7 +317,7 @@ decl_module! {
 
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert((ticker.clone(), did), total_supply);
-            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, did, granularity));
+            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, did, divisible));
             sr_primitives::print("Initialized!!!");
 
             Ok(())
@@ -688,14 +692,13 @@ decl_module! {
             Ok(())
         }
 
-        /// Change the granularity of the token. Only called by the token owner
+        /// Makes an indivisible token divisible. Only called by the token owner
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner.
         /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
-        /// * `granularity` New granularity
-        pub fn change_granularity(origin, did: IdentityId, ticker: Vec<u8>, granularity: u128) -> Result {
+        pub fn make_divisible(origin, did: IdentityId, ticker: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
@@ -703,13 +706,12 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
-            ensure!(granularity != 0_u128, "Invalid granularity");
             // Read the token details
             let mut token = Self::token_details(&ticker);
-            //Increase total suply
-            token.granularity = granularity;
+            ensure!(!token.divisible, "token already divisible");
+            token.divisible = true;
             <Tokens<T>>::insert(&ticker, token);
-            Self::deposit_event(RawEvent::GranularityChanged(ticker, granularity));
+            Self::deposit_event(RawEvent::DivisibilityChanged(ticker, true));
             Ok(())
         }
 
@@ -975,11 +977,11 @@ decl_event! {
             /// ticker, controller DID, token holder DID, value, data, operator data
             ControllerRedemption(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
             /// Event for creation of the asset
-            /// ticker, total supply, owner DID, decimal
-            IssuedToken(Vec<u8>, Balance, IdentityId, u128),
-            /// Event for change granularity
-            /// ticker, granularity
-            GranularityChanged(Vec<u8>, u128),
+            /// ticker, total supply, owner DID, divisibility
+            IssuedToken(Vec<u8>, Balance, IdentityId, bool),
+            /// Event for change in divisibility
+            /// ticker, divisibility
+            DivisibilityChanged(Vec<u8>, bool),
             /// can_transfer() output
             /// ticker, from_did, to_did, value, data, ERC1066 status
             /// 0 - OK
@@ -1265,8 +1267,7 @@ impl<T: Trait> Module<T> {
     fn check_granularity(ticker: &Vec<u8>, value: T::Balance) -> bool {
         // Read the token details
         let token = Self::token_details(ticker);
-        // Check the granularity
-        value % token.granularity.into() == 0.into()
+        token.divisible || value % ONE_UNIT.into() == 0.into()
     }
 
     fn _check_custody_allowance(
@@ -1532,7 +1533,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
+                divisible: true,
             };
 
             assert_err!(
@@ -1578,7 +1579,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
+                divisible: true,
             };
 
             let wrong_acc = AccountId::from(AccountKeyring::Bob);
@@ -1604,7 +1605,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
+                divisible: true,
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -1678,7 +1679,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
+                divisible: true,
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -1873,7 +1874,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
+                divisible: true,
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -2092,7 +2093,7 @@ mod tests {
                     name: vec![0x01],
                     owner_did: owner_did.clone(),
                     total_supply: 1_000_000,
-                    granularity: 1,
+                    divisible: true,
                 };
 
                 Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -2318,7 +2319,7 @@ mod tests {
      *                        name: ticker.to_owned().into_bytes(),
      *                        owner: owner_id,
      *                        total_supply,
-     *                        granularity: 1,
+     *                        divisible: true,
      *                    };
      *                    println!("{:#?}", token_struct);
      *
