@@ -40,6 +40,7 @@ use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
+use crate::constants::currency::MAX_SUPPLY;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trait {
@@ -84,7 +85,7 @@ decl_module! {
             // ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
-            ensure!(total_supply <= (10 as u128).pow(18).into(), "Total supply above the limit");
+            ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
 
             <identity::DidRecords<T>>::mutate( did, |record| -> Result {
                 record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;

@@ -511,7 +511,7 @@ decl_module! {
                     .total_supply
                     .checked_add(&values[i])
                     .ok_or("overflow in calculating total supply")?;
-                ensure!(updated_total_supply <= (10 as u128).pow(18).into(), "Total supply above the limit");
+                ensure!(updated_total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
 
                 current_balances.push(Self::balance_of((ticker.clone(), investor_dids[i].clone())));
                 updated_balances.push(current_balances[i]
@@ -1248,7 +1248,7 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or("overflow in calculating total supply")?;
         ensure!(
-            updated_total_supply <= (10 as u128).pow(18).into(),
+            updated_total_supply <= MAX_SUPPLY.into(),
             "Total supply above the limit"
         );
         //Increase total suply
