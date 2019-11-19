@@ -211,8 +211,8 @@ use session::{historical::OnSessionEnding, SelectInitialValidators};
 use sr_primitives::{
     curve::PiecewiseLinear,
     traits::{
-        Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, SimpleArithmetic,
-        StaticLookup, Zero,
+        Bounded, CheckedSub, Convert, EnsureOrigin, One, SaturatedConversion, Saturating,
+        SimpleArithmetic, StaticLookup, Zero,
     },
     weights::SimpleDispatchInfo,
     Perbill,
@@ -522,6 +522,12 @@ pub trait Trait: system::Trait {
 
     /// The NPoS reward curve to use.
     type RewardCurve: Get<&'static PiecewiseLinear<'static>>;
+
+    /// Required origin for adding a potential validator (can always be Root).
+    type AddOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Required origin for removing a validator (can always be Root).
+    type RemoveOrigin: EnsureOrigin<Self::Origin>;
 }
 
 /// Mode of era-forcing.
@@ -665,6 +671,8 @@ decl_event!(
 		PermissionedValidatorAdded(AccountId),
 		/// The given member was removed. See the transaction for who.
 		PermissionedValidatorRemoved(AccountId),
+		/// The given member was removed. See the transaction for who.
+		PermissionedValidatorStatusChanged(AccountId),
     }
 );
 
@@ -974,9 +982,13 @@ decl_module! {
         /// Add a potential new validator to the pool of validators.
         /// Staking module checks `PermissionedValidators` to ensure validators have
         /// completed KYB compliance
-        /// TODO: MESH-400 To be only called by technical committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn add_qualified_validator(_origin, controller: T::AccountId) {
+            T::AddOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
+
             ensure!(!<PermissionedValidators<T>>::exists(&controller), "account already exists in permissioned_validators");
 
             <PermissionedValidators<T>>::insert(&controller, PermissionedValidator {
@@ -987,21 +999,29 @@ decl_module! {
         }
 
         /// Update status of compliance as `Pending`
-        /// TODO: MESH-400 To be only called by technical committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_failed(_origin, controller: T::AccountId) {
+            T::AddOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
+
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
             <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Pending );
-            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
+            Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(controller));
         }
 
         /// Update status of compliance as `Active`
-        /// TODO: MESH-400 To be only called by technical committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_passed(_origin, controller: T::AccountId) {
+            T::AddOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
+
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
             <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Active );
-            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
+            Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(controller));
         }
 
         // ----- Root calls.
