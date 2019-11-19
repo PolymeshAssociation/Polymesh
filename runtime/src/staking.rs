@@ -14,6 +14,11 @@
 //! held at pain of _slash_ (expropriation) should the staked maintainer be found not to be
 //! discharging its duties properly.
 //!
+//! This is a modified implementation of substrate's staking SRML.
+//! The modifications made are as follows:
+//!
+//! - Validation is restricted to accounts who comply with KYC rules set by the governance committee
+//!
 //! ### Terminology
 //! <!-- Original author of paragraph: @gavofyork -->
 //!
