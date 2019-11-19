@@ -1,3 +1,45 @@
+//! # Identity module
+//!
+//! This module is used to manage identity concept.
+//!
+//!  - [Module](./struct.Module.html)
+//!  - [Trait](./trait.Trait.html)
+//!
+//! ## Overview :
+//!
+//! Identity concept groups different account (keys) in one place, and it allows each key to
+//! make operations based on the constraint that each account (roles and key types).
+//!
+//! Any account can create and manage one and only one identity, using
+//! [register_did](./struct.Module.html#method.register_did). Other accounts can be added to a
+//! target identity as signing key, where we also define the type of account (`External`,
+//! `MuliSign`, etc.) and/or its role.
+//!
+//! Some operations at identity level are only allowed to its administrator account, like
+//! [set_master_key](./struct.Module.html#method.set_master_key) or
+//! [add_claim_issuer](./struct.Module.html#method.add_claim_issuer).
+//!
+//! ## Identity information
+//!
+//! Identity contains the following data:
+//!  - `master_key`. It is the administrator account of the identity.
+//!  - `signing_keys`. List of keys and their capabilities (type of key and its roles) .
+//!  - `balance`, that balance of the identity.
+//!
+//! ## Claim Issuers
+//!
+//! The administrator of the entity can add/remove claim issuers (see
+//! [add_claim_issuer](./struct.Module.html#method.add_claim_issuer) ). Only these claim issuers
+//! are able to add claims to that identity.
+//!
+//! ## Freeze signing keys
+//!
+//! It is an *emergency action* to block all signing keys of an identity and it can only be performed
+//! by its administrator.
+//!
+//! see [freeze_signing_keys](./struct.Module.html#method.freeze_signing_keys)
+//! see [unfreeze_signing_keys](./struct.Module.html#method.unfreeze_signing_keys)
+
 use rstd::{convert::TryFrom, prelude::*};
 
 use crate::balances;
@@ -68,6 +110,7 @@ pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
+        /// Module owner.
         Owner get(owner) config(): T::AccountId;
 
         /// DID -> identity info
@@ -110,7 +153,14 @@ decl_module! {
             Ok(())
         }
 
-        /// Register signing keys for a new DID. Uses origin key as the master key
+        /// Register signing keys for a new DID. Uses origin key as the master key.
+        ///
+        /// # TODO
+        /// Signing keys should authorize its use in this identity.
+        ///
+        /// # Failure
+        /// - Master key (administrator) can be linked to just one identity.
+        /// - External signing keys can be linked to just one identity.
         pub fn register_did(origin, did: IdentityId, signing_keys: Vec<SigningKey>) -> Result {
             let sender = ensure_signed(origin)?;
             let master_key = Key::try_from( sender.encode())?;
@@ -159,6 +209,12 @@ decl_module! {
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
+        ///
+        /// # TODO
+        /// Signing keys should authorize its use in this identity.
+        ///
+        /// # Failure
+        /// It can only called by master key owner.
         pub fn add_signing_keys(origin, did: IdentityId, additional_keys: Vec<SigningKey>) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
@@ -193,7 +249,10 @@ decl_module! {
             Ok(())
         }
 
-        /// Removes specified signing keys of a DID if present. Only called by master key owner.
+        /// Removes specified signing keys of a DID if present.
+        ///
+        /// # Failure
+        /// It can only called by master key owner.
         fn remove_signing_keys(origin, did: IdentityId, keys_to_remove: Vec<Key>) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
@@ -229,7 +288,10 @@ decl_module! {
             Ok(())
         }
 
-        /// Sets a new master key for a DID. Only called by master key owner.
+        /// Sets a new master key for a DID.
+        ///
+        /// # Failure
+        /// Only called by master key owner.
         fn set_master_key(origin, did: IdentityId, new_key: Key) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from( sender.encode())?;
@@ -247,6 +309,10 @@ decl_module! {
         }
 
         /// Adds funds to a DID.
+        ///
+        /// # TODO
+        /// Check if anyone could provide funds to an identity or it should be limited to an
+        /// specific group (master key and signing keys).
         pub fn fund_poly(origin, did: IdentityId, amount: <T as balances::Trait>::Balance) -> Result {
             let sender = ensure_signed(origin)?;
 
@@ -269,17 +335,19 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::PolyDepositedInDid(did, sender, amount));
-
             Ok(())
         }
 
-        /// Withdraws funds from a DID. Only called by master key owner.
+        /// Withdraws funds from a DID.
+        ///
+        /// # Failures
+        /// Only called by master key owner.
         fn withdrawy_poly(origin, did: IdentityId, amount: <T as balances::Trait>::Balance) -> Result {
             let sender = ensure_signed(origin)?;
             let record = Self::grant_check_only_master_key( &Key::try_from( sender.encode())?, did)?;
 
             // We must know that new balance is valid without creating side effects
-            let new_record_balance = record.balance.checked_sub(&amount).ok_or("underflow occured when decreasing DID balance")?;
+            let new_record_balance = record.balance.checked_sub(&amount).ok_or("underflow occurred when decreasing DID balance")?;
 
             let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(&sender, amount)?;
 
@@ -358,7 +426,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds new claim record or edits an exisitng one. Only called by did_issuer's signing key
+        /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
         pub fn add_claim(
             origin,
             did: IdentityId,
@@ -454,6 +522,10 @@ decl_module! {
             }
         }
 
+        /// It disables all signing keys at `did` identity.
+        ///
+        /// # Errors
+        ///
         fn freeze_signing_keys(origin, did: IdentityId) -> Result {
             Self::set_frozen_signing_key_flags( origin, did, true)
         }
@@ -644,6 +716,10 @@ impl<T: Trait> Module<T> {
         Ok(record)
     }
 
+    /// It freezes/unfreezes the target `did` identity.
+    ///
+    /// # Errors
+    /// Only master key can freeze/unfreeze an identity.
     fn set_frozen_signing_key_flags(origin: T::Origin, did: IdentityId, freeze: bool) -> Result {
         let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
         let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
