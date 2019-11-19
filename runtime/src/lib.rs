@@ -469,7 +469,6 @@ impl sudo::Trait for Runtime {
 
 impl asset::Trait for Runtime {
     type Event = Event;
-    //type Balance = u128;
     type Currency = Balances;
 }
 
