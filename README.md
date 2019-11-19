@@ -61,15 +61,15 @@ cd scripts/cli
 node ./index.js -n 2 -t 1 -d /tmp/pmesh-primary-node
 ```
 
-See https://github.com/PolymathNetwork/Polymesh/tree/master/scripts/cli[README] for details.
+See [README](https://github.com/PolymathNetwork/Polymesh/tree/master/scripts/cli) for details.
 
 # License
 
-https://github.com/PolymathNetwork/Polymesh/blob/master/LICENSE[LICENSE]
+[LICENSE](https://github.com/PolymathNetwork/Polymesh/blob/master/LICENSE)
 
 # Substrate Framework
 
-Polymesh is built on https://www.parity.io/what-is-substrate/[Substrate].
+Polymesh is built on [Substrate](https://www.parity.io/what-is-substrate/).
 
 # Links    
 
