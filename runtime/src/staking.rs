@@ -120,30 +120,6 @@
 //!
 //! The Staking module contains many public storage items and (im)mutable functions.
 //!
-//! ## Usage
-//!
-//! ### Example: Rewarding a validator by id.
-//!
-//! ```
-//! use srml_support::{decl_module, dispatch::Result};
-//! use system::ensure_signed;
-//! use staking::{self as staking};
-//!
-//! pub trait Trait: staking::Trait {}
-//!
-//! decl_module! {
-//! 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-//!			/// Reward a validator.
-//! 		pub fn reward_myself(origin) -> Result {
-//! 			let reported = ensure_signed(origin)?;
-//! 			<staking::Module<T>>::reward_by_ids(vec![(reported, 10)]);
-//! 			Ok(())
-//! 		}
-//! 	}
-//! }
-//! # fn main() { }
-//! ```
-//!
 //! ## Implementation Details
 //!
 //! ### Slot Stake
