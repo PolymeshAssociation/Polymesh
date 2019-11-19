@@ -986,8 +986,8 @@ decl_module! {
         /// Staking module checks `PermissionedValidators` to ensure validators have
         /// completed KYB compliance
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn add_qualified_validator(_origin, controller: T::AccountId) {
-            T::AddOrigin::try_origin(_origin)
+        fn add_potential_validator(origin, controller: T::AccountId) {
+            T::AddOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
@@ -1001,10 +1001,27 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
         }
 
+        /// Remove a validator from the pool of validators. Effects are known in the next session.
+        /// Staking module checks `PermissionedValidators` to ensure validators have
+        /// completed KYB compliance
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn remove_validator(origin, controller: T::AccountId) {
+            T::RemoveOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
+
+            ensure!(<PermissionedValidators<T>>::exists(&controller), "account doesn't exist in permissioned_validators");
+
+            <PermissionedValidators<T>>::remove(&controller);
+
+            Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
+        }
+
         /// Update status of compliance as `Pending`
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn compliance_failed(_origin, controller: T::AccountId) {
-            T::ComplianceOrigin::try_origin(_origin)
+        fn compliance_failed(origin, controller: T::AccountId) {
+            T::ComplianceOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
@@ -1016,8 +1033,8 @@ decl_module! {
 
         /// Update status of compliance as `Active`
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn compliance_passed(_origin, controller: T::AccountId) {
-            T::ComplianceOrigin::try_origin(_origin)
+        fn compliance_passed(origin, controller: T::AccountId) {
+            T::ComplianceOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
