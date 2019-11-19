@@ -146,15 +146,14 @@
     },
     "RegistryEntry": {
         "token_type": "u32",
-        "owner_did": "Vec<u8>"
+        "owner_did": "IdentityId"
     },
     "SignData": {
-        "custodian_did": "Vec<u8>",
-        "holder_did": "Vec<u8>",
+        "custodian_did": "IdentityId",
+        "holder_did": "IdentityId",
         "ticker": "Vec<u8>",
         "value": "Balance",
         "nonce": "u16"
-        "owner_did": "IdentityId"
     },
     "Proposal": {
         "title": "Vec<u8>",

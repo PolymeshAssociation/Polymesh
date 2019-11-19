@@ -18,7 +18,6 @@
 //! - **Dividend expiry date:** Tokenholders can claim dividends before this date.
 //! After this date, issuer can reclaim the remaining dividend.
 //!
-//!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
