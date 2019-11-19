@@ -116,12 +116,12 @@ decl_storage! {
         FeeCollector get(fee_collector) config(): T::AccountId;
         /// details of the token corresponding to the token ticker
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
-        pub Tokens get(token_details): map Vec<u8> => SecurityToken<T::TokenBalance>;
+        pub Tokens get(token_details): map Vec<u8> => SecurityToken<T::Balance>;
         /// Used to store the securityToken balance corresponds to ticker and Identity
         /// (ticker, DID) -> balance
-        pub BalanceOf get(balance_of): map (Vec<u8>, IdentityId) => T::TokenBalance;
+        pub BalanceOf get(balance_of): map (Vec<u8>, IdentityId) => T::Balance;
         /// (ticker, sender (DID), spender(DID)) -> allowance amount
-        Allowance get(allowance): map (Vec<u8>, IdentityId, IdentityId) => T::TokenBalance;
+        Allowance get(allowance): map (Vec<u8>, IdentityId, IdentityId) => T::Balance;
         /// cost in base currency to create a token
         AssetCreationFee get(asset_creation_fee) config(): T::Balance;
         /// Checkpoints created per token
@@ -129,10 +129,10 @@ decl_storage! {
         pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u64;
         /// Total supply of the token at the checkpoint
         /// (ticker, checkpointId) -> total supply at given checkpoint
-        pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u64) => T::TokenBalance;
+        pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u64) => T::Balance;
         /// Balance of a DID at a checkpoint
         /// (ticker, DID, checkpoint ID) -> Balance of a DID at a checkpoint
-        CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, IdentityId, u64) => T::TokenBalance;
+        CheckpointBalance get(balance_at_checkpoint): map (Vec<u8>, IdentityId, u64) => T::Balance;
         /// Last checkpoint updated for a DID's balance
         /// (ticker, DID) -> List of checkpoints where user balance changed
         UserCheckpoints get(user_checkpoints): map (Vec<u8>, IdentityId) => Vec<u64>;
@@ -141,10 +141,10 @@ decl_storage! {
         Documents get(documents): map (Vec<u8>, Vec<u8>) => (Vec<u8>, Vec<u8>, T::Moment);
         /// Allowance provided to the custodian
         /// (ticker, token holder, custodian) -> balance
-        pub CustodianAllowance get(custodian_allowance): map(Vec<u8>, IdentityId, IdentityId) => T::TokenBalance;
+        pub CustodianAllowance get(custodian_allowance): map(Vec<u8>, IdentityId, IdentityId) => T::Balance;
         /// Total custodian allowance for a given token holder
         /// (ticker, token holder) -> balance
-        pub TotalCustodyAllowance get(total_custody_allowance): map(Vec<u8>, IdentityId) => T::TokenBalance;
+        pub TotalCustodyAllowance get(total_custody_allowance): map(Vec<u8>, IdentityId) => T::Balance;
         /// Store the nonce for off chain signature to increase the custody allowance
         /// (ticker, token holder, nonce) -> bool
         AuthenticationNonce get(authentication_nonce): map(Vec<u8>, IdentityId, u16) => bool;
@@ -168,7 +168,7 @@ decl_module! {
         /// * `tickers` Array of symbols of the tokens
         /// * `total_supply_values` Array of total supply value that will be initial supply of the token
         /// * `divisible_values` Array of booleans to identify the divisibility status of the token.
-        pub fn batch_create_token(origin, did: IdentityId, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::TokenBalance>, divisible_values: Vec<bool>) -> Result {
+        pub fn batch_create_token(origin, did: IdentityId, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::Balance>, divisible_values: Vec<bool>) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from( sender.encode())?;
 
@@ -262,7 +262,7 @@ decl_module! {
         /// * `_ticker` Symbol of the token
         /// * `total_supply` Total supply of the token
         /// * `divisible` boolean to identify the divisibility status of the token.
-        pub fn create_token(origin, did: IdentityId, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::TokenBalance, divisible: bool) -> Result {
+        pub fn create_token(origin, did: IdentityId, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::Balance, divisible: bool) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
@@ -328,7 +328,7 @@ decl_module! {
         /// * `_ticker` Ticker of the token
         /// * `to_did` DID of the `to` token holder, to whom token needs to transferred
         /// * `value` Value that needs to transferred
-        pub fn transfer(_origin, did: IdentityId, _ticker: Vec<u8>, to_did: IdentityId, value: T::TokenBalance) -> Result {
+        pub fn transfer(_origin, did: IdentityId, _ticker: Vec<u8>, to_did: IdentityId, value: T::Balance) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
@@ -354,7 +354,7 @@ decl_module! {
         /// * `value` Amount of tokens.
         /// * `data` Some off chain data to validate the restriction.
         /// * `operator_data` It is a string which describes the reason of this control transfer call.
-        pub fn controller_transfer(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::TokenBalance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
+        pub fn controller_transfer(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
@@ -378,7 +378,7 @@ decl_module! {
         /// * `did` DID of the sender
         /// * `spender_did` DID of the spender
         /// * `value` Amount of the tokens approved
-        fn approve(_origin, did: IdentityId, _ticker: Vec<u8>, spender_did: IdentityId, value: T::TokenBalance) -> Result {
+        fn approve(_origin, did: IdentityId, _ticker: Vec<u8>, spender_did: IdentityId, value: T::Balance) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
@@ -405,7 +405,7 @@ decl_module! {
         /// * `from_did` DID from whom token is being transferred
         /// * `to_did` DID to whom token is being transferred
         /// * `value` Amount of the token for transfer
-        pub fn transfer_from(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::TokenBalance) -> Result {
+        pub fn transfer_from(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> Result {
             let spender = ensure_signed(_origin)?;
 
             // Check that spender is allowed to act on behalf of `did`
@@ -458,7 +458,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `to_did` DID of the token holder to whom new tokens get issued.
         /// * `value` Amount of tokens that get issued
-        pub fn issue(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::TokenBalance, _data: Vec<u8>) -> Result {
+        pub fn issue(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> Result {
             let upper_ticker = utils::bytes_to_upper(&ticker);
             let sender = ensure_signed(origin)?;
 
@@ -478,7 +478,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `investor_dids` Array of the DID of the token holders to whom new tokens get issued.
         /// * `values` Array of the Amount of tokens that get issued
-        pub fn batch_issue(origin, did: IdentityId, ticker: Vec<u8>, investor_dids: Vec<IdentityId>, values: Vec<T::TokenBalance>) -> Result {
+        pub fn batch_issue(origin, did: IdentityId, ticker: Vec<u8>, investor_dids: Vec<IdentityId>, values: Vec<T::Balance>) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -541,7 +541,7 @@ decl_module! {
         /// * `_ticker` Ticker of the token
         /// * `value` Amount of the tokens needs to redeem
         /// * `_data` An off chain data blob used to validate the redeem functionality.
-        pub fn redeem(_origin, did: IdentityId, _ticker: Vec<u8>, value: T::TokenBalance, _data: Vec<u8>) -> Result {
+        pub fn redeem(_origin, did: IdentityId, _ticker: Vec<u8>, value: T::Balance, _data: Vec<u8>) -> Result {
             let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
@@ -592,7 +592,7 @@ decl_module! {
         /// * `from_did` DID from whom balance get reduced
         /// * `value` Amount of the tokens needs to redeem
         /// * `_data` An off chain data blob used to validate the redeem functionality.
-        pub fn redeem_from(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, value: T::TokenBalance, _data: Vec<u8>) -> Result {
+        pub fn redeem_from(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> Result {
             let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
 
@@ -650,7 +650,7 @@ decl_module! {
         /// * `value` Amount of the tokens needs to redeem
         /// * `data` An off chain data blob used to validate the redeem functionality.
         /// * `operator_data` Any data blob that defines the reason behind the force redeem.
-        pub fn controller_redeem(origin, did: IdentityId, ticker: Vec<u8>, token_holder_did: IdentityId, value: T::TokenBalance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
+        pub fn controller_redeem(origin, did: IdentityId, ticker: Vec<u8>, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
@@ -722,8 +722,8 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        pub fn can_transfer(_origin, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::TokenBalance, data: Vec<u8>) {
-            let mut current_balance: T::TokenBalance = Self::balance_of((ticker.clone(), from_did));
+        pub fn can_transfer(_origin, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) {
+            let mut current_balance: T::Balance = Self::balance_of((ticker.clone(), from_did));
             if current_balance < value {
                 current_balance = 0.into();
             } else {
@@ -759,7 +759,7 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        pub fn transfer_with_data(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::TokenBalance, data: Vec<u8>) -> Result {
+        pub fn transfer_with_data(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> Result {
             Self::transfer(origin, did, ticker.clone(), to_did, value)?;
             Self::deposit_event(RawEvent::TransferWithData(ticker, did, to_did, value, data));
             Ok(())
@@ -777,7 +777,7 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        pub fn transfer_from_with_data(origin, did: IdentityId, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::TokenBalance, data: Vec<u8>) -> Result {
+        pub fn transfer_from_with_data(origin, did: IdentityId, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> Result {
             Self::transfer_from(origin, did, ticker.clone(), from_did,  to_did, value)?;
             Self::deposit_event(RawEvent::TransferWithData(ticker, from_did, to_did, value, data));
             Ok(())
@@ -857,7 +857,7 @@ decl_module! {
         /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance)
         /// * `custodian_did` DID of the custodian (i.e whom allowance provided)
         /// * `value` Allowance amount
-        pub fn increase_custody_allowance(origin, ticker: Vec<u8>, holder_did: IdentityId, custodian_did: IdentityId, value: T::TokenBalance) -> Result {
+        pub fn increase_custody_allowance(origin, ticker: Vec<u8>, holder_did: IdentityId, custodian_did: IdentityId, value: T::Balance) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             // Check that sender is allowed to act on behalf of `did`
@@ -881,7 +881,7 @@ decl_module! {
         /// * `value` Allowance amount
         /// * `nonce` A u16 number which avoid the replay attack
         /// * `signature` Signature provided by the holder_did
-        pub fn increase_custody_allowance_of(origin, ticker: Vec<u8>, holder_did: IdentityId, holder_account_id: T::AccountId, custodian_did: IdentityId, caller_did: IdentityId,  value: T::TokenBalance, nonce: u16, signature: T::OffChainSignature) -> Result {
+        pub fn increase_custody_allowance_of(origin, ticker: Vec<u8>, holder_did: IdentityId, holder_account_id: T::AccountId, custodian_did: IdentityId, caller_did: IdentityId,  value: T::Balance, nonce: u16, signature: T::OffChainSignature) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
@@ -919,7 +919,7 @@ decl_module! {
         /// * `custodian_did` DID of the custodian (i.e who has the valid approved allowance)
         /// * `receiver_did` DID of the receiver
         /// * `value` Amount of tokens need to transfer
-        pub fn transfer_by_custodian(origin, ticker: Vec<u8>, holder_did: IdentityId, custodian_did: IdentityId, receiver_did: IdentityId, value: T::TokenBalance) -> Result {
+        pub fn transfer_by_custodian(origin, ticker: Vec<u8>, holder_did: IdentityId, custodian_did: IdentityId, receiver_did: IdentityId, value: T::Balance) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             // Check that sender is allowed to act on behalf of `did`
