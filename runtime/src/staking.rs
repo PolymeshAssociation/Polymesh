@@ -1,3 +1,24 @@
+// Copyright 2017-2019 Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+// Modified by Polymath Inc - 18th November 2019
+// Added ability to permission validators based on governance and identity credentials
+// In Polymesh, validators must join the network through a governance process and have
+// required credentials (claims on their identities)
+
 //! # Staking Module
 //!
 //! The Staking module is used to manage funds at stake by network maintainers.
@@ -971,10 +992,10 @@ decl_module! {
             ValidatorCount::put(new);
         }
 
-        /// Add a potential new validator to the pool of validators.
-        /// Staking module checks `PermissionedValidators` to ensure validators have
-        /// completed KYB compliance
-        /// TODO: MESH-400 To be only called by technical committee
+        /// Governance committee on 2/3 rds majority can introduce a new potential validator
+        /// to the pool of validators. Staking module uses `PermissionedValidators` to ensure
+        /// validators have completed KYB compliance and considers them for validation.
+        /// TODO: MESH-400 To be only called by governance committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn add_qualified_validator(_origin, controller: T::AccountId) {
             ensure!(!<PermissionedValidators<T>>::exists(&controller), "account already exists in permissioned_validators");
@@ -986,8 +1007,9 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
         }
 
-        /// Update status of compliance as `Pending`
-        /// TODO: MESH-400 To be only called by technical committee
+        /// Governance committee on 2/3 rds majority can update the compliance status of a validator
+        /// as `Pending`.
+        /// TODO: MESH-400 To be only called by governance committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_failed(_origin, controller: T::AccountId) {
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
@@ -995,8 +1017,9 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedValidatorRemoved(controller));
         }
 
-        /// Update status of compliance as `Active`
-        /// TODO: MESH-400 To be only called by technical committee
+        /// Governance committee on 2/3 rds majority can update the compliance status of a validator
+        /// as `Active`.
+        /// TODO: MESH-400 To be only called by governance committee
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_passed(_origin, controller: T::AccountId) {
             ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
