@@ -866,7 +866,6 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
     }
 }
 
-/*
 #[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq)]
 pub struct UpdateDid<T: Trait + Send + Sync>(PhantomData<T>);
 
@@ -882,13 +881,18 @@ impl<T: Trait + Send + Sync> std::fmt::Debug for UpdateDid<T> {
         Ok(())
     }
 }
+
+use sr_primitives::traits::Printable;
+
 impl<T: Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     type AccountId = T::AccountId;
     type Call = T::Call;
     type AdditionalSigned = ();
     type Pre = ();
 
-    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> { Ok(()) }
+    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> {
+        Ok(())
+    }
 
     fn validate(
         &self,
@@ -897,11 +901,12 @@ impl<T: Trait + Send + Sync> SignedExtension for UpdateDid<T> {
         _: DispatchInfo,
         _: usize,
     ) -> TransactionValidity {
+        sr_primitives::print("UpdateDid begins validate");
         // Called before every transaction is processed, so makes available the current Did
         // globally through CurrentDid in the identity SRML.
         // CurrentDid can be overriden when forwarding calls
 
-        // Extrinsics in business logic modules should only care about this Did (and it�s associated roles)
+        // Extrinsics in business logic modules should only care about this Did (and its associated roles)
         // not the actual origin (other than to check the message has been signed correctly)
 
         // Grab the did associated with account id
@@ -911,17 +916,22 @@ impl<T: Trait + Send + Sync> SignedExtension for UpdateDid<T> {
         // if !ok return Err
         // Should also store roles associated with signing ley so that they can be overriden as well
         // Store it in CurrentDid
-        let key = who.encode();
-   //     if let Some(did) = crate::identity::<Module<T>>::key_to_identity_ids(&key) {
-   //         crate::identity::<Module<T>>::<CurrentDid>.put(encoded_transactor);
-            // <Module<T>>::set_current_did(<Module<T>>::did_from_signing_key(&encoded_transactor));
-            // Should clean up current_did at the end of the block ideally
-   //     }
+        if let Ok(key) = Key::try_from(who.encode()) {
+            if let Some(linked_key_info) = <Module<T>>::key_to_identity_ids(&key) {
+                if let LinkedKeyInfo::Unique(identity) = linked_key_info {
+                    sr_primitives::print("UpdateDid put ");
+                    sr_primitives::print(identity);
+                    <CurrentDid>::put(identity);
+                    // <Module<T>>::set_currgnt_did(<Module<T>>::did_from_signing_key(&encoded_transactor));
+                    // Should clean up current_did at the end of the block ideally
+                }
+            }
+        }
+        sr_primitives::print("UpdateDid ends validate");
 
         Ok(ValidTransaction::default())
     }
 }
-*/
 
 /// tests for this module
 #[cfg(test)]

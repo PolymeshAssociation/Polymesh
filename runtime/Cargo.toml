@@ -3,7 +3,7 @@ name = "polymesh-runtime"
 version = "0.6.0"
 authors = ["Polymath"]
 edition = "2018"
-# build = "build.rs"
+build = "build.rs"
 
 [dependencies]
 serde_json = { version = "1.0.41", default-features = false }

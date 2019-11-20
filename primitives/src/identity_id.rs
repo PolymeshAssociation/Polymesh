@@ -87,6 +87,15 @@ impl TryFrom<&[u8]> for IdentityId {
     }
 }
 
+use runtime_primitives::traits::Printable;
+
+impl Printable for IdentityId {
+    fn print(&self) {
+        let bytes = self.0.to_ne_bytes();
+        (&(bytes[..])).print();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

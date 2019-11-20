@@ -609,7 +609,7 @@ pub type SignedExtra = (
     system::CheckWeight<Runtime>,
     balances::TakeFees<Runtime>,
     contracts::CheckBlockGasLimit<Runtime>,
-    // identity::UpdateDid<Runtime>
+    identity::UpdateDid<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
