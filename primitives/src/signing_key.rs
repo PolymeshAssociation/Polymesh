@@ -1,7 +1,11 @@
 use parity_scale_codec::{Decode, Encode};
-use rstd::{prelude::Vec, vec};
+use rstd::{
+    cmp::{Ord, Ordering, PartialOrd},
+    prelude::Vec,
+    vec,
+};
 
-use crate::Key;
+use crate::{Key, KeyType};
 
 // use crate::entity::IgnoredCaseString;
 
@@ -19,30 +23,12 @@ pub enum KeyRole {
     Custom(u8),
 }
 
-/// Signing key type.
-/// See [MESH-378](https://polymath.atlassian.net/browse/MESH-378)
-#[allow(missing_docs)]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub enum SigningKeyType {
-    External,
-    Identity,
-    Multisig,
-    Relayer,
-    Custom(u8),
-}
-
-impl Default for SigningKeyType {
-    fn default() -> Self {
-        SigningKeyType::External
-    }
-}
-
 /// A signing key contains a type and a group of roles.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 pub struct SigningKey {
     pub key: Key,
-    pub key_type: SigningKeyType,
+    pub key_type: KeyType,
     pub roles: Vec<KeyRole>,
 }
 
@@ -51,7 +37,7 @@ impl SigningKey {
     pub fn new(key: Key, roles: Vec<KeyRole>) -> Self {
         Self {
             key,
-            key_type: SigningKeyType::External,
+            key_type: KeyType::External,
             roles,
         }
     }
@@ -81,6 +67,18 @@ impl PartialEq for SigningKey {
 impl PartialEq<Key> for SigningKey {
     fn eq(&self, other: &Key) -> bool {
         self.key == *other
+    }
+}
+
+impl PartialOrd for SigningKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.key.cmp(&other.key))
+    }
+}
+
+impl Ord for SigningKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.key.cmp(&other.key)
     }
 }
 

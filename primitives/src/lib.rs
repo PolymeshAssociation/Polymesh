@@ -62,6 +62,10 @@ pub use ignored_case_string::IgnoredCaseString;
 pub mod identity_role;
 pub use identity_role::IdentityRole;
 
+/// Polymesh Distributed Identity.
+pub mod identity_id;
+pub use identity_id::IdentityId;
+
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod did_record;
@@ -69,8 +73,15 @@ pub use did_record::DidRecord;
 
 /// Key is strong type which stores bytes representing the key.
 pub mod key;
-pub use key::Key;
+pub use key::{Key, KeyType};
 
 /// This module contains entities related with signing keys.
 pub mod signing_key;
-pub use signing_key::{KeyRole, SigningKey, SigningKeyType};
+pub use signing_key::{KeyRole, SigningKey};
+
+/// Represents custom transaction errors.
+#[repr(u8)]
+pub enum TransactionError {
+    /// 0-6 are used by substrate. Skipping them to avoid confusion
+    ZeroTip = 7,
+}
