@@ -992,7 +992,8 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            ensure!(!<PermissionedValidators<T>>::exists(&controller), "account already exists in permissioned_validators");
+            ensure!(!<PermissionedValidators<T>>::exists(&controller),
+            "account already exists in permissioned_validators");
 
             <PermissionedValidators<T>>::insert(&controller, PermissionedValidator {
                 compliance: Compliance::Active
@@ -1011,7 +1012,8 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            ensure!(<PermissionedValidators<T>>::exists(&controller), "account doesn't exist in permissioned_validators");
+            ensure!(<PermissionedValidators<T>>::exists(&controller),
+            "account doesn't exist in permissioned_validators");
 
             <PermissionedValidators<T>>::remove(&controller);
 
@@ -1026,7 +1028,9 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
+            ensure!(<PermissionedValidators<T>>::exists(&controller),
+            "acount doesn't exist in permissioned_validators");
+
             <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Pending );
             Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(controller));
         }
@@ -1039,7 +1043,9 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            ensure!(<PermissionedValidators<T>>::exists(&controller), "acount doesn't exist in permissioned_validators");
+            ensure!(<PermissionedValidators<T>>::exists(&controller),
+            "acount doesn't exist in permissioned_validators");
+
             <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Active );
             Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(controller));
         }
@@ -1774,6 +1780,7 @@ mod tests {
     use srml_support::traits::FindAuthor;
     use srml_support::{assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
+    use system::EnsureSignedBy;
 
     /// Mock types for testing
     /// The AccountId alias in this test module.
@@ -1961,6 +1968,11 @@ mod tests {
         pub const SessionsPerEra: SessionIndex = 3;
         pub const BondingDuration: EraIndex = 3;
         pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
+        pub const One: u64 = 1;
+        pub const Two: u64 = 2;
+        pub const Three: u64 = 3;
+        pub const Four: u64 = 4;
+        pub const Five: u64 = 5;
     }
 
     impl super::Trait for Test {
@@ -1975,18 +1987,12 @@ mod tests {
         type BondingDuration = BondingDuration;
         type SessionInterface = Self;
         type RewardCurve = RewardCurve;
+        type AddOrigin = EnsureSignedBy<One, u64>;
+        type RemoveOrigin = EnsureSignedBy<Two, u64>;
+        type ComplianceOrigin = EnsureSignedBy<Three, u64>;
     }
 
     type Staking = super::Module<Test>;
-
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn new_test_ext() -> TestExternalities<Blake2Hasher> {
-        system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap()
-            .into()
-    }
 
     pub struct ExtBuilder {
         existential_deposit: u64,
@@ -2199,7 +2205,7 @@ mod tests {
     }
 
     #[test]
-    fn should_store_permissioned_validators() {
+    fn should_add_potential_validators() {
         with_externalities(
             &mut ExtBuilder::default()
                 .minimum_validator_count(2)
@@ -2209,10 +2215,10 @@ mod tests {
                 .nominate(false)
                 .build(),
             || {
-                assert_ok!(Staking::add_qualified_validator(Origin::signed(100), 10));
-                assert_ok!(Staking::add_qualified_validator(Origin::signed(100), 20));
+                assert_ok!(Staking::add_potential_validator(Origin::signed(1), 10));
+                assert_ok!(Staking::add_potential_validator(Origin::signed(1), 20));
 
-                assert_ok!(Staking::compliance_failed(Origin::signed(100), 20));
+                assert_ok!(Staking::compliance_failed(Origin::signed(3), 20));
 
                 assert_eq!(Staking::is_eligible_to_validate(&10), true);
                 assert_eq!(Staking::is_eligible_to_validate(&20), false);
