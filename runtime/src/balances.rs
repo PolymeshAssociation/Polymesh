@@ -394,6 +394,10 @@ decl_storage! {
 
         /// Any liquidity locks on some account balances.
         pub Locks get(locks): map T::AccountId => Vec<BalanceLock<T::Balance, T::BlockNumber>>;
+
+        /// Balance held by the identity. It can be spent by its signing keys.
+        /// This balance is not affected by `ExistentialDeposit`.
+        pub IdentityBalance get(identity_balance): map T::AccountId => T::Balance;
     }
     add_extra_genesis {
         config(balances): Vec<(T::AccountId, T::Balance)>;
@@ -453,6 +457,47 @@ decl_module! {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
             <Self as Currency<_>>::transfer(&transactor, &dest, value)?;
+        }
+
+        pub fn top_up_identity_balance(
+            origin,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] value: T::Balance
+        ) {
+            let transactor = ensure_signed(origin)?;
+            let dest = T::Lookup::lookup(dest)?;
+            match <Self as Currency<_>>::withdraw(
+                &transactor,
+                value,
+                WithdrawReason::TransactionPayment,
+                ExistenceRequirement::KeepAlive,
+            ) {
+                Ok(_) => {
+                    let new_balance = Self::identity_balance(&dest) + value;
+                    <IdentityBalance<T, I>>::insert(dest, new_balance);
+                    return Ok(())
+                },
+                Err(err) => return Err(err),
+            };
+        }
+
+        pub fn reclaim_identity_balance(
+            origin,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] value: T::Balance
+        ) {
+            let transactor = ensure_signed(origin)?;
+            let dest = T::Lookup::lookup(dest)?;
+            match Self::withdraw_identity_balance(
+                &dest,
+                value,
+            ) {
+                Ok(_) => {
+                    let _imbalance = <Self as Currency<_>>::deposit_creating(&transactor, value);
+                    return Ok(())
+                },
+                Err(err) => return Err(err),
+            };
         }
 
         /// Set the balances of a given account.
@@ -564,6 +609,18 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         } else {
             <FreeBalance<T, I>>::insert(who, balance);
             UpdateBalanceOutcome::Updated
+        }
+    }
+
+    fn withdraw_identity_balance(
+        who: &T::AccountId,
+        value: T::Balance,
+    ) -> result::Result<NegativeImbalance<T, I>, &'static str> {
+        if let Some(new_balance) = Self::identity_balance(who).checked_sub(&value) {
+            <IdentityBalance<T, I>>::insert(who, new_balance);
+            Ok(NegativeImbalance::new(value))
+        } else {
+            Err("too few free funds in account")
         }
     }
 
@@ -1302,14 +1359,15 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
             Ok(key) => key,
             Err(_) => return InvalidTransaction::BadProof.into(),
         };
-
+        let imbalance;
         if <T::Identity>::signing_key_charge_did(&encoded_transactor) {
             sr_primitives::print("Charging fee to identity");
-            if !<T::Identity>::charge_poly(&encoded_transactor, fee) {
-                return InvalidTransaction::Payment.into();
-            }
+            imbalance = match <Module<T, I>>::withdraw_identity_balance(who, fee) {
+                Ok(imbalance) => imbalance,
+                Err(_) => return InvalidTransaction::Payment.into(),
+            };
         } else {
-            let imbalance = match <Module<T, I>>::withdraw(
+            imbalance = match <Module<T, I>>::withdraw(
                 who,
                 fee,
                 WithdrawReason::TransactionPayment,
@@ -1318,9 +1376,8 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
                 Ok(imbalance) => imbalance,
                 Err(_) => return InvalidTransaction::Payment.into(),
             };
-            T::TransactionPayment::on_unbalanced(imbalance);
         }
-
+        T::TransactionPayment::on_unbalanced(imbalance);
         let mut r = ValidTransaction::default();
         // NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
         // will be a bit more than setting the priority to tip. For now, this is enough.
