@@ -24,7 +24,6 @@
 //! Identity contains the following data:
 //!  - `master_key`. It is the administrator account of the identity.
 //!  - `signing_keys`. List of keys and their capabilities (type of key and its roles) .
-//!  - `balance`, that balance of the identity.
 //!
 //! ## Claim Issuers
 //!
@@ -114,7 +113,7 @@ decl_storage! {
         Owner get(owner) config(): T::AccountId;
 
         /// DID -> identity info
-        pub DidRecords get(did_records): map IdentityId => DidRecord<T::Balance>;
+        pub DidRecords get(did_records): map IdentityId => DidRecord;
 
         /// DID -> bool that indicates if signing keys are frozen.
         pub IsDidFrozen get(is_did_frozen): map IdentityId => bool;
@@ -131,9 +130,6 @@ decl_storage! {
         // Account => DID
         pub KeyToIdentityIds get(key_to_identity_ids): map Key => Option<LinkedKeyInfo>;
 
-        // Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
-        pub ChargeDid get(charge_did): map Key => bool;
-
         /// How much does creating a DID cost
         pub DidCreationFee get(did_creation_fee) config(): T::Balance;
     }
@@ -145,13 +141,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
-
-        fn set_charge_did(origin, charge_did: bool) -> Result {
-            let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from( sender.encode())?;
-            <ChargeDid>::insert(sender_key, charge_did);
-            Ok(())
-        }
 
         /// Register signing keys for a new DID. Uses origin key as the master key.
         ///
@@ -173,7 +162,7 @@ decl_module! {
             ensure!( signing_keys.iter().find( |sk| **sk == master_key).is_none(),
                 "Signing keys contains the master key");
             // 1.3. Make sure there's no pre-existing entry for the DID
-            ensure!(!<DidRecords<T>>::exists(did), "DID must be unique");
+            ensure!(!<DidRecords>::exists(did), "DID must be unique");
             // 1.4. Signing keys can be linked to the new identity.
             for sig_key in &signing_keys {
                 if !Self::can_key_be_linked_to_did( &sig_key.key, sig_key.key_type){
@@ -202,7 +191,7 @@ decl_module! {
                 master_key,
                 ..Default::default()
             };
-            <DidRecords<T>>::insert(did, record);
+            <DidRecords>::insert(did, record);
 
             Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
             Ok(())
@@ -228,7 +217,7 @@ decl_module! {
             additional_keys.iter()
                 .for_each( |skey| Self::link_key_to_did( &skey.key, skey.key_type, did));
 
-            <DidRecords<T>>::mutate( did,
+            <DidRecords>::mutate( did,
             |record| {
                 // Concatenate new keys while making sure the key set is
                 // unique
@@ -277,7 +266,7 @@ decl_module! {
             keys_to_remove.iter().for_each( |key| Self::unlink_key_to_did(key, did));
 
             // Remove signing keys from DID records.
-            <DidRecords<T>>::mutate(did,
+            <DidRecords>::mutate(did,
             |record| {
                 (*record).signing_keys.retain( |skey| keys_to_remove.iter()
                         .find(|&rk| skey == rk)
@@ -299,93 +288,12 @@ decl_module! {
 
             ensure!( Self::can_key_be_linked_to_did(&new_key, KeyType::External), "Master key can only belong to one DID");
 
-            <DidRecords<T>>::mutate(did,
+            <DidRecords>::mutate(did,
             |record| {
                 (*record).master_key = new_key.clone();
             });
 
             Self::deposit_event(RawEvent::NewMasterKey(did, sender, new_key));
-            Ok(())
-        }
-
-        /// Adds funds to a DID.
-        ///
-        /// # TODO
-        /// Check if anyone could provide funds to an identity or it should be limited to an
-        /// specific group (master key and signing keys).
-        pub fn fund_poly(origin, did: IdentityId, amount: <T as balances::Trait>::Balance) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            ensure!(<DidRecords<T>>::exists(did), "DID must already exist");
-
-            let record = <DidRecords<T>>::get(did);
-
-            // We must know that new balance is valid without creating side effects
-            let new_record_balance = record.balance.checked_add(&amount).ok_or("overflow occured when increasing DID balance")?;
-
-            let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
-                &sender,
-                amount,
-                WithdrawReason::Fee,
-                ExistenceRequirement::KeepAlive
-                )?;
-
-            <DidRecords<T>>::mutate(did, |record| {
-                (*record).balance = new_record_balance;
-            });
-
-            Self::deposit_event(RawEvent::PolyDepositedInDid(did, sender, amount));
-            Ok(())
-        }
-
-        /// Withdraws funds from a DID.
-        ///
-        /// # Failures
-        /// Only called by master key owner.
-        fn withdrawy_poly(origin, did: IdentityId, amount: <T as balances::Trait>::Balance) -> Result {
-            let sender = ensure_signed(origin)?;
-            let record = Self::grant_check_only_master_key( &Key::try_from( sender.encode())?, did)?;
-
-            // We must know that new balance is valid without creating side effects
-            let new_record_balance = record.balance.checked_sub(&amount).ok_or("underflow occurred when decreasing DID balance")?;
-
-            let _imbalance = <balances::Module<T> as Currency<_>>::deposit_into_existing(&sender, amount)?;
-
-            <DidRecords<T>>::mutate(did, |record| {
-                (*record).balance = new_record_balance;
-            });
-
-            Self::deposit_event(RawEvent::PolyWithdrawnFromDid(did, sender, amount));
-
-            Ok(())
-        }
-
-        /// Transfers funds between DIDs.
-        fn transfer_poly(origin, did: IdentityId, to_did: IdentityId, amount: <T as balances::Trait>::Balance) -> Result {
-            let sender = ensure_signed(origin)?;
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(Self::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
-
-            let from_record = <DidRecords<T>>::get(did);
-            let to_record = <DidRecords<T>>::get(to_did);
-
-            // Same for `from`
-            let new_from_balance = from_record.balance.checked_sub(&amount).ok_or("Sender must have sufficient funds")?;
-
-            // Compute new `to_did` balance and check that beneficiary's balance can be increased
-            let new_to_balance = to_record.balance.checked_add(&amount).ok_or("Failed to increase to_did balance")?;
-
-            // Alter from record
-            <DidRecords<T>>::mutate(did, |record| {
-                record.balance = new_from_balance;
-            });
-
-            // Alter to record
-            <DidRecords<T>>::mutate(to_did, |record| {
-                record.balance = new_to_balance;
-            });
-
             Ok(())
         }
 
@@ -412,7 +320,7 @@ decl_module! {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
 
-            ensure!(<DidRecords<T>>::exists(did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
 
             <ClaimIssuers>::mutate(did, |old_claim_issuers| {
                 *old_claim_issuers = old_claim_issuers
@@ -437,8 +345,8 @@ decl_module! {
         ) -> Result {
             let sender = ensure_signed(origin)?;
 
-            ensure!(<DidRecords<T>>::exists(did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords>::exists(did), "DID must already exist");
+            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
 
             let sender_key = Key::try_from( sender.encode())?;
             ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
@@ -476,8 +384,8 @@ decl_module! {
         pub fn revoke_claim(origin, did: IdentityId, claim_key: Vec<u8>, did_issuer: IdentityId) -> Result {
             let sender = ensure_signed(origin)?;
 
-            ensure!(<DidRecords<T>>::exists(&did), "DID must already exist");
-            ensure!(<DidRecords<T>>::exists(&did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords>::exists(&did), "DID must already exist");
+            ensure!(<DidRecords>::exists(&did_issuer), "claim issuer DID must already exist");
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_key = Key::try_from( sender.encode())?;
@@ -558,18 +466,6 @@ decl_event!(
         /// DID, old master key account ID, new key
         NewMasterKey(IdentityId, AccountId, Key),
 
-        /// beneficiary DID, sender, amount
-        PolyDepositedInDid(IdentityId, AccountId, Balance),
-
-        /// DID, beneficiary, amount
-        PolyWithdrawnFromDid(IdentityId, AccountId, Balance),
-
-        /// DID, amount
-        PolyChargedFromDid(IdentityId, Balance),
-
-        /// DID from, DID to, amount
-        PolyTransfer(IdentityId, IdentityId, Balance),
-
         /// DID, claim issuer DID
         NewClaimIssuer(IdentityId, IdentityId),
 
@@ -601,7 +497,7 @@ impl<T: Trait> Module<T> {
 
         let mut new_sk: Option<SigningKey> = None;
 
-        <DidRecords<T>>::mutate(target_did, |record| {
+        <DidRecords>::mutate(target_did, |record| {
             if let Some(mut sk) = (*record).signing_keys.iter().find(|sk| *sk == key).cloned() {
                 rstd::mem::swap(&mut sk.roles, &mut roles);
                 (*record).signing_keys.retain(|sk| sk != key);
@@ -627,7 +523,7 @@ impl<T: Trait> Module<T> {
     /// If signing keys are frozen this function always returns false.
     /// Master key cannot be frozen.
     pub fn is_authorized_key(did: IdentityId, key: &Key) -> bool {
-        let record = <DidRecords<T>>::get(did);
+        let record = <DidRecords>::get(did);
         if record.master_key == *key {
             return true;
         }
@@ -641,28 +537,7 @@ impl<T: Trait> Module<T> {
 
     /// Use `did` as reference.
     pub fn is_master_key(did: IdentityId, key: &Key) -> bool {
-        key == &<DidRecords<T>>::get(did).master_key
-    }
-
-    /// Withdraws funds from a DID balance
-    pub fn charge_poly(id: IdentityId, amount: T::Balance) -> bool {
-        if !<DidRecords<T>>::exists(&id) {
-            return false;
-        }
-
-        let record = <DidRecords<T>>::get(&id);
-
-        if record.balance < amount {
-            return false;
-        }
-
-        <DidRecords<T>>::mutate(&id, |record| {
-            (*record).balance = record.balance - amount;
-        });
-
-        Self::deposit_event(RawEvent::PolyChargedFromDid(id, amount));
-
-        return true;
+        key == &<DidRecords>::get(did).master_key
     }
 
     pub fn fetch_claim_value(
@@ -705,9 +580,9 @@ impl<T: Trait> Module<T> {
     pub fn grant_check_only_master_key(
         sender_key: &Key,
         did: IdentityId,
-    ) -> rstd::result::Result<DidRecord<<T as balances::Trait>::Balance>, &'static str> {
-        ensure!(<DidRecords<T>>::exists(did), "DID does not exist");
-        let record = <DidRecords<T>>::get(did);
+    ) -> rstd::result::Result<DidRecord, &'static str> {
+        ensure!(<DidRecords>::exists(did), "DID does not exist");
+        let record = <DidRecords>::get(did);
         ensure!(
             *sender_key == record.master_key,
             "Only master key of an identity is able to execute this operation"
@@ -730,19 +605,6 @@ impl<T: Trait> Module<T> {
             <IsDidFrozen>::remove(did);
         }
         Ok(())
-    }
-
-    pub fn signing_key_charge_did(signing_key: &Key) -> bool {
-        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
-            if let LinkedKeyInfo::Unique(identity) = linked_key_info {
-                if Self::is_authorized_key(identity, signing_key)
-                    && <ChargeDid>::exists(signing_key)
-                {
-                    return <ChargeDid>::get(signing_key);
-                }
-            }
-        }
-        false
     }
 
     /// It checks that any sternal account can only be associated with at most one.
@@ -807,29 +669,12 @@ impl<T: Trait> Module<T> {
 }
 
 pub trait IdentityTrait<T> {
-    fn signing_key_charge_did(signing_key: &Key) -> bool;
-    fn charge_poly(signing_key: &Key, amount: T) -> bool;
     fn get_identity(signing_key: &Key) -> Option<IdentityId>;
     fn is_authorized_key(did: IdentityId, key: &Key) -> bool;
     fn is_master_key(did: IdentityId, key: &Key) -> bool;
 }
 
 impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
-    /// Only signing keys with one-to-one relation with Identity are allowed to charge poly.
-    fn charge_poly(signing_key: &Key, amount: T::Balance) -> bool {
-        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
-            if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
-                return Self::charge_poly(linked_id, amount);
-            }
-        }
-
-        false
-    }
-
-    fn signing_key_charge_did(signing_key: &Key) -> bool {
-        Self::signing_key_charge_did(&signing_key)
-    }
-
     fn get_identity(signing_key: &Key) -> Option<IdentityId> {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
             if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {

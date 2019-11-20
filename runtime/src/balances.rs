@@ -13,6 +13,7 @@
 //!
 //! - Added ability to pay transaction fees from identity's balance instead of user's balance.
 //! - To curb front running, sending a tip along with your transaction is now prohibited.
+//! - Added ability to store balance at identity level and use that to pay tx fees.
 //!
 //! The Original Balances module provides functions for:
 //!
@@ -70,6 +71,9 @@
 //! ### Dispatchable Functions
 //!
 //! - `transfer` - Transfer some liquid free balance to another account.
+//! - `top_up_identity_balance` - Move some poly from balance of self to balance of an identity.
+//! - `reclaim_identity_balance` - Claim back poly from an identity. Can only be called by master key of the identity.
+//! - `change_charge_did_flag` - Change setting that governs if user pays fee via their own balance or identity's balance.
 //! - `set_balance` - Set the balances of a given account. The origin of this call must be root.
 //!
 //! ### Public Functions
@@ -462,6 +466,8 @@ decl_module! {
             <Self as Currency<_>>::transfer(&transactor, &dest, value)?;
         }
 
+        /// Move some poly from balance of self to balance of an identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn top_up_identity_balance(
             origin,
             did: IdentityId,
@@ -483,6 +489,8 @@ decl_module! {
             };
         }
 
+        /// Claim back poly from an identity. Can only be called by master key of the identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn reclaim_identity_balance(
             origin,
             did: IdentityId,
@@ -507,6 +515,17 @@ decl_module! {
                     Err(err) => return Err(err),
                 };
             }
+        }
+
+        /// Change setting that governs if user pays fee via their own balance or identity's balance.
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+        pub fn change_charge_did_flag(origin, charge_did: bool) {
+            let transactor = ensure_signed(origin)?;
+            let encoded_transactor = match Key::try_from(transactor.encode()) {
+                Ok(key) => key,
+                Err(err) => return Err(err),
+            };
+            <ChargeDid>::insert(encoded_transactor, charge_did);
         }
 
         /// Set the balances of a given account.

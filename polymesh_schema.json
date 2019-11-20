@@ -67,8 +67,7 @@
     "DidRecord": {
         "roles": "Vec<IdentityRole>",
         "master_key": "Key",
-        "signing_keys": "Vec<SigningKey>",
-        "balance": "Balance"
+        "signing_keys": "Vec<SigningKey>"
     },
     "Claim": {
         "issuance_date": "Moment",
