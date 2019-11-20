@@ -161,7 +161,7 @@ use srml_support::{decl_event, decl_module, decl_storage, Parameter, StorageValu
 use system::{ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 
 use crate::identity::IdentityTrait;
-use primitives::{Key, TransactionError};
+use primitives::{IdentityId, Key, TransactionError};
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 
@@ -397,7 +397,10 @@ decl_storage! {
 
         /// Balance held by the identity. It can be spent by its signing keys.
         /// This balance is not affected by `ExistentialDeposit`.
-        pub IdentityBalance get(identity_balance): map T::AccountId => T::Balance;
+        pub IdentityBalance get(identity_balance): map IdentityId => T::Balance;
+
+        /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
+        pub ChargeDid get(charge_did): map Key => bool;
     }
     add_extra_genesis {
         config(balances): Vec<(T::AccountId, T::Balance)>;
@@ -461,11 +464,10 @@ decl_module! {
 
         pub fn top_up_identity_balance(
             origin,
-            dest: <T::Lookup as StaticLookup>::Source,
+            did: IdentityId,
             #[compact] value: T::Balance
         ) {
             let transactor = ensure_signed(origin)?;
-            let dest = T::Lookup::lookup(dest)?;
             match <Self as Currency<_>>::withdraw(
                 &transactor,
                 value,
@@ -473,8 +475,8 @@ decl_module! {
                 ExistenceRequirement::KeepAlive,
             ) {
                 Ok(_) => {
-                    let new_balance = Self::identity_balance(&dest) + value;
-                    <IdentityBalance<T, I>>::insert(dest, new_balance);
+                    let new_balance = Self::identity_balance(&did) + value;
+                    <IdentityBalance<T, I>>::insert(did, new_balance);
                     return Ok(())
                 },
                 Err(err) => return Err(err),
@@ -483,21 +485,28 @@ decl_module! {
 
         pub fn reclaim_identity_balance(
             origin,
-            dest: <T::Lookup as StaticLookup>::Source,
+            did: IdentityId,
             #[compact] value: T::Balance
         ) {
             let transactor = ensure_signed(origin)?;
-            let dest = T::Lookup::lookup(dest)?;
-            match Self::withdraw_identity_balance(
-                &dest,
-                value,
-            ) {
-                Ok(_) => {
-                    let _imbalance = <Self as Currency<_>>::deposit_creating(&transactor, value);
-                    return Ok(())
-                },
+            let encoded_transactor = match Key::try_from(transactor.encode()) {
+                Ok(key) => key,
                 Err(err) => return Err(err),
             };
+            if !<T::Identity>::is_master_key(did, &encoded_transactor) {
+                return Err("Not authorized");
+            } else {
+                match Self::withdraw_identity_balance(
+                    &did,
+                    value,
+                ) {
+                    Ok(_) => {
+                        let _imbalance = <Self as Currency<_>>::deposit_creating(&transactor, value);
+                        return Ok(())
+                    },
+                    Err(err) => return Err(err),
+                };
+            }
         }
 
         /// Set the balances of a given account.
@@ -613,7 +622,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 
     fn withdraw_identity_balance(
-        who: &T::AccountId,
+        who: &IdentityId,
         value: T::Balance,
     ) -> result::Result<NegativeImbalance<T, I>, &'static str> {
         if let Some(new_balance) = Self::identity_balance(who).checked_sub(&value) {
@@ -622,6 +631,17 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         } else {
             Err("too few free funds in account")
         }
+    }
+
+    fn charge_fee_to_identity(who: &Key) -> Option<IdentityId> {
+        if <Module<T, I>>::charge_did(who) {
+            if let Some(did) = <T::Identity>::get_identity(&who) {
+                if <T::Identity>::is_authorized_key(did, &who) {
+                    return Some(did);
+                }
+            }
+        }
+        return None;
     }
 
     /// Register a new account (with existential balance).
@@ -1360,9 +1380,9 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
             Err(_) => return InvalidTransaction::BadProof.into(),
         };
         let imbalance;
-        if <T::Identity>::signing_key_charge_did(&encoded_transactor) {
+        if let Some(did) = <Module<T, I>>::charge_fee_to_identity(&encoded_transactor) {
             sr_primitives::print("Charging fee to identity");
-            imbalance = match <Module<T, I>>::withdraw_identity_balance(who, fee) {
+            imbalance = match <Module<T, I>>::withdraw_identity_balance(&did, fee) {
                 Ok(imbalance) => imbalance,
                 Err(_) => return InvalidTransaction::Payment.into(),
             };

@@ -809,6 +809,9 @@ impl<T: Trait> Module<T> {
 pub trait IdentityTrait<T> {
     fn signing_key_charge_did(signing_key: &Key) -> bool;
     fn charge_poly(signing_key: &Key, amount: T) -> bool;
+    fn get_identity(signing_key: &Key) -> Option<IdentityId>;
+    fn is_authorized_key(did: IdentityId, key: &Key) -> bool;
+    fn is_master_key(did: IdentityId, key: &Key) -> bool;
 }
 
 impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
@@ -825,6 +828,22 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
 
     fn signing_key_charge_did(signing_key: &Key) -> bool {
         Self::signing_key_charge_did(&signing_key)
+    }
+
+    fn get_identity(signing_key: &Key) -> Option<IdentityId> {
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
+            if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
+                return Some(linked_id);
+            }
+        }
+        return None;
+    }
+
+    fn is_authorized_key(did: IdentityId, key: &Key) -> bool {
+        Self::is_authorized_key(did, &key)
+    }
+    fn is_master_key(did: IdentityId, key: &Key) -> bool {
+        Self::is_master_key(did, &key)
     }
 }
 
