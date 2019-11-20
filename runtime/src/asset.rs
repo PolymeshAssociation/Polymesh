@@ -1548,9 +1548,6 @@ mod tests {
                 decimals: 18,
             };
 
-            Identity::fund_poly(Origin::signed(owner_acc.clone()), owner_did, 500_000)
-                .expect("Could not add funds to DID");
-
             // Issuance is successful
             assert_ok!(Asset::create_token(
                 Origin::signed(owner_acc.clone()),
@@ -1627,9 +1624,6 @@ mod tests {
             Balances::make_free_balance_be(&bob_acc, 1_000_000);
             Identity::register_did(Origin::signed(bob_acc.clone()), bob_did, vec![])
                 .expect("Could not create bob_did");
-
-            Identity::fund_poly(Origin::signed(owner_acc.clone()), owner_did, 500_000)
-                .expect("Could not add funds to DID");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
