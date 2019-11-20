@@ -84,10 +84,11 @@ decl_module! {
             // ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
 
-            <identity::DidRecords<T>>::mutate( did, |record| -> Result {
-                record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
-                Ok(())
-            })?;
+            // TODO Charge proper fee
+            // <identity::DidRecords>::mutate( did, |record| -> Result {
+            //     record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
+            //     Ok(())
+            // })?;
 
             let new_token = SimpleTokenRecord {
                 ticker: ticker.clone(),

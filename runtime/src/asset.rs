@@ -223,7 +223,7 @@ decl_module! {
             // }
             // let remainder_fee = fee - (proportional_fee * validator_len);
             // let remainder_fee_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
-            // <identity::DidRecords<T>>::mutate(did, |record| -> Result {
+            // <identity::DidRecords>::mutate(did, |record| -> Result {
             //     record.balance = record.balance.checked_sub(&remainder_fee_balance).ok_or("Could not charge for token issuance")?;
             //     Ok(())
             // })?;
@@ -1299,7 +1299,7 @@ impl<T: Trait> Module<T> {
         );
         // Ensure the valid DID
         ensure!(
-            <identity::DidRecords<T>>::exists(custodian_did),
+            <identity::DidRecords>::exists(custodian_did),
             "Invalid custodian DID"
         );
 

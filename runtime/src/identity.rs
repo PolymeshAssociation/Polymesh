@@ -448,7 +448,6 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Trait>::AccountId,
-        Balance = <T as balances::Trait>::Balance,
         Moment = <T as timestamp::Trait>::Moment,
     {
         /// DID, master key account ID, signing keys
