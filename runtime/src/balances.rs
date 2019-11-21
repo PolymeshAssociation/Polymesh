@@ -1457,20 +1457,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::prelude::*;
     use sr_io::{self, with_externalities};
     use sr_primitives::{
-        testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, Convert, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        testing::Header,
+        traits::{Convert, IdentityLookup},
         weights::{DispatchInfo, Weight},
-        AnySignature, Perbill,
+        Perbill,
     };
     use srml_support::traits::Currency;
-    use srml_support::{assert_ok, impl_outer_origin, parameter_types, traits::Get};
+    use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types, traits::Get};
     use std::cell::RefCell;
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
-    use test_client::{self, AccountKeyring};
 
     //use runtime_io;
 
@@ -1535,6 +1533,7 @@ mod tests {
     // Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
     #[derive(Clone, PartialEq, Eq, Debug)]
     pub struct Runtime;
+    type AccountId = u64;
     parameter_types! {
         pub const BlockHashCount: u64 = 250;
         pub const MaximumBlockWeight: u32 = 1024;
@@ -1625,19 +1624,11 @@ mod tests {
             self.transfer_fee = transfer_fee;
             self
         }
-        pub fn creation_fee(mut self, creation_fee: u64) -> Self {
-            self.creation_fee = creation_fee;
-            self
-        }
         pub fn monied(mut self, monied: bool) -> Self {
             self.monied = monied;
             if self.existential_deposit == 0 {
                 self.existential_deposit = 1;
             }
-            self
-        }
-        pub fn vesting(mut self, vesting: bool) -> Self {
-            self.vesting = vesting;
             self
         }
         pub fn set_associated_consts(&self) {
@@ -1681,8 +1672,8 @@ mod tests {
         }
     }
 
-    pub type System = system::Module<Runtime>;
     pub type Balances = Module<Runtime>;
+    pub type Identity = identity::Module<Runtime>;
 
     pub const CALL: &<Runtime as system::Trait>::Call = &();
 
@@ -1692,6 +1683,17 @@ mod tests {
             weight: w,
             ..Default::default()
         }
+    }
+
+    fn make_account(
+        id: u64,
+        account_id: AccountId,
+    ) -> Result<(<Runtime as system::Trait>::Origin, IdentityId), &'static str> {
+        let signed_id = Origin::signed(account_id);
+        let did = IdentityId::from(id as u128);
+
+        Identity::register_did(signed_id.clone(), did, vec![])?;
+        Ok((signed_id, did))
     }
 
     #[test]
@@ -1729,6 +1731,55 @@ mod tests {
                 assert!(TakeFees::<Runtime>::from(5 /* 5 tip */)
                     .pre_dispatch(&1, CALL, info_from_weight(3), len)
                     .is_err());
+            },
+        );
+    }
+
+    #[test]
+    fn should_charge_identity() {
+        with_externalities(
+            &mut ExtBuilder::default()
+                .existential_deposit(10)
+                .transaction_fees(10, 1, 5)
+                .monied(true)
+                .build(),
+            || {
+                let (signed_acc_id, acc_did) = make_account(4, 4).unwrap();
+                let len = 10;
+                assert!(TakeFees::<Runtime>::from(0 /* 0 tip */)
+                    .pre_dispatch(&4, CALL, info_from_weight(3), len)
+                    .is_ok());
+                assert_ok!(Balances::change_charge_did_flag(
+                    signed_acc_id.clone(),
+                    true
+                ));
+                assert!(
+                    TakeFees::<Runtime>::from(0 /* 0 tip */)
+                        .pre_dispatch(&4, CALL, info_from_weight(3), len)
+                        .is_err() // no balance in identity
+                );
+                assert_eq!(Balances::free_balance(&4), 365);
+                assert_ok!(Balances::top_up_identity_balance(
+                    signed_acc_id.clone(),
+                    acc_did,
+                    300
+                ));
+                assert_eq!(Balances::free_balance(&4), 65);
+                assert_eq!(Balances::identity_balance(acc_did), 300);
+                assert!(TakeFees::<Runtime>::from(0 /* 0 tip */)
+                    .pre_dispatch(&4, CALL, info_from_weight(3), len)
+                    .is_ok());
+                assert_ok!(Balances::reclaim_identity_balance(
+                    signed_acc_id.clone(),
+                    acc_did,
+                    230
+                ));
+                assert_err!(
+                    Balances::reclaim_identity_balance(signed_acc_id, acc_did, 230),
+                    "too few free funds in account"
+                );
+                assert_eq!(Balances::free_balance(&4), 295);
+                assert_eq!(Balances::identity_balance(acc_did), 35);
             },
         );
     }
