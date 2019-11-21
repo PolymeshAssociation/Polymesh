@@ -225,7 +225,11 @@ fn testnet_genesis(
         }),
         membership_Instance1: Some(Default::default()),
         collective_Instance1: Some(GovernanceCommitteeConfig {
-            members: vec![],
+            members: vec![
+                get_from_seed::<AccountId>("Alice"),
+                get_from_seed::<AccountId>("Bob"),
+                get_from_seed::<AccountId>("Charlie"),
+            ],
             phantom: Default::default(),
         }),
         im_online: Some(Default::default()),
