@@ -46,7 +46,6 @@ use crate::balances;
 use primitives::{DidRecord, IdentityId, Key, KeyRole, KeyType, SigningKey};
 
 use codec::Encode;
-use sr_primitives::traits::{CheckedAdd, CheckedSub};
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,

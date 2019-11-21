@@ -181,7 +181,7 @@ use srml_support::traits::{
     OnFreeBalanceZero, OnUnbalanced, ReservableCurrency, SignedImbalance, UpdateBalanceOutcome,
     WithdrawReason, WithdrawReasons,
 };
-use srml_support::{decl_event, decl_module, decl_storage, Parameter, StorageValue};
+use srml_support::{decl_event, decl_module, decl_storage, ensure, Parameter, StorageValue};
 use system::{ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 
 use crate::identity::IdentityTrait;
@@ -517,34 +517,21 @@ decl_module! {
             #[compact] value: T::Balance
         ) {
             let transactor = ensure_signed(origin)?;
-            let encoded_transactor = match Key::try_from(transactor.encode()) {
-                Ok(key) => key,
-                Err(err) => return Err(err),
-            };
-            if !<T::Identity>::is_master_key(did, &encoded_transactor) {
-                return Err("Not authorized");
-            } else {
-                match Self::withdraw_identity_balance(
-                    &did,
-                    value,
-                ) {
-                    Ok(_) => {
-                        let _imbalance = <Self as Currency<_>>::deposit_creating(&transactor, value);
-                        return Ok(())
-                    },
-                    Err(err) => return Err(err),
-                };
-            }
+            let encoded_transactor = Key::try_from(transactor.encode())?;
+            ensure!(<T::Identity>::is_master_key(did, &encoded_transactor), "Not authorized");
+            // Not managing imbalances because they will cancel out.
+            // withdraw function will create negative imbalance and
+            // deposit function will create positive imbalance
+            let _ = Self::withdraw_identity_balance(&did, value)?;
+            let _ = <Self as Currency<_>>::deposit_creating(&transactor, value);
+            return Ok(())
         }
 
         /// Change setting that governs if user pays fee via their own balance or identity's balance.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn change_charge_did_flag(origin, charge_did: bool) {
             let transactor = ensure_signed(origin)?;
-            let encoded_transactor = match Key::try_from(transactor.encode()) {
-                Ok(key) => key,
-                Err(err) => return Err(err),
-            };
+            let encoded_transactor = Key::try_from(transactor.encode())?;
             <ChargeDid>::insert(encoded_transactor, charge_did);
         }
 
@@ -1413,28 +1400,21 @@ impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
         }
         // pay any fees.
         let fee = Self::compute_fee(len, info);
-
-        let encoded_transactor = match Key::try_from(who.encode()) {
-            Ok(key) => key,
-            Err(_) => return InvalidTransaction::BadProof.into(),
-        };
+        let encoded_transactor =
+            Key::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
         let imbalance;
         if let Some(did) = <Module<T, I>>::charge_fee_to_identity(&encoded_transactor) {
             sr_primitives::print("Charging fee to identity");
-            imbalance = match <Module<T, I>>::withdraw_identity_balance(&did, fee) {
-                Ok(imbalance) => imbalance,
-                Err(_) => return InvalidTransaction::Payment.into(),
-            };
+            imbalance = <Module<T, I>>::withdraw_identity_balance(&did, fee)
+                .map_err(|_| InvalidTransaction::Payment)?;
         } else {
-            imbalance = match <Module<T, I>>::withdraw(
+            imbalance = <Module<T, I>>::withdraw(
                 who,
                 fee,
                 WithdrawReason::TransactionPayment,
                 ExistenceRequirement::KeepAlive,
-            ) {
-                Ok(imbalance) => imbalance,
-                Err(_) => return InvalidTransaction::Payment.into(),
-            };
+            )
+            .map_err(|_| InvalidTransaction::Payment)?;
         }
         T::TransactionPayment::on_unbalanced(imbalance);
         let mut r = ValidTransaction::default();
