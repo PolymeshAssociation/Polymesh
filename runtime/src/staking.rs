@@ -625,7 +625,7 @@ decl_storage! {
 
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
-            linked_map T::AccountId => PermissionedValidator;
+            linked_map T::AccountId => Option<PermissionedValidator>;
     }
     add_extra_genesis {
         config(stakers):
@@ -878,7 +878,7 @@ decl_module! {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or("not a controller")?;
             let stash = &ledger.stash;
-            ensure!(Self::is_validator_compliant(&controller), "controller has not passed compliance");
+            ensure!(Self::is_eligible_to_validate(&controller), "controller has not passed compliance");
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
         }
@@ -1031,7 +1031,11 @@ decl_module! {
             ensure!(<PermissionedValidators<T>>::exists(&controller),
             "acount doesn't exist in permissioned_validators");
 
-            <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Pending );
+            <PermissionedValidators<T>>::mutate(&controller, |entry| {
+                if let Some(validator) = entry {
+                    validator.compliance = Compliance::Pending
+                }
+            });
             Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(controller));
         }
 
@@ -1046,7 +1050,11 @@ decl_module! {
             ensure!(<PermissionedValidators<T>>::exists(&controller),
             "acount doesn't exist in permissioned_validators");
 
-            <PermissionedValidators<T>>::mutate(&controller, |entry| entry.compliance = Compliance::Active );
+            <PermissionedValidators<T>>::mutate(&controller, |entry| {
+                if let Some(validator) = entry {
+                    validator.compliance = Compliance::Active
+                }
+            });
             Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(controller));
         }
 
@@ -1344,7 +1352,7 @@ impl<T: Trait> Module<T> {
             Self::minimum_validator_count().max(1) as usize,
             <Validators<T>>::enumerate()
                 .map(|(who, _)| who)
-                .filter(|v| Self::is_validator_compliant(v))
+                .filter(|v| Self::is_eligible_to_validate(v))
                 .collect::<Vec<T::AccountId>>(),
             <Nominators<T>>::enumerate().collect(),
             Self::slashable_balance_of,
@@ -1530,8 +1538,11 @@ impl<T: Trait> Module<T> {
 
     /// Does the given account id have compliance status `Active`
     fn is_eligible_to_validate(account_id: &T::AccountId) -> bool {
-        let validator = Self::permissioned_validators(account_id);
-        validator.compliance == Compliance::Active
+        if let Some(validator) = Self::permissioned_validators(account_id) {
+            validator.compliance == Compliance::Active
+        } else {
+            false
+        }
     }
 
     /// Non-deterministic method that checks KYC status of each validator and persists
@@ -1541,27 +1552,22 @@ impl<T: Trait> Module<T> {
             .map(|(who, _)| who)
             .collect::<Vec<T::AccountId>>();
 
-        for account in accounts {
-            let mut validator = <PermissionedValidators<T>>::get(account.clone());
-            if validator.compliance == Compliance::Active && !Self::is_validator_compliant(&account)
-            {
-                validator.compliance = Compliance::Pending;
-                <PermissionedValidators<T>>::remove(&account);
-                <PermissionedValidators<T>>::insert(account.clone(), validator.clone());
-            } else if validator.compliance == Compliance::Pending
-                && Self::is_validator_compliant(&account)
-            {
-                validator.compliance = Compliance::Active;
-                <PermissionedValidators<T>>::remove(&account);
-                <PermissionedValidators<T>>::insert(account.clone(), validator.clone());
-            }
-        }
-    }
-
-    /// Is the stash account one of the permissioned validators?
-    pub fn is_validator_compliant(_stash: &T::AccountId) -> bool {
-        //TODO: Get DID associated with stash and check they have a KYB attestation etc.
-        true
+        //        for account in accounts {
+        //            let mut validator = <PermissionedValidators<T>>::get(account.clone());
+        //            if validator.compliance == Compliance::Active
+        //                && !Self::is_eligible_to_validate(&account)
+        //            {
+        //                validator.compliance = Compliance::Pending;
+        //                <PermissionedValidators<T>>::remove(&account);
+        //                <PermissionedValidators<T>>::insert(account.clone(), validator.clone());
+        //            } else if validator.compliance == Compliance::Pending
+        //                && Self::is_eligible_to_validate(&account)
+        //            {
+        //                validator.compliance = Compliance::Active;
+        //                <PermissionedValidators<T>>::remove(&account);
+        //                <PermissionedValidators<T>>::insert(account.clone(), validator.clone());
+        //            }
+        //        }
     }
 }
 
@@ -2222,6 +2228,37 @@ mod tests {
 
                 assert_eq!(Staking::is_eligible_to_validate(&10), true);
                 assert_eq!(Staking::is_eligible_to_validate(&20), false);
+            },
+        );
+    }
+
+    #[test]
+    fn should_remove_validators() {
+        with_externalities(
+            &mut ExtBuilder::default()
+                .minimum_validator_count(2)
+                .validator_count(2)
+                .num_validators(2)
+                .validator_pool(true)
+                .nominate(false)
+                .build(),
+            || {
+                assert_ok!(Staking::add_potential_validator(Origin::signed(1), 10));
+                assert_ok!(Staking::add_potential_validator(Origin::signed(1), 20));
+
+                assert_ok!(Staking::compliance_failed(Origin::signed(3), 20));
+
+                assert_ok!(Staking::remove_validator(Origin::signed(2), 20));
+
+                assert_eq!(
+                    Staking::permissioned_validators(&10),
+                    Some(PermissionedValidator {
+                        compliance: Compliance::Active
+                    })
+                );
+                assert_eq!(Staking::permissioned_validators(&20), None);
+
+                assert_eq!(Staking::permissioned_validators(&30), None);
             },
         );
     }
