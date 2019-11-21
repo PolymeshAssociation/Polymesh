@@ -14,7 +14,7 @@ use polymesh_runtime::{
 };
 use primitives::{Pair, Public};
 use serde_json::json;
-use substrate_service::{self, Properties};
+use substrate_service::Properties;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
