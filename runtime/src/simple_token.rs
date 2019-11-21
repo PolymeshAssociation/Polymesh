@@ -37,6 +37,7 @@ use primitives::{IdentityId, Key};
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
 
+use crate::constants::currency::MAX_SUPPLY;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
@@ -83,6 +84,8 @@ decl_module! {
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
             // ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
+
+            ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
 
             <identity::DidRecords<T>>::mutate( did, |record| -> Result {
                 record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;

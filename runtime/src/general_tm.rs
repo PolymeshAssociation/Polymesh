@@ -492,8 +492,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did.clone(),
                 total_supply: 1_000_000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
@@ -585,8 +584,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did.clone(),
                 total_supply: 1_000_000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
@@ -685,8 +683,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);

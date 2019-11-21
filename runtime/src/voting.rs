@@ -515,8 +515,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             // Share issuance is successful
@@ -693,8 +692,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             // Share issuance is successful
@@ -811,8 +809,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did,
                 total_supply: 1000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             // Share issuance is successful
