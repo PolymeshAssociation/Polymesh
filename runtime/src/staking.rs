@@ -878,7 +878,7 @@ decl_module! {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or("not a controller")?;
             let stash = &ledger.stash;
-            ensure!(Self::is_eligible_to_validate(&controller), "controller has not passed compliance");
+            ensure!(Self::is_controller_eligible(&controller), "controller has not passed compliance");
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
         }
@@ -1249,8 +1249,6 @@ impl<T: Trait> Module<T> {
             _ => return None,
         }
 
-        Self::refresh_compliance_statuses();
-
         let validators = T::SessionInterface::validators();
         let prior = validators
             .into_iter()
@@ -1352,7 +1350,7 @@ impl<T: Trait> Module<T> {
             Self::minimum_validator_count().max(1) as usize,
             <Validators<T>>::enumerate()
                 .map(|(who, _)| who)
-                .filter(|v| Self::is_eligible_to_validate(v))
+                .filter(|stash| Self::is_stash_eligible(stash))
                 .collect::<Vec<T::AccountId>>(),
             <Nominators<T>>::enumerate().collect(),
             Self::slashable_balance_of,
@@ -1537,7 +1535,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Does the given account id have compliance status `Active`
-    fn is_eligible_to_validate(account_id: &T::AccountId) -> bool {
+    fn is_controller_eligible(account_id: &T::AccountId) -> bool {
         if let Some(validator) = Self::permissioned_validators(account_id) {
             validator.compliance == Compliance::Active
         } else {
@@ -1545,29 +1543,13 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Non-deterministic method that checks KYC status of each validator and persists
-    /// any changes to compliance status.
-    fn refresh_compliance_statuses() {
-        let accounts = <PermissionedValidators<T>>::enumerate()
-            .map(|(who, _)| who)
-            .collect::<Vec<T::AccountId>>();
-
-        //        for account in accounts {
-        //            let mut validator = <PermissionedValidators<T>>::get(account.clone());
-        //            if validator.compliance == Compliance::Active
-        //                && !Self::is_eligible_to_validate(&account)
-        //            {
-        //                validator.compliance = Compliance::Pending;
-        //                <PermissionedValidators<T>>::remove(&account);
-        //                <PermissionedValidators<T>>::insert(account.clone(), validator.clone());
-        //            } else if validator.compliance == Compliance::Pending
-        //                && Self::is_eligible_to_validate(&account)
-        //            {
-        //                validator.compliance = Compliance::Active;
-        //                <PermissionedValidators<T>>::remove(&account);
-        //                <PermissionedValidators<T>>::insert(account.clone(), validator.clone());
-        //            }
-        //        }
+    /// Checks KYC compliance status of a controller associated with the stash
+    fn is_stash_eligible(stash: &T::AccountId) -> bool {
+        if let Some(controller) = <Bonded<T>>::take(stash) {
+            Self::is_controller_eligible(&controller)
+        } else {
+            false
+        }
     }
 }
 
@@ -2226,8 +2208,8 @@ mod tests {
 
                 assert_ok!(Staking::compliance_failed(Origin::signed(3), 20));
 
-                assert_eq!(Staking::is_eligible_to_validate(&10), true);
-                assert_eq!(Staking::is_eligible_to_validate(&20), false);
+                assert_eq!(Staking::is_controller_eligible(&10), true);
+                assert_eq!(Staking::is_controller_eligible(&20), false);
             },
         );
     }
