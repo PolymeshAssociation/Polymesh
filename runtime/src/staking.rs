@@ -1,3 +1,24 @@
+// Copyright 2017-2019 Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+// Modified by Polymath Inc - 18th November 2019
+// Added ability to permission validators based on governance and identity credentials
+// In Polymesh, validators must join the network through a governance process and have
+// required credentials (claims on their identities)
+
 //! # Staking Module
 //!
 //! The Staking module is used to manage funds at stake by network maintainers.
@@ -982,9 +1003,9 @@ decl_module! {
             ValidatorCount::put(new);
         }
 
-        /// Add a potential new validator to the pool of validators.
-        /// Staking module checks `PermissionedValidators` to ensure validators have
-        /// completed KYB compliance
+        /// Governance committee on 2/3 rds majority can introduce a new potential validator
+        /// to the pool of validators. Staking module uses `PermissionedValidators` to ensure
+        /// validators have completed KYB compliance and considers them for validation.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn add_potential_validator(origin, controller: T::AccountId) {
             T::AddOrigin::try_origin(origin)
@@ -1020,7 +1041,8 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
         }
 
-        /// Update status of compliance as `Pending`
+        /// Governance committee on 2/3 rds majority can update the compliance status of a validator
+        /// as `Pending`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_failed(origin, controller: T::AccountId) {
             T::ComplianceOrigin::try_origin(origin)
@@ -1039,7 +1061,8 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(controller));
         }
 
-        /// Update status of compliance as `Active`
+        /// Governance committee on 2/3 rds majority can update the compliance status of a validator
+        /// as `Active`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_passed(origin, controller: T::AccountId) {
             T::ComplianceOrigin::try_origin(origin)
