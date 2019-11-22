@@ -1,11 +1,13 @@
 /// Money matters.
 pub mod currency {
     use primitives::Balance;
-
+    // TODO: Define proper units. These are placeholders.
     pub const POLY: Balance = 1_000_000_000_000;
     pub const DOLLARS: Balance = POLY / 100;
     pub const CENTS: Balance = DOLLARS / 100;
     pub const MILLICENTS: Balance = CENTS / 1_000;
+    pub const ONE_UNIT: Balance = 1_000_000;
+    pub const MAX_SUPPLY: Balance = ONE_UNIT * 1_000_000_000_000;
 }
 
 /// Time and blocks.
