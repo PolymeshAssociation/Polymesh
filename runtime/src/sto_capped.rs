@@ -48,7 +48,7 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type SimpleTokenTrait: simple_token::SimpleTokenTrait<Self::TokenBalance>;
+    type SimpleTokenTrait: simple_token::SimpleTokenTrait<Self::Balance>;
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
@@ -56,7 +56,7 @@ pub struct STO<V, W> {
     beneficiary_did: IdentityId,
     cap: V,
     sold: V,
-    rate: u64,
+    rate: u128,
     start_date: W,
     end_date: W,
     active: bool,
@@ -74,7 +74,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as STOCapped {
         /// Tokens can have multiple whitelists that (for now) check entries individually within each other
         /// (ticker, sto_id) -> STO
-        StosByToken get(stos_by_token): map (Vec<u8>, u32) => STO<T::TokenBalance,T::Moment>;
+        StosByToken get(stos_by_token): map (Vec<u8>, u32) => STO<T::Balance,T::Moment>;
         /// It returns the sto count corresponds to its ticker
         /// ticker -> sto count
         StoCount get(sto_count): map (Vec<u8>) => u32;
@@ -89,10 +89,10 @@ decl_storage! {
         TokensCountForSto get(tokens_count_for_sto): map(Vec<u8>, u32) => u32;
         /// To track the investment data of the investor corresponds to ticker
         /// (asset_ticker, sto_id, DID) -> Investment structure
-        InvestmentData get(investment_data): map(Vec<u8>, u32, IdentityId) => Investment<T::TokenBalance, T::Moment>;
+        InvestmentData get(investment_data): map(Vec<u8>, u32, IdentityId) => Investment<T::Balance, T::Moment>;
         /// To track the investment amount of the investor corresponds to ticker using SimpleToken
         /// (asset_ticker, simple_token_ticker, sto_id, accountId) -> Invested balance
-        SimpleTokenSpent get(simple_token_token_spent): map(Vec<u8>, Vec<u8>, u32, IdentityId) => T::TokenBalance;
+        SimpleTokenSpent get(simple_token_token_spent): map(Vec<u8>, Vec<u8>, u32, IdentityId) => T::Balance;
     }
 }
 
@@ -120,8 +120,8 @@ decl_module! {
             did: IdentityId,
             _ticker: Vec<u8>,
             beneficiary_did: IdentityId,
-            cap: T::TokenBalance,
-            rate: u64,
+            cap: T::Balance,
+            rate: u128,
             start_date: T::Moment,
             end_date: T::Moment,
             simple_token_ticker: Vec<u8>
@@ -132,7 +132,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let sold:T::TokenBalance = 0.into();
+            let sold:T::Balance = 0.into();
             ensure!(Self::is_owner(&ticker, did),"Sender must be the token owner");
 
             let sto = STO {
@@ -193,10 +193,10 @@ decl_module! {
 
             // Get the invested amount of investment currency and amount of ST tokens minted as a return of investment
             let token_amount_value = Self::_get_invested_amount_and_tokens(
-                <T as utils::Trait>::balance_to_token_balance(value),
+                value,
                 selected_sto.clone()
             )?;
-            let _allowed_value = <T as utils::Trait>::token_balance_to_balance(token_amount_value.1);
+            let _allowed_value = token_amount_value.1;
 
             selected_sto.sold = selected_sto.sold
                 .checked_add(&token_amount_value.0)
@@ -221,7 +221,7 @@ decl_module! {
                 token_amount_value.1,
                 token_amount_value.0,
                 vec![0],
-                <T as utils::Trait>::as_tb(0_u128),
+                0.into(),
                 selected_sto.clone()
             )?;
 
@@ -291,7 +291,7 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
         /// * `simple_token_ticker` Ticker of the simple token
-        pub fn buy_tokens_by_simple_token(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32, value: T::TokenBalance, simple_token_ticker: Vec<u8>) -> Result {
+        pub fn buy_tokens_by_simple_token(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32, value: T::Balance, simple_token_ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -402,7 +402,7 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        Balance = <T as utils::Trait>::TokenBalance,
+        Balance = <T as balances::Trait>::Balance,
     {
         ModifyAllowedTokens(Vec<u8>, Vec<u8>, u32, bool),
         /// Emit when Asset get purchased by the investor
@@ -420,7 +420,7 @@ impl<T: Trait> Module<T> {
     fn _pre_validation(
         _ticker: &Vec<u8>,
         _did: IdentityId,
-        selected_sto: STO<T::TokenBalance, T::Moment>,
+        selected_sto: STO<T::Balance, T::Moment>,
     ) -> Result {
         // TODO: Validate that buyer is whitelisted for primary issuance.
         // Check whether the sto is unpaused or not
@@ -435,12 +435,12 @@ impl<T: Trait> Module<T> {
     }
 
     fn _get_invested_amount_and_tokens(
-        invested_amount: T::TokenBalance,
-        selected_sto: STO<T::TokenBalance, T::Moment>,
-    ) -> core::result::Result<(T::TokenBalance, T::TokenBalance), &'static str> {
+        invested_amount: T::Balance,
+        selected_sto: STO<T::Balance, T::Moment>,
+    ) -> core::result::Result<(T::Balance, T::Balance), &'static str> {
         // Calculate tokens to mint
         let mut token_conversion = invested_amount
-            .checked_mul(&<T as utils::Trait>::as_tb(selected_sto.rate.into()))
+            .checked_mul(&selected_sto.rate.into())
             .ok_or("overflow in calculating tokens")?;
         let allowed_token_sold = selected_sto
             .cap
@@ -452,7 +452,7 @@ impl<T: Trait> Module<T> {
         if token_conversion > allowed_token_sold {
             token_conversion = allowed_token_sold;
             allowed_value = token_conversion
-                .checked_div(&<T as utils::Trait>::as_tb(selected_sto.rate.into()))
+                .checked_div(&selected_sto.rate.into())
                 .ok_or("incorrect division")?;
         }
         Ok((token_conversion, allowed_value))
@@ -462,11 +462,11 @@ impl<T: Trait> Module<T> {
         ticker: Vec<u8>,
         sto_id: u32,
         did: IdentityId,
-        investment_amount: T::TokenBalance,
-        new_tokens_minted: T::TokenBalance,
+        investment_amount: T::Balance,
+        new_tokens_minted: T::Balance,
         simple_token_ticker: Vec<u8>,
-        simple_token_investment: T::TokenBalance,
-        selected_sto: STO<T::TokenBalance, T::Moment>,
+        simple_token_investment: T::Balance,
+        selected_sto: STO<T::Balance, T::Moment>,
     ) -> Result {
         // Store Investment DATA
         let mut investor_holder = Self::investment_data((ticker.clone(), sto_id, did));

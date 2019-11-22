@@ -75,7 +75,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as dividend {
         /// Dividend records; (ticker, dividend ID) => dividend entry
         /// Note: contrary to checkpoint IDs, dividend IDs are 0-indexed.
-        Dividends get(dividends): map (Vec<u8>, u32) => Dividend<T::TokenBalance, T::Moment>;
+        Dividends get(dividends): map (Vec<u8>, u32) => Dividend<T::Balance, T::Moment>;
 
         /// How many dividends were created for a ticker so far; (ticker) => count
         DividendCount get(dividend_count): map (Vec<u8>) => u32;
@@ -96,7 +96,7 @@ decl_module! {
         /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
         pub fn new(origin,
             did: IdentityId,
-            amount: T::TokenBalance,
+            amount: T::Balance,
             ticker: Vec<u8>,
             matures_at: T::Moment,
             expires_at: T::Moment,
@@ -198,7 +198,7 @@ decl_module! {
             ensure!(starts_in_future, "Cancellable dividend must mature in the future");
 
             // Pay amount back to owner
-            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::TokenBalance| -> Result {
+            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> Result {
                 *balance  = balance
                     .checked_add(&entry.amount)
                     .ok_or("Could not add amount back to asset owner account")?;
@@ -302,7 +302,7 @@ decl_module! {
             }
 
             // Transfer the computed amount
-            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::TokenBalance| -> Result {
+            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> Result {
                 let new_balance = balance.checked_add(&entry.amount_left).ok_or("Could not add amount back to asset owner DID")?;
                 *balance  = new_balance;
                 Ok(())
@@ -325,19 +325,19 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        TokenBalance = <T as utils::Trait>::TokenBalance,
+        Balance = <T as balances::Trait>::Balance,
     {
         /// A new dividend was created (ticker, amount, dividend ID)
-        DividendCreated(Vec<u8>, TokenBalance, u32),
+        DividendCreated(Vec<u8>, Balance, u32),
 
         /// A dividend was canceled (ticker, dividend ID)
         DividendCanceled(Vec<u8>, u32),
 
         /// Dividend was paid to a user (who, ticker, dividend ID, share)
-        DividendPaidOutToUser(IdentityId, Vec<u8>, u32, TokenBalance),
+        DividendPaidOutToUser(IdentityId, Vec<u8>, u32, Balance),
 
         /// Unclaimed dividend was claimed back (ticker, dividend ID, amount)
-        DividendRemainingClaimed(Vec<u8>, u32, TokenBalance),
+        DividendRemainingClaimed(Vec<u8>, u32, Balance),
     }
 );
 
@@ -346,7 +346,7 @@ impl<T: Trait> Module<T> {
     /// #[inline]
     fn add_dividend_entry(
         ticker: &Vec<u8>,
-        d: Dividend<T::TokenBalance, T::Moment>,
+        d: Dividend<T::Balance, T::Moment>,
     ) -> core::result::Result<u32, &'static str> {
         let old_count = <DividendCount>::get(ticker);
         let new_count = old_count
@@ -363,7 +363,7 @@ impl<T: Trait> Module<T> {
     pub fn get_dividend(
         ticker: &[u8],
         dividend_id: u32,
-    ) -> Option<Dividend<T::TokenBalance, T::Moment>> {
+    ) -> Option<Dividend<T::Balance, T::Moment>> {
         // Check that the dividend entry exists
         let ticker_div_id = (ticker.to_vec(), dividend_id);
         if <Dividends<T>>::exists(&ticker_div_id) {
@@ -550,20 +550,7 @@ mod tests {
     }
 
     impl utils::Trait for Test {
-        type TokenBalance = u128;
         type OffChainSignature = OffChainSignature;
-        fn as_u128(v: Self::TokenBalance) -> u128 {
-            v
-        }
-        fn as_tb(v: u128) -> Self::TokenBalance {
-            v
-        }
-        fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
-            v
-        }
-        fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
-            v
-        }
         fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
             v
         }
@@ -574,7 +561,7 @@ mod tests {
     impl Trait for Test {
         type Event = ();
     }
-    impl asset::AssetTrait<<Test as utils::Trait>::TokenBalance> for Module<Test> {
+    impl asset::AssetTrait<<Test as balances::Trait>::Balance> for Module<Test> {
         fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(ticker) {
                 token.owner_did == sender_did
@@ -586,18 +573,18 @@ mod tests {
         fn _mint_from_sto(
             _ticker: &[u8],
             _sender_did: IdentityId,
-            _tokens_purchased: <Test as utils::Trait>::TokenBalance,
+            _tokens_purchased: <Test as balances::Trait>::Balance,
         ) -> Result {
             unimplemented!();
         }
 
         /// Get the asset `id` balance of `who`.
-        fn balance(_ticker: &[u8], _did: IdentityId) -> <Test as utils::Trait>::TokenBalance {
+        fn balance(_ticker: &[u8], _did: IdentityId) -> <Test as balances::Trait>::Balance {
             unimplemented!();
         }
 
         // Get the total supply of an asset `id`
-        fn total_supply(_ticker: &[u8]) -> <Test as utils::Trait>::TokenBalance {
+        fn total_supply(_ticker: &[u8]) -> <Test as balances::Trait>::Balance {
             unimplemented!();
         }
 
@@ -605,7 +592,7 @@ mod tests {
             _ticker: &Vec<u8>,
             _did: IdentityId,
             _at: u64,
-        ) -> <Test as utils::Trait>::TokenBalance {
+        ) -> <Test as balances::Trait>::Balance {
             unimplemented!();
         }
     }
@@ -616,7 +603,7 @@ mod tests {
             HashMap<
             Vec<u8>,
             SecurityToken<
-                <Test as utils::Trait>::TokenBalance,
+                <Test as balances::Trait>::Balance,
                 >,
                 >,
                 >,
@@ -660,8 +647,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             // A token used for payout
