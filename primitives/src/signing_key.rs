@@ -20,6 +20,7 @@ pub enum KeyRole {
     Full,
     Admin,
     Operator,
+    FundSpender,
     Custom(u8),
 }
 

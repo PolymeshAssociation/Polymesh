@@ -533,6 +533,29 @@ impl<T: Trait> Module<T> {
         return false;
     }
 
+    fn is_authorized_with_roles(did: IdentityId, key: &Key, roles: Vec<KeyRole>) -> bool {
+        let record = <DidRecords>::get(did);
+        if record.master_key == *key {
+            // Master key is assumed to have all roles
+            return true;
+        }
+
+        if !Self::is_did_frozen(did) {
+            if let Some(signing_key_data) = record.signing_keys.iter().find(|&rk| rk == key) {
+                for role in roles {
+                    if !signing_key_data.roles.contains(&role) {
+                        // Role missing
+                        return false;
+                    }
+                }
+                // All roles present
+                return true;
+            }
+        }
+        //Either did frozen or given key is not a signing key of the did
+        return false;
+    }
+
     /// Use `did` as reference.
     pub fn is_master_key(did: IdentityId, key: &Key) -> bool {
         key == &<DidRecords>::get(did).master_key
@@ -669,6 +692,7 @@ impl<T: Trait> Module<T> {
 pub trait IdentityTrait<T> {
     fn get_identity(signing_key: &Key) -> Option<IdentityId>;
     fn is_authorized_key(did: IdentityId, key: &Key) -> bool;
+    fn is_authorized_with_roles(did: IdentityId, key: &Key, roles: Vec<KeyRole>) -> bool;
     fn is_master_key(did: IdentityId, key: &Key) -> bool;
 }
 
@@ -685,8 +709,13 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
     fn is_authorized_key(did: IdentityId, key: &Key) -> bool {
         Self::is_authorized_key(did, &key)
     }
+
     fn is_master_key(did: IdentityId, key: &Key) -> bool {
         Self::is_master_key(did, &key)
+    }
+
+    fn is_authorized_with_roles(did: IdentityId, key: &Key, roles: Vec<KeyRole>) -> bool {
+        Self::is_authorized_with_roles(did, &key, roles)
     }
 }
 

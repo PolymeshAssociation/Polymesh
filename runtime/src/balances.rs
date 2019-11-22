@@ -186,7 +186,7 @@ use srml_support::{decl_event, decl_module, decl_storage, ensure, Parameter, Sto
 use system::{ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 
 use crate::identity::IdentityTrait;
-use primitives::{IdentityId, Key, TransactionError};
+use primitives::{IdentityId, Key, KeyRole, TransactionError};
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 
@@ -665,7 +665,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     fn charge_fee_to_identity(who: &Key) -> Option<IdentityId> {
         if <Module<T, I>>::charge_did(who) {
             if let Some(did) = <T::Identity>::get_identity(&who) {
-                if <T::Identity>::is_authorized_key(did, &who) {
+                if <T::Identity>::is_authorized_with_roles(did, &who, vec![KeyRole::FundSpender]) {
                     return Some(did);
                 }
             }

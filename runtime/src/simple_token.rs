@@ -86,10 +86,10 @@ decl_module! {
             ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
 
             // TODO Charge proper fee
-            <identity::DidRecords<T>>::mutate( did, |record| -> Result {
-                record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
-                Ok(())
-            })?;
+            // <identity::DidRecords<T>>::mutate( did, |record| -> Result {
+            //     record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
+            //     Ok(())
+            // })?;
 
             let new_token = SimpleTokenRecord {
                 ticker: ticker.clone(),
