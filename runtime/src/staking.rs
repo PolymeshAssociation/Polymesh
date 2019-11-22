@@ -1272,6 +1272,8 @@ impl<T: Trait> Module<T> {
             _ => return None,
         }
 
+        Self::refresh_compliance_statuses();
+
         let validators = T::SessionInterface::validators();
         let prior = validators
             .into_iter()
@@ -1573,6 +1575,32 @@ impl<T: Trait> Module<T> {
         } else {
             false
         }
+    }
+
+    /// Non-deterministic method that checks KYC status of each validator and persists
+    /// any changes to compliance status.
+    fn refresh_compliance_statuses() {
+        let accounts = <PermissionedValidators<T>>::enumerate()
+            .map(|(who, _)| who)
+            .collect::<Vec<T::AccountId>>();
+
+        for account in accounts {
+            <PermissionedValidators<T>>::mutate(account.clone(), |v| {
+                if let Some(validator) = v {
+                    validator.compliance = if Self::is_validator_compliant(&account) {
+                        Compliance::Active
+                    } else {
+                        Compliance::Pending
+                    };
+                }
+            });
+        }
+    }
+
+    /// Is the stash account one of the permissioned validators?
+    pub fn is_validator_compliant(_controller: &T::AccountId) -> bool {
+        //TODO: Get DID associated with controller and check they have a KYB attestation etc.
+        true
     }
 }
 
