@@ -1462,54 +1462,54 @@ mod tests {
     }
 
     thread_local! {
-        static EXISTENTIAL_DEPOSIT: RefCell<u64> = RefCell::new(0);
-        static TRANSFER_FEE: RefCell<u64> = RefCell::new(0);
-        static CREATION_FEE: RefCell<u64> = RefCell::new(0);
-        static TRANSACTION_BASE_FEE: RefCell<u64> = RefCell::new(0);
-        static TRANSACTION_BYTE_FEE: RefCell<u64> = RefCell::new(1);
-        static TRANSACTION_WEIGHT_FEE: RefCell<u64> = RefCell::new(1);
-        static WEIGHT_TO_FEE: RefCell<u64> = RefCell::new(1);
+        static EXISTENTIAL_DEPOSIT: RefCell<u128> = RefCell::new(0);
+        static TRANSFER_FEE: RefCell<u128> = RefCell::new(0);
+        static CREATION_FEE: RefCell<u128> = RefCell::new(0);
+        static TRANSACTION_BASE_FEE: RefCell<u128> = RefCell::new(0);
+        static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(1);
+        static TRANSACTION_WEIGHT_FEE: RefCell<u128> = RefCell::new(1);
+        static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
     }
 
     pub struct ExistentialDeposit;
-    impl Get<u64> for ExistentialDeposit {
-        fn get() -> u64 {
+    impl Get<u128> for ExistentialDeposit {
+        fn get() -> u128 {
             EXISTENTIAL_DEPOSIT.with(|v| *v.borrow())
         }
     }
 
     pub struct TransferFee;
-    impl Get<u64> for TransferFee {
-        fn get() -> u64 {
+    impl Get<u128> for TransferFee {
+        fn get() -> u128 {
             TRANSFER_FEE.with(|v| *v.borrow())
         }
     }
 
     pub struct CreationFee;
-    impl Get<u64> for CreationFee {
-        fn get() -> u64 {
+    impl Get<u128> for CreationFee {
+        fn get() -> u128 {
             CREATION_FEE.with(|v| *v.borrow())
         }
     }
 
     pub struct TransactionBaseFee;
-    impl Get<u64> for TransactionBaseFee {
-        fn get() -> u64 {
+    impl Get<u128> for TransactionBaseFee {
+        fn get() -> u128 {
             TRANSACTION_BASE_FEE.with(|v| *v.borrow())
         }
     }
 
     pub struct TransactionByteFee;
-    impl Get<u64> for TransactionByteFee {
-        fn get() -> u64 {
+    impl Get<u128> for TransactionByteFee {
+        fn get() -> u128 {
             TRANSACTION_BYTE_FEE.with(|v| *v.borrow())
         }
     }
 
-    pub struct WeightToFee(u64);
-    impl Convert<Weight, u64> for WeightToFee {
-        fn convert(t: Weight) -> u64 {
-            WEIGHT_TO_FEE.with(|v| *v.borrow() * (t as u64))
+    pub struct WeightToFee(u128);
+    impl Convert<Weight, u128> for WeightToFee {
+        fn convert(t: Weight) -> u128 {
+            WEIGHT_TO_FEE.with(|v| *v.borrow() * (t as u128))
         }
     }
 
@@ -1551,7 +1551,7 @@ mod tests {
         type MinimumPeriod = MinimumPeriod;
     }
     impl Trait for Runtime {
-        type Balance = u64;
+        type Balance = u128;
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
@@ -1568,12 +1568,12 @@ mod tests {
     }
 
     pub struct ExtBuilder {
-        transaction_base_fee: u64,
-        transaction_byte_fee: u64,
-        weight_to_fee: u64,
-        existential_deposit: u64,
-        transfer_fee: u64,
-        creation_fee: u64,
+        transaction_base_fee: u128,
+        transaction_byte_fee: u128,
+        weight_to_fee: u128,
+        existential_deposit: u128,
+        transfer_fee: u128,
+        creation_fee: u128,
         monied: bool,
         vesting: bool,
     }
@@ -1592,18 +1592,18 @@ mod tests {
         }
     }
     impl ExtBuilder {
-        pub fn transaction_fees(mut self, base_fee: u64, byte_fee: u64, weight_fee: u64) -> Self {
+        pub fn transaction_fees(mut self, base_fee: u128, byte_fee: u128, weight_fee: u128) -> Self {
             self.transaction_base_fee = base_fee;
             self.transaction_byte_fee = byte_fee;
             self.weight_to_fee = weight_fee;
             self
         }
-        pub fn existential_deposit(mut self, existential_deposit: u64) -> Self {
+        pub fn existential_deposit(mut self, existential_deposit: u128) -> Self {
             self.existential_deposit = existential_deposit;
             self
         }
         #[allow(dead_code)]
-        pub fn transfer_fee(mut self, transfer_fee: u64) -> Self {
+        pub fn transfer_fee(mut self, transfer_fee: u128) -> Self {
             self.transfer_fee = transfer_fee;
             self
         }
