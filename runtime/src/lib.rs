@@ -62,6 +62,7 @@ mod dividend;
 mod exemption;
 mod general_tm;
 mod identity;
+mod mips;
 mod percentage_tm;
 mod registry;
 mod simple_token;
