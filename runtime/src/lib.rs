@@ -32,7 +32,7 @@ use sr_primitives::{
         InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
     },
     weights::Weight,
-    AnySignature, ApplyResult, Perbill, Permill,
+    AnySignature, ApplyResult,
 };
 use sr_staking_primitives::SessionIndex;
 use srml_support::{
@@ -53,6 +53,8 @@ use version::RuntimeVersion;
 pub use balances::Call as BalancesCall;
 #[cfg(any(feature = "std", test))]
 pub use sr_primitives::BuildStorage;
+pub use sr_primitives::{Perbill, Permill};
+pub use srml_support::StorageValue;
 #[cfg(feature = "std")]
 pub use staking::StakerStatus;
 use system::offchain::TransactionSubmitter;
