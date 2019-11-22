@@ -1,6 +1,6 @@
 use crate::{
     asset::{self, AssetTrait},
-    identity, utils,
+    balances, identity, utils,
 };
 use primitives::{IdentityId, Key};
 
@@ -10,10 +10,10 @@ use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensu
 use system::ensure_signed;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + utils::Trait + identity::Trait {
+pub trait Trait: system::Trait + utils::Trait + balances::Trait + identity::Trait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::TokenBalance>;
+    type Asset: asset::AssetTrait<Self::Balance>;
 }
 
 // This module's storage items.

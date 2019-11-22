@@ -1898,7 +1898,7 @@ mod tests {
         type Trait = Test;
         type Error = DispatchError;
 
-        fn dispatch(self, origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
             Ok(())
         }
     }

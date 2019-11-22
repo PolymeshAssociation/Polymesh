@@ -37,6 +37,7 @@ use primitives::{IdentityId, Key};
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
 
+use crate::constants::currency::MAX_SUPPLY;
 use sr_primitives::traits::{CheckedAdd, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::ensure_signed;
@@ -58,13 +59,13 @@ pub struct SimpleTokenRecord<U> {
 decl_storage! {
     trait Store for Module<T: Trait> as SimpleToken {
         /// Mapping from (ticker, owner DID, spender DID) to allowance amount
-        Allowance get(allowance): map (Vec<u8>, IdentityId, IdentityId) => T::TokenBalance;
+        Allowance get(allowance): map (Vec<u8>, IdentityId, IdentityId) => T::Balance;
         /// Mapping from (ticker, owner DID) to their balance
-        pub BalanceOf get(balance_of): map (Vec<u8>, IdentityId) => T::TokenBalance;
+        pub BalanceOf get(balance_of): map (Vec<u8>, IdentityId) => T::Balance;
         /// The cost to create a new simple token
         CreationFee get(creation_fee) config(): T::Balance;
         /// The details associated with each simple token
-        Tokens get(tokens): map Vec<u8> => SimpleTokenRecord<T::TokenBalance>;
+        Tokens get(tokens): map Vec<u8> => SimpleTokenRecord<T::Balance>;
     }
 }
 
@@ -74,7 +75,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Create a new token and mint a balance to the issuing identity
-        pub fn create_token(origin, did: IdentityId, ticker: Vec<u8>, total_supply: T::TokenBalance) -> Result {
+        pub fn create_token(origin, did: IdentityId, ticker: Vec<u8>, total_supply: T::Balance) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -83,6 +84,8 @@ decl_module! {
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
             // ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
+
+            ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
 
             <identity::DidRecords<T>>::mutate( did, |record| -> Result {
                 record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
@@ -107,7 +110,7 @@ decl_module! {
         }
 
         /// Approve another identity to transfer tokens on behalf of the caller
-        fn approve(origin, did: IdentityId, ticker: Vec<u8>, spender_did: IdentityId, value: T::TokenBalance) -> Result {
+        fn approve(origin, did: IdentityId, ticker: Vec<u8>, spender_did: IdentityId, value: T::Balance) -> Result {
             let sender = ensure_signed(origin)?;
             let ticker_did = (ticker.clone(), did.clone());
             ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
@@ -126,7 +129,7 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity
-        pub fn transfer(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, amount: T::TokenBalance) -> Result {
+        pub fn transfer(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, amount: T::Balance) -> Result {
             let sender = ensure_signed(origin)?;
 
             // Check that sender is allowed to act on behalf of `did`
@@ -136,7 +139,7 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity using the approval mechanic
-        fn transfer_from(origin, did: IdentityId, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, amount: T::TokenBalance) -> Result {
+        fn transfer_from(origin, did: IdentityId, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> Result {
             let spender = ensure_signed(origin)?;
 
             // Check that spender is allowed to act on behalf of `did`
@@ -164,14 +167,14 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        TokenBalance = <T as utils::Trait>::TokenBalance,
+        Balance = <T as balances::Trait>::Balance,
     {
         /// ticker, from DID, spender DID, amount
-        Approval(Vec<u8>, IdentityId, IdentityId, TokenBalance),
+        Approval(Vec<u8>, IdentityId, IdentityId, Balance),
         /// ticker, owner DID, supply
-        TokenCreated(Vec<u8>, IdentityId, TokenBalance),
+        TokenCreated(Vec<u8>, IdentityId, Balance),
         /// ticker, from DID, to DID, amount
-        Transfer(Vec<u8>, IdentityId, IdentityId, TokenBalance),
+        Transfer(Vec<u8>, IdentityId, IdentityId, Balance),
     }
 );
 
@@ -182,18 +185,18 @@ pub trait SimpleTokenTrait<V> {
     fn balance_of(ticker: Vec<u8>, owner_did: IdentityId) -> V;
 }
 
-impl<T: Trait> SimpleTokenTrait<T::TokenBalance> for Module<T> {
+impl<T: Trait> SimpleTokenTrait<T::Balance> for Module<T> {
     /// Tranfers tokens between two identities
     fn transfer(
         sender_did: IdentityId,
         ticker: &Vec<u8>,
         to_did: IdentityId,
-        amount: T::TokenBalance,
+        amount: T::Balance,
     ) -> Result {
         Self::_transfer(ticker, sender_did, to_did, amount)
     }
     /// Returns the balance associated with an identity and ticker
-    fn balance_of(ticker: Vec<u8>, owner_did: IdentityId) -> T::TokenBalance {
+    fn balance_of(ticker: Vec<u8>, owner_did: IdentityId) -> T::Balance {
         Self::balance_of((ticker, owner_did))
     }
 }
@@ -203,7 +206,7 @@ impl<T: Trait> Module<T> {
         ticker: &Vec<u8>,
         from_did: IdentityId,
         to_did: IdentityId,
-        amount: T::TokenBalance,
+        amount: T::Balance,
     ) -> Result {
         let ticker_from_did = (ticker.clone(), from_did.clone());
         ensure!(
