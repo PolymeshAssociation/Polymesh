@@ -98,7 +98,7 @@ impl Default for DataTypes {
 }
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
-/// Master key or extenal type signing key are restricted to be linked to just one identity.
+/// Master key or external type signing key are restricted to be linked to just one identity.
 /// Other types of signing key could be associated with more that one identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub enum LinkedKeyInfo {
@@ -129,7 +129,8 @@ decl_storage! {
         /// DID -> DID claim issuers
         pub ClaimIssuers get(claim_issuers): map IdentityId => Vec<IdentityId>;
 
-        pub CurrentDid get(current_did): IdentityId;
+        /// It stores the current identity for current transaction.
+        pub CurrentDid get(current_did): Option<IdentityId>;
 
         /// (DID, claim_key, claim_issuer) -> Associated claims
         pub Claims get(claims): map(IdentityId, ClaimMetaData) => Claim<T::Moment>;
@@ -567,10 +568,6 @@ decl_module! {
             Self::set_frozen_signing_key_flags( origin, did, false)
         }
 
-        pub fn set_current_did(origin, did: IdentityId) -> Result {
-            <CurrentDid>::put(did);
-            Ok(())
-        }
     }
 }
 
@@ -842,6 +839,15 @@ impl<T: Trait> Module<T> {
             }
         }
     }
+
+    /// It set/reset the current identity.
+    pub fn set_current_did(did_opt: Option<IdentityId>) {
+        if let Some(did) = did_opt {
+            <CurrentDid>::put(did);
+        } else {
+            <CurrentDid>::kill();
+        }
+    }
 }
 
 pub trait IdentityTrait<T> {
@@ -863,73 +869,6 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
 
     fn signing_key_charge_did(signing_key: &Key) -> bool {
         Self::signing_key_charge_did(&signing_key)
-    }
-}
-
-#[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq)]
-pub struct UpdateDid<T: Trait + Send + Sync>(PhantomData<T>);
-
-impl<T: Trait + Send + Sync> Default for UpdateDid<T> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-#[cfg(feature = "std")]
-impl<T: Trait + Send + Sync> std::fmt::Debug for UpdateDid<T> {
-    fn fmt(&self, _: &mut std::fmt::Formatter) -> std::fmt::Result {
-        Ok(())
-    }
-}
-
-use sr_primitives::traits::Printable;
-
-impl<T: Trait + Send + Sync> SignedExtension for UpdateDid<T> {
-    type AccountId = T::AccountId;
-    type Call = T::Call;
-    type AdditionalSigned = ();
-    type Pre = ();
-
-    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> {
-        Ok(())
-    }
-
-    fn validate(
-        &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        _: DispatchInfo,
-        _: usize,
-    ) -> TransactionValidity {
-        sr_primitives::print("UpdateDid begins validate");
-        // Called before every transaction is processed, so makes available the current Did
-        // globally through CurrentDid in the identity SRML.
-        // CurrentDid can be overriden when forwarding calls
-
-        // Extrinsics in business logic modules should only care about this Did (and its associated roles)
-        // not the actual origin (other than to check the message has been signed correctly)
-
-        // Grab the did associated with account id
-        // Check that the DID has whatever claims we need, return Err if not
-        // let current_did = <Module<T>>::did_from_signing_key(&encoded_transactor);
-        // let ok = T::has_valid_kyc(current_did);
-        // if !ok return Err
-        // Should also store roles associated with signing ley so that they can be overriden as well
-        // Store it in CurrentDid
-        if let Ok(key) = Key::try_from(who.encode()) {
-            if let Some(linked_key_info) = <Module<T>>::key_to_identity_ids(&key) {
-                if let LinkedKeyInfo::Unique(identity) = linked_key_info {
-                    sr_primitives::print("UpdateDid put ");
-                    sr_primitives::print(identity);
-                    <CurrentDid>::put(identity);
-                    // <Module<T>>::set_currgnt_did(<Module<T>>::did_from_signing_key(&encoded_transactor));
-                    // Should clean up current_did at the end of the block ideally
-                }
-            }
-        }
-        sr_primitives::print("UpdateDid ends validate");
-
-        Ok(ValidTransaction::default())
     }
 }
 

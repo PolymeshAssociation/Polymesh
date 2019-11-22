@@ -83,5 +83,7 @@ pub use signing_key::{KeyRole, SigningKey};
 #[repr(u8)]
 pub enum TransactionError {
     /// 0-6 are used by substrate. Skipping them to avoid confusion
-    ZeroTip = 7,
+    ZeroTip = 0,
+    /// Transaction needs an Identity associated to an account.
+    MissingIdentity = 1,
 }

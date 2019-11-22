@@ -2,6 +2,8 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
+use crate::identity::LinkedKeyInfo;
+
 use authority_discovery_primitives::{
     AuthorityId as EncodedAuthorityId, Signature as EncodedSignature,
 };
@@ -12,27 +14,38 @@ use client::{
 };
 use codec::{Decode, Encode};
 pub use contracts::Gas;
+use core::convert::TryFrom;
 use elections::VoteIndex;
 use grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use im_online::sr25519::{AuthorityId as ImOnlineId, AuthoritySignature as ImOnlineSignature};
-use primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce, Signature};
+use primitives::{
+    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Key, Moment, Nonce, Signature,
+    TransactionError,
+};
 use rstd::prelude::*;
 use sr_primitives::{
     create_runtime_str,
     curve::PiecewiseLinear,
     generic, impl_opaque_keys, key_types,
-    traits::{BlakeTwo256, Block as BlockT, StaticLookup},
-    transaction_validity::TransactionValidity,
+    traits::{BlakeTwo256, Block as BlockT, SignedExtension, StaticLookup},
+    transaction_validity::{
+        InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+    },
     weights::Weight,
-    AnySignature, ApplyResult,
+    AnySignature, ApplyResult, Perbill, Permill,
 };
 use sr_staking_primitives::SessionIndex;
 use srml_support::{
-    construct_runtime, parameter_types,
+    construct_runtime,
+    dispatch::DispatchInfo,
+    parameter_types,
     traits::{Currency, SplitTwoWays},
 };
-use substrate_primitives::u32_trait::{_1, _2, _3, _4};
-use substrate_primitives::OpaqueMetadata;
+use substrate_primitives::{
+    u32_trait::{_1, _2, _3, _4},
+    OpaqueMetadata,
+};
+
 #[cfg(any(feature = "std", test))]
 use version::NativeVersion;
 use version::RuntimeVersion;
@@ -40,8 +53,6 @@ use version::RuntimeVersion;
 pub use balances::Call as BalancesCall;
 #[cfg(any(feature = "std", test))]
 pub use sr_primitives::BuildStorage;
-pub use sr_primitives::{Perbill, Permill};
-pub use srml_support::StorageValue;
 #[cfg(feature = "std")]
 pub use staking::StakerStatus;
 use system::offchain::TransactionSubmitter;
@@ -535,49 +546,49 @@ impl dividend::Trait for Runtime {
 impl registry::Trait for Runtime {}
 
 construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = primitives::Block,
-		UncheckedExtrinsic = UncheckedExtrinsic
-	{
-		// Basic stuff; balances is uncallable initially.
-		System: system::{Module, Call, Storage, Config, Event},
+    pub enum Runtime where
+    Block = Block,
+    NodeBlock = primitives::Block,
+    UncheckedExtrinsic = UncheckedExtrinsic
+    {
+        // Basic stuff; balances is uncallable initially.
+        System: system::{Module, Call, Storage, Config, Event},
 
-		// Must be before session.
-		Babe: babe::{Module, Call, Storage, Config, Inherent(Timestamp)},
+        // Must be before session.
+        Babe: babe::{Module, Call, Storage, Config, Inherent(Timestamp)},
 
-		Timestamp: timestamp::{Module, Call, Storage, Inherent},
-		Indices: indices,
-		Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
+        Timestamp: timestamp::{Module, Call, Storage, Inherent},
+        Indices: indices,
+        Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
 
-		// Consensus srml_support.
-		Authorship: authorship::{Module, Call, Storage},
-		Staking: staking::{default, OfflineWorker},
-		Offences: offences::{Module, Call, Storage, Event},
-		Session: session::{Module, Call, Storage, Event, Config<T>},
-		FinalityTracker: finality_tracker::{Module, Call, Inherent},
-		Grandpa: grandpa::{Module, Call, Storage, Config, Event},
-		ImOnline: im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+        // Consensus srml_support.
+        Authorship: authorship::{Module, Call, Storage},
+        Staking: staking::{default, OfflineWorker},
+        Offences: offences::{Module, Call, Storage, Event},
+        Session: session::{Module, Call, Storage, Event, Config<T>},
+        FinalityTracker: finality_tracker::{Module, Call, Inherent},
+        Grandpa: grandpa::{Module, Call, Storage, Config, Event},
+        ImOnline: im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
         AuthorityDiscovery: authority_discovery::{Module, Call, Config<T>},
 
-		// Governance stuff; uncallable initially.
-		Democracy: democracy::{Module, Call, Storage, Config, Event<T>},
-		Council: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-		TechnicalCommittee: collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-		Elections: elections::{Module, Call, Storage, Event<T>, Config<T>},
-		TechnicalMembership: membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-		Treasury: treasury::{Module, Call, Storage, Event<T>},
+        // Governance stuff; uncallable initially.
+        Democracy: democracy::{Module, Call, Storage, Config, Event<T>},
+        Council: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        TechnicalCommittee: collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        Elections: elections::{Module, Call, Storage, Event<T>, Config<T>},
+        TechnicalMembership: membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+        Treasury: treasury::{Module, Call, Storage, Event<T>},
 
-		// Sudo. Usable initially.
-		// RELEASE: remove this for release build.
-		Sudo: sudo,
+        // Sudo. Usable initially.
+        // RELEASE: remove this for release build.
+        Sudo: sudo,
 
         // Contracts
         Contracts: contracts::{Module, Call, Storage, Config<T>, Event<T>},
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
-		//Polymesh
-		Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
+        //Polymesh
+        Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Registry: registry::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
@@ -586,9 +597,73 @@ construct_runtime!(
         STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
-		SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
-	}
+        SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
+    }
 );
+
+/// This signed extension double-checks and updates the current identifier extracted from
+/// the caller account in each transaction.
+///
+/// # TODO
+/// - After transaction, Do we need to clean `CurrentDid`?
+/// - Move outside `lib.rs`. It needs a small refactor to extract `Runtime` from here.
+#[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct UpdateDid;
+
+impl UpdateDid {
+    /// It extracts the `IdentityId` associated with `who` account.
+    fn identity_from_key(who: &AccountId) -> Option<IdentityId> {
+        if let Ok(who_key) = Key::try_from(who.encode()) {
+            if let Some(linked_key_info) = Identity::key_to_identity_ids(&who_key) {
+                if let LinkedKeyInfo::Unique(id) = linked_key_info {
+                    return Some(id);
+                }
+            }
+        }
+        None
+    }
+}
+
+impl SignedExtension for UpdateDid {
+    type AccountId = AccountId;
+    type Call = Call;
+    type AdditionalSigned = ();
+    type Pre = ();
+
+    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> {
+        Ok(())
+    }
+
+    /// It ensures that transaction caller account has an associated identity.
+    /// The current identity will be accesible through `Identity::current_did`.
+    ///
+    /// Only the following methods can be called with no identity:
+    ///     - `identity::register_did`
+    fn validate(
+        &self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        _: DispatchInfo,
+        _: usize,
+    ) -> TransactionValidity {
+        match call {
+            // Add here any function from any module which does *not* need a current identity.
+            Call::Identity(identity::Call::register_did(..)) => Ok(ValidTransaction::default()),
+            // Other calls should be identified
+            _ => {
+                let id_opt = Self::identity_from_key(who);
+                if id_opt.is_some() {
+                    Identity::set_current_did(id_opt);
+                    Ok(ValidTransaction::default())
+                } else {
+                    sr_primitives::print("ERROR: This transaction requires an Identity");
+                    Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
+                }
+            }
+        }
+    }
+}
 
 /// The address format for describing accounts.
 pub type Address = <Indices as StaticLookup>::Source;
@@ -609,7 +684,7 @@ pub type SignedExtra = (
     system::CheckWeight<Runtime>,
     balances::TakeFees<Runtime>,
     contracts::CheckBlockGasLimit<Runtime>,
-    identity::UpdateDid<Runtime>,
+    UpdateDid,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
