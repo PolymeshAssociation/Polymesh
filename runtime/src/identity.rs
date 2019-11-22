@@ -39,8 +39,11 @@
 //!
 //! see [freeze_signing_keys](./struct.Module.html#method.freeze_signing_keys)
 //! see [unfreeze_signing_keys](./struct.Module.html#method.unfreeze_signing_keys)
+//!
+//! # TODO
+//!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
-use rstd::{convert::TryFrom, marker::PhantomData, prelude::*};
+use rstd::{convert::TryFrom, prelude::*};
 
 use crate::balances;
 
@@ -48,13 +51,12 @@ use primitives::{DidRecord, IdentityId, Key, KeyRole, KeyType, SigningKey};
 
 use codec::Encode;
 use sr_primitives::{
-    traits::{CheckedAdd, CheckedSub, Dispatchable, SignedExtension},
-    transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
+    traits::{CheckedAdd, CheckedSub, Dispatchable},
     DispatchError,
 };
 use srml_support::{
     decl_event, decl_module, decl_storage,
-    dispatch::{DispatchInfo, Result},
+    dispatch::Result,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
     Parameter,
@@ -146,6 +148,9 @@ decl_storage! {
 
         /// How much does creating a DID cost
         pub DidCreationFee get(did_creation_fee) config(): T::Balance;
+
+        /// It stores validated identities by any KYC.
+        pub KYCValidation get(has_valid_kyc): map IdentityId => bool;
     }
 }
 
@@ -482,19 +487,31 @@ decl_module! {
             Ok(())
         }
 
-        fn forwardedCall(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> Result {
+        /// # TODO
+        ///  -
+        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> Result {
             let sender = ensure_signed(origin)?;
+
+            // 1. Constraints.
+            // 1.1. A valid current identity.
             let current_did = <CurrentDid>::get();
-            // Check that current_did is a signing key of target_did
+            ensure!( current_did.is_some(), "Missing current identity on the transaction");
+
+            // TODO 1.2. Check that current_did is a signing key of target_did
             // ensure!(isSigningKey(current_did, target_did))
-            // Check that target_did has a KYC (this has already been done for current_did in the SignedExtension)
-            // ensure!(has_valid_kyc(target_did));
+
+            // 1.3. Check that target_did has a KYC (this has
+            // already been done for current_did in the SignedExtension)
+            ensure!(Self::has_valid_kyc(target_did), "Invalid KYC validation on target did");
+
+            // 2. Actions
             <CurrentDid>::put(target_did);
+
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
             let new_origin = system::RawOrigin::Signed(sender).into();
 
-            let res = match proposal.dispatch(new_origin) {
+            let _res = match proposal.dispatch(new_origin) {
                 Ok(_) => true,
                 Err(e) => {
                     let e: DispatchError = e.into();
@@ -975,7 +992,7 @@ mod tests {
         type Trait = IdentityTest;
         type Error = DispatchError;
 
-        fn dispatch(self, origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
             Ok(())
         }
     }

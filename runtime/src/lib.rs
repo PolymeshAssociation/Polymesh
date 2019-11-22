@@ -635,7 +635,8 @@ impl SignedExtension for UpdateDid {
         Ok(())
     }
 
-    /// It ensures that transaction caller account has an associated identity.
+    /// It ensures that transaction caller account has an associated identity and
+    /// that identity has been validated by any KYC.
     /// The current identity will be accesible through `Identity::current_did`.
     ///
     /// Only the following methods can be called with no identity:
@@ -653,9 +654,13 @@ impl SignedExtension for UpdateDid {
             // Other calls should be identified
             _ => {
                 let id_opt = Self::identity_from_key(who);
-                if id_opt.is_some() {
-                    Identity::set_current_did(id_opt);
-                    Ok(ValidTransaction::default())
+                if let Some(id) = id_opt.clone() {
+                    if Identity::has_valid_kyc(id) {
+                        Identity::set_current_did(id_opt);
+                        Ok(ValidTransaction::default())
+                    } else {
+                        Err(InvalidTransaction::Custom(TransactionError::RequiredKYC as u8).into())
+                    }
                 } else {
                     sr_primitives::print("ERROR: This transaction requires an Identity");
                     Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())

@@ -86,4 +86,6 @@ pub enum TransactionError {
     ZeroTip = 0,
     /// Transaction needs an Identity associated to an account.
     MissingIdentity = 1,
+    /// KYC is required
+    RequiredKYC = 2,
 }
