@@ -668,7 +668,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 if <T::Identity>::is_authorized_with_permissions(
                     did,
                     &who,
-                    vec![Permission::FundSpender],
+                    vec![Permission::SpendFunds],
                 ) {
                     return Some(did);
                 }

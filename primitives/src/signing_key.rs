@@ -20,7 +20,7 @@ pub enum Permission {
     Full,
     Admin,
     Operator,
-    FundSpender,
+    SpendFunds,
     Custom(u8),
 }
 

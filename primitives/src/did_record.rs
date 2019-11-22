@@ -1,20 +1,20 @@
 use parity_scale_codec::{Decode, Encode};
 use rstd::prelude::Vec;
 
-use crate::{Identitypermission, Key, SigningKey};
+use crate::{IdentityRole, Key, SigningKey};
 
 /// Identity information.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct DidRecord {
-    pub permissions: Vec<Identitypermission>,
+    pub roles: Vec<IdentityRole>,
     pub master_key: Key,
     pub signing_keys: Vec<SigningKey>,
 }
 
 impl DidRecord {
-    /// It checks if this entity contains permission `permission`.
-    pub fn has_permission(&self, permission: Identitypermission) -> bool {
-        self.permissions.contains(&permission)
+    /// It checks if this entity contains IdentityRole `role`.
+    pub fn has_role(&self, role: IdentityRole) -> bool {
+        self.roles.contains(&role)
     }
 }

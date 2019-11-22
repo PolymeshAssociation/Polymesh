@@ -60,7 +60,7 @@ pub use ignored_case_string::IgnoredCaseString;
 
 /// permission for identities.
 pub mod identity_permission;
-pub use identity_permission::Identitypermission;
+pub use identity_permission::IdentityRole;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
