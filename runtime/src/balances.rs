@@ -1592,7 +1592,12 @@ mod tests {
         }
     }
     impl ExtBuilder {
-        pub fn transaction_fees(mut self, base_fee: u128, byte_fee: u128, weight_fee: u128) -> Self {
+        pub fn transaction_fees(
+            mut self,
+            base_fee: u128,
+            byte_fee: u128,
+            weight_fee: u128,
+        ) -> Self {
             self.transaction_base_fee = base_fee;
             self.transaction_byte_fee = byte_fee;
             self.weight_to_fee = weight_fee;
