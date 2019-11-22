@@ -58,9 +58,9 @@ pub use runtime_primitives::OpaqueExtrinsic as UncheckedExtrinsic;
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
 
-/// Role for identities.
-pub mod identity_role;
-pub use identity_role::IdentityRole;
+/// permission for identities.
+pub mod identity_permission;
+pub use identity_permission::Identitypermission;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
@@ -77,7 +77,7 @@ pub use key::{Key, KeyType};
 
 /// This module contains entities related with signing keys.
 pub mod signing_key;
-pub use signing_key::{KeyRole, SigningKey};
+pub use signing_key::{Permission, SigningKey};
 
 /// Represents custom transaction errors.
 #[repr(u8)]

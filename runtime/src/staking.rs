@@ -56,8 +56,8 @@
 //! The staking system in Substrate NPoS is designed to make the following possible:
 //!
 //! - Stake funds that are controlled by a cold wallet.
-//! - Withdraw some, or deposit more, funds without interrupting the role of an entity.
-//! - Switch between roles (nominator, validator, idle) with minimal overhead.
+//! - Withdraw some, or deposit more, funds without interrupting the permission of an entity.
+//! - Switch between permissions (nominator, validator, idle) with minimal overhead.
 //!
 //! ### Scenarios
 //!
@@ -74,15 +74,15 @@
 //! Stash accounts can change their associated controller using the
 //! [`set_controller`](./enum.Call.html#variant.set_controller) call.
 //!
-//! There are three possible roles that any staked account pair can be in: `Validator`, `Nominator`
+//! There are three possible permissions that any staked account pair can be in: `Validator`, `Nominator`
 //! and `Idle` (defined in [`StakerStatus`](./enum.StakerStatus.html)). There are three
-//! corresponding instructions to change between roles, namely:
+//! corresponding instructions to change between permissions, namely:
 //! [`validate`](./enum.Call.html#variant.validate), [`nominate`](./enum.Call.html#variant.nominate),
 //! and [`chill`](./enum.Call.html#variant.chill).
 //!
 //! #### Validating
 //!
-//! A **validator** takes the role of either validating blocks or ensuring their finality,
+//! A **validator** takes the permission of either validating blocks or ensuring their finality,
 //! maintaining the veracity of the network. A validator should avoid both any sort of malicious
 //! misbehavior and going offline. Bonded accounts that state interest in being a validator do NOT
 //! get immediately chosen as a validator. Instead, they are declared as a _candidate_ and they
@@ -94,7 +94,7 @@
 //!
 //! #### Nomination
 //!
-//! A **nominator** does not take any _direct_ role in maintaining the network, instead, it votes on
+//! A **nominator** does not take any _direct_ permission in maintaining the network, instead, it votes on
 //! a set of validators  to be elected. Once interest in nomination is stated by an account, it
 //! takes effect at the next election round. The funds in the nominator's stash account indicate the
 //! _weight_ of its vote. Both the rewards and any punishment that a validator earns are shared
@@ -119,7 +119,7 @@
 //!
 //! #### Chilling
 //!
-//! Finally, any of the roles above can choose to step back temporarily and just chill for a while.
+//! Finally, any of the permissions above can choose to step back temporarily and just chill for a while.
 //! This means that if they are a nominator, they will not be considered as voters anymore and if
 //! they are validators, they will no longer be a candidate for the next election.
 //!
@@ -130,7 +130,7 @@
 //! ### Dispatchable Functions
 //!
 //! The dispatchable functions of the Staking module enable the steps needed for entities to accept
-//! and change their role, alongside some helper functions to get/set the metadata of the module.
+//! and change their permission, alongside some helper functions to get/set the metadata of the module.
 //!
 //! ### Public Functions
 //!
@@ -1312,7 +1312,7 @@ impl<T: Trait> Module<T> {
         maybe_new_validators
     }
 
-    /// Select a new validator set from the assembled stakers and their role preferences.
+    /// Select a new validator set from the assembled stakers and their permission preferences.
     ///
     /// Returns the new `SlotStake` value and a set of newly selected _stash_ IDs.
     fn select_validators() -> (BalanceOf<T>, Option<Vec<T::AccountId>>) {

@@ -8,12 +8,12 @@
 //! ## Overview :
 //!
 //! Identity concept groups different account (keys) in one place, and it allows each key to
-//! make operations based on the constraint that each account (roles and key types).
+//! make operations based on the constraint that each account (permissions and key types).
 //!
 //! Any account can create and manage one and only one identity, using
 //! [register_did](./struct.Module.html#method.register_did). Other accounts can be added to a
 //! target identity as signing key, where we also define the type of account (`External`,
-//! `MuliSign`, etc.) and/or its role.
+//! `MuliSign`, etc.) and/or its permission.
 //!
 //! Some operations at identity level are only allowed to its administrator account, like
 //! [set_master_key](./struct.Module.html#method.set_master_key) or
@@ -23,7 +23,7 @@
 //!
 //! Identity contains the following data:
 //!  - `master_key`. It is the administrator account of the identity.
-//!  - `signing_keys`. List of keys and their capabilities (type of key and its roles) .
+//!  - `signing_keys`. List of keys and their capabilities (type of key and its permissions) .
 //!
 //! ## Claim Issuers
 //!
@@ -43,7 +43,7 @@ use rstd::{convert::TryFrom, prelude::*};
 
 use crate::balances;
 
-use primitives::{DidRecord, IdentityId, Key, KeyRole, KeyType, SigningKey};
+use primitives::{DidRecord, IdentityId, Key, KeyType, Permission, SigningKey};
 
 use codec::Encode;
 use srml_support::{
@@ -220,7 +220,7 @@ decl_module! {
             |record| {
                 // Concatenate new keys while making sure the key set is
                 // unique
-                let mut new_roled_keys = additional_keys.iter()
+                let mut new_permissiond_keys = additional_keys.iter()
                     .filter( |&add_key| {
                         record.signing_keys.iter()
                         .find( |&rk| rk == add_key)
@@ -229,7 +229,7 @@ decl_module! {
                     .cloned()
                     .collect::<Vec<_>>();
 
-                (*record).signing_keys.append( &mut new_roled_keys);
+                (*record).signing_keys.append( &mut new_permissiond_keys);
             });
 
             Self::deposit_event(RawEvent::SigningKeysAdded(did, additional_keys));
@@ -410,20 +410,20 @@ decl_module! {
             Ok(())
         }
 
-        /// It sets roles for an specific `target_key` key.
-        /// Only the master key of an identity is able to set signing key roles.
-        fn set_role_to_signing_key(origin, did: IdentityId, target_key: Key, roles: Vec<KeyRole>) -> Result {
+        /// It sets permissions for an specific `target_key` key.
+        /// Only the master key of an identity is able to set signing key permissions.
+        fn set_permission_to_signing_key(origin, did: IdentityId, target_key: Key, permissions: Vec<Permission>) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let record = Self::grant_check_only_master_key( &sender_key, did)?;
 
-            // You are trying to add a role to did's master key. It is not needed.
+            // You are trying to add a permission to did's master key. It is not needed.
             if record.master_key == target_key {
                 return Ok(());
             }
 
             // Find key in `DidRecord::signing_keys` or in `DidRecord::frozen_signing_keys`.
             if let Some(ref _signing_key) = record.signing_keys.iter().find(|&sk| sk == &target_key) {
-                Self::update_signing_key_roles(did, &target_key, roles)
+                Self::update_signing_key_permissions(did, &target_key, permissions)
             } else {
                 Err( "Sender is not part of did's signing keys")
             }
@@ -458,8 +458,8 @@ decl_event!(
         /// DID, the keys that got removed
         SigningKeysRemoved(IdentityId, Vec<Key>),
 
-        /// DID, updated signing key, previous roles
-        SigningKeyRolesUpdated(IdentityId, SigningKey, Vec<KeyRole>),
+        /// DID, updated signing key, previous permissions
+        SigningPermissionsUpdated(IdentityId, SigningKey, Vec<Permission>),
 
         /// DID, old master key account ID, new key
         NewMasterKey(IdentityId, AccountId, Key),
@@ -484,30 +484,30 @@ decl_event!(
 impl<T: Trait> Module<T> {
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
-    fn update_signing_key_roles(
+    fn update_signing_key_permissions(
         target_did: IdentityId,
         key: &Key,
-        mut roles: Vec<KeyRole>,
+        mut permissions: Vec<Permission>,
     ) -> Result {
         // Remove duplicates.
-        roles.sort();
-        roles.dedup();
+        permissions.sort();
+        permissions.dedup();
 
         let mut new_sk: Option<SigningKey> = None;
 
         <DidRecords>::mutate(target_did, |record| {
             if let Some(mut sk) = (*record).signing_keys.iter().find(|sk| *sk == key).cloned() {
-                rstd::mem::swap(&mut sk.roles, &mut roles);
+                rstd::mem::swap(&mut sk.permissions, &mut permissions);
                 (*record).signing_keys.retain(|sk| sk != key);
                 (*record).signing_keys.push(sk.clone());
                 new_sk = Some(sk);
             }
         });
 
-        Self::deposit_event(RawEvent::SigningKeyRolesUpdated(
+        Self::deposit_event(RawEvent::SigningPermissionsUpdated(
             target_did,
             new_sk.unwrap_or_else(|| SigningKey::default()),
-            roles,
+            permissions,
         ));
         Ok(())
     }
@@ -533,23 +533,22 @@ impl<T: Trait> Module<T> {
         return false;
     }
 
-    fn is_authorized_with_roles(did: IdentityId, key: &Key, roles: Vec<KeyRole>) -> bool {
+    fn is_authorized_with_permissions(
+        did: IdentityId,
+        key: &Key,
+        permissions: Vec<Permission>,
+    ) -> bool {
         let record = <DidRecords>::get(did);
         if record.master_key == *key {
-            // Master key is assumed to have all roles
+            // Master key is assumed to have all permissions
             return true;
         }
 
         if !Self::is_did_frozen(did) {
-            if let Some(signing_key_data) = record.signing_keys.iter().find(|&rk| rk == key) {
-                for role in roles {
-                    if !signing_key_data.roles.contains(&role) {
-                        // Role missing
-                        return false;
-                    }
-                }
-                // All roles present
-                return true;
+            if let Some(signing_key) = record.signing_keys.iter().find(|&sk| &sk.key == key) {
+                return permissions
+                    .iter()
+                    .all(|required_permission| signing_key.has_permission(*required_permission));
             }
         }
         //Either did frozen or given key is not a signing key of the did
@@ -692,7 +691,11 @@ impl<T: Trait> Module<T> {
 pub trait IdentityTrait<T> {
     fn get_identity(signing_key: &Key) -> Option<IdentityId>;
     fn is_authorized_key(did: IdentityId, key: &Key) -> bool;
-    fn is_authorized_with_roles(did: IdentityId, key: &Key, roles: Vec<KeyRole>) -> bool;
+    fn is_authorized_with_permissions(
+        did: IdentityId,
+        key: &Key,
+        permissions: Vec<Permission>,
+    ) -> bool;
     fn is_master_key(did: IdentityId, key: &Key) -> bool;
 }
 
@@ -714,8 +717,12 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
         Self::is_master_key(did, &key)
     }
 
-    fn is_authorized_with_roles(did: IdentityId, key: &Key, roles: Vec<KeyRole>) -> bool {
-        Self::is_authorized_with_roles(did, &key, roles)
+    fn is_authorized_with_permissions(
+        did: IdentityId,
+        key: &Key,
+        permissions: Vec<Permission>,
+    ) -> bool {
+        Self::is_authorized_with_permissions(did, &key, permissions)
     }
 }
 
@@ -916,8 +923,10 @@ mod tests {
             let (_owner, owner_did) = make_account(owner_id).unwrap();
             let (a, a_did) = make_account(2).unwrap();
             let (_b, b_did) = make_account(3).unwrap();
-            let charlie_sig_key =
-                SigningKey::new(Key::try_from(4u64.encode()).unwrap(), vec![KeyRole::Admin]);
+            let charlie_sig_key = SigningKey::new(
+                Key::try_from(4u64.encode()).unwrap(),
+                vec![Permission::Admin],
+            );
 
             assert_ok!(Identity::add_signing_keys(
                 a.clone(),
@@ -988,14 +997,14 @@ mod tests {
     }
 
     #[test]
-    fn only_master_key_can_add_signing_key_roles() {
+    fn only_master_key_can_add_signing_key_permissions() {
         with_externalities(
             &mut build_ext(),
-            &only_master_key_can_add_signing_key_roles_with_externalities,
+            &only_master_key_can_add_signing_key_permissions_with_externalities,
         );
     }
 
-    fn only_master_key_can_add_signing_key_roles_with_externalities() {
+    fn only_master_key_can_add_signing_key_permissions_with_externalities() {
         let (alice_acc, bob_acc, charlie_acc) = (1u64, 2u64, 3u64);
         let (bob_key, charlie_key) = (
             Key::try_from(bob_acc.encode()).unwrap(),
@@ -1012,34 +1021,34 @@ mod tests {
             ]
         ));
 
-        // Only `alice` is able to update `bob`'s roles and `charlie`'s roles.
-        assert_ok!(Identity::set_role_to_signing_key(
+        // Only `alice` is able to update `bob`'s permissions and `charlie`'s permissions.
+        assert_ok!(Identity::set_permission_to_signing_key(
             alice.clone(),
             alice_did,
             bob_key.clone(),
-            vec![KeyRole::Operator]
+            vec![Permission::Operator]
         ));
-        assert_ok!(Identity::set_role_to_signing_key(
+        assert_ok!(Identity::set_permission_to_signing_key(
             alice.clone(),
             alice_did,
             charlie_key.clone(),
-            vec![KeyRole::Admin, KeyRole::Operator]
+            vec![Permission::Admin, Permission::Operator]
         ));
 
-        // Bob tries to get better role by himself at `alice` Identity.
+        // Bob tries to get better permission by himself at `alice` Identity.
         assert_err!(
-            Identity::set_role_to_signing_key(
+            Identity::set_permission_to_signing_key(
                 Origin::signed(bob_acc),
                 alice_did,
                 bob_key.clone(),
-                vec![KeyRole::Full]
+                vec![Permission::Full]
             ),
             "Only master key of an identity is able to execute this operation"
         );
 
-        // Bob tries to remove Charlie's roles at `alice` Identity.
+        // Bob tries to remove Charlie's permissions at `alice` Identity.
         assert_err!(
-            Identity::set_role_to_signing_key(
+            Identity::set_permission_to_signing_key(
                 Origin::signed(bob_acc),
                 alice_did,
                 charlie_key,
@@ -1048,8 +1057,8 @@ mod tests {
             "Only master key of an identity is able to execute this operation"
         );
 
-        // Alice over-write some roles.
-        assert_ok!(Identity::set_role_to_signing_key(
+        // Alice over-write some permissions.
+        assert_ok!(Identity::set_permission_to_signing_key(
             alice.clone(),
             alice_did,
             bob_key,
@@ -1078,12 +1087,12 @@ mod tests {
         let charlie_signing_key = SigningKey {
             key: charlie_key,
             key_type: KeyType::Relayer,
-            roles: vec![],
+            permissions: vec![],
         };
         let dave_signing_key = SigningKey {
             key: dave_key,
             key_type: KeyType::Multisig,
-            roles: vec![],
+            permissions: vec![],
         };
 
         // Add signing keys with non-default type.
@@ -1117,8 +1126,8 @@ mod tests {
             Key::try_from(dave_acc.encode()).unwrap(),
         );
 
-        let bob_signing_key = SigningKey::new(bob_key.clone(), vec![KeyRole::Admin]);
-        let charlie_signing_key = SigningKey::new(charlie_key, vec![KeyRole::Operator]);
+        let bob_signing_key = SigningKey::new(bob_key.clone(), vec![Permission::Admin]);
+        let charlie_signing_key = SigningKey::new(charlie_key, vec![Permission::Operator]);
         let dave_signing_key = SigningKey::new(dave_key.clone(), vec![]);
 
         // Add signing keys.
@@ -1153,12 +1162,12 @@ mod tests {
         ));
         assert_eq!(Identity::is_authorized_key(alice_did, &dave_key), false);
 
-        // update role of frozen keys.
-        assert_ok!(Identity::set_role_to_signing_key(
+        // update permission of frozen keys.
+        assert_ok!(Identity::set_permission_to_signing_key(
             alice.clone(),
             alice_did.clone(),
             bob_key.clone(),
-            vec![KeyRole::Operator]
+            vec![Permission::Operator]
         ));
 
         // unfreeze all
@@ -1190,8 +1199,8 @@ mod tests {
             Key::try_from(charlie_acc.encode()).unwrap(),
         );
 
-        let bob_signing_key = SigningKey::new(bob_key.clone(), vec![KeyRole::Admin]);
-        let charlie_signing_key = SigningKey::new(charlie_key, vec![KeyRole::Operator]);
+        let bob_signing_key = SigningKey::new(bob_key.clone(), vec![Permission::Admin]);
+        let charlie_signing_key = SigningKey::new(charlie_key, vec![Permission::Operator]);
 
         // Add signing keys.
         let (alice, alice_did) = make_account(alice_acc).unwrap();
@@ -1261,7 +1270,7 @@ mod tests {
 
         // Check external signed key uniqueness.
         let charlie_key = Key::try_from(c_acc.encode()).unwrap();
-        let charlie_sk = SigningKey::new(charlie_key, vec![KeyRole::Operator]);
+        let charlie_sk = SigningKey::new(charlie_key, vec![Permission::Operator]);
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
             alice_id,
@@ -1278,7 +1287,7 @@ mod tests {
         let dave_sk = SigningKey {
             key: dave_key,
             key_type: KeyType::Multisig,
-            roles: vec![KeyRole::Operator],
+            permissions: vec![Permission::Operator],
         };
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
@@ -1296,14 +1305,14 @@ mod tests {
         let bob_sk_as_mutisig = SigningKey {
             key: bob_key.clone(),
             key_type: KeyType::Multisig,
-            roles: vec![KeyRole::Operator],
+            permissions: vec![Permission::Operator],
         };
         assert_err!(
             Identity::add_signing_keys(alice.clone(), alice_id, vec![bob_sk_as_mutisig]),
             unique_error
         );
 
-        let bob_sk = SigningKey::new(bob_key, vec![KeyRole::Admin]);
+        let bob_sk = SigningKey::new(bob_key, vec![Permission::Admin]);
         assert_err!(
             Identity::add_signing_keys(alice.clone(), alice_id, vec![bob_sk]),
             unique_error
