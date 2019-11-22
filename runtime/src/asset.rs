@@ -63,7 +63,7 @@ use crate::{
 use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
-use primitives::IdentityId;
+use primitives::{IdentityId, Key};
 use rstd::{convert::TryFrom, prelude::*};
 use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub, Verify};
