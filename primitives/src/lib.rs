@@ -58,9 +58,9 @@ pub use runtime_primitives::OpaqueExtrinsic as UncheckedExtrinsic;
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
 
-/// permission for identities.
-pub mod identity_permission;
-pub use identity_permission::IdentityRole;
+/// Role for identities.
+pub mod identity_role;
+pub use identity_role::IdentityRole;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
