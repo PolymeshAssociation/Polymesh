@@ -2,8 +2,6 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-use crate::identity::LinkedKeyInfo;
-
 use authority_discovery_primitives::{
     AuthorityId as EncodedAuthorityId, Signature as EncodedSignature,
 };
@@ -14,31 +12,23 @@ use client::{
 };
 use codec::{Decode, Encode};
 pub use contracts::Gas;
-use core::convert::TryFrom;
 use elections::VoteIndex;
 use grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use im_online::sr25519::{AuthorityId as ImOnlineId, AuthoritySignature as ImOnlineSignature};
-use primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Key, Moment, Nonce, Signature,
-    TransactionError,
-};
+use primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce, Signature};
 use rstd::prelude::*;
 use sr_primitives::{
     create_runtime_str,
     curve::PiecewiseLinear,
     generic, impl_opaque_keys, key_types,
-    traits::{BlakeTwo256, Block as BlockT, SignedExtension, StaticLookup},
-    transaction_validity::{
-        InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-    },
+    traits::{BlakeTwo256, Block as BlockT, StaticLookup},
+    transaction_validity::TransactionValidity,
     weights::Weight,
     AnySignature, ApplyResult,
 };
 use sr_staking_primitives::SessionIndex;
 use srml_support::{
-    construct_runtime,
-    dispatch::DispatchInfo,
-    parameter_types,
+    construct_runtime, parameter_types,
     traits::{Currency, SplitTwoWays},
 };
 use substrate_primitives::{
@@ -589,74 +579,8 @@ construct_runtime!(
     }
 );
 
-/// This signed extension double-checks and updates the current identifier extracted from
-/// the caller account in each transaction.
-///
-/// # TODO
-/// - After transaction, Do we need to clean `CurrentDid`?
-/// - Move outside `lib.rs`. It needs a small refactor to extract `Runtime` from here.
-#[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct UpdateDid;
-
-impl UpdateDid {
-    /// It extracts the `IdentityId` associated with `who` account.
-    fn identity_from_key(who: &AccountId) -> Option<IdentityId> {
-        if let Ok(who_key) = Key::try_from(who.encode()) {
-            if let Some(linked_key_info) = Identity::key_to_identity_ids(&who_key) {
-                if let LinkedKeyInfo::Unique(id) = linked_key_info {
-                    return Some(id);
-                }
-            }
-        }
-        None
-    }
-}
-
-impl SignedExtension for UpdateDid {
-    type AccountId = AccountId;
-    type Call = Call;
-    type AdditionalSigned = ();
-    type Pre = ();
-
-    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> {
-        Ok(())
-    }
-
-    /// It ensures that transaction caller account has an associated identity and
-    /// that identity has been validated by any KYC.
-    /// The current identity will be accesible through `Identity::current_did`.
-    ///
-    /// Only the following methods can be called with no identity:
-    ///     - `identity::register_did`
-    fn validate(
-        &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        _: DispatchInfo,
-        _: usize,
-    ) -> TransactionValidity {
-        match call {
-            // Add here any function from any module which does *not* need a current identity.
-            Call::Identity(identity::Call::register_did(..)) => Ok(ValidTransaction::default()),
-            // Other calls should be identified
-            _ => {
-                let id_opt = Self::identity_from_key(who);
-                if let Some(id) = id_opt.clone() {
-                    if Identity::has_valid_kyc(id) {
-                        Identity::set_current_did(id_opt);
-                        Ok(ValidTransaction::default())
-                    } else {
-                        Err(InvalidTransaction::Custom(TransactionError::RequiredKYC as u8).into())
-                    }
-                } else {
-                    sr_primitives::print("ERROR: This transaction requires an Identity");
-                    Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
-                }
-            }
-        }
-    }
-}
+pub mod update_did_signed_extension;
+pub use update_did_signed_extension::UpdateDid;
 
 /// The address format for describing accounts.
 pub type Address = <Indices as StaticLookup>::Source;
