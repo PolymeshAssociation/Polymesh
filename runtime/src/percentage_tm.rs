@@ -23,7 +23,7 @@
 //!
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
-use crate::{asset::AssetTrait, constants::*, exemption, identity, utils};
+use crate::{asset::AssetTrait, balances, constants::*, exemption, identity, utils};
 use primitives::{IdentityId, Key};
 
 use codec::Encode;
@@ -42,7 +42,7 @@ pub trait Trait: system::Trait + utils::Trait + exemption::Trait {
 decl_event!(
     pub enum Event<T>
     where
-        Balance = <T as utils::Trait>::TokenBalance,
+        Balance = <T as balances::Trait>::Balance,
     {
         TogglePercentageRestriction(Vec<u8>, u16, bool),
         DoSomething(Balance),
@@ -100,7 +100,7 @@ impl<T: Trait> Module<T> {
         ticker: &[u8],
         _from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        value: T::TokenBalance,
+        value: T::Balance,
     ) -> StdResult<u8, &'static str> {
         let upper_ticker = utils::bytes_to_upper(ticker);
         let max_percentage = Self::maximum_percentage_enabled_for_token(&upper_ticker);
@@ -116,16 +116,16 @@ impl<T: Trait> Module<T> {
                 let total_supply = T::Asset::total_supply(&upper_ticker);
 
                 let percentage_balance = (new_balance
-                    .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(18))))
+                    .checked_mul(&((10 as u128).pow(18)).into())
                     .ok_or("unsafe multiplication")?)
                 .checked_div(&total_supply)
                 .ok_or("unsafe division")?;
 
-                let allowed_token_amount = (<T as utils::Trait>::as_tb(max_percentage as u128))
-                    .checked_mul(&(<T as utils::Trait>::as_tb((10 as u128).pow(16))))
+                let allowed_token_amount = (max_percentage as u128)
+                    .checked_mul((10 as u128).pow(16))
                     .ok_or("unsafe percentage multiplication")?;
 
-                if percentage_balance > allowed_token_amount {
+                if percentage_balance > allowed_token_amount.into() {
                     sr_primitives::print(
                         "It is failing because it is not validating the PercentageTM restrictions",
                     );
@@ -195,7 +195,7 @@ mod tests {
     // }
 
     // impl utils::Trait for Test {
-    //     type TokenBalance = u128;
+    //     type Balance = u128;
     // }
 
     // impl timestamp::Trait for Test {
@@ -234,7 +234,7 @@ mod tests {
     //             HashMap<
     //                 Vec<u8>,
     //                 SecurityToken<
-    //                     <Test as utils::Trait>::TokenBalance,
+    //                     <Test as balances::Trait>::Balance,
     //                     <Test as system::Trait>::AccountId,
     //                 >,
     //             >,

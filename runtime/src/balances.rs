@@ -34,6 +34,7 @@
 //! - Added ability to pay transaction fees from identity's balance instead of user's balance.
 //! - To curb front running, sending a tip along with your transaction is now prohibited.
 //! - Added ability to store balance at identity level and use that to pay tx fees.
+//! - Added From<u128> trait to Balances type.
 //!
 //! The Original Balances module provides functions for:
 //!
@@ -198,6 +199,7 @@ pub trait Subtrait<I: Instance = DefaultInstance>: system::Trait {
         + Default
         + Copy
         + MaybeSerializeDebug
+        + From<u128>
         + From<Self::BlockNumber>;
 
     /// A function that is invoked when the free-balance has fallen below the existential deposit and
@@ -240,6 +242,7 @@ pub trait Trait<I: Instance = DefaultInstance>: system::Trait {
         + Default
         + Copy
         + MaybeSerializeDebug
+        + From<u128>
         + From<Self::BlockNumber>;
 
     /// A function that is invoked when the free-balance has fallen below the existential deposit and

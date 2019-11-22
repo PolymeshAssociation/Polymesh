@@ -81,7 +81,7 @@ pub trait Trait:
     type Event: From<Event> + Into<<Self as system::Trait>::Event>;
 
     /// Asset module
-    type Asset: asset::AssetTrait<Self::TokenBalance>;
+    type Asset: asset::AssetTrait<Self::Balance>;
 }
 
 /// An asset rule.
@@ -210,7 +210,7 @@ impl<T: Trait> Module<T> {
         ticker: &Vec<u8>,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        _value: T::TokenBalance,
+        _value: T::Balance,
     ) -> StdResult<u8, &'static str> {
         // Transfer is valid if All reciever and sender rules of any asset rule are valid.
         let ticker = utils::bytes_to_upper(ticker.as_slice());
@@ -376,20 +376,7 @@ mod tests {
     }
 
     impl utils::Trait for Test {
-        type TokenBalance = u128;
         type OffChainSignature = OffChainSignature;
-        fn as_u128(v: Self::TokenBalance) -> u128 {
-            v
-        }
-        fn as_tb(v: u128) -> Self::TokenBalance {
-            v
-        }
-        fn token_balance_to_balance(v: Self::TokenBalance) -> <Self as balances::Trait>::Balance {
-            v
-        }
-        fn balance_to_token_balance(v: <Self as balances::Trait>::Balance) -> Self::TokenBalance {
-            v
-        }
         fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
             v
         }
@@ -505,8 +492,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did.clone(),
                 total_supply: 1_000_000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
@@ -598,8 +584,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did.clone(),
                 total_supply: 1_000_000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
@@ -698,8 +683,7 @@ mod tests {
                 name: vec![0x01],
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
-                granularity: 1,
-                decimals: 18,
+                divisible: true,
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);

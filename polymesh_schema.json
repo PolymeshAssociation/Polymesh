@@ -1,12 +1,11 @@
 {
-    "TokenBalance": "u128",
+    "Balance": "u128",
     "IdentityId":"u128",
     "SecurityToken": {
         "name": "Vec<u8>",
-        "total_supply": "TokenBalance",
+        "total_supply": "Balance",
         "owner_did": "IdentityId",
-        "granularity": "u128",
-        "decimals": "u16"
+        "divisible": "bool"
     },
     "Restriction": {
         "name": "Vec<u8>",
@@ -115,8 +114,8 @@
     },
     "STO": {
         "beneficiary_did": "IdentityId",
-        "cap": "TokenBalance",
-        "sold": "TokenBalance",
+        "cap": "Balance",
+        "sold": "Balance",
         "rate": "u64",
         "start_date": "Moment",
         "end_date": "Moment",
@@ -124,20 +123,20 @@
     },
     "Investment": {
         "investor_did": "IdentityId",
-        "amount_paid": "TokenBalance",
-        "tokens_purchased": "TokenBalance",
+        "amount_paid": "Balance",
+        "tokens_purchased": "Balance",
         "last_purchase_date": "Moment"
     },
     "SimpleTokenRecord": {
         "ticker": "Vec<u8>",
-        "total_supply": "TokenBalance",
+        "total_supply": "Balance",
         "owner_did": "IdentityId"
     },
     "FeeOf": "Balance",
     "TSMoment": "u64",
     "Moment": "u64",
     "Dividend": {
-        "amount": "TokenBalance",
+        "amount": "Balance",
         "active": "bool",
         "maturates_at": "Option<u64>",
         "expires_at": "Option<u64>",
@@ -152,7 +151,7 @@
         "custodian_did": "IdentityId",
         "holder_did": "IdentityId",
         "ticker": "Vec<u8>",
-        "value": "TokenBalance",
+        "value": "Balance",
         "nonce": "u16"
     },
     "Proposal": {
