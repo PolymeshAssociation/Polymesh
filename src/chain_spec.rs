@@ -165,7 +165,7 @@ fn polymath_props() -> Properties {
         .as_object()
         .unwrap()
         .clone()
-     }
+}
 
 fn session_keys(grandpa: GrandpaId, babe: BabeId, im_online: ImOnlineId) -> SessionKeys {
     SessionKeys {
