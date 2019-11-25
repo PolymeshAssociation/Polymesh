@@ -161,8 +161,11 @@ impl Alternative {
 }
 
 fn polymath_props() -> Properties {
-	json!({"tokenDecimals": 18, "tokenSymbol": "TEST" }).as_object().unwrap().clone()
-}
+    json!({"tokenDecimals": 18, "tokenSymbol": "TEST" })
+             .as_object()
+             .unwrap()
+             .clone()
+     }}
 
 fn session_keys(grandpa: GrandpaId, babe: BabeId, im_online: ImOnlineId) -> SessionKeys {
     SessionKeys {
