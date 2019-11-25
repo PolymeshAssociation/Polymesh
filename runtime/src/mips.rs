@@ -31,11 +31,20 @@
 //! - `token_details` - Returns details of the token
 
 use crate::{balances, utils};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, StorageValue};
+use sr_primitives::{
+    traits::{Bounded, CheckedDiv, CheckedMul, Dispatchable, EnsureOrigin, Hash, Zero},
+    weights::SimpleDispatchInfo,
+};
+use srml_support::{
+    decl_event, decl_module, decl_storage, dispatch::Result, Parameter, StorageValue,
+};
 use system::ensure_signed;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait {
+    /// A proposal is a dispatchable call
+    type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
+
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
