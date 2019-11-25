@@ -1,8 +1,41 @@
+//! # MIPS Module
+//!
+//! MESH Improvement Proposals (MIPs) are proposals (ballots) that can then be proposed and voted on
+//! by all MESH token holders. If a ballot passes this community vote it is then passed to the
+//! governance council to ratify (or reject).
+//! - minimum of 5,000 MESH needs to be staked by the proposer of the ballot
+//! in order to create a new ballot.
+//! - minimum of 100,000 MESH (quorum) needs to vote in favour of the ballot in order for the
+//! ballot to be considered by the governing committee.
+//! - ballots run for 1 week
+//! - a simple majority is needed to pass the ballot so that it heads for the
+//! next stage (governing committee)
+//!
+//! ## Overview
+//!
+//! The Asset module provides functions for:
+//!
+//! - Creating Mesh Improvement Proposals
+//! - Voting on Mesh Improvement Proposals
+//! - Governance committee to ratify or reject proposals
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `propose` - Token holders can propose a new ballot.
+//! - `vote` - Token holders can vote on a ballot.
+//!
+//! ### Public Functions
+//!
+//! - `token_details` - Returns details of the token
+
+use crate::{balances, utils};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, StorageValue};
 use system::ensure_signed;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + balances::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -14,32 +47,38 @@ decl_storage! {
     }
 }
 
+decl_event!(
+    pub enum Event<T>
+    where
+        AccountId = <T as system::Trait>::AccountId,
+        Balance = <T as balances::Trait>::Balance,
+    {
+        Proposed(AccountId, Balance),
+        Voted(AccountId),
+    }
+);
+
 // The module's dispatchable functions.
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
-        pub fn do_something(origin, something: u32) -> Result {
+        pub fn propose(origin, stake: T::Balance) -> Result {
             let who = ensure_signed(origin)?;
 
-            Something::put(something);
+            Self::deposit_event(RawEvent::Proposed(who, stake));
+            Ok(())
+        }
 
-            // here we are raising the Something event
-            Self::deposit_event(RawEvent::SomethingStored(something, who));
+        pub fn vote(origin) -> Result {
+            let who = ensure_signed(origin)?;
+
+            Self::deposit_event(RawEvent::Voted(who));
             Ok(())
         }
     }
 }
-
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as system::Trait>::AccountId,
-    {
-        SomethingStored(u32, AccountId),
-    }
-);
 
 /// tests for this module
 #[cfg(test)]
