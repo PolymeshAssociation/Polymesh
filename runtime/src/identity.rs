@@ -52,6 +52,7 @@ use srml_support::{
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
 };
+use sr_io::blake2_256;
 use system::{self, ensure_signed};
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
@@ -131,6 +132,9 @@ decl_storage! {
 
         /// How much does creating a DID cost
         pub DidCreationFee get(did_creation_fee) config(): T::Balance;
+
+        /// Nonce to ensure unique DIDs are generated. starts from 1.
+        pub DidNone get(did_nonce) build(|_| 1u128): u128;
     }
 }
 
@@ -160,6 +164,11 @@ decl_module! {
             // 1.2. Master key is not part of signing keys.
             ensure!( signing_keys.iter().find( |sk| **sk == master_key).is_none(),
                 "Signing keys contains the master key");
+            let hash = blake2_256("&5u32.to_be_bytes()".as_bytes());
+            let no = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
+            let now = <timestamp::Module<T>>::get();
+            let h2 = blake2_256(no.as_ref());
+            let n: u128 = Self::did_nonce() + u128::from(<system::Module<T>>::extrinsic_count());
             // 1.3. Make sure there's no pre-existing entry for the DID
             ensure!(!<DidRecords>::exists(did), "DID must be unique");
             // 1.4. Signing keys can be linked to the new identity.
