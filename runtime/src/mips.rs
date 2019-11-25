@@ -36,7 +36,13 @@ use sr_primitives::{
     weights::SimpleDispatchInfo,
 };
 use srml_support::{
-    decl_event, decl_module, decl_storage, dispatch::Result, Parameter, StorageValue,
+    decl_event, decl_module, decl_storage,
+    dispatch::Result,
+    traits::{
+        Currency, Get, LockIdentifier, LockableCurrency, OnFreeBalanceZero, ReservableCurrency,
+        WithdrawReason,
+    },
+    Parameter, StorageValue,
 };
 use system::ensure_signed;
 
@@ -44,6 +50,12 @@ use system::ensure_signed;
 pub trait Trait: system::Trait + balances::Trait {
     /// A proposal is a dispatchable call
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
+
+    /// The minimum amount to be used as a deposit for a proposal.
+    type MinimumDeposit: Get<Self::Balance>;
+
+    /// How long (in blocks) a ballot runs
+    type VotingPeriod: Get<Self::BlockNumber>;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -72,6 +84,13 @@ decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
+
+        /// The minimum amount to be used as a deposit for a public referendum proposal.
+        const MinimumDeposit: T::Balance = T::MinimumDeposit::get();
+
+        /// How long (in blocks) a ballot runs
+        const VotingPeriod: T::BlockNumber = T::VotingPeriod::get();
+
 
         pub fn propose(origin, stake: T::Balance) -> Result {
             let who = ensure_signed(origin)?;
