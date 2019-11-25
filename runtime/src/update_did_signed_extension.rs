@@ -1,4 +1,4 @@
-use crate::{identity, identity::LinkedKeyInfo, Runtime};
+use crate::{balances, identity, identity::LinkedKeyInfo, Runtime};
 
 use primitives::{AccountId, IdentityId, Key, TransactionError};
 
@@ -14,6 +14,7 @@ use core::convert::TryFrom;
 use srml_support::dispatch::DispatchInfo;
 
 type Identity = identity::Module<Runtime>;
+type Balance = balances::Module<Runtime>;
 type Call = crate::Call;
 
 /// This signed extension double-checks and updates the current identifier extracted from
@@ -82,5 +83,48 @@ impl SignedExtension for UpdateDid {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UpdateDid;
+    use crate::{
+        balances, identity,
+        test::storage::{build_ext, make_account_with_balance, TestStorage},
+        Runtime,
+    };
+    use primitives::TransactionError;
+    use sr_io::with_externalities;
+    use sr_primitives::transaction_validity::{InvalidTransaction, ValidTransaction};
+    use srml_support::dispatch::DispatchInfo;
+
+    type Identity = identity::Module<TestStorage>;
+    type Balance = balances::Module<TestStorage>;
+
+    #[test]
+    fn update_did_tests() {
+        with_externalities(&mut build_ext(), &update_did_tests_with_externalities);
+    }
+
+    fn update_did_tests_with_externalities() {
+        let update_did_se = UpdateDid::default();
+        let dispatch_info = DispatchInfo::default();
+
+        let (a_acc, b_acc, c_acc, d_acc) = (1u64, 2u64, 3u64, 4u64);
+        let (alice, alice_id) = make_account_with_balance(a_acc, 10_000).unwrap();
+        let (bob, bob_id) = make_account_with_balance(b_acc, 5_000).unwrap();
+
+        /*
+        let register_did_call_1 = Runtime::Call::Identity( Identity::Call::register_did( alice_id.clone(), vec![]));
+        assert_eq!(
+            update_did_se.validate( &a_acc, register_did_call_1, dispatch_info, 0usize),
+            Ok(ValidTransaction::default()));
+
+        let transfer_call_1 = Runtime::Call::Balance( Balance::Call::transfer( b_acc, a_acc, 100));
+        assert_eq!(
+            update_did_se.validate( &b_acc, transfer_call_1, dispatch_info, 0usize),
+            Err( InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into()));
+        */
     }
 }

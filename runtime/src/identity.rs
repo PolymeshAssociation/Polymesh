@@ -219,6 +219,9 @@ decl_module! {
             };
             <DidRecords<T>>::insert(did, record);
 
+            // TODO KYC is valid by default.
+            KYCValidation::insert(did, true);
+
             Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
             Ok(())
         }

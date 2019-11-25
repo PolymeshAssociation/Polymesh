@@ -50,6 +50,9 @@ pub use staking::StakerStatus;
 use system::offchain::TransactionSubmitter;
 pub use timestamp::Call as TimestampCall;
 
+#[cfg(test)]
+pub mod test;
+
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee};
