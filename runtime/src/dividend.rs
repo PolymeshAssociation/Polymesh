@@ -673,14 +673,6 @@ mod tests {
             )
             .expect("Could not create payout_owner_did");
 
-            // Raise the owners' base currency balance
-            <identity::DidRecords<Test>>::mutate(token_owner_did, |record| {
-                record.balance = 1_000_000;
-            });
-            <identity::DidRecords<Test>>::mutate(payout_owner_did, |record| {
-                record.balance = 1_000_000;
-            });
-
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 Origin::signed(token_owner_acc.clone()),
@@ -705,9 +697,6 @@ mod tests {
             let investor_did = IdentityId::from(3u128);
             Identity::register_did(Origin::signed(investor_acc.clone()), investor_did, vec![])
                 .expect("Could not create investor_did");
-            <identity::DidRecords<Test>>::mutate(investor_did, |record| {
-                record.balance = 1_000_000;
-            });
 
             let amount_invested = 50_000;
 

@@ -225,7 +225,7 @@ decl_module! {
             // }
             // let remainder_fee = fee - (proportional_fee * validator_len);
             // let remainder_fee_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
-            // <identity::DidRecords<T>>::mutate(did, |record| -> Result {
+            // <identity::DidRecords>::mutate(did, |record| -> Result {
             //     record.balance = record.balance.checked_sub(&remainder_fee_balance).ok_or("Could not charge for token issuance")?;
             //     Ok(())
             // })?;
@@ -1301,7 +1301,7 @@ impl<T: Trait> Module<T> {
         );
         // Ensure the valid DID
         ensure!(
-            <identity::DidRecords<T>>::exists(custodian_did),
+            <identity::DidRecords>::exists(custodian_did),
             "Invalid custodian DID"
         );
 
@@ -1548,9 +1548,6 @@ mod tests {
                 "Total supply above the limit"
             );
 
-            Identity::fund_poly(Origin::signed(owner_acc.clone()), owner_did, 500_000)
-                .expect("Could not add funds to DID");
-
             // Issuance is successful
             assert_ok!(Asset::create_token(
                 Origin::signed(owner_acc.clone()),
@@ -1625,9 +1622,6 @@ mod tests {
             Balances::make_free_balance_be(&bob_acc, 1_000_000);
             Identity::register_did(Origin::signed(bob_acc.clone()), bob_did, vec![])
                 .expect("Could not create bob_did");
-
-            Identity::fund_poly(Origin::signed(owner_acc.clone()), owner_did, 500_000)
-                .expect("Could not add funds to DID");
 
             // Issuance is successful
             assert_ok!(Asset::create_token(

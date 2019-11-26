@@ -82,15 +82,14 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
 
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
-            // ensure!(<identity::Module<T>>::is_simple_token_issuer(&did), "Sender is not an issuer");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
-
             ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
 
-            <identity::DidRecords<T>>::mutate( did, |record| -> Result {
-                record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
-                Ok(())
-            })?;
+            // TODO Charge proper fee
+            // <identity::DidRecords<T>>::mutate( did, |record| -> Result {
+            //     record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
+            //     Ok(())
+            // })?;
 
             let new_token = SimpleTokenRecord {
                 ticker: ticker.clone(),

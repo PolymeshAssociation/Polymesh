@@ -29,11 +29,12 @@
         "jurisdiction": "u16"
     },
     "Key": "[u8;32]",
-    "KeyRole": {
+    "Permission": {
         "_enum": [
             "Full",
             "Admin",
-            "Operator"
+            "Operator",
+            "SpendFunds"
        ]
     },
     "SigningKeyType": {
@@ -47,7 +48,7 @@
     "SigningKey": {
         "key": "Key",
         "type": "SigningKeyType",
-        "roles": "Vec<KeyRole>"
+        "permissions": "Vec<Permission>"
     },
     "IdentityRole": {
         "_enum": [
@@ -66,8 +67,7 @@
     "DidRecord": {
         "roles": "Vec<IdentityRole>",
         "master_key": "Key",
-        "signing_keys": "Vec<SigningKey>",
-        "balance": "Balance"
+        "signing_keys": "Vec<SigningKey>"
     },
     "Claim": {
         "issuance_date": "Moment",
