@@ -431,7 +431,7 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
   fail_type["ADD SIGNING KEY"] = 0;
   for (let i = 0; i < accounts.length; i++) {
     let signing_key = {
-      key: signing_accounts[i].address,
+      key: signing_accounts[i].publicKey,
       key_type: 0,
       roles: []
     }
@@ -477,12 +477,12 @@ async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitB
   for (let i = 0; i < accounts.length; i++) {
     if (fast) {
       const unsub = await api.tx.identity
-      .setRoleToSigningKey(dids[i], signing_accounts[i].address, sk_roles[i%sk_roles.length])
+      .setRoleToSigningKey(dids[i], signing_accounts[i].publicKey, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-      .setRoleToSigningKey(dids[i], signing_accounts[i].address, sk_roles[i%sk_roles.length])
+      .setRoleToSigningKey(dids[i], signing_accounts[i].publicKey, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
