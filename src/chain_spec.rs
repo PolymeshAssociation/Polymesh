@@ -7,10 +7,12 @@ use polymesh_primitives::AccountId;
 use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY, time::*};
 use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
-    AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
-    GenesisConfig, IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys,
-    SimpleTokenConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-    TechnicalCommitteeConfig, WASM_BINARY,
+    config::{
+        AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
+        ElectionsConfig, GenesisConfig, IdentityConfig, IndicesConfig, SessionConfig,
+        SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+    },
+    Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
 
