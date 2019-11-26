@@ -89,6 +89,7 @@ impl From<[u8; UUID_LEN]> for IdentityId {
 
 impl Printable for IdentityId {
     fn print(&self) {
+        sr_io::print_utf8("did:poly:".as_bytes());
         sr_io::print_hex(&self.0);
     }
 }

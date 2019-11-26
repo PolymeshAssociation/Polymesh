@@ -43,7 +43,7 @@ pub mod fee {
 /// DID-related.
 pub mod did {
     /// prefix for user dids
-    pub const USER: [u8; 5] = [85, 83, 69, 82, 58];
+    pub const USER: [u8; 5] = *b"USER:";
 }
 
 // ERC1400 transfer status codes

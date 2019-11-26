@@ -471,13 +471,11 @@ mod tests {
     }
 
     fn make_account(
-        id: u64,
         account_id: AccountId,
     ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id);
-        let did = IdentityId::from(id as u128);
-
-        Identity::register_did(signed_id.clone(), did, vec![])?;
+        Identity::register_did(signed_id.clone(), vec![])?;
+        let did = Identity::get_identity(account_id).unwrap();
         Ok((signed_id, did))
     }
 
@@ -515,7 +513,7 @@ mod tests {
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
             let (_claim_issuer, claim_issuer_did) =
-                make_account(3, claim_issuer_acc.clone()).unwrap();
+                make_account(claim_issuer_acc.clone()).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
                 Origin::signed(token_owner_acc.clone()),
@@ -607,7 +605,7 @@ mod tests {
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
             let (_claim_issuer, claim_issuer_did) =
-                make_account(3, claim_issuer_acc.clone()).unwrap();
+                make_account(claim_issuer_acc.clone()).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
                 Origin::signed(token_owner_acc.clone()),

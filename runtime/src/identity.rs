@@ -648,7 +648,7 @@ impl<T: Trait> Module<T> {
     /// It checks if `key` is the master key or signing key of any did
     /// # Return
     /// An Option object containing the `did` that belongs to the key.
-    fn get_identity(key: &Key) -> Option<IdentityId> {
+    pub fn get_identity(key: &Key) -> Option<IdentityId> {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
                 return Some(linked_id);
@@ -875,9 +875,8 @@ mod tests {
         id: u64,
     ) -> Result<(<IdentityTest as system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(id);
-        let did = IdentityId::from(id as u128);
-
-        Identity::register_did(signed_id.clone(), did, vec![])?;
+        Identity::register_did(signed_id.clone(), vec![])?;
+        let did = Identity::get_identity(id).unwrap();
         Ok((signed_id, did))
     }
 
