@@ -40,6 +40,12 @@ pub mod fee {
     pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
 }
 
+/// DID-related.
+pub mod did {
+    /// prefix for user dids
+    pub const USER: [u8; 5] = [85, 83, 69, 82, 58];
+}
+
 // ERC1400 transfer status codes
 pub const ERC1400_TRANSFER_FAILURE: u8 = 0x50;
 pub const ERC1400_TRANSFER_SUCCESS: u8 = 0x51;
@@ -61,9 +67,3 @@ pub const APP_TX_VOLUME_LIMIT_REACHED: u8 = 0xa5;
 pub const APP_BLACKLISTED_TX: u8 = 0xa6;
 pub const APP_FUNDS_LOCKED: u8 = 0xa7;
 pub const APP_INVALID_GRANULARITY: u8 = 0xa8;
-
-/// did-related.
-pub mod did {
-    // utf8 value of "USER:" represented in decimals
-    pub const USER: [u8; 5] = [85, 83, 69, 82, 58];
-}

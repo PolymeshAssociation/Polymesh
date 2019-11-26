@@ -2,11 +2,12 @@ use core::fmt::{Display, Formatter};
 use core::str;
 use parity_scale_codec::{Decode, Encode};
 use rstd::prelude::*;
-
+use runtime_primitives::traits::Printable;
+use sr_io;
 const _POLY_DID_PREFIX: &'static str = "did:poly:";
-const _POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
-const _UUID_LEN: usize = 32usize;
-const _POLY_DID_LEN: usize = _POLY_DID_PREFIX_LEN + _UUID_LEN;
+const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
+const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN;
+const UUID_LEN: usize = 32usize;
 
 /// Polymesh Identifier ID.
 /// It is stored internally as an `u128` but it can be load from string with the following format:
@@ -22,27 +23,21 @@ const _POLY_DID_LEN: usize = _POLY_DID_PREFIX_LEN + _UUID_LEN;
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
 #[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
-pub struct IdentityId(u128);
-
-impl IdentityId {
-    /// Generate a randomized `IdentityId`.
-    /// # TODO
-    /// It is not random yet. The implementation could use hash of accountId + nonce.
-    pub fn generate() -> Self {
-        // let v = rand::random::<u128>();
-        IdentityId(0u128)
-    }
-}
+pub struct IdentityId([u8; UUID_LEN]);
 
 impl Display for IdentityId {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "did:poly:{:032x}", self.0)
+        write!(f, "did:poly:{:?}", self.0)
     }
 }
 
 impl From<u128> for IdentityId {
     fn from(id: u128) -> Self {
-        IdentityId(id)
+        let mut encoded_id = id.encode();
+        encoded_id.resize(32, 0);
+        let mut did = [0; 32];
+        did.copy_from_slice(&encoded_id);
+        IdentityId(did)
     }
 }
 
@@ -53,25 +48,24 @@ impl TryFrom<&str> for IdentityId {
     type Error = &'static str;
 
     fn try_from(did: &str) -> Result<Self, Self::Error> {
-        ensure!(did.len() == _POLY_DID_LEN, "Invalid length of IdentityId");
+        ensure!(did.len() == POLY_DID_LEN, "Invalid length of IdentityId");
 
         // Check prefix
-        let prefix = &did[.._POLY_DID_PREFIX_LEN];
+        let prefix = &did[..POLY_DID_PREFIX_LEN];
         ensure!(prefix == _POLY_DID_PREFIX, "Missing 'did:poly:' prefix");
 
         // Check hex code
-        let did_code = (_POLY_DID_PREFIX_LEN.._POLY_DID_LEN)
+        let did_code = (POLY_DID_PREFIX_LEN..POLY_DID_LEN)
             .step_by(2)
             .map(|idx| u8::from_str_radix(&did[idx..idx + 2], 16))
             .collect::<Result<Vec<u8>, _>>()
             .map_err(|_| "DID code is not a valid hex")?;
 
-        if did_code.len() == 16 {
-            let mut uuid_fixed = [0u8; 16];
+        if did_code.len() == UUID_LEN {
+            let mut uuid_fixed = [0u8; UUID_LEN];
             uuid_fixed.copy_from_slice(&did_code);
 
-            let uuid = u128::from_ne_bytes(uuid_fixed);
-            Ok(IdentityId(uuid))
+            Ok(IdentityId(uuid_fixed))
         } else {
             Err("DID code is not a valid")
         }
@@ -84,6 +78,18 @@ impl TryFrom<&[u8]> for IdentityId {
     fn try_from(did: &[u8]) -> Result<Self, Self::Error> {
         let did_str = str::from_utf8(did).map_err(|_| "DID is not valid UTF-8")?;
         IdentityId::try_from(did_str)
+    }
+}
+
+impl From<[u8; UUID_LEN]> for IdentityId {
+    fn from(s: [u8; UUID_LEN]) -> Self {
+        IdentityId(s)
+    }
+}
+
+impl Printable for IdentityId {
+    fn print(&self) {
+        sr_io::print_hex(&self.0);
     }
 }
 
