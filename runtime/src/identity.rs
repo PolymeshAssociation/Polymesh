@@ -872,49 +872,20 @@ mod tests {
 
     /// It creates an Account and registers its DID.
     fn make_account(
-        id: u64,
+        id: &u64,
     ) -> Result<(<IdentityTest as system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(id);
+        let signed_id = Origin::signed(id.clone());
         Identity::register_did(signed_id.clone(), vec![])?;
-        let did = Identity::get_identity(id).unwrap();
+        let did = Identity::get_identity(&Key::try_from(id.encode())?).unwrap();
         Ok((signed_id, did))
-    }
-
-    #[test]
-    fn dids_are_unique() {
-        with_externalities(&mut build_ext(), || {
-            let did_1 = IdentityId::from(1);
-            let did_2 = IdentityId::from(2);
-
-            assert_ok!(Identity::register_did(Origin::signed(1), did_1, vec![]));
-
-            assert_ok!(Identity::register_did(Origin::signed(2), did_2, vec![]));
-
-            assert_err!(
-                Identity::register_did(Origin::signed(3), did_1, vec![]),
-                "DID must be unique"
-            );
-
-            // Err: Master key cannot be part of signing keys.
-            let did_3 = IdentityId::from(3);
-            let did_master_key = Key::try_from(3u64.encode()).unwrap();
-            assert_err!(
-                Identity::register_did(
-                    Origin::signed(3),
-                    did_3,
-                    vec![SigningKey::from(did_master_key)]
-                ),
-                "Signing keys contains the master key"
-            );
-        });
     }
 
     #[test]
     fn only_claim_issuers_can_add_claims() {
         with_externalities(&mut build_ext(), || {
-            let (_owner, owner_did) = make_account(Identity::owner()).unwrap();
-            let (issuer, issuer_did) = make_account(2).unwrap();
-            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+            let (_owner, owner_did) = make_account(&Identity::owner()).unwrap();
+            let (issuer, issuer_did) = make_account(&2).unwrap();
+            let (claim_issuer, claim_issuer_did) = make_account(&3).unwrap();
 
             let claim_value = ClaimValue {
                 data_type: DataTypes::VecU8,
@@ -960,9 +931,9 @@ mod tests {
         with_externalities(&mut build_ext(), || {
             let owner_id = Identity::owner();
             let owner_key = Key::try_from(owner_id.encode()).unwrap();
-            let (_owner, owner_did) = make_account(owner_id).unwrap();
-            let (a, a_did) = make_account(2).unwrap();
-            let (_b, b_did) = make_account(3).unwrap();
+            let (_owner, owner_did) = make_account(&owner_id).unwrap();
+            let (a, a_did) = make_account(&2).unwrap();
+            let (_b, b_did) = make_account(&3).unwrap();
             let charlie_sig_key = SigningKey::new(
                 Key::try_from(4u64.encode()).unwrap(),
                 vec![Permission::Admin],
@@ -993,9 +964,9 @@ mod tests {
     #[test]
     fn revoking_claims() {
         with_externalities(&mut build_ext(), || {
-            let (owner, owner_did) = make_account(Identity::owner()).unwrap();
-            let (issuer, issuer_did) = make_account(2).unwrap();
-            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+            let (owner, owner_did) = make_account(&Identity::owner()).unwrap();
+            let (issuer, issuer_did) = make_account(&2).unwrap();
+            let (claim_issuer, claim_issuer_did) = make_account(&3).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
                 owner.clone(),
@@ -1050,7 +1021,7 @@ mod tests {
             Key::try_from(bob_acc.encode()).unwrap(),
             Key::try_from(charlie_acc.encode()).unwrap(),
         );
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
 
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
@@ -1136,7 +1107,7 @@ mod tests {
         };
 
         // Add signing keys with non-default type.
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
         assert_ok!(Identity::add_signing_keys(
             alice,
             alice_did,
@@ -1144,10 +1115,8 @@ mod tests {
         ));
 
         // Register did with non-default type.
-        let bob_did = IdentityId::from(bob_acc as u128);
         assert_ok!(Identity::register_did(
             Origin::signed(bob_acc),
-            bob_did,
             vec![dave_signing_key]
         ));
     }
@@ -1171,7 +1140,7 @@ mod tests {
         let dave_signing_key = SigningKey::new(dave_key.clone(), vec![]);
 
         // Add signing keys.
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
         let signing_keys_v1 = vec![bob_signing_key.clone(), charlie_signing_key];
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
@@ -1243,7 +1212,7 @@ mod tests {
         let charlie_signing_key = SigningKey::new(charlie_key, vec![Permission::Operator]);
 
         // Add signing keys.
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
         let signing_keys_v1 = vec![bob_signing_key, charlie_signing_key.clone()];
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
@@ -1273,8 +1242,8 @@ mod tests {
     fn add_claim_issuer_tests_with_externalities() {
         // Register identities
         let (alice_acc, bob_acc, charlie_acc) = (1u64, 2u64, 3u64);
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
-        let (_bob, bob_did) = make_account(bob_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
+        let (_bob, bob_did) = make_account(&bob_acc).unwrap();
 
         // Check `add_claim_issuer` constraints.
         assert_ok!(Identity::add_claim_issuer(
@@ -1305,8 +1274,8 @@ mod tests {
         let unique_error = "One signing key can only belong to one DID";
         // Register identities
         let (a_acc, b_acc, c_acc, d_acc) = (1u64, 2u64, 3u64, 4u64);
-        let (alice, alice_id) = make_account(a_acc).unwrap();
-        let (bob, bob_id) = make_account(b_acc).unwrap();
+        let (alice, alice_id) = make_account(&a_acc).unwrap();
+        let (bob, bob_id) = make_account(&b_acc).unwrap();
 
         // Check external signed key uniqueness.
         let charlie_key = Key::try_from(c_acc.encode()).unwrap();

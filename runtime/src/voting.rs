@@ -492,12 +492,12 @@ mod tests {
     }
 
     fn make_account(
-        account_id: AccountId,
+        account_id: &AccountId,
     ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
         Identity::register_did(signed_id.clone(), vec![])?;
-        let did = Identity::get_identity(account_id).unwrap();
+        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
@@ -505,9 +505,9 @@ mod tests {
     fn add_ballot() {
         with_externalities(&mut build_ext(), || {
             let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
-            let (token_owner_acc, token_owner_did) = make_account(_token_owner_acc).unwrap();
+            let (token_owner_acc, token_owner_did) = make_account(&_token_owner_acc).unwrap();
             let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
-            let (tokenholder_acc, tokenholder_did) = make_account(_tokenholder_acc).unwrap();
+            let (tokenholder_acc, tokenholder_did) = make_account(&_tokenholder_acc).unwrap();
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -682,9 +682,9 @@ mod tests {
     fn cancel_ballot() {
         with_externalities(&mut build_ext(), || {
             let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
-            let (token_owner_acc, token_owner_did) = make_account(_token_owner_acc).unwrap();
+            let (token_owner_acc, token_owner_did) = make_account(&_token_owner_acc).unwrap();
             let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
-            let (tokenholder_acc, tokenholder_did) = make_account(_tokenholder_acc).unwrap();
+            let (tokenholder_acc, tokenholder_did) = make_account(&_tokenholder_acc).unwrap();
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -799,9 +799,9 @@ mod tests {
     fn vote() {
         with_externalities(&mut build_ext(), || {
             let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
-            let (token_owner_acc, token_owner_did) = make_account(_token_owner_acc).unwrap();
+            let (token_owner_acc, token_owner_did) = make_account(&_token_owner_acc).unwrap();
             let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
-            let (tokenholder_acc, tokenholder_did) = make_account(_tokenholder_acc).unwrap();
+            let (tokenholder_acc, tokenholder_did) = make_account(&_tokenholder_acc).unwrap();
 
             // A token representing 1M shares
             let token = SecurityToken {

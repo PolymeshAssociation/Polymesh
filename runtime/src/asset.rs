@@ -1519,11 +1519,12 @@ mod tests {
     }
 
     fn make_account(
-        account_id: AccountId,
-    ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(account_id);
+        account_id: &AccountId,
+    ) -> StdResult<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+        let signed_id = Origin::signed(account_id.clone());
+        Balances::make_free_balance_be(&account_id, 1_000_000);
         Identity::register_did(signed_id.clone(), vec![])?;
-        let did = Identity::get_identity(account_id).unwrap();
+        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
@@ -1531,7 +1532,7 @@ mod tests {
     fn issuers_can_create_tokens() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
-            let (owner_signed, owner_did) = make_account(owner_acc);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
             // Raise the owner's base currency balance
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
@@ -1577,7 +1578,7 @@ mod tests {
     fn non_issuers_cant_create_tokens() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
-            let (owner_signed, owner_did) = make_account(owner_acc);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -1603,7 +1604,7 @@ mod tests {
             <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let owner_acc = AccountId::from(AccountKeyring::Dave);
-            let (owner_signed, owner_did) = make_account(owner_acc);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -1616,12 +1617,12 @@ mod tests {
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (alice_signed, alice_did) = make_account(alice_acc);
+            let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
 
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
 
             let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (bob_signed, bob_did) = make_account(bob_acc);
+            let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
 
             Balances::make_free_balance_be(&bob_acc, 1_000_000);
 
@@ -1665,7 +1666,7 @@ mod tests {
     fn valid_custodian_allowance() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
-            let (owner_signed, owner_did) = make_account(owner_acc);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
             let now = Utc::now();
             <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
@@ -1681,17 +1682,17 @@ mod tests {
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
             let investor1_acc = AccountId::from(AccountKeyring::Bob);
-            let (investor1_signed, investor1_did) = make_account(investor1_acc);
+            let (investor1_signed, investor1_did) = make_account(&investor1_acc).unwrap();
 
             Balances::make_free_balance_be(&investor1_acc, 1_000_000);
 
             let investor2_acc = AccountId::from(AccountKeyring::Charlie);
-            let (investor2_signed, investor2_did) = make_account(investor2_acc);
+            let (investor2_signed, investor2_did) = make_account(&investor2_acc).unwrap();
 
             Balances::make_free_balance_be(&investor2_acc, 1_000_000);
 
             let custodian_acc = AccountId::from(AccountKeyring::Eve);
-            let (custodian_signed, custodian_did) = make_account(custodian_acc);
+            let (custodian_signed, custodian_did) = make_account(&custodian_acc).unwrap();
 
             Balances::make_free_balance_be(&custodian_acc, 1_000_000);
 
@@ -1852,7 +1853,7 @@ mod tests {
     fn valid_custodian_allowance_of() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
-            let (owner_signed, owner_did) = make_account(owner_acc);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
             let now = Utc::now();
             <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
@@ -1868,17 +1869,17 @@ mod tests {
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
             let investor1_acc = AccountId::from(AccountKeyring::Bob);
-            let (investor1_signed, investor1_did) = make_account(investor1_acc);
+            let (investor1_signed, investor1_did) = make_account(&investor1_acc).unwrap();
 
             Balances::make_free_balance_be(&investor1_acc, 1_000_000);
 
             let investor2_acc = AccountId::from(AccountKeyring::Charlie);
-            let (investor2_signed, investor2_did) = make_account(investor2_acc);
+            let (investor2_signed, investor2_did) = make_account(&investor2_acc).unwrap();
 
             Balances::make_free_balance_be(&investor2_acc, 1_000_000);
 
             let custodian_acc = AccountId::from(AccountKeyring::Eve);
-            let (custodian_signed, custodian_did) = make_account(custodian_acc);
+            let (custodian_signed, custodian_did) = make_account(&custodian_acc).unwrap();
 
             Balances::make_free_balance_be(&custodian_acc, 1_000_000);
 
@@ -2066,7 +2067,7 @@ mod tests {
                 <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
                 let owner_acc = AccountId::from(AccountKeyring::Dave);
-                let (owner_signed, owner_did) = make_account(owner_acc);
+                let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
                 // Expected token entry
                 let token = SecurityToken {
@@ -2076,12 +2077,8 @@ mod tests {
                     divisible: true,
                 };
 
-                Balances::make_free_balance_be(&owner_acc, 1_000_000);
-
                 let bob_acc = AccountId::from(AccountKeyring::Bob);
-                let (bob_signed, bob_did) = make_account(bob_acc);
-
-                Balances::make_free_balance_be(&bob_acc, 1_000_000);
+                let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
 
                 // Issuance is successful
                 assert_ok!(Asset::create_token(
