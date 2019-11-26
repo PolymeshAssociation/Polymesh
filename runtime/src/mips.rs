@@ -30,21 +30,20 @@
 //!
 //! - `token_details` - Returns details of the token
 
-use crate::{balances, utils};
-use sr_primitives::{
-    traits::{Bounded, CheckedDiv, CheckedMul, Dispatchable, EnsureOrigin, Hash, Zero},
-    weights::SimpleDispatchInfo,
-};
+use crate::balances;
+use rstd::prelude::*;
+use sr_primitives::{traits::Dispatchable, weights::SimpleDispatchInfo};
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
-    traits::{
-        Currency, Get, LockIdentifier, LockableCurrency, OnFreeBalanceZero, ReservableCurrency,
-        WithdrawReason,
-    },
-    Parameter, StorageValue,
+    ensure,
+    traits::{Currency, Get, ReservableCurrency},
+    Parameter,
 };
 use system::ensure_signed;
+
+/// Mesh Improvement Proposal index.
+pub type ProposalIndex = u32;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait {
@@ -52,7 +51,7 @@ pub trait Trait: system::Trait + balances::Trait {
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
 
     /// The minimum amount to be used as a deposit for a proposal.
-    type MinimumDeposit: Get<Self::Balance>;
+    type MinimumProposalDeposit: Get<Self::Balance>;
 
     /// How long (in blocks) a ballot runs
     type VotingPeriod: Get<Self::BlockNumber>;
@@ -64,7 +63,16 @@ pub trait Trait: system::Trait + balances::Trait {
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as MIPS {
-        Something get(something): Option<u32>;
+        /// Proposal index used to keep track of MIPs off-chain.
+//        pub ProposalCount get(fn proposal_count) build(|_| 0 as ProposalIndex) : ProposalIndex;
+
+        /// Unsorted MIPs.
+        /// proposal index -> (dispatchable proposal, proposer)
+//        pub Proposals get(proposals): map ProposalIndex => (T::Proposal, T::AccountId);
+
+        /// Those who have locked a deposit.
+        /// proposal index -> (deposit, proposer)
+        pub Deposits get(deposits): map ProposalIndex => Option<(T::Balance, T::AccountId)>;
     }
 }
 
@@ -83,19 +91,32 @@ decl_event!(
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        fn deposit_event() = default;
 
         /// The minimum amount to be used as a deposit for a public referendum proposal.
-        const MinimumDeposit: T::Balance = T::MinimumDeposit::get();
+        const MinimumProposalDeposit: T::Balance = T::MinimumProposalDeposit::get();
 
         /// How long (in blocks) a ballot runs
         const VotingPeriod: T::BlockNumber = T::VotingPeriod::get();
 
+        fn deposit_event() = default;
 
-        pub fn propose(origin, stake: T::Balance) -> Result {
-            let who = ensure_signed(origin)?;
+        /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which
+        /// changes the network in someway. A minimum deposit is required to open a new proposal.
+        ///
+        /// # Arguments
+        /// * `proposal` a dispatchable call
+        /// * `deposit` minimum deposit value
+        #[weight = SimpleDispatchInfo::FixedNormal(5_000_000)]
+        pub fn propose(origin, proposal: Box<T::Proposal>, deposit: T::Balance) -> Result {
+            let proposer = ensure_signed(origin)?;
 
-            Self::deposit_event(RawEvent::Proposed(who, stake));
+            // Pre conditions
+            ensure!(deposit >= T::MinimumProposalDeposit::get(), "minimum deposit required to start a proposal");
+
+//            // Reserve the minimum deposit
+//            T::Balance::reserve(&proposer, deposit).map_err(|_| "proposer can't afford to lock minimum deposit")?;
+
+            Self::deposit_event(RawEvent::Proposed(proposer, deposit));
             Ok(())
         }
 
@@ -107,6 +128,8 @@ decl_module! {
         }
     }
 }
+
+impl<T: Trait> Module<T> {}
 
 /// tests for this module
 #[cfg(test)]
