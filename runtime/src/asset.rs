@@ -1578,10 +1578,10 @@ mod tests {
     fn non_issuers_cant_create_tokens() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
-            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+            let (_, owner_did) = make_account(&owner_acc).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
+            let _ = SecurityToken {
                 name: vec![0x01],
                 owner_did: owner_did,
                 total_supply: 1_000_000,
@@ -1617,14 +1617,9 @@ mod tests {
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+            let (_, alice_did) = make_account(&alice_acc).unwrap();
 
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
-
-            let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
-
-            Balances::make_free_balance_be(&bob_acc, 1_000_000);
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
@@ -1936,7 +1931,7 @@ mod tests {
                 nonce: 1,
             };
 
-            let investor1Key = AccountKeyring::Bob;
+            let investor1_key = AccountKeyring::Bob;
 
             // Add custodian
             assert_ok!(Asset::increase_custody_allowance_of(
@@ -1948,7 +1943,7 @@ mod tests {
                 investor2_did,
                 50_00_00 as u128,
                 1,
-                OffChainSignature::from(investor1Key.sign(&msg.encode()))
+                OffChainSignature::from(investor1_key.sign(&msg.encode()))
             ));
 
             assert_eq!(
@@ -1972,7 +1967,7 @@ mod tests {
                     investor2_did,
                     50_00_00 as u128,
                     1,
-                    OffChainSignature::from(investor1Key.sign(&msg.encode()))
+                    OffChainSignature::from(investor1_key.sign(&msg.encode()))
                 ),
                 "Signature already used"
             );
@@ -1988,7 +1983,7 @@ mod tests {
                     investor2_did,
                     50_00_00 as u128,
                     3,
-                    OffChainSignature::from(investor1Key.sign(&msg.encode()))
+                    OffChainSignature::from(investor1_key.sign(&msg.encode()))
                 ),
                 "Invalid signature"
             );
@@ -2078,7 +2073,7 @@ mod tests {
                 };
 
                 let bob_acc = AccountId::from(AccountKeyring::Bob);
-                let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
+                let (_, bob_did) = make_account(&bob_acc).unwrap();
 
                 // Issuance is successful
                 assert_ok!(Asset::create_token(

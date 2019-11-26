@@ -1451,7 +1451,6 @@ mod tests {
         weights::{DispatchInfo, Weight},
         Perbill,
     };
-    use srml_support::traits::Currency;
     use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types, traits::Get};
     use std::cell::RefCell;
     use std::result::Result;
