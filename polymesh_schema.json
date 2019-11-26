@@ -1,6 +1,6 @@
 {
     "Balance": "u128",
-    "IdentityId":"u128",
+    "IdentityId":"[u8;32]",
     "SecurityToken": {
         "name": "Vec<u8>",
         "total_supply": "Balance",
