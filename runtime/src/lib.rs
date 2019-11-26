@@ -41,17 +41,12 @@ pub mod config {
     pub type IdentityConfig = crate::identity::GenesisConfig<crate::Runtime>;
     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = crate::staking::GenesisConfig<crate::Runtime>;
-
-    pub type DemocracyConfig = democracy::GenesisConfig;
+    pub type GovernanceCommitteeConfig =
+        collective::GenesisConfig<crate::Runtime, collective::Instance1>;
     pub type ContractsConfig = contracts::GenesisConfig<crate::Runtime>;
-    pub type CouncilConfig = collective::GenesisConfig<crate::Runtime, collective::Instance1>;
-    pub type TechnicalCommitteeConfig =
-        collective::GenesisConfig<crate::Runtime, collective::Instance2>;
-    pub type ElectionsConfig = elections::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = indices::GenesisConfig<crate::Runtime>;
     pub type SudoConfig = sudo::GenesisConfig<crate::Runtime>;
     pub type SystemConfig = system::GenesisConfig;
-    // pub type SessionConfig = crate::runtime::GenesisConfig;
     pub type GenesisConfig = crate::runtime::GenesisConfig;
     pub type SessionConfig = session::GenesisConfig<crate::Runtime>;
 }

@@ -1,4 +1,4 @@
-use crate::{balances, identity, identity::LinkedKeyInfo, runtime, Runtime};
+use crate::{identity, identity::LinkedKeyInfo, runtime, Runtime};
 use primitives::{IdentityId, Key, TransactionError};
 
 use sr_primitives::{
@@ -14,7 +14,6 @@ use rstd::marker::PhantomData;
 use srml_support::dispatch::DispatchInfo;
 
 type Identity = identity::Module<Runtime>;
-type Balance = balances::Module<Runtime>;
 type Call = runtime::Call;
 
 /// This signed extension double-checks and updates the current identifier extracted from
@@ -27,7 +26,7 @@ type Call = runtime::Call;
 pub struct UpdateDid<T: system::Trait + Send + Sync>(PhantomData<T>);
 
 impl<T: system::Trait + Send + Sync> UpdateDid<T> {
-    fn new() -> Self {
+    pub fn new() -> Self {
         UpdateDid(PhantomData)
     }
 
@@ -53,7 +52,6 @@ impl<T: system::Trait + Send + Sync> rstd::fmt::Debug for UpdateDid<T> {
 
 impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     type AccountId = T::AccountId;
-    // type AccountId = AccId;
     type Call = runtime::Call;
     type AdditionalSigned = ();
     type Pre = ();
@@ -101,28 +99,20 @@ impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
 mod tests {
     use super::UpdateDid;
     use crate::{
-        balances, identity, runtime,
+        identity, runtime,
         test::storage::{build_ext, make_account_with_balance, TestStorage},
         Runtime,
     };
-    use codec::Encode;
     use core::default::Default;
     use primitives::TransactionError;
     use sr_io::with_externalities;
     use sr_primitives::{
-        traits::{SignedExtension, Verify},
+        traits::SignedExtension,
         transaction_validity::{InvalidTransaction, ValidTransaction},
-        AnySignature,
     };
     use srml_support::dispatch::DispatchInfo;
-    use test_client::{self, AccountKeyring};
 
-    type AccountId = <AnySignature as Verify>::Signer;
-
-    type Identity = identity::Module<TestStorage>;
-    type Balances = balances::Module<TestStorage>;
     type Call = runtime::Call;
-    type BalancesCall = balances::Call<Runtime>;
     type IdentityCall = identity::Call<Runtime>;
 
     #[test]
@@ -135,8 +125,8 @@ mod tests {
         let dispatch_info = DispatchInfo::default();
 
         let (a_acc, b_acc, c_acc) = (1u64, 2u64, 3u64);
-        let (alice, alice_id) = make_account_with_balance(a_acc, 10_000).unwrap();
-        let (bob, _bob_id) = make_account_with_balance(b_acc, 5_000).unwrap();
+        let (_alice, alice_id) = make_account_with_balance(a_acc, 10_000).unwrap();
+        let (_bob, _bob_id) = make_account_with_balance(b_acc, 5_000).unwrap();
 
         let register_did_call_1 = Call::Identity(IdentityCall::register_did(alice_id, vec![]));
         assert_eq!(

@@ -4,14 +4,14 @@ use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
-use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY, time::*};
+use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
     config::{
-        AssetConfig, BalancesConfig, ContractsConfig, CouncilConfig, DemocracyConfig,
-        ElectionsConfig, GenesisConfig, IdentityConfig, IndicesConfig, SessionConfig,
-        SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+        AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
+        SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
+    runtime::GovernanceCommitteeConfig,
     Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
@@ -175,7 +175,7 @@ fn testnet_genesis(
     enable_println: bool,
 ) -> GenesisConfig {
     const STASH: u128 = 100 * POLY;
-    let desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
+    let _desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
     GenesisConfig {
         system: Some(SystemConfig {
             code: WASM_BINARY.to_vec(),
@@ -202,29 +202,6 @@ fn testnet_genesis(
             ids: endowed_accounts.clone(),
         }),
         sudo: Some(SudoConfig { key: root_key }),
-        collective_Instance1: Some(CouncilConfig {
-            members: vec![],
-            phantom: Default::default(),
-        }),
-        collective_Instance2: Some(TechnicalCommitteeConfig {
-            members: vec![],
-            phantom: Default::default(),
-        }),
-        elections: Some(ElectionsConfig {
-            members: endowed_accounts
-                .iter()
-                .filter(|&endowed| {
-                    initial_authorities
-                        .iter()
-                        .find(|&(_, controller, _, _, _)| controller == endowed)
-                        .is_none()
-                })
-                .map(|a| (a.clone(), 1000000))
-                .collect(),
-            presentation_duration: 10 * MINUTES,
-            term_duration: 1 * DAYS,
-            desired_seats,
-        }),
         session: Some(SessionConfig {
             keys: initial_authorities
                 .iter()
@@ -236,7 +213,6 @@ fn testnet_genesis(
                 })
                 .collect::<Vec<_>>(),
         }),
-        membership_Instance1: Some(Default::default()),
         staking: Some(StakingConfig {
             current_era: 0,
             minimum_validator_count: 1,
@@ -250,7 +226,15 @@ fn testnet_genesis(
             slash_reward_fraction: Perbill::from_percent(10),
             ..Default::default()
         }),
-        democracy: Some(DemocracyConfig::default()),
+        membership_Instance1: Some(Default::default()),
+        collective_Instance1: Some(GovernanceCommitteeConfig {
+            members: vec![
+                get_from_seed::<AccountId>("Alice"),
+                get_from_seed::<AccountId>("Bob"),
+                get_from_seed::<AccountId>("Charlie"),
+            ],
+            phantom: Default::default(),
+        }),
         im_online: Some(Default::default()),
         authority_discovery: Some(Default::default()),
         babe: Some(Default::default()),
