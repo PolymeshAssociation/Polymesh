@@ -31,7 +31,10 @@
 //! - `token_details` - Returns details of the token
 
 use rstd::prelude::*;
-use sr_primitives::{traits::Dispatchable, weights::SimpleDispatchInfo};
+use sr_primitives::{
+    traits::{Dispatchable, EnsureOrigin, Hash},
+    weights::SimpleDispatchInfo,
+};
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
@@ -82,6 +85,10 @@ decl_storage! {
         /// Those who have locked a deposit.
         /// proposal index -> (deposit, proposer)
         pub Deposits get(deposits): map ProposalIndex => Option<(BalanceOf<T>, T::AccountId)>;
+
+        /// Actual proposal for a given hash, if it's current.
+        /// proposal hash -> proposal
+        pub ProposalOf get(proposal_of): map T::Hash => Option<T::Proposal>;
     }
 }
 
@@ -118,12 +125,16 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(5_000_000)]
         pub fn propose(origin, proposal: Box<T::Proposal>, deposit: BalanceOf<T>) -> Result {
             let proposer = ensure_signed(origin)?;
+            let proposal_hash = T::Hashing::hash_of(&proposal);
 
-            // Pre conditions
+            // Pre conditions: caller must have min balance
             ensure!(deposit >= T::MinimumProposalDeposit::get(), "minimum deposit required to start a proposal");
+            // Proposal must be new
+            ensure!(!<ProposalOf<T>>::exists(proposal_hash), "duplicate proposals are not allowed");
 
             // Reserve the minimum deposit
             T::Currency::reserve(&proposer, deposit).map_err(|_| "proposer can't afford to lock minimum deposit")?;
+
 
             Self::deposit_event(RawEvent::Proposed(proposer, deposit));
             Ok(())
