@@ -400,11 +400,13 @@ decl_module! {
 
             // 1. Constraints.
             // 1.1. A valid current identity.
-            let current_did = <CurrentDid>::get();
-            ensure!( current_did.is_some(), "Missing current identity on the transaction");
-
-            // TODO 1.2. Check that current_did is a signing key of target_did
-            // ensure!(isSigningKey(current_did, target_did))
+            if let Some(current_did) = <CurrentDid>::get() {
+                // 1.2. Check that current_did is a signing key of target_did
+                ensure!( Self::is_authorized_identity(current_did, target_did),
+                    "Current identity cannot be forwarded, it is not a signing key of target identity");
+            } else {
+                return Err("Missing current identity on the transaction");
+            }
 
             // 1.3. Check that target_did has a KYC (this has
             // already been done for current_did in the SignedExtension)
@@ -604,6 +606,12 @@ impl<T: Trait> Module<T> {
         }
         //Either did frozen or given key is not a signing key of the did
         return false;
+    }
+
+    /// It returns `true` if `curr_id`'s master key is a signing_key at `target_id`.
+    pub fn is_authorized_identity(curr_id: IdentityId, target_id: IdentityId) -> bool {
+        let curr_master_key = Self::did_records(curr_id).master_key;
+        Self::is_authorized_key(target_id, &curr_master_key)
     }
 
     /// Use `did` as reference.
