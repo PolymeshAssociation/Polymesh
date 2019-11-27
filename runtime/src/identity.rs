@@ -42,10 +42,11 @@
 use rstd::{convert::TryFrom, prelude::*};
 
 use crate::balances;
-
+use crate::constants::did::USER;
 use primitives::{DidRecord, IdentityId, Key, KeyType, Permission, SigningKey};
 
 use codec::Encode;
+use sr_io::blake2_256;
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
@@ -131,6 +132,9 @@ decl_storage! {
 
         /// How much does creating a DID cost
         pub DidCreationFee get(did_creation_fee) config(): T::Balance;
+
+        /// Nonce to ensure unique DIDs are generated. starts from 1.
+        pub DidNonce get(did_nonce) build(|_| 1u128): u128;
     }
 }
 
@@ -149,8 +153,14 @@ decl_module! {
         /// # Failure
         /// - Master key (administrator) can be linked to just one identity.
         /// - External signing keys can be linked to just one identity.
-        pub fn register_did(origin, did: IdentityId, signing_keys: Vec<SigningKey>) -> Result {
+        pub fn register_did(origin, signing_keys: Vec<SigningKey>) -> Result {
             let sender = ensure_signed(origin)?;
+            // Adding extrensic count to did nonce for some unpredictability
+            // NB: this does not guarantee randomness
+            let new_nonce = Self::did_nonce() + u128::from(<system::Module<T>>::extrinsic_count()) + 7u128;
+            // Even if this transaction fails, nonce should be increased for added unpredictability of dids
+            <DidNonce>::put(&new_nonce);
+
             let master_key = Key::try_from( sender.encode())?;
 
             // 1 Check constraints.
@@ -160,7 +170,17 @@ decl_module! {
             // 1.2. Master key is not part of signing keys.
             ensure!( signing_keys.iter().find( |sk| **sk == master_key).is_none(),
                 "Signing keys contains the master key");
+
+            let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
+
+            let did = IdentityId::from(
+                blake2_256(
+                    &(USER, block_hash, new_nonce).encode()
+                )
+            );
+
             // 1.3. Make sure there's no pre-existing entry for the DID
+            // This should never happen but just being defensive here
             ensure!(!<DidRecords>::exists(did), "DID must be unique");
             // 1.4. Signing keys can be linked to the new identity.
             for sig_key in &signing_keys {
@@ -440,6 +460,17 @@ decl_module! {
         fn unfreeze_signing_keys(origin, did: IdentityId) -> Result {
             Self::set_frozen_signing_key_flags( origin, did, false)
         }
+
+        pub fn get_my_did(origin) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            if let Some(did) = Self::get_identity(&sender_key) {
+                Self::deposit_event(RawEvent::DidQuery(sender_key, did));
+                sr_primitives::print(did);
+                Ok(())
+            } else {
+                Err("No did linked to the user")
+            }
+        }
     }
 }
 
@@ -478,6 +509,9 @@ decl_event!(
 
         /// DID
         NewIssuer(IdentityId),
+
+        /// DID queried
+        DidQuery(Key, IdentityId),
     }
 );
 
@@ -611,6 +645,18 @@ impl<T: Trait> Module<T> {
         Ok(record)
     }
 
+    /// It checks if `key` is the master key or signing key of any did
+    /// # Return
+    /// An Option object containing the `did` that belongs to the key.
+    pub fn get_identity(key: &Key) -> Option<IdentityId> {
+        if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
+            if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
+                return Some(linked_id);
+            }
+        }
+        return None;
+    }
+
     /// It freezes/unfreezes the target `did` identity.
     ///
     /// # Errors
@@ -689,7 +735,7 @@ impl<T: Trait> Module<T> {
 }
 
 pub trait IdentityTrait<T> {
-    fn get_identity(signing_key: &Key) -> Option<IdentityId>;
+    fn get_identity(key: &Key) -> Option<IdentityId>;
     fn is_authorized_key(did: IdentityId, key: &Key) -> bool;
     fn is_authorized_with_permissions(
         did: IdentityId,
@@ -700,13 +746,8 @@ pub trait IdentityTrait<T> {
 }
 
 impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
-    fn get_identity(signing_key: &Key) -> Option<IdentityId> {
-        if let Some(linked_key_info) = <KeyToIdentityIds>::get(signing_key) {
-            if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
-                return Some(linked_id);
-            }
-        }
-        return None;
+    fn get_identity(key: &Key) -> Option<IdentityId> {
+        Self::get_identity(&key)
     }
 
     fn is_authorized_key(did: IdentityId, key: &Key) -> bool {
@@ -831,50 +872,20 @@ mod tests {
 
     /// It creates an Account and registers its DID.
     fn make_account(
-        id: u64,
+        id: &u64,
     ) -> Result<(<IdentityTest as system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(id);
-        let did = IdentityId::from(id as u128);
-
-        Identity::register_did(signed_id.clone(), did, vec![])?;
+        let signed_id = Origin::signed(id.clone());
+        Identity::register_did(signed_id.clone(), vec![])?;
+        let did = Identity::get_identity(&Key::try_from(id.encode())?).unwrap();
         Ok((signed_id, did))
-    }
-
-    #[test]
-    fn dids_are_unique() {
-        with_externalities(&mut build_ext(), || {
-            let did_1 = IdentityId::from(1);
-            let did_2 = IdentityId::from(2);
-
-            assert_ok!(Identity::register_did(Origin::signed(1), did_1, vec![]));
-
-            assert_ok!(Identity::register_did(Origin::signed(2), did_2, vec![]));
-
-            assert_err!(
-                Identity::register_did(Origin::signed(3), did_1, vec![]),
-                "DID must be unique"
-            );
-
-            // Err: Master key cannot be part of signing keys.
-            let did_3 = IdentityId::from(3);
-            let did_master_key = Key::try_from(3u64.encode()).unwrap();
-            assert_err!(
-                Identity::register_did(
-                    Origin::signed(3),
-                    did_3,
-                    vec![SigningKey::from(did_master_key)]
-                ),
-                "Signing keys contains the master key"
-            );
-        });
     }
 
     #[test]
     fn only_claim_issuers_can_add_claims() {
         with_externalities(&mut build_ext(), || {
-            let (_owner, owner_did) = make_account(Identity::owner()).unwrap();
-            let (issuer, issuer_did) = make_account(2).unwrap();
-            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+            let (_owner, owner_did) = make_account(&Identity::owner()).unwrap();
+            let (issuer, issuer_did) = make_account(&2).unwrap();
+            let (claim_issuer, claim_issuer_did) = make_account(&3).unwrap();
 
             let claim_value = ClaimValue {
                 data_type: DataTypes::VecU8,
@@ -920,9 +931,9 @@ mod tests {
         with_externalities(&mut build_ext(), || {
             let owner_id = Identity::owner();
             let owner_key = Key::try_from(owner_id.encode()).unwrap();
-            let (_owner, owner_did) = make_account(owner_id).unwrap();
-            let (a, a_did) = make_account(2).unwrap();
-            let (_b, b_did) = make_account(3).unwrap();
+            let (_owner, owner_did) = make_account(&owner_id).unwrap();
+            let (a, a_did) = make_account(&2).unwrap();
+            let (_b, b_did) = make_account(&3).unwrap();
             let charlie_sig_key = SigningKey::new(
                 Key::try_from(4u64.encode()).unwrap(),
                 vec![Permission::Admin],
@@ -953,9 +964,9 @@ mod tests {
     #[test]
     fn revoking_claims() {
         with_externalities(&mut build_ext(), || {
-            let (owner, owner_did) = make_account(Identity::owner()).unwrap();
-            let (issuer, issuer_did) = make_account(2).unwrap();
-            let (claim_issuer, claim_issuer_did) = make_account(3).unwrap();
+            let (owner, owner_did) = make_account(&Identity::owner()).unwrap();
+            let (issuer, issuer_did) = make_account(&2).unwrap();
+            let (claim_issuer, claim_issuer_did) = make_account(&3).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
                 owner.clone(),
@@ -1010,7 +1021,7 @@ mod tests {
             Key::try_from(bob_acc.encode()).unwrap(),
             Key::try_from(charlie_acc.encode()).unwrap(),
         );
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
 
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
@@ -1096,7 +1107,7 @@ mod tests {
         };
 
         // Add signing keys with non-default type.
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
         assert_ok!(Identity::add_signing_keys(
             alice,
             alice_did,
@@ -1104,10 +1115,8 @@ mod tests {
         ));
 
         // Register did with non-default type.
-        let bob_did = IdentityId::from(bob_acc as u128);
         assert_ok!(Identity::register_did(
             Origin::signed(bob_acc),
-            bob_did,
             vec![dave_signing_key]
         ));
     }
@@ -1131,7 +1140,7 @@ mod tests {
         let dave_signing_key = SigningKey::new(dave_key.clone(), vec![]);
 
         // Add signing keys.
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
         let signing_keys_v1 = vec![bob_signing_key.clone(), charlie_signing_key];
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
@@ -1203,7 +1212,7 @@ mod tests {
         let charlie_signing_key = SigningKey::new(charlie_key, vec![Permission::Operator]);
 
         // Add signing keys.
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
         let signing_keys_v1 = vec![bob_signing_key, charlie_signing_key.clone()];
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
@@ -1233,8 +1242,8 @@ mod tests {
     fn add_claim_issuer_tests_with_externalities() {
         // Register identities
         let (alice_acc, bob_acc, charlie_acc) = (1u64, 2u64, 3u64);
-        let (alice, alice_did) = make_account(alice_acc).unwrap();
-        let (_bob, bob_did) = make_account(bob_acc).unwrap();
+        let (alice, alice_did) = make_account(&alice_acc).unwrap();
+        let (_bob, bob_did) = make_account(&bob_acc).unwrap();
 
         // Check `add_claim_issuer` constraints.
         assert_ok!(Identity::add_claim_issuer(
@@ -1265,8 +1274,8 @@ mod tests {
         let unique_error = "One signing key can only belong to one DID";
         // Register identities
         let (a_acc, b_acc, c_acc, d_acc) = (1u64, 2u64, 3u64, 4u64);
-        let (alice, alice_id) = make_account(a_acc).unwrap();
-        let (bob, bob_id) = make_account(b_acc).unwrap();
+        let (alice, alice_id) = make_account(&a_acc).unwrap();
+        let (bob, bob_id) = make_account(&b_acc).unwrap();
 
         // Check external signed key uniqueness.
         let charlie_key = Key::try_from(c_acc.encode()).unwrap();
