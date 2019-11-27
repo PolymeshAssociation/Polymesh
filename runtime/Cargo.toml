@@ -105,7 +105,6 @@ std = [
 	"version/std",
 	"serde_derive",
 	"serde/std",
-#	"log",
 	"safe-mix/std",
 	"babe/std",
 	"babe-primitives/std",
