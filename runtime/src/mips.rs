@@ -158,16 +158,37 @@ decl_module! {
             Ok(())
         }
 
-        pub fn vote(origin) -> Result {
-            let who = ensure_signed(origin)?;
+        /// A network member can vote on any Mesh Improvement Proposal by selecting the hash that
+        /// corresponds ot the dispatchable action and vote with some balance.
+        ///
+        /// # Arguments
+        /// * `proposal` a dispatchable call
+        /// * `deposit` minimum deposit value
+        pub fn vote(origin, proposal_hash: T::Hash, #[compact] index: ProposalIndex) -> Result {
+            let proposer = ensure_signed(origin)?;
 
-            Self::deposit_event(RawEvent::Voted(who));
+            let mut proposal = Self::proposal_of(&proposal_hash).ok_or("proposal must exist")?;
+
+            Self::deposit_event(RawEvent::Voted(proposer));
             Ok(())
         }
+
+        /// At the end of each block check if it's time for a ballot to end. If ballot ends,
+        /// proceed to ratification process.
+        fn on_initialize(n: T::BlockNumber) {
+            if let Err(e) = Self::end_block(n) {
+            }
+        }
+
     }
 }
 
-impl<T: Trait> Module<T> {}
+impl<T: Trait> Module<T> {
+    /// Runs ratification process
+    fn end_block(block_number: T::BlockNumber) -> Result {
+        Ok(())
+    }
+}
 
 /// tests for this module
 #[cfg(test)]
