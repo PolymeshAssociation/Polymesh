@@ -42,6 +42,7 @@ babe = { package = "substrate-consensus-babe", git = "https://github.com/parityt
 babe-primitives = { package = "substrate-consensus-babe-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 contracts = { package = "srml-contracts", git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+authority-discovery = { package = "substrate-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 
 [build-dependencies]
 vergen = "3.0.4"
