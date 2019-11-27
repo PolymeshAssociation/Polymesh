@@ -75,12 +75,11 @@ pub trait Trait: system::Trait {
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as MIPS {
-        /// Proposal index used to keep track of MIPs off-chain.
-//        pub ProposalCount get(fn proposal_count) build(|_| 0 as ProposalIndex) : ProposalIndex;
+        /// Proposals so far. Index can be used to keep track of MIPs off-chain.
+        pub ProposalCount get(proposal_count): u32;
 
-        /// Unsorted MIPs.
-        /// proposal index -> (dispatchable proposal, proposer)
-//        pub Proposals get(proposals): map ProposalIndex => (T::Proposal, T::AccountId);
+        /// The hashes of the active proposals.
+        pub Proposals get(proposals): Vec<T::Hash>;
 
         /// Those who have locked a deposit.
         /// proposal index -> (deposit, proposer)
@@ -135,6 +134,9 @@ decl_module! {
             // Reserve the minimum deposit
             T::Currency::reserve(&proposer, deposit).map_err(|_| "proposer can't afford to lock minimum deposit")?;
 
+            let index = Self::proposal_count();
+            <ProposalCount>::mutate(|i| *i += 1);
+            <Proposals<T>>::mutate(|proposals| proposals.push(proposal_hash));
 
             Self::deposit_event(RawEvent::Proposed(proposer, deposit));
             Ok(())
