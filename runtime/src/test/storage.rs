@@ -107,8 +107,9 @@ impl identity::Trait for TestStorage {
     type Proposal = IdentityProposal;
 }
 
-type Identity = identity::Module<TestStorage>;
-type Balances = balances::Module<TestStorage>;
+// Publish type alias for each module
+pub type Identity = identity::Module<TestStorage>;
+pub type Balances = balances::Module<TestStorage>;
 
 /// Create externalities
 pub fn build_ext() -> TestExternalities<Blake2Hasher> {

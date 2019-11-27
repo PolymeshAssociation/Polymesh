@@ -18,10 +18,6 @@ type Call = runtime::Call;
 
 /// This signed extension double-checks and updates the current identifier extracted from
 /// the caller account in each transaction.
-///
-/// # TODO
-/// - After transaction, Do we need to clean `CurrentDid`?
-/// - Move outside `lib.rs`. It needs a small refactor to extract `Runtime` from here.
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
 pub struct UpdateDid<T: system::Trait + Send + Sync>(PhantomData<T>);
 
@@ -93,6 +89,11 @@ impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
             }
         }
     }
+
+    /// It clears the `Identity::current_did` after transaction.
+    fn post_dispatch(_pre: Self::Pre, _info: DispatchInfo, _len: usize) {
+        Identity::set_current_did(None);
+    }
 }
 
 #[cfg(test)]
@@ -100,7 +101,7 @@ mod tests {
     use super::UpdateDid;
     use crate::{
         identity, runtime,
-        test::storage::{build_ext, make_account_with_balance, TestStorage},
+        test::storage::{build_ext, make_account_with_balance, Identity, TestStorage},
         Runtime,
     };
     use core::default::Default;
@@ -127,13 +128,29 @@ mod tests {
         let (a_acc, b_acc, c_acc) = (1u64, 2u64, 3u64);
         let (_alice, alice_id) = make_account_with_balance(a_acc, 10_000).unwrap();
         let (_bob, _bob_id) = make_account_with_balance(b_acc, 5_000).unwrap();
+        let valid_transaction_ok = Ok(ValidTransaction::default());
 
+        // `Identity::register_did` does not need an DID associated and check `current_did` is
+        // none.
         let register_did_call_1 = Call::Identity(IdentityCall::register_did(alice_id, vec![]));
         assert_eq!(
             update_did_se.validate(&a_acc, &register_did_call_1, dispatch_info, 0usize),
-            Ok(ValidTransaction::default())
+            valid_transaction_ok
         );
+        assert_eq!(Identity::current_did(), None);
 
+        // `Identity::add_signing_keys` needs DID. `validate` updates `current_did` and
+        // `post_dispatch` clears it.
+        let add_signing_keys_1 = Call::Identity(IdentityCall::add_signing_keys(alice_id, vec![]));
+        assert_eq!(
+            update_did_se.validate(&a_acc, &add_signing_keys_1, dispatch_info, 0),
+            valid_transaction_ok
+        );
+        assert_eq!(Identity::current_did(), Some(alice_id));
+        <UpdateDid<TestStorage>>::post_dispatch((), dispatch_info, 0);
+        assert_eq!(Identity::current_did(), None);
+
+        // `Identity::freeze_signing_keys` fails because `c_acc` account has not a DID.
         let freeze_call1 = Call::Identity(IdentityCall::freeze_signing_keys(alice_id));
         assert_eq!(
             update_did_se.validate(&c_acc, &freeze_call1, dispatch_info, 0usize),

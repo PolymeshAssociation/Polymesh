@@ -395,8 +395,6 @@ decl_module! {
             Ok(())
         }
 
-        /// # TODO
-        ///  -
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> Result {
             let sender = ensure_signed(origin)?;
 
@@ -741,7 +739,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// It set/reset the current identity.
-    pub fn set_current_did(did_opt: Option<IdentityId>) {
+    pub(super) fn set_current_did(did_opt: Option<IdentityId>) {
         if let Some(did) = did_opt {
             <CurrentDid>::put(did);
         } else {
