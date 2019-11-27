@@ -53,6 +53,20 @@ pub type ProposalIndex = u32;
 /// Balance
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
+/// A voting decision
+#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum Vote {
+    Abstain,
+    Aye,
+    Nay,
+}
+
+impl Default for Vote {
+    fn default() -> Self {
+        Vote::Abstain
+    }
+}
+
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
     /// Currency type for this module.
@@ -83,7 +97,7 @@ decl_storage! {
 
         /// Those who have locked a deposit.
         /// proposal index -> (deposit, proposer)
-        pub Deposits get(deposits): map ProposalIndex => Option<(BalanceOf<T>, T::AccountId)>;
+        pub DepositOf get(deposit_of): map T::Hash => Option<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
@@ -137,6 +151,8 @@ decl_module! {
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
             <Proposals<T>>::mutate(|proposals| proposals.push(proposal_hash));
+
+            <DepositOf<T>>::insert(proposal_hash, (proposer.clone(), deposit));
 
             Self::deposit_event(RawEvent::Proposed(proposer, deposit));
             Ok(())
