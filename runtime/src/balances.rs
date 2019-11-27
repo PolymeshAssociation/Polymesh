@@ -1451,7 +1451,6 @@ mod tests {
         weights::{DispatchInfo, Weight},
         Perbill,
     };
-    use srml_support::traits::Currency;
     use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types, traits::Get};
     use std::cell::RefCell;
     use std::result::Result;
@@ -1678,13 +1677,11 @@ mod tests {
     }
 
     fn make_account(
-        id: u64,
-        account_id: AccountId,
+        account_id: &AccountId,
     ) -> Result<(<Runtime as system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(account_id);
-        let did = IdentityId::from(id as u128);
-
-        Identity::register_did(signed_id.clone(), did, vec![])?;
+        let signed_id = Origin::signed(account_id.clone());
+        Identity::register_did(signed_id.clone(), vec![])?;
+        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
@@ -1736,7 +1733,7 @@ mod tests {
                 .monied(true)
                 .build(),
             || {
-                let (signed_acc_id, acc_did) = make_account(4, 4).unwrap();
+                let (signed_acc_id, acc_did) = make_account(&4).unwrap();
                 let len = 10;
                 assert!(TakeFees::<Runtime>::from(0 /* 0 tip */)
                     .pre_dispatch(&4, CALL, info_from_weight(3), len)
