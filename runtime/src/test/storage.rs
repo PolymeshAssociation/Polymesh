@@ -1,6 +1,7 @@
 use crate::{balances, identity};
-use primitives::IdentityId;
+use primitives::{IdentityId, Key};
 
+use codec::Encode;
 use sr_io::TestExternalities;
 use sr_primitives::{
     testing::Header,
@@ -12,6 +13,7 @@ use srml_support::{
     impl_outer_origin, parameter_types,
     traits::Currency,
 };
+use std::convert::TryFrom;
 use substrate_primitives::{Blake2Hasher, H256};
 
 impl_outer_origin! {
@@ -125,10 +127,10 @@ pub fn make_account_with_balance(
     balance: <TestStorage as balances::Trait>::Balance,
 ) -> Result<(<TestStorage as system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id);
-    let did = IdentityId::from(id as u128);
-
     Balances::make_free_balance_be(&id, balance);
-    Identity::register_did(signed_id.clone(), did, vec![])?;
+
+    Identity::register_did(signed_id.clone(), vec![])?;
+    let did = Identity::get_identity(&Key::try_from(id.encode())?).unwrap();
 
     Ok((signed_id, did))
 }

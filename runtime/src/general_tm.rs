@@ -491,21 +491,20 @@ mod tests {
     }
 
     fn make_account(
-        id: u64,
-        account_id: AccountId,
+        account_id: &AccountId,
     ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(account_id);
-        let did = IdentityId::from(id as u128);
-
-        Identity::register_did(signed_id.clone(), did, vec![])?;
+        let signed_id = Origin::signed(account_id.clone());
+        Balances::make_free_balance_be(&account_id, 1_000_000);
+        Identity::register_did(signed_id.clone(), vec![])?;
+        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
     #[test]
     fn should_add_and_verify_assetrule() {
         with_externalities(&mut identity_owned_by_alice(), || {
-            let token_owner_acc = AccountId::from(AccountKeyring::Dave);
-            let token_owner_did = IdentityId::from(1u128);
+            let token_owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -516,16 +515,10 @@ mod tests {
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
-            Identity::register_did(
-                Origin::signed(token_owner_acc.clone()),
-                token_owner_did,
-                vec![],
-            )
-            .expect("Could not create token_owner_did");
 
             // Share issuance is successful
             assert_ok!(Asset::create_token(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
                 token.name.clone(),
@@ -535,10 +528,10 @@ mod tests {
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
             let (_claim_issuer, claim_issuer_did) =
-                make_account(3, claim_issuer_acc.clone()).unwrap();
+                make_account(&claim_issuer_acc.clone()).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 claim_issuer_did
             ));
@@ -576,7 +569,7 @@ mod tests {
 
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
                 asset_rule
@@ -584,7 +577,7 @@ mod tests {
 
             //Transfer tokens to investor
             assert_ok!(Asset::transfer(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
                 token_owner_did,
@@ -596,8 +589,8 @@ mod tests {
     #[test]
     fn should_add_and_verify_complex_assetrule() {
         with_externalities(&mut identity_owned_by_alice(), || {
-            let token_owner_acc = AccountId::from(AccountKeyring::Dave);
-            let token_owner_did = IdentityId::from(1u128);
+            let token_owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -608,16 +601,10 @@ mod tests {
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
-            Identity::register_did(
-                Origin::signed(token_owner_acc.clone()),
-                token_owner_did,
-                vec![],
-            )
-            .expect("Could not create token_owner_did");
 
             // Share issuance is successful
             assert_ok!(Asset::create_token(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
                 token.name.clone(),
@@ -627,10 +614,10 @@ mod tests {
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
             let (_claim_issuer, claim_issuer_did) =
-                make_account(3, claim_issuer_acc.clone()).unwrap();
+                make_account(&claim_issuer_acc.clone()).unwrap();
 
             assert_ok!(Identity::add_claim_issuer(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did.clone(),
                 claim_issuer_did
             ));
@@ -675,7 +662,7 @@ mod tests {
             };
 
             assert_ok!(GeneralTM::add_active_rule(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
                 asset_rule
@@ -683,7 +670,7 @@ mod tests {
 
             //Transfer tokens to investor
             assert_ok!(Asset::transfer(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
                 token_owner_did.clone(),
@@ -695,8 +682,8 @@ mod tests {
     #[test]
     fn should_reset_assetrules() {
         with_externalities(&mut identity_owned_by_alice(), || {
-            let token_owner_acc = AccountId::from(AccountKeyring::Dave);
-            let token_owner_did = IdentityId::from(1u128);
+            let token_owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 
             // A token representing 1M shares
             let token = SecurityToken {
@@ -707,16 +694,10 @@ mod tests {
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
-            Identity::register_did(
-                Origin::signed(token_owner_acc.clone()),
-                token_owner_did,
-                vec![],
-            )
-            .expect("Could not create token_owner_did");
 
             // Share issuance is successful
             assert_ok!(Asset::create_token(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
                 token.name.clone(),
@@ -730,7 +711,7 @@ mod tests {
             };
 
             assert_ok!(GeneralTM::add_active_rule(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
                 asset_rule
@@ -740,7 +721,7 @@ mod tests {
             assert_eq!(asset_rules.len(), 1);
 
             assert_ok!(GeneralTM::reset_active_rules(
-                Origin::signed(token_owner_acc.clone()),
+                token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone()
             ));

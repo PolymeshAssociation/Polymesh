@@ -132,7 +132,7 @@ mod tests {
 
         // `Identity::register_did` does not need an DID associated and check `current_did` is
         // none.
-        let register_did_call_1 = Call::Identity(IdentityCall::register_did(alice_id, vec![]));
+        let register_did_call_1 = Call::Identity(IdentityCall::register_did(vec![]));
         assert_eq!(
             update_did_se.validate(&a_acc, &register_did_call_1, dispatch_info, 0usize),
             valid_transaction_ok
