@@ -12,6 +12,8 @@ use polymesh_runtime::{
     StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use primitives::{Pair, Public};
+use serde_json::json;
+use substrate_service::Properties;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
@@ -73,7 +75,7 @@ impl Alternative {
                 None,
                 None,
                 None,
-                None,
+                Some(polymath_props()),
             ),
             Alternative::LocalTestnet => ChainSpec::from_genesis(
                 "Local Testnet",
@@ -108,7 +110,7 @@ impl Alternative {
                 None,
                 None,
                 None,
-                None,
+                Some(polymath_props()),
             ),
             Alternative::StatsTestnet => ChainSpec::from_genesis(
                 "Stats Testnet",
@@ -142,7 +144,7 @@ impl Alternative {
                 None,
                 None,
                 None,
-                None,
+                Some(polymath_props()),
             ),
         })
     }
@@ -155,6 +157,13 @@ impl Alternative {
             _ => None,
         }
     }
+}
+
+fn polymath_props() -> Properties {
+    json!({"tokenDecimals": 6, "tokenSymbol": "POLY" })
+        .as_object()
+        .unwrap()
+        .clone()
 }
 
 fn session_keys(grandpa: GrandpaId, babe: BabeId, im_online: ImOnlineId) -> SessionKeys {
