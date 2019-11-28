@@ -424,6 +424,10 @@ decl_storage! {
 
 decl_module! {
     pub struct Module<T: Trait<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
+        /// This is no longer needede but kept for compatibility reasons
+        /// The minimum amount required to keep an account open.
+        const ExistentialDeposit: T::Balance = 0.into();
+
         /// The fee required to make a transfer.
         const TransferFee: T::Balance = T::TransferFee::get();
 
