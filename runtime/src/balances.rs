@@ -35,6 +35,7 @@
 //! - To curb front running, sending a tip along with your transaction is now prohibited.
 //! - Added ability to store balance at identity level and use that to pay tx fees.
 //! - Added From<u128> trait to Balances type.
+//! - Removed existential amount requirement to prevent a replay attack scenario.
 //!
 //! The Original Balances module provides functions for:
 //!
@@ -49,18 +50,13 @@
 //!
 //! ### Terminology
 //!
-//! - **Existential Deposit:** The minimum balance required to create or keep an account open. This prevents
-//! "dust accounts" from filling storage.
 //! - **Total Issuance:** The total number of units in existence in a system.
 //! - **Reaping an account:** The act of removing an account by resetting its nonce. Happens after its balance is set
 //! to zero.
 //! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only balance that matters
-//! for most operations. When this balance falls below the existential deposit, most functionality of the account is
-//! removed. When both it and the reserved balance are deleted, then the account is said to be dead.
+//! for most operations.
 //! - **Reserved Balance:** Reserved balance still belongs to the account holder, but is suspended. Reserved balance
-//! can still be slashed, but only after all the free balance has been slashed. If the reserved balance falls below the
-//! existential deposit then it and any related functionality will be deleted. When both it and the free balance are
-//! deleted, then the account is said to be dead.
+//! can still be slashed, but only after all the free balance has been slashed.
 //! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite accounting
 //! (i.e. a difference between total issuance and account balances). Functions that result in an imbalance will
 //! return an object of the `Imbalance` trait that can be managed within your runtime logic. (If an imbalance is
@@ -202,6 +198,7 @@ pub trait Subtrait<I: Instance = DefaultInstance>: system::Trait {
         + From<u128>
         + From<Self::BlockNumber>;
 
+    /// This type is no longer needed but kept for compatibility reasons.
     /// A function that is invoked when the free-balance has fallen below the existential deposit and
     /// has been reduced to zero.
     ///
@@ -211,6 +208,7 @@ pub trait Subtrait<I: Instance = DefaultInstance>: system::Trait {
     /// Handler for when a new account is created.
     type OnNewAccount: OnNewAccount<Self::AccountId>;
 
+    /// This type is no longer needed but kept for compatibility reasons.
     /// The minimum amount required to keep an account open.
     type ExistentialDeposit: Get<Self::Balance>;
 
@@ -245,6 +243,7 @@ pub trait Trait<I: Instance = DefaultInstance>: system::Trait {
         + From<u128>
         + From<Self::BlockNumber>;
 
+    /// This type is no longer needed but kept for compatibility reasons.
     /// A function that is invoked when the free-balance has fallen below the existential deposit and
     /// has been reduced to zero.
     ///
@@ -267,6 +266,7 @@ pub trait Trait<I: Instance = DefaultInstance>: system::Trait {
     /// The overarching event type.
     type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
 
+    /// This type is no longer needed but kept for compatibility reasons.
     /// The minimum amount required to keep an account open.
     type ExistentialDeposit: Get<Self::Balance>;
 
@@ -394,14 +394,7 @@ decl_storage! {
         /// The 'free' balance of a given account.
         ///
         /// This is the only balance that matters in terms of most operations on tokens. It
-        /// alone is used to determine the balance when in the contract execution environment. When this
-        /// balance falls below the value of `ExistentialDeposit`, then the 'current account' is
-        /// deleted: specifically `FreeBalance`. Further, the `OnFreeBalanceZero` callback
-        /// is invoked, giving a chance to external modules to clean up data associated with
-        /// the deleted account.
-        ///
-        /// `system::AccountNonce` is also deleted if `ReservedBalance` is also zero (it also gets
-        /// collapsed to zero if it ever becomes less than `ExistentialDeposit`.
+        /// alone is used to determine the balance when in the contract execution environment.
         pub FreeBalance get(free_balance)
             build(|config: &GenesisConfig<T, I>| config.balances.clone()):
             map T::AccountId => T::Balance;
@@ -411,19 +404,12 @@ decl_storage! {
         ///
         /// This balance is a 'reserve' balance that other subsystems use in order to set aside tokens
         /// that are still 'owned' by the account holder, but which are suspendable.
-        ///
-        /// When this balance falls below the value of `ExistentialDeposit`, then this 'reserve account'
-        /// is deleted: specifically, `ReservedBalance`.
-        ///
-        /// `system::AccountNonce` is also deleted if `FreeBalance` is also zero (it also gets
-        /// collapsed to zero if it ever becomes less than `ExistentialDeposit`.)
         pub ReservedBalance get(reserved_balance): map T::AccountId => T::Balance;
 
         /// Any liquidity locks on some account balances.
         pub Locks get(locks): map T::AccountId => Vec<BalanceLock<T::Balance, T::BlockNumber>>;
 
         /// Balance held by the identity. It can be spent by its signing keys.
-        /// This balance is not affected by `ExistentialDeposit`.
         pub IdentityBalance get(identity_balance): map IdentityId => T::Balance;
 
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
@@ -438,9 +424,6 @@ decl_storage! {
 
 decl_module! {
     pub struct Module<T: Trait<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
-        /// The minimum amount required to keep an account open.
-        const ExistentialDeposit: T::Balance = T::ExistentialDeposit::get();
-
         /// The fee required to make a transfer.
         const TransferFee: T::Balance = T::TransferFee::get();
 
@@ -459,8 +442,6 @@ decl_module! {
         ///
         /// `transfer` will set the `FreeBalance` of the sender and receiver.
         /// It will decrease the total issuance of the system by the `TransferFee`.
-        /// If the sender's account is below the existential deposit as a result
-        /// of the transfer, the account will be reaped.
         ///
         /// The dispatch origin for this call must be `Signed` by the transactor.
         ///
@@ -474,8 +455,6 @@ decl_module! {
         ///   - `ensure_can_withdraw` is always called internally but has a bounded complexity.
         ///   - Transferring balances to accounts that did not exist before will cause
         ///      `T::OnNewAccount::on_new_account` to be called.
-        ///   - Removing enough funds from an account will trigger
-        ///     `T::DustRemoval::on_unbalanced` and `T::OnFreeBalanceZero::on_free_balance_zero`.
         ///
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
@@ -542,8 +521,6 @@ decl_module! {
         ///
         /// This will alter `FreeBalance` and `ReservedBalance` in storage. it will
         /// also decrease the total issuance of the system (`TotalIssuance`).
-        /// If the new free or reserved balance is below the existential deposit,
-        /// it will reset the account nonce (`system::AccountNonce`).
         ///
         /// The dispatch origin for this call is `root`.
         ///
@@ -609,8 +586,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
     // PRIVATE MUTABLES
 
-    /// Set the reserved balance of an account to some new value. Will enforce `ExistentialDeposit`
-    /// law, annulling the account as needed.
+    /// Set the reserved balance of an account to some new value.
     ///
     /// Doesn't do any preparatory work for creating a new account, so should only be used when it
     /// is known that the account already exists.
@@ -618,18 +594,11 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
     /// the caller will do this.
     fn set_reserved_balance(who: &T::AccountId, balance: T::Balance) -> UpdateBalanceOutcome {
-        if balance < T::ExistentialDeposit::get() {
-            <ReservedBalance<T, I>>::insert(who, balance);
-            Self::on_reserved_too_low(who);
-            UpdateBalanceOutcome::AccountKilled
-        } else {
-            <ReservedBalance<T, I>>::insert(who, balance);
-            UpdateBalanceOutcome::Updated
-        }
+        <ReservedBalance<T, I>>::insert(who, balance);
+        UpdateBalanceOutcome::Updated
     }
 
-    /// Set the free balance of an account to some new value. Will enforce `ExistentialDeposit`
-    /// law, annulling the account as needed.
+    /// Set the free balance of an account to some new value.
     ///
     /// Doesn't do any preparatory work for creating a new account, so should only be used when it
     /// is known that the account already exists.
@@ -639,15 +608,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     fn set_free_balance(who: &T::AccountId, balance: T::Balance) -> UpdateBalanceOutcome {
         // Commented out for now - but consider it instructive.
         // assert!(!Self::total_balance(who).is_zero());
-        // assert!(Self::free_balance(who) > T::ExistentialDeposit::get());
-        if balance < T::ExistentialDeposit::get() {
-            <FreeBalance<T, I>>::insert(who, balance);
-            Self::on_free_too_low(who);
-            UpdateBalanceOutcome::AccountKilled
-        } else {
-            <FreeBalance<T, I>>::insert(who, balance);
-            UpdateBalanceOutcome::Updated
-        }
+        <FreeBalance<T, I>>::insert(who, balance);
+        UpdateBalanceOutcome::Updated
     }
 
     fn withdraw_identity_balance(
@@ -677,57 +639,12 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         return None;
     }
 
-    /// Register a new account (with existential balance).
+    /// Register a new account
     ///
     /// This just calls appropriate hooks. It doesn't (necessarily) make any state changes.
     fn new_account(who: &T::AccountId, balance: T::Balance) {
         T::OnNewAccount::on_new_account(&who);
         Self::deposit_event(RawEvent::NewAccount(who.clone(), balance));
-    }
-
-    /// Unregister an account.
-    ///
-    /// This just removes the nonce and leaves an event.
-    fn reap_account(who: &T::AccountId) {
-        <system::AccountNonce<T>>::remove(who);
-        Self::deposit_event(RawEvent::ReapedAccount(who.clone()));
-    }
-
-    /// Account's free balance has dropped below existential deposit. Kill its
-    /// free side and the account completely if its reserved size is already dead.
-    ///
-    /// Will maintain total issuance.
-    fn on_free_too_low(who: &T::AccountId) {
-        let dust = <FreeBalance<T, I>>::take(who);
-        <Locks<T, I>>::remove(who);
-
-        // underflow should never happen, but if it does, there's not much we can do about it.
-        if !dust.is_zero() {
-            T::DustRemoval::on_unbalanced(NegativeImbalance::new(dust));
-        }
-
-        T::OnFreeBalanceZero::on_free_balance_zero(who);
-
-        if Self::reserved_balance(who).is_zero() {
-            Self::reap_account(who);
-        }
-    }
-
-    /// Account's reserved balance has dropped below existential deposit. Kill its
-    /// reserved side and the account completely if its free size is already dead.
-    ///
-    /// Will maintain total issuance.
-    fn on_reserved_too_low(who: &T::AccountId) {
-        let dust = <ReservedBalance<T, I>>::take(who);
-
-        // underflow should never happen, but it if does, there's nothing to be done here.
-        if !dust.is_zero() {
-            T::DustRemoval::on_unbalanced(NegativeImbalance::new(dust));
-        }
-
-        if Self::free_balance(who).is_zero() {
-            Self::reap_account(who);
-        }
     }
 }
 
@@ -953,7 +870,7 @@ where
     }
 
     fn minimum_balance() -> Self::Balance {
-        T::ExistentialDeposit::get()
+        0u128.into()
     }
 
     fn free_balance(who: &T::AccountId) -> Self::Balance {
@@ -1032,9 +949,7 @@ where
             None => return Err("balance too low to send value"),
             Some(b) => b,
         };
-        if would_create && value < T::ExistentialDeposit::get() {
-            return Err("value too low to create account");
-        }
+
         Self::ensure_can_withdraw(
             transactor,
             value,
@@ -1071,14 +986,9 @@ where
         who: &T::AccountId,
         value: Self::Balance,
         reason: WithdrawReason,
-        liveness: ExistenceRequirement,
+        _liveness: ExistenceRequirement,
     ) -> result::Result<Self::NegativeImbalance, &'static str> {
         if let Some(new_balance) = Self::free_balance(who).checked_sub(&value) {
-            if liveness == ExistenceRequirement::KeepAlive
-                && new_balance < T::ExistentialDeposit::get()
-            {
-                return Err("payment would kill account");
-            }
             Self::ensure_can_withdraw(who, value, reason, new_balance)?;
             Self::set_free_balance(who, new_balance);
             Ok(NegativeImbalance::new(value))
@@ -1138,43 +1048,16 @@ where
         UpdateBalanceOutcome,
     ) {
         let original = Self::free_balance(who);
-        if balance < T::ExistentialDeposit::get() && original.is_zero() {
-            // If we're attempting to set an existing account to less than ED, then
-            // bypass the entire operation. It's a no-op if you follow it through, but
-            // since this is an instance where we might account for a negative imbalance
-            // (in the dust cleaner of set_free_balance) before we account for its actual
-            // equal and opposite cause (returned as an Imbalance), then in the
-            // instance that there's no other accounts on the system at all, we might
-            // underflow the issuance and our arithmetic will be off.
-            return (
-                SignedImbalance::Positive(Self::PositiveImbalance::zero()),
-                UpdateBalanceOutcome::AccountKilled,
-            );
-        }
         let imbalance = if original <= balance {
             SignedImbalance::Positive(PositiveImbalance::new(balance - original))
         } else {
             SignedImbalance::Negative(NegativeImbalance::new(original - balance))
         };
-        // If the balance is too low, then the account is reaped.
-        // NOTE: There are two balances for every account: `reserved_balance` and
-        // `free_balance`. This contract subsystem only cares about the latter: whenever
-        // the term "balance" is used *here* it should be assumed to mean "free balance"
-        // in the rest of the module.
-        // Free balance can never be less than ED. If that happens, it gets reduced to zero
-        // and the account information relevant to this subsystem is deleted (i.e. the
-        // account is reaped).
-        let outcome = if balance < T::ExistentialDeposit::get() {
-            Self::set_free_balance(who, balance);
-            UpdateBalanceOutcome::AccountKilled
-        } else {
-            if !<FreeBalance<T, I>>::exists(who) {
-                Self::new_account(&who, balance);
-            }
-            Self::set_free_balance(who, balance);
-            UpdateBalanceOutcome::Updated
-        };
-        (imbalance, outcome)
+        if !<FreeBalance<T, I>>::exists(who) {
+            Self::new_account(&who, balance);
+        }
+        Self::set_free_balance(who, balance);
+        (imbalance, UpdateBalanceOutcome::Updated)
     }
 }
 
