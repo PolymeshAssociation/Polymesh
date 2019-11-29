@@ -1471,9 +1471,9 @@ mod tests {
     fn add_remove_signing_identities_with_externalities() {
         let (a_acc, b_acc, c_acc, d_acc) = (1u64, 2u64, 3u64, 4u64);
         let (alice, alice_id) = make_account(&a_acc).unwrap();
-        let (bob, bob_id) = make_account(&b_acc).unwrap();
-        let (charlie, charlie_id) = make_account(&c_acc).unwrap();
-        let (dave, dave_id) = make_account(&d_acc).unwrap();
+        let (_bob, bob_id) = make_account(&b_acc).unwrap();
+        let (_charlie, charlie_id) = make_account(&c_acc).unwrap();
+        let (_dave, dave_id) = make_account(&d_acc).unwrap();
 
         assert_ok!(Identity::add_signing_identities(
             alice.clone(),
