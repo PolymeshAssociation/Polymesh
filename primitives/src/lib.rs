@@ -77,7 +77,7 @@ pub use key::{Key, KeyType};
 
 /// This module contains entities related with signing keys.
 pub mod signing_key;
-pub use signing_key::{KeyRole, SigningKey};
+pub use signing_key::{Permission, SigningKey};
 
 /// Represents custom transaction errors.
 #[repr(u8)]
