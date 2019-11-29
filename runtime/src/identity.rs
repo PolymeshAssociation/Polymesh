@@ -428,8 +428,10 @@ decl_module! {
                 return Err("Missing current identity on the transaction");
             }
 
-            // 1.3. Check that target_did has a KYC (this has
-            // already been done for current_did in the SignedExtension)
+            // 1.3. Check that target_did has a KYC.
+            // Please keep in mind that `current_did` is double-checked:
+            //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
+            //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
             ensure!(Self::has_valid_kyc(target_did), "Invalid KYC validation on target did");
 
             // 2. Actions
