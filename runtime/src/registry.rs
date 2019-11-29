@@ -37,6 +37,7 @@ use system::ensure_signed;
 pub enum TokenType {
     AssetToken,
     ConfidentialAssetToken,
+    SimpleToken,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Encode, Decode)]
