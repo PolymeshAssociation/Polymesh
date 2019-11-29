@@ -232,6 +232,49 @@ decl_module! {
             Ok(())
         }
 
+        /// It adds each IdentityId at `signing_ids` as signing identity of `id`.
+        ///
+        /// # TODO
+        ///  - Signing identities HAVE TO authorize its use in this identity.
+        /// # Failure
+        /// It can only called by master key owner.
+        pub fn add_signing_identities(origin, id: IdentityId, signing_ids: Vec<IdentityId>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
+
+            <DidRecords>::mutate( id,
+            |record| {
+                let mut new_signing_ids = signing_ids.iter()
+                    .filter( |s_id| record.signing_identities.iter().find( |id| id == s_id).is_none())
+                    .chain( record.signing_identities.iter())
+                    .cloned()
+                    .collect::<Vec<_>>();
+                new_signing_ids.sort();
+                new_signing_ids.dedup();
+
+                (*record).signing_identities = new_signing_ids;
+            });
+
+            Ok(())
+        }
+
+        /// Removes `ids_to_remove` signing identities from `id` identity.
+        ///
+        /// # Failure
+        /// It can only called by master key owner.
+        fn remove_signing_identities(origin, id: IdentityId, ids_to_remove: Vec<IdentityId>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
+
+            <DidRecords>::mutate( id,
+            |record| {
+                (*record).signing_identities.retain( |s_id| ids_to_remove.iter().find( |id| s_id == *id).is_none());
+            });
+
+            Ok(())
+        }
+
+
         /// Adds new signing keys for a DID. Only called by master key owner.
         ///
         /// # TODO
@@ -1415,5 +1458,35 @@ mod tests {
             Identity::add_signing_keys(alice.clone(), alice_id, vec![bob_sk]),
             unique_error
         );
+    }
+
+    #[test]
+    fn add_remove_signing_identities() {
+        with_externalities(
+            &mut build_ext(),
+            &add_remove_signing_identities_with_externalities,
+        );
+    }
+
+    fn add_remove_signing_identities_with_externalities() {
+        let (a_acc, b_acc, c_acc, d_acc) = (1u64, 2u64, 3u64, 4u64);
+        let (alice, alice_id) = make_account(&a_acc).unwrap();
+        let (bob, bob_id) = make_account(&b_acc).unwrap();
+        let (charlie, charlie_id) = make_account(&c_acc).unwrap();
+        let (dave, dave_id) = make_account(&d_acc).unwrap();
+
+        assert_ok!(Identity::add_signing_identities(
+            alice.clone(),
+            alice_id,
+            vec![bob_id, charlie_id]
+        ));
+        assert_ok!(Identity::remove_signing_identities(
+            alice.clone(),
+            alice_id,
+            vec![bob_id, dave_id]
+        ));
+
+        let alice_rec = Identity::did_records(alice_id);
+        assert_eq!(alice_rec.signing_identities, vec![charlie_id]);
     }
 }
