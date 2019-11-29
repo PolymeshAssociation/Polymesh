@@ -28,21 +28,19 @@
 //!
 //! ### Public Functions
 //!
-//! - `token_details` - Returns details of the token
+//! - `end_block` - Returns details of the token
 
+use codec::{Decode, Encode, Error, Input, Output, Ref};
 use rstd::prelude::*;
 use sr_primitives::{
-    traits::{Dispatchable, EnsureOrigin, Hash},
+    traits::{Dispatchable, Hash},
     weights::SimpleDispatchInfo,
 };
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
     ensure,
-    traits::{
-        Currency, Get, LockIdentifier, LockableCurrency, OnFreeBalanceZero, ReservableCurrency,
-        WithdrawReason,
-    },
+    traits::{Currency, Get, LockableCurrency, ReservableCurrency},
     Parameter,
 };
 use system::ensure_signed;
@@ -64,6 +62,28 @@ pub enum Vote {
 impl Default for Vote {
     fn default() -> Self {
         Vote::Abstain
+    }
+}
+
+/// Represents a ballot
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+pub struct BallotInfo<BlockNumber: Parameter, Proposal: Parameter> {
+    /// When voting will end.
+    end: BlockNumber,
+    /// The proposal being voted on.
+    proposal: Proposal,
+    /// The delay (in blocks) to wait before deploying.
+    delay: BlockNumber,
+}
+
+impl<BlockNumber: Parameter, Proposal: Parameter> BallotInfo<BlockNumber, Proposal> {
+    /// Create a new instance.
+    pub fn new(end: BlockNumber, proposal: Proposal, delay: BlockNumber) -> Self {
+        BallotInfo {
+            end,
+            proposal,
+            delay,
+        }
     }
 }
 
@@ -102,6 +122,10 @@ decl_storage! {
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
         pub ProposalOf get(proposal_of): map T::Hash => Option<T::Proposal>;
+
+        /// Information concerning any given ballot.
+        /// proposal hash -> ballot
+        pub ActiveBallots get(active_ballots): map T::Hash => Option<(BallotInfo<T::BlockNumber, T::Proposal>)>;
     }
 }
 

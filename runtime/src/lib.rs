@@ -298,12 +298,16 @@ impl membership::Trait<membership::Instance1> for Runtime {
 }
 
 parameter_types! {
-    pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-    pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-    pub const EmergencyVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES;
-    pub const MinimumDeposit: Balance = 100 * DOLLARS;
-    pub const EnactmentPeriod: BlockNumber = 30 * 24 * 60 * MINUTES;
-    pub const CooloffPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
+    pub const MinimumProposalDeposit: Balance = 5000 * ONE_UNIT;
+    pub const VotingPeriod: BlockNumber = 7 * DAYS;
+}
+
+impl mips::Trait for Runtime {
+    type Currency = Balances;
+    type Proposal = Call;
+    type MinimumProposalDeposit = MinimumProposalDeposit;
+    type VotingPeriod = VotingPeriod;
+    type Event = Event;
 }
 
 parameter_types! {
@@ -510,6 +514,7 @@ construct_runtime!(
 		Treasury: treasury::{Module, Call, Storage, Event<T>},
 		GovernanceMembership: membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
 		GovernanceCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		MIPS: mips::{Module, Call, Storage, Event<T>},
 
 		// Polymesh
 		Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
