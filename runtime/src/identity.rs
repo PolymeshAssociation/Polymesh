@@ -688,8 +688,8 @@ impl<T: Trait> Module<T> {
 
     /// It returns `true` if `curr_id`'s master key is a signing_key at `target_id`.
     pub fn is_authorized_identity(curr_id: IdentityId, target_id: IdentityId) -> bool {
-        let curr_master_key = Self::did_records(curr_id).master_key;
-        Self::is_authorized_key(target_id, &curr_master_key)
+        let target_id_record = Self::did_records(target_id);
+        target_id_record.signing_identities.contains(&curr_id)
     }
 
     /// Use `did` as reference.
@@ -1480,6 +1480,8 @@ mod tests {
             alice_id,
             vec![bob_id, charlie_id]
         ));
+        assert_eq!(Identity::is_authorized_identity(bob_id, alice_id), true);
+
         assert_ok!(Identity::remove_signing_identities(
             alice.clone(),
             alice_id,
@@ -1488,5 +1490,9 @@ mod tests {
 
         let alice_rec = Identity::did_records(alice_id);
         assert_eq!(alice_rec.signing_identities, vec![charlie_id]);
+
+        // Check is_authorized_identity
+        assert_eq!(Identity::is_authorized_identity(charlie_id, alice_id), true);
+        assert_eq!(Identity::is_authorized_identity(bob_id, alice_id), false);
     }
 }
