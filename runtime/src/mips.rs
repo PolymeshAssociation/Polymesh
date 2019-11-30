@@ -30,7 +30,7 @@
 //!
 //! - `end_block` - Returns details of the token
 
-use codec::{Decode, Encode, Error, Input, Output, Ref};
+use codec::{Decode, Encode};
 use rstd::prelude::*;
 use sr_primitives::{
     traits::{Dispatchable, Hash},
@@ -51,20 +51,6 @@ pub type ProposalIndex = u32;
 /// Balance
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
-/// A voting decision
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum Vote {
-    Abstain,
-    Aye,
-    Nay,
-}
-
-impl Default for Vote {
-    fn default() -> Self {
-        Vote::Abstain
-    }
-}
-
 /// Represents a ballot
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 pub struct BallotInfo<BlockNumber: Parameter, Proposal: Parameter> {
@@ -72,18 +58,28 @@ pub struct BallotInfo<BlockNumber: Parameter, Proposal: Parameter> {
     end: BlockNumber,
     /// The proposal being voted on.
     proposal: Proposal,
-    /// The delay (in blocks) to wait before deploying.
-    delay: BlockNumber,
+}
+
+/// For keeping track of proposal being voted on.
+#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct Votes<AccountId, Balance> {
+    /// The proposal's unique index.
+    index: ProposalIndex,
+    /// The current set of voters that approved it.
+    ayes: Vec<AccountId>,
+    /// The current set of voters that rejected it.
+    nays: Vec<AccountId>,
+    /// Staked amount of approved votes.
+    ayes_stake: Balance,
+    /// Staked amount of rejected votes.
+    nays_stake: Balance,
 }
 
 impl<BlockNumber: Parameter, Proposal: Parameter> BallotInfo<BlockNumber, Proposal> {
     /// Create a new instance.
     pub fn new(end: BlockNumber, proposal: Proposal, delay: BlockNumber) -> Self {
-        BallotInfo {
-            end,
-            proposal,
-            delay,
-        }
+        BallotInfo { end, proposal }
     }
 }
 
@@ -123,9 +119,9 @@ decl_storage! {
         /// proposal hash -> proposal
         pub ProposalOf get(proposal_of): map T::Hash => Option<T::Proposal>;
 
-        /// Information concerning any given ballot.
-        /// proposal hash -> ballot
-        pub ActiveBallots get(active_ballots): map T::Hash => Option<(BallotInfo<T::BlockNumber, T::Proposal>)>;
+        /// Votes on a given proposal, if it is ongoing.
+        /// proposal hash -> voting info
+        pub Voting get(voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
     }
 }
 
@@ -210,80 +206,128 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Runs ratification process
     fn end_block(block_number: T::BlockNumber) -> Result {
+        sr_primitives::print("end_block");
         Ok(())
     }
 }
 
-/// tests for this module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use primitives::{Blake2Hasher, H256};
-    use runtime_io::with_externalities;
-    use sr_primitives::weights::Weight;
-    use sr_primitives::Perbill;
-    use sr_primitives::{
-        testing::Header,
-        traits::{BlakeTwo256, IdentityLookup},
-    };
-    use support::{assert_ok, impl_outer_origin, parameter_types};
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
-
-    // For testing the module, we construct most of a mock runtime. This means
-    // first constructing a configuration type (`Test`) which `impl`s each of the
-    // configuration traits of modules we want to use.
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub const MaximumBlockWeight: Weight = 1024;
-        pub const MaximumBlockLength: u32 = 2 * 1024;
-        pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    }
-    impl system::Trait for Test {
-        type Origin = Origin;
-        type Call = ();
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type WeightMultiplierUpdate = ();
-        type Event = ();
-        type BlockHashCount = BlockHashCount;
-        type MaximumBlockWeight = MaximumBlockWeight;
-        type MaximumBlockLength = MaximumBlockLength;
-        type AvailableBlockRatio = AvailableBlockRatio;
-        type Version = ();
-    }
-    impl Trait for Test {
-        type Event = ();
-    }
-    type MIPS = Module<Test>;
-
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
-        system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap()
-            .into()
-    }
-
-    #[test]
-    fn it_works_for_default_value() {
-        with_externalities(&mut new_test_ext(), || {
-            // Just a dummy test for the dummy funtion `do_something`
-            // calling the `do_something` function with a value 42
-            assert_ok!(MIPS::do_something(Origin::signed(1), 42));
-            // asserting that the stored value is equal to what we stored
-            assert_eq!(MIPS::something(), Some(42));
-        });
-    }
-}
+// tests for this module
+//#[cfg(test)]
+//mod tests {
+//    use super::*;
+//
+//    use crate::{balances, identity, staking};
+//    use sr_io::{with_externalities, TestExternalities};
+//    use sr_primitives::weights::Weight;
+//    use sr_primitives::{
+//        testing::{Header, UintAuthorityId},
+//        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+//        AnySignature, Perbill,
+//    };
+//    use srml_support::traits::Currency;
+//    use srml_support::{assert_ok, impl_outer_dispatch, impl_outer_origin, parameter_types};
+//    use substrate_primitives::{Blake2Hasher, H256};
+//
+//    impl_outer_origin! {
+//        pub enum Origin for Test {}
+//    }
+//
+//    impl_outer_dispatch! {
+//        pub enum Call for Test where origin: Origin {
+//            balances::Balamces,
+//        }
+//    }
+//
+//    #[derive(Clone, Eq, PartialEq)]
+//    pub struct Test;
+//
+//    parameter_types! {
+//        pub const BlockHashCount: u64 = 250;
+//        pub const MaximumBlockWeight: Weight = 1024;
+//        pub const MaximumBlockLength: u32 = 2 * 1024;
+//        pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+//    }
+//
+//    impl system::Trait for Test {
+//        type Origin = Origin;
+//        type Call = ();
+//        type Index = u64;
+//        type BlockNumber = u64;
+//        type Hash = H256;
+//        type Hashing = BlakeTwo256;
+//        type AccountId = u64;
+//        type Lookup = IdentityLookup<Self::AccountId>;
+//        type Header = Header;
+//        type WeightMultiplierUpdate = ();
+//        type Event = ();
+//        type BlockHashCount = BlockHashCount;
+//        type MaximumBlockWeight = MaximumBlockWeight;
+//        type MaximumBlockLength = MaximumBlockLength;
+//        type AvailableBlockRatio = AvailableBlockRatio;
+//        type Version = ();
+//    }
+//
+//    impl identity::Trait for Test {
+//        type Event = ();
+//    }
+//
+//    parameter_types! {
+//        pub const ExistentialDeposit: u64 = 0;
+//        pub const TransferFee: u64 = 0;
+//        pub const CreationFee: u64 = 0;
+//        pub const TransactionBaseFee: u64 = 0;
+//        pub const TransactionByteFee: u64 = 0;
+//    }
+//
+//    impl balances::Trait for Test {
+//        type Balance = u128;
+//        type OnFreeBalanceZero = ();
+//        type OnNewAccount = ();
+//        type Event = ();
+//        type TransactionPayment = ();
+//        type DustRemoval = ();
+//        type TransferPayment = ();
+//        type ExistentialDeposit = ExistentialDeposit;
+//        type TransferFee = TransferFee;
+//        type CreationFee = CreationFee;
+//        type TransactionBaseFee = TransactionBaseFee;
+//        type TransactionByteFee = TransactionByteFee;
+//        type WeightToFee = ConvertInto;
+//        type Identity = identity::Module<Test>;
+//    }
+//
+//    parameter_types! {
+//        pub const MinimumPeriod: u64 = 3;
+//    }
+//
+//    impl timestamp::Trait for Test {
+//        type Moment = u64;
+//        type OnTimestampSet = ();
+//        type MinimumPeriod = MinimumPeriod;
+//    }
+//
+//    impl Trait for Test {
+//        type Currency = balances::Module<Test>;
+//        type Proposal = Call;
+//        type MinimumProposalDeposit = u64;
+//        type VotingPeriod = u64;
+//        type Event = ();
+//    }
+//
+//    type MIPS = Module<Test>;
+//
+//    fn new_test_ext() -> TestExternalities<Blake2Hasher> {
+//        system::GenesisConfig::default()
+//            .build_storage::<Test>()
+//            .unwrap()
+//            .into()
+//    }
+//
+//    #[test]
+//    fn should_start_a_proposal() {
+//        with_externalities(&mut new_test_ext(), || {
+//            assert_ok!(MIPS::propose(Origin::signed(1), 42));
+//            //            assert_eq!(MIPS::something(), Some(42));
+//        });
+//    }
+//}
