@@ -33,7 +33,7 @@
 use codec::{Decode, Encode};
 use rstd::prelude::*;
 use sr_primitives::{
-    traits::{Dispatchable, Hash},
+    traits::{Dispatchable, Hash, Zero},
     weights::SimpleDispatchInfo,
 };
 use srml_support::{
@@ -53,11 +53,18 @@ type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::Ac
 
 /// Represents a ballot
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct BallotInfo<BlockNumber: Parameter, Proposal: Parameter> {
+pub struct ProposalInfo<BlockNumber: Parameter, Proposal: Parameter> {
     /// When voting will end.
     end: BlockNumber,
     /// The proposal being voted on.
     proposal: Proposal,
+}
+
+impl<BlockNumber: Parameter, Proposal: Parameter> ProposalInfo<BlockNumber, Proposal> {
+    /// Create a new instance.
+    pub fn new(end: BlockNumber, proposal: Proposal, delay: BlockNumber) -> Self {
+        ProposalInfo { end, proposal }
+    }
 }
 
 /// For keeping track of proposal being voted on.
@@ -74,13 +81,6 @@ pub struct Votes<AccountId, Balance> {
     ayes_stake: Balance,
     /// Staked amount of rejected votes.
     nays_stake: Balance,
-}
-
-impl<BlockNumber: Parameter, Proposal: Parameter> BallotInfo<BlockNumber, Proposal> {
-    /// Create a new instance.
-    pub fn new(end: BlockNumber, proposal: Proposal, delay: BlockNumber) -> Self {
-        BallotInfo { end, proposal }
-    }
 }
 
 /// The module's configuration trait.
@@ -108,8 +108,8 @@ decl_storage! {
         /// Proposals so far. Index can be used to keep track of MIPs off-chain.
         pub ProposalCount get(proposal_count): u32;
 
-        /// The hashes of the active proposals.
-        pub Proposals get(proposals): Vec<T::Hash>;
+        // The hashes of the active proposals.
+        //pub Proposals get(proposals): Vec<T::Hash>;
 
         /// Those who have locked a deposit.
         /// proposal index -> (deposit, proposer)
@@ -117,7 +117,7 @@ decl_storage! {
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
-        pub ProposalOf get(proposal_of): map T::Hash => Option<T::Proposal>;
+        pub Proposals get(proposals): linked_map T::Hash => Option<ProposalInfo<T::BlockNumber, T::Proposal>>;
 
         /// Votes on a given proposal, if it is ongoing.
         /// proposal hash -> voting info
@@ -163,16 +163,31 @@ decl_module! {
             // Pre conditions: caller must have min balance
             ensure!(deposit >= T::MinimumProposalDeposit::get(), "minimum deposit required to start a proposal");
             // Proposal must be new
-            ensure!(!<ProposalOf<T>>::exists(proposal_hash), "duplicate proposals are not allowed");
+            ensure!(!<Proposals<T>>::exists(proposal_hash), "duplicate proposals are not allowed");
 
             // Reserve the minimum deposit
             T::Currency::reserve(&proposer, deposit).map_err(|_| "proposer can't afford to lock minimum deposit")?;
 
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
-            <Proposals<T>>::mutate(|proposals| proposals.push(proposal_hash));
+            //<Proposals<T>>::mutate(|proposals| proposals.push(proposal_hash));
 
             <DepositOf<T>>::insert(proposal_hash, (proposer.clone(), deposit));
+
+            let proposal_info = ProposalInfo {
+                end: <system::Module<T>>::block_number() + T::VotingPeriod::get(),
+                proposal: *proposal
+            };
+            <Proposals<T>>::insert(proposal_hash, proposal_info);
+
+            let vote = Votes {
+                index,
+                ayes: vec![proposer.clone()],
+                nays: vec![],
+                ayes_stake: deposit,
+                nays_stake: Zero::zero()
+            };
+            <Voting<T>>::insert(proposal_hash, vote);
 
             Self::deposit_event(RawEvent::Proposed(proposer, deposit));
             Ok(())
@@ -187,13 +202,14 @@ decl_module! {
         pub fn vote(origin, proposal_hash: T::Hash, #[compact] index: ProposalIndex) -> Result {
             let proposer = ensure_signed(origin)?;
 
-            let mut proposal = Self::proposal_of(&proposal_hash).ok_or("proposal must exist")?;
+            if let Some(proposal_info) = <Proposals<T>>::get(&proposal_hash) {
+                Self::deposit_event(RawEvent::Voted(proposer));
+            }
 
-            Self::deposit_event(RawEvent::Voted(proposer));
             Ok(())
         }
 
-        /// At the end of each block check if it's time for a ballot to end. If ballot ends,
+        /// When constructing a block check if it's time for a ballot to end. If ballot ends,
         /// proceed to ratification process.
         fn on_initialize(n: T::BlockNumber) {
             if let Err(e) = Self::end_block(n) {
@@ -204,11 +220,30 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Retrieve all proposals that need to be tallied as of block `n`.
+    pub fn proposals_maturing_at(
+        n: T::BlockNumber,
+    ) -> Vec<(T::Hash, ProposalInfo<T::BlockNumber, T::Proposal>)> {
+        <Proposals<T>>::enumerate()
+            .filter(|(proposal_hash, proposal_info)| proposal_info.end == n)
+            .collect()
+    }
+
+    // Private functions
+
     /// Runs ratification process
     fn end_block(block_number: T::BlockNumber) -> Result {
         sr_primitives::print("end_block");
+
+        // Tally up votes for matured proposals
+        for (index, info) in Self::proposals_maturing_at(block_number).into_iter() {
+            Self::close_ballot();
+        }
+
         Ok(())
     }
+
+    fn close_ballot() {}
 }
 
 // tests for this module
