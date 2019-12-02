@@ -100,7 +100,7 @@ pub struct SecurityToken<U> {
     pub divisible: bool,
 }
 
-/// struct to store the token details
+/// struct to store the signed data
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct SignData<U> {
     custodian_did: IdentityId,
@@ -110,10 +110,30 @@ pub struct SignData<U> {
     nonce: u16,
 }
 
+/// struct to store the ticker registration details
+#[derive(codec::Encode, codec::Decode, Clone, Default, PartialEq, Debug)]
+pub struct TickerRegistration<U> {
+    owner: IdentityId,
+    expiry: Option<U>,
+}
+
+/// struct to store the ticker registration config
+#[derive(codec::Encode, codec::Decode, Clone, Default, PartialEq, Debug)]
+pub struct TickerRegistrationConfig<U> {
+    pub max_ticker_length: u32,
+    pub registration_length: Option<U>,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// The DID of the fee collector
         FeeCollector get(fee_collector) config(): T::AccountId;
+        /// Ticker registration details
+        /// (ticker) -> TickerRegistration
+        pub Tickers get(ticker_registration): map Vec<u8> => TickerRegistration<T::Moment>;
+        /// Ticker registration config
+        /// (ticker) -> TickerRegistrationConfig
+        pub TickerConfig get(ticker_registration_config): map Vec<u8> => TickerRegistrationConfig<T::Moment>;
         /// details of the token corresponding to the token ticker
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
         pub Tokens get(token_details): map Vec<u8> => SecurityToken<T::Balance>;
@@ -156,6 +176,18 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         /// initialize the default event for this module
         fn deposit_event() = default;
+
+        /// Some comment
+        pub fn register_ticker(origin, did: IdentityId, ticker: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_authorized_key(did, &sender_key), "sender must be a signing key for DID");
+
+            let upper_ticker = utils::bytes_to_upper(ticker.as_slice());
+
+            Ok(())
+        }
 
         /// This function is use to create the multiple security tokens in a single transaction.
         /// This function can be used for token migrations from one blockchain to another or can be used by any
@@ -948,8 +980,7 @@ decl_module! {
             Self::deposit_event(RawEvent::CustodyTransfer(ticker.clone(), custodian_did, holder_did, receiver_did, value));
             Ok(())
         }
-
-}
+    }
 }
 
 decl_event! {
@@ -957,53 +988,53 @@ decl_event! {
         where
         Balance = <T as balances::Trait>::Balance,
         Moment = <T as timestamp::Trait>::Moment,
-        {
-            /// event for transfer of tokens
-            /// ticker, from DID, to DID, value
-            Transfer(Vec<u8>, IdentityId, IdentityId, Balance),
-            /// event when an approval is made
-            /// ticker, owner DID, spender DID, value
-            Approval(Vec<u8>, IdentityId, IdentityId, Balance),
-            /// emit when tokens get issued
-            /// ticker, beneficiary DID, value
-            Issued(Vec<u8>, IdentityId, Balance),
-            /// emit when tokens get redeemed
-            /// ticker, DID, value
-            Redeemed(Vec<u8>, IdentityId, Balance),
-            /// event for forced transfer of tokens
-            /// ticker, controller DID, from DID, to DID, value, data, operator data
-            ControllerTransfer(Vec<u8>, IdentityId, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
-            /// event for when a forced redemption takes place
-            /// ticker, controller DID, token holder DID, value, data, operator data
-            ControllerRedemption(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
-            /// Event for creation of the asset
-            /// ticker, total supply, owner DID, divisibility
-            IssuedToken(Vec<u8>, Balance, IdentityId, bool),
-            /// Event for change in divisibility
-            /// ticker, divisibility
-            DivisibilityChanged(Vec<u8>, bool),
-            /// can_transfer() output
-            /// ticker, from_did, to_did, value, data, ERC1066 status
-            /// 0 - OK
-            /// 1,2... - Error, meanings TBD
-            CanTransfer(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>, u32),
-            /// An additional event to Transfer; emitted when transfer_with_data is called; similar to
-            /// Transfer with data added at the end.
-            /// ticker, from DID, to DID, value, data
-            TransferWithData(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>),
-            /// is_issuable() output
-            /// ticker, return value (true if issuable)
-            IsIssuable(Vec<u8>, bool),
-            /// get_document() output
-            /// ticker, name, uri, hash, last modification date
-            GetDocument(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Moment),
-            /// emit when tokens transferred by the custodian
-            /// ticker, custodian did, holder/from did, to did, amount
-            CustodyTransfer(Vec<u8>, IdentityId, IdentityId, IdentityId, Balance),
-            /// emit when allowance get increased
-            /// ticker, holder did, custodian did, oldAllowance, newAllowance
-            CustodyAllowanceChanged(Vec<u8>, IdentityId, IdentityId, Balance, Balance),
-        }
+    {
+        /// event for transfer of tokens
+        /// ticker, from DID, to DID, value
+        Transfer(Vec<u8>, IdentityId, IdentityId, Balance),
+        /// event when an approval is made
+        /// ticker, owner DID, spender DID, value
+        Approval(Vec<u8>, IdentityId, IdentityId, Balance),
+        /// emit when tokens get issued
+        /// ticker, beneficiary DID, value
+        Issued(Vec<u8>, IdentityId, Balance),
+        /// emit when tokens get redeemed
+        /// ticker, DID, value
+        Redeemed(Vec<u8>, IdentityId, Balance),
+        /// event for forced transfer of tokens
+        /// ticker, controller DID, from DID, to DID, value, data, operator data
+        ControllerTransfer(Vec<u8>, IdentityId, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
+        /// event for when a forced redemption takes place
+        /// ticker, controller DID, token holder DID, value, data, operator data
+        ControllerRedemption(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
+        /// Event for creation of the asset
+        /// ticker, total supply, owner DID, divisibility
+        IssuedToken(Vec<u8>, Balance, IdentityId, bool),
+        /// Event for change in divisibility
+        /// ticker, divisibility
+        DivisibilityChanged(Vec<u8>, bool),
+        /// can_transfer() output
+        /// ticker, from_did, to_did, value, data, ERC1066 status
+        /// 0 - OK
+        /// 1,2... - Error, meanings TBD
+        CanTransfer(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>, u32),
+        /// An additional event to Transfer; emitted when transfer_with_data is called; similar to
+        /// Transfer with data added at the end.
+        /// ticker, from DID, to DID, value, data
+        TransferWithData(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>),
+        /// is_issuable() output
+        /// ticker, return value (true if issuable)
+        IsIssuable(Vec<u8>, bool),
+        /// get_document() output
+        /// ticker, name, uri, hash, last modification date
+        GetDocument(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Moment),
+        /// emit when tokens transferred by the custodian
+        /// ticker, custodian did, holder/from did, to did, amount
+        CustodyTransfer(Vec<u8>, IdentityId, IdentityId, IdentityId, Balance),
+        /// emit when allowance get increased
+        /// ticker, holder did, custodian did, oldAllowance, newAllowance
+        CustodyAllowanceChanged(Vec<u8>, IdentityId, IdentityId, Balance, Balance),
+    }
 }
 
 pub trait AssetTrait<V> {
@@ -1053,6 +1084,40 @@ impl<T: Trait> Module<T> {
     pub fn _is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool {
         let token = Self::token_details(ticker);
         token.owner_did == did
+    }
+
+    pub fn is_ticker_available(ticker: &Vec<u8>) -> bool {
+        // Assumes uppercase ticker
+        if <Tickers<T>>::exists(ticker.clone()) {
+            let now = <timestamp::Module<T>>::get();
+            if let Some(expiry) = Self::ticker_registration(ticker.clone()).expiry {
+                if now <= expiry {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    pub fn is_ticker_registered(ticker: &Vec<u8>, did: IdentityId) -> bool {
+        // Assumes uppercase ticker
+        if <Tickers<T>>::exists(ticker.clone()) {
+            let now = <timestamp::Module<T>>::get();
+            let ticker_reg = Self::ticker_registration(ticker.clone());
+            if ticker_reg.owner == did {
+                if let Some(expiry) = Self::ticker_registration(ticker.clone()).expiry {
+                    if now <= expiry {
+                        return false;
+                    }
+                } else {
+                    return true;
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     /// Get the asset `id` balance of `who`.
