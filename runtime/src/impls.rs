@@ -51,9 +51,7 @@ impl Convert<u128, u128> for CurrencyToVoteHandler {
 pub struct WeightToFee;
 impl Convert<Weight, Balance> for WeightToFee {
     fn convert(x: Weight) -> Balance {
-        // in Polkadot a weight of 10_000 (smallest non-zero weight) to be mapped to 10^7 units of
-        // fees (1/10 CENT), hence:
-        Balance::from(x).saturating_mul(1)
+        Balance::from(x)
     }
 }
 
