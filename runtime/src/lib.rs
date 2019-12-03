@@ -298,7 +298,8 @@ impl membership::Trait<membership::Instance1> for Runtime {
 }
 
 parameter_types! {
-    pub const MinimumProposalDeposit: Balance = 5000 * ONE_UNIT;
+    pub const MinimumProposalDeposit: Balance = 5000 * POLY;
+    pub const QuorumThreshold: Balance = 100000 * POLY;
     pub const VotingPeriod: BlockNumber = 7 * DAYS;
 }
 
@@ -306,6 +307,7 @@ impl mips::Trait for Runtime {
     type Currency = Balances;
     type Proposal = Call;
     type MinimumProposalDeposit = MinimumProposalDeposit;
+    type QuorumThreshold = QuorumThreshold;
     type VotingPeriod = VotingPeriod;
     type Event = Event;
 }

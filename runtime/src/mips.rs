@@ -45,7 +45,7 @@ use srml_support::{
 };
 use system::ensure_signed;
 
-/// Mesh Improvement Proposal index.
+/// Mesh Improvement Proposal index. Used offchain.
 pub type ProposalIndex = u32;
 
 /// Balance
@@ -95,6 +95,9 @@ pub trait Trait: system::Trait {
     /// The minimum amount to be used as a deposit for a proposal.
     type MinimumProposalDeposit: Get<BalanceOf<Self>>;
 
+    /// Minimum stake a proposal must gather in order to be considered by the committee.
+    type QuorumThreshold: Get<BalanceOf<Self>>;
+
     /// How long (in blocks) a ballot runs
     type VotingPeriod: Get<Self::BlockNumber>;
 
@@ -122,6 +125,10 @@ decl_storage! {
         /// Votes on a given proposal, if it is ongoing.
         /// proposal hash -> voting info
         pub Voting get(voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
+
+        /// Proposals that have met the quorum threshold to be put forward to a governance committee
+        /// proposal hash -> proposal
+        pub Referendums get(referendums): linked_map T::Hash => Option<ProposalInfo<T::BlockNumber, T::Proposal>>;
     }
 }
 
@@ -143,6 +150,9 @@ decl_module! {
 
         /// The minimum amount to be used as a deposit for a public referendum proposal.
         const MinimumProposalDeposit: BalanceOf<T> = T::MinimumProposalDeposit::get();
+
+        /// Minimum stake a proposal must gather in order to be considered by the committee.
+        const QuorumThreshold: BalanceOf<T> = T::QuorumThreshold::get();
 
         /// How long (in blocks) a ballot runs
         const VotingPeriod: T::BlockNumber = T::VotingPeriod::get();
@@ -220,7 +230,7 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Retrieve all proposals that need to be tallied as of block `n`.
+    /// Retrieve all proposals that need to be closed as of block `n`.
     pub fn proposals_maturing_at(
         n: T::BlockNumber,
     ) -> Vec<(T::Hash, ProposalInfo<T::BlockNumber, T::Proposal>)> {
@@ -231,19 +241,34 @@ impl<T: Trait> Module<T> {
 
     // Private functions
 
-    /// Runs ratification process
+    /// Runs the following procedure:
+    /// 1. Find all proposals that need to end as of this block and close voting
+    /// 2. Tally votes
+    /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
     fn end_block(block_number: T::BlockNumber) -> Result {
         sr_primitives::print("end_block");
 
         // Tally up votes for matured proposals
-        for (index, info) in Self::proposals_maturing_at(block_number).into_iter() {
-            Self::close_ballot();
+        for (hash, info) in Self::proposals_maturing_at(block_number).into_iter() {
+            Self::tally_votes(hash, info);
         }
 
         Ok(())
     }
 
-    fn close_ballot() {}
+    ///
+    fn tally_votes(
+        proposal_hash: T::Hash,
+        proposal_info: ProposalInfo<T::BlockNumber, T::Proposal>,
+    ) {
+        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
+            let net_stake = voting.ayes_stake - voting.nays_stake;
+
+            if net_stake >= T::QuorumThreshold::get() {
+                <Referendums<T>>::insert(proposal_hash.clone(), proposal_info);
+            }
+        }
+    }
 }
 
 // tests for this module
