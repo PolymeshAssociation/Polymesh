@@ -20,6 +20,7 @@
 //!
 //! ### Dispatchable Functions
 //!
+//! - `register_ticker` - Used to either register a new ticker or extend registration of an existing ticker
 //! - `batch_create_token` - Use to create the multiple security tokens in a single transaction.
 //! - `create_token` - Initializes a new security token
 //! - `transfer` - Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level
@@ -46,6 +47,8 @@
 //!
 //! ### Public Functions
 //!
+//! - `is_ticker_available` - Returns if ticker is available to register
+//! - `is_ticker_registry_valid` - Returns if ticker is registered to a particular did
 //! - `token_details` - Returns details of the token
 //! - `balance_of` - Returns the balance of the DID corresponds to the ticker
 //! - `total_checkpoints_of` - Returns the checkpoint Id
@@ -67,6 +70,8 @@ use primitives::{IdentityId, Key};
 use rstd::{convert::TryFrom, prelude::*};
 use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub, Verify};
+#[cfg(feature = "std")]
+use sr_primitives::{Deserialize, Serialize};
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
@@ -118,6 +123,7 @@ pub struct TickerRegistration<U> {
 }
 
 /// struct to store the ticker registration config
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(codec::Encode, codec::Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistrationConfig<U> {
     pub max_ticker_length: u32,
@@ -133,7 +139,7 @@ decl_storage! {
         pub Tickers get(ticker_registration): map Vec<u8> => TickerRegistration<T::Moment>;
         /// Ticker registration config
         /// (ticker) -> TickerRegistrationConfig
-        pub TickerConfig get(ticker_registration_config): map Vec<u8> => TickerRegistrationConfig<T::Moment>;
+        pub TickerConfig get(ticker_registration_config) config(): TickerRegistrationConfig<T::Moment>;
         /// details of the token corresponding to the token ticker
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
         pub Tokens get(token_details): map Vec<u8> => SecurityToken<T::Balance>;
@@ -144,6 +150,8 @@ decl_storage! {
         Allowance get(allowance): map (Vec<u8>, IdentityId, IdentityId) => T::Balance;
         /// cost in base currency to create a token
         AssetCreationFee get(asset_creation_fee) config(): T::Balance;
+        /// cost in base currency to register a ticker
+        TickerRegistrationFee get(ticker_registration_fee) config(): T::Balance;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u64;
@@ -177,14 +185,44 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
-        /// Some comment
-        pub fn register_ticker(origin, did: IdentityId, ticker: Vec<u8>) -> Result {
+        /// This function is used to either register a new ticker or extend validity of an exisitng ticker
+        /// NB Ticker validity does not get carryforward when renewing ticker
+        ///
+        /// # Arguments
+        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `did` DID of the (future) owner of the ticker
+        /// * `_ticker` ticker to register
+        pub fn register_ticker(origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_authorized_key(did, &sender_key), "sender must be a signing key for DID");
 
-            let upper_ticker = utils::bytes_to_upper(ticker.as_slice());
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+
+            ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
+
+            let ticker_config = Self::ticker_registration_config();
+
+            ensure!(ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(), "ticker length over the limit");
+
+            if Self::is_ticker_available(&ticker) {
+                // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
+            } else {
+                // ticker already registered to someone. Ensure that the ticker is registered to same did
+                ensure!(Self::is_ticker_registry_valid(&ticker, did), "ticker registered to someone else");
+            }
+            // charge fee
+            Self::charge_ticker_registration_fee(&ticker, did);
+
+            let now = <timestamp::Module<T>>::get();
+            let ticker_registration = TickerRegistration {
+                owner: did,
+                expiry: if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None }
+            };
+
+            // Store ticker registration details
+            <Tickers<T>>::insert(&ticker, ticker_registration);
 
             Ok(())
         }
@@ -1101,7 +1139,7 @@ impl<T: Trait> Module<T> {
         return true;
     }
 
-    pub fn is_ticker_registered(ticker: &Vec<u8>, did: IdentityId) -> bool {
+    pub fn is_ticker_registry_valid(ticker: &Vec<u8>, did: IdentityId) -> bool {
         // Assumes uppercase ticker
         if <Tickers<T>>::exists(ticker.clone()) {
             let now = <timestamp::Module<T>>::get();
@@ -1118,6 +1156,10 @@ impl<T: Trait> Module<T> {
             }
         }
         return false;
+    }
+
+    fn charge_ticker_registration_fee(_ticker: &Vec<u8>, _did: IdentityId) {
+        //TODO: Charge fee
     }
 
     /// Get the asset `id` balance of `who`.
