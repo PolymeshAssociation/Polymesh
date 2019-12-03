@@ -21,6 +21,7 @@
 //! ### Dispatchable Functions
 //!
 //! - `register_ticker` - Used to either register a new ticker or extend registration of an existing ticker
+//! - `transfer_ticker` - Used to transfer ticker to a different DID
 //! - `batch_create_token` - Use to create the multiple security tokens in a single transaction.
 //! - `create_token` - Initializes a new security token
 //! - `transfer` - Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level
@@ -190,13 +191,10 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
-        /// * `did` DID of the (future) owner of the ticker
+        /// * `to_did` DID of the (future) owner of the ticker
         /// * `_ticker` ticker to register
-        pub fn register_ticker(origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &sender_key), "sender must be a signing key for DID");
+        pub fn register_ticker(origin, to_did: IdentityId, _ticker: Vec<u8>) -> Result {
+            let _ = ensure_signed(origin)?;
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
@@ -210,19 +208,44 @@ decl_module! {
                 // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
             } else {
                 // ticker already registered to someone. Ensure that the ticker is registered to same did
-                ensure!(Self::is_ticker_registry_valid(&ticker, did), "ticker registered to someone else");
+                ensure!(Self::is_ticker_registry_valid(&ticker, to_did), "ticker registered to someone else");
             }
             // charge fee
-            Self::charge_ticker_registration_fee(&ticker, did);
+            Self::charge_ticker_registration_fee(&ticker, to_did);
 
             let now = <timestamp::Module<T>>::get();
             let ticker_registration = TickerRegistration {
-                owner: did,
+                owner: to_did,
                 expiry: if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None }
             };
 
             // Store ticker registration details
             <Tickers<T>>::insert(&ticker, ticker_registration);
+
+            Ok(())
+        }
+
+        /// This function is used to transfer a ticker to someone else
+        ///
+        /// # Arguments
+        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `from_did` DID of the current owner of the ticker
+        /// * `to_did` DID of the future owner of the ticker
+        /// * `_ticker` ticker to transfer
+        pub fn transfer_ticker(origin, from_did: IdentityId, to_did: IdentityId, _ticker: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_authorized_key(from_did, &sender_key), "sender must be a signing key for DID");
+
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+
+            ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
+
+            ensure!(Self::is_ticker_registry_valid(&ticker, from_did), "ticker registered to someone else");
+
+            // Store ticker registration details
+            <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
 
             Ok(())
         }
