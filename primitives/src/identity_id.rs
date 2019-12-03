@@ -1,6 +1,6 @@
+use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
-use parity_scale_codec::{Decode, Encode};
 use rstd::prelude::*;
 use runtime_primitives::traits::Printable;
 use sr_io;

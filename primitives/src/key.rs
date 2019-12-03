@@ -1,4 +1,4 @@
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use rstd::{
     cmp::{Ord, PartialOrd},
     convert::TryFrom,
@@ -29,7 +29,7 @@ impl Default for KeyType {
 
 /// It stores a simple key.
 /// It uses fixed size to avoid dynamic memory allocation.
-#[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Clone, Debug)]
+#[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Copy, Clone, Debug)]
 pub struct Key([u8; KEY_SIZE]);
 
 impl TryFrom<Vec<u8>> for Key {

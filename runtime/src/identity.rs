@@ -43,7 +43,9 @@ use rstd::{convert::TryFrom, prelude::*};
 
 use crate::balances;
 use crate::constants::did::USER;
-use primitives::{DidRecord, IdentityId, Key, KeyType, Permission, SigningKey};
+use primitives::{
+    Identity as DidRecord, IdentityId, Key, KeyType, Permission, PreAuthorizedKeyInfo, SigningKey,
+};
 
 use codec::Encode;
 use sr_io::blake2_256;
@@ -135,6 +137,9 @@ decl_storage! {
 
         /// Nonce to ensure unique DIDs are generated. starts from 1.
         pub DidNonce get(did_nonce) build(|_| 1u128): u128;
+
+        /// Pre-authorize join to Identity.
+        pub PreAuthorizedJoinDid get( pre_authorized_join_did): map Key => Vec<PreAuthorizedKeyInfo>;
     }
 }
 
@@ -198,15 +203,13 @@ decl_module! {
                 ExistenceRequirement::KeepAlive
                 )?;
 
-            // 2.1. Link  master key and signing keys.
+            // 2.1. Link  master key and add pre-authorized signing keys
             Self::link_key_to_did( &master_key, KeyType::External, did);
-            for sig_key in &signing_keys {
-                Self::link_key_to_did( &sig_key.key, sig_key.key_type, did);
-            }
+            signing_keys.iter().for_each( |skey| Self::add_pre_join_identity( skey, did));
 
             // 2.2. Create a new identity record.
             let record = DidRecord {
-                signing_keys: signing_keys.clone(),
+                signing_keys: vec![],
                 master_key,
                 ..Default::default()
             };
@@ -218,42 +221,34 @@ decl_module! {
 
         /// Adds new signing keys for a DID. Only called by master key owner.
         ///
-        /// # TODO
-        /// Signing keys should authorize its use in this identity.
-        ///
         /// # Failure
-        /// It can only called by master key owner.
+        ///  - It can only called by master key owner.
+        ///  - If any signing key is already linked to any identity, it will fail.
+        ///  - If any signing key is already
         pub fn add_signing_keys(origin, did: IdentityId, additional_keys: Vec<SigningKey>) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
+            // Check constraint 1-to-1 in relation key-identity.
             for skey in &additional_keys {
                 if !Self::can_key_be_linked_to_did( &skey.key, skey.key_type) {
                     return Err( "One signing key can only belong to one DID");
                 }
             }
 
+            // Ignore any key which is already valid in that identity.
+            let authorized_sk = Self::did_records( did).signing_keys;
+            additional_keys.iter()
+                .filter( |sk| authorized_sk.contains(sk) == false)
+                .for_each( |sk| Self::add_pre_join_identity( sk, did));
+
+            /*
             additional_keys.iter()
                 .for_each( |skey| Self::link_key_to_did( &skey.key, skey.key_type, did));
-
-            <DidRecords>::mutate( did,
-            |record| {
-                // Concatenate new keys while making sure the key set is
-                // unique
-                let mut new_permissiond_keys = additional_keys.iter()
-                    .filter( |&add_key| {
-                        record.signing_keys.iter()
-                        .find( |&rk| rk == add_key)
-                        .is_none()
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>();
-
-                (*record).signing_keys.append( &mut new_permissiond_keys);
-            });
+            <DidRecords>::mutate( did, |record| record.add_signing_keys( &additional_keys));
+            */
 
             Self::deposit_event(RawEvent::SigningKeysAdded(did, additional_keys));
-
             Ok(())
         }
 
@@ -285,12 +280,7 @@ decl_module! {
             keys_to_remove.iter().for_each( |key| Self::unlink_key_to_did(key, did));
 
             // Remove signing keys from DID records.
-            <DidRecords>::mutate(did,
-            |record| {
-                (*record).signing_keys.retain( |skey| keys_to_remove.iter()
-                        .find(|&rk| skey == rk)
-                        .is_none());
-            });
+            <DidRecords>::mutate(did, |record| { (*record).remove_signing_keys( &keys_to_remove);});
 
             Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
             Ok(())
@@ -470,6 +460,32 @@ decl_module! {
             } else {
                 Err("No did linked to the user")
             }
+        }
+
+
+        // Manage Authorizations to join to an Identity
+        // ================================================
+
+        pub fn authorize_join_to_identity(origin, id: IdentityId) -> Result {
+            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+            let pre_auth_ids = Self::pre_authorized_join_did( &sender_key);
+
+            // If pre-authentication contains `identity` means that identity's master key
+            // added it previously.
+            if let Some(pre_auth) = pre_auth_ids.iter().find( |pre_auth| **pre_auth == id) {
+                Self::remove_pre_join_identity( &sender_key, id);
+
+                // Add to records and link key to did.
+                let signing_key = SigningKey {
+                    key: sender_key,
+                    key_type: pre_auth.key_type.clone(),
+                    permissions: pre_auth.permissions.clone()
+                };
+                Self::link_key_to_did( &sender_key, signing_key.key_type, id);
+                <DidRecords>::mutate( id, |record| { (*record).add_signing_keys( &[signing_key]); });
+            }
+
+            Ok(())
         }
     }
 }
@@ -732,6 +748,33 @@ impl<T: Trait> Module<T> {
             }
         }
     }
+
+    fn add_pre_join_identity(skey: &SigningKey, id: IdentityId) {
+        let new_pre_auth = PreAuthorizedKeyInfo::new(skey.clone(), id);
+
+        if <PreAuthorizedJoinDid>::exists(&skey.key) {
+            <PreAuthorizedJoinDid>::mutate(&skey.key, |pre_auth_info_list| {
+                (*pre_auth_info_list).retain(|pre_auth| *pre_auth != new_pre_auth);
+                (*pre_auth_info_list).push(new_pre_auth);
+            });
+        } else {
+            <PreAuthorizedJoinDid>::insert(&skey.key, vec![new_pre_auth]);
+        }
+    }
+
+    fn remove_pre_join_identity(key: &Key, id: IdentityId) {
+        let mut is_list_empty = false;
+        if <PreAuthorizedJoinDid>::exists(key) {
+            <PreAuthorizedJoinDid>::mutate(key, |pre_auth_info_list| {
+                (*pre_auth_info_list).retain(|pre_auth| *pre_auth != id);
+                is_list_empty = pre_auth_info_list.is_empty();
+            });
+        }
+
+        if is_list_empty {
+            <PreAuthorizedJoinDid>::remove(key);
+        }
+    }
 }
 
 pub trait IdentityTrait<T> {
@@ -934,8 +977,9 @@ mod tests {
             let (_owner, owner_did) = make_account(&owner_id).unwrap();
             let (a, a_did) = make_account(&2).unwrap();
             let (_b, b_did) = make_account(&3).unwrap();
+            let charlie_acc = 4u64;
             let charlie_sig_key = SigningKey::new(
-                Key::try_from(4u64.encode()).unwrap(),
+                Key::try_from(charlie_acc.encode()).unwrap(),
                 vec![Permission::Admin],
             );
 
@@ -943,6 +987,10 @@ mod tests {
                 a.clone(),
                 a_did,
                 vec![charlie_sig_key.clone()]
+            ));
+            assert_ok!(Identity::authorize_join_to_identity(
+                Origin::signed(charlie_acc),
+                a_did
             ));
 
             // Check master key on master and signing_keys.
@@ -1030,6 +1078,14 @@ mod tests {
                 SigningKey::from(bob_key.clone()),
                 SigningKey::from(charlie_key.clone())
             ]
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(bob_acc),
+            alice_did
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(charlie_acc),
+            alice_did
         ));
 
         // Only `alice` is able to update `bob`'s permissions and `charlie`'s permissions.
@@ -1144,8 +1200,16 @@ mod tests {
         let signing_keys_v1 = vec![bob_signing_key.clone(), charlie_signing_key];
         assert_ok!(Identity::add_signing_keys(
             alice.clone(),
-            alice_did.clone(),
+            alice_did,
             signing_keys_v1.clone()
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(bob_acc),
+            alice_did
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(charlie_acc),
+            alice_did
         ));
 
         assert_eq!(Identity::is_authorized_key(alice_did, &bob_key), true);
@@ -1168,6 +1232,10 @@ mod tests {
             alice.clone(),
             alice_did.clone(),
             signing_keys_v2.clone()
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(dave_acc),
+            alice_did
         ));
         assert_eq!(Identity::is_authorized_key(alice_did, &dave_key), false);
 
@@ -1218,6 +1286,14 @@ mod tests {
             alice.clone(),
             alice_did,
             signing_keys_v1.clone()
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(bob_acc),
+            alice_did
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(charlie_acc),
+            alice_did
         ));
 
         // Freeze all signing keys
@@ -1284,6 +1360,10 @@ mod tests {
             alice.clone(),
             alice_id,
             vec![charlie_sk.clone()]
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(c_acc),
+            alice_id
         ));
 
         assert_err!(
