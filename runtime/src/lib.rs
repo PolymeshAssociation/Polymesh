@@ -63,7 +63,6 @@ mod exemption;
 mod general_tm;
 mod identity;
 mod percentage_tm;
-mod registry;
 mod simple_token;
 pub mod staking;
 mod sto_capped;
@@ -469,8 +468,6 @@ impl dividend::Trait for Runtime {
     type Event = Event;
 }
 
-impl registry::Trait for Runtime {}
-
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -513,7 +510,6 @@ construct_runtime!(
 		// Polymesh
 		Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
-        Registry: registry::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},

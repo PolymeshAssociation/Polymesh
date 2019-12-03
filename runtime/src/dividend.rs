@@ -399,7 +399,7 @@ mod tests {
     };
 
     use crate::{
-        asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
+        asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm,
         simple_token::SimpleTokenRecord,
     };
 
@@ -555,8 +555,6 @@ mod tests {
             v
         }
     }
-
-    impl registry::Trait for Test {}
 
     impl Trait for Test {
         type Event = ();

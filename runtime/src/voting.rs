@@ -315,9 +315,7 @@ mod tests {
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
 
-    use crate::{
-        asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
-    };
+    use crate::{asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -459,8 +457,6 @@ mod tests {
     impl percentage_tm::Trait for Test {
         type Event = ();
     }
-
-    impl registry::Trait for Test {}
 
     impl exemption::Trait for Test {
         type Event = ();

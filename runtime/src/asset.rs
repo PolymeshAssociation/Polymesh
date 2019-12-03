@@ -57,13 +57,7 @@
 //! - `custodian_allowance`- Returns the allowance provided to a custodian for a given ticker and token holder
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
 
-use crate::{
-    balances,
-    constants::*,
-    general_tm, identity, percentage_tm,
-    registry::{self, RegistryEntry, TokenType},
-    utils,
-};
+use crate::{balances, constants::*, general_tm, identity, percentage_tm, utils};
 use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
@@ -90,7 +84,6 @@ pub trait Trait:
     + balances::Trait
     + identity::Trait
     + session::Trait
-    + registry::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -332,10 +325,6 @@ decl_module! {
                     divisible: divisible_values[i]
                 };
 
-                let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner_did: did };
-
-                <registry::Module<T>>::put(&tickers[i], &reg_entry)?;
-
                 <Tokens<T>>::insert(&tickers[i], token);
                 <BalanceOf<T>>::insert((tickers[i].clone(), did), total_supply_values[i]);
                 Self::deposit_event(RawEvent::IssuedToken(tickers[i].clone(), total_supply_values[i], did, divisible_values[i]));
@@ -375,8 +364,6 @@ decl_module! {
 
             ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
 
-            ensure!(<registry::Module<T>>::get(&ticker).is_none(), "Ticker is already taken");
-
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
@@ -403,10 +390,6 @@ decl_module! {
                 owner_did: did,
                 divisible: divisible
             };
-
-            let reg_entry = RegistryEntry { token_type: TokenType::AssetToken as u32, owner_did: did };
-
-            <registry::Module<T>>::put(&ticker, &reg_entry)?;
 
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert((ticker.clone(), did), total_supply);
@@ -1620,7 +1603,6 @@ mod tests {
         }
     }
 
-    impl registry::Trait for Test {}
     impl Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;

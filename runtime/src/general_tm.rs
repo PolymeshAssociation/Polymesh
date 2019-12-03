@@ -295,7 +295,6 @@ mod tests {
 
     use crate::{
         asset::SecurityToken, balances, exemption, identity, identity::DataTypes, percentage_tm,
-        registry,
     };
 
     impl_outer_origin! {
@@ -438,8 +437,6 @@ mod tests {
     impl percentage_tm::Trait for Test {
         type Event = ();
     }
-
-    impl registry::Trait for Test {}
 
     impl exemption::Trait for Test {
         type Event = ();
