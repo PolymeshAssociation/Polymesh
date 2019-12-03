@@ -55,7 +55,7 @@ use impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, Weig
 pub mod constants;
 use constants::{currency::*, time::*};
 
-mod asset;
+pub mod asset;
 mod balances;
 mod contracts_wrapper;
 mod dividend;

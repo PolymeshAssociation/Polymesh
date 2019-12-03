@@ -2508,6 +2508,7 @@ dependencies = [
  "parking_lot 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "polymesh-primitives 0.6.0",
  "polymesh-runtime 0.6.0",
+ "serde_json 1.0.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog 2.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "sr-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
