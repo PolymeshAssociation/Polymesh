@@ -1169,7 +1169,7 @@ impl<T: Trait> Module<T> {
             let ticker_reg = Self::ticker_registration(ticker.clone());
             if ticker_reg.owner == did {
                 if let Some(expiry) = Self::ticker_registration(ticker.clone()).expiry {
-                    if now <= expiry {
+                    if now > expiry {
                         return false;
                     }
                 } else {
@@ -1642,6 +1642,17 @@ mod tests {
         identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        self::GenesisConfig::<Test> {
+            asset_creation_fee: 0,
+            ticker_registration_fee: 0,
+            ticker_registration_config: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                registration_length: Some(10000),
+            },
+            fee_collector: AccountKeyring::Dave.public().into(),
         }
         .assimilate_storage(&mut t)
         .unwrap();
@@ -2309,6 +2320,151 @@ mod tests {
             println!("Instance {} done", i);
         }
         println!("Done");
+    }
+
+    #[test]
+    fn register_ticker() {
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            Balances::make_free_balance_be(&owner_acc, 1_000_000);
+
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: owner_did.clone(),
+                total_supply: 1_000_000,
+                divisible: true,
+            };
+
+            // Issuance is successful
+            assert_ok!(Asset::create_token(
+                owner_signed.clone(),
+                owner_did,
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            assert_err!(
+                Asset::register_ticker(owner_signed.clone(), owner_did, vec![0x01]),
+                "token already created"
+            );
+
+            assert_err!(
+                Asset::register_ticker(
+                    owner_signed.clone(),
+                    owner_did,
+                    vec![
+                        0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                        0x01
+                    ]
+                ),
+                "ticker length over the limit"
+            );
+
+            let ticker = vec![0x01, 0x01];
+
+            assert_eq!(Asset::is_ticker_available(&ticker), true);
+
+            assert_ok!(Asset::register_ticker(
+                owner_signed.clone(),
+                owner_did,
+                ticker.clone()
+            ));
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+
+            Balances::make_free_balance_be(&alice_acc, 1_000_000);
+
+            assert_err!(
+                Asset::register_ticker(alice_signed.clone(), alice_did, ticker.clone()),
+                "ticker registered to someone else"
+            );
+
+            assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
+            assert_eq!(Asset::is_ticker_available(&ticker), false);
+
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64 + 10001);
+
+            assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
+            assert_eq!(Asset::is_ticker_available(&ticker), true);
+        })
+    }
+
+    #[test]
+    fn transfer_ticker() {
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            Balances::make_free_balance_be(&owner_acc, 1_000_000);
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (_, alice_did) = make_account(&alice_acc).unwrap();
+
+            Balances::make_free_balance_be(&alice_acc, 1_000_000);
+
+            let ticker = vec![0x01, 0x01];
+
+            assert_eq!(Asset::is_ticker_available(&ticker), true);
+
+            assert_ok!(Asset::register_ticker(
+                owner_signed.clone(),
+                owner_did,
+                ticker.clone()
+            ));
+
+            assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
+            assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), false);
+            assert_eq!(Asset::is_ticker_available(&ticker), false);
+
+            assert_ok!(Asset::transfer_ticker(
+                owner_signed.clone(),
+                owner_did,
+                alice_did,
+                ticker.clone()
+            ));
+
+            assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
+            assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), true);
+            assert_eq!(Asset::is_ticker_available(&ticker), false);
+
+            assert_err!(
+                Asset::transfer_ticker(owner_signed.clone(), owner_did, alice_did, ticker.clone()),
+                "ticker registered to someone else"
+            );
+
+            let token = SecurityToken {
+                name: vec![0x01],
+                owner_did: owner_did.clone(),
+                total_supply: 1_000_000,
+                divisible: true,
+            };
+
+            // Issuance is successful
+            assert_ok!(Asset::create_token(
+                owner_signed.clone(),
+                owner_did,
+                token.name.clone(),
+                token.name.clone(),
+                token.total_supply,
+                true
+            ));
+
+            assert_err!(
+                Asset::transfer_ticker(owner_signed.clone(), owner_did, alice_did, vec![0x01]),
+                "token already created"
+            );
+        })
     }
 
     /*
