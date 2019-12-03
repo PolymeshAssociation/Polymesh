@@ -22,7 +22,6 @@
 //!
 //! - `register_ticker` - Used to either register a new ticker or extend registration of an existing ticker
 //! - `transfer_ticker` - Used to transfer ticker to a different DID
-//! - `batch_create_token` - Use to create the multiple security tokens in a single transaction.
 //! - `create_token` - Initializes a new security token
 //! - `transfer` - Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level
 //! - `controller_transfer` - Forces a transfer between two DIDs.
@@ -243,97 +242,6 @@ decl_module! {
             Ok(())
         }
 
-        /// This function is use to create the multiple security tokens in a single transaction.
-        /// This function can be used for token migrations from one blockchain to another or can be used by any
-        /// whitelabler who wants to issue multiple tokens for their clients.
-        ///
-        /// # Arguments
-        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
-        /// * `did` DID of the creator of the tokens
-        /// * `names` Array of the names of the tokens
-        /// * `tickers` Array of symbols of the tokens
-        /// * `total_supply_values` Array of total supply value that will be initial supply of the token
-        /// * `divisible_values` Array of booleans to identify the divisibility status of the token.
-        pub fn batch_create_token(origin, did: IdentityId, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::Balance>, divisible_values: Vec<bool>) -> Result {
-            let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from( sender.encode())?;
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &sender_key), "sender must be a signing key for DID");
-
-            // Ensure we get a complete set of parameters for every token
-            ensure!((names.len() == tickers.len()) == (total_supply_values.len() == divisible_values.len()), "Inconsistent token param vector lengths");
-
-            // bytes_to_upper() all tickers
-            let mut tickers = tickers;
-            tickers.iter_mut().for_each(|ticker| {
-                *ticker = utils::bytes_to_upper(ticker.as_slice());
-            });
-
-            // A helper vec for duplicate ticker detection
-            let mut seen_tickers = Vec::new();
-
-            let n_tokens = names.len();
-
-            // Perform per-token checks beforehand
-            for i in 0..n_tokens {
-                // checking max size for name and ticker
-                // byte arrays (vecs) with no max size should be avoided
-                ensure!(names[i].len() <= 64, "token name cannot exceed 64 bytes");
-                ensure!(tickers[i].len() <= 32, "token ticker cannot exceed 32 bytes");
-
-                ensure!(!seen_tickers.contains(&tickers[i]), "Duplicate tickers in token batch");
-                seen_tickers.push(tickers[i].clone());
-
-                if !divisible_values[i] {
-                    ensure!(total_supply_values[i] % ONE_UNIT.into() == 0.into(), "Invalid Total supply");
-                }
-
-                ensure!(total_supply_values[i] <= MAX_SUPPLY.into(), "Total supply above the limit");
-
-                // Ensure the uniqueness of the ticker
-                ensure!(!<Tokens<T>>::exists(tickers[i].clone()), "Ticker is already issued");
-            }
-            // TODO: Fix fee withdrawal
-            // Withdraw n_tokens * Self::asset_creation_fee() from sender DID
-            // let validators = <session::Module<T>>::validators();
-            // let fee = Self::asset_creation_fee().checked_mul(&<FeeOf<T> as As<usize>>::sa(n_tokens)).ok_or("asset_creation_fee() * n_tokens overflows")?;
-            // let validator_len;
-            // if validators.len() < 1 {
-            //     validator_len = <FeeOf<T> as As<usize>>::sa(1);
-            // } else {
-            //     validator_len = <FeeOf<T> as As<usize>>::sa(validators.len());
-            // }
-            // let proportional_fee = fee / validator_len;
-            // let proportional_fee_in_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
-            // for v in &validators {
-            //     <balances::Module<T> as Currency<_>>::transfer(&sender, v, proportional_fee_in_balance)?;
-            // }
-            // let remainder_fee = fee - (proportional_fee * validator_len);
-            // let remainder_fee_balance = <T::CurrencyToBalance as Convert<FeeOf<T>, T::Balance>>::convert(proportional_fee);
-            // <identity::DidRecords>::mutate(did, |record| -> Result {
-            //     record.balance = record.balance.checked_sub(&remainder_fee_balance).ok_or("Could not charge for token issuance")?;
-            //     Ok(())
-            // })?;
-
-            // Perform per-ticker issuance
-            for i in 0..n_tokens {
-                let token = SecurityToken {
-                    name: names[i].clone(),
-                    total_supply: total_supply_values[i],
-                    owner_did: did,
-                    divisible: divisible_values[i]
-                };
-
-                <Tokens<T>>::insert(&tickers[i], token);
-                <BalanceOf<T>>::insert((tickers[i].clone(), did), total_supply_values[i]);
-                Self::deposit_event(RawEvent::IssuedToken(tickers[i].clone(), total_supply_values[i], did, divisible_values[i]));
-                sr_primitives::print("Batch token initialized");
-            }
-
-            Ok(())
-        }
-
         /// Initializes a new security token
         /// makes the initiating account the owner of the security token
         /// & the balance of the owner is set to total supply
@@ -353,10 +261,20 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_authorized_key(did, &sender_key), "sender must be a signing key for DID");
 
+            ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
+
+            let ticker_config = Self::ticker_registration_config();
+
+            ensure!(ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(), "ticker length over the limit");
+
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
-            ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
+
+            let is_ticker_available = Self::is_ticker_available(&ticker);
+            let is_ticker_registry_valid = Self::is_ticker_registry_valid(&ticker, did);
+
+            ensure!(is_ticker_available || is_ticker_registry_valid, "Ticker registered to someone else");
 
             if !divisible {
                 ensure!(total_supply % ONE_UNIT.into() == 0.into(), "Invalid Total supply");
@@ -383,6 +301,21 @@ decl_module! {
             }
             let remainder_fee = fee - (proportional_fee * validator_len);
             let _withdraw_result = <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+
+            if is_ticker_available {
+                // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
+                Self::charge_ticker_registration_fee(&ticker, did);
+
+                let ticker_registration = TickerRegistration {
+                    owner: did,
+                    expiry: None
+                };
+
+                // Store ticker registration details
+                <Tickers<T>>::insert(&ticker, ticker_registration);
+            } else {
+                <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
+            }
 
             let token = SecurityToken {
                 name,
@@ -2332,6 +2265,12 @@ mod tests {
                 true
             ));
 
+            assert_eq!(
+                Asset::is_ticker_registry_valid(&token.name, owner_did),
+                true
+            );
+            assert_eq!(Asset::is_ticker_available(&token.name), false);
+
             assert_err!(
                 Asset::register_ticker(owner_signed.clone(), owner_did, vec![0x01]),
                 "token already created"
@@ -2391,7 +2330,7 @@ mod tests {
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (_, alice_did) = make_account(&alice_acc).unwrap();
+            let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
 
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
 
@@ -2432,7 +2371,24 @@ mod tests {
                 divisible: true,
             };
 
-            // Issuance is successful
+            assert_ok!(Asset::register_ticker(
+                owner_signed.clone(),
+                owner_did,
+                vec![0x01]
+            ));
+
+            assert_err!(
+                Asset::create_token(
+                    alice_signed.clone(),
+                    alice_did,
+                    token.name.clone(),
+                    token.name.clone(),
+                    token.total_supply,
+                    true
+                ),
+                "Ticker registered to someone else"
+            );
+
             assert_ok!(Asset::create_token(
                 owner_signed.clone(),
                 owner_did,

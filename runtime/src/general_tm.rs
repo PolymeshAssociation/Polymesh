@@ -294,7 +294,8 @@ mod tests {
     use test_client::{self, AccountKeyring};
 
     use crate::{
-        asset::SecurityToken, balances, exemption, identity, identity::DataTypes, percentage_tm,
+        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, identity,
+        identity::DataTypes, percentage_tm,
     };
 
     impl_outer_origin! {
@@ -461,6 +462,17 @@ mod tests {
         identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        asset::GenesisConfig::<Test> {
+            asset_creation_fee: 0,
+            ticker_registration_fee: 0,
+            ticker_registration_config: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                registration_length: Some(10000),
+            },
+            fee_collector: AccountKeyring::Dave.public().into(),
         }
         .assimilate_storage(&mut t)
         .unwrap();
