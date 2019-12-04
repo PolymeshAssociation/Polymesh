@@ -260,27 +260,16 @@ decl_module! {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
-            // Check that key is linked to that DID.
-            for key in &keys_to_remove {
-                if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
-                    let error_msg = "Signing key does not belong to this DID";
+            // Remove any Pre-Authentication & link
+            keys_to_remove.iter().for_each( |key| {
+                Self::remove_pre_join_identity( key, did);
+                Self::unlink_key_to_did(key, did);
+            });
 
-                    match linked_key_info {
-                        LinkedKeyInfo::Unique(link_did) => if did != link_did {
-                            return Err(error_msg);
-                        },
-                        LinkedKeyInfo::Group(link_dids) => if link_dids.into_iter().find( |id| did == *id).is_none() {
-                            return Err(error_msg);
-                        }
-                    }
-                }
-            }
-
-            // Remove links between keys and DID
-            keys_to_remove.iter().for_each( |key| Self::unlink_key_to_did(key, did));
-
-            // Remove signing keys from DID records.
-            <DidRecords>::mutate(did, |record| { (*record).remove_signing_keys( &keys_to_remove);});
+            // Update signing keys at Identity.
+            <DidRecords>::mutate(did, |record| {
+                (*record).remove_signing_keys( &keys_to_remove);
+            });
 
             Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
             Ok(())
@@ -473,6 +462,13 @@ decl_module! {
             // If pre-authentication contains `identity` means that identity's master key
             // added it previously.
             if let Some(pre_auth) = pre_auth_ids.iter().find( |pre_auth| **pre_auth == id) {
+
+                // Verify 1-to-1 relation between key and identity.
+                if Self::key_to_identity_ids(sender_key).is_some() {
+                    return Err("Key is already linked to an identity");
+                }
+
+                // <PreAuthorizedJoinDid>::remove(sender_key);
                 Self::remove_pre_join_identity( &sender_key, id);
 
                 // Add to records and link key to did.
@@ -483,9 +479,11 @@ decl_module! {
                 };
                 Self::link_key_to_did( &sender_key, signing_key.key_type, id);
                 <DidRecords>::mutate( id, |record| { (*record).add_signing_keys( &[signing_key]); });
-            }
 
-            Ok(())
+                Ok(())
+            } else {
+                Err( "Key is not pre authorized by the identity")
+            }
         }
     }
 }
@@ -1406,5 +1404,56 @@ mod tests {
             Identity::add_signing_keys(alice.clone(), alice_id, vec![bob_sk]),
             unique_error
         );
+    }
+
+    #[test]
+    fn two_step_join_id() {
+        with_externalities(&mut build_ext(), &two_step_join_id_with_ext);
+    }
+
+    fn two_step_join_id_with_ext() {
+        let (a_acc, b_acc, c_acc, d_acc) = (1u64, 2u64, 3u64, 4u64);
+        let (a, a_id) = make_account(&a_acc).unwrap();
+        let (b, b_id) = make_account(&b_acc).unwrap();
+
+        let c_sk = SigningKey::new(
+            Key::try_from(c_acc.encode()).unwrap(),
+            vec![Permission::Operator],
+        );
+        let d_sk = SigningKey::new(
+            Key::try_from(d_acc.encode()).unwrap(),
+            vec![Permission::Full],
+        );
+
+        // Check 1-to-1 relation between key and identity.
+        let signing_keys = vec![c_sk.clone(), d_sk.clone()];
+        assert_ok!(Identity::add_signing_keys(
+            a.clone(),
+            a_id,
+            signing_keys.clone()
+        ));
+        assert_ok!(Identity::add_signing_keys(b, b_id, signing_keys));
+        assert_eq!(Identity::is_authorized_key(a_id, &c_sk.key), false);
+
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(c_acc),
+            a_id
+        ));
+        assert_eq!(Identity::is_authorized_key(a_id, &c_sk.key), true);
+
+        assert_err!(
+            Identity::authorize_join_to_identity(Origin::signed(c_acc), b_id),
+            "Key is already linked to an identity"
+        );
+        assert_eq!(Identity::is_authorized_key(b_id, &c_sk.key), false);
+
+        // Check after remove a signing key.
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(d_acc),
+            a_id
+        ));
+        assert_eq!(Identity::is_authorized_key(a_id, &d_sk.key), true);
+        assert_ok!(Identity::remove_signing_keys(a, a_id, vec![d_sk.key]));
+        assert_eq!(Identity::is_authorized_key(a_id, &d_sk.key), false);
     }
 }
