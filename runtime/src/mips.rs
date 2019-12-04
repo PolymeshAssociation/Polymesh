@@ -140,6 +140,7 @@ decl_event!(
     {
         Proposed(AccountId, Balance),
         Voted(AccountId),
+        ProposalClosed(),
     }
 );
 
@@ -239,6 +240,22 @@ impl<T: Trait> Module<T> {
             .collect()
     }
 
+    /// Close a proposal. Voting ceases and proposal is removed from storage.
+    /// All deposits are unlocked and returned to respective stakers.
+    /// TODO: Restrict call to governance committee
+    pub fn close_proposal(
+        proposal_hash: T::Hash,
+        proposal_info: ProposalInfo<T::BlockNumber, T::Proposal>,
+    ) {
+        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
+            if let Some((proposer, deposit)) = <DepositOf<T>>::take(proposal_hash.clone()) {
+                T::Currency::unreserve(&proposer, deposit);
+                <Proposals<T>>::remove(proposal_hash.clone());
+                Self::deposit_event(RawEvent::ProposalClosed());
+            }
+        }
+    }
+
     // Private functions
 
     /// Runs the following procedure:
@@ -248,15 +265,19 @@ impl<T: Trait> Module<T> {
     fn end_block(block_number: T::BlockNumber) -> Result {
         sr_primitives::print("end_block");
 
-        // Tally up votes for matured proposals
+        // Find all matured proposals...
         for (hash, info) in Self::proposals_maturing_at(block_number).into_iter() {
-            Self::tally_votes(hash, info);
+            // Tally votes and create referendums
+            Self::tally_votes(hash.clone(), info.clone());
+
+            // And close proposals
+            Self::close_proposal(hash, info);
         }
 
         Ok(())
     }
 
-    ///
+    /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
     fn tally_votes(
         proposal_hash: T::Hash,
         proposal_info: ProposalInfo<T::BlockNumber, T::Proposal>,
