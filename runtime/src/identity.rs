@@ -242,12 +242,6 @@ decl_module! {
                 .filter( |sk| authorized_sk.contains(sk) == false)
                 .for_each( |sk| Self::add_pre_join_identity( sk, did));
 
-            /*
-            additional_keys.iter()
-                .for_each( |skey| Self::link_key_to_did( &skey.key, skey.key_type, did));
-            <DidRecords>::mutate( did, |record| record.add_signing_keys( &additional_keys));
-            */
-
             Self::deposit_event(RawEvent::SigningKeysAdded(did, additional_keys));
             Ok(())
         }
@@ -462,7 +456,6 @@ decl_module! {
             // If pre-authentication contains `identity` means that identity's master key
             // added it previously.
             if let Some(pre_auth) = pre_auth_ids.iter().find( |pre_auth| **pre_auth == id) {
-
                 // Verify 1-to-1 relation between key and identity.
                 if Self::key_to_identity_ids(sender_key).is_some() {
                     return Err("Key is already linked to an identity");
@@ -747,6 +740,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// It adds `skey` to pre authorized keys for `id` identity.
     fn add_pre_join_identity(skey: &SigningKey, id: IdentityId) {
         let new_pre_auth = PreAuthorizedKeyInfo::new(skey.clone(), id);
 
@@ -760,6 +754,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// It removes `skey` to pre authorized keys for `id` identity.
     fn remove_pre_join_identity(key: &Key, id: IdentityId) {
         let mut is_list_empty = false;
         if <PreAuthorizedJoinDid>::exists(key) {
