@@ -31,9 +31,9 @@
 //! - `end_block` - Returns details of the token
 
 use codec::{Decode, Encode};
-use rstd::prelude::*;
+use rstd::{prelude::*, result};
 use sr_primitives::{
-    traits::{Dispatchable, Hash, Zero},
+    traits::{Dispatchable, EnsureOrigin, Hash, Zero},
     weights::SimpleDispatchInfo,
 };
 use srml_support::{
@@ -43,6 +43,7 @@ use srml_support::{
     traits::{Currency, Get, LockableCurrency, ReservableCurrency},
     Parameter,
 };
+use substrate_primitives::u32_trait::Value as U32;
 use system::ensure_signed;
 
 /// Mesh Improvement Proposal index. Used offchain.
@@ -73,14 +74,10 @@ impl<BlockNumber: Parameter, Proposal: Parameter> ProposalInfo<BlockNumber, Prop
 pub struct Votes<AccountId, Balance> {
     /// The proposal's unique index.
     index: ProposalIndex,
-    /// The current set of voters that approved it.
-    ayes: Vec<AccountId>,
-    /// The current set of voters that rejected it.
-    nays: Vec<AccountId>,
-    /// Staked amount of approved votes.
-    ayes_stake: Balance,
-    /// Staked amount of rejected votes.
-    nays_stake: Balance,
+    /// The current set of voters that approved with their stake.
+    ayes: Vec<(AccountId, Balance)>,
+    /// The current set of voters that rejected with their stake.
+    nays: Vec<(AccountId, Balance)>,
 }
 
 /// The module's configuration trait.
@@ -136,10 +133,11 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = BalanceOf<T>,
-        AccountId = <T as system::Trait>::AccountId,
+        <T as system::Trait>::Hash,
+        <T as system::Trait>::AccountId,
     {
         Proposed(AccountId, Balance),
-        Voted(AccountId),
+        Voted(AccountId, Hash, bool),
         ProposalClosed(),
     }
 );
@@ -193,10 +191,8 @@ decl_module! {
 
             let vote = Votes {
                 index,
-                ayes: vec![proposer.clone()],
+                ayes: vec![(proposer.clone(), deposit)],
                 nays: vec![],
-                ayes_stake: deposit,
-                nays_stake: Zero::zero()
             };
             <Voting<T>>::insert(proposal_hash, vote);
 
@@ -209,21 +205,36 @@ decl_module! {
         ///
         /// # Arguments
         /// * `proposal` a dispatchable call
+        /// * `index` proposal index
+        /// * `aye_or_nay` a bool representing for or against vote
         /// * `deposit` minimum deposit value
-        pub fn vote(origin, proposal_hash: T::Hash, #[compact] index: ProposalIndex) -> Result {
+        pub fn vote(origin, proposal_hash: T::Hash, #[compact] index: ProposalIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
 
-            if let Some(proposal_info) = <Proposals<T>>::get(&proposal_hash) {
-                Self::deposit_event(RawEvent::Voted(proposer));
+            let mut voting = Self::voting(&proposal_hash).ok_or("proposal does not exist")?;
+            ensure!(voting.index == index, "mismatched proposal index");
+
+            let position_yes = voting.ayes.iter().position(|(a, _)| a == &proposer);
+            let position_no = voting.nays.iter().position(|(a, _)| a == &proposer);
+
+            if position_yes.is_none() && position_no.is_none()  {
+                if aye_or_nay {
+                    voting.ayes.push((proposer.clone(), deposit));
+                } else {
+                    voting.nays.push((proposer.clone(), deposit));
+                }
+            } else {
+                return Err("duplicate vote ignored")
             }
 
-            Ok(())
+            Self::deposit_event(RawEvent::Voted(proposer, proposal_hash, aye_or_nay));
         }
 
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,
         /// proceed to ratification process.
         fn on_initialize(n: T::BlockNumber) {
             if let Err(e) = Self::end_block(n) {
+                sr_primitives::print(e);
             }
         }
 
@@ -283,11 +294,11 @@ impl<T: Trait> Module<T> {
         proposal_info: ProposalInfo<T::BlockNumber, T::Proposal>,
     ) {
         if let Some(voting) = <Voting<T>>::get(proposal_hash) {
-            let net_stake = voting.ayes_stake - voting.nays_stake;
-
-            if net_stake >= T::QuorumThreshold::get() {
-                <Referendums<T>>::insert(proposal_hash.clone(), proposal_info);
-            }
+            //            let net_stake = voting.ayes_stake - voting.nays_stake;
+            //
+            //            if net_stake >= T::QuorumThreshold::get() {
+            //                <Referendums<T>>::insert(proposal_hash.clone(), proposal_info);
+            //            }
         }
     }
 }
