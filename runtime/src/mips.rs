@@ -52,20 +52,15 @@ pub type ProposalIndex = u32;
 /// Balance
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
-/// Represents a ballot
+/// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct ProposalInfo<BlockNumber: Parameter, Proposal: Parameter> {
+pub struct ProposalMeta<BlockNumber: Parameter, Hash: Parameter> {
+    /// The proposal's unique index.
+    index: ProposalIndex,
     /// When voting will end.
     end: BlockNumber,
     /// The proposal being voted on.
-    proposal: Proposal,
-}
-
-impl<BlockNumber: Parameter, Proposal: Parameter> ProposalInfo<BlockNumber, Proposal> {
-    /// Create a new instance.
-    pub fn new(end: BlockNumber, proposal: Proposal, delay: BlockNumber) -> Self {
-        ProposalInfo { end, proposal }
-    }
+    proposal_hash: Hash,
 }
 
 /// For keeping track of proposal being voted on.
@@ -109,15 +104,15 @@ decl_storage! {
         pub ProposalCount get(proposal_count): u32;
 
         // The hashes of the active proposals.
-        //pub Proposals get(proposals): Vec<T::Hash>;
+        pub ProposalMetadata get(proposal_meta): Vec<ProposalMeta<T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
         /// proposal index -> (deposit, proposer)
-        pub DepositOf get(deposit_of): map T::Hash => Option<(T::AccountId, BalanceOf<T>)>;
+        pub Deposits get(deposit_of): map T::Hash => Option<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
-        pub Proposals get(proposals): linked_map T::Hash => Option<ProposalInfo<T::BlockNumber, T::Proposal>>;
+        pub Proposals get(proposals): map T::Hash => Option<T::Proposal>;
 
         /// Votes on a given proposal, if it is ongoing.
         /// proposal hash -> voting info
@@ -125,7 +120,7 @@ decl_storage! {
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
-        pub Referendums get(referendums): linked_map T::Hash => Option<ProposalInfo<T::BlockNumber, T::Proposal>>;
+        pub Referendums get(referendums): map T::Hash => Option<T::Proposal>;
     }
 }
 
@@ -138,7 +133,7 @@ decl_event!(
     {
         Proposed(AccountId, Balance),
         Voted(AccountId, Hash, bool),
-        ProposalClosed(),
+        ProposalClosed(Hash),
     }
 );
 
@@ -179,15 +174,17 @@ decl_module! {
 
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
-            //<Proposals<T>>::mutate(|proposals| proposals.push(proposal_hash));
 
-            <DepositOf<T>>::insert(proposal_hash, (proposer.clone(), deposit));
-
-            let proposal_info = ProposalInfo {
+            let proposal_meta = ProposalMeta {
+                index,
                 end: <system::Module<T>>::block_number() + T::VotingPeriod::get(),
-                proposal: *proposal
+                proposal_hash
             };
-            <Proposals<T>>::insert(proposal_hash, proposal_info);
+            <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
+
+            <Deposits<T>>::insert(proposal_hash, (proposer.clone(), deposit));
+
+            <Proposals<T>>::insert(proposal_hash, *proposal);
 
             let vote = Votes {
                 index,
@@ -243,26 +240,28 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Retrieve all proposals that need to be closed as of block `n`.
-    pub fn proposals_maturing_at(
-        n: T::BlockNumber,
-    ) -> Vec<(T::Hash, ProposalInfo<T::BlockNumber, T::Proposal>)> {
-        <Proposals<T>>::enumerate()
-            .filter(|(proposal_hash, proposal_info)| proposal_info.end == n)
+    pub fn proposals_maturing_at(n: T::BlockNumber) -> Vec<(ProposalIndex, T::Hash)> {
+        Self::proposal_meta()
+            .into_iter()
+            .filter(|meta| meta.end == n)
+            .map(|meta| (meta.index, meta.proposal_hash))
             .collect()
     }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
     /// All deposits are unlocked and returned to respective stakers.
-    /// TODO: Restrict call to governance committee
-    pub fn close_proposal(
-        proposal_hash: T::Hash,
-        proposal_info: ProposalInfo<T::BlockNumber, T::Proposal>,
-    ) {
+    pub fn close_proposal(proposal_hash: T::Hash) {
         if let Some(voting) = <Voting<T>>::get(proposal_hash) {
-            if let Some((proposer, deposit)) = <DepositOf<T>>::take(proposal_hash.clone()) {
+            if let Some((proposer, deposit)) = <Deposits<T>>::take(&proposal_hash) {
                 T::Currency::unreserve(&proposer, deposit);
-                <Proposals<T>>::remove(proposal_hash.clone());
-                Self::deposit_event(RawEvent::ProposalClosed());
+                if let Some(proposal) = <Proposals<T>>::take(&proposal_hash) {
+                    <Voting<T>>::remove(&proposal_hash);
+                    <ProposalMetadata<T>>::mutate(|metadata| {
+                        metadata.retain(|m| m.proposal_hash != proposal_hash.clone())
+                    });
+
+                    Self::deposit_event(RawEvent::ProposalClosed(proposal_hash.clone()));
+                }
             }
         }
     }
@@ -277,30 +276,30 @@ impl<T: Trait> Module<T> {
         sr_primitives::print("end_block");
 
         // Find all matured proposals...
-        for (hash, info) in Self::proposals_maturing_at(block_number).into_iter() {
+        for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
             // Tally votes and create referendums
-            Self::tally_votes(hash.clone(), info.clone());
+            //Self::tally_votes(hash.clone(), info.clone());
 
             // And close proposals
-            Self::close_proposal(hash, info);
+            Self::close_proposal(hash);
         }
 
         Ok(())
     }
 
-    /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
-    fn tally_votes(
-        proposal_hash: T::Hash,
-        proposal_info: ProposalInfo<T::BlockNumber, T::Proposal>,
-    ) {
-        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
-            //            let net_stake = voting.ayes_stake - voting.nays_stake;
-            //
-            //            if net_stake >= T::QuorumThreshold::get() {
-            //                <Referendums<T>>::insert(proposal_hash.clone(), proposal_info);
-            //            }
-        }
-    }
+    //    /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
+    //    fn tally_votes(
+    //        proposal_hash: T::Hash,
+    //        proposal_info: ProposalInfo<T::BlockNumber, T::Proposal>,
+    //    ) {
+    //        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
+    //            //            let net_stake = voting.ayes_stake - voting.nays_stake;
+    //            //
+    //            //            if net_stake >= T::QuorumThreshold::get() {
+    //            //                <Referendums<T>>::insert(proposal_hash.clone(), proposal_info);
+    //            //            }
+    //        }
+    //    }
 }
 
 // tests for this module
