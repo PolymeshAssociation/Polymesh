@@ -13,7 +13,7 @@
 //!
 //! ## Overview
 //!
-//! The Asset module provides functions for:
+//! The MIPS module provides functions for:
 //!
 //! - Creating Mesh Improvement Proposals
 //! - Voting on Mesh Improvement Proposals
@@ -170,7 +170,7 @@ decl_module! {
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Pre conditions: caller must have min balance
-            ensure!(deposit >= T::MinimumProposalDeposit::get(), "minimum deposit required to start a proposal");
+            ensure!(deposit >= T::MinimumProposalDeposit::get(), "deposit is less than minimum required to start a proposal");
             // Proposal must be new
             ensure!(!<Proposals<T>>::exists(proposal_hash), "duplicate proposals are not allowed");
 
@@ -304,122 +304,165 @@ impl<T: Trait> Module<T> {
 }
 
 // tests for this module
-//#[cfg(test)]
-//mod tests {
-//    use super::*;
-//
-//    use crate::{balances, identity, staking};
-//    use sr_io::{with_externalities, TestExternalities};
-//    use sr_primitives::weights::Weight;
-//    use sr_primitives::{
-//        testing::{Header, UintAuthorityId},
-//        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-//        AnySignature, Perbill,
-//    };
-//    use srml_support::traits::Currency;
-//    use srml_support::{assert_ok, impl_outer_dispatch, impl_outer_origin, parameter_types};
-//    use substrate_primitives::{Blake2Hasher, H256};
-//
-//    impl_outer_origin! {
-//        pub enum Origin for Test {}
-//    }
-//
-//    impl_outer_dispatch! {
-//        pub enum Call for Test where origin: Origin {
-//            balances::Balamces,
-//        }
-//    }
-//
-//    #[derive(Clone, Eq, PartialEq)]
-//    pub struct Test;
-//
-//    parameter_types! {
-//        pub const BlockHashCount: u64 = 250;
-//        pub const MaximumBlockWeight: Weight = 1024;
-//        pub const MaximumBlockLength: u32 = 2 * 1024;
-//        pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-//    }
-//
-//    impl system::Trait for Test {
-//        type Origin = Origin;
-//        type Call = ();
-//        type Index = u64;
-//        type BlockNumber = u64;
-//        type Hash = H256;
-//        type Hashing = BlakeTwo256;
-//        type AccountId = u64;
-//        type Lookup = IdentityLookup<Self::AccountId>;
-//        type Header = Header;
-//        type WeightMultiplierUpdate = ();
-//        type Event = ();
-//        type BlockHashCount = BlockHashCount;
-//        type MaximumBlockWeight = MaximumBlockWeight;
-//        type MaximumBlockLength = MaximumBlockLength;
-//        type AvailableBlockRatio = AvailableBlockRatio;
-//        type Version = ();
-//    }
-//
-//    impl identity::Trait for Test {
-//        type Event = ();
-//    }
-//
-//    parameter_types! {
-//        pub const ExistentialDeposit: u64 = 0;
-//        pub const TransferFee: u64 = 0;
-//        pub const CreationFee: u64 = 0;
-//        pub const TransactionBaseFee: u64 = 0;
-//        pub const TransactionByteFee: u64 = 0;
-//    }
-//
-//    impl balances::Trait for Test {
-//        type Balance = u128;
-//        type OnFreeBalanceZero = ();
-//        type OnNewAccount = ();
-//        type Event = ();
-//        type TransactionPayment = ();
-//        type DustRemoval = ();
-//        type TransferPayment = ();
-//        type ExistentialDeposit = ExistentialDeposit;
-//        type TransferFee = TransferFee;
-//        type CreationFee = CreationFee;
-//        type TransactionBaseFee = TransactionBaseFee;
-//        type TransactionByteFee = TransactionByteFee;
-//        type WeightToFee = ConvertInto;
-//        type Identity = identity::Module<Test>;
-//    }
-//
-//    parameter_types! {
-//        pub const MinimumPeriod: u64 = 3;
-//    }
-//
-//    impl timestamp::Trait for Test {
-//        type Moment = u64;
-//        type OnTimestampSet = ();
-//        type MinimumPeriod = MinimumPeriod;
-//    }
-//
-//    impl Trait for Test {
-//        type Currency = balances::Module<Test>;
-//        type Proposal = Call;
-//        type MinimumProposalDeposit = u64;
-//        type VotingPeriod = u64;
-//        type Event = ();
-//    }
-//
-//    type MIPS = Module<Test>;
-//
-//    fn new_test_ext() -> TestExternalities<Blake2Hasher> {
-//        system::GenesisConfig::default()
-//            .build_storage::<Test>()
-//            .unwrap()
-//            .into()
-//    }
-//
-//    #[test]
-//    fn should_start_a_proposal() {
-//        with_externalities(&mut new_test_ext(), || {
-//            assert_ok!(MIPS::propose(Origin::signed(1), 42));
-//            //            assert_eq!(MIPS::something(), Some(42));
-//        });
-//    }
-//}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::constants::{currency::*, time::*};
+    use crate::{asset, balances, identity};
+    use sr_io::{with_externalities, TestExternalities};
+    use sr_primitives::weights::Weight;
+    use sr_primitives::{
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        AnySignature, Perbill,
+    };
+    use srml_support::traits::Currency;
+    use srml_support::{
+        assert_err, assert_ok, impl_outer_dispatch, impl_outer_origin, parameter_types,
+    };
+    use substrate_primitives::{Blake2Hasher, H256};
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    impl_outer_dispatch! {
+        pub enum Call for Test where origin: Origin {
+            balances::Balances,
+            mips::MIPS,
+        }
+    }
+
+    #[derive(Clone, Eq, PartialEq, Debug)]
+    pub struct Test;
+
+    parameter_types! {
+        pub const BlockHashCount: u64 = 250;
+        pub const MaximumBlockWeight: u32 = 1024;
+        pub const MaximumBlockLength: u32 = 2 * 1024;
+        pub const AvailableBlockRatio: Perbill = Perbill::one();
+    }
+
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Call = ();
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type WeightMultiplierUpdate = ();
+        type Event = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type Version = ();
+    }
+
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 0;
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const TransactionBaseFee: u64 = 0;
+        pub const TransactionByteFee: u64 = 0;
+    }
+
+    impl balances::Trait for Test {
+        type Balance = u128;
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type TransactionPayment = ();
+        type TransferPayment = ();
+        type DustRemoval = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+        type TransactionBaseFee = TransactionBaseFee;
+        type TransactionByteFee = TransactionByteFee;
+        type WeightToFee = ConvertInto;
+        type Identity = identity::Module<Self>;
+    }
+
+    impl identity::Trait for Test {
+        type Event = ();
+    }
+
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
+    }
+
+    impl timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
+
+    parameter_types! {
+        pub const MinimumProposalDeposit: u128 = 50;
+        pub const QuorumThreshold: u128 = 100;
+        pub const VotingPeriod: u32 = 7;
+    }
+
+    impl Trait for Test {
+        type Currency = balances::Module<Self>;
+        type Proposal = Call;
+        type MinimumProposalDeposit = MinimumProposalDeposit;
+        type QuorumThreshold = QuorumThreshold;
+        type VotingPeriod = VotingPeriod;
+        type Event = ();
+    }
+
+    type System = system::Module<Test>;
+    type Balances = balances::Module<Test>;
+    type MIPS = Module<Test>;
+
+    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+        let mut t = system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+
+        balances::GenesisConfig::<Test> {
+            balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
+            vesting: vec![],
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+
+        sr_io::TestExternalities::new(t)
+    }
+
+    fn set_balance_proposal(value: u128) -> Call {
+        Call::Balances(balances::Call::set_balance(42, value, 0))
+    }
+
+    fn propose_set_balance(who: u64, value: u128, deposit: u128) -> super::Result {
+        MIPS::propose(
+            Origin::signed(who),
+            Box::new(set_balance_proposal(value)),
+            deposit,
+        )
+    }
+
+    #[test]
+    fn should_start_a_proposal() {
+        with_externalities(&mut new_test_ext(), || {
+            // Error when min deposit requirements are not met
+            assert_err!(
+                MIPS::propose(Origin::signed(6), Box::new(set_balance_proposal(100)), 40),
+                "deposit is less than minimum required to start a proposal"
+            );
+
+            // Account 6 starts a proposal with min deposit
+            assert_ok!(MIPS::propose(
+                Origin::signed(6),
+                Box::new(set_balance_proposal(100)),
+                50
+            ));
+        });
+    }
+}
