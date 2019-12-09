@@ -403,6 +403,11 @@ impl sudo::Trait for Runtime {
     type Proposal = Call;
 }
 
+impl multisig::Trait for Runtime {
+    type Event = Event;
+    type Proposal = Call;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
@@ -485,6 +490,8 @@ construct_runtime!(
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
         Sudo: sudo,
+
+        Multisig: multisig::{Module, Call, Storage, Event<T>},
 
         // Contracts
         Contracts: contracts::{Module, Call, Storage, Config<T>, Event<T>},
