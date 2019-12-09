@@ -152,7 +152,7 @@ decl_storage! {
         pub DidNonce get(did_nonce) build(|_| 1u128): u128;
 
         /// Pre-authorize join to Identity.
-        pub PreAuthorizedJoinDid get( pre_authorized_join_did): map Key => Vec<PreAuthorizedKeyInfo>;
+        pub PreAuthorizedJoinDid get( pre_authorized_join_did): double_map Key, blake2_256(IdentityId) => Option<PreAuthorizedKeyInfo>;
     }
 }
 
@@ -540,24 +540,22 @@ decl_module! {
 
         pub fn authorize_join_to_identity(origin, id: IdentityId) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            let pre_auth_ids = Self::pre_authorized_join_did( &sender_key);
 
             // If pre-authentication contains `identity` means that identity's master key
             // added it previously.
-            if let Some(pre_auth) = pre_auth_ids.iter().find( |pre_auth| **pre_auth == id) {
+            if let Some(pre_auth) = Self::pre_authorized_join_did( &sender_key, &id) {
                 // Verify 1-to-1 relation between key and identity.
                 if Self::key_to_identity_ids(sender_key).is_some() {
                     return Err("Key is already linked to an identity");
                 }
 
-                // <PreAuthorizedJoinDid>::remove(sender_key);
                 Self::remove_pre_join_identity( &sender_key, id);
 
                 // Add to records and link key to did.
                 let signing_key = SigningKey {
                     key: sender_key,
-                    key_type: pre_auth.key_type.clone(),
-                    permissions: pre_auth.permissions.clone()
+                    key_type: pre_auth.key_type,
+                    permissions: pre_auth.permissions
                 };
                 Self::link_key_to_did( &sender_key, signing_key.key_type, id);
                 <DidRecords>::mutate( id, |record| { (*record).add_signing_keys( &[signing_key]); });
@@ -566,6 +564,16 @@ decl_module! {
             } else {
                 Err( "Key is not pre authorized by the identity")
             }
+        }
+
+        /// Identity's master key or target key are allowed to reject a pre authorization to join.
+        pub fn unauthorized_join_to_identity(origin, key: Key, id: IdentityId) -> Result {
+            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+            ensure!( Self::is_master_key( id, &sender_key) || sender_key == key,
+                "Account cannot remove this authorization");
+
+            Self::remove_pre_join_identity( &key, id);
+            Ok(())
         }
     }
 }
@@ -845,31 +853,15 @@ impl<T: Trait> Module<T> {
     }
     /// It adds `skey` to pre authorized keys for `id` identity.
     fn add_pre_join_identity(skey: &SigningKey, id: IdentityId) {
-        let new_pre_auth = PreAuthorizedKeyInfo::new(skey.clone(), id);
-
-        if <PreAuthorizedJoinDid>::exists(&skey.key) {
-            <PreAuthorizedJoinDid>::mutate(&skey.key, |pre_auth_info_list| {
-                (*pre_auth_info_list).retain(|pre_auth| *pre_auth != new_pre_auth);
-                (*pre_auth_info_list).push(new_pre_auth);
-            });
-        } else {
-            <PreAuthorizedJoinDid>::insert(&skey.key, vec![new_pre_auth]);
+        if !<PreAuthorizedJoinDid>::exists(&skey.key, &id) {
+            let new_pre_auth = PreAuthorizedKeyInfo::new(skey.clone(), id);
+            <PreAuthorizedJoinDid>::insert(&skey.key, &id, &new_pre_auth);
         }
     }
 
     /// It removes `skey` to pre authorized keys for `id` identity.
     fn remove_pre_join_identity(key: &Key, id: IdentityId) {
-        let mut is_list_empty = false;
-        if <PreAuthorizedJoinDid>::exists(key) {
-            <PreAuthorizedJoinDid>::mutate(key, |pre_auth_info_list| {
-                (*pre_auth_info_list).retain(|pre_auth| *pre_auth != id);
-                is_list_empty = pre_auth_info_list.is_empty();
-            });
-        }
-
-        if is_list_empty {
-            <PreAuthorizedJoinDid>::remove(key);
-        }
+        <PreAuthorizedJoinDid>::remove(key, &id);
     }
 }
 
@@ -1560,12 +1552,13 @@ mod tests {
         assert_eq!(Identity::is_authorized_identity(bob_id, alice_id), false);
     }
 
+    #[test]
     fn two_step_join_id() {
         with_externalities(&mut build_ext(), &two_step_join_id_with_ext);
     }
 
     fn two_step_join_id_with_ext() {
-        let (a_acc, b_acc, c_acc, d_acc) = (1u64, 2u64, 3u64, 4u64);
+        let (a_acc, b_acc, c_acc, d_acc, e_acc) = (1u64, 2u64, 3u64, 4u64, 5u64);
         let (a, a_id) = make_account(&a_acc).unwrap();
         let (b, b_id) = make_account(&b_acc).unwrap();
 
@@ -1577,9 +1570,13 @@ mod tests {
             Key::try_from(d_acc.encode()).unwrap(),
             vec![Permission::Full],
         );
+        let e_sk = SigningKey::new(
+            Key::try_from(e_acc.encode()).unwrap(),
+            vec![Permission::Full],
+        );
 
         // Check 1-to-1 relation between key and identity.
-        let signing_keys = vec![c_sk.clone(), d_sk.clone()];
+        let signing_keys = vec![c_sk.clone(), d_sk.clone(), e_sk.clone()];
         assert_ok!(Identity::add_signing_keys(
             a.clone(),
             a_id,
@@ -1606,7 +1603,23 @@ mod tests {
             a_id
         ));
         assert_eq!(Identity::is_authorized_key(a_id, &d_sk.key), true);
-        assert_ok!(Identity::remove_signing_keys(a, a_id, vec![d_sk.key]));
+        assert_ok!(Identity::remove_signing_keys(
+            a.clone(),
+            a_id,
+            vec![d_sk.key]
+        ));
         assert_eq!(Identity::is_authorized_key(a_id, &d_sk.key), false);
+
+        // Check remove pre-authorization from master and itself.
+        assert_err!(
+            Identity::unauthorized_join_to_identity(a.clone(), e_sk.key, b_id),
+            "Account cannot remove this authorization"
+        );
+        assert_ok!(Identity::unauthorized_join_to_identity(a, e_sk.key, a_id));
+        assert_ok!(Identity::unauthorized_join_to_identity(
+            Origin::signed(e_acc),
+            e_sk.key,
+            b_id
+        ));
     }
 }
