@@ -205,6 +205,7 @@ decl_module! {
         /// * `index` proposal index
         /// * `aye_or_nay` a bool representing for or against vote
         /// * `deposit` minimum deposit value
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn vote(origin, proposal_hash: T::Hash, #[compact] index: ProposalIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
 
@@ -225,6 +226,12 @@ decl_module! {
             }
 
             Self::deposit_event(RawEvent::Voted(proposer, proposal_hash, aye_or_nay));
+        }
+
+        /// An emergency stop measure to kill a proposal.
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        pub fn kill_proposal(origin, proposal_hash: T::Hash) {
+            Self::close_proposal(proposal_hash.clone());
         }
 
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,
@@ -248,24 +255,6 @@ impl<T: Trait> Module<T> {
             .collect()
     }
 
-    /// Close a proposal. Voting ceases and proposal is removed from storage.
-    /// All deposits are unlocked and returned to respective stakers.
-    pub fn close_proposal(proposal_hash: T::Hash) {
-        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
-            if let Some((proposer, deposit)) = <Deposits<T>>::take(&proposal_hash) {
-                T::Currency::unreserve(&proposer, deposit);
-                if let Some(proposal) = <Proposals<T>>::take(&proposal_hash) {
-                    <Voting<T>>::remove(&proposal_hash);
-                    <ProposalMetadata<T>>::mutate(|metadata| {
-                        metadata.retain(|m| m.proposal_hash != proposal_hash.clone())
-                    });
-
-                    Self::deposit_event(RawEvent::ProposalClosed(proposal_hash.clone()));
-                }
-            }
-        }
-    }
-
     // Private functions
 
     /// Runs the following procedure:
@@ -285,6 +274,24 @@ impl<T: Trait> Module<T> {
         }
 
         Ok(())
+    }
+
+    /// Close a proposal. Voting ceases and proposal is removed from storage.
+    /// All deposits are unlocked and returned to respective stakers.
+    fn close_proposal(proposal_hash: T::Hash) {
+        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
+            if let Some((proposer, deposit)) = <Deposits<T>>::take(&proposal_hash) {
+                T::Currency::unreserve(&proposer, deposit);
+                if let Some(proposal) = <Proposals<T>>::take(&proposal_hash) {
+                    <Voting<T>>::remove(&proposal_hash);
+                    <ProposalMetadata<T>>::mutate(|metadata| {
+                        metadata.retain(|m| m.proposal_hash != proposal_hash.clone())
+                    });
+
+                    Self::deposit_event(RawEvent::ProposalClosed(proposal_hash.clone()));
+                }
+            }
+        }
     }
 
     //    /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
@@ -329,6 +336,7 @@ mod tests {
     impl_outer_dispatch! {
         pub enum Call for Test where origin: Origin {
             balances::Balances,
+            system::System,
             mips::MIPS,
         }
     }
@@ -435,33 +443,66 @@ mod tests {
         sr_io::TestExternalities::new(t)
     }
 
-    fn set_balance_proposal(value: u128) -> Call {
-        Call::Balances(balances::Call::set_balance(42, value, 0))
-    }
-
-    fn propose_set_balance(who: u64, value: u128, deposit: u128) -> super::Result {
-        MIPS::propose(
-            Origin::signed(who),
-            Box::new(set_balance_proposal(value)),
-            deposit,
-        )
+    fn make_proposal(value: u64) -> Call {
+        Call::System(system::Call::remark(value.encode()))
     }
 
     #[test]
     fn should_start_a_proposal() {
         with_externalities(&mut new_test_ext(), || {
+            System::set_block_number(1);
+            let proposal = make_proposal(42);
+            let hash = BlakeTwo256::hash_of(&proposal);
+
             // Error when min deposit requirements are not met
             assert_err!(
-                MIPS::propose(Origin::signed(6), Box::new(set_balance_proposal(100)), 40),
+                MIPS::propose(Origin::signed(6), Box::new(proposal.clone()), 40),
                 "deposit is less than minimum required to start a proposal"
             );
 
             // Account 6 starts a proposal with min deposit
             assert_ok!(MIPS::propose(
                 Origin::signed(6),
-                Box::new(set_balance_proposal(100)),
+                Box::new(proposal.clone()),
                 50
             ));
+
+            assert_eq!(
+                MIPS::voting(&hash),
+                Some(Votes {
+                    index: 0,
+                    ayes: vec![(6, 50)],
+                    nays: vec![],
+                })
+            );
+        });
+    }
+
+    #[test]
+    fn should_close_a_proposal() {
+        with_externalities(&mut new_test_ext(), || {
+            System::set_block_number(1);
+            let proposal = make_proposal(42);
+            let hash = BlakeTwo256::hash_of(&proposal);
+
+            // Account 6 starts a proposal with min deposit
+            assert_ok!(MIPS::propose(
+                Origin::signed(6),
+                Box::new(proposal.clone()),
+                50
+            ));
+
+            assert_eq!(
+                MIPS::voting(&hash),
+                Some(Votes {
+                    index: 0,
+                    ayes: vec![(6, 50)],
+                    nays: vec![],
+                })
+            );
+
+            assert_ok!(MIPS::kill_proposal(Origin::signed(6), hash));
+            assert_eq!(MIPS::voting(&hash), None);
         });
     }
 }
