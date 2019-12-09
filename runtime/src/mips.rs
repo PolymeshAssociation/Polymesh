@@ -47,16 +47,16 @@ use substrate_primitives::u32_trait::Value as U32;
 use system::ensure_signed;
 
 /// Mesh Improvement Proposal index. Used offchain.
-pub type ProposalIndex = u32;
+pub type MipsIndex = u32;
 
 /// Balance
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct ProposalMeta<BlockNumber: Parameter, Hash: Parameter> {
+pub struct MipsMetadata<BlockNumber: Parameter, Hash: Parameter> {
     /// The proposal's unique index.
-    index: ProposalIndex,
+    index: MipsIndex,
     /// When voting will end.
     end: BlockNumber,
     /// The proposal being voted on.
@@ -68,7 +68,7 @@ pub struct ProposalMeta<BlockNumber: Parameter, Hash: Parameter> {
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Votes<AccountId, Balance> {
     /// The proposal's unique index.
-    index: ProposalIndex,
+    index: MipsIndex,
     /// The current set of voters that approved with their stake.
     ayes: Vec<(AccountId, Balance)>,
     /// The current set of voters that rejected with their stake.
@@ -103,8 +103,8 @@ decl_storage! {
         /// Proposals so far. Index can be used to keep track of MIPs off-chain.
         pub ProposalCount get(proposal_count): u32;
 
-        // The hashes of the active proposals.
-        pub ProposalMetadata get(proposal_meta): Vec<ProposalMeta<T::BlockNumber, T::Hash>>;
+        /// The hashes of the active proposals.
+        pub ProposalMetadata get(proposal_meta): Vec<MipsMetadata<T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
         /// proposal index -> (deposit, proposer)
@@ -117,6 +117,9 @@ decl_storage! {
         /// Votes on a given proposal, if it is ongoing.
         /// proposal hash -> voting info
         pub Voting get(voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
+
+        /// Active referendums.
+        pub ReferendumMetadata get(referendum_meta): Vec<(MipsIndex, T::Hash)>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
@@ -175,7 +178,7 @@ decl_module! {
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
 
-            let proposal_meta = ProposalMeta {
+            let proposal_meta = MipsMetadata {
                 index,
                 end: <system::Module<T>>::block_number() + T::VotingPeriod::get(),
                 proposal_hash
@@ -206,7 +209,7 @@ decl_module! {
         /// * `aye_or_nay` a bool representing for or against vote
         /// * `deposit` minimum deposit value
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
-        pub fn vote(origin, proposal_hash: T::Hash, #[compact] index: ProposalIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
+        pub fn vote(origin, proposal_hash: T::Hash, #[compact] index: MipsIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
 
             let mut voting = Self::voting(&proposal_hash).ok_or("proposal does not exist")?;
@@ -247,7 +250,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Retrieve all proposals that need to be closed as of block `n`.
-    pub fn proposals_maturing_at(n: T::BlockNumber) -> Vec<(ProposalIndex, T::Hash)> {
+    pub fn proposals_maturing_at(n: T::BlockNumber) -> Vec<(MipsIndex, T::Hash)> {
         Self::proposal_meta()
             .into_iter()
             .filter(|meta| meta.end == n)
@@ -267,7 +270,7 @@ impl<T: Trait> Module<T> {
         // Find all matured proposals...
         for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
             // Tally votes and create referendums
-            //Self::tally_votes(hash.clone(), info.clone());
+            Self::tally_votes(hash.clone());
 
             // And close proposals
             Self::close_proposal(hash);
@@ -275,6 +278,35 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+
+    /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
+    fn tally_votes(proposal_hash: T::Hash) {
+        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
+            let aye_stake = voting
+                .ayes
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, ayes| acc + ayes.1);
+
+            let nay_stake = voting
+                .nays
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, nays| acc + nays.1);
+
+            let net_stake = aye_stake - nay_stake;
+
+            //            if net_stake >= T::QuorumThreshold::get() {
+            //                let mut proposal = <Proposals<T>>::get(&proposal_hash);
+            //                Self::create_referendum(proposal_hash.clone());
+            //            }
+        }
+    }
+
+    /// Create a referendum object from a proposal.
+    /// Committee votes on this referendum instance
+    //    fn create_referendum(proposal_hash: T::Hash) {
+    //        <ReferendumMetadata<T>>::mutate(|metadata| metadata.push((index, proposal_hash)));
+    //        <Referendums<T>>::insert(proposal_hash.clone(), proposal);
+    //    }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
     /// All deposits are unlocked and returned to respective stakers.
@@ -293,20 +325,6 @@ impl<T: Trait> Module<T> {
             }
         }
     }
-
-    //    /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
-    //    fn tally_votes(
-    //        proposal_hash: T::Hash,
-    //        proposal_info: ProposalInfo<T::BlockNumber, T::Proposal>,
-    //    ) {
-    //        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
-    //            //            let net_stake = voting.ayes_stake - voting.nays_stake;
-    //            //
-    //            //            if net_stake >= T::QuorumThreshold::get() {
-    //            //                <Referendums<T>>::insert(proposal_hash.clone(), proposal_info);
-    //            //            }
-    //        }
-    //    }
 }
 
 // tests for this module
@@ -443,6 +461,17 @@ mod tests {
         sr_io::TestExternalities::new(t)
     }
 
+    fn next_block() {
+        assert_eq!(MIPS::end_block(System::block_number()), Ok(()));
+        System::set_block_number(System::block_number() + 1);
+    }
+
+    fn fast_forward_to(n: u64) {
+        while System::block_number() < n {
+            next_block();
+        }
+    }
+
     fn make_proposal(value: u64) -> Call {
         Call::System(system::Call::remark(value.encode()))
     }
@@ -503,6 +532,27 @@ mod tests {
 
             assert_ok!(MIPS::kill_proposal(Origin::signed(6), hash));
             assert_eq!(MIPS::voting(&hash), None);
+        });
+    }
+
+    #[test]
+    fn should_create_a_referendum() {
+        with_externalities(&mut new_test_ext(), || {
+            System::set_block_number(1);
+            let proposal = make_proposal(42);
+            let hash = BlakeTwo256::hash_of(&proposal);
+
+            assert_ok!(MIPS::propose(
+                Origin::signed(6),
+                Box::new(proposal.clone()),
+                50
+            ));
+
+            fast_forward_to(3);
+
+            assert_ok!(MIPS::vote(Origin::signed(5), hash, 0, true, 50));
+
+            fast_forward_to(5);
         });
     }
 }
