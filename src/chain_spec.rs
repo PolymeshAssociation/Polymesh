@@ -4,12 +4,15 @@ use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
-use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY, time::*};
+use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
-    AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, GovernanceCommitteeConfig,
-    IdentityConfig, IndicesConfig, Perbill, SessionConfig, SessionKeys, SimpleTokenConfig,
-    StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    config::{
+        AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
+        SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
+    },
+    runtime::GovernanceCommitteeConfig,
+    Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
 use serde_json::json;
@@ -181,7 +184,7 @@ fn testnet_genesis(
     enable_println: bool,
 ) -> GenesisConfig {
     const STASH: u128 = 100 * POLY;
-    let desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
+    let _desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
     GenesisConfig {
         system: Some(SystemConfig {
             code: WASM_BINARY.to_vec(),

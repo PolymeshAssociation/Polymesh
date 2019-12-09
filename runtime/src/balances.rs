@@ -1451,12 +1451,14 @@ mod tests {
         weights::{DispatchInfo, Weight},
         Perbill,
     };
-    use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types, traits::Get};
-    use std::cell::RefCell;
-    use std::result::Result;
+    use srml_support::{
+        assert_err, assert_ok,
+        dispatch::{DispatchError, DispatchResult},
+        impl_outer_origin, parameter_types,
+        traits::Get,
+    };
+    use std::{cell::RefCell, result::Result};
     use substrate_primitives::{Blake2Hasher, H256};
-
-    //use runtime_io;
 
     use crate::identity;
 
@@ -1545,8 +1547,25 @@ mod tests {
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
     }
+
+    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
+    pub struct IdentityProposal {
+        pub dummy: u8,
+    }
+
+    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+        type Origin = Origin;
+        type Trait = Runtime;
+        type Error = DispatchError;
+
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+            Ok(())
+        }
+    }
+
     impl identity::Trait for Runtime {
         type Event = ();
+        type Proposal = IdentityProposal;
     }
     impl timestamp::Trait for Runtime {
         type Moment = u64;

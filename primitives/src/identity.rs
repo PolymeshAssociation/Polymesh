@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use rstd::prelude::Vec;
 
-use crate::{IdentityRole, Key, SigningKey};
+use crate::{IdentityId, IdentityRole, Key, SigningKey};
 
 /// Identity information.
 #[allow(missing_docs)]
@@ -10,6 +10,7 @@ pub struct Identity {
     pub roles: Vec<IdentityRole>,
     pub master_key: Key,
     pub signing_keys: Vec<SigningKey>,
+    pub signing_identities: Vec<IdentityId>,
 }
 
 impl Identity {
@@ -32,6 +33,25 @@ impl Identity {
     pub fn remove_signing_keys(&mut self, keys_to_remove: &[Key]) -> &mut Self {
         self.signing_keys
             .retain(|skey| keys_to_remove.iter().find(|&rk| skey == rk).is_none());
+
+        self
+    }
+
+    /// It adds `new_signing_identities` to `self`.
+    /// It also keeps its internal list sorted and removes duplicate elements.
+    pub fn add_signing_identities(&mut self, new_signing_identities: &[IdentityId]) -> &mut Self {
+        self.signing_identities
+            .extend_from_slice(new_signing_identities);
+        self.signing_identities.sort();
+        self.signing_identities.dedup();
+
+        self
+    }
+
+    /// It removes `ids_to_remove` from signing identities.
+    pub fn remove_signing_identities(&mut self, ids_to_remove: &[IdentityId]) -> &mut Self {
+        self.signing_identities
+            .retain(|skey| ids_to_remove.iter().find(|&rk| skey == rk).is_none());
 
         self
     }
