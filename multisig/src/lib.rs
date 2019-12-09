@@ -50,7 +50,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
-        fn create_multi_sig(origin, owners: Vec<T::AccountId>, sigs_required: u64) -> Result {
+        pub fn create_multi_sig(origin, owners: Vec<T::AccountId>, sigs_required: u64) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(owners.len() > 0, "No owners provided");
             ensure!(u64::try_from(owners.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
@@ -81,22 +81,21 @@ decl_module! {
             Ok(())
         }
 
-        fn approve(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
+        pub fn create_proposal(origin, multi_sig: T::AccountId, proposal: Box<T::Proposal>) -> Result {
             let sender = ensure_signed(origin)?;
-            if let Some(proposal) = Self::proposals((multi_sig.clone(), proposal_id)) {
-                let res = match proposal.dispatch(system::RawOrigin::Signed(multi_sig.clone()).into()) {
-                    Ok(_) => true,
-                    Err(e) => {
-                        let e: DispatchError = e.into();
-                        sr_primitives::print(e);
-                        false
-                    }
-                };
-                Self::deposit_event(RawEvent::ProposalExecuted(multi_sig, proposal_id, res));
-                return Ok(());
-            } else {
-                return Err("Proposal can not be executed");
-            }
+            ensure!(Self::ms_owners((multi_sig.clone(), sender.clone())), "not an owner");
+            let proposal_id = Self::ms_tx_done(multi_sig.clone());
+            <Proposals<T>>::insert((multi_sig.clone(), proposal_id), proposal);
+            let next_proposal_id: u64 = proposal_id + 1u64;
+            <MultiSigTxDone<T>>::insert(multi_sig.clone(), next_proposal_id);
+            Self::deposit_event(RawEvent::ProposalAdded(multi_sig.clone(), proposal_id));
+            Self::approve_for(multi_sig, proposal_id, sender)
+        }
+
+        pub fn approve(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(Self::ms_owners((multi_sig.clone(), sender.clone())), "not an owner");
+            Self::approve_for(multi_sig, proposal_id, sender)
         }
     }
 }
@@ -108,7 +107,40 @@ decl_event!(
     {
         /// Event for multi sig creation. (Multisig address, Creator address, Owners, Sigs required)
         MultiSigCreated(AccountId, AccountId, Vec<AccountId>, u64),
+        /// Event for adding a proposal (Multisig, proposalid)
+        ProposalAdded(AccountId, u64),
         /// Emitted when a proposal is executed. (Multisig, proposalid, result)
         ProposalExecuted(AccountId, u64, bool),
     }
 );
+
+impl<T: Trait> Module<T> {
+    fn approve_for(multi_sig: T::AccountId, proposal_id: u64, signer: T::AccountId) -> Result {
+        let multi_sig_signer_proposal = (multi_sig.clone(), signer.clone(), proposal_id);
+        let multi_sig_proposal = (multi_sig.clone(), proposal_id);
+        ensure!(!Self::votes(&multi_sig_signer_proposal), "Already approved");
+        if let Some(proposal) = Self::proposals(&multi_sig_proposal) {
+            <Votes<T>>::insert(&multi_sig_signer_proposal, true);
+            let approvals: u64 = Self::tx_approvals(&multi_sig_proposal) + 1u64;
+            <TxApprovals<T>>::insert(&multi_sig_proposal, approvals);
+            let approvals_needed = Self::ms_signs_required(multi_sig.clone());
+            if approvals >= approvals_needed {
+                let res =
+                    match proposal.dispatch(system::RawOrigin::Signed(multi_sig.clone()).into()) {
+                        Ok(_) => true,
+                        Err(e) => {
+                            let e: DispatchError = e.into();
+                            sr_primitives::print(e);
+                            false
+                        }
+                    };
+                Self::deposit_event(RawEvent::ProposalExecuted(multi_sig, proposal_id, res));
+                return Ok(());
+            } else {
+                return Ok(());
+            }
+        } else {
+            return Err("Invalid proposal");
+        }
+    }
+}
