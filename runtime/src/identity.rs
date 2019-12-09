@@ -538,18 +538,24 @@ decl_module! {
         // Manage Authorizations to join to an Identity
         // ================================================
 
-        pub fn authorize_join_to_identity(origin, id: IdentityId) -> Result {
+        /// The key designated by `origin` accepts the authorization to join to `target_id`
+        /// Identity.
+        ///
+        /// # Errors
+        ///  - Key should be authorized previously to join to that target identity.
+        ///  - Key is not linked to any other identity.
+        pub fn authorize_join_to_identity(origin, target_id: IdentityId) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
 
             // If pre-authentication contains `identity` means that identity's master key
             // added it previously.
-            if let Some(pre_auth) = Self::pre_authorized_join_did( &sender_key, &id) {
+            if let Some(pre_auth) = Self::pre_authorized_join_did( &sender_key, &target_id) {
                 // Verify 1-to-1 relation between key and identity.
                 if Self::key_to_identity_ids(sender_key).is_some() {
                     return Err("Key is already linked to an identity");
                 }
 
-                Self::remove_pre_join_identity( &sender_key, id);
+                Self::remove_pre_join_identity( &sender_key, target_id);
 
                 // Add to records and link key to did.
                 let signing_key = SigningKey {
@@ -557,8 +563,8 @@ decl_module! {
                     key_type: pre_auth.key_type,
                     permissions: pre_auth.permissions
                 };
-                Self::link_key_to_did( &sender_key, signing_key.key_type, id);
-                <DidRecords>::mutate( id, |record| { (*record).add_signing_keys( &[signing_key]); });
+                Self::link_key_to_did( &sender_key, signing_key.key_type, target_id);
+                <DidRecords>::mutate( target_id, |record| { (*record).add_signing_keys( &[signing_key]); });
 
                 Ok(())
             } else {
@@ -567,12 +573,14 @@ decl_module! {
         }
 
         /// Identity's master key or target key are allowed to reject a pre authorization to join.
-        pub fn unauthorized_join_to_identity(origin, key: Key, id: IdentityId) -> Result {
+        /// It only affects the authorization: if key accepted it previously, then this transaction
+        /// shall have no effect.
+        pub fn unauthorized_join_to_identity(origin, key: Key, target_id: IdentityId) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            ensure!( Self::is_master_key( id, &sender_key) || sender_key == key,
+            ensure!( Self::is_master_key( target_id, &sender_key) || sender_key == key,
                 "Account cannot remove this authorization");
 
-            Self::remove_pre_join_identity( &key, id);
+            Self::remove_pre_join_identity( &key, target_id);
             Ok(())
         }
     }
