@@ -309,6 +309,8 @@ impl mips::Trait for Runtime {
     type MinimumProposalDeposit = MinimumProposalDeposit;
     type QuorumThreshold = QuorumThreshold;
     type VotingPeriod = VotingPeriod;
+    type CommitteeOrigin =
+        collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
     type Event = Event;
 }
 

@@ -35,6 +35,7 @@ use rstd::{prelude::*, result};
 use sr_primitives::{
     traits::{Dispatchable, EnsureOrigin, Hash, Zero},
     weights::SimpleDispatchInfo,
+    DispatchError,
 };
 use srml_support::{
     decl_event, decl_module, decl_storage,
@@ -48,6 +49,9 @@ use system::ensure_signed;
 
 /// Mesh Improvement Proposal index. Used offchain.
 pub type MipsIndex = u32;
+
+/// A number of committee members.
+pub type MemberCount = u32;
 
 /// Balance
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
@@ -93,6 +97,9 @@ pub trait Trait: system::Trait {
     /// How long (in blocks) a ballot runs
     type VotingPeriod: Get<Self::BlockNumber>;
 
+    /// Required origin for enacting a referundum.
+    type CommitteeOrigin: EnsureOrigin<Self::Origin>;
+
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -137,6 +144,7 @@ decl_event!(
         Proposed(AccountId, Balance),
         Voted(AccountId, Hash, bool),
         ProposalClosed(Hash),
+        Executed(Hash, bool),
     }
 );
 
@@ -237,6 +245,16 @@ decl_module! {
             Self::close_proposal(proposal_hash.clone());
         }
 
+        /// Moves a referendum instance into dispatch queue.
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        pub fn enact_referundum(origin, proposal_hash: T::Hash) {
+            T::CommitteeOrigin::try_origin(origin)
+                .map(|_| ())
+                .map_err(|_| "bad origin")?;
+
+            Self::prepare_to_dispatch(proposal_hash);
+        }
+
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,
         /// proceed to ratification process.
         fn on_initialize(n: T::BlockNumber) {
@@ -294,8 +312,6 @@ impl<T: Trait> Module<T> {
 
             let net_stake = aye_stake - nay_stake;
 
-            sr_primitives::print(net_stake);
-
             if net_stake >= T::QuorumThreshold::get() {
                 if let Some(proposal) = <Proposals<T>>::get(&proposal_hash) {
                     sr_primitives::print("creating referendum");
@@ -327,6 +343,20 @@ impl<T: Trait> Module<T> {
                     Self::deposit_event(RawEvent::ProposalClosed(proposal_hash.clone()));
                 }
             }
+        }
+    }
+
+    fn prepare_to_dispatch(hash: T::Hash) {
+        if let Some(referendum) = <Referendums<T>>::get(&hash) {
+            let result = match referendum.dispatch(system::RawOrigin::Root.into()) {
+                Ok(_) => true,
+                Err(e) => {
+                    let e: DispatchError = e.into();
+                    sr_primitives::print(e);
+                    false
+                }
+            };
+            Self::deposit_event(RawEvent::Executed(proposal_hash, result));
         }
     }
 }
@@ -433,8 +463,13 @@ mod tests {
 
     parameter_types! {
         pub const MinimumProposalDeposit: u128 = 50;
-        pub const QuorumThreshold: u128 = 100;
-        pub const VotingPeriod: u32 = 7;
+        pub const QuorumThreshold: u128 = 70;
+        pub const VotingPeriod: u32 = 2;
+        pub const One: u64 = 1;
+        pub const Two: u64 = 2;
+        pub const Three: u64 = 3;
+        pub const Four: u64 = 4;
+        pub const Five: u64 = 5;
     }
 
     impl Trait for Test {
@@ -443,6 +478,7 @@ mod tests {
         type MinimumProposalDeposit = MinimumProposalDeposit;
         type QuorumThreshold = QuorumThreshold;
         type VotingPeriod = VotingPeriod;
+        type CommitteeOrigin = EnsureSignedBy<One, u64>;
         type Event = ();
     }
 
@@ -557,6 +593,10 @@ mod tests {
             assert_ok!(MIPS::vote(Origin::signed(5), hash, 0, true, 50));
 
             fast_forward_to(5);
+
+            assert_eq!(MIPS::voting(&hash), None);
+
+            fast_forward_to(7);
 
             assert_eq!(MIPS::referendums(&hash), Some(proposal));
         });
