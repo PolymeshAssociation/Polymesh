@@ -71,7 +71,7 @@ decl_module! {
             };
 
             for owner in owners.clone() {
-                <MultiSigOwners<T>>::insert((owner, wallet_id.clone()), true);
+                <MultiSigOwners<T>>::insert((wallet_id.clone(), owner), true);
             }
 
             <MultiSigSignsRequired<T>>::insert(&wallet_id, &sigs_required);
