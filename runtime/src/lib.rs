@@ -298,9 +298,9 @@ impl membership::Trait<membership::Instance1> for Runtime {
 }
 
 parameter_types! {
-    pub const MinimumProposalDeposit: Balance = 5000 * POLY;
-    pub const QuorumThreshold: Balance = 100000 * POLY;
-    pub const VotingPeriod: BlockNumber = 7 * DAYS;
+    pub const MinimumProposalDeposit: Balance = 5000;
+    pub const QuorumThreshold: Balance = 100000;
+    pub const VotingPeriod: BlockNumber = 50;
 }
 
 impl mips::Trait for Runtime {

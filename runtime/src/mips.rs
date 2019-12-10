@@ -140,7 +140,7 @@ decl_event!(
         <T as system::Trait>::Hash,
         <T as system::Trait>::AccountId,
     {
-        Proposed(AccountId, Balance),
+        Proposed(AccountId, Balance, Hash),
         Voted(AccountId, Hash, bool),
         ProposalClosed(Hash),
         Executed(Hash, bool),
@@ -203,7 +203,7 @@ decl_module! {
             };
             <Voting<T>>::insert(proposal_hash, vote);
 
-            Self::deposit_event(RawEvent::Proposed(proposer, deposit));
+            Self::deposit_event(RawEvent::Proposed(proposer, deposit, proposal_hash));
             Ok(())
         }
 

@@ -165,5 +165,15 @@
         "voting_start": "Moment",
         "voting_end": "Moment",
         "proposals": "Vec<Proposal>"
+    },
+    "MipsMetadata": {
+        "index": "u32",
+        "end": "u64",
+        "proposal_hash": "Hash"
+    },
+    "Votes": {
+        "index": "u32",
+        "ayes": "Vec<(IdentityId, Balance)>",
+        "nays": "Vec<(IdentityId, Balance)>"
     }
 }
