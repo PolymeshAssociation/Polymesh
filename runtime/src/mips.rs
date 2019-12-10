@@ -270,7 +270,7 @@ impl<T: Trait> Module<T> {
         // Find all matured proposals...
         for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
             // Tally votes and create referendums
-            Self::tally_votes(hash.clone());
+            Self::tally_votes(index, hash.clone());
 
             // And close proposals
             Self::close_proposal(hash);
@@ -280,7 +280,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
-    fn tally_votes(proposal_hash: T::Hash) {
+    fn tally_votes(index: MipsIndex, proposal_hash: T::Hash) {
         if let Some(voting) = <Voting<T>>::get(proposal_hash) {
             let aye_stake = voting
                 .ayes
@@ -294,19 +294,23 @@ impl<T: Trait> Module<T> {
 
             let net_stake = aye_stake - nay_stake;
 
-            //            if net_stake >= T::QuorumThreshold::get() {
-            //                let mut proposal = <Proposals<T>>::get(&proposal_hash);
-            //                Self::create_referendum(proposal_hash.clone());
-            //            }
+            sr_primitives::print(net_stake);
+
+            if net_stake >= T::QuorumThreshold::get() {
+                if let Some(proposal) = <Proposals<T>>::get(&proposal_hash) {
+                    sr_primitives::print("creating referendum");
+                    Self::create_referendum(index, proposal_hash.clone(), proposal);
+                }
+            }
         }
     }
 
     /// Create a referendum object from a proposal.
     /// Committee votes on this referendum instance
-    //    fn create_referendum(proposal_hash: T::Hash) {
-    //        <ReferendumMetadata<T>>::mutate(|metadata| metadata.push((index, proposal_hash)));
-    //        <Referendums<T>>::insert(proposal_hash.clone(), proposal);
-    //    }
+    fn create_referendum(index: MipsIndex, proposal_hash: T::Hash, proposal: T::Proposal) {
+        <ReferendumMetadata<T>>::mutate(|metadata| metadata.push((index, proposal_hash)));
+        <Referendums<T>>::insert(proposal_hash.clone(), proposal);
+    }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
     /// All deposits are unlocked and returned to respective stakers.
@@ -553,6 +557,8 @@ mod tests {
             assert_ok!(MIPS::vote(Origin::signed(5), hash, 0, true, 50));
 
             fast_forward_to(5);
+
+            assert_eq!(MIPS::referendums(&hash), Some(proposal));
         });
     }
 }
