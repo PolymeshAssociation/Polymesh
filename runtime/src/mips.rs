@@ -31,7 +31,7 @@
 //! - `end_block` - Returns details of the token
 
 use codec::{Decode, Encode};
-use rstd::{prelude::*, result};
+use rstd::prelude::*;
 use sr_primitives::{
     traits::{Dispatchable, EnsureOrigin, Hash, Zero},
     weights::SimpleDispatchInfo,
@@ -44,7 +44,6 @@ use srml_support::{
     traits::{Currency, Get, LockableCurrency, ReservableCurrency},
     Parameter,
 };
-use substrate_primitives::u32_trait::Value as U32;
 use system::ensure_signed;
 
 /// Mesh Improvement Proposal index. Used offchain.
@@ -239,9 +238,14 @@ decl_module! {
             Self::deposit_event(RawEvent::Voted(proposer, proposal_hash, aye_or_nay));
         }
 
-        /// An emergency stop measure to kill a proposal.
+        /// An emergency stop measure to kill a proposal. Governance committee can kill
+        /// a proposal at any time.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn kill_proposal(origin, proposal_hash: T::Hash) {
+            T::CommitteeOrigin::try_origin(origin)
+                .map(|_| ())
+                .map_err(|_| "bad origin")?;
+
             Self::close_proposal(proposal_hash.clone());
         }
 
@@ -334,7 +338,7 @@ impl<T: Trait> Module<T> {
         if let Some(voting) = <Voting<T>>::get(proposal_hash) {
             if let Some((proposer, deposit)) = <Deposits<T>>::take(&proposal_hash) {
                 T::Currency::unreserve(&proposer, deposit);
-                if let Some(proposal) = <Proposals<T>>::take(&proposal_hash) {
+                if let Some(_) = <Proposals<T>>::take(&proposal_hash) {
                     <Voting<T>>::remove(&proposal_hash);
                     <ProposalMetadata<T>>::mutate(|metadata| {
                         metadata.retain(|m| m.proposal_hash != proposal_hash.clone())
@@ -356,7 +360,7 @@ impl<T: Trait> Module<T> {
                     false
                 }
             };
-            Self::deposit_event(RawEvent::Executed(proposal_hash, result));
+            Self::deposit_event(RawEvent::Executed(hash, result));
         }
     }
 }
@@ -366,20 +370,18 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
-    use crate::constants::{currency::*, time::*};
-    use crate::{asset, balances, identity};
-    use sr_io::{with_externalities, TestExternalities};
-    use sr_primitives::weights::Weight;
+    use crate::{balances, identity};
+    use sr_io::with_externalities;
     use sr_primitives::{
-        testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-        AnySignature, Perbill,
+        testing::Header,
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+        Perbill,
     };
-    use srml_support::traits::Currency;
     use srml_support::{
         assert_err, assert_ok, impl_outer_dispatch, impl_outer_origin, parameter_types,
     };
     use substrate_primitives::{Blake2Hasher, H256};
+    use system::EnsureSignedBy;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
