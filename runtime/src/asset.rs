@@ -186,7 +186,7 @@ decl_module! {
         /// * `to_did` DID of the (future) owner of the ticker
         /// * `_ticker` ticker to register
         pub fn register_ticker(origin, to_did: IdentityId, _ticker: Vec<u8>) -> Result {
-            let _ = ensure_signed(origin)?;
+            let sender = ensure_signed(origin)?;
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
@@ -196,14 +196,11 @@ decl_module! {
 
             ensure!(ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(), "ticker length over the limit");
 
-            if Self::is_ticker_available(&ticker) {
-                // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
-            } else {
-                // ticker already registered to someone. Ensure that the ticker is registered to same did
-                ensure!(Self::is_ticker_registry_valid(&ticker, to_did), "ticker registered to someone else");
-            }
+            // ticker already registered to someone. Ensure that the ticker is registered to same did
+            ensure!(Self::is_ticker_available_or_registered_to(&ticker, to_did) > 0, "ticker registered to someone else");
+
             // charge fee
-            Self::charge_ticker_registration_fee(&ticker, to_did);
+            Self::charge_ticker_registration_fee(&ticker, sender, to_did);
 
             let now = <timestamp::Module<T>>::get();
             let ticker_registration = TickerRegistration {
@@ -271,10 +268,9 @@ decl_module! {
             // byte arrays (vecs) with no max size should be avoided
             ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
 
-            let is_ticker_available = Self::is_ticker_available(&ticker);
-            let is_ticker_registry_valid = Self::is_ticker_registry_valid(&ticker, did);
+            let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
 
-            ensure!(is_ticker_available || is_ticker_registry_valid, "Ticker registered to someone else");
+            ensure!(is_ticker_available_or_registered_to > 0, "Ticker registered to someone else");
 
             if !divisible {
                 ensure!(total_supply % ONE_UNIT.into() == 0.into(), "Invalid Total supply");
@@ -302,9 +298,9 @@ decl_module! {
             let remainder_fee = fee - (proportional_fee * validator_len);
             let _withdraw_result = <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
-            if is_ticker_available {
+            if is_ticker_available_or_registered_to == 1 {
                 // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
-                Self::charge_ticker_registration_fee(&ticker, did);
+                Self::charge_ticker_registration_fee(&ticker, sender, did);
 
                 let ticker_registration = TickerRegistration {
                     owner: did,
@@ -1084,7 +1080,7 @@ impl<T: Trait> Module<T> {
             let now = <timestamp::Module<T>>::get();
             let ticker_reg = Self::ticker_registration(ticker.clone());
             if ticker_reg.owner == did {
-                if let Some(expiry) = Self::ticker_registration(ticker.clone()).expiry {
+                if let Some(expiry) = ticker_reg.expiry {
                     if now > expiry {
                         return false;
                     }
@@ -1097,7 +1093,34 @@ impl<T: Trait> Module<T> {
         return false;
     }
 
-    fn charge_ticker_registration_fee(_ticker: &Vec<u8>, _did: IdentityId) {
+    /// Returns 0 if ticker is registered to someone else
+    /// 1 if ticker is available for registry
+    /// 2 if ticker is already registered to provided did
+    pub fn is_ticker_available_or_registered_to(ticker: &Vec<u8>, did: IdentityId) -> u8 {
+        // Assumes uppercase ticker
+        if <Tickers<T>>::exists(ticker.clone()) {
+            let ticker_reg = Self::ticker_registration(ticker.clone());
+            if let Some(expiry) = ticker_reg.expiry {
+                let now = <timestamp::Module<T>>::get();
+                if now > expiry {
+                    // ticker registered to someone but expired and can be registered again
+                    return 1;
+                } else if ticker_reg.owner == did {
+                    // ticker is already registered to provided did (but may expire in future)
+                    return 2;
+                }
+            } else if ticker_reg.owner == did {
+                // ticker is already registered to provided did (and will never expire)
+                return 2;
+            }
+            // ticker registered to someone else
+            return 0;
+        }
+        // Ticker not registered yet
+        return 1;
+    }
+
+    fn charge_ticker_registration_fee(_ticker: &Vec<u8>, _sender: T::AccountId, _did: IdentityId) {
         //TODO: Charge fee
     }
 
