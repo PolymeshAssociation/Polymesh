@@ -44,15 +44,17 @@
 
 use rstd::{convert::TryFrom, prelude::*};
 
-use crate::balances;
-use crate::constants::did::USER;
+use crate::{balances, constants::did::USER, utils};
 use primitives::{
     Identity as DidRecord, IdentityId, Key, KeyType, Permission, PreAuthorizedKeyInfo, SigningKey,
 };
 
 use codec::Encode;
 use sr_io::blake2_256;
-use sr_primitives::{traits::Dispatchable, DispatchError};
+use sr_primitives::{
+    traits::{Dispatchable, Verify},
+    DispatchError,
+};
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
@@ -107,8 +109,22 @@ pub enum LinkedKeyInfo {
     Group(Vec<IdentityId>),
 }
 
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct SigningKeyAuthorizationData {
+    pub target_id: IdentityId,
+    pub nonce: u32,
+}
+
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct SigningKeyWithAuth<U> {
+    pub account_id: U,
+    pub signing_key: SigningKey,
+    pub authorization: SigningKeyAuthorizationData,
+    // pub signature: S,
+}
+
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
+pub trait Trait: system::Trait + balances::Trait + timestamp::Trait + utils::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     /// An extrinsic call.
@@ -269,56 +285,6 @@ decl_module! {
             Ok(())
         }
 
-
-        /// Adds new signing keys for a DID. Only called by master key owner.
-        ///
-        /// # Failure
-        ///  - It can only called by master key owner.
-        ///  - If any signing key is already linked to any identity, it will fail.
-        ///  - If any signing key is already
-        pub fn add_signing_keys(origin, did: IdentityId, additional_keys: Vec<SigningKey>) -> Result {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
-
-            // Check constraint 1-to-1 in relation key-identity.
-            for skey in &additional_keys {
-                if !Self::can_key_be_linked_to_did( &skey.key, skey.key_type) {
-                    return Err( "One signing key can only belong to one DID");
-                }
-            }
-
-            // Ignore any key which is already valid in that identity.
-            let authorized_sk = Self::did_records( did).signing_keys;
-            additional_keys.iter()
-                .filter( |sk| authorized_sk.contains(sk) == false)
-                .for_each( |sk| Self::add_pre_join_identity( sk, did));
-
-            Self::deposit_event(RawEvent::SigningKeysAdded(did, additional_keys));
-            Ok(())
-        }
-
-        /// Removes specified signing keys of a DID if present.
-        ///
-        /// # Failure
-        /// It can only called by master key owner.
-        fn remove_signing_keys(origin, did: IdentityId, keys_to_remove: Vec<Key>) -> Result {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
-
-            // Remove any Pre-Authentication & link
-            keys_to_remove.iter().for_each( |key| {
-                Self::remove_pre_join_identity( key, did);
-                Self::unlink_key_to_did(key, did);
-            });
-
-            // Update signing keys at Identity.
-            <DidRecords>::mutate(did, |record| {
-                (*record).remove_signing_keys( &keys_to_remove);
-            });
-
-            Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
-            Ok(())
-        }
 
         /// Sets a new master key for a DID.
         ///
@@ -537,6 +503,122 @@ decl_module! {
 
         // Manage Authorizations to join to an Identity
         // ================================================
+
+        /// Adds new signing keys for a DID. Only called by master key owner.
+        ///
+        /// # Failure
+        ///  - It can only called by master key owner.
+        ///  - If any signing key is already linked to any identity, it will fail.
+        ///  - If any signing key is already
+        pub fn add_signing_keys(origin, did: IdentityId, additional_keys: Vec<SigningKey>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
+
+            // Check constraint 1-to-1 in relation key-identity.
+            for skey in &additional_keys {
+                if !Self::can_key_be_linked_to_did( &skey.key, skey.key_type) {
+                    return Err( "One signing key can only belong to one DID");
+                }
+            }
+
+            // Ignore any key which is already valid in that identity.
+            let authorized_sk = Self::did_records( did).signing_keys;
+            additional_keys.iter()
+                .filter( |sk| authorized_sk.contains(sk) == false)
+                .for_each( |sk| Self::add_pre_join_identity( sk, did));
+
+            Self::deposit_event(RawEvent::SigningKeysAdded(did, additional_keys));
+            Ok(())
+        }
+
+        /// It adds signing keys to target identity `id`.
+        /// Keys are directly added to identity because each of them has an authorization.
+        /// Authorization is composed by two parts:
+        ///     * An authorization message: It contains the target identity for this authorization
+        ///     an a `nonce` field to avoid replay attack.
+        ///     * A signature of authorization: It is the signature of authorization message. It
+        ///     was carried out by signing key previously (off-chain).
+        ///
+        /// # Arguments
+        ///     * `origin` Master key of `id` identity.
+        ///     * `id` Identity where new signing keys will be added.
+        ///     * `additional_keys` New keys (and their authorization data) to add to target
+        ///     identity.
+        ///
+        /// # Failure
+        ///     * It can only called by master key owner.
+        ///     * Each authorization has to be generated for `id` identity and its signature has to be
+        ///  valid.
+        ///     *  Keys should be able to linked to any identity.
+        pub fn add_signing_keys_with_authorization( origin,
+                id: IdentityId,
+                additional_keys: Vec<SigningKeyWithAuth<T::AccountId>>,
+                signatures: Vec<T::OffChainSignature>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
+
+            ensure!( additional_keys.len() == signatures.len(),
+                "Keys and signatures has not the same size");
+
+            // Verify signatures.
+            let key_signature_iter = additional_keys.iter().zip( signatures.iter());
+            for (key_with_auth, signature) in key_signature_iter {
+                let target_id = &key_with_auth.authorization.target_id;
+                let signing_key = &key_with_auth.signing_key;
+
+                ensure!( *target_id == id, "Authorization was created to different identity");
+                ensure!( Self::can_key_be_linked_to_did( &signing_key.key, signing_key.key_type),
+                    "One signing key can only belong to one identity");
+
+                let auth_data = key_with_auth.authorization.encode();
+                // let key_account = T::AccountId::from_slice( signing_key.key.as_slice());
+                /// TODO Simple way to get AccountId from Key.
+                let key_account = &key_with_auth.account_id;
+
+                ensure!( signature.verify( &auth_data[..], key_account),
+                    "Invalid Authorization signature");
+            }
+
+            // Link keys to identity and update that identity information.
+            additional_keys.iter().for_each( |key_with_auth| {
+                Self::link_key_to_did( &key_with_auth.signing_key.key, key_with_auth.signing_key.key_type, id);
+            });
+
+            <DidRecords>::mutate( id, |record| {
+                let keys = additional_keys.iter().map( |key_with_auth| {
+                        key_with_auth.signing_key.clone()
+                    })
+                    .collect::<Vec<_>>();
+                (*record).add_signing_keys( &keys[..]);
+            });
+
+            Ok(())
+        }
+
+        /// Removes specified signing keys of a DID if present.
+        ///
+        /// # Failure
+        /// It can only called by master key owner.
+        fn remove_signing_keys(origin, did: IdentityId, keys_to_remove: Vec<Key>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
+
+            // Remove any Pre-Authentication & link
+            keys_to_remove.iter().for_each( |key| {
+                Self::remove_pre_join_identity( key, did);
+                Self::unlink_key_to_did(key, did);
+            });
+
+            // Update signing keys at Identity.
+            <DidRecords>::mutate(did, |record| {
+                (*record).remove_signing_keys( &keys_to_remove);
+            });
+
+            Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
+            Ok(())
+        }
+
 
         /// The key designated by `origin` accepts the authorization to join to `target_id`
         /// Identity.
