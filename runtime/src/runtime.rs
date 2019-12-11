@@ -124,7 +124,7 @@ impl indices::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const ExistentialDeposit: Balance = 10 * CENTS;
+    pub const ExistentialDeposit: Balance = 0u128.into();
     pub const TransferFee: Balance = 1 * CENTS;
     pub const CreationFee: Balance = 1 * CENTS;
     pub const TransactionBaseFee: Balance = 1 * CENTS;
