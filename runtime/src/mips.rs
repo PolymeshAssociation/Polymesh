@@ -140,9 +140,15 @@ decl_event!(
         <T as system::Trait>::Hash,
         <T as system::Trait>::AccountId,
     {
+        /// A Mesh Improvement Proposal was made with a `Balance` stake
         Proposed(AccountId, Balance, Hash),
+        /// `AccountId` voted `bool` on the proposal referenced by `Hash`
         Voted(AccountId, Hash, bool),
+        /// Proposal referenced by `Hash` has been closed
         ProposalClosed(Hash),
+        /// Proposal referenced by `Hash` has been closed
+        ReferendumCreated(MipsIndex, Hash),
+        /// Proposal referenced by `Hash` was dispatched with the result `bool`
         Executed(Hash, bool),
     }
 );
@@ -216,7 +222,7 @@ decl_module! {
         /// * `aye_or_nay` a bool representing for or against vote
         /// * `deposit` minimum deposit value
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
-        pub fn vote(origin, proposal_hash: T::Hash, #[compact] index: MipsIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
+        pub fn vote(origin, proposal_hash: T::Hash, index: MipsIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
 
             let mut voting = Self::voting(&proposal_hash).ok_or("proposal does not exist")?;
@@ -231,11 +237,12 @@ decl_module! {
                 } else {
                     voting.nays.push((proposer.clone(), deposit));
                 }
+                <Voting<T>>::remove(&proposal_hash);
+                <Voting<T>>::insert(&proposal_hash, voting);
+                Self::deposit_event(RawEvent::Voted(proposer, proposal_hash, aye_or_nay));
             } else {
                 return Err("duplicate vote ignored")
             }
-
-            Self::deposit_event(RawEvent::Voted(proposer, proposal_hash, aye_or_nay));
         }
 
         /// An emergency stop measure to kill a proposal. Governance committee can kill
@@ -330,6 +337,7 @@ impl<T: Trait> Module<T> {
     fn create_referendum(index: MipsIndex, proposal_hash: T::Hash, proposal: T::Proposal) {
         <ReferendumMetadata<T>>::mutate(|metadata| metadata.push((index, proposal_hash)));
         <Referendums<T>>::insert(proposal_hash.clone(), proposal);
+        Self::deposit_event(RawEvent::ReferendumCreated(index, proposal_hash.clone()));
     }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
@@ -374,7 +382,7 @@ mod tests {
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, Zero},
         Perbill,
     };
     use srml_support::{
@@ -466,7 +474,7 @@ mod tests {
     parameter_types! {
         pub const MinimumProposalDeposit: u128 = 50;
         pub const QuorumThreshold: u128 = 70;
-        pub const VotingPeriod: u32 = 2;
+        pub const VotingPeriod: u32 = 10;
         pub const One: u64 = 1;
         pub const Two: u64 = 2;
         pub const Three: u64 = 3;
@@ -572,7 +580,7 @@ mod tests {
                 })
             );
 
-            assert_ok!(MIPS::kill_proposal(Origin::signed(6), hash));
+            assert_ok!(MIPS::kill_proposal(Origin::signed(1), hash));
             assert_eq!(MIPS::voting(&hash), None);
         });
     }
@@ -590,15 +598,18 @@ mod tests {
                 50
             ));
 
-            fast_forward_to(3);
-
             assert_ok!(MIPS::vote(Origin::signed(5), hash, 0, true, 50));
 
-            fast_forward_to(5);
+            assert_eq!(
+                MIPS::voting(&hash),
+                Some(Votes {
+                    index: 0,
+                    ayes: vec![(6, 50), (5, 50)],
+                    nays: vec![]
+                })
+            );
 
-            assert_eq!(MIPS::voting(&hash), None);
-
-            fast_forward_to(7);
+            fast_forward_to(20);
 
             assert_eq!(MIPS::referendums(&hash), Some(proposal));
         });

@@ -175,5 +175,6 @@
         "index": "u32",
         "ayes": "Vec<(IdentityId, Balance)>",
         "nays": "Vec<(IdentityId, Balance)>"
-    }
+    },
+    "MipsIndex": "u32"
 }
