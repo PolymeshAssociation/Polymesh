@@ -38,6 +38,9 @@
 //!
 //! see [freeze_signing_keys](./struct.Module.html#method.freeze_signing_keys)
 //! see [unfreeze_signing_keys](./struct.Module.html#method.unfreeze_signing_keys)
+//!
+//! # TODO
+//!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
 use rstd::{convert::TryFrom, prelude::*};
 
@@ -47,11 +50,13 @@ use primitives::{DidRecord, IdentityId, Key, KeyType, Permission, SigningKey};
 
 use codec::Encode;
 use sr_io::blake2_256;
+use sr_primitives::{traits::Dispatchable, DispatchError};
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
+    Parameter,
 };
 use system::{self, ensure_signed};
 
@@ -92,7 +97,7 @@ impl Default for DataTypes {
 }
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
-/// Master key or extenal type signing key are restricted to be linked to just one identity.
+/// Master key or external type signing key are restricted to be linked to just one identity.
 /// Other types of signing key could be associated with more that one identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub enum LinkedKeyInfo {
@@ -104,6 +109,8 @@ pub enum LinkedKeyInfo {
 pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    /// An extrinsic call.
+    type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
 }
 
 decl_storage! {
@@ -121,6 +128,9 @@ decl_storage! {
         /// DID -> DID claim issuers
         pub ClaimIssuers get(claim_issuers): map IdentityId => Vec<IdentityId>;
 
+        /// It stores the current identity for current transaction.
+        pub CurrentDid get(current_did): Option<IdentityId>;
+
         /// (DID, claim_key, claim_issuer) -> Associated claims
         pub Claims get(claims): map(IdentityId, ClaimMetaData) => Claim<T::Moment>;
 
@@ -132,6 +142,9 @@ decl_storage! {
 
         /// How much does creating a DID cost
         pub DidCreationFee get(did_creation_fee) config(): T::Balance;
+
+        /// It stores validated identities by any KYC.
+        pub KYCValidation get(has_valid_kyc): map IdentityId => bool;
 
         /// Nonce to ensure unique DIDs are generated. starts from 1.
         pub DidNonce get(did_nonce) build(|_| 1u128): u128;
@@ -212,9 +225,55 @@ decl_module! {
             };
             <DidRecords>::insert(did, record);
 
+            // TODO KYC is valid by default.
+            KYCValidation::insert(did, true);
+
             Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
             Ok(())
         }
+
+        /// It adds each IdentityId at `signing_ids` as signing identity of `id`.
+        ///
+        /// # TODO
+        ///  - Signing identities HAVE TO authorize its use in this identity.
+        /// # Failure
+        /// It can only called by master key owner.
+        pub fn add_signing_identities(origin, id: IdentityId, signing_ids: Vec<IdentityId>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
+
+            <DidRecords>::mutate( id,
+            |record| {
+                let mut new_signing_ids = signing_ids.iter()
+                    .filter( |s_id| record.signing_identities.iter().find( |id| id == s_id).is_none())
+                    .chain( record.signing_identities.iter())
+                    .cloned()
+                    .collect::<Vec<_>>();
+                new_signing_ids.sort();
+                new_signing_ids.dedup();
+
+                (*record).signing_identities = new_signing_ids;
+            });
+
+            Ok(())
+        }
+
+        /// Removes `ids_to_remove` signing identities from `id` identity.
+        ///
+        /// # Failure
+        /// It can only called by master key owner.
+        fn remove_signing_identities(origin, id: IdentityId, ids_to_remove: Vec<IdentityId>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
+
+            <DidRecords>::mutate( id,
+            |record| {
+                (*record).signing_identities.retain( |s_id| ids_to_remove.iter().find( |id| s_id == *id).is_none());
+            });
+
+            Ok(())
+        }
+
 
         /// Adds new signing keys for a DID. Only called by master key owner.
         ///
@@ -395,6 +454,44 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
+
+            Ok(())
+        }
+
+        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> Result {
+            let sender = ensure_signed(origin)?;
+
+            // 1. Constraints.
+            // 1.1. A valid current identity.
+            if let Some(current_did) = <CurrentDid>::get() {
+                // 1.2. Check that current_did is a signing key of target_did
+                ensure!( Self::is_authorized_identity(current_did, target_did),
+                    "Current identity cannot be forwarded, it is not a signing key of target identity");
+            } else {
+                return Err("Missing current identity on the transaction");
+            }
+
+            // 1.3. Check that target_did has a KYC.
+            // Please keep in mind that `current_did` is double-checked:
+            //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
+            //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
+            ensure!(Self::has_valid_kyc(target_did), "Invalid KYC validation on target did");
+
+            // 2. Actions
+            <CurrentDid>::put(target_did);
+
+            // Also set current_did roles when acting as a signing key for target_did
+            // Re-dispatch call - e.g. to asset::doSomething...
+            let new_origin = system::RawOrigin::Signed(sender).into();
+
+            let _res = match proposal.dispatch(new_origin) {
+                Ok(_) => true,
+                Err(e) => {
+                    let e: DispatchError = e.into();
+                    sr_primitives::print(e);
+                    false
+                }
+            };
 
             Ok(())
         }
@@ -589,6 +686,12 @@ impl<T: Trait> Module<T> {
         return false;
     }
 
+    /// It returns `true` if `curr_id`'s master key is a signing_key at `target_id`.
+    pub fn is_authorized_identity(curr_id: IdentityId, target_id: IdentityId) -> bool {
+        let target_id_record = Self::did_records(target_id);
+        target_id_record.signing_identities.contains(&curr_id)
+    }
+
     /// Use `did` as reference.
     pub fn is_master_key(did: IdentityId, key: &Key) -> bool {
         key == &<DidRecords>::get(did).master_key
@@ -732,6 +835,15 @@ impl<T: Trait> Module<T> {
             }
         }
     }
+
+    /// It set/reset the current identity.
+    pub(super) fn set_current_did(did_opt: Option<IdentityId>) {
+        if let Some(did) = did_opt {
+            <CurrentDid>::put(did);
+        } else {
+            <CurrentDid>::kill();
+        }
+    }
 }
 
 pub trait IdentityTrait<T> {
@@ -779,7 +891,11 @@ mod tests {
         traits::{BlakeTwo256, ConvertInto, IdentityLookup},
         Perbill,
     };
-    use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{
+        assert_err, assert_ok,
+        dispatch::{DispatchError, DispatchResult},
+        impl_outer_origin, parameter_types,
+    };
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
 
@@ -856,8 +972,24 @@ mod tests {
         type MinimumPeriod = MinimumPeriod;
     }
 
+    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
+    pub struct IdentityProposal {
+        pub dummy: u8,
+    }
+
+    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+        type Origin = Origin;
+        type Trait = IdentityTest;
+        type Error = DispatchError;
+
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+            Ok(())
+        }
+    }
+
     impl super::Trait for IdentityTest {
         type Event = ();
+        type Proposal = IdentityProposal;
     }
 
     type Identity = super::Module<IdentityTest>;
@@ -1326,5 +1458,41 @@ mod tests {
             Identity::add_signing_keys(alice.clone(), alice_id, vec![bob_sk]),
             unique_error
         );
+    }
+
+    #[test]
+    fn add_remove_signing_identities() {
+        with_externalities(
+            &mut build_ext(),
+            &add_remove_signing_identities_with_externalities,
+        );
+    }
+
+    fn add_remove_signing_identities_with_externalities() {
+        let (a_acc, b_acc, c_acc, d_acc) = (1u64, 2u64, 3u64, 4u64);
+        let (alice, alice_id) = make_account(&a_acc).unwrap();
+        let (_bob, bob_id) = make_account(&b_acc).unwrap();
+        let (_charlie, charlie_id) = make_account(&c_acc).unwrap();
+        let (_dave, dave_id) = make_account(&d_acc).unwrap();
+
+        assert_ok!(Identity::add_signing_identities(
+            alice.clone(),
+            alice_id,
+            vec![bob_id, charlie_id]
+        ));
+        assert_eq!(Identity::is_authorized_identity(bob_id, alice_id), true);
+
+        assert_ok!(Identity::remove_signing_identities(
+            alice.clone(),
+            alice_id,
+            vec![bob_id, dave_id]
+        ));
+
+        let alice_rec = Identity::did_records(alice_id);
+        assert_eq!(alice_rec.signing_identities, vec![charlie_id]);
+
+        // Check is_authorized_identity
+        assert_eq!(Identity::is_authorized_identity(charlie_id, alice_id), true);
+        assert_eq!(Identity::is_authorized_identity(bob_id, alice_id), false);
     }
 }

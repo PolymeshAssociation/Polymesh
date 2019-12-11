@@ -7,7 +7,7 @@ use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 use inherents::InherentDataProviders;
 use network::construct_simple_protocol;
 use polymesh_primitives::Block;
-use polymesh_runtime::{self, GenesisConfig, RuntimeApi};
+use polymesh_runtime::{self, config::GenesisConfig, RuntimeApi};
 pub use sr_primitives::traits::ProvideRuntimeApi;
 use std::sync::Arc;
 use std::time::Duration;
