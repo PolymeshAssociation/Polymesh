@@ -17,7 +17,7 @@ pub trait Trait: system::Trait + balances::Trait + session::Trait {
 #[inline]
 /// Convert all letter characters of a slice to their upper case counterparts.
 /// # TODO
-/// This functions is always called on `ticket`, maybe we could create a type for `ticket` to
+/// This functions is always called on `ticker`, maybe we could create a type for `ticker` to
 /// ensure that type is UPPER case, and **avoid vector clone** (using `collect`).
 pub fn bytes_to_upper(v: &[u8]) -> Vec<u8> {
     v.iter()

@@ -94,7 +94,7 @@ pub trait Trait: system::Trait {
     type QuorumThreshold: Get<BalanceOf<Self>>;
 
     /// How long (in blocks) a ballot runs
-    type VotingPeriod: Get<Self::BlockNumber>;
+    type ProposalDuration: Get<Self::BlockNumber>;
 
     /// Required origin for enacting a referundum.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
@@ -165,7 +165,7 @@ decl_module! {
         const QuorumThreshold: BalanceOf<T> = T::QuorumThreshold::get();
 
         /// How long (in blocks) a ballot runs
-        const VotingPeriod: T::BlockNumber = T::VotingPeriod::get();
+        const ProposalDuration: T::BlockNumber = T::ProposalDuration::get();
 
         fn deposit_event() = default;
 
@@ -193,7 +193,7 @@ decl_module! {
 
             let proposal_meta = MipsMetadata {
                 index,
-                end: <system::Module<T>>::block_number() + T::VotingPeriod::get(),
+                end: <system::Module<T>>::block_number() + T::ProposalDuration::get(),
                 proposal_hash
             };
             <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
@@ -457,10 +457,6 @@ mod tests {
         type Identity = identity::Module<Self>;
     }
 
-    impl identity::Trait for Test {
-        type Event = ();
-    }
-
     parameter_types! {
         pub const MinimumPeriod: u64 = 3;
     }
@@ -474,7 +470,7 @@ mod tests {
     parameter_types! {
         pub const MinimumProposalDeposit: u128 = 50;
         pub const QuorumThreshold: u128 = 70;
-        pub const VotingPeriod: u32 = 10;
+        pub const ProposalDuration: u32 = 10;
         pub const One: u64 = 1;
         pub const Two: u64 = 2;
         pub const Three: u64 = 3;
@@ -487,7 +483,7 @@ mod tests {
         type Proposal = Call;
         type MinimumProposalDeposit = MinimumProposalDeposit;
         type QuorumThreshold = QuorumThreshold;
-        type VotingPeriod = VotingPeriod;
+        type ProposalDuration = ProposalDuration;
         type CommitteeOrigin = EnsureSignedBy<One, u64>;
         type Event = ();
     }
