@@ -208,6 +208,7 @@ async function main() {
   let timestamp_extrinsic = current_block["block"]["extrinsics"][0];
   synced_block_ts = parseInt(JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw));
 
+  await createIdentities(api, [alice, bob], "issuer", prepend, init_bars[4], init_bars[5], fast);
   await tps(api, keyring, n_accounts, init_bars[0], init_bars[1], fast); // base currency transfer sanity-check
   await distributePoly(api, keyring, master_keys.concat(signing_keys).concat(claim_keys), transfer_amount, init_bars[2], init_bars[3], fast);
   // Need to wait until POLY has been distributed to pay for the next set of transactions
