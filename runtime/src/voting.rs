@@ -6,20 +6,20 @@
 //!
 //! The Voting module provides functions for:
 //!
-//! - Creating ballots that can include multiple proposals
-//! - Voting on proposals
+//! - Creating ballots that can include multiple motions
+//! - Voting on motions
 //! - Cancelling ballots
 //!
 //! ### Terminology
 //!
-//! - **Ballot:** It is a collection of proposals on which a tokenholder can vote.
+//! - **Ballot:** It is a collection of motions on which a tokenholder can vote.
 //!     Additional parameters include voting start date, voting end date and checkpoint id.
 //!     Checkpoint id is used to prevent double voting with same coins. When voting on a ballot,
 //!     the total number of votes that a tokenholder can cast is equal to their balance at the checkpoint.
-//!     Voters can distribute their votes accross all the proposals in the ballot.
-//! - **Proposal:** It is a suggestion or a question that can have an infinite number of choices that can be voted on.
-//!     Additional parameters include title of the proposal and a link from where more info can be fetched.
-//!     The most common proposal is of accept/reject type where the proposal has two choices, yes/no.
+//!     Voters can distribute their votes accross all the motions in the ballot.
+//! - **motion:** It is a suggestion or a question that can have an infinite number of choices that can be voted on.
+//!     Additional parameters include title of the motion and a link from where more info can be fetched.
+//!     The most common motion is of accept/reject type where the motion has two choices, yes/no.
 //!     Any voting power that is not used is considered as abstain.
 //!
 //! ## Interface
@@ -58,20 +58,20 @@ pub struct Ballot<V> {
     /// Timestamp at which voting should end
     voting_end: V,
 
-    /// Array of proposals that can be voted on
-    proposals: Vec<Proposal>,
+    /// Array of motions that can be voted on
+    motions: Vec<Motion>,
 }
 
-/// Details about proposals
+/// Details about motions
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct Proposal {
-    /// Title of the proposal
+pub struct Motion {
+    /// Title of the motion
     title: Vec<u8>,
 
-    /// Link from where more information about the proposal can be fetched
+    /// Link from where more information about the motion can be fetched
     info_link: Vec<u8>,
 
-    /// Choices for the proposal excluding abstain
+    /// Choices for the motion excluding abstain
     /// Voting power not used is considered abstained
     choices: Vec<Vec<u8>>,
 }
@@ -86,14 +86,14 @@ decl_storage! {
         pub TotalChoices get(total_choices): map (Vec<u8>, Vec<u8>) => u64;
 
         /// (Ticker, BallotName, DID) -> Vector of vote weights.
-        /// weight at 0 index means weight for choice 1 of proposal 1.
-        /// weight at 1 index means weight for choice 2 of proposal 1.
+        /// weight at 0 index means weight for choice 1 of motion 1.
+        /// weight at 1 index means weight for choice 2 of motion 1.
         /// User must enter 0 vote weight if they don't want to vote for a choice.
         pub Votes get(votes): map (Vec<u8>, Vec<u8>, IdentityId) => Vec<T::Balance>;
 
         /// (Ticker, BallotName) -> Vector of current vote weights.
-        /// weight at 0 index means weight for choice 1 of proposal 1.
-        /// weight at 1 index means weight for choice 2 of proposal 1.
+        /// weight at 0 index means weight for choice 1 of motion 1.
+        /// weight at 1 index means weight for choice 2 of motion 1.
         pub Results get(results): map (Vec<u8>, Vec<u8>) => Vec<T::Balance>;
     }
 }
@@ -130,16 +130,16 @@ decl_module! {
 
             ensure!(now < ballot_details.voting_end, "Voting end date in past");
             ensure!(ballot_details.voting_end > ballot_details.voting_start, "Voting end date before voting start date");
-            ensure!(ballot_details.proposals.len() > 0, "No proposal submitted");
+            ensure!(ballot_details.motions.len() > 0, "No motion submitted");
 
             // NB: Checkpoint ID is not verified here to allow creating ballots that will become active in future.
             // Voting will only be allowed on checkpoints that exist.
 
             let mut total_choices:usize = 0usize;
 
-            for proposal in &ballot_details.proposals {
-                ensure!(proposal.choices.len() > 0, "No choice submitted");
-                total_choices += proposal.choices.len();
+            for motion in &ballot_details.motions {
+                ensure!(motion.choices.len() > 0, "No choice submitted");
+                total_choices += motion.choices.len();
             }
 
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
@@ -310,7 +310,11 @@ mod tests {
         AnySignature, Perbill,
     };
     use srml_support::traits::Currency;
-    use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types};
+    use srml_support::{
+        assert_err, assert_ok,
+        dispatch::{DispatchError, DispatchResult},
+        impl_outer_origin, parameter_types,
+    };
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
@@ -447,8 +451,24 @@ mod tests {
         type FullIdentificationOf = ();
     }
 
+    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
+    pub struct IdentityProposal {
+        pub dummy: u8,
+    }
+
+    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+        type Origin = Origin;
+        type Trait = Test;
+        type Error = DispatchError;
+
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+            Ok(())
+        }
+    }
+
     impl identity::Trait for Test {
         type Event = ();
+        type Proposal = IdentityProposal;
     }
 
     impl asset::Trait for Test {
@@ -536,12 +556,12 @@ mod tests {
             let now = Utc::now().timestamp() as u64;
             <timestamp::Module<Test>>::set_timestamp(now);
 
-            let proposal1 = Proposal {
+            let motion1 = Motion {
                 title: vec![0x01],
                 info_link: vec![0x01],
                 choices: vec![vec![0x01], vec![0x02]],
             };
-            let proposal2 = Proposal {
+            let motion2 = Motion {
                 title: vec![0x02],
                 info_link: vec![0x02],
                 choices: vec![vec![0x01], vec![0x02], vec![0x03]],
@@ -553,7 +573,7 @@ mod tests {
                 checkpoint_id: 1,
                 voting_start: now,
                 voting_end: now + now,
-                proposals: vec![proposal1.clone(), proposal2.clone()],
+                motions: vec![motion1.clone(), motion2.clone()],
             };
 
             assert_err!(
@@ -582,7 +602,7 @@ mod tests {
                 checkpoint_id: 1,
                 voting_start: now,
                 voting_end: 0,
-                proposals: vec![proposal1.clone(), proposal2.clone()],
+                motions: vec![motion1.clone(), motion2.clone()],
             };
 
             assert_err!(
@@ -600,7 +620,7 @@ mod tests {
                 checkpoint_id: 1,
                 voting_start: now + now + now,
                 voting_end: now + now,
-                proposals: vec![proposal1.clone(), proposal2.clone()],
+                motions: vec![motion1.clone(), motion2.clone()],
             };
 
             assert_err!(
@@ -618,7 +638,7 @@ mod tests {
                 checkpoint_id: 1,
                 voting_start: now,
                 voting_end: now + now,
-                proposals: vec![],
+                motions: vec![],
             };
 
             assert_err!(
@@ -629,10 +649,10 @@ mod tests {
                     ballot_name.clone(),
                     empty_ballot_details.clone()
                 ),
-                "No proposal submitted"
+                "No motion submitted"
             );
 
-            let empty_proposal = Proposal {
+            let empty_motion = Motion {
                 title: vec![0x02],
                 info_link: vec![0x02],
                 choices: vec![],
@@ -642,7 +662,7 @@ mod tests {
                 checkpoint_id: 1,
                 voting_start: now,
                 voting_end: now + now,
-                proposals: vec![proposal1.clone(), proposal2.clone(), empty_proposal],
+                motions: vec![motion1.clone(), motion2.clone(), empty_motion],
             };
 
             assert_err!(
@@ -713,12 +733,12 @@ mod tests {
             let now = Utc::now().timestamp() as u64;
             <timestamp::Module<Test>>::set_timestamp(now);
 
-            let proposal1 = Proposal {
+            let motion1 = Motion {
                 title: vec![0x01],
                 info_link: vec![0x01],
                 choices: vec![vec![0x01], vec![0x02]],
             };
-            let proposal2 = Proposal {
+            let motion2 = Motion {
                 title: vec![0x02],
                 info_link: vec![0x02],
                 choices: vec![vec![0x01], vec![0x02], vec![0x03]],
@@ -730,7 +750,7 @@ mod tests {
                 checkpoint_id: 1,
                 voting_start: now,
                 voting_end: now + now,
-                proposals: vec![proposal1.clone(), proposal2.clone()],
+                motions: vec![motion1.clone(), motion2.clone()],
             };
 
             assert_err!(
@@ -845,12 +865,12 @@ mod tests {
             let now = Utc::now().timestamp() as u64;
             <timestamp::Module<Test>>::set_timestamp(now);
 
-            let proposal1 = Proposal {
+            let motion1 = Motion {
                 title: vec![0x01],
                 info_link: vec![0x01],
                 choices: vec![vec![0x01], vec![0x02]],
             };
-            let proposal2 = Proposal {
+            let motion2 = Motion {
                 title: vec![0x02],
                 info_link: vec![0x02],
                 choices: vec![vec![0x01], vec![0x02], vec![0x03]],
@@ -862,7 +882,7 @@ mod tests {
                 checkpoint_id: 2,
                 voting_start: now,
                 voting_end: now + now,
-                proposals: vec![proposal1.clone(), proposal2.clone()],
+                motions: vec![motion1.clone(), motion2.clone()],
             };
 
             assert_ok!(Voting::add_ballot(
