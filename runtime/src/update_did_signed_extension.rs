@@ -71,7 +71,10 @@ impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     ) -> TransactionValidity {
         match call {
             // Add here any function from any module which does *not* need a current identity.
-            Call::Identity(identity::Call::register_did(..)) => Ok(ValidTransaction::default()),
+            Call::Identity(identity::Call::register_did(..))
+            | Call::Identity(identity::Call::authorize_join_to_identity(..)) => {
+                Ok(ValidTransaction::default())
+            },
             // Other calls should be identified
             _ => {
                 let id_opt = Self::identity_from_key(who);
