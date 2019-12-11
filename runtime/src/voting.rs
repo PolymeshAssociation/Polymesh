@@ -315,7 +315,10 @@ mod tests {
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
 
-    use crate::{asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm};
+    use crate::{
+        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
+        identity, percentage_tm,
+    };
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -481,10 +484,21 @@ mod tests {
 
     /// Create externalities
     fn build_ext() -> TestExternalities<Blake2Hasher> {
-        system::GenesisConfig::default()
+        let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
-            .unwrap()
-            .into()
+            .unwrap();
+        asset::GenesisConfig::<Test> {
+            asset_creation_fee: 0,
+            ticker_registration_fee: 0,
+            ticker_registration_config: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                registration_length: Some(10000),
+            },
+            fee_collector: AccountKeyring::Dave.public().into(),
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        sr_io::TestExternalities::new(t)
     }
 
     fn make_account(
