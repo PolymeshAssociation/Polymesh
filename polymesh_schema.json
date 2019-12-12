@@ -155,7 +155,7 @@
         "value": "Balance",
         "nonce": "u16"
     },
-    "Proposal": {
+    "Motion": {
         "title": "Vec<u8>",
         "info_link": "Vec<u8>",
         "choices": "Vec<Vec<u8>>"
@@ -164,6 +164,6 @@
         "checkpoint_id": "u64",
         "voting_start": "Moment",
         "voting_end": "Moment",
-        "proposals": "Vec<Proposal>"
+        "motions": "Vec<Motion>"
     }
 }

@@ -884,7 +884,17 @@ decl_module! {
         /// * `value` Allowance amount
         /// * `nonce` A u16 number which avoid the replay attack
         /// * `signature` Signature provided by the holder_did
-        pub fn increase_custody_allowance_of(origin, ticker: Vec<u8>, holder_did: IdentityId, holder_account_id: T::AccountId, custodian_did: IdentityId, caller_did: IdentityId,  value: T::Balance, nonce: u16, signature: T::OffChainSignature) -> Result {
+        pub fn increase_custody_allowance_of(
+            origin,
+            ticker: Vec<u8>,
+            holder_did: IdentityId,
+            holder_account_id: T::AccountId,
+            custodian_did: IdentityId,
+            caller_did: IdentityId,
+            value: T::Balance,
+            nonce: u16,
+            signature: T::OffChainSignature
+        ) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
@@ -922,7 +932,14 @@ decl_module! {
         /// * `custodian_did` DID of the custodian (i.e who has the valid approved allowance)
         /// * `receiver_did` DID of the receiver
         /// * `value` Amount of tokens need to transfer
-        pub fn transfer_by_custodian(origin, ticker: Vec<u8>, holder_did: IdentityId, custodian_did: IdentityId, receiver_did: IdentityId, value: T::Balance) -> Result {
+        pub fn transfer_by_custodian(
+            origin,
+            ticker: Vec<u8>,
+            holder_did: IdentityId,
+            custodian_did: IdentityId,
+            receiver_did: IdentityId,
+            value: T::Balance
+        ) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             // Check that sender is allowed to act on behalf of `did`
@@ -1155,19 +1172,19 @@ impl<T: Trait> Module<T> {
             Self::check_granularity(ticker, value),
             "Invalid granularity"
         );
-        let ticket_from_did = (ticker.clone(), from_did);
+        let ticker_from_did = (ticker.clone(), from_did);
         ensure!(
-            <BalanceOf<T>>::exists(&ticket_from_did),
+            <BalanceOf<T>>::exists(&ticker_from_did),
             "Account does not own this token"
         );
-        let sender_balance = Self::balance_of(&ticket_from_did);
+        let sender_balance = Self::balance_of(&ticker_from_did);
         ensure!(sender_balance >= value, "Not enough balance.");
 
         let updated_from_balance = sender_balance
             .checked_sub(&value)
             .ok_or("overflow in calculating balance")?;
-        let ticket_to_did = (ticker.clone(), to_did);
-        let receiver_balance = Self::balance_of(&ticket_to_did);
+        let ticker_to_did = (ticker.clone(), to_did);
+        let receiver_balance = Self::balance_of(&ticker_to_did);
         let updated_to_balance = receiver_balance
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
@@ -1175,10 +1192,10 @@ impl<T: Trait> Module<T> {
         Self::_update_checkpoint(ticker, from_did, sender_balance);
         Self::_update_checkpoint(ticker, to_did, receiver_balance);
         // reduce sender's balance
-        <BalanceOf<T>>::insert(ticket_from_did, updated_from_balance);
+        <BalanceOf<T>>::insert(ticker_from_did, updated_from_balance);
 
         // increase receiver's balance
-        <BalanceOf<T>>::insert(ticket_to_did, updated_to_balance);
+        <BalanceOf<T>>::insert(ticker_to_did, updated_to_balance);
 
         Self::deposit_event(RawEvent::Transfer(ticker.clone(), from_did, to_did, value));
         Ok(())
