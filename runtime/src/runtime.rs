@@ -511,7 +511,7 @@ construct_runtime!(
         Treasury: treasury::{Module, Call, Storage, Event<T>},
         GovernanceMembership: membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         GovernanceCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-   		MIPS: mips::{Module, Call, Storage, Event<T>},
+   		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},

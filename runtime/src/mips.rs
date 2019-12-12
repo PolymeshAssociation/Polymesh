@@ -49,9 +49,6 @@ use system::ensure_signed;
 /// Mesh Improvement Proposal index. Used offchain.
 pub type MipsIndex = u32;
 
-/// A number of committee members.
-pub type MemberCount = u32;
-
 /// Balance
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
@@ -131,6 +128,11 @@ decl_storage! {
         /// proposal hash -> proposal
         pub Referendums get(referendums): map T::Hash => Option<T::Proposal>;
     }
+    add_extra_genesis {
+        config(min_proposal_deposit): BalanceOf<T>;
+        config(quorum_threshold): BalanceOf<T>;
+        config(proposal_duration): T::BlockNumber;
+    }
 }
 
 decl_event!(
@@ -146,7 +148,7 @@ decl_event!(
         Voted(AccountId, Hash, bool),
         /// Proposal referenced by `Hash` has been closed
         ProposalClosed(Hash),
-        /// Proposal referenced by `Hash` has been closed
+        /// Referendum created for proposal referenced by `Hash`
         ReferendumCreated(MipsIndex, Hash),
         /// Proposal referenced by `Hash` was dispatched with the result `bool`
         Executed(Hash, bool),
