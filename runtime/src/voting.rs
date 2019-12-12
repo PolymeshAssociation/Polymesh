@@ -35,7 +35,7 @@ use crate::{
     balances, identity, utils,
 };
 use codec::Encode;
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -113,11 +113,11 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         /// * `ballot_details` - Other details of the ballot
         pub fn add_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again.
@@ -166,11 +166,12 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
         pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
@@ -236,11 +237,11 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
         pub fn cancel_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again

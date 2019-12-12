@@ -55,6 +55,24 @@ impl Default for Signer {
     }
 }
 
+impl PartialEq<Key> for Signer {
+    fn eq(&self, other: &Key) -> bool {
+        match self {
+            Signer::Key(ref key) => key == other,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<IdentityId> for Signer {
+    fn eq(&self, other: &IdentityId) -> bool {
+        match self {
+            Signer::Identity(ref id) => id == other,
+            _ => false,
+        }
+    }
+}
+
 impl PartialOrd for Signer {
     /// Any key is less than any Identity.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -128,19 +146,13 @@ impl PartialEq for SigningItem {
 
 impl PartialEq<Key> for SigningItem {
     fn eq(&self, other: &Key) -> bool {
-        match self.signer {
-            Signer::Key(key) => key == *other,
-            _ => false,
-        }
+        self.signer == *other
     }
 }
 
 impl PartialEq<IdentityId> for SigningItem {
     fn eq(&self, other: &IdentityId) -> bool {
-        match self.signer {
-            Signer::Identity(id) => id == *other,
-            _ => false,
-        }
+        self.signer == *other
     }
 }
 

@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use rstd::prelude::Vec;
 
-use crate::{IdentityRole, Key, SigningItem};
+use crate::{IdentityRole, Key, Signer, SigningItem};
 
 /// Identity information.
 #[allow(missing_docs)]
@@ -29,9 +29,13 @@ impl Identity {
     }
 
     /// It removes `keys_to_remove` from signing keys.
-    pub fn remove_signing_items(&mut self, items_to_remove: &[SigningItem]) -> &mut Self {
-        self.signing_items
-            .retain(|curr_si| items_to_remove.iter().find(|&ri| curr_si == ri).is_none());
+    pub fn remove_signing_items(&mut self, signers_to_remove: &[Signer]) -> &mut Self {
+        self.signing_items.retain(|curr_si| {
+            signers_to_remove
+                .iter()
+                .find(|&signer| curr_si.signer == *signer)
+                .is_none()
+        });
 
         self
     }

@@ -14,7 +14,7 @@
 //!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
 
 use crate::identity;
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
 use contracts::{CodeHash, Gas, Schedule};
@@ -55,9 +55,10 @@ decl_module! {
             code: Vec<u8>
         ) -> Result {
             let sender = ensure_signed(origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             // Call underlying function
             let new_origin = system::RawOrigin::Signed(sender).into();
