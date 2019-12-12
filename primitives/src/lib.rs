@@ -73,11 +73,11 @@ pub use identity::Identity;
 
 /// Key is strong type which stores bytes representing the key.
 pub mod key;
-pub use key::{Key, KeyType};
+pub use key::Key;
 
 /// This module contains entities related with signing keys.
-pub mod signing_key;
-pub use signing_key::{Permission, SigningKey};
+pub mod signing_item;
+pub use signing_item::{Permission, Signer, SignerType, SigningItem};
 
 /// This module defines the needed information to add a pre-authorized key into an identity.
 pub mod pre_authorized_key_info;
