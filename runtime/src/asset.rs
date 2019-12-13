@@ -123,6 +123,14 @@ pub struct TickerRegistrationConfig<U> {
     pub registration_length: Option<U>,
 }
 
+/// struct to store the ticker transfer approvals
+#[derive(codec::Encode, codec::Decode, Clone, Default, PartialEq, Debug)]
+pub struct TickerTransferApproval<U> {
+    pub authorized_by: U,
+    pub next_ticker: Option<Vec<u8>>,
+    pub previous_ticker: Option<Vec<u8>>,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// The DID of the fee collector
@@ -145,6 +153,13 @@ decl_storage! {
         AssetCreationFee get(asset_creation_fee) config(): T::Balance;
         /// cost in base currency to register a ticker
         TickerRegistrationFee get(ticker_registration_fee) config(): T::Balance;
+        /// Ticker transfer approvals
+        /// (Identity that is approved to receive ticker, ticker) =>
+        ///     TickerTransferApproval<IdentityId (that authorized transfer)>
+        /// Option in next_ticker: Option<Vec<u8>> of TickerTransferApproval
+        /// represents the next element in the linked list (if there is anyy)
+        TickerTransferApprovals get(ticker_transfer_approvals):
+            map (IdentityId, Option<Vec<u8>>) => TickerTransferApproval<IdentityId>;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u64;
@@ -183,10 +198,20 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
-        /// * `to_did` DID of the (future) owner of the ticker
         /// * `_ticker` ticker to register
-        pub fn register_ticker(origin, to_did: IdentityId, _ticker: Vec<u8>) -> Result {
+        pub fn register_ticker(origin, _ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let to_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
@@ -218,14 +243,21 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
-        /// * `from_did` DID of the current owner of the ticker
         /// * `to_did` DID of the future owner of the ticker
         /// * `_ticker` ticker to transfer
-        pub fn transfer_ticker(origin, from_did: IdentityId, to_did: IdentityId, _ticker: Vec<u8>) -> Result {
+        pub fn approve_ticker_transfer(origin, to_did: IdentityId, _ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(from_did, &sender_key), "sender must be a signing key for DID");
+            let from_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
@@ -233,7 +265,77 @@ decl_module! {
 
             ensure!(Self::is_ticker_registry_valid(&ticker, from_did), "ticker registered to someone else");
 
-            // Store ticker registration details
+            let to_did_ticker = (to_did.clone(), Some(ticker.clone()));
+
+            if <TickerTransferApprovals>::exists(&to_did_ticker) {
+                <TickerTransferApprovals>::mutate(&to_did_ticker, |tta| tta.authorized_by = from_did.clone());
+            } else {
+                let to_did_none = (to_did.clone(), None);
+                if <TickerTransferApprovals>::exists(&to_did_none) {
+                    let none_tta = Self::ticker_transfer_approvals(&to_did_none);
+                    <TickerTransferApprovals>::mutate(
+                        (to_did.clone(), none_tta.next_ticker),
+                        |tta| tta.previous_ticker = Some(ticker.clone())
+                    );
+                }
+                let none_tta = TickerTransferApproval {
+                    authorized_by: to_did.clone(),
+                    next_ticker: Some(ticker.clone()),
+                    previous_ticker: None,
+                };
+                <TickerTransferApprovals>::insert(&to_did_none, none_tta);
+                let tta = TickerTransferApproval {
+                    authorized_by: from_did.clone(),
+                    next_ticker: Some(ticker.clone()),
+                    previous_ticker: None,
+                };
+                <TickerTransferApprovals>::insert(&to_did_ticker, tta);
+            }
+
+            Ok(())
+        }
+
+        /// This function is used to transfer a ticker to someone else
+        ///
+        /// # Arguments
+        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `_ticker` ticker to transfer
+        pub fn process_ticker_transfer(origin, _ticker: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let to_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+
+            ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
+
+            let to_did_ticker = (to_did.clone(), Some(ticker.clone()));
+            ensure!(<TickerTransferApprovals>::exists(&to_did_ticker), "Transfer not approved");
+
+            let tta = Self::ticker_transfer_approvals(&to_did_ticker);
+            ensure!(Self::is_ticker_registry_valid(&ticker, tta.authorized_by), "ticker registered to someone else");
+
+            <TickerTransferApprovals>::mutate(
+                (to_did.clone(), tta.previous_ticker.clone()),
+                |previous_tta| previous_tta.next_ticker = tta.next_ticker.clone()
+            );
+
+            <TickerTransferApprovals>::mutate(
+                (to_did.clone(), tta.next_ticker.clone()),
+                |next_tta| next_tta.previous_ticker = tta.previous_ticker
+            );
+
+            <TickerTransferApprovals>::remove(&to_did_ticker);
+
             <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
 
             Ok(())
