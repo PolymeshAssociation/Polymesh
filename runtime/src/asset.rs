@@ -2435,14 +2435,13 @@ mod tests {
             assert_eq!(Asset::is_ticker_available(&token.name), false);
 
             assert_err!(
-                Asset::register_ticker(owner_signed.clone(), owner_did, vec![0x01]),
+                Asset::register_ticker(owner_signed.clone(), vec![0x01]),
                 "token already created"
             );
 
             assert_err!(
                 Asset::register_ticker(
                     owner_signed.clone(),
-                    owner_did,
                     vec![
                         0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
                         0x01
@@ -2455,11 +2454,7 @@ mod tests {
 
             assert_eq!(Asset::is_ticker_available(&ticker), true);
 
-            assert_ok!(Asset::register_ticker(
-                owner_signed.clone(),
-                owner_did,
-                ticker.clone()
-            ));
+            assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker.clone()));
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
             let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
@@ -2467,7 +2462,7 @@ mod tests {
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
 
             assert_err!(
-                Asset::register_ticker(alice_signed.clone(), alice_did, ticker.clone()),
+                Asset::register_ticker(alice_signed.clone(), ticker.clone()),
                 "ticker registered to someone else"
             );
 
