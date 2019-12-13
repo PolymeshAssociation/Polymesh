@@ -280,18 +280,9 @@ impl membership::Trait<membership::Instance1> for Runtime {
     type MembershipChanged = GovernanceCommittee;
 }
 
-parameter_types! {
-    pub const MinimumProposalDeposit: Balance = 5000;
-    pub const QuorumThreshold: Balance = 100000;
-    pub const ProposalDuration: BlockNumber = 7 * DAYS;
-}
-
 impl mips::Trait for Runtime {
     type Currency = Balances;
     type Proposal = Call;
-    type MinimumProposalDeposit = MinimumProposalDeposit;
-    type QuorumThreshold = QuorumThreshold;
-    type ProposalDuration = ProposalDuration;
     type CommitteeOrigin =
         collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
     type Event = Event;

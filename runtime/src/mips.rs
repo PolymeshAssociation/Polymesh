@@ -84,15 +84,6 @@ pub trait Trait: system::Trait {
     /// A proposal is a dispatchable call
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
 
-    /// The minimum amount to be used as a deposit for a proposal.
-    type MinimumProposalDeposit: Get<BalanceOf<Self>>;
-
-    /// Minimum stake a proposal must gather in order to be considered by the committee.
-    type QuorumThreshold: Get<BalanceOf<Self>>;
-
-    /// How long (in blocks) a ballot runs
-    type ProposalDuration: Get<Self::BlockNumber>;
-
     /// Required origin for enacting a referundum.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
 
@@ -103,6 +94,15 @@ pub trait Trait: system::Trait {
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as MIPS {
+        /// The minimum amount to be used as a deposit for a public referendum proposal.
+        pub MinimumProposalDeposit get(min_proposal_deposit) config(): BalanceOf<T>;
+
+        /// Minimum stake a proposal must gather in order to be considered by the committee.
+        pub QuorumThreshold get(quorum_threshold) config(): BalanceOf<T>;
+
+        /// How long (in blocks) a ballot runs
+        pub ProposalDuration get(proposal_duration) config(): T::BlockNumber;
+
         /// Proposals so far. Index can be used to keep track of MIPs off-chain.
         pub ProposalCount get(proposal_count): u32;
 
@@ -127,11 +127,6 @@ decl_storage! {
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
         pub Referendums get(referendums): map T::Hash => Option<T::Proposal>;
-    }
-    add_extra_genesis {
-        config(min_proposal_deposit): BalanceOf<T>;
-        config(quorum_threshold): BalanceOf<T>;
-        config(proposal_duration): T::BlockNumber;
     }
 }
 
@@ -160,16 +155,17 @@ decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
-        /// The minimum amount to be used as a deposit for a public referendum proposal.
-        const MinimumProposalDeposit: BalanceOf<T> = T::MinimumProposalDeposit::get();
-
-        /// Minimum stake a proposal must gather in order to be considered by the committee.
-        const QuorumThreshold: BalanceOf<T> = T::QuorumThreshold::get();
-
-        /// How long (in blocks) a ballot runs
-        const ProposalDuration: T::BlockNumber = T::ProposalDuration::get();
-
         fn deposit_event() = default;
+
+        /// Change the minimum proposal deposit amount required to start a proposal. Only Governance
+        /// committee is allowed to change this value.
+        ///
+        /// # Arguments
+        /// * `deposit` the new min deposit required to start a proposal
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
+            <MinimumProposalDeposit<T>>::put(deposit);
+        }
 
         /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which
         /// changes the network in someway. A minimum deposit is required to open a new proposal.
@@ -183,7 +179,7 @@ decl_module! {
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Pre conditions: caller must have min balance
-            ensure!(deposit >= T::MinimumProposalDeposit::get(), "deposit is less than minimum required to start a proposal");
+            ensure!(deposit >= Self::min_proposal_deposit(), "deposit is less than minimum required to start a proposal");
             // Proposal must be new
             ensure!(!<Proposals<T>>::exists(proposal_hash), "duplicate proposals are not allowed");
 
@@ -195,7 +191,7 @@ decl_module! {
 
             let proposal_meta = MipsMetadata {
                 index,
-                end: <system::Module<T>>::block_number() + T::ProposalDuration::get(),
+                end: <system::Module<T>>::block_number() + Self::proposal_duration(),
                 proposal_hash
             };
             <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
@@ -325,7 +321,7 @@ impl<T: Trait> Module<T> {
 
             let net_stake = aye_stake - nay_stake;
 
-            if net_stake >= T::QuorumThreshold::get() {
+            if net_stake >= Self::quorum_threshold() {
                 if let Some(proposal) = <Proposals<T>>::get(&proposal_hash) {
                     sr_primitives::print("creating referendum");
                     Self::create_referendum(index, proposal_hash.clone(), proposal);
@@ -505,9 +501,6 @@ mod tests {
     impl Trait for Test {
         type Currency = balances::Module<Self>;
         type Proposal = Call;
-        type MinimumProposalDeposit = MinimumProposalDeposit;
-        type QuorumThreshold = QuorumThreshold;
-        type ProposalDuration = ProposalDuration;
         type CommitteeOrigin = EnsureSignedBy<One, u64>;
         type Event = ();
     }
@@ -528,7 +521,16 @@ mod tests {
         .assimilate_storage(&mut t)
         .unwrap();
 
-        sr_io::TestExternalities::new(t)
+        GenesisConfig::<Test> {
+            min_proposal_deposit: 50,
+            quorum_threshold: 70,
+            proposal_duration: 10,
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        t.into()
+
+        //        sr_io::TestExternalities::new(t)
     }
 
     fn next_block() {
