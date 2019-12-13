@@ -271,22 +271,28 @@ decl_module! {
                 <TickerTransferApprovals>::mutate(&to_did_ticker, |tta| tta.authorized_by = from_did.clone());
             } else {
                 let to_did_none = (to_did.clone(), None);
+                let next_ticker;
                 if <TickerTransferApprovals>::exists(&to_did_none) {
                     let none_tta = Self::ticker_transfer_approvals(&to_did_none);
+                    next_ticker = none_tta.next_ticker.clone();
                     <TickerTransferApprovals>::mutate(
                         (to_did.clone(), none_tta.next_ticker),
                         |tta| tta.previous_ticker = Some(ticker.clone())
                     );
+                } else {
+                    next_ticker = None;
                 }
+
                 let none_tta = TickerTransferApproval {
                     authorized_by: to_did.clone(),
                     next_ticker: Some(ticker.clone()),
                     previous_ticker: None,
                 };
                 <TickerTransferApprovals>::insert(&to_did_none, none_tta);
+
                 let tta = TickerTransferApproval {
                     authorized_by: from_did.clone(),
-                    next_ticker: None,
+                    next_ticker: next_ticker,
                     previous_ticker: None,
                 };
                 <TickerTransferApprovals>::insert(&to_did_ticker, tta);
