@@ -286,7 +286,7 @@ decl_module! {
                 <TickerTransferApprovals>::insert(&to_did_none, none_tta);
                 let tta = TickerTransferApproval {
                     authorized_by: from_did.clone(),
-                    next_ticker: Some(ticker.clone()),
+                    next_ticker: None,
                     previous_ticker: None,
                 };
                 <TickerTransferApprovals>::insert(&to_did_ticker, tta);

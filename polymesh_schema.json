@@ -169,5 +169,10 @@
         "voting_start": "Moment",
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
+    },
+    "TickerTransferApproval": {
+        "authorized_by": "IdentityId",
+        "next_ticker": "Option<Vec<u8>>",
+        "previous_ticker": "Option<Vec<u8>>"
     }
 }
