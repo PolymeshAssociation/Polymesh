@@ -225,16 +225,19 @@ decl_module! {
             ensure!(Self::is_ticker_available_or_registered_to(&ticker, to_did) > 0, "ticker registered to someone else");
 
             // charge fee
-            Self::charge_ticker_registration_fee(&ticker, sender, to_did);
+            Self::charge_ticker_registration_fee(&ticker, sender.clone(), to_did);
 
             let now = <timestamp::Module<T>>::get();
+            let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
             let ticker_registration = TickerRegistration {
                 owner: to_did,
-                expiry: if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None }
+                expiry: expiry.clone()
             };
 
             // Store ticker registration details
             <Tickers<T>>::insert(&ticker, ticker_registration);
+
+            Self::deposit_event(RawEvent::TickerRegistered(ticker, to_did, expiry));
 
             Ok(())
         }
@@ -265,18 +268,18 @@ decl_module! {
 
             ensure!(Self::is_ticker_registry_valid(&ticker, from_did), "ticker registered to someone else");
 
-            let to_did_ticker = (to_did.clone(), Some(ticker.clone()));
+            let to_did_ticker = (to_did, Some(ticker.clone()));
 
             if <TickerTransferApprovals>::exists(&to_did_ticker) {
-                <TickerTransferApprovals>::mutate(&to_did_ticker, |tta| tta.authorized_by = from_did.clone());
+                <TickerTransferApprovals>::mutate(&to_did_ticker, |tta| tta.authorized_by = from_did);
             } else {
-                let to_did_none = (to_did.clone(), None);
+                let to_did_none = (to_did, None);
                 let next_ticker;
                 if <TickerTransferApprovals>::exists(&to_did_none) {
                     let none_tta = Self::ticker_transfer_approvals(&to_did_none);
                     next_ticker = none_tta.next_ticker.clone();
                     <TickerTransferApprovals>::mutate(
-                        (to_did.clone(), none_tta.next_ticker),
+                        (to_did, none_tta.next_ticker),
                         |tta| tta.previous_ticker = Some(ticker.clone())
                     );
                 } else {
@@ -284,19 +287,21 @@ decl_module! {
                 }
 
                 let none_tta = TickerTransferApproval {
-                    authorized_by: to_did.clone(),
+                    authorized_by: to_did,
                     next_ticker: Some(ticker.clone()),
                     previous_ticker: None,
                 };
                 <TickerTransferApprovals>::insert(&to_did_none, none_tta);
 
                 let tta = TickerTransferApproval {
-                    authorized_by: from_did.clone(),
+                    authorized_by: from_did,
                     next_ticker: next_ticker,
                     previous_ticker: None,
                 };
                 <TickerTransferApprovals>::insert(&to_did_ticker, tta);
             }
+
+            Self::deposit_event(RawEvent::TickerTransferApproval(ticker, from_did, to_did));
 
             Ok(())
         }
@@ -324,26 +329,58 @@ decl_module! {
 
             ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
 
-            let to_did_ticker = (to_did.clone(), Some(ticker.clone()));
+            let to_did_ticker = (to_did, Some(ticker.clone()));
             ensure!(<TickerTransferApprovals>::exists(&to_did_ticker), "Transfer not approved");
 
             let tta = Self::ticker_transfer_approvals(&to_did_ticker);
             ensure!(Self::is_ticker_registry_valid(&ticker, tta.authorized_by), "ticker registered to someone else");
 
             <TickerTransferApprovals>::mutate(
-                (to_did.clone(), tta.previous_ticker.clone()),
+                (to_did, tta.previous_ticker.clone()),
                 |previous_tta| previous_tta.next_ticker = tta.next_ticker.clone()
             );
 
             <TickerTransferApprovals>::mutate(
-                (to_did.clone(), tta.next_ticker.clone()),
+                (to_did, tta.next_ticker.clone()),
                 |next_tta| next_tta.previous_ticker = tta.previous_ticker
             );
 
             <TickerTransferApprovals>::remove(&to_did_ticker);
 
+            let current_owner = Self::ticker_registration(&ticker).owner;
+
             <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
 
+            Self::deposit_event(RawEvent::TickerTransferred(ticker, current_owner, to_did));
+
+            Ok(())
+        }
+
+        pub fn withdraw_ticker_transfer_approval(origin, to_did: IdentityId, _ticker: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let from_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+
+            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+
+            ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
+
+            ensure!(Self::is_ticker_registry_valid(&ticker, from_did), "ticker registered to someone else");
+
+            let to_did_ticker = (to_did, Some(ticker.clone()));
+
+            ensure!(<TickerTransferApprovals>::exists(&to_did_ticker), "ticker transfer not approved");
+            <TickerTransferApprovals>::remove(&to_did_ticker);
+            Self::deposit_event(RawEvent::TickerTransferApprovalWithdrawal(ticker, to_did));
             Ok(())
         }
 
@@ -417,6 +454,7 @@ decl_module! {
 
                 // Store ticker registration details
                 <Tickers<T>>::insert(&ticker, ticker_registration);
+                Self::deposit_event(RawEvent::TickerRegistered(ticker.clone(), did, None));
             } else {
                 <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
             }
@@ -1132,6 +1170,18 @@ decl_event! {
         /// emit when allowance get increased
         /// ticker, holder did, custodian did, oldAllowance, newAllowance
         CustodyAllowanceChanged(Vec<u8>, IdentityId, IdentityId, Balance, Balance),
+        /// emit when ticker is registered
+        /// ticker, ticker owner, expiry
+        TickerRegistered(Vec<u8>, IdentityId, Option<Moment>),
+        /// emit when ticker is transferred
+        /// ticker, from, to
+        TickerTransferred(Vec<u8>, IdentityId, IdentityId),
+        /// emit when ticker is registered
+        /// ticker, current owner, approved owner
+        TickerTransferApproval(Vec<u8>, IdentityId, IdentityId),
+        /// ticker transfer approval withdrawal
+        /// ticker, approved did
+        TickerTransferApprovalWithdrawal(Vec<u8>, IdentityId),
     }
 }
 
@@ -2292,7 +2342,7 @@ mod tests {
                 // Expected token entry
                 let token = SecurityToken {
                     name: vec![0x01],
-                    owner_did: owner_did.clone(),
+                    owner_did: owner_did,
                     total_supply: 1_000_000,
                     divisible: true,
                 };
@@ -2339,15 +2389,15 @@ mod tests {
                         bob_balance[j] += 1;
                         assert_ok!(Asset::transfer(
                             owner_signed.clone(),
-                            owner_did.clone(),
+                            owner_did,
                             token.name.clone(),
-                            bob_did.clone(),
+                            bob_did,
                             1
                         ));
                     }
                     assert_ok!(Asset::create_checkpoint(
                         owner_signed.clone(),
-                        owner_did.clone(),
+                        owner_did,
                         token.name.clone(),
                     ));
                     let x: u64 = u64::try_from(j).unwrap();
@@ -2419,7 +2469,7 @@ mod tests {
 
             let token = SecurityToken {
                 name: vec![0x01],
-                owner_did: owner_did.clone(),
+                owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
             };
@@ -2531,7 +2581,7 @@ mod tests {
 
     //         let token = SecurityToken {
     //             name: vec![0x01],
-    //             owner_did: owner_did.clone(),
+    //             owner_did: owner_did,
     //             total_supply: 1_000_000,
     //             divisible: true,
     //         };
