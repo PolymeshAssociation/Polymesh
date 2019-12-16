@@ -44,7 +44,7 @@ use srml_support::{
     traits::{Currency, LockableCurrency, ReservableCurrency},
     Parameter,
 };
-use system::ensure_signed;
+use system::{ensure_root, ensure_signed};
 
 /// Mesh Improvement Proposal index. Used offchain.
 pub type MipsIndex = u32;
@@ -164,7 +164,10 @@ decl_module! {
         /// * `deposit` the new min deposit required to start a proposal
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            T::CommitteeOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -176,7 +179,10 @@ decl_module! {
         /// * `threshold` the new quorum threshold amount value
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            T::CommitteeOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
             <QuorumThreshold<T>>::put(threshold);
         }
 
@@ -187,7 +193,10 @@ decl_module! {
         /// * `duration` proposal duration in blocks
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_proposal_duration(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            T::CommitteeOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
             <ProposalDuration<T>>::put(duration);
         }
 
@@ -273,6 +282,7 @@ decl_module! {
         pub fn kill_proposal(origin, proposal_hash: T::Hash) {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
+                .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
             Self::close_proposal(proposal_hash.clone());
@@ -283,6 +293,7 @@ decl_module! {
         pub fn enact_referundum(origin, proposal_hash: T::Hash) {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
+                .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
             Self::prepare_to_dispatch(proposal_hash);
