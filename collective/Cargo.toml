@@ -1,0 +1,33 @@
+[package]
+name = "collective"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0", optional = true }
+safe-mix = { version = "1.0", default-features = false}
+codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+substrate-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+sr-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+sr-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+srml-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+system = { package = "srml-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+
+[dev-dependencies]
+hex-literal = "0.2.0"
+
+[features]
+default = ["std"]
+std = [
+	"safe-mix/std",
+	"codec/std",
+	"substrate-primitives/std",
+	"rstd/std",
+	"serde",
+	"sr-io/std",
+	"srml-support/std",
+	"sr-primitives/std",
+	"system/std",
+]
