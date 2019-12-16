@@ -128,7 +128,7 @@ async function main() {
     );
     let accountRawNonce = await api.query.system.accountNonce(master_keys[i].address);
     let account_nonce = new BN(accountRawNonce.toString());
-    nonces.set(master_keys[i].address, account_nonce);  
+    nonces.set(master_keys[i].address, account_nonce);
   }
 
   // Create `n_accounts` signing key accounts
@@ -139,7 +139,7 @@ async function main() {
     );
     let accountRawNonce = await api.query.system.accountNonce(signing_keys[i].address);
     let account_nonce = new BN(accountRawNonce.toString());
-    nonces.set(signing_keys[i].address, account_nonce);  
+    nonces.set(signing_keys[i].address, account_nonce);
   }
   let signing_key = signing_keys[0];
   // console.log(signing_key);
@@ -155,7 +155,7 @@ async function main() {
     );
     let claimIssuerRawNonce = await api.query.system.accountNonce(claim_keys[i].address);
     let account_nonce = new BN(claimIssuerRawNonce.toString());
-    nonces.set(claim_keys[i].address, account_nonce);  
+    nonces.set(claim_keys[i].address, account_nonce);
   }
   // Amount to seed each key with
   let transfer_amount = 10 * 10**12;
@@ -183,7 +183,7 @@ async function main() {
     'Complete: MAKE CLAIMS                    ': n_accounts,
   };
   const init_bars = [];
-  
+
   // create new container
   console.log("=== Processing Transactions ===");
   const init_multibar = new cliProg.MultiBar({
@@ -208,10 +208,11 @@ async function main() {
   let timestamp_extrinsic = current_block["block"]["extrinsics"][0];
   synced_block_ts = parseInt(JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw));
 
+  await createIdentities(api, [alice, bob], "issuer", prepend, init_bars[4], init_bars[5], fast);
   await tps(api, keyring, n_accounts, init_bars[0], init_bars[1], fast); // base currency transfer sanity-check
   await distributePoly(api, keyring, master_keys.concat(signing_keys).concat(claim_keys), transfer_amount, init_bars[2], init_bars[3], fast);
   // Need to wait until POLY has been distributed to pay for the next set of transactions
-  await blockTillPoolEmpty(api, n_accounts);
+  await blockTillPoolEmpty(api);
 
   let issuer_dids = await createIdentities(api, master_keys, "issuer", prepend, init_bars[4], init_bars[5], fast);
   await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7], fast);
@@ -219,15 +220,13 @@ async function main() {
   await issueTokenPerDid(api, master_keys, issuer_dids, prepend, init_bars[10], init_bars[11], fast);
   let claim_issuer_dids = await createIdentities(api, claim_keys, "claim_issuer", prepend, init_bars[12], init_bars[13], fast);
   // Need to wait until identites have been created before we use them
-  await blockTillPoolEmpty(api, n_accounts);
-
   await addClaimIssuersToDids(api, master_keys, issuer_dids, claim_issuer_dids, init_bars[14], init_bars[15], fast);
   // Need to wait until identites have been added as claim issuers
-  await blockTillPoolEmpty(api, n_accounts);
+  await blockTillPoolEmpty(api);
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids, n_claims, init_bars[16], init_bars[17], fast);
   // All transactions subitted, wait for queue to empty
-  await blockTillPoolEmpty(api, n_accounts);
+  await blockTillPoolEmpty(api);
   await new Promise(resolve => setTimeout(resolve, 3000));
   init_multibar.stop();
 
@@ -287,7 +286,7 @@ async function tps(api, keyring, n_accounts, submitBar, completeBar, fast) {
         }
       );
     }
-    
+
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
     submitBar.increment();
   }
@@ -387,17 +386,14 @@ async function createIdentities(api, accounts, identity_type, prepend, submitBar
     fail_type["CREATE IDENTITIES"] = 0;
   }
   for (let i = 0; i < accounts.length; i++) {
-    const did = did_counter;
-    dids.push(did_counter);
-    did_counter++;
     if (fast) {
       await api.tx.identity
-        .registerDid(did, [])
+        .registerDid([])
         .signAndSend(accounts[i],
           { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-        .registerDid(did, [])
+        .registerDid([])
         .signAndSend(accounts[i],
           { nonce: nonces.get(accounts[i].address) },
           ({ events = [], status }) => {
@@ -407,6 +403,7 @@ async function createIdentities(api, accounts, identity_type, prepend, submitBar
               if (section == "identity" && method == "NewDid") {
                 new_did_ok = true;
                 completeBar.increment();
+                subscription.unsubscribe()
               }
             });
 
@@ -422,7 +419,11 @@ async function createIdentities(api, accounts, identity_type, prepend, submitBar
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
     submitBar.increment();
   }
-
+  await blockTillPoolEmpty(api);
+  for (let i = 0; i < accounts.length; i++) {
+    const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
+    dids.push(d.raw.did);
+  }
   return dids;
 }
 
@@ -440,7 +441,7 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
       .addSigningKeys(dids[i], [signing_key])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
-    } else {    
+    } else {
       const unsub = await api.tx.identity
         .addSigningKeys(dids[i], [signing_key])
         .signAndSend(accounts[i],
@@ -477,19 +478,19 @@ async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitB
   for (let i = 0; i < accounts.length; i++) {
     if (fast) {
       const unsub = await api.tx.identity
-      .setRoleToSigningKey(dids[i], signing_accounts[i].publicKey, sk_roles[i%sk_roles.length])
+      .setPermissionToSigningKey(dids[i], signing_accounts[i].publicKey, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-      .setRoleToSigningKey(dids[i], signing_accounts[i].publicKey, sk_roles[i%sk_roles.length])
+      .setPermissionToSigningKey(dids[i], signing_accounts[i].publicKey, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
         if (status.isFinalized) {
           let tx_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
-            if (section == "identity" && method == "SigningKeyRolesUpdated") {
+            if (section == "identity" && method == "SigningPermissionsUpdated") {
               tx_ok = true;
               completeBar.increment();
             }
@@ -526,7 +527,7 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
       const unsub = await api.tx.asset
       .createToken(dids[i], ticker, ticker, 1000000, true)
       .signAndSend(accounts[i],
-        { nonce: nonces.get(accounts[i].address) },        
+        { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
         if (status.isFinalized) {
           let new_token_ok = false;
@@ -616,7 +617,7 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, n_claims, submit
       const unsub = await api.tx.identity
       .addClaim(dids[i], 0, claim_dids[i%claim_dids.length], 0, claim_value)
       .signAndSend(accounts[i%claim_dids.length],
-        { nonce: nonces.get(accounts[i%claim_dids.length].address) },        
+        { nonce: nonces.get(accounts[i%claim_dids.length].address) },
         ({ events = [], status }) => {
         if (status.isFinalized) {
           let new_claim_ok = false;
@@ -638,10 +639,10 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, n_claims, submit
     }
     nonces.set(accounts[i%claim_dids.length].address, nonces.get(accounts[i%claim_dids.length].address).addn(1));
     submitBar.increment();
-  }  
+  }
 }
 
-async function blockTillPoolEmpty(api, expected_tx_count) {
+async function blockTillPoolEmpty(api) {
   let prev_block_pending = 0;
   let done_something = false;
   let done = false;
