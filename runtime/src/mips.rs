@@ -41,7 +41,7 @@ use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
     ensure,
-    traits::{Currency, Get, LockableCurrency, ReservableCurrency},
+    traits::{Currency, LockableCurrency, ReservableCurrency},
     Parameter,
 };
 use system::ensure_signed;
@@ -146,7 +146,7 @@ decl_event!(
         /// Referendum created for proposal referenced by `Hash`
         ReferendumCreated(MipsIndex, Hash),
         /// Proposal referenced by `Hash` was dispatched with the result `bool`
-        Executed(Hash, bool),
+        ReferendumEnacted(Hash, bool),
     }
 );
 
@@ -164,7 +164,31 @@ decl_module! {
         /// * `deposit` the new min deposit required to start a proposal
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
             <MinimumProposalDeposit<T>>::put(deposit);
+        }
+
+        /// Change the quorum threshold amount. This is the amount which a proposal must gather so
+        /// as to be considered by a committee. Only Governance committee is allowed to change
+        /// this value.
+        ///
+        /// # Arguments
+        /// * `threshold` the new quorum threshold amount value
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            <QuorumThreshold<T>>::put(threshold);
+        }
+
+        /// Change the proposal duration value. This is the number of blocks for which votes are
+        /// accepted on a proposal. Only Governance committee is allowed to change this value.
+        ///
+        /// # Arguments
+        /// * `duration` proposal duration in blocks
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_proposal_duration(origin, duration: T::BlockNumber) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            <ProposalDuration<T>>::put(duration);
         }
 
         /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which
@@ -341,7 +365,7 @@ impl<T: Trait> Module<T> {
     /// Close a proposal. Voting ceases and proposal is removed from storage.
     /// All deposits are unlocked and returned to respective stakers.
     fn close_proposal(proposal_hash: T::Hash) {
-        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
+        if let Some(_) = <Voting<T>>::get(proposal_hash) {
             if let Some((proposer, deposit)) = <Deposits<T>>::take(&proposal_hash) {
                 T::Currency::unreserve(&proposer, deposit);
                 if let Some(_) = <Proposals<T>>::take(&proposal_hash) {
@@ -366,7 +390,7 @@ impl<T: Trait> Module<T> {
                     false
                 }
             };
-            Self::deposit_event(RawEvent::Executed(hash, result));
+            Self::deposit_event(RawEvent::ReferendumEnacted(hash, result));
         }
     }
 }
@@ -380,7 +404,7 @@ mod tests {
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, Zero},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
         Perbill,
     };
     use srml_support::{
@@ -389,7 +413,7 @@ mod tests {
         impl_outer_dispatch, impl_outer_origin, parameter_types,
     };
     use substrate_primitives::{Blake2Hasher, H256};
-    use system::EnsureSignedBy;
+    use system::{EnsureSignedBy, EventRecord, Phase};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -529,8 +553,6 @@ mod tests {
         .assimilate_storage(&mut t)
         .unwrap();
         t.into()
-
-        //        sr_io::TestExternalities::new(t)
     }
 
     fn next_block() {
@@ -634,6 +656,55 @@ mod tests {
             fast_forward_to(20);
 
             assert_eq!(MIPS::referendums(&hash), Some(proposal));
+        });
+    }
+
+    #[test]
+    fn should_enact_a_referendum() {
+        with_externalities(&mut new_test_ext(), || {
+            System::set_block_number(1);
+            let proposal = make_proposal(42);
+            let hash = BlakeTwo256::hash_of(&proposal);
+
+            assert_ok!(MIPS::propose(
+                Origin::signed(6),
+                Box::new(proposal.clone()),
+                50
+            ));
+
+            assert_ok!(MIPS::vote(Origin::signed(5), hash, 0, true, 50));
+
+            assert_eq!(
+                MIPS::voting(&hash),
+                Some(Votes {
+                    index: 0,
+                    ayes: vec![(6, 50), (5, 50)],
+                    nays: vec![]
+                })
+            );
+
+            fast_forward_to(20);
+
+            assert_eq!(MIPS::referendums(&hash), Some(proposal));
+
+            assert_ok!(MIPS::enact_referundum(Origin::signed(1), hash));
+        });
+    }
+
+    #[test]
+    fn should_update_mips_variables() {
+        with_externalities(&mut new_test_ext(), || {
+            assert_eq!(MIPS::min_proposal_deposit(), 50);
+            assert_ok!(MIPS::set_min_proposal_deposit(Origin::signed(1), 10));
+            assert_eq!(MIPS::min_proposal_deposit(), 10);
+
+            assert_eq!(MIPS::quorum_threshold(), 70);
+            assert_ok!(MIPS::set_quorum_threshold(Origin::signed(1), 100));
+            assert_eq!(MIPS::quorum_threshold(), 100);
+
+            assert_eq!(MIPS::proposal_duration(), 10);
+            assert_ok!(MIPS::set_proposal_duration(Origin::signed(1), 100));
+            assert_eq!(MIPS::proposal_duration(), 100);
         });
     }
 }
