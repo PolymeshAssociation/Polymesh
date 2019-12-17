@@ -278,10 +278,12 @@ decl_module! {
                 if <TickerTransferApprovals>::exists(&to_did_none) {
                     let none_tta = Self::ticker_transfer_approvals(&to_did_none);
                     next_ticker = none_tta.next_ticker.clone();
-                    <TickerTransferApprovals>::mutate(
-                        (to_did, none_tta.next_ticker),
-                        |tta| tta.previous_ticker = Some(ticker.clone())
-                    );
+                    if next_ticker.is_some() {
+                        <TickerTransferApprovals>::mutate(
+                            (to_did, none_tta.next_ticker),
+                            |tta| tta.previous_ticker = Some(ticker.clone())
+                        );
+                    }
                 } else {
                     next_ticker = None;
                 }
@@ -335,16 +337,20 @@ decl_module! {
             let tta = Self::ticker_transfer_approvals(&to_did_ticker);
             ensure!(Self::is_ticker_registry_valid(&ticker, tta.authorized_by), "ticker registered to someone else");
 
-            <TickerTransferApprovals>::mutate(
-                (to_did, tta.previous_ticker.clone()),
-                |previous_tta| previous_tta.next_ticker = tta.next_ticker.clone()
-            );
-
-            if tta.next_ticker.is_some() {
+            if tta.next_ticker.is_none() && tta.previous_ticker.is_none(){
+                // This transfer approval is the last approval
+                <TickerTransferApprovals>::remove((to_did, None));
+            } else {
                 <TickerTransferApprovals>::mutate(
-                    (to_did, tta.next_ticker.clone()),
-                    |next_tta| next_tta.previous_ticker = tta.previous_ticker
+                    (to_did, tta.previous_ticker.clone()),
+                    |previous_tta| previous_tta.next_ticker = tta.next_ticker.clone()
                 );
+                if tta.next_ticker.is_some() {
+                    <TickerTransferApprovals>::mutate(
+                        (to_did, tta.next_ticker.clone()),
+                        |next_tta| next_tta.previous_ticker = tta.previous_ticker
+                    );
+                }
             }
 
             <TickerTransferApprovals>::remove(&to_did_ticker);
@@ -2712,9 +2718,9 @@ mod tests {
 
             let approval1 =
                 Asset::ticker_transfer_approvals((alice_did, ordered_tickers[1].clone()));
-            assert_eq!(approval0.previous_ticker, ordered_tickers[0]);
-            assert_eq!(approval0.next_ticker, ordered_tickers[0]);
-            assert_eq!(approval0.authorized_by, owner_did);
+            assert_eq!(approval1.previous_ticker, ordered_tickers[0]);
+            assert_eq!(approval1.next_ticker, ordered_tickers[0]);
+            assert_eq!(approval1.authorized_by, owner_did);
 
             assert_ok!(Asset::approve_ticker_transfer(
                 owner_signed.clone(),
@@ -2749,6 +2755,136 @@ mod tests {
 
             assert_err!(
                 Asset::process_ticker_transfer(alice_signed.clone(), tickers[1].clone()),
+                "token already created"
+            );
+        })
+    }
+
+    #[test]
+    fn withdraw_transfer_ticker() {
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+
+            let bob_acc = AccountId::from(AccountKeyring::Bob);
+            let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
+
+            let tickers = vec![vec![0x01, 0x01], vec![0x02, 0x02], vec![0x03, 0x03]];
+
+            for ticker in &tickers {
+                assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker.clone()));
+                assert_ok!(Asset::approve_ticker_transfer(
+                    owner_signed.clone(),
+                    alice_did,
+                    ticker.clone()
+                ));
+                assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
+                assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), false);
+                assert_eq!(Asset::is_ticker_available(&ticker), false);
+            }
+
+            assert_ok!(Asset::withdraw_ticker_transfer_approval(
+                owner_signed.clone(),
+                alice_did,
+                tickers[0].clone()
+            ));
+
+            assert_eq!(
+                Asset::is_ticker_registry_valid(&tickers[0], alice_did),
+                false
+            );
+            assert_eq!(
+                Asset::is_ticker_registry_valid(&tickers[0], owner_did),
+                true
+            );
+            assert_eq!(Asset::is_ticker_available(&tickers[0]), false);
+
+            assert_err!(
+                Asset::process_ticker_transfer(alice_signed.clone(), tickers[0].clone()),
+                "Transfer not approved"
+            );
+
+            assert_ok!(Asset::withdraw_ticker_transfer_approval(
+                owner_signed.clone(),
+                alice_did,
+                tickers[2].clone()
+            ));
+
+            assert_err!(
+                Asset::process_ticker_transfer(alice_signed.clone(), tickers[2].clone()),
+                "Transfer not approved"
+            );
+
+            let ordered_tickers = vec![None, Some(vec![0x02, 0x02])];
+
+            let approval0 =
+                Asset::ticker_transfer_approvals((alice_did, ordered_tickers[0].clone()));
+            assert_eq!(approval0.previous_ticker, ordered_tickers[0]);
+            assert_eq!(approval0.next_ticker, ordered_tickers[1]);
+            assert_eq!(approval0.authorized_by, owner_did);
+
+            let approval1 =
+                Asset::ticker_transfer_approvals((alice_did, ordered_tickers[1].clone()));
+            assert_eq!(approval1.previous_ticker, ordered_tickers[0]);
+            assert_eq!(approval1.next_ticker, ordered_tickers[0]);
+            assert_eq!(approval1.authorized_by, owner_did);
+
+            assert_err!(
+                Asset::withdraw_ticker_transfer_approval(
+                    owner_signed.clone(),
+                    bob_did,
+                    tickers[1].clone()
+                ),
+                "ticker transfer not approved"
+            );
+
+            assert_ok!(Asset::approve_ticker_transfer(
+                owner_signed.clone(),
+                bob_did,
+                tickers[1].clone()
+            ));
+
+            assert_ok!(Asset::process_ticker_transfer(
+                bob_signed.clone(),
+                tickers[1].clone()
+            ));
+
+            assert_err!(
+                Asset::withdraw_ticker_transfer_approval(
+                    owner_signed.clone(),
+                    alice_did,
+                    tickers[1].clone()
+                ),
+                "ticker registered to someone else"
+            );
+
+            assert_ok!(Asset::approve_ticker_transfer(
+                bob_signed.clone(),
+                alice_did,
+                tickers[1].clone()
+            ));
+
+            assert_ok!(Asset::create_token(
+                bob_signed.clone(),
+                bob_did,
+                tickers[1].clone(),
+                tickers[1].clone(),
+                100,
+                true
+            ));
+
+            assert_err!(
+                Asset::withdraw_ticker_transfer_approval(
+                    bob_signed.clone(),
+                    alice_did,
+                    tickers[1].clone()
+                ),
                 "token already created"
             );
         })
