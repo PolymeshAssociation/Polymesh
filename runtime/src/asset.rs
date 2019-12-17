@@ -224,20 +224,10 @@ decl_module! {
             // ticker already registered to someone. Ensure that the ticker is registered to same did
             ensure!(Self::is_ticker_available_or_registered_to(&ticker, to_did) > 0, "ticker registered to someone else");
 
-            // charge fee
-            Self::charge_ticker_registration_fee(&ticker, sender.clone(), to_did);
-
             let now = <timestamp::Module<T>>::get();
             let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
-            let ticker_registration = TickerRegistration {
-                owner: to_did,
-                expiry: expiry.clone()
-            };
 
-            // Store ticker registration details
-            <Tickers<T>>::insert(&ticker, ticker_registration);
-
-            Self::deposit_event(RawEvent::TickerRegistered(ticker, to_did, expiry));
+            Self::_register_ticker(&ticker, sender, to_did, expiry);
 
             Ok(())
         }
@@ -469,16 +459,7 @@ decl_module! {
 
             if is_ticker_available_or_registered_to == 1 {
                 // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
-                Self::charge_ticker_registration_fee(&ticker, sender, did);
-
-                let ticker_registration = TickerRegistration {
-                    owner: did,
-                    expiry: None
-                };
-
-                // Store ticker registration details
-                <Tickers<T>>::insert(&ticker, ticker_registration);
-                Self::deposit_event(RawEvent::TickerRegistered(ticker.clone(), did, None));
+                Self::_register_ticker(&ticker, sender, did, None);
             } else {
                 <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
             }
@@ -1317,6 +1298,26 @@ impl<T: Trait> Module<T> {
         }
         // Ticker not registered yet
         return 1;
+    }
+
+    fn _register_ticker(
+        ticker: &Vec<u8>,
+        sender: T::AccountId,
+        to_did: IdentityId,
+        expiry: Option<T::Moment>,
+    ) {
+        // charge fee
+        Self::charge_ticker_registration_fee(ticker, sender.clone(), to_did);
+
+        let ticker_registration = TickerRegistration {
+            owner: to_did,
+            expiry: expiry.clone(),
+        };
+
+        // Store ticker registration details
+        <Tickers<T>>::insert(ticker, ticker_registration);
+
+        Self::deposit_event(RawEvent::TickerRegistered(ticker.to_vec(), to_did, expiry));
     }
 
     fn charge_ticker_registration_fee(_ticker: &Vec<u8>, _sender: T::AccountId, _did: IdentityId) {
