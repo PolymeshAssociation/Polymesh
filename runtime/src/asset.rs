@@ -381,6 +381,22 @@ decl_module! {
             let to_did_ticker = (to_did, Some(ticker.clone()));
 
             ensure!(<TickerTransferApprovals>::exists(&to_did_ticker), "ticker transfer not approved");
+
+            let tta = Self::ticker_transfer_approvals(&to_did_ticker);
+            ensure!(Self::is_ticker_registry_valid(&ticker, tta.authorized_by), "ticker registered to someone else");
+
+            <TickerTransferApprovals>::mutate(
+                (to_did, tta.previous_ticker.clone()),
+                |previous_tta| previous_tta.next_ticker = tta.next_ticker.clone()
+            );
+
+            if tta.next_ticker.is_some() {
+                <TickerTransferApprovals>::mutate(
+                    (to_did, tta.next_ticker.clone()),
+                    |next_tta| next_tta.previous_ticker = tta.previous_ticker
+                );
+            }
+
             <TickerTransferApprovals>::remove(&to_did_ticker);
             Self::deposit_event(RawEvent::TickerTransferApprovalWithdrawal(ticker, to_did));
             Ok(())
