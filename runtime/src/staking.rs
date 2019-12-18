@@ -2154,7 +2154,7 @@ mod tests {
                 .collect::<Vec<_>>();
 
             let account_key_ring: HashMap<u64, Public> =
-                [10, 11, 20, 21, 30, 40, 41, 100, 101, 999]
+                [10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999]
                     .into_iter()
                     .map(|id| (*id, account_from(*id)))
                     .collect();

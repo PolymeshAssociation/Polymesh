@@ -664,12 +664,12 @@ fn one_step_join_id_with_ext() {
     let signing_items_with_auth = vec![
         SigningItemWithAuth {
             account_id: b_pub.clone(),
-            signing_item: SigningItem::from(b_id),
+            signing_item: SigningItem::from(b_id.clone()),
             authorization: authorizations[0].clone(),
         },
         SigningItemWithAuth {
             account_id: c_pub.clone(),
-            signing_item: SigningItem::from(c_id),
+            signing_item: SigningItem::from(c_id.clone()),
             authorization: authorizations[1].clone(),
         },
     ];
@@ -686,15 +686,7 @@ fn one_step_join_id_with_ext() {
         signatures
     ));
 
-    let b_key = Key::from(b_pub.0);
-    let c_key = Key::from(c_pub.0);
     let signing_items = Identity::did_records(a_id).signing_items;
-    assert_eq!(
-        signing_items.iter().find(|si| **si == b_key).is_some(),
-        true
-    );
-    assert_eq!(
-        signing_items.iter().find(|si| **si == c_key).is_some(),
-        true
-    );
+    assert_eq!(signing_items.iter().find(|si| **si == b_id).is_some(), true);
+    assert_eq!(signing_items.iter().find(|si| **si == c_id).is_some(), true);
 }
