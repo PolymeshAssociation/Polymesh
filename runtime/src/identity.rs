@@ -538,24 +538,25 @@ decl_module! {
         }
 
         /// It adds signing keys to target identity `id`.
+        ///
         /// Keys are directly added to identity because each of them has an authorization.
         /// Authorization is composed by two parts:
-        ///     * An authorization message: It contains the target identity for this authorization
-        ///     an a `nonce` field to avoid replay attack.
-        ///     * A signature of authorization: It is the signature of authorization message. It
+        ///     - An authorization message: It contains the target identity for this authorization
+        ///     an a 'nonce' field to avoid replay attack.
+        ///     - A signature of authorization: It is the signature of authorization message. It
         ///     was carried out by signing key previously (off-chain).
         ///
-        /// # Arguments
-        ///     * `origin` Master key of `id` identity.
-        ///     * `id` Identity where new signing keys will be added.
-        ///     * `additional_keys` New keys (and their authorization data) to add to target
+        /// Arguments:
+        ///     - `origin` Master key of `id` identity.
+        ///     - `id` Identity where new signing keys will be added.
+        ///     - `additional_keys` New keys (and their authorization data) to add to target
         ///     identity.
         ///
-        /// # Failure
-        ///     * It can only called by master key owner.
-        ///     * Each authorization has to be generated for `id` identity and its signature has to be
+        /// Failure
+        ///     - It can only called by master key owner.
+        ///     - Each authorization has to be generated for `id` identity and its signature has to be
         ///  valid.
-        ///     *  Keys should be able to linked to any identity.
+        ///     -  Keys should be able to linked to any identity.
         pub fn add_signing_items_with_authorization( origin,
                 id: IdentityId,
                 additional_keys: Vec<SigningItemWithAuth<T::AccountId>>,
