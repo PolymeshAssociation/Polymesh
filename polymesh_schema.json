@@ -169,5 +169,15 @@
         "voting_start": "Moment",
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
+    },
+    "OffChainSignature": "H512",
+    "PermissionedValidator": {
+        "compliance": "Compliance"
+    },
+    "Compliance": {
+        "_enum": [
+            "Pending",
+            "Active"
+        ]
     }
 }
