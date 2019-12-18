@@ -131,6 +131,13 @@ pub struct TickerTransferApproval<U> {
     pub previous_ticker: Option<Vec<u8>>,
 }
 
+#[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq, Debug)]
+pub enum TickerRegistrationStatus {
+    RegisteredByOther,
+    Available,
+    RegisteredByDid,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// The DID of the fee collector
@@ -221,8 +228,11 @@ decl_module! {
 
             ensure!(ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(), "ticker length over the limit");
 
-            // ticker already registered to someone. Ensure that the ticker is registered to same did
-            ensure!(Self::is_ticker_available_or_registered_to(&ticker, to_did) > 0, "ticker registered to someone else");
+            // Ensure that the ticker is not registered by someone else
+            ensure!(
+                Self::is_ticker_available_or_registered_to(&ticker, to_did) != TickerRegistrationStatus::RegisteredByOther,
+                "ticker registered to someone else"
+            );
 
             let now = <timestamp::Module<T>>::get();
             let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
@@ -429,7 +439,7 @@ decl_module! {
 
             let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
 
-            ensure!(is_ticker_available_or_registered_to > 0, "Ticker registered to someone else");
+            ensure!(is_ticker_available_or_registered_to != TickerRegistrationStatus::RegisteredByOther, "Ticker registered to someone else");
 
             if !divisible {
                 ensure!(total_supply % ONE_UNIT.into() == 0.into(), "Invalid Total supply");
@@ -457,10 +467,11 @@ decl_module! {
             let remainder_fee = fee - (proportional_fee * validator_len);
             let _withdraw_result = <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
 
-            if is_ticker_available_or_registered_to == 1 {
+            if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {
                 // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
                 Self::_register_ticker(&ticker, sender, did, None);
             } else {
+                // Ticker already registered by the user
                 <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
             }
 
@@ -1276,7 +1287,10 @@ impl<T: Trait> Module<T> {
     /// Returns 0 if ticker is registered to someone else
     /// 1 if ticker is available for registry
     /// 2 if ticker is already registered to provided did
-    pub fn is_ticker_available_or_registered_to(ticker: &Vec<u8>, did: IdentityId) -> u8 {
+    pub fn is_ticker_available_or_registered_to(
+        ticker: &Vec<u8>,
+        did: IdentityId,
+    ) -> TickerRegistrationStatus {
         // Assumes uppercase ticker
         if <Tickers<T>>::exists(ticker.clone()) {
             let ticker_reg = Self::ticker_registration(ticker.clone());
@@ -1284,20 +1298,20 @@ impl<T: Trait> Module<T> {
                 let now = <timestamp::Module<T>>::get();
                 if now > expiry {
                     // ticker registered to someone but expired and can be registered again
-                    return 1;
+                    return TickerRegistrationStatus::Available;
                 } else if ticker_reg.owner == did {
                     // ticker is already registered to provided did (but may expire in future)
-                    return 2;
+                    return TickerRegistrationStatus::RegisteredByDid;
                 }
             } else if ticker_reg.owner == did {
                 // ticker is already registered to provided did (and will never expire)
-                return 2;
+                return TickerRegistrationStatus::RegisteredByDid;
             }
             // ticker registered to someone else
-            return 0;
+            return TickerRegistrationStatus::RegisteredByOther;
         }
         // Ticker not registered yet
-        return 1;
+        return TickerRegistrationStatus::Available;
     }
 
     fn _register_ticker(
