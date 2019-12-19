@@ -58,15 +58,15 @@ pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::Accoun
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
 /// Info for keeping track of a motion being voted on.
-pub struct Votes<AccountId> {
+pub struct Votes<IdentityId> {
     /// The proposal's unique index.
     index: ProposalIndex,
     /// The number of approval votes that are needed to pass the motion.
     threshold: MemberCount,
     /// The current set of voters that approved it.
-    ayes: Vec<AccountId>,
+    ayes: Vec<IdentityId>,
     /// The current set of voters that rejected it.
-    nays: Vec<AccountId>,
+    nays: Vec<IdentityId>,
 }
 
 decl_storage! {
@@ -137,9 +137,12 @@ decl_module! {
         ///
         /// Origin must be a member of the collective.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn execute(origin, proposal: Box<<T as Trait<I>>::Proposal>) {
-            let who = ensure_signed(origin)?;
-            ensure!(Self::is_member(&who), "proposer not a member");
+        fn execute(origin, did: IdentityId, proposal: Box<<T as Trait<I>>::Proposal>) {
+            // Account should be associated with the `did`
+            // TODO: uncomment when identity module is available at top level
+            // ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+
+            ensure!(Self::is_member(&did), "proposer not a member");
 
             let proposal_hash = T::Hashing::hash_of(&proposal);
             let ok = proposal.dispatch(RawOrigin::Member(who).into()).is_ok();
@@ -151,9 +154,12 @@ decl_module! {
         /// - Argument `threshold` has bearing on weight.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
-        fn propose(origin, #[compact] threshold: MemberCount, proposal: Box<<T as Trait<I>>::Proposal>) {
-            let who = ensure_signed(origin)?;
-            ensure!(Self::is_member(&who), "proposer not a member");
+        fn propose(origin, did: IdentityId, #[compact] threshold: MemberCount, proposal: Box<<T as Trait<I>>::Proposal>) {
+            // Account should be associated with the `did`
+            // TODO: uncomment when identity module is available at top level
+            // ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+
+            ensure!(Self::is_member(&did), "proposer not a member");
 
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
@@ -168,10 +174,10 @@ decl_module! {
                 <ProposalCount<I>>::mutate(|i| *i += 1);
                 <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
                 <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
-                let votes = Votes { index, threshold, ayes: vec![who.clone()], nays: vec![] };
+                let votes = Votes { index, threshold, ayes: vec![did.clone()], nays: vec![] };
                 <Voting<T, I>>::insert(proposal_hash, votes);
 
-                Self::deposit_event(RawEvent::Proposed(who, index, proposal_hash, threshold));
+                Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash, threshold));
             }
         }
 
@@ -180,19 +186,22 @@ decl_module! {
         /// - Will be slightly heavier if the proposal is approved / disapproved after the vote.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
-            let who = ensure_signed(origin)?;
-            ensure!(Self::is_member(&who), "voter not a member");
+        fn vote(origin, did: IdentityId, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
+            // Account should be associated with the `did`
+            // TODO: uncomment when identity module is available at top level
+            // ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+
+            ensure!(Self::is_member(&did), "proposer not a member");
 
             let mut voting = Self::voting(&proposal).ok_or("proposal must exist")?;
             ensure!(voting.index == index, "mismatched index");
 
-            let position_yes = voting.ayes.iter().position(|a| a == &who);
-            let position_no = voting.nays.iter().position(|a| a == &who);
+            let position_yes = voting.ayes.iter().position(|a| a == &did);
+            let position_no = voting.nays.iter().position(|a| a == &did);
 
             if approve {
                 if position_yes.is_none() {
-                    voting.ayes.push(who.clone());
+                    voting.ayes.push(did.clone());
                 } else {
                     return Err("duplicate vote ignored")
                 }
@@ -201,7 +210,7 @@ decl_module! {
                 }
             } else {
                 if position_no.is_none() {
-                    voting.nays.push(who.clone());
+                    voting.nays.push(did.clone());
                 } else {
                     return Err("duplicate vote ignored")
                 }
@@ -212,7 +221,7 @@ decl_module! {
 
             let yes_votes = voting.ayes.len() as MemberCount;
             let no_votes = voting.nays.len() as MemberCount;
-            Self::deposit_event(RawEvent::Voted(who, proposal, approve, yes_votes, no_votes));
+            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
 
             let seats = Self::members().len() as MemberCount;
             let approved = yes_votes >= voting.threshold;
@@ -244,8 +253,8 @@ decl_module! {
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
-    pub fn is_member(who: &T::AccountId) -> bool {
-        Self::members().contains(who)
+    pub fn is_member(did: &IdentityId) -> bool {
+        Self::members().contains(did)
     }
 }
 
