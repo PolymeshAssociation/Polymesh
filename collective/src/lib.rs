@@ -76,15 +76,15 @@ decl_storage! {
         /// Actual proposal for a given hash, if it's current.
         pub ProposalOf get(proposal_of): map T::Hash => Option<<T as Trait<I>>::Proposal>;
         /// Votes on a given proposal, if it is ongoing.
-        pub Voting get(voting): map T::Hash => Option<Votes<T::AccountId>>;
+        pub Voting get(voting): map T::Hash => Option<Votes<IdentityId>>;
         /// Proposals so far.
         pub ProposalCount get(proposal_count): u32;
         /// The current members of the collective. This is stored sorted (just by value).
-        pub Members get(members): Vec<T::AccountId>;
+        pub Members get(members): Vec<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): rstd::marker::PhantomData<I>;
-        config(members): Vec<T::AccountId>;
+        config(members): Vec<IdentityId>;
         build(|config| Module::<T, I>::initialize_members(&config.members))
     }
 }
@@ -123,12 +123,12 @@ decl_module! {
         ///
         /// Requires root origin.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn set_members(origin, new_members: Vec<T::AccountId>) {
+        fn set_members(origin, new_members: Vec<IdentityId>) {
             ensure_root(origin)?;
             let mut new_members = new_members;
             new_members.sort();
             <Members<T, I>>::mutate(|m| {
-                <Self as ChangeMembers<T::AccountId>>::set_members_sorted(&new_members[..], m);
+                <Self as ChangeMembers<IdentityId>>::set_members_sorted(&new_members[..], m);
                 *m = new_members;
             });
         }
@@ -258,11 +258,11 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 }
 
-impl<T: Trait<I>, I: Instance> ChangeMembers<T::AccountId> for Module<T, I> {
+impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
     fn change_members_sorted(
-        _incoming: &[T::AccountId],
-        outgoing: &[T::AccountId],
-        new: &[T::AccountId],
+        _incoming: &[IdentityId],
+        outgoing: &[IdentityId],
+        new: &[IdentityId],
     ) {
         // remove accounts from all current voting in motions.
         let mut outgoing = outgoing.to_vec();
@@ -288,8 +288,8 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<T::AccountId> for Module<T, I> {
     }
 }
 
-impl<T: Trait<I>, I: Instance> InitializeMembers<T::AccountId> for Module<T, I> {
-    fn initialize_members(members: &[T::AccountId]) {
+impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
+    fn initialize_members(members: &[IdentityId]) {
         if !members.is_empty() {
             assert!(
                 <Members<T, I>>::get().is_empty(),
