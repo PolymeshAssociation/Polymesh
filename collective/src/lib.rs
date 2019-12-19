@@ -7,17 +7,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "128"]
 
+use substrate_primitives::u32_trait::Value as U32;
 use rstd::{prelude::*, result};
 use sr_primitives::traits::{EnsureOrigin, Hash};
 use sr_primitives::weights::SimpleDispatchInfo;
-use srml_support::{
+use support::{
     codec::{Decode, Encode},
     decl_event, decl_module, decl_storage,
     dispatch::{Dispatchable, Parameter},
     ensure,
     traits::{ChangeMembers, InitializeMembers},
 };
-use substrate_primitives::u32_trait::Value as U32;
 use system::{self, ensure_root, ensure_signed};
 
 /// Simple index type for proposal counting.
@@ -58,15 +58,15 @@ pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::Accoun
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
 /// Info for keeping track of a motion being voted on.
-pub struct Votes<IdentityId> {
+pub struct Votes<AccountId> {
     /// The proposal's unique index.
     index: ProposalIndex,
     /// The number of approval votes that are needed to pass the motion.
     threshold: MemberCount,
     /// The current set of voters that approved it.
-    ayes: Vec<IdentityId>,
+    ayes: Vec<AccountId>,
     /// The current set of voters that rejected it.
-    nays: Vec<IdentityId>,
+    nays: Vec<AccountId>,
 }
 
 decl_storage! {
@@ -76,15 +76,15 @@ decl_storage! {
         /// Actual proposal for a given hash, if it's current.
         pub ProposalOf get(proposal_of): map T::Hash => Option<<T as Trait<I>>::Proposal>;
         /// Votes on a given proposal, if it is ongoing.
-        pub Voting get(voting): map T::Hash => Option<Votes<IdentityId>>;
+        pub Voting get(voting): map T::Hash => Option<Votes<T::AccountId>>;
         /// Proposals so far.
         pub ProposalCount get(proposal_count): u32;
         /// The current members of the collective. This is stored sorted (just by value).
-        pub Members get(members): Vec<IdentityId>;
+        pub Members get(members): Vec<T::AccountId>;
     }
     add_extra_genesis {
         config(phantom): rstd::marker::PhantomData<I>;
-        config(members): Vec<IdentityId>;
+        config(members): Vec<T::AccountId>;
         build(|config| Module::<T, I>::initialize_members(&config.members))
     }
 }
@@ -123,12 +123,12 @@ decl_module! {
         ///
         /// Requires root origin.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn set_members(origin, new_members: Vec<IdentityId>) {
+        fn set_members(origin, new_members: Vec<T::AccountId>) {
             ensure_root(origin)?;
             let mut new_members = new_members;
             new_members.sort();
             <Members<T, I>>::mutate(|m| {
-                <Self as ChangeMembers<IdentityId>>::set_members_sorted(&new_members[..], m);
+                <Self as ChangeMembers<T::AccountId>>::set_members_sorted(&new_members[..], m);
                 *m = new_members;
             });
         }
@@ -137,12 +137,9 @@ decl_module! {
         ///
         /// Origin must be a member of the collective.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn execute(origin, did: IdentityId, proposal: Box<<T as Trait<I>>::Proposal>) {
-            // Account should be associated with the `did`
-            // TODO: uncomment when identity module is available at top level
-            // ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
-
-            ensure!(Self::is_member(&did), "proposer not a member");
+        fn execute(origin, proposal: Box<<T as Trait<I>>::Proposal>) {
+            let who = ensure_signed(origin)?;
+            ensure!(Self::is_member(&who), "proposer not a member");
 
             let proposal_hash = T::Hashing::hash_of(&proposal);
             let ok = proposal.dispatch(RawOrigin::Member(who).into()).is_ok();
@@ -154,12 +151,9 @@ decl_module! {
         /// - Argument `threshold` has bearing on weight.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
-        fn propose(origin, did: IdentityId, #[compact] threshold: MemberCount, proposal: Box<<T as Trait<I>>::Proposal>) {
-            // Account should be associated with the `did`
-            // TODO: uncomment when identity module is available at top level
-            // ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
-
-            ensure!(Self::is_member(&did), "proposer not a member");
+        fn propose(origin, #[compact] threshold: MemberCount, proposal: Box<<T as Trait<I>>::Proposal>) {
+            let who = ensure_signed(origin)?;
+            ensure!(Self::is_member(&who), "proposer not a member");
 
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
@@ -174,10 +168,10 @@ decl_module! {
                 <ProposalCount<I>>::mutate(|i| *i += 1);
                 <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
                 <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
-                let votes = Votes { index, threshold, ayes: vec![did.clone()], nays: vec![] };
+                let votes = Votes { index, threshold, ayes: vec![who.clone()], nays: vec![] };
                 <Voting<T, I>>::insert(proposal_hash, votes);
 
-                Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash, threshold));
+                Self::deposit_event(RawEvent::Proposed(who, index, proposal_hash, threshold));
             }
         }
 
@@ -186,22 +180,19 @@ decl_module! {
         /// - Will be slightly heavier if the proposal is approved / disapproved after the vote.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        fn vote(origin, did: IdentityId, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
-            // Account should be associated with the `did`
-            // TODO: uncomment when identity module is available at top level
-            // ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
-
-            ensure!(Self::is_member(&did), "proposer not a member");
+        fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
+            let who = ensure_signed(origin)?;
+            ensure!(Self::is_member(&who), "voter not a member");
 
             let mut voting = Self::voting(&proposal).ok_or("proposal must exist")?;
             ensure!(voting.index == index, "mismatched index");
 
-            let position_yes = voting.ayes.iter().position(|a| a == &did);
-            let position_no = voting.nays.iter().position(|a| a == &did);
+            let position_yes = voting.ayes.iter().position(|a| a == &who);
+            let position_no = voting.nays.iter().position(|a| a == &who);
 
             if approve {
                 if position_yes.is_none() {
-                    voting.ayes.push(did.clone());
+                    voting.ayes.push(who.clone());
                 } else {
                     return Err("duplicate vote ignored")
                 }
@@ -210,7 +201,7 @@ decl_module! {
                 }
             } else {
                 if position_no.is_none() {
-                    voting.nays.push(did.clone());
+                    voting.nays.push(who.clone());
                 } else {
                     return Err("duplicate vote ignored")
                 }
@@ -221,7 +212,7 @@ decl_module! {
 
             let yes_votes = voting.ayes.len() as MemberCount;
             let no_votes = voting.nays.len() as MemberCount;
-            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
+            Self::deposit_event(RawEvent::Voted(who, proposal, approve, yes_votes, no_votes));
 
             let seats = Self::members().len() as MemberCount;
             let approved = yes_votes >= voting.threshold;
@@ -253,16 +244,16 @@ decl_module! {
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
-    pub fn is_member(did: &IdentityId) -> bool {
-        Self::members().contains(did)
+    pub fn is_member(who: &T::AccountId) -> bool {
+        Self::members().contains(who)
     }
 }
 
-impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
+impl<T: Trait<I>, I: Instance> ChangeMembers<T::AccountId> for Module<T, I> {
     fn change_members_sorted(
-        _incoming: &[IdentityId],
-        outgoing: &[IdentityId],
-        new: &[IdentityId],
+        _incoming: &[T::AccountId],
+        outgoing: &[T::AccountId],
+        new: &[T::AccountId],
     ) {
         // remove accounts from all current voting in motions.
         let mut outgoing = outgoing.to_vec();
@@ -288,8 +279,8 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
     }
 }
 
-impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
-    fn initialize_members(members: &[IdentityId]) {
+impl<T: Trait<I>, I: Instance> InitializeMembers<T::AccountId> for Module<T, I> {
+    fn initialize_members(members: &[T::AccountId]) {
         if !members.is_empty() {
             assert!(
                 <Members<T, I>>::get().is_empty(),
@@ -392,14 +383,14 @@ mod tests {
     use super::*;
     use crate as collective;
     use hex_literal::hex;
-    use sr_io::with_externalities;
+    use primitives::{Blake2Hasher, H256};
+    use runtime_io::with_externalities;
     use sr_primitives::{
         testing::Header,
         traits::{BlakeTwo256, Block as BlockT, IdentityLookup},
         BuildStorage, Perbill,
     };
-    use srml_support::{assert_noop, assert_ok, parameter_types, Hashable};
-    use substrate_primitives::{Blake2Hasher, H256};
+    use support::{assert_noop, assert_ok, parameter_types, Hashable};
     use system::{EventRecord, Phase};
 
     parameter_types! {
@@ -440,7 +431,7 @@ mod tests {
     pub type Block = sr_primitives::generic::Block<Header, UncheckedExtrinsic>;
     pub type UncheckedExtrinsic = sr_primitives::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
 
-    srml_support::construct_runtime!(
+    support::construct_runtime!(
 		pub enum Test where
 			Block = Block,
 			NodeBlock = Block,
@@ -452,7 +443,7 @@ mod tests {
 		}
 	);
 
-    fn make_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+    fn make_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
         GenesisConfig {
             collective_Instance1: Some(collective::GenesisConfig {
                 members: vec![1, 2, 3],
