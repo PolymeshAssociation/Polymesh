@@ -62,14 +62,9 @@
         "signer_type": "SignerType",
         "permissions": "Vec<Permission>"
     },
-    "AddSigningItemAuthorization": {
-        "target_id": "IdentityId",
-        "nonce": "u32"
-    },
     "SigningItemWithAuth":{
-        "account_id": "AccountId",
         "signing_item": "SigningItem",
-        "authorization": "AddSigningItemAuthorization"
+        "auth_signature": "Signature"
     },
     "LinkedKeyInfo": {
         "_enum": "[u8;1]",
