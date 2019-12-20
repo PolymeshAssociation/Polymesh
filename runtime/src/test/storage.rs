@@ -109,7 +109,6 @@ impl sr_primitives::traits::Dispatchable for IdentityProposal {
 impl identity::Trait for TestStorage {
     type Event = ();
     type Proposal = IdentityProposal;
-    type OffChainSign = AnySignature;
 }
 
 // Publish type alias for each module

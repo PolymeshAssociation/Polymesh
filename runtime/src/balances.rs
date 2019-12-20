@@ -1454,7 +1454,6 @@ mod tests {
     impl identity::Trait for Runtime {
         type Event = ();
         type Proposal = IdentityProposal;
-        type OffChainSign = AnySignature;
     }
     impl timestamp::Trait for Runtime {
         type Moment = u64;

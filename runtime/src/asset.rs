@@ -1521,7 +1521,6 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
-        type OffChainSign = AnySignature;
     }
     impl percentage_tm::Trait for Test {
         type Event = ();

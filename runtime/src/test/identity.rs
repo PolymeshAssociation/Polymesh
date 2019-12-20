@@ -1,20 +1,20 @@
 use crate::{
     balances,
-    identity::{self, AddSigningItemAuthorization, ClaimValue, DataTypes, SigningItemWithAuth},
+    identity::{self, ClaimValue, DataTypes, SigningItemWithAuth, TargetIdAuthorization},
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use primitives::{Key, Permission, Signer, SignerType, SigningItem};
 
 use codec::Encode;
 use sr_io::with_externalities;
-use sr_primitives::AnySignature;
 use srml_support::{assert_err, assert_ok, traits::Currency};
+use substrate_primitives::H512;
 use test_client::AccountKeyring;
-
-type OffChainSign = AnySignature;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
+type System = system::Module<TestStorage>;
+
 type Origin = <TestStorage as system::Trait>::Origin;
 
 #[test]
@@ -644,49 +644,63 @@ fn one_step_join_id() {
 
 fn one_step_join_id_with_ext() {
     let a_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let a = Origin::signed(AccountKeyring::Alice.public());
+    let a_pub = AccountKeyring::Alice.public();
+    let a = Origin::signed(a_pub.clone());
     let b_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let b_pub = AccountKeyring::Bob.public();
     let c_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let c_pub = AccountKeyring::Charlie.public();
+    let d_id = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-    let authorizations = [
-        AddSigningItemAuthorization {
-            target_id: a_id.clone(),
-            nonce: 12345,
-        },
-        AddSigningItemAuthorization {
-            target_id: a_id.clone(),
-            nonce: 42,
-        },
-    ];
+    let a_nonce = System::account_nonce(AccountKeyring::Alice.public());
+    let authorization = TargetIdAuthorization {
+        target_id: a_id.clone(),
+        nonce: a_nonce,
+    }
+    .encode();
+
+    let signatures = [
+        AccountKeyring::Bob,
+        AccountKeyring::Charlie,
+        AccountKeyring::Dave,
+    ]
+    .into_iter()
+    .map(|acc| H512::from(acc.sign(&authorization)))
+    .collect::<Vec<_>>();
 
     let signing_items_with_auth = vec![
         SigningItemWithAuth {
-            account_id: b_pub.clone(),
             signing_item: SigningItem::from(b_id.clone()),
-            authorization: authorizations[0].clone(),
+            auth_signature: signatures[0].clone(),
         },
         SigningItemWithAuth {
-            account_id: c_pub.clone(),
             signing_item: SigningItem::from(c_id.clone()),
-            authorization: authorizations[1].clone(),
+            auth_signature: signatures[1].clone(),
         },
-    ];
-
-    let signatures = vec![
-        OffChainSign::from(AccountKeyring::Bob.sign(authorizations[0].encode().as_slice())),
-        OffChainSign::from(AccountKeyring::Charlie.sign(authorizations[1].encode().as_slice())),
+        SigningItemWithAuth {
+            signing_item: SigningItem::from(d_id.clone()),
+            auth_signature: signatures[2].clone(),
+        },
     ];
 
     assert_ok!(Identity::add_signing_items_with_authorization(
-        a,
+        a.clone(),
         a_id,
-        signing_items_with_auth,
-        signatures
+        signing_items_with_auth[..2].to_owned()
     ));
 
     let signing_items = Identity::did_records(a_id).signing_items;
     assert_eq!(signing_items.iter().find(|si| **si == b_id).is_some(), true);
     assert_eq!(signing_items.iter().find(|si| **si == c_id).is_some(), true);
+
+    // Check reply atack. Alice's nonce is different now.
+    // NOTE: We need to force the increment of account's nonce manually.
+    System::inc_account_nonce(&a_pub);
+
+    assert_err!(
+        Identity::add_signing_items_with_authorization(
+            a,
+            a_id,
+            signing_items_with_auth[2..].to_owned()
+        ),
+        "Invalid Authorization signature"
+    );
 }

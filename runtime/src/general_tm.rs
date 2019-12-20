@@ -449,7 +449,6 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
-        type OffChainSign = AnySignature;
     }
 
     impl asset::Trait for Test {
