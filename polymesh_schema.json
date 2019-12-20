@@ -178,5 +178,15 @@
         "authorized_by": "IdentityId",
         "next_ticker": "Option<Vec<u8>>",
         "previous_ticker": "Option<Vec<u8>>"
+    },
+    "OffChainSignature": "H512",
+    "PermissionedValidator": {
+        "compliance": "Compliance"
+    },
+    "Compliance": {
+        "_enum": [
+            "Pending",
+            "Active"
+        ]
     }
 }
