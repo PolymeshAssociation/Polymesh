@@ -15,6 +15,7 @@ mod dividend;
 mod exemption;
 mod general_tm;
 mod identity;
+mod membership;
 mod percentage_tm;
 mod registry;
 mod simple_token;

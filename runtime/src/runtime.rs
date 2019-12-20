@@ -3,7 +3,7 @@ use crate::{
     constants::{currency::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
-    percentage_tm, registry, simple_token, staking, sto_capped,
+    membership, percentage_tm, registry, simple_token, staking, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -492,7 +492,7 @@ construct_runtime!(
 
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Storage, Event<T>},
-        GovernanceMembership: membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+        KYCProviders: membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         GovernanceCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 
         //Polymesh
