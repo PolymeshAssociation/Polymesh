@@ -7,7 +7,7 @@ use runtime_primitives::{generic, AnySignature};
 
 pub use runtime_primitives::traits::{BlakeTwo256, Hash as HashT, Verify};
 
-pub use parity_scale_codec::Compact;
+pub use codec::Compact;
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
@@ -68,16 +68,20 @@ pub use identity_id::IdentityId;
 
 /// Identity information.
 /// Each DID is associated with this kind of record.
-pub mod did_record;
-pub use did_record::DidRecord;
+pub mod identity;
+pub use identity::Identity;
 
 /// Key is strong type which stores bytes representing the key.
 pub mod key;
-pub use key::{Key, KeyType};
+pub use key::Key;
 
 /// This module contains entities related with signing keys.
-pub mod signing_key;
-pub use signing_key::{Permission, SigningKey};
+pub mod signing_item;
+pub use signing_item::{Permission, Signer, SignerType, SigningItem};
+
+/// This module defines the needed information to add a pre-authorized key into an identity.
+pub mod pre_authorized_key_info;
+pub use pre_authorized_key_info::PreAuthorizedKeyInfo;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

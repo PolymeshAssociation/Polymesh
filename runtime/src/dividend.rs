@@ -33,7 +33,7 @@
 
 use crate::{asset, balances, identity, simple_token, utils};
 use codec::Encode;
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
@@ -103,11 +103,11 @@ decl_module! {
             payout_ticker: Vec<u8>,
             checkpoint_id: u64
         ) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
             let ticker = utils::bytes_to_upper(ticker.as_slice());
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
@@ -177,10 +177,10 @@ decl_module! {
 
         /// Lets the owner cancel a dividend before start/maturity date
         pub fn cancel(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
@@ -215,10 +215,10 @@ decl_module! {
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
         pub fn claim(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             // Check if sender wasn't already paid their share
             ensure!(!<UserPayoutCompleted>::get((did, ticker.clone(), dividend_id)), "User was already paid their share");
@@ -282,10 +282,10 @@ decl_module! {
 
         /// After a dividend had expired, collect the remaining amount to owner address
         pub fn claim_unclaimed(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");

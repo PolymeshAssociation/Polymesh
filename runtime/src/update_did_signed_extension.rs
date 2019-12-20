@@ -71,7 +71,10 @@ impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     ) -> TransactionValidity {
         match call {
             // Add here any function from any module which does *not* need a current identity.
-            Call::Identity(identity::Call::register_did(..)) => Ok(ValidTransaction::default()),
+            Call::Identity(identity::Call::register_did(..))
+            | Call::Identity(identity::Call::authorize_join_to_identity(..)) => {
+                Ok(ValidTransaction::default())
+            }
             // Other calls should be identified
             _ => {
                 let id_opt = Self::identity_from_key(who);
@@ -139,11 +142,11 @@ mod tests {
         );
         assert_eq!(Identity::current_did(), None);
 
-        // `Identity::add_signing_keys` needs DID. `validate` updates `current_did` and
+        // `Identity::add_signing_items` needs DID. `validate` updates `current_did` and
         // `post_dispatch` clears it.
-        let add_signing_keys_1 = Call::Identity(IdentityCall::add_signing_keys(alice_id, vec![]));
+        let add_signing_items_1 = Call::Identity(IdentityCall::add_signing_items(alice_id, vec![]));
         assert_eq!(
-            update_did_se.validate(&a_acc, &add_signing_keys_1, dispatch_info, 0),
+            update_did_se.validate(&a_acc, &add_signing_items_1, dispatch_info, 0),
             valid_transaction_ok
         );
         assert_eq!(Identity::current_did(), Some(alice_id));
