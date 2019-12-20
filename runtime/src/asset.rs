@@ -63,7 +63,7 @@ use crate::{
 use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub, Verify};
@@ -170,10 +170,11 @@ decl_module! {
         /// * `divisible_values` Array of booleans to identify the divisibility status of the token.
         pub fn batch_create_token(origin, did: IdentityId, names: Vec<Vec<u8>>, tickers: Vec<Vec<u8>>, total_supply_values: Vec<T::Balance>, divisible_values: Vec<bool>) -> Result {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from( sender.encode())?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
+
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &sender_key), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             // Ensure we get a complete set of parameters for every token
             ensure!((names.len() == tickers.len()) == (total_supply_values.len() == divisible_values.len()), "Inconsistent token param vector lengths");
@@ -266,10 +267,10 @@ decl_module! {
         pub fn create_token(origin, did: IdentityId, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::Balance, divisible: bool) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &sender_key), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
@@ -334,9 +335,11 @@ decl_module! {
         pub fn transfer(_origin, did: IdentityId, _ticker: Vec<u8>, to_did: IdentityId, value: T::Balance) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
+
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
@@ -360,9 +363,10 @@ decl_module! {
         pub fn controller_transfer(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
@@ -384,9 +388,10 @@ decl_module! {
         fn approve(_origin, did: IdentityId, _ticker: Vec<u8>, spender_did: IdentityId, value: T::Balance) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             ensure!(<BalanceOf<T>>::exists((ticker.clone(), did)), "Account does not own this token");
 
@@ -408,11 +413,11 @@ decl_module! {
         /// * `from_did` DID from whom token is being transferred
         /// * `to_did` DID to whom token is being transferred
         /// * `value` Amount of the token for transfer
-        pub fn transfer_from(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> Result {
-            let spender = ensure_signed(_origin)?;
+        pub fn transfer_from(origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> Result {
+            let spender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( spender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "sender must be a signing key for DID");
 
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let ticker_from_did_did = (ticker.clone(), from_did, did);
@@ -444,9 +449,10 @@ decl_module! {
         pub fn create_checkpoint(_origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
             Self::_create_checkpoint(&ticker)
@@ -464,9 +470,10 @@ decl_module! {
         pub fn issue(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> Result {
             let upper_ticker = utils::bytes_to_upper(&ticker);
             let sender = ensure_signed(origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, & Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&upper_ticker, did), "user is not authorized");
             Self::_mint(&upper_ticker, to_did, value)
@@ -483,9 +490,10 @@ decl_module! {
         /// * `values` Array of the Amount of tokens that get issued
         pub fn batch_issue(origin, did: IdentityId, ticker: Vec<u8>, investor_dids: Vec<IdentityId>, values: Vec<T::Balance>) -> Result {
             let sender = ensure_signed(origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from( sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
 
@@ -549,9 +557,10 @@ decl_module! {
         pub fn redeem(_origin, did: IdentityId, _ticker: Vec<u8>, value: T::Balance, _data: Vec<u8>) -> Result {
             let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             // Granularity check
             ensure!(
@@ -600,9 +609,10 @@ decl_module! {
         pub fn redeem_from(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> Result {
             let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             // Granularity check
             ensure!(
@@ -658,9 +668,10 @@ decl_module! {
         pub fn controller_redeem(origin, did: IdentityId, ticker: Vec<u8>, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
+            let signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&ticker, did), "user is not token owner");
 
             // Granularity check
@@ -701,9 +712,10 @@ decl_module! {
         pub fn make_divisible(origin, did: IdentityId, ticker: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
+            let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
             // Read the token details
@@ -819,9 +831,10 @@ decl_module! {
         pub fn set_document(origin, did: IdentityId, ticker: Vec<u8>, name: Vec<u8>, uri: Vec<u8>, document_hash: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
+            let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
             <Documents<T>>::insert((ticker, name), (uri, document_hash, <timestamp::Module<T>>::get()));
@@ -838,9 +851,11 @@ decl_module! {
         pub fn remove_document(origin, did: IdentityId, ticker: Vec<u8>, name: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
+            let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
+
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
             <Documents<T>>::remove((ticker, name));
@@ -863,9 +878,11 @@ decl_module! {
         pub fn increase_custody_allowance(origin, ticker: Vec<u8>, holder_did: IdentityId, custodian_did: IdentityId, value: T::Balance) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
+            let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
+
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
-                <identity::Module<T>>::is_authorized_key(holder_did, &Key::try_from(sender.encode())?),
+                <identity::Module<T>>::is_signer_authorized(holder_did, &sender_signer),
                 "sender must be a signing key for DID"
             );
             Self::_increase_custody_allowance(ticker.clone(), holder_did, custodian_did, value)?;
@@ -909,13 +926,15 @@ decl_module! {
             };
             // holder_account_id should be a part of the holder_did
             ensure!(signature.verify(&msg.encode()[..], &holder_account_id), "Invalid signature");
+            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
             ensure!(
-                <identity::Module<T>>::is_authorized_key(caller_did, &Key::try_from(sender.encode())?),
+                <identity::Module<T>>::is_signer_authorized(caller_did, &sender_signer),
                 "sender must be a signing key for DID"
             );
             // Validate the holder signing key
+            let holder_signer = Signer::Key(Key::try_from(holder_account_id.encode())?);
             ensure!(
-                <identity::Module<T>>::is_authorized_key(holder_did, &Key::try_from(holder_account_id.encode())?),
+                <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
                 "holder signing key must be a signing key for holder DID"
             );
             Self::_increase_custody_allowance(ticker.clone(), holder_did, custodian_did, value)?;
@@ -942,9 +961,10 @@ decl_module! {
         ) -> Result {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
+            let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
-                <identity::Module<T>>::is_authorized_key(custodian_did, &Key::try_from(sender.encode())?),
+                <identity::Module<T>>::is_signer_authorized(custodian_did, &sender_signer),
                 "sender must be a signing key for DID"
             );
             let mut custodian_allowance = Self::custodian_allowance((ticker.clone(), holder_did, custodian_did));

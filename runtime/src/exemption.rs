@@ -2,7 +2,7 @@ use crate::{
     asset::{self, AssetTrait},
     balances, identity, utils,
 };
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
@@ -34,10 +34,10 @@ decl_module! {
 
         fn modify_exemption_list(origin, did: IdentityId, ticker: Vec<u8>, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> Result {
             let upper_ticker = utils::bytes_to_upper(&ticker);
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&upper_ticker, did), "Sender must be the token owner");
             let ticker_asset_holder_did = (ticker.clone(), _tm, asset_holder_did.clone());

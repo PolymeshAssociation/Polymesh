@@ -24,7 +24,7 @@
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
 use crate::{asset::AssetTrait, balances, constants::*, exemption, identity, utils};
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
 use core::result::Result as StdResult;
@@ -63,10 +63,11 @@ decl_module! {
         /// Set a maximum percentage that can be owned by a single investor
         fn toggle_maximum_percentage_restriction(origin, did: IdentityId, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
             let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&upper_ticker, did),"Sender DID must be the token owner");
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.

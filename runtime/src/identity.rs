@@ -46,7 +46,10 @@ use rstd::{convert::TryFrom, prelude::*};
 
 use crate::balances;
 use crate::constants::did::USER;
-use primitives::{DidRecord, IdentityId, Key, KeyType, Permission, SigningKey};
+use primitives::{
+    Identity as DidRecord, IdentityId, Key, Permission, PreAuthorizedKeyInfo, Signer, SignerType,
+    SigningItem,
+};
 
 use codec::Encode;
 use sr_io::blake2_256;
@@ -148,6 +151,9 @@ decl_storage! {
 
         /// Nonce to ensure unique DIDs are generated. starts from 1.
         pub DidNonce get(did_nonce) build(|_| 1u128): u128;
+
+        /// Pre-authorize join to Identity.
+        pub PreAuthorizedJoinDid get( pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
     }
 }
 
@@ -166,7 +172,7 @@ decl_module! {
         /// # Failure
         /// - Master key (administrator) can be linked to just one identity.
         /// - External signing keys can be linked to just one identity.
-        pub fn register_did(origin, signing_keys: Vec<SigningKey>) -> Result {
+        pub fn register_did(origin, signing_items: Vec<SigningItem>) -> Result {
             let sender = ensure_signed(origin)?;
             // Adding extrensic count to did nonce for some unpredictability
             // NB: this does not guarantee randomness
@@ -178,10 +184,10 @@ decl_module! {
 
             // 1 Check constraints.
             // 1.1. Master key is not linked to any identity.
-            ensure!( Self::can_key_be_linked_to_did( &master_key, KeyType::External),
+            ensure!( Self::can_key_be_linked_to_did( &master_key, SignerType::External),
                 "Master key already belong to one DID");
             // 1.2. Master key is not part of signing keys.
-            ensure!( signing_keys.iter().find( |sk| **sk == master_key).is_none(),
+            ensure!( signing_items.iter().find( |sk| **sk == master_key).is_none(),
                 "Signing keys contains the master key");
 
             let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
@@ -196,9 +202,11 @@ decl_module! {
             // This should never happen but just being defensive here
             ensure!(!<DidRecords>::exists(did), "DID must be unique");
             // 1.4. Signing keys can be linked to the new identity.
-            for sig_key in &signing_keys {
-                if !Self::can_key_be_linked_to_did( &sig_key.key, sig_key.key_type){
-                    return Err("One signing key can only belong to one DID");
+            for s_item in &signing_items {
+                if let Signer::Key(ref key) = s_item.signer {
+                    if !Self::can_key_be_linked_to_did( key, s_item.signer_type){
+                        return Err("One signing key can only belong to one DID");
+                    }
                 }
             }
 
@@ -211,15 +219,12 @@ decl_module! {
                 ExistenceRequirement::KeepAlive
                 )?;
 
-            // 2.1. Link  master key and signing keys.
-            Self::link_key_to_did( &master_key, KeyType::External, did);
-            for sig_key in &signing_keys {
-                Self::link_key_to_did( &sig_key.key, sig_key.key_type, did);
-            }
+            // 2.1. Link  master key and add pre-authorized signing keys
+            Self::link_key_to_did( &master_key, SignerType::External, did);
+            signing_items.iter().for_each( |s_item| Self::add_pre_join_identity( s_item, did));
 
             // 2.2. Create a new identity record.
             let record = DidRecord {
-                signing_keys: signing_keys.clone(),
                 master_key,
                 ..Default::default()
             };
@@ -228,91 +233,36 @@ decl_module! {
             // TODO KYC is valid by default.
             KYCValidation::insert(did, true);
 
-            Self::deposit_event(RawEvent::NewDid(did, sender, signing_keys));
+            Self::deposit_event(RawEvent::NewDid(did, sender, signing_items));
             Ok(())
         }
-
-        /// It adds each IdentityId at `signing_ids` as signing identity of `id`.
-        ///
-        /// # TODO
-        ///  - Signing identities HAVE TO authorize its use in this identity.
-        /// # Failure
-        /// It can only called by master key owner.
-        pub fn add_signing_identities(origin, id: IdentityId, signing_ids: Vec<IdentityId>) -> Result {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
-
-            <DidRecords>::mutate( id,
-            |record| {
-                let mut new_signing_ids = signing_ids.iter()
-                    .filter( |s_id| record.signing_identities.iter().find( |id| id == s_id).is_none())
-                    .chain( record.signing_identities.iter())
-                    .cloned()
-                    .collect::<Vec<_>>();
-                new_signing_ids.sort();
-                new_signing_ids.dedup();
-
-                (*record).signing_identities = new_signing_ids;
-            });
-
-            Ok(())
-        }
-
-        /// Removes `ids_to_remove` signing identities from `id` identity.
-        ///
-        /// # Failure
-        /// It can only called by master key owner.
-        fn remove_signing_identities(origin, id: IdentityId, ids_to_remove: Vec<IdentityId>) -> Result {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
-
-            <DidRecords>::mutate( id,
-            |record| {
-                (*record).signing_identities.retain( |s_id| ids_to_remove.iter().find( |id| s_id == *id).is_none());
-            });
-
-            Ok(())
-        }
-
 
         /// Adds new signing keys for a DID. Only called by master key owner.
         ///
-        /// # TODO
-        /// Signing keys should authorize its use in this identity.
-        ///
         /// # Failure
-        /// It can only called by master key owner.
-        pub fn add_signing_keys(origin, did: IdentityId, additional_keys: Vec<SigningKey>) -> Result {
+        ///  - It can only called by master key owner.
+        ///  - If any signing key is already linked to any identity, it will fail.
+        ///  - If any signing key is already
+        pub fn add_signing_items(origin, did: IdentityId, signing_items: Vec<SigningItem>) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
-            for skey in &additional_keys {
-                if !Self::can_key_be_linked_to_did( &skey.key, skey.key_type) {
-                    return Err( "One signing key can only belong to one DID");
+            // Check constraint 1-to-1 in relation key-identity.
+            for s_item in &signing_items{
+                if let Signer::Key(ref key) = s_item.signer {
+                    if !Self::can_key_be_linked_to_did( key, s_item.signer_type) {
+                        return Err( "One signing key can only belong to one DID");
+                    }
                 }
             }
 
-            additional_keys.iter()
-                .for_each( |skey| Self::link_key_to_did( &skey.key, skey.key_type, did));
+            // Ignore any key which is already valid in that identity.
+            let authorized_signing_items = Self::did_records( did).signing_items;
+            signing_items.iter()
+                .filter( |si| authorized_signing_items.contains(si) == false)
+                .for_each( |si| Self::add_pre_join_identity( si, did));
 
-            <DidRecords>::mutate( did,
-            |record| {
-                // Concatenate new keys while making sure the key set is
-                // unique
-                let mut new_permissiond_keys = additional_keys.iter()
-                    .filter( |&add_key| {
-                        record.signing_keys.iter()
-                        .find( |&rk| rk == add_key)
-                        .is_none()
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>();
-
-                (*record).signing_keys.append( &mut new_permissiond_keys);
-            });
-
-            Self::deposit_event(RawEvent::SigningKeysAdded(did, additional_keys));
-
+            Self::deposit_event(RawEvent::NewSigningItems(did, signing_items));
             Ok(())
         }
 
@@ -320,38 +270,24 @@ decl_module! {
         ///
         /// # Failure
         /// It can only called by master key owner.
-        fn remove_signing_keys(origin, did: IdentityId, keys_to_remove: Vec<Key>) -> Result {
+        fn remove_signing_items(origin, did: IdentityId, signers_to_remove: Vec<Signer>) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
-            // Check that key is linked to that DID.
-            for key in &keys_to_remove {
-                if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
-                    let error_msg = "Signing key does not belong to this DID";
-
-                    match linked_key_info {
-                        LinkedKeyInfo::Unique(link_did) => if did != link_did {
-                            return Err(error_msg);
-                        },
-                        LinkedKeyInfo::Group(link_dids) => if link_dids.into_iter().find( |id| did == *id).is_none() {
-                            return Err(error_msg);
-                        }
-                    }
+            // Remove any Pre-Authentication & link
+            signers_to_remove.iter().for_each( |signer| {
+                Self::remove_pre_join_identity( signer, did);
+                if let Signer::Key(ref key) = signer {
+                    Self::unlink_key_to_did(key, did);
                 }
-            }
-
-            // Remove links between keys and DID
-            keys_to_remove.iter().for_each( |key| Self::unlink_key_to_did(key, did));
-
-            // Remove signing keys from DID records.
-            <DidRecords>::mutate(did,
-            |record| {
-                (*record).signing_keys.retain( |skey| keys_to_remove.iter()
-                        .find(|&rk| skey == rk)
-                        .is_none());
             });
 
-            Self::deposit_event(RawEvent::SigningKeysRemoved(did, keys_to_remove));
+            // Update signing keys at Identity.
+            <DidRecords>::mutate(did, |record| {
+                (*record).remove_signing_items( &signers_to_remove);
+            });
+
+            Self::deposit_event(RawEvent::RevokedSigningItems(did, signers_to_remove));
             Ok(())
         }
 
@@ -364,7 +300,7 @@ decl_module! {
             let sender_key = Key::try_from( sender.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
-            ensure!( Self::can_key_be_linked_to_did(&new_key, KeyType::External), "Master key can only belong to one DID");
+            ensure!( Self::can_key_be_linked_to_did(&new_key, SignerType::External), "Master key can only belong to one DID");
 
             <DidRecords>::mutate(did,
             |record| {
@@ -430,7 +366,8 @@ decl_module! {
             ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
+            let sender_signer = Signer::Key( sender_key);
+            ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
                 claim_key: claim_key,
@@ -465,7 +402,7 @@ decl_module! {
             // 1.1. A valid current identity.
             if let Some(current_did) = <CurrentDid>::get() {
                 // 1.2. Check that current_did is a signing key of target_did
-                ensure!( Self::is_authorized_identity(current_did, target_did),
+                ensure!( Self::is_signer_authorized(current_did, &Signer::Identity(target_did)),
                     "Current identity cannot be forwarded, it is not a signing key of target identity");
             } else {
                 return Err("Missing current identity on the transaction");
@@ -498,14 +435,13 @@ decl_module! {
 
         /// Marks the specified claim as revoked
         pub fn revoke_claim(origin, did: IdentityId, claim_key: Vec<u8>, did_issuer: IdentityId) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             ensure!(<DidRecords>::exists(&did), "DID must already exist");
             ensure!(<DidRecords>::exists(&did_issuer), "claim issuer DID must already exist");
 
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_key = Key::try_from( sender.encode())?;
-            ensure!(Self::is_authorized_key(did_issuer, &sender_key), "Sender must hold a claim issuer's signing key");
+            ensure!(Self::is_signer_authorized(did_issuer, &sender), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
                 claim_key: claim_key,
@@ -529,18 +465,20 @@ decl_module! {
 
         /// It sets permissions for an specific `target_key` key.
         /// Only the master key of an identity is able to set signing key permissions.
-        fn set_permission_to_signing_key(origin, did: IdentityId, target_key: Key, permissions: Vec<Permission>) -> Result {
+        fn set_permission_to_signer(origin, did: IdentityId, signer: Signer, permissions: Vec<Permission>) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let record = Self::grant_check_only_master_key( &sender_key, did)?;
 
             // You are trying to add a permission to did's master key. It is not needed.
-            if record.master_key == target_key {
-                return Ok(());
+            if let Signer::Key(ref key) = signer {
+                if record.master_key == *key {
+                    return Ok(());
+                }
             }
 
-            // Find key in `DidRecord::signing_keys` or in `DidRecord::frozen_signing_keys`.
-            if let Some(ref _signing_key) = record.signing_keys.iter().find(|&sk| sk == &target_key) {
-                Self::update_signing_key_permissions(did, &target_key, permissions)
+            // Find key in `DidRecord::signing_keys`
+            if record.signing_items.iter().find(|&si| si.signer == signer).is_some() {
+                Self::update_signing_item_permissions(did, &signer, permissions)
             } else {
                 Err( "Sender is not part of did's signing keys")
             }
@@ -568,6 +506,89 @@ decl_module! {
                 Err("No did linked to the user")
             }
         }
+
+
+        // Manage Authorizations to join to an Identity
+        // ================================================
+
+        /// The key designated by `origin` accepts the authorization to join to `target_id`
+        /// Identity.
+        ///
+        /// # Errors
+        ///  - Key should be authorized previously to join to that target identity.
+        ///  - Key is not linked to any other identity.
+        pub fn authorize_join_to_identity(origin, target_id: IdentityId) -> Result {
+            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+            let signer_from_key = Signer::Key( sender_key.clone());
+            let signer_id_found = Self::key_to_identity_ids(sender_key);
+
+            // Double check that `origin` (its key or identity) has been pre-authorize.
+            let valid_signer = if <PreAuthorizedJoinDid>::exists(&signer_from_key) {
+                // Sender key is valid.
+                // Verify 1-to-1 relation between key and identity.
+                if signer_id_found.is_some() {
+                    return Err("Key is already linked to an identity");
+                }
+                Some( signer_from_key)
+            } else {
+                // Otherwise, sender's identity (only master key) should be pre-authorize.
+                match signer_id_found {
+                    Some( LinkedKeyInfo::Unique(sender_id)) if Self::is_master_key(sender_id, &sender_key) => {
+                        let signer_from_id = Signer::Identity(sender_id);
+                        if <PreAuthorizedJoinDid>::exists(&signer_from_id) {
+                            Some(signer_from_id)
+                        } else {
+                            None
+                        }
+                    },
+                    _ => None
+                }
+            };
+
+            // Only works with a valid signer.
+            if let Some(signer) = valid_signer {
+                if let Some(pre_auth) = Self::pre_authorized_join_did( signer.clone())
+                        .iter()
+                        .find( |pre_auth_item| pre_auth_item.target_id == target_id) {
+                    // Remove pre-auth, link key to identity and update identity record.
+                    Self::remove_pre_join_identity(&signer, target_id);
+                    if let Signer::Key(key) = signer {
+                        Self::link_key_to_did( &key, pre_auth.signing_item.signer_type, target_id);
+                    }
+                    <DidRecords>::mutate( target_id, |identity| {
+                        identity.add_signing_items( &[pre_auth.signing_item.clone()]);
+                    });
+                    Ok(())
+                } else {
+                    Err( "Signer is not pre authorized by the identity")
+                }
+            } else {
+                Err( "Signer is not pre authorized by any identity")
+            }
+        }
+
+        /// Identity's master key or target key are allowed to reject a pre authorization to join.
+        /// It only affects the authorization: if key accepted it previously, then this transaction
+        /// shall have no effect.
+        pub fn unauthorized_join_to_identity(origin, signer: Signer, target_id: IdentityId) -> Result {
+            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+
+            let mut is_remove_allowed = Self::is_master_key( target_id, &sender_key);
+
+            if !is_remove_allowed {
+                is_remove_allowed = match signer {
+                    Signer::Key(ref key) => sender_key == *key,
+                    Signer::Identity(id) => Self::is_master_key(id, &sender_key)
+                }
+            }
+
+            if is_remove_allowed {
+                Self::remove_pre_join_identity( &signer, target_id);
+                Ok(())
+            } else {
+                Err("Account cannot remove this authorization")
+            }
+        }
     }
 }
 
@@ -578,16 +599,16 @@ decl_event!(
         Moment = <T as timestamp::Trait>::Moment,
     {
         /// DID, master key account ID, signing keys
-        NewDid(IdentityId, AccountId, Vec<SigningKey>),
+        NewDid(IdentityId, AccountId, Vec<SigningItem>),
 
         /// DID, new keys
-        SigningKeysAdded(IdentityId, Vec<SigningKey>),
+        NewSigningItems(IdentityId, Vec<SigningItem>),
 
         /// DID, the keys that got removed
-        SigningKeysRemoved(IdentityId, Vec<Key>),
+        RevokedSigningItems(IdentityId, Vec<Signer>),
 
         /// DID, updated signing key, previous permissions
-        SigningPermissionsUpdated(IdentityId, SigningKey, Vec<Permission>),
+        SigningPermissionsUpdated(IdentityId, SigningItem, Vec<Permission>),
 
         /// DID, old master key account ID, new key
         NewMasterKey(IdentityId, AccountId, Key),
@@ -615,31 +636,38 @@ decl_event!(
 impl<T: Trait> Module<T> {
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
-    fn update_signing_key_permissions(
+    fn update_signing_item_permissions(
         target_did: IdentityId,
-        key: &Key,
+        signer: &Signer,
         mut permissions: Vec<Permission>,
     ) -> Result {
         // Remove duplicates.
         permissions.sort();
         permissions.dedup();
 
-        let mut new_sk: Option<SigningKey> = None;
+        let mut new_s_item: Option<SigningItem> = None;
 
         <DidRecords>::mutate(target_did, |record| {
-            if let Some(mut sk) = (*record).signing_keys.iter().find(|sk| *sk == key).cloned() {
-                rstd::mem::swap(&mut sk.permissions, &mut permissions);
-                (*record).signing_keys.retain(|sk| sk != key);
-                (*record).signing_keys.push(sk.clone());
-                new_sk = Some(sk);
+            if let Some(mut signing_item) = (*record)
+                .signing_items
+                .iter()
+                .find(|si| si.signer == *signer)
+                .cloned()
+            {
+                rstd::mem::swap(&mut signing_item.permissions, &mut permissions);
+                (*record).signing_items.retain(|si| si.signer != *signer);
+                (*record).signing_items.push(signing_item.clone());
+                new_s_item = Some(signing_item);
             }
         });
 
-        Self::deposit_event(RawEvent::SigningPermissionsUpdated(
-            target_did,
-            new_sk.unwrap_or_else(|| SigningKey::default()),
-            permissions,
-        ));
+        if let Some(s) = new_s_item {
+            Self::deposit_event(RawEvent::SigningPermissionsUpdated(
+                target_did,
+                s.clone(),
+                permissions,
+            ));
+        }
         Ok(())
     }
 
@@ -651,45 +679,51 @@ impl<T: Trait> Module<T> {
     /// # IMPORTANT
     /// If signing keys are frozen this function always returns false.
     /// Master key cannot be frozen.
-    pub fn is_authorized_key(did: IdentityId, key: &Key) -> bool {
+    pub fn is_signer_authorized(did: IdentityId, signer: &Signer) -> bool {
         let record = <DidRecords>::get(did);
-        if record.master_key == *key {
-            return true;
-        }
 
-        if !Self::is_did_frozen(did) {
-            return record.signing_keys.iter().find(|&rk| rk == key).is_some();
+        // Check master id or key
+        match signer {
+            Signer::Key(ref signer_key) if record.master_key == *signer_key => true,
+            Signer::Identity(ref signer_id) if did == *signer_id => true,
+            _ => {
+                // Check signing items if DID is not frozen.
+                !Self::is_did_frozen(did)
+                    && record
+                        .signing_items
+                        .iter()
+                        .find(|&si| si.signer == *signer)
+                        .is_some()
+            }
         }
-
-        return false;
     }
 
-    fn is_authorized_with_permissions(
+    fn is_signer_authorized_with_permissions(
         did: IdentityId,
-        key: &Key,
+        signer: &Signer,
         permissions: Vec<Permission>,
     ) -> bool {
         let record = <DidRecords>::get(did);
-        if record.master_key == *key {
-            // Master key is assumed to have all permissions
-            return true;
-        }
 
-        if !Self::is_did_frozen(did) {
-            if let Some(signing_key) = record.signing_keys.iter().find(|&sk| &sk.key == key) {
-                return permissions
-                    .iter()
-                    .all(|required_permission| signing_key.has_permission(*required_permission));
+        match signer {
+            Signer::Key(ref signer_key) if record.master_key == *signer_key => true,
+            Signer::Identity(ref signer_id) if did == *signer_id => true,
+            _ => {
+                if !Self::is_did_frozen(did) {
+                    if let Some(signing_item) =
+                        record.signing_items.iter().find(|&si| &si.signer == signer)
+                    {
+                        // It retruns true if all requested permission are in this signing item.
+                        return permissions.iter().all(|required_permission| {
+                            signing_item.has_permission(*required_permission)
+                        });
+                    }
+                }
+                // Signer is not part of signing items of `did`, or
+                // Did is frozen.
+                false
             }
         }
-        //Either did frozen or given key is not a signing key of the did
-        return false;
-    }
-
-    /// It returns `true` if `curr_id`'s master key is a signing_key at `target_id`.
-    pub fn is_authorized_identity(curr_id: IdentityId, target_id: IdentityId) -> bool {
-        let target_id_record = Self::did_records(target_id);
-        target_id_record.signing_identities.contains(&curr_id)
     }
 
     /// Use `did` as reference.
@@ -778,11 +812,11 @@ impl<T: Trait> Module<T> {
 
     /// It checks that any sternal account can only be associated with at most one.
     /// Master keys are considered as external accounts.
-    pub fn can_key_be_linked_to_did(key: &Key, key_type: KeyType) -> bool {
+    pub fn can_key_be_linked_to_did(key: &Key, signer_type: SignerType) -> bool {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
                 LinkedKeyInfo::Unique(..) => false,
-                LinkedKeyInfo::Group(..) => key_type != KeyType::External,
+                LinkedKeyInfo::Group(..) => signer_type != SignerType::External,
             }
         } else {
             true
@@ -793,11 +827,11 @@ impl<T: Trait> Module<T> {
     /// # Errors
     /// This function can be used if `can_key_be_linked_to_did` returns true. Otherwise, it will do
     /// nothing.
-    fn link_key_to_did(key: &Key, key_type: KeyType, did: IdentityId) {
+    fn link_key_to_did(key: &Key, key_type: SignerType, did: IdentityId) {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
                 LinkedKeyInfo::Group(mut dids) => {
-                    if !dids.contains(&did) && key_type != KeyType::External {
+                    if !dids.contains(&did) && key_type != SignerType::External {
                         dids.push(did);
                         dids.sort();
 
@@ -811,7 +845,7 @@ impl<T: Trait> Module<T> {
         } else {
             // Key is not yet linked to any identity, so no constraints.
             let linked_key_info = match key_type {
-                KeyType::External => LinkedKeyInfo::Unique(did),
+                SignerType::External => LinkedKeyInfo::Unique(did),
                 _ => LinkedKeyInfo::Group(vec![did]),
             };
             <KeyToIdentityIds>::insert(key, linked_key_info);
@@ -844,14 +878,41 @@ impl<T: Trait> Module<T> {
             <CurrentDid>::kill();
         }
     }
+    /// It adds `signing_item` to pre authorized items for `id` identity.
+    fn add_pre_join_identity(signing_item: &SigningItem, id: IdentityId) {
+        let signer = &signing_item.signer;
+        let new_pre_auth = PreAuthorizedKeyInfo::new(signing_item.clone(), id);
+
+        if !<PreAuthorizedJoinDid>::exists(signer) {
+            <PreAuthorizedJoinDid>::insert(signer, vec![new_pre_auth]);
+        } else {
+            <PreAuthorizedJoinDid>::mutate(signer, |pre_auth_list| {
+                pre_auth_list.retain(|pre_auth| *pre_auth != id);
+                pre_auth_list.push(new_pre_auth);
+            });
+        }
+    }
+
+    /// It removes `signing_item` to pre authorized items for `id` identity.
+    fn remove_pre_join_identity(signer: &Signer, id: IdentityId) {
+        let mut is_pre_auth_list_empty = false;
+        <PreAuthorizedJoinDid>::mutate(signer, |pre_auth_list| {
+            pre_auth_list.retain(|pre_auth| pre_auth.target_id != id);
+            is_pre_auth_list_empty = pre_auth_list.is_empty();
+        });
+
+        if is_pre_auth_list_empty {
+            <PreAuthorizedJoinDid>::remove(signer);
+        }
+    }
 }
 
 pub trait IdentityTrait<T> {
     fn get_identity(key: &Key) -> Option<IdentityId>;
-    fn is_authorized_key(did: IdentityId, key: &Key) -> bool;
-    fn is_authorized_with_permissions(
+    fn is_signer_authorized(did: IdentityId, signer: &Signer) -> bool;
+    fn is_signer_authorized_with_permissions(
         did: IdentityId,
-        key: &Key,
+        signer: &Signer,
         permissions: Vec<Permission>,
     ) -> bool;
     fn is_master_key(did: IdentityId, key: &Key) -> bool;
@@ -862,20 +923,20 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
         Self::get_identity(&key)
     }
 
-    fn is_authorized_key(did: IdentityId, key: &Key) -> bool {
-        Self::is_authorized_key(did, &key)
+    fn is_signer_authorized(did: IdentityId, signer: &Signer) -> bool {
+        Self::is_signer_authorized(did, signer)
     }
 
     fn is_master_key(did: IdentityId, key: &Key) -> bool {
         Self::is_master_key(did, &key)
     }
 
-    fn is_authorized_with_permissions(
+    fn is_signer_authorized_with_permissions(
         did: IdentityId,
-        key: &Key,
+        signer: &Signer,
         permissions: Vec<Permission>,
     ) -> bool {
-        Self::is_authorized_with_permissions(did, &key, permissions)
+        Self::is_signer_authorized_with_permissions(did, signer, permissions)
     }
 }
 
@@ -883,7 +944,7 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::KeyType;
+    use primitives::SignerType;
 
     use sr_io::{with_externalities, TestExternalities};
     use sr_primitives::{
@@ -1058,38 +1119,44 @@ mod tests {
         });
     }
 
+    /// TODO Add `Signer::Identity(..)` test.
     #[test]
     fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
         with_externalities(&mut build_ext(), || {
             let owner_id = Identity::owner();
-            let owner_key = Key::try_from(owner_id.encode()).unwrap();
+            let owner_signer = Signer::Key(Key::try_from(owner_id.encode()).unwrap());
             let (_owner, owner_did) = make_account(&owner_id).unwrap();
             let (a, a_did) = make_account(&2).unwrap();
             let (_b, b_did) = make_account(&3).unwrap();
-            let charlie_sig_key = SigningKey::new(
-                Key::try_from(4u64.encode()).unwrap(),
-                vec![Permission::Admin],
-            );
+            let charlie_acc = 4u64;
+            let charlie_key = Key::try_from(charlie_acc.encode()).unwrap();
+            let charlie_signer = Signer::Key(charlie_key);
+            let charlie_signing_item =
+                SigningItem::new(charlie_signer.clone(), vec![Permission::Admin]);
 
-            assert_ok!(Identity::add_signing_keys(
+            assert_ok!(Identity::add_signing_items(
                 a.clone(),
                 a_did,
-                vec![charlie_sig_key.clone()]
+                vec![charlie_signing_item]
+            ));
+            assert_ok!(Identity::authorize_join_to_identity(
+                Origin::signed(charlie_acc),
+                a_did
             ));
 
             // Check master key on master and signing_keys.
-            assert!(Identity::is_authorized_key(owner_did, &owner_key));
-            assert!(Identity::is_authorized_key(a_did, &charlie_sig_key.key));
+            assert!(Identity::is_signer_authorized(owner_did, &owner_signer));
+            assert!(Identity::is_signer_authorized(a_did, &charlie_signer));
 
-            assert!(Identity::is_authorized_key(b_did, &charlie_sig_key.key) == false);
+            assert!(Identity::is_signer_authorized(b_did, &charlie_signer) == false);
 
             // ... and remove that key.
-            assert_ok!(Identity::remove_signing_keys(
+            assert_ok!(Identity::remove_signing_items(
                 a.clone(),
                 a_did.clone(),
-                vec![charlie_sig_key.key.clone()]
+                vec![charlie_signer.clone()]
             ));
-            assert!(Identity::is_authorized_key(a_did, &charlie_sig_key.key) == false);
+            assert!(Identity::is_signer_authorized(a_did, &charlie_signer) == false);
         });
     }
 
@@ -1155,35 +1222,40 @@ mod tests {
         );
         let (alice, alice_did) = make_account(&alice_acc).unwrap();
 
-        assert_ok!(Identity::add_signing_keys(
+        assert_ok!(Identity::add_signing_items(
             alice.clone(),
             alice_did,
-            vec![
-                SigningKey::from(bob_key.clone()),
-                SigningKey::from(charlie_key.clone())
-            ]
+            vec![SigningItem::from(bob_key), SigningItem::from(charlie_key)]
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(bob_acc),
+            alice_did
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(charlie_acc),
+            alice_did
         ));
 
         // Only `alice` is able to update `bob`'s permissions and `charlie`'s permissions.
-        assert_ok!(Identity::set_permission_to_signing_key(
+        assert_ok!(Identity::set_permission_to_signer(
             alice.clone(),
             alice_did,
-            bob_key.clone(),
+            Signer::Key(bob_key),
             vec![Permission::Operator]
         ));
-        assert_ok!(Identity::set_permission_to_signing_key(
+        assert_ok!(Identity::set_permission_to_signer(
             alice.clone(),
             alice_did,
-            charlie_key.clone(),
+            Signer::Key(charlie_key),
             vec![Permission::Admin, Permission::Operator]
         ));
 
         // Bob tries to get better permission by himself at `alice` Identity.
         assert_err!(
-            Identity::set_permission_to_signing_key(
+            Identity::set_permission_to_signer(
                 Origin::signed(bob_acc),
                 alice_did,
-                bob_key.clone(),
+                Signer::Key(bob_key),
                 vec![Permission::Full]
             ),
             "Only master key of an identity is able to execute this operation"
@@ -1191,20 +1263,20 @@ mod tests {
 
         // Bob tries to remove Charlie's permissions at `alice` Identity.
         assert_err!(
-            Identity::set_permission_to_signing_key(
+            Identity::set_permission_to_signer(
                 Origin::signed(bob_acc),
                 alice_did,
-                charlie_key,
+                Signer::Key(charlie_key),
                 vec![]
             ),
             "Only master key of an identity is able to execute this operation"
         );
 
         // Alice over-write some permissions.
-        assert_ok!(Identity::set_permission_to_signing_key(
+        assert_ok!(Identity::set_permission_to_signer(
             alice.clone(),
             alice_did,
-            bob_key,
+            Signer::Key(bob_key),
             vec![]
         ));
     }
@@ -1218,7 +1290,7 @@ mod tests {
     }
 
     /// It tests that signing key can be added using non-default key type
-    /// (`KeyType::External`).
+    /// (`SignerType::External`).
     fn add_signing_keys_with_specific_type_with_externalities() {
         let (alice_acc, bob_acc, charlie_acc, dave_acc) = (1u64, 2u64, 3u64, 4u64);
         let (charlie_key, dave_key) = (
@@ -1227,20 +1299,20 @@ mod tests {
         );
 
         // Create keys using non-default type.
-        let charlie_signing_key = SigningKey {
-            key: charlie_key,
-            key_type: KeyType::Relayer,
+        let charlie_signing_key = SigningItem {
+            signer: Signer::Key(charlie_key),
+            signer_type: SignerType::Relayer,
             permissions: vec![],
         };
-        let dave_signing_key = SigningKey {
-            key: dave_key,
-            key_type: KeyType::Multisig,
+        let dave_signing_key = SigningItem {
+            signer: Signer::Key(dave_key),
+            signer_type: SignerType::Multisig,
             permissions: vec![],
         };
 
         // Add signing keys with non-default type.
         let (alice, alice_did) = make_account(&alice_acc).unwrap();
-        assert_ok!(Identity::add_signing_keys(
+        assert_ok!(Identity::add_signing_items(
             alice,
             alice_did,
             vec![charlie_signing_key, dave_signing_key.clone()]
@@ -1267,20 +1339,32 @@ mod tests {
             Key::try_from(dave_acc.encode()).unwrap(),
         );
 
-        let bob_signing_key = SigningKey::new(bob_key.clone(), vec![Permission::Admin]);
-        let charlie_signing_key = SigningKey::new(charlie_key, vec![Permission::Operator]);
-        let dave_signing_key = SigningKey::new(dave_key.clone(), vec![]);
+        let bob_signing_key = SigningItem::new(Signer::Key(bob_key), vec![Permission::Admin]);
+        let charlie_signing_key =
+            SigningItem::new(Signer::Key(charlie_key), vec![Permission::Operator]);
+        let dave_signing_key = SigningItem::from(dave_key);
 
         // Add signing keys.
         let (alice, alice_did) = make_account(&alice_acc).unwrap();
         let signing_keys_v1 = vec![bob_signing_key.clone(), charlie_signing_key];
-        assert_ok!(Identity::add_signing_keys(
+        assert_ok!(Identity::add_signing_items(
             alice.clone(),
-            alice_did.clone(),
+            alice_did,
             signing_keys_v1.clone()
         ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(bob_acc),
+            alice_did
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(charlie_acc),
+            alice_did
+        ));
 
-        assert_eq!(Identity::is_authorized_key(alice_did, &bob_key), true);
+        assert_eq!(
+            Identity::is_signer_authorized(alice_did, &Signer::Key(bob_key)),
+            true
+        );
 
         // Freeze signing keys: bob & charlie.
         assert_err!(
@@ -1292,22 +1376,32 @@ mod tests {
             alice_did.clone()
         ));
 
-        assert_eq!(Identity::is_authorized_key(alice_did, &bob_key), false);
+        assert_eq!(
+            Identity::is_signer_authorized(alice_did, &Signer::Key(bob_key)),
+            false
+        );
 
         // Add new signing keys.
         let signing_keys_v2 = vec![dave_signing_key.clone()];
-        assert_ok!(Identity::add_signing_keys(
+        assert_ok!(Identity::add_signing_items(
             alice.clone(),
             alice_did.clone(),
             signing_keys_v2.clone()
         ));
-        assert_eq!(Identity::is_authorized_key(alice_did, &dave_key), false);
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(dave_acc),
+            alice_did
+        ));
+        assert_eq!(
+            Identity::is_signer_authorized(alice_did, &Signer::Key(dave_key)),
+            false
+        );
 
         // update permission of frozen keys.
-        assert_ok!(Identity::set_permission_to_signing_key(
+        assert_ok!(Identity::set_permission_to_signer(
             alice.clone(),
             alice_did.clone(),
-            bob_key.clone(),
+            Signer::Key(bob_key),
             vec![Permission::Operator]
         ));
 
@@ -1321,7 +1415,10 @@ mod tests {
             alice_did.clone()
         ));
 
-        assert_eq!(Identity::is_authorized_key(alice_did, &dave_key), true);
+        assert_eq!(
+            Identity::is_signer_authorized(alice_did, &Signer::Key(dave_key)),
+            true
+        );
     }
 
     /// It double-checks that frozen keys are removed too.
@@ -1340,30 +1437,39 @@ mod tests {
             Key::try_from(charlie_acc.encode()).unwrap(),
         );
 
-        let bob_signing_key = SigningKey::new(bob_key.clone(), vec![Permission::Admin]);
-        let charlie_signing_key = SigningKey::new(charlie_key, vec![Permission::Operator]);
+        let bob_signing_key = SigningItem::new(Signer::Key(bob_key), vec![Permission::Admin]);
+        let charlie_signing_key =
+            SigningItem::new(Signer::Key(charlie_key), vec![Permission::Operator]);
 
         // Add signing keys.
         let (alice, alice_did) = make_account(&alice_acc).unwrap();
         let signing_keys_v1 = vec![bob_signing_key, charlie_signing_key.clone()];
-        assert_ok!(Identity::add_signing_keys(
+        assert_ok!(Identity::add_signing_items(
             alice.clone(),
             alice_did,
             signing_keys_v1.clone()
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(bob_acc),
+            alice_did
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(charlie_acc),
+            alice_did
         ));
 
         // Freeze all signing keys
         assert_ok!(Identity::freeze_signing_keys(alice.clone(), alice_did));
 
         // Remove Bob's key.
-        assert_ok!(Identity::remove_signing_keys(
+        assert_ok!(Identity::remove_signing_items(
             alice.clone(),
             alice_did,
-            vec![bob_key.clone()]
+            vec![Signer::Key(bob_key)]
         ));
         // Check DidRecord.
         let did_rec = Identity::did_records(alice_did);
-        assert_eq!(did_rec.signing_keys, vec![charlie_signing_key]);
+        assert_eq!(did_rec.signing_items, vec![charlie_signing_key]);
     }
 
     #[test]
@@ -1411,31 +1517,35 @@ mod tests {
 
         // Check external signed key uniqueness.
         let charlie_key = Key::try_from(c_acc.encode()).unwrap();
-        let charlie_sk = SigningKey::new(charlie_key, vec![Permission::Operator]);
-        assert_ok!(Identity::add_signing_keys(
+        let charlie_sk = SigningItem::new(Signer::Key(charlie_key), vec![Permission::Operator]);
+        assert_ok!(Identity::add_signing_items(
             alice.clone(),
             alice_id,
             vec![charlie_sk.clone()]
         ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(c_acc),
+            alice_id
+        ));
 
         assert_err!(
-            Identity::add_signing_keys(bob.clone(), bob_id, vec![charlie_sk]),
+            Identity::add_signing_items(bob.clone(), bob_id, vec![charlie_sk]),
             unique_error
         );
 
         // Check non-external signed key non-uniqueness.
         let dave_key = Key::try_from(d_acc.encode()).unwrap();
-        let dave_sk = SigningKey {
-            key: dave_key,
-            key_type: KeyType::Multisig,
+        let dave_sk = SigningItem {
+            signer: Signer::Key(dave_key),
+            signer_type: SignerType::Multisig,
             permissions: vec![Permission::Operator],
         };
-        assert_ok!(Identity::add_signing_keys(
+        assert_ok!(Identity::add_signing_items(
             alice.clone(),
             alice_id,
             vec![dave_sk.clone()]
         ));
-        assert_ok!(Identity::add_signing_keys(
+        assert_ok!(Identity::add_signing_items(
             bob.clone(),
             bob_id,
             vec![dave_sk]
@@ -1443,19 +1553,19 @@ mod tests {
 
         // Check that master key acts like external signed key.
         let bob_key = Key::try_from(b_acc.encode()).unwrap();
-        let bob_sk_as_mutisig = SigningKey {
-            key: bob_key.clone(),
-            key_type: KeyType::Multisig,
+        let bob_sk_as_mutisig = SigningItem {
+            signer: Signer::Key(bob_key),
+            signer_type: SignerType::Multisig,
             permissions: vec![Permission::Operator],
         };
         assert_err!(
-            Identity::add_signing_keys(alice.clone(), alice_id, vec![bob_sk_as_mutisig]),
+            Identity::add_signing_items(alice.clone(), alice_id, vec![bob_sk_as_mutisig]),
             unique_error
         );
 
-        let bob_sk = SigningKey::new(bob_key, vec![Permission::Admin]);
+        let bob_sk = SigningItem::new(Signer::Key(bob_key), vec![Permission::Admin]);
         assert_err!(
-            Identity::add_signing_keys(alice.clone(), alice_id, vec![bob_sk]),
+            Identity::add_signing_items(alice.clone(), alice_id, vec![bob_sk]),
             unique_error
         );
     }
@@ -1475,24 +1585,116 @@ mod tests {
         let (_charlie, charlie_id) = make_account(&c_acc).unwrap();
         let (_dave, dave_id) = make_account(&d_acc).unwrap();
 
-        assert_ok!(Identity::add_signing_identities(
+        assert_ok!(Identity::add_signing_items(
             alice.clone(),
             alice_id,
-            vec![bob_id, charlie_id]
+            vec![SigningItem::from(bob_id), SigningItem::from(charlie_id)]
         ));
-        assert_eq!(Identity::is_authorized_identity(bob_id, alice_id), true);
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(b_acc),
+            alice_id
+        ));
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(c_acc),
+            alice_id
+        ));
+        assert_eq!(
+            Identity::is_signer_authorized(alice_id, &Signer::Identity(bob_id)),
+            true
+        );
 
-        assert_ok!(Identity::remove_signing_identities(
+        assert_ok!(Identity::remove_signing_items(
             alice.clone(),
             alice_id,
-            vec![bob_id, dave_id]
+            vec![Signer::Identity(bob_id), Signer::Identity(dave_id)]
         ));
 
         let alice_rec = Identity::did_records(alice_id);
-        assert_eq!(alice_rec.signing_identities, vec![charlie_id]);
+        assert_eq!(alice_rec.signing_items, vec![SigningItem::from(charlie_id)]);
 
         // Check is_authorized_identity
-        assert_eq!(Identity::is_authorized_identity(charlie_id, alice_id), true);
-        assert_eq!(Identity::is_authorized_identity(bob_id, alice_id), false);
+        assert_eq!(
+            Identity::is_signer_authorized(alice_id, &Signer::Identity(charlie_id)),
+            true
+        );
+        assert_eq!(
+            Identity::is_signer_authorized(alice_id, &Signer::Identity(bob_id)),
+            false
+        );
+    }
+
+    #[test]
+    fn two_step_join_id() {
+        with_externalities(&mut build_ext(), &two_step_join_id_with_ext);
+    }
+
+    fn two_step_join_id_with_ext() {
+        let (a_acc, b_acc, c_acc, d_acc, e_acc) = (1u64, 2u64, 3u64, 4u64, 5u64);
+        let (a, a_id) = make_account(&a_acc).unwrap();
+        let (b, b_id) = make_account(&b_acc).unwrap();
+
+        let c_sk = SigningItem::new(
+            Signer::Key(Key::try_from(c_acc.encode()).unwrap()),
+            vec![Permission::Operator],
+        );
+        let d_sk = SigningItem::new(
+            Signer::Key(Key::try_from(d_acc.encode()).unwrap()),
+            vec![Permission::Full],
+        );
+        let e_sk = SigningItem::new(
+            Signer::Key(Key::try_from(e_acc.encode()).unwrap()),
+            vec![Permission::Full],
+        );
+
+        // Check 1-to-1 relation between key and identity.
+        let signing_keys = vec![c_sk.clone(), d_sk.clone(), e_sk.clone()];
+        assert_ok!(Identity::add_signing_items(
+            a.clone(),
+            a_id,
+            signing_keys.clone()
+        ));
+        assert_ok!(Identity::add_signing_items(b, b_id, signing_keys));
+        assert_eq!(Identity::is_signer_authorized(a_id, &c_sk.signer), false);
+
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(c_acc),
+            a_id
+        ));
+        assert_eq!(Identity::is_signer_authorized(a_id, &c_sk.signer), true);
+
+        assert_err!(
+            Identity::authorize_join_to_identity(Origin::signed(c_acc), b_id),
+            "Key is already linked to an identity"
+        );
+        assert_eq!(Identity::is_signer_authorized(b_id, &c_sk.signer), false);
+
+        // Check after remove a signing key.
+        assert_ok!(Identity::authorize_join_to_identity(
+            Origin::signed(d_acc),
+            a_id
+        ));
+        assert_eq!(Identity::is_signer_authorized(a_id, &d_sk.signer), true);
+        assert_ok!(Identity::remove_signing_items(
+            a.clone(),
+            a_id,
+            vec![d_sk.signer.clone()]
+        ));
+        assert_eq!(Identity::is_signer_authorized(a_id, &d_sk.signer), false);
+
+        // Check remove pre-authorization from master and itself.
+        assert_err!(
+            Identity::unauthorized_join_to_identity(a.clone(), e_sk.signer.clone(), b_id),
+            "Account cannot remove this authorization"
+        );
+        assert_ok!(Identity::unauthorized_join_to_identity(
+            a,
+            e_sk.signer.clone(),
+            a_id
+        ));
+        assert_ok!(Identity::unauthorized_join_to_identity(
+            Origin::signed(e_acc),
+            e_sk.signer,
+            b_id
+        ));
     }
 }

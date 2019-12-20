@@ -43,15 +43,16 @@
 //!
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
-use crate::asset::{self, AssetTrait};
-use crate::balances;
-use crate::constants::*;
-use crate::identity;
-use crate::utils;
+use crate::{
+    asset::{self, AssetTrait},
+    balances,
+    constants::*,
+    identity, utils,
+};
 use codec::Encode;
 use core::result::Result as StdResult;
 use identity::ClaimValue;
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -125,10 +126,10 @@ decl_module! {
         /// Adds an asset rule to active rules for a ticker
         pub fn add_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
@@ -146,9 +147,9 @@ decl_module! {
         /// Removes a rule from active asset rules
         pub fn remove_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
@@ -168,9 +169,9 @@ decl_module! {
         /// Removes all active rules of a ticker
         pub fn reset_active_rules(origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
