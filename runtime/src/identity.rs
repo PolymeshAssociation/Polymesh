@@ -120,7 +120,7 @@ pub enum LinkedKeyInfo {
 ///
 /// # Safety
 ///
-/// Please note, that `nonce` has been added to avoid **reply attack** and it should be the current
+/// Please note, that `nonce` has been added to avoid **replay attack** and it should be the current
 /// value of nonce of master key of `target_id`. See `System::account_nonce`.
 /// In this way, the authorization is delimited to an specific transaction (usually the next one)
 /// of master key of target identity.
