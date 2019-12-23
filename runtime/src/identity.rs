@@ -143,7 +143,7 @@ pub struct TargetIdAuthorization<N> {
 pub struct SigningItemWithAuth {
     /// Signing item to be added.
     pub signing_item: SigningItem,
-    /// Off-chain authorization signature. It is the
+    /// Off-chain authorization signature.
     pub auth_signature: H512,
 }
 
