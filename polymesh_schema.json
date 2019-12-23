@@ -164,9 +164,13 @@
         "payout_currency": "Option<Vec<u8>>",
         "checkpoint_id": "u64"
     },
-    "RegistryEntry": {
-        "token_type": "u32",
-        "owner_did": "IdentityId"
+    "TickerRegistration": {
+        "owner": "IdentityId",
+        "expiry": "Option<Moment>"
+    },
+    "TickerRegistrationConfig": {
+        "max_ticker_length": "u32",
+        "registration_length": "Option<Moment>"
     },
     "SignData": {
         "custodian_did": "IdentityId",
@@ -185,6 +189,11 @@
         "voting_start": "Moment",
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
+    },
+    "TickerTransferApproval": {
+        "authorized_by": "IdentityId",
+        "next_ticker": "Option<Vec<u8>>",
+        "previous_ticker": "Option<Vec<u8>>"
     },
     "OffChainSignature": "H512",
     "PermissionedValidator": {

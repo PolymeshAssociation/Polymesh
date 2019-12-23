@@ -321,7 +321,8 @@ mod tests {
     use test_client::{self, AccountKeyring};
 
     use crate::{
-        asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
+        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
+        identity, percentage_tm,
     };
 
     impl_outer_origin! {
@@ -481,8 +482,6 @@ mod tests {
         type Event = ();
     }
 
-    impl registry::Trait for Test {}
-
     impl exemption::Trait for Test {
         type Event = ();
         type Asset = asset::Module<Test>;
@@ -506,10 +505,21 @@ mod tests {
 
     /// Create externalities
     fn build_ext() -> TestExternalities<Blake2Hasher> {
-        system::GenesisConfig::default()
+        let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
-            .unwrap()
-            .into()
+            .unwrap();
+        asset::GenesisConfig::<Test> {
+            asset_creation_fee: 0,
+            ticker_registration_fee: 0,
+            ticker_registration_config: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                registration_length: Some(10000),
+            },
+            fee_collector: AccountKeyring::Dave.public().into(),
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        sr_io::TestExternalities::new(t)
     }
 
     fn make_account(
