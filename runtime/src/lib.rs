@@ -16,7 +16,6 @@ mod exemption;
 mod general_tm;
 mod identity;
 mod percentage_tm;
-mod registry;
 mod simple_token;
 
 pub mod staking;

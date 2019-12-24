@@ -740,7 +740,7 @@ fn one_step_join_id_with_ext() {
 
     // Check expire
     System::inc_account_nonce(&a_pub);
-    Timestamp::set_timestamp( expires_at);
+    Timestamp::set_timestamp(expires_at);
 
     let f = Origin::signed(AccountKeyring::Ferdie.public());
     let f_id = register_keyring_account(AccountKeyring::Ferdie).unwrap();
@@ -755,7 +755,12 @@ fn one_step_join_id_with_ext() {
     };
 
     assert_err!(
-        Identity::add_signing_items_with_authorization(f, f_id, expires_at, vec![ferdie_signing_item_with_auth]),
+        Identity::add_signing_items_with_authorization(
+            f,
+            f_id,
+            expires_at,
+            vec![ferdie_signing_item_with_auth]
+        ),
         "Offchain authorization has expired"
     );
 }

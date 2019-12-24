@@ -285,6 +285,59 @@ decl_module! {
             Ok(())
         }
 
+        /// Adds new signing keys for a DID. Only called by master key owner.
+        ///
+        /// # Failure
+        ///  - It can only called by master key owner.
+        ///  - If any signing key is already linked to any identity, it will fail.
+        ///  - If any signing key is already
+        pub fn add_signing_items(origin, did: IdentityId, signing_items: Vec<SigningItem>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
+
+            // Check constraint 1-to-1 in relation key-identity.
+            for s_item in &signing_items{
+                if let Signer::Key(ref key) = s_item.signer {
+                    if !Self::can_key_be_linked_to_did( key, s_item.signer_type) {
+                        return Err( "One signing key can only belong to one DID");
+                    }
+                }
+            }
+
+            // Ignore any key which is already valid in that identity.
+            let authorized_signing_items = Self::did_records( did).signing_items;
+            signing_items.iter()
+                .filter( |si| authorized_signing_items.contains(si) == false)
+                .for_each( |si| Self::add_pre_join_identity( si, did));
+
+            Self::deposit_event(RawEvent::NewSigningItems(did, signing_items));
+            Ok(())
+        }
+
+        /// Removes specified signing keys of a DID if present.
+        ///
+        /// # Failure
+        /// It can only called by master key owner.
+        pub fn remove_signing_items(origin, did: IdentityId, signers_to_remove: Vec<Signer>) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
+
+            // Remove any Pre-Authentication & link
+            signers_to_remove.iter().for_each( |signer| {
+                Self::remove_pre_join_identity( signer, did);
+                if let Signer::Key(ref key) = signer {
+                    Self::unlink_key_to_did(key, did);
+                }
+            });
+
+            // Update signing keys at Identity.
+            <DidRecords>::mutate(did, |record| {
+                (*record).remove_signing_items( &signers_to_remove);
+            });
+
+            Self::deposit_event(RawEvent::RevokedSigningItems(did, signers_to_remove));
+            Ok(())
+        }
 
         /// Sets a new master key for a DID.
         ///
@@ -506,146 +559,6 @@ decl_module! {
         // Manage Authorizations to join to an Identity
         // ================================================
 
-        /// Adds new signing keys for a DID. Only called by master key owner.
-        ///
-        /// # Failure
-        ///  - It can only called by master key owner.
-        ///  - If any signing key is already linked to any identity, it will fail.
-        ///  - If any signing key is already
-        pub fn add_signing_items(origin, did: IdentityId, signing_items: Vec<SigningItem>) -> Result {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
-
-            // Check constraint 1-to-1 in relation key-identity.
-            for s_item in &signing_items{
-                if let Signer::Key(ref key) = s_item.signer {
-                    if !Self::can_key_be_linked_to_did( key, s_item.signer_type) {
-                        return Err( "One signing key can only belong to one DID");
-                    }
-                }
-            }
-
-            // Ignore any key which is already valid in that identity.
-            let authorized_signing_items = Self::did_records( did).signing_items;
-            signing_items.iter()
-                .filter( |si| authorized_signing_items.contains(si) == false)
-                .for_each( |si| Self::add_pre_join_identity( si, did));
-
-            Self::deposit_event(RawEvent::NewSigningItems(did, signing_items));
-            Ok(())
-        }
-
-        /// Removes specified signing keys of a DID if present.
-        ///
-        /// # Failure
-        /// It can only called by master key owner.
-        pub fn remove_signing_items(origin, did: IdentityId, signers_to_remove: Vec<Signer>) -> Result {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
-
-            // Remove any Pre-Authentication & link
-            signers_to_remove.iter().for_each( |signer| {
-                Self::remove_pre_join_identity( signer, did);
-                if let Signer::Key(ref key) = signer {
-                    Self::unlink_key_to_did(key, did);
-                }
-            });
-
-            // Update signing keys at Identity.
-            <DidRecords>::mutate(did, |record| {
-                (*record).remove_signing_items( &signers_to_remove);
-            });
-
-            Self::deposit_event(RawEvent::RevokedSigningItems(did, signers_to_remove));
-            Ok(())
-        }
-
-        /// It adds signing keys to target identity `id`.
-        /// Keys are directly added to identity because each of them has an authorization.
-        ///
-        /// Arguments:
-        ///     - `origin` Master key of `id` identity.
-        ///     - `id` Identity where new signing keys will be added.
-        ///     - `additional_keys` New signing items (and their authorization data) to add to target
-        ///     identity.
-        ///
-        /// Failure
-        ///     - It can only called by master key owner.
-        ///     - Keys should be able to linked to any identity.
-        pub fn add_signing_items_with_authorization( origin,
-                id: IdentityId,
-                expires_at: T::Moment,
-                additional_keys: Vec<SigningItemWithAuth>) -> Result {
-            let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
-
-            // 0. Check expiration
-            let now = <timestamp::Module<T>>::get();
-            ensure!( now < expires_at, "Offchain authorization has expired");
-
-            let authorization = TargetIdAuthorization {
-                target_id: id,
-                nonce: Self::offchain_authorization_nonce(id),
-                expires_at
-            };
-            let auth_encoded= authorization.encode();
-
-            // 1. Verify signatures.
-            for si_with_auth in additional_keys.iter() {
-                let si = &si_with_auth.signing_item;
-
-                // Get account_id from signer
-                let account_id_found = match si.signer {
-                    Signer::Key(ref key) =>  Public::try_from(key.as_slice()).ok(),
-                    Signer::Identity(ref id) if <DidRecords>::exists(id) => {
-                        let master_key = <DidRecords>::get(id).master_key;
-                        Public::try_from( master_key.as_slice()).ok()
-                    },
-                    _ => None
-                };
-
-                if let Some(account_id) = account_id_found {
-                    if let Signer::Key(ref key) = si.signer {
-                        // 1.1. Constraint 1-to-1 account to DID
-                        ensure!( Self::can_key_be_linked_to_did( key, si.signer_type),
-                        "One signing key can only belong to one identity");
-                    }
-
-                    // 1.2. Offchain authorization is not revoked explicitly.
-                    ensure!( Self::is_offchain_authorization_revoked((si.signer.clone(), authorization.clone())) == false,
-                        "Authorization has been explicitly revoked");
-
-                    // 1.3. Verify the signature.
-                    let signature = AnySignature::from( Signature::from_h512(si_with_auth.auth_signature));
-                    ensure!( signature.verify( auth_encoded.as_slice(), &account_id),
-                        "Invalid Authorization signature");
-                } else {
-                    return Err("Account Id cannot be extracted from signer");
-                }
-            }
-
-            // 2.1. Link keys to identity
-            additional_keys.iter().for_each( |si_with_auth| {
-                let si = & si_with_auth.signing_item;
-                if let Signer::Key(ref key) = si.signer {
-                    Self::link_key_to_did( key, si.signer_type, id);
-                }
-            });
-
-            // 2.2. Update that identity information and its offchain authorization nonce.
-            <DidRecords>::mutate( id, |record| {
-                let keys = additional_keys.iter().map( |si_with_auth| si_with_auth.signing_item.clone())
-                    .collect::<Vec<_>>();
-                (*record).add_signing_items( &keys[..]);
-            });
-            <OffChainAuthorizationNonce>::mutate( id, |offchain_nonce| {
-                *offchain_nonce = authorization.nonce + 1;
-            });
-
-            Ok(())
-        }
-
         /// The key designated by `origin` accepts the authorization to join to `target_id`
         /// Identity.
         ///
@@ -723,6 +636,92 @@ decl_module! {
             } else {
                 Err("Account cannot remove this authorization")
             }
+        }
+
+
+        /// It adds signing keys to target identity `id`.
+        /// Keys are directly added to identity because each of them has an authorization.
+        ///
+        /// Arguments:
+        ///     - `origin` Master key of `id` identity.
+        ///     - `id` Identity where new signing keys will be added.
+        ///     - `additional_keys` New signing items (and their authorization data) to add to target
+        ///     identity.
+        ///
+        /// Failure
+        ///     - It can only called by master key owner.
+        ///     - Keys should be able to linked to any identity.
+        pub fn add_signing_items_with_authorization( origin,
+                id: IdentityId,
+                expires_at: T::Moment,
+                additional_keys: Vec<SigningItemWithAuth>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
+
+            // 0. Check expiration
+            let now = <timestamp::Module<T>>::get();
+            ensure!( now < expires_at, "Offchain authorization has expired");
+            let authorization = TargetIdAuthorization {
+                target_id: id,
+                nonce: Self::offchain_authorization_nonce(id),
+                expires_at
+            };
+            let auth_encoded= authorization.encode();
+
+            // 1. Verify signatures.
+            for si_with_auth in additional_keys.iter() {
+                let si = &si_with_auth.signing_item;
+
+                // Get account_id from signer
+                let account_id_found = match si.signer {
+                    Signer::Key(ref key) =>  Public::try_from(key.as_slice()).ok(),
+                    Signer::Identity(ref id) if <DidRecords>::exists(id) => {
+                        let master_key = <DidRecords>::get(id).master_key;
+                        Public::try_from( master_key.as_slice()).ok()
+                    },
+                    _ => None
+                };
+
+                if let Some(account_id) = account_id_found {
+                    if let Signer::Key(ref key) = si.signer {
+                        // 1.1. Constraint 1-to-1 account to DID
+                        ensure!( Self::can_key_be_linked_to_did( key, si.signer_type),
+                        "One signing key can only belong to one identity");
+                    }
+
+                    // 1.2. Offchain authorization is not revoked explicitly.
+                    ensure!( Self::is_offchain_authorization_revoked((si.signer.clone(), authorization.clone())) == false,
+                        "Authorization has been explicitly revoked");
+
+                    // 1.3. Verify the signature.
+                    let signature = AnySignature::from( Signature::from_h512(si_with_auth.auth_signature));
+                    ensure!( signature.verify( auth_encoded.as_slice(), &account_id),
+                        "Invalid Authorization signature");
+                } else {
+                    return Err("Account Id cannot be extracted from signer");
+                }
+            }
+
+            // 2.1. Link keys to identity
+            additional_keys.iter().for_each( |si_with_auth| {
+                let si = & si_with_auth.signing_item;
+                if let Signer::Key(ref key) = si.signer {
+                    Self::link_key_to_did( key, si.signer_type, id);
+                }
+            });
+
+            // 2.2. Update that identity information and its offchain authorization nonce.
+            <DidRecords>::mutate( id, |record| {
+                let keys = additional_keys.iter().map( |si_with_auth| si_with_auth.signing_item.clone())
+                    .collect::<Vec<_>>();
+                (*record).add_signing_items( &keys[..]);
+            });
+            <OffChainAuthorizationNonce>::mutate( id, |offchain_nonce| {
+                *offchain_nonce = authorization.nonce + 1;
+            });
+
+            Ok(())
         }
 
         /// It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
