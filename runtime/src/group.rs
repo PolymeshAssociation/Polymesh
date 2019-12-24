@@ -14,9 +14,6 @@ use srml_support::{
 };
 use system::ensure_root;
 
-#[derive(Encode, Decode, Default)]
-pub struct Id(u8);
-
 pub trait Trait<I = DefaultInstance>: system::Trait {
     /// The overarching event type.
     type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
@@ -32,31 +29,16 @@ pub trait Trait<I = DefaultInstance>: system::Trait {
 
     /// Required origin for resetting membership.
     type ResetOrigin: EnsureOrigin<Self::Origin>;
-
-    //    /// The receiver of the signal for when the membership has been initialized. This happens pre-
-    //    /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
-    //    /// different on initialization, then you can change this accordingly.
-    //    type MembershipInitialized: InitializeMembers<Self::AccountId>;
-    //
-    //    /// The receiver of the signal for when the membership has changed.
-    //    type MembershipChanged: ChangeMembers<Self::AccountId>;
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as IdentityMembership {
-        /// The current membership, stored as an ordered Vec.
+    trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
+        /// Identities that are part of this group
         Members get(members): Vec<IdentityId>;
     }
-//    add_extra_genesis {
-//        config(members): Vec<IdentityId>;
-//        config(phantom): rstd::marker::PhantomData<I>;
-//        build(|config: &Self| {
-//            let mut members = config.members.clone();
-//            members.sort();
-////            T::MembershipInitialized::initialize_members(&members);
-//            <Members<I>>::put(members);
-//        })
-//    }
+    add_extra_genesis {
+        config(members): Vec<IdentityId>;
+    }
 }
 
 decl_event!(
@@ -99,8 +81,6 @@ decl_module! {
             members.insert(location, who.clone());
             <Members<I>>::put(&members);
 
-//            T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
-
             Self::deposit_event(RawEvent::MemberAdded);
         }
 
@@ -118,8 +98,6 @@ decl_module! {
             let location = members.binary_search(&who).ok().ok_or("not a member")?;
             members.remove(location);
             <Members<I>>::put(&members);
-
-//            T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
 
             Self::deposit_event(RawEvent::MemberRemoved);
         }
@@ -145,12 +123,6 @@ decl_module! {
             members.sort();
             <Members<I>>::put(&members);
 
-//            T::MembershipChanged::change_members_sorted(
-//                &[add],
-//                &[remove],
-//                &members[..],
-//            );
-
             Self::deposit_event(RawEvent::MembersSwapped);
         }
 
@@ -168,7 +140,6 @@ decl_module! {
             let mut members = members;
             members.sort();
             <Members<I>>::mutate(|m| {
-//                T::MembershipChanged::set_members_sorted(&members[..], m);
                 *m = members;
             });
 
@@ -185,6 +156,7 @@ mod tests {
     use runtime_io::with_externalities;
     use std::cell::RefCell;
     use support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
+
     // The testing primitives are very useful for avoiding having to work with signatures
     // or public keys. `u64` is used as the `IdentityId` and no `Signature`s are requried.
     use sr_primitives::{
@@ -239,37 +211,15 @@ mod tests {
         static MEMBERS: RefCell<Vec<u64>> = RefCell::new(vec![]);
     }
 
-    pub struct TestChangeMembers;
-    impl ChangeMembers<u64> for TestChangeMembers {
-        fn change_members_sorted(incoming: &[u64], outgoing: &[u64], new: &[u64]) {
-            let mut old_plus_incoming = MEMBERS.with(|m| m.borrow().to_vec());
-            old_plus_incoming.extend_from_slice(incoming);
-            old_plus_incoming.sort();
-            let mut new_plus_outgoing = new.to_vec();
-            new_plus_outgoing.extend_from_slice(outgoing);
-            new_plus_outgoing.sort();
-            assert_eq!(old_plus_incoming, new_plus_outgoing);
-
-            MEMBERS.with(|m| *m.borrow_mut() = new.to_vec());
-        }
-    }
-    impl InitializeMembers<u64> for TestChangeMembers {
-        fn initialize_members(members: &[u64]) {
-            MEMBERS.with(|m| *m.borrow_mut() = members.to_vec());
-        }
-    }
-
     impl Trait for Test {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, u64>;
         type RemoveOrigin = EnsureSignedBy<Two, u64>;
         type SwapOrigin = EnsureSignedBy<Three, u64>;
         type ResetOrigin = EnsureSignedBy<Four, u64>;
-        type MembershipInitialized = TestChangeMembers;
-        type MembershipChanged = TestChangeMembers;
     }
 
-    type Membership = Module<Test>;
+    type Group = Module<Test>;
 
     // This function basically just builds a genesis storage key/value store according to
     // our desired mockup.
@@ -290,7 +240,7 @@ mod tests {
     #[test]
     fn query_membership_works() {
         with_externalities(&mut new_test_ext(), || {
-            assert_eq!(Membership::members(), vec![10, 20, 30]);
+            assert_eq!(Group::members(), vec![10, 20, 30]);
             assert_eq!(MEMBERS.with(|m| m.borrow().clone()), vec![10, 20, 30]);
         });
     }
@@ -298,54 +248,42 @@ mod tests {
     #[test]
     fn add_member_works() {
         with_externalities(&mut new_test_ext(), || {
-            assert_noop!(Membership::add_member(Origin::signed(5), 15), "bad origin");
-            assert_noop!(
-                Membership::add_member(Origin::signed(1), 10),
-                "already a member"
-            );
-            assert_ok!(Membership::add_member(Origin::signed(1), 15));
-            assert_eq!(Membership::members(), vec![10, 15, 20, 30]);
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members());
+            assert_noop!(Group::add_member(Origin::signed(5), 15), "bad origin");
+            assert_noop!(Group::add_member(Origin::signed(1), 10), "already a member");
+            assert_ok!(Group::add_member(Origin::signed(1), 15));
+            assert_eq!(Group::members(), vec![10, 15, 20, 30]);
+            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
         });
     }
 
     #[test]
     fn remove_member_works() {
         with_externalities(&mut new_test_ext(), || {
-            assert_noop!(
-                Membership::remove_member(Origin::signed(5), 20),
-                "bad origin"
-            );
-            assert_noop!(
-                Membership::remove_member(Origin::signed(2), 15),
-                "not a member"
-            );
-            assert_ok!(Membership::remove_member(Origin::signed(2), 20));
-            assert_eq!(Membership::members(), vec![10, 30]);
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members());
+            assert_noop!(Group::remove_member(Origin::signed(5), 20), "bad origin");
+            assert_noop!(Group::remove_member(Origin::signed(2), 15), "not a member");
+            assert_ok!(Group::remove_member(Origin::signed(2), 20));
+            assert_eq!(Group::members(), vec![10, 30]);
+            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
         });
     }
 
     #[test]
     fn swap_member_works() {
         with_externalities(&mut new_test_ext(), || {
+            assert_noop!(Group::swap_member(Origin::signed(5), 10, 25), "bad origin");
             assert_noop!(
-                Membership::swap_member(Origin::signed(5), 10, 25),
-                "bad origin"
-            );
-            assert_noop!(
-                Membership::swap_member(Origin::signed(3), 15, 25),
+                Group::swap_member(Origin::signed(3), 15, 25),
                 "not a member"
             );
             assert_noop!(
-                Membership::swap_member(Origin::signed(3), 10, 30),
+                Group::swap_member(Origin::signed(3), 10, 30),
                 "already a member"
             );
-            assert_ok!(Membership::swap_member(Origin::signed(3), 20, 20));
-            assert_eq!(Membership::members(), vec![10, 20, 30]);
-            assert_ok!(Membership::swap_member(Origin::signed(3), 10, 25));
-            assert_eq!(Membership::members(), vec![20, 25, 30]);
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members());
+            assert_ok!(Group::swap_member(Origin::signed(3), 20, 20));
+            assert_eq!(Group::members(), vec![10, 20, 30]);
+            assert_ok!(Group::swap_member(Origin::signed(3), 10, 25));
+            assert_eq!(Group::members(), vec![20, 25, 30]);
+            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
         });
     }
 
@@ -353,15 +291,12 @@ mod tests {
     fn reset_members_works() {
         with_externalities(&mut new_test_ext(), || {
             assert_noop!(
-                Membership::reset_members(Origin::signed(1), vec![20, 40, 30]),
+                Group::reset_members(Origin::signed(1), vec![20, 40, 30]),
                 "bad origin"
             );
-            assert_ok!(Membership::reset_members(
-                Origin::signed(4),
-                vec![20, 40, 30]
-            ));
-            assert_eq!(Membership::members(), vec![20, 30, 40]);
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members());
+            assert_ok!(Group::reset_members(Origin::signed(4), vec![20, 40, 30]));
+            assert_eq!(Group::members(), vec![20, 30, 40]);
+            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
         });
     }
 }

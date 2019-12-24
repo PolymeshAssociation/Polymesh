@@ -1,7 +1,7 @@
 use crate::{
     asset, balances,
     constants::{currency::*, time::*},
-    contracts_wrapper, dividend, exemption, general_tm, identity, identity_membership,
+    contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
     percentage_tm, registry, simple_token, staking, sto_capped,
     update_did_signed_extension::UpdateDid,
