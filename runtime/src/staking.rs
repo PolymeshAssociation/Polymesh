@@ -2073,7 +2073,6 @@ mod tests {
 
     type Staking = super::Module<Test>;
     type System = system::Module<Test>;
-    // type Balances = balances::Module<Test>;
     type Session = session::Module<Test>;
     type Timestamp = timestamp::Module<Test>;
 

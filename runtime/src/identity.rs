@@ -115,6 +115,8 @@ pub enum LinkedKeyInfo {
     Group(Vec<IdentityId>),
 }
 
+pub type AuthorizationNonce = u64;
+
 /// It represents an authorization that any account could sing to allow operations related with a
 /// target identity.
 ///
@@ -125,11 +127,11 @@ pub enum LinkedKeyInfo {
 /// In this way, the authorization is delimited to an specific transaction (usually the next one)
 /// of master key of target identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-pub struct TargetIdAuthorization<N> {
+pub struct TargetIdAuthorization {
     /// Target identity which is authorized to make an operation.
     pub target_id: IdentityId,
     /// It HAS TO be the `System::account_nonce()` of the master key of `target_id`.
-    pub nonce: N,
+    pub nonce: AuthorizationNonce,
 }
 
 /// It is a signing item with authorization of that singning key (off-chain operation) to be added
@@ -193,6 +195,12 @@ decl_storage! {
 
         /// Pre-authorize join to Identity.
         pub PreAuthorizedJoinDid get( pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
+
+        /// Authorization nonce per Identity. Initially is 0.
+        pub OffChainAuthorizationNonce get( offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
+
+        /// Inmediate revoke of any off-chain authorization.
+        pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization) => bool;
     }
 }
 
@@ -572,8 +580,9 @@ decl_module! {
 
             let authorization = TargetIdAuthorization {
                 target_id: id,
-                nonce: <system::Module<T>>::account_nonce(sender)
-            }.encode();
+                nonce: Self::offchain_authorization_nonce(id),
+            };
+            let auth_encoded= authorization.encode();
 
             // 1. Verify signatures.
             for si_with_auth in additional_keys.iter() {
@@ -591,19 +600,25 @@ decl_module! {
 
                 if let Some(account_id) = account_id_found {
                     if let Signer::Key(ref key) = si.signer {
+                        // 1.1. Constraint 1-to-1 account to DID
                         ensure!( Self::can_key_be_linked_to_did( key, si.signer_type),
                         "One signing key can only belong to one identity");
                     }
 
+                    // 1.2. Offchain authorization is not revoked explicitly.
+                    ensure!( Self::is_offchain_authorization_revoked((si.signer.clone(), authorization.clone())) == false,
+                        "Authorization has been explicitly revoked");
+
+                    // 1.3.
                     let signature = AnySignature::from( Signature::from_h512(si_with_auth.auth_signature));
-                    ensure!( signature.verify( authorization.as_slice(), &account_id),
+                    ensure!( signature.verify( auth_encoded.as_slice(), &account_id),
                         "Invalid Authorization signature");
                 } else {
                     return Err("Account Id cannot be extracted from signer");
                 }
             }
 
-            // Link keys to identity and update that identity information.
+            // 2.1. Link keys to identity
             additional_keys.iter().for_each( |si_with_auth| {
                 let si = & si_with_auth.signing_item;
                 if let Signer::Key(ref key) = si.signer {
@@ -611,10 +626,14 @@ decl_module! {
                 }
             });
 
+            // 2.2. Update that identity information and its offchain authorization nonce.
             <DidRecords>::mutate( id, |record| {
                 let keys = additional_keys.iter().map( |si_with_auth| si_with_auth.signing_item.clone())
                     .collect::<Vec<_>>();
                 (*record).add_signing_items( &keys[..]);
+            });
+            <OffChainAuthorizationNonce>::mutate( id, |offchain_nonce| {
+                *offchain_nonce = authorization.nonce + 1;
             });
 
             Ok(())
@@ -697,6 +716,20 @@ decl_module! {
             } else {
                 Err("Account cannot remove this authorization")
             }
+        }
+
+        /// It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
+        /// the authorized transaction is not yet executed.
+        pub fn revoke_offchain_authorization(origin, signer: Signer, auth: TargetIdAuthorization) -> Result {
+            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+
+            match signer {
+                Signer::Key(ref key) => ensure!( sender_key == *key, "This key is not allowed to revoke this off-chain authorization"),
+                Signer::Identity(id) => ensure!( Self::is_master_key(id, &sender_key), "Only master key is allowed to revoke an Identity Signer off-chain authorization"),
+            }
+
+            <RevokeOffChainAuthorization>::insert( (signer,auth), true);
+            Ok(())
         }
     }
 }

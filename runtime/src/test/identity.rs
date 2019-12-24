@@ -649,13 +649,14 @@ fn one_step_join_id_with_ext() {
     let b_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let c_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let d_id = register_keyring_account(AccountKeyring::Dave).unwrap();
+    let e = Origin::signed(AccountKeyring::Eve.public());
+    let e_id = register_keyring_account(AccountKeyring::Eve).unwrap();
 
-    let a_nonce = System::account_nonce(AccountKeyring::Alice.public());
     let authorization = TargetIdAuthorization {
         target_id: a_id.clone(),
-        nonce: a_nonce,
-    }
-    .encode();
+        nonce: Identity::offchain_authorization_nonce(a_id),
+    };
+    let auth_encoded = authorization.encode();
 
     let signatures = [
         AccountKeyring::Bob,
@@ -663,7 +664,7 @@ fn one_step_join_id_with_ext() {
         AccountKeyring::Dave,
     ]
     .into_iter()
-    .map(|acc| H512::from(acc.sign(&authorization)))
+    .map(|acc| H512::from(acc.sign(&auth_encoded)))
     .collect::<Vec<_>>();
 
     let signing_items_with_auth = vec![
@@ -697,10 +698,32 @@ fn one_step_join_id_with_ext() {
 
     assert_err!(
         Identity::add_signing_items_with_authorization(
-            a,
+            a.clone(),
             a_id,
             signing_items_with_auth[2..].to_owned()
         ),
         "Invalid Authorization signature"
+    );
+
+    // Check revoke off-chain authorization.
+    let eve_auth = TargetIdAuthorization {
+        target_id: a_id.clone(),
+        nonce: Identity::offchain_authorization_nonce(a_id),
+    };
+    assert_ne!(authorization.nonce, eve_auth.nonce);
+
+    let eve_signing_item_with_auth = SigningItemWithAuth {
+        signing_item: SigningItem::from(e_id),
+        auth_signature: H512::from(AccountKeyring::Eve.sign(eve_auth.encode().as_slice())),
+    };
+
+    assert_ok!(Identity::revoke_offchain_authorization(
+        e,
+        Signer::Identity(e_id),
+        eve_auth
+    ));
+    assert_err!(
+        Identity::add_signing_items_with_authorization(a, a_id, vec![eve_signing_item_with_auth]),
+        "Authorization has been explicitly revoked"
     );
 }
