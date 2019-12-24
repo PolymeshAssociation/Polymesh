@@ -14,6 +14,7 @@ use test_client::AccountKeyring;
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type System = system::Module<TestStorage>;
+type Timestamp = timestamp::Module<TestStorage>;
 
 type Origin = <TestStorage as system::Trait>::Origin;
 
@@ -649,12 +650,12 @@ fn one_step_join_id_with_ext() {
     let b_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let c_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let d_id = register_keyring_account(AccountKeyring::Dave).unwrap();
-    let e = Origin::signed(AccountKeyring::Eve.public());
-    let e_id = register_keyring_account(AccountKeyring::Eve).unwrap();
 
+    let expires_at = 100u64;
     let authorization = TargetIdAuthorization {
         target_id: a_id.clone(),
         nonce: Identity::offchain_authorization_nonce(a_id),
+        expires_at,
     };
     let auth_encoded = authorization.encode();
 
@@ -685,6 +686,7 @@ fn one_step_join_id_with_ext() {
     assert_ok!(Identity::add_signing_items_with_authorization(
         a.clone(),
         a_id,
+        expires_at,
         signing_items_with_auth[..2].to_owned()
     ));
 
@@ -700,15 +702,19 @@ fn one_step_join_id_with_ext() {
         Identity::add_signing_items_with_authorization(
             a.clone(),
             a_id,
+            expires_at,
             signing_items_with_auth[2..].to_owned()
         ),
         "Invalid Authorization signature"
     );
 
     // Check revoke off-chain authorization.
+    let e = Origin::signed(AccountKeyring::Eve.public());
+    let e_id = register_keyring_account(AccountKeyring::Eve).unwrap();
     let eve_auth = TargetIdAuthorization {
         target_id: a_id.clone(),
         nonce: Identity::offchain_authorization_nonce(a_id),
+        expires_at,
     };
     assert_ne!(authorization.nonce, eve_auth.nonce);
 
@@ -723,7 +729,33 @@ fn one_step_join_id_with_ext() {
         eve_auth
     ));
     assert_err!(
-        Identity::add_signing_items_with_authorization(a, a_id, vec![eve_signing_item_with_auth]),
+        Identity::add_signing_items_with_authorization(
+            a,
+            a_id.clone(),
+            expires_at,
+            vec![eve_signing_item_with_auth]
+        ),
         "Authorization has been explicitly revoked"
+    );
+
+    // Check expire
+    System::inc_account_nonce(&a_pub);
+    Timestamp::set_timestamp( expires_at);
+
+    let f = Origin::signed(AccountKeyring::Ferdie.public());
+    let f_id = register_keyring_account(AccountKeyring::Ferdie).unwrap();
+    let ferdie_auth = TargetIdAuthorization {
+        target_id: a_id.clone(),
+        nonce: Identity::offchain_authorization_nonce(a_id),
+        expires_at,
+    };
+    let ferdie_signing_item_with_auth = SigningItemWithAuth {
+        signing_item: SigningItem::from(f_id.clone()),
+        auth_signature: H512::from(AccountKeyring::Eve.sign(ferdie_auth.encode().as_slice())),
+    };
+
+    assert_err!(
+        Identity::add_signing_items_with_authorization(f, f_id, expires_at, vec![ferdie_signing_item_with_auth]),
+        "Offchain authorization has expired"
     );
 }

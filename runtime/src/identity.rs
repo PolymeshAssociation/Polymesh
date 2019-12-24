@@ -127,11 +127,12 @@ pub type AuthorizationNonce = u64;
 /// In this way, the authorization is delimited to an specific transaction (usually the next one)
 /// of master key of target identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-pub struct TargetIdAuthorization {
+pub struct TargetIdAuthorization<Moment> {
     /// Target identity which is authorized to make an operation.
     pub target_id: IdentityId,
-    /// It HAS TO be the `System::account_nonce()` of the master key of `target_id`.
+    /// It HAS TO be `target_id` authorization nonce: See `Identity::offchain_authorization_nonce`
     pub nonce: AuthorizationNonce,
+    pub expires_at: Moment,
 }
 
 /// It is a signing item with authorization of that singning key (off-chain operation) to be added
@@ -200,7 +201,7 @@ decl_storage! {
         pub OffChainAuthorizationNonce get( offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
-        pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization) => bool;
+        pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
     }
 }
 
@@ -573,14 +574,20 @@ decl_module! {
         ///     - Keys should be able to linked to any identity.
         pub fn add_signing_items_with_authorization( origin,
                 id: IdentityId,
+                expires_at: T::Moment,
                 additional_keys: Vec<SigningItemWithAuth>) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
 
+            // 0. Check expiration
+            let now = <timestamp::Module<T>>::get();
+            ensure!( now < expires_at, "Offchain authorization has expired");
+
             let authorization = TargetIdAuthorization {
                 target_id: id,
                 nonce: Self::offchain_authorization_nonce(id),
+                expires_at
             };
             let auth_encoded= authorization.encode();
 
@@ -609,7 +616,7 @@ decl_module! {
                     ensure!( Self::is_offchain_authorization_revoked((si.signer.clone(), authorization.clone())) == false,
                         "Authorization has been explicitly revoked");
 
-                    // 1.3.
+                    // 1.3. Verify the signature.
                     let signature = AnySignature::from( Signature::from_h512(si_with_auth.auth_signature));
                     ensure!( signature.verify( auth_encoded.as_slice(), &account_id),
                         "Invalid Authorization signature");
@@ -720,7 +727,7 @@ decl_module! {
 
         /// It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
         /// the authorized transaction is not yet executed.
-        pub fn revoke_offchain_authorization(origin, signer: Signer, auth: TargetIdAuthorization) -> Result {
+        pub fn revoke_offchain_authorization(origin, signer: Signer, auth: TargetIdAuthorization<T::Moment>) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
 
             match signer {
@@ -728,7 +735,7 @@ decl_module! {
                 Signer::Identity(id) => ensure!( Self::is_master_key(id, &sender_key), "Only master key is allowed to revoke an Identity Signer off-chain authorization"),
             }
 
-            <RevokeOffChainAuthorization>::insert( (signer,auth), true);
+            <RevokeOffChainAuthorization<T>>::insert( (signer,auth), true);
             Ok(())
         }
     }
