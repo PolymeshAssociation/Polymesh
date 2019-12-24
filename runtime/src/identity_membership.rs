@@ -3,6 +3,9 @@
 //! Allows control of membership of a set of `IdentityId`s, useful for managing membership of a
 //! collective.
 
+use crate::identity;
+use codec::{Decode, Encode, HasCompact};
+use primitives::IdentityId;
 use rstd::prelude::*;
 use sr_primitives::{traits::EnsureOrigin, weights::SimpleDispatchInfo};
 use srml_support::{
@@ -10,6 +13,9 @@ use srml_support::{
     traits::{ChangeMembers, InitializeMembers},
 };
 use system::ensure_root;
+
+#[derive(Encode, Decode, Default)]
+pub struct Id(u8);
 
 pub trait Trait<I = DefaultInstance>: system::Trait {
     /// The overarching event type.
@@ -27,30 +33,30 @@ pub trait Trait<I = DefaultInstance>: system::Trait {
     /// Required origin for resetting membership.
     type ResetOrigin: EnsureOrigin<Self::Origin>;
 
-    /// The receiver of the signal for when the membership has been initialized. This happens pre-
-    /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
-    /// different on initialization, then you can change this accordingly.
-    type MembershipInitialized: InitializeMembers<Self::AccountId>;
-
-    /// The receiver of the signal for when the membership has changed.
-    type MembershipChanged: ChangeMembers<Self::AccountId>;
+    //    /// The receiver of the signal for when the membership has been initialized. This happens pre-
+    //    /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
+    //    /// different on initialization, then you can change this accordingly.
+    //    type MembershipInitialized: InitializeMembers<Self::AccountId>;
+    //
+    //    /// The receiver of the signal for when the membership has changed.
+    //    type MembershipChanged: ChangeMembers<Self::AccountId>;
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Membership {
+    trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as IdentityMembership {
         /// The current membership, stored as an ordered Vec.
-        Members get(members): Vec<T::AccountId>;
+        Members get(members): Vec<IdentityId>;
     }
-    add_extra_genesis {
-        config(members): Vec<T::AccountId>;
-        config(phantom): rstd::marker::PhantomData<I>;
-        build(|config: &Self| {
-            let mut members = config.members.clone();
-            members.sort();
-            T::MembershipInitialized::initialize_members(&members);
-            <Members<T, I>>::put(members);
-        })
-    }
+//    add_extra_genesis {
+//        config(members): Vec<IdentityId>;
+//        config(phantom): rstd::marker::PhantomData<I>;
+//        build(|config: &Self| {
+//            let mut members = config.members.clone();
+//            members.sort();
+////            T::MembershipInitialized::initialize_members(&members);
+//            <Members<I>>::put(members);
+//        })
+//    }
 }
 
 decl_event!(
@@ -82,18 +88,18 @@ decl_module! {
         ///
         /// May only be called from `AddOrigin` or root.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn add_member(origin, who: T::AccountId) {
+        fn add_member(origin, who: IdentityId) {
             T::AddOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            let mut members = <Members<T, I>>::get();
+            let mut members = <Members<I>>::get();
             let location = members.binary_search(&who).err().ok_or("already a member")?;
             members.insert(location, who.clone());
-            <Members<T, I>>::put(&members);
+            <Members<I>>::put(&members);
 
-            T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
+//            T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
 
             Self::deposit_event(RawEvent::MemberAdded);
         }
@@ -102,18 +108,18 @@ decl_module! {
         ///
         /// May only be called from `RemoveOrigin` or root.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn remove_member(origin, who: T::AccountId) {
+        fn remove_member(origin, who: IdentityId) {
             T::RemoveOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            let mut members = <Members<T, I>>::get();
+            let mut members = <Members<I>>::get();
             let location = members.binary_search(&who).ok().ok_or("not a member")?;
             members.remove(location);
-            <Members<T, I>>::put(&members);
+            <Members<I>>::put(&members);
 
-            T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
+//            T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
 
             Self::deposit_event(RawEvent::MemberRemoved);
         }
@@ -122,7 +128,7 @@ decl_module! {
         ///
         /// May only be called from `SwapOrigin` or root.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn swap_member(origin, remove: T::AccountId, add: T::AccountId) {
+        fn swap_member(origin, remove: IdentityId, add: IdentityId) {
             T::SwapOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
@@ -130,18 +136,20 @@ decl_module! {
 
             if remove == add { return Ok(()) }
 
-            let mut members = <Members<T, I>>::get();
+            let mut members = <Members<I>>::get();
+
             let location = members.binary_search(&remove).ok().ok_or("not a member")?;
             members[location] = add.clone();
+
             let _location = members.binary_search(&add).err().ok_or("already a member")?;
             members.sort();
-            <Members<T, I>>::put(&members);
+            <Members<I>>::put(&members);
 
-            T::MembershipChanged::change_members_sorted(
-                &[add],
-                &[remove],
-                &members[..],
-            );
+//            T::MembershipChanged::change_members_sorted(
+//                &[add],
+//                &[remove],
+//                &members[..],
+//            );
 
             Self::deposit_event(RawEvent::MembersSwapped);
         }
@@ -151,7 +159,7 @@ decl_module! {
         ///
         /// May only be called from `ResetOrigin` or root.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn reset_members(origin, members: Vec<T::AccountId>) {
+        fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
@@ -159,8 +167,8 @@ decl_module! {
 
             let mut members = members;
             members.sort();
-            <Members<T, I>>::mutate(|m| {
-                T::MembershipChanged::set_members_sorted(&members[..], m);
+            <Members<I>>::mutate(|m| {
+//                T::MembershipChanged::set_members_sorted(&members[..], m);
                 *m = members;
             });
 
@@ -173,12 +181,12 @@ decl_module! {
 mod tests {
     use super::*;
 
-    use sr_io::with_externalities;
-    use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use primitives::{Blake2Hasher, H256};
+    use runtime_io::with_externalities;
     use std::cell::RefCell;
-    use substrate_primitives::{Blake2Hasher, H256};
+    use support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
     // The testing primitives are very useful for avoiding having to work with signatures
-    // or public keys. `u64` is used as the `AccountId` and no `Signature`s are requried.
+    // or public keys. `u64` is used as the `IdentityId` and no `Signature`s are requried.
     use sr_primitives::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup},
@@ -263,11 +271,13 @@ mod tests {
 
     type Membership = Module<Test>;
 
-    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+    // This function basically just builds a genesis storage key/value store according to
+    // our desired mockup.
+    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
-
+        // We use default for brevity, but you can configure as desired if needed.
         GenesisConfig::<Test> {
             members: vec![10, 20, 30],
             ..Default::default()
