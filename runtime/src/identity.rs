@@ -98,7 +98,7 @@ impl Default for DataTypes {
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or external type signing key are restricted to be linked to just one identity.
-/// Other types of signing key could be associated with more that one identity.
+/// Other types of signing key could be associated with more than one identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub enum LinkedKeyInfo {
     Unique(IdentityId),

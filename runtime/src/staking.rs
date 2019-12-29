@@ -227,7 +227,7 @@
 
 use codec::{Decode, Encode, HasCompact};
 use phragmen::{elect, equalize, ExtendedBalance, Support, SupportMap, ACCURACY};
-use rstd::{prelude::*, result};
+use rstd::{prelude::*, result, convert::TryFrom};
 use session::{historical::OnSessionEnding, SelectInitialValidators};
 use sr_primitives::{
     curve::PiecewiseLinear,
@@ -253,11 +253,16 @@ use srml_support::{
     },
 };
 use system::{ensure_root, ensure_signed};
+use crate::identity;
+use crate::constants::KYC_EXPIRY_CLAIM_KEY;
+use primitives::Key;
+use core::convert::TryInto;
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
 const MAX_NOMINATIONS: usize = 16;
 const MAX_UNLOCKING_CHUNKS: usize = 32;
 const STAKING_ID: LockIdentifier = *b"staking ";
+
 
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
@@ -506,7 +511,7 @@ where
     }
 }
 
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + identity::Trait {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 
@@ -647,6 +652,8 @@ decl_storage! {
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
             linked_map T::AccountId => Option<PermissionedValidator>;
+        /// No of seconds allowed as a tradeoff in the kyc expiry check
+        pub KYCExpiryTradeOff get(kyc_expiry_tradeoff) config(): u64; 
     }
     add_extra_genesis {
         config(stakers):
@@ -921,13 +928,30 @@ decl_module! {
             let ledger = Self::ledger(&controller).ok_or("not a controller")?;
             let stash = &ledger.stash;
             ensure!(!targets.is_empty(), "targets cannot be empty");
-            let targets = targets.into_iter()
-                .take(MAX_NOMINATIONS)
-                .map(|t| T::Lookup::lookup(t))
-                .collect::<result::Result<Vec<T::AccountId>, _>>()?;
-
-            <Validators<T>>::remove(stash);
-            <Nominators<T>>::insert(stash, targets);
+            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(Key::try_from(stash.encode())?)) {
+                let claim_issuers = <identity::Module<T>>::claim_issuers(nominate_identity);
+                for x in 0..claim_issuers.len() {
+                    if let Some(claim) = <identity::Module<T>>::fetch_claim_value(nominate_identity, KYC_EXPIRY_CLAIM_KEY.to_vec(), claim_issuers[x]) {
+                        match claim.value.as_slice().try_into() {
+                            Ok(value) => {
+                                let kyc_expiry: [u8; 8] = value;
+                                let threshold = (((<timestamp::Module<T>>::get()).saturated_into::<u64>()).checked_add(Self::kyc_expiry_tradeoff())).ok_or("Overflow")?;
+                                if u64::from_ne_bytes(kyc_expiry) > threshold {
+                                    let targets = targets.into_iter()
+                                    .take(MAX_NOMINATIONS)
+                                    .map(|t| T::Lookup::lookup(t))
+                                    .collect::<result::Result<Vec<T::AccountId>, _>>()?;
+                                
+                                    <Validators<T>>::remove(stash);
+                                    <Nominators<T>>::insert(stash, targets);
+                                    break;
+                                }
+                            },
+                            Err(_) => continue,
+                        }
+                    }
+                }
+            } 
         }
 
         /// Declare no desire to either validate or nominate.
