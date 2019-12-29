@@ -1,17 +1,31 @@
-//! # Identity based membership Module
+//! # Group Module
 //!
+//! The Group module is used to manage a set of identities. A group of identities can be a
+//! collection of KYC providers, council members for governance and so on. This is an instantiable
+//! module.
+//!
+//! ## Overview
 //! Allows control of membership of a set of `IdentityId`s, useful for managing membership of a
 //! collective.
-
+//!
+//! - Add a new identity
+//! - Remove identity from the group
+//! - Swam members
+//! - Reset group members
+//!
+//! ### Dispatchable Functions
+//!
+//! - `add_member` - Adds a new identity to the group.
+//! - `remove_member` - Remove identity from the group if it exists.
+//! - `swap_member` - Replace one identity with the other.
+//! - `reset_members` - Re-initialize group members.
+//!
 use crate::identity;
 use codec::{Decode, Encode, HasCompact};
 use primitives::IdentityId;
 use rstd::prelude::*;
 use sr_primitives::{traits::EnsureOrigin, weights::SimpleDispatchInfo};
-use srml_support::{
-    decl_event, decl_module, decl_storage,
-    traits::{ChangeMembers, InitializeMembers},
-};
+use srml_support::{decl_event, decl_module, decl_storage};
 use system::ensure_root;
 
 pub trait Trait<I = DefaultInstance>: system::Trait {
@@ -34,10 +48,10 @@ pub trait Trait<I = DefaultInstance>: system::Trait {
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
         /// Identities that are part of this group
-        Members get(members): Vec<IdentityId>;
+        Members get(members) config(): Vec<IdentityId>;
     }
     add_extra_genesis {
-        config(members): Vec<IdentityId>;
+        config(phantom): rstd::marker::PhantomData<(T, I)>;
     }
 }
 
@@ -66,9 +80,11 @@ decl_module! {
     {
         fn deposit_event() = default;
 
-        /// Add a member `who` to the set.
+        /// Add a member `who` to the set. May only be called from `AddOrigin` or root.
         ///
-        /// May only be called from `AddOrigin` or root.
+        /// # Arguments
+        /// * `origin` Origin representing `AddOrigin` or root
+        /// * `who` IdentityId to be added to the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn add_member(origin, who: IdentityId) {
             T::AddOrigin::try_origin(origin)
@@ -84,9 +100,11 @@ decl_module! {
             Self::deposit_event(RawEvent::MemberAdded);
         }
 
-        /// Remove a member `who` from the set.
+        /// Remove a member `who` from the set. May only be called from `RemoveOrigin` or root.
         ///
-        /// May only be called from `RemoveOrigin` or root.
+        /// # Arguments
+        /// * `origin` Origin representing `RemoveOrigin` or root
+        /// * `who` IdentityId to be removed from the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn remove_member(origin, who: IdentityId) {
             T::RemoveOrigin::try_origin(origin)
@@ -103,8 +121,12 @@ decl_module! {
         }
 
         /// Swap out one member `remove` for another `add`.
-        ///
         /// May only be called from `SwapOrigin` or root.
+        ///
+        /// # Arguments
+        /// * `origin` Origin representing `SwapOrigin` or root
+        /// * `remove` IdentityId to be removed from the group.
+        /// * `add` IdentityId to be added in place of `remove`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn swap_member(origin, remove: IdentityId, add: IdentityId) {
             T::SwapOrigin::try_origin(origin)
@@ -126,10 +148,12 @@ decl_module! {
             Self::deposit_event(RawEvent::MembersSwapped);
         }
 
-        /// Change the membership to a new set, disregarding the existing membership. Be nice and
-        /// pass `members` pre-sorted.
-        ///
+        /// Change the membership to a new set, disregarding the existing membership.
         /// May only be called from `ResetOrigin` or root.
+        ///
+        /// # Arguments
+        /// * `origin` Origin representing `ResetOrigin` or root
+        /// * `members` New set of identities
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::try_origin(origin)
@@ -152,13 +176,11 @@ decl_module! {
 mod tests {
     use super::*;
 
-    use primitives::{Blake2Hasher, H256};
-    use runtime_io::with_externalities;
+    use sr_io::with_externalities;
+    use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
     use std::cell::RefCell;
-    use support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use substrate_primitives::{Blake2Hasher, H256};
 
-    // The testing primitives are very useful for avoiding having to work with signatures
-    // or public keys. `u64` is used as the `IdentityId` and no `Signature`s are requried.
     use sr_primitives::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup},
@@ -170,9 +192,6 @@ mod tests {
         pub enum Origin for Test {}
     }
 
-    // For testing the module, we construct most of a mock runtime. This means
-    // first constructing a configuration type (`Test`) which `impl`s each of the
-    // configuration traits of modules we want to use.
     #[derive(Clone, Eq, PartialEq)]
     pub struct Test;
     parameter_types! {
@@ -207,10 +226,6 @@ mod tests {
         pub const Five: u64 = 5;
     }
 
-    thread_local! {
-        static MEMBERS: RefCell<Vec<u64>> = RefCell::new(vec![]);
-    }
-
     impl Trait for Test {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, u64>;
@@ -223,13 +238,18 @@ mod tests {
 
     // This function basically just builds a genesis storage key/value store according to
     // our desired mockup.
-    fn new_test_ext() -> runtime_io::TestExternalities<Blake2Hasher> {
+    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
+
         // We use default for brevity, but you can configure as desired if needed.
         GenesisConfig::<Test> {
-            members: vec![10, 20, 30],
+            members: vec![
+                IdentityId::from(1),
+                IdentityId::from(2),
+                IdentityId::from(3),
+            ],
             ..Default::default()
         }
         .assimilate_storage(&mut t)
@@ -240,50 +260,101 @@ mod tests {
     #[test]
     fn query_membership_works() {
         with_externalities(&mut new_test_ext(), || {
-            assert_eq!(Group::members(), vec![10, 20, 30]);
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), vec![10, 20, 30]);
+            assert_eq!(
+                Group::members(),
+                vec![
+                    IdentityId::from(1),
+                    IdentityId::from(2),
+                    IdentityId::from(3)
+                ]
+            );
         });
     }
 
     #[test]
     fn add_member_works() {
         with_externalities(&mut new_test_ext(), || {
-            assert_noop!(Group::add_member(Origin::signed(5), 15), "bad origin");
-            assert_noop!(Group::add_member(Origin::signed(1), 10), "already a member");
-            assert_ok!(Group::add_member(Origin::signed(1), 15));
-            assert_eq!(Group::members(), vec![10, 15, 20, 30]);
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
+            assert_noop!(
+                Group::add_member(Origin::signed(5), IdentityId::from(3)),
+                "bad origin"
+            );
+            assert_noop!(
+                Group::add_member(Origin::signed(1), IdentityId::from(3)),
+                "already a member"
+            );
+            assert_ok!(Group::add_member(Origin::signed(1), IdentityId::from(4)));
+            assert_eq!(
+                Group::members(),
+                vec![
+                    IdentityId::from(1),
+                    IdentityId::from(2),
+                    IdentityId::from(3),
+                    IdentityId::from(4)
+                ]
+            );
         });
     }
 
     #[test]
     fn remove_member_works() {
         with_externalities(&mut new_test_ext(), || {
-            assert_noop!(Group::remove_member(Origin::signed(5), 20), "bad origin");
-            assert_noop!(Group::remove_member(Origin::signed(2), 15), "not a member");
-            assert_ok!(Group::remove_member(Origin::signed(2), 20));
-            assert_eq!(Group::members(), vec![10, 30]);
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
+            assert_noop!(
+                Group::remove_member(Origin::signed(5), IdentityId::from(3)),
+                "bad origin"
+            );
+            assert_noop!(
+                Group::remove_member(Origin::signed(2), IdentityId::from(5)),
+                "not a member"
+            );
+            assert_ok!(Group::remove_member(Origin::signed(2), IdentityId::from(3)));
+            assert_eq!(
+                Group::members(),
+                vec![IdentityId::from(1), IdentityId::from(2),]
+            );
         });
     }
 
     #[test]
     fn swap_member_works() {
         with_externalities(&mut new_test_ext(), || {
-            assert_noop!(Group::swap_member(Origin::signed(5), 10, 25), "bad origin");
             assert_noop!(
-                Group::swap_member(Origin::signed(3), 15, 25),
+                Group::swap_member(Origin::signed(5), IdentityId::from(1), IdentityId::from(5)),
+                "bad origin"
+            );
+            assert_noop!(
+                Group::swap_member(Origin::signed(3), IdentityId::from(5), IdentityId::from(6)),
                 "not a member"
             );
             assert_noop!(
-                Group::swap_member(Origin::signed(3), 10, 30),
+                Group::swap_member(Origin::signed(3), IdentityId::from(1), IdentityId::from(3)),
                 "already a member"
             );
-            assert_ok!(Group::swap_member(Origin::signed(3), 20, 20));
-            assert_eq!(Group::members(), vec![10, 20, 30]);
-            assert_ok!(Group::swap_member(Origin::signed(3), 10, 25));
-            assert_eq!(Group::members(), vec![20, 25, 30]);
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
+            assert_ok!(Group::swap_member(
+                Origin::signed(3),
+                IdentityId::from(2),
+                IdentityId::from(2)
+            ));
+            assert_eq!(
+                Group::members(),
+                vec![
+                    IdentityId::from(1),
+                    IdentityId::from(2),
+                    IdentityId::from(3)
+                ]
+            );
+            assert_ok!(Group::swap_member(
+                Origin::signed(3),
+                IdentityId::from(1),
+                IdentityId::from(6)
+            ));
+            assert_eq!(
+                Group::members(),
+                vec![
+                    IdentityId::from(2),
+                    IdentityId::from(3),
+                    IdentityId::from(6),
+                ]
+            );
         });
     }
 
@@ -291,12 +362,32 @@ mod tests {
     fn reset_members_works() {
         with_externalities(&mut new_test_ext(), || {
             assert_noop!(
-                Group::reset_members(Origin::signed(1), vec![20, 40, 30]),
+                Group::reset_members(
+                    Origin::signed(1),
+                    vec![
+                        IdentityId::from(4),
+                        IdentityId::from(5),
+                        IdentityId::from(6),
+                    ]
+                ),
                 "bad origin"
             );
-            assert_ok!(Group::reset_members(Origin::signed(4), vec![20, 40, 30]));
-            assert_eq!(Group::members(), vec![20, 30, 40]);
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
+            assert_ok!(Group::reset_members(
+                Origin::signed(4),
+                vec![
+                    IdentityId::from(4),
+                    IdentityId::from(5),
+                    IdentityId::from(6),
+                ]
+            ));
+            assert_eq!(
+                Group::members(),
+                vec![
+                    IdentityId::from(4),
+                    IdentityId::from(5),
+                    IdentityId::from(6),
+                ]
+            );
         });
     }
 }
