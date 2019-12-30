@@ -20,7 +20,6 @@
 //! - `swap_member` - Replace one identity with the other.
 //! - `reset_members` - Re-initialize group members.
 //!
-use crate::identity;
 use codec::{Decode, Encode, HasCompact};
 use primitives::IdentityId;
 use rstd::prelude::*;
