@@ -224,9 +224,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::constants::KYC_EXPIRY_CLAIM_KEY;
+use crate::identity;
 use codec::{Decode, Encode, HasCompact};
+use core::convert::TryInto;
 use phragmen::{elect, equalize, ExtendedBalance, Support, SupportMap, ACCURACY};
-use rstd::{prelude::*, result, convert::TryFrom};
+use primitives::Key;
+use rstd::{convert::TryFrom, prelude::*, result};
 use session::{historical::OnSessionEnding, SelectInitialValidators};
 use sr_primitives::{
     curve::PiecewiseLinear,
@@ -252,16 +256,11 @@ use srml_support::{
     },
 };
 use system::{ensure_root, ensure_signed};
-use crate::identity;
-use crate::constants::KYC_EXPIRY_CLAIM_KEY;
-use primitives::Key;
-use core::convert::TryInto;
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
 const MAX_NOMINATIONS: usize = 16;
 const MAX_UNLOCKING_CHUNKS: usize = 32;
 const STAKING_ID: LockIdentifier = *b"staking ";
-
 
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
@@ -652,7 +651,7 @@ decl_storage! {
         pub PermissionedValidators get(permissioned_validators):
             linked_map T::AccountId => Option<PermissionedValidator>;
         /// No of seconds allowed as a tradeoff in the kyc expiry check
-        pub KYCExpiryTradeOff get(kyc_expiry_tradeoff) config(): u64; 
+        pub KYCExpiryTradeOff get(kyc_expiry_tradeoff) config(): u64;
     }
     add_extra_genesis {
         config(stakers):
@@ -917,7 +916,7 @@ decl_module! {
             let stash = &ledger.stash;
             ensure!(!targets.is_empty(), "targets cannot be empty");
             // A Claim_key can have multiple claim value provided by different claim issuers.
-            // So here we iterate every claim value of the "KYCExpiryTimestamp" claim key. If 
+            // So here we iterate every claim value of the "KYCExpiryTimestamp" claim key. If
             // any key value will be greater than the threshold value of timestamp i.e current_timestamp + kyc_expiry_tradeoff()
             // then it break the loop and the given nominator in the nominator pool.
 
@@ -934,7 +933,7 @@ decl_module! {
                                     .take(MAX_NOMINATIONS)
                                     .map(|t| T::Lookup::lookup(t))
                                     .collect::<result::Result<Vec<T::AccountId>, _>>()?;
-                                
+
                                     <Validators<T>>::remove(stash);
                                     <Nominators<T>>::insert(stash, targets);
                                     break;
@@ -944,7 +943,7 @@ decl_module! {
                         }
                     }
                 }
-            } 
+            }
         }
 
         /// Declare no desire to either validate or nominate.
@@ -1101,7 +1100,7 @@ decl_module! {
         /// Validate the nominators KYC expiry time
         ///
         /// If an account from a given set of address is nominating then
-        /// check the KYC expiry time of it and if it is expired 
+        /// check the KYC expiry time of it and if it is expired
         /// then the account should be unbonded and removed from the nominating process.
         ///
         /// #<weight>
@@ -1115,14 +1114,14 @@ decl_module! {
             ensure!(!targets.is_empty(), "targets cannot be empty");
             // Iterate provided list of accountIds (These accountIds should be stash type account)
             for i in 0..targets.len() {
-                // Check whether given nominator is vouching for someone or not  
+                // Check whether given nominator is vouching for someone or not
 
                 if !(Self::nominators(&targets[i])).is_empty() {
                     // Access the identity of the nominator
                     if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(Key::try_from(targets[i].encode())?)) {
                         // Access all the claim issuers for a given nominator
                         // then iterate all of them which provide the claim for KYC expiration.
-                        // There is a possibility that nominator will have more than one claim for the same key, 
+                        // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                         // valid KYC otherwise it will be removed from the pool of the nominators.
                         let claim_issuers = <identity::Module<T>>::claim_issuers(nominate_identity);
@@ -1693,9 +1692,8 @@ impl<T: Trait> Module<T> {
     fn unbond_balance(
         controller: T::AccountId,
         ledger: &mut StakingLedger<T::AccountId, BalanceOf<T>>,
-        value: BalanceOf<T>
+        value: BalanceOf<T>,
     ) {
-        
         let mut value = value.min(ledger.active);
 
         if !value.is_zero() {
