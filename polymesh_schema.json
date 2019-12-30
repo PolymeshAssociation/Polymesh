@@ -28,6 +28,12 @@
         "active": "bool",
         "jurisdiction": "u16"
     },
+    "LinkedKeyInfo": { 
+        "_enum": { 
+            "Unique": "IdentityId",
+            "Group": "Vec<IdentityId>"
+        }
+    },
     "Key": "[u8;32]",
     "Permission": {
         "_enum": [
@@ -37,7 +43,7 @@
             "SpendFunds"
        ]
     },
-    "SigningKeyType": {
+    "SignerType": {
         "_enum": [
             "External",
             "Identity",
@@ -45,9 +51,15 @@
             "Relayer"
         ]
     },
-    "SigningKey": {
-        "key": "Key",
-        "type": "SigningKeyType",
+    "Signer":{
+       "_enum": { 
+            "Identity": "IdentityId",
+            "Key": "Key"
+        } 
+    },
+    "SigningItem": {
+        "signer": "Signer",
+        "signer_type": "SignerType",
         "permissions": "Vec<Permission>"
     },
     "LinkedKeyInfo": {
@@ -68,10 +80,14 @@
             "VerifiedIdentityClaimIssuer"
         ]
     },
+    "PreAuthorizedKeyInfo": {
+        "target_id": "IdentityId",
+        "signing_item": "SigningItem"
+    },
     "DidRecord": {
         "roles": "Vec<IdentityRole>",
         "master_key": "Key",
-        "signing_keys": "Vec<SigningKey>"
+        "signing_items": "Vec<SigningItem>"
     },
     "Claim": {
         "issuance_date": "Moment",
@@ -148,9 +164,13 @@
         "payout_currency": "Option<Vec<u8>>",
         "checkpoint_id": "u64"
     },
-    "RegistryEntry": {
-        "token_type": "u32",
-        "owner_did": "IdentityId"
+    "TickerRegistration": {
+        "owner": "IdentityId",
+        "expiry": "Option<Moment>"
+    },
+    "TickerRegistrationConfig": {
+        "max_ticker_length": "u32",
+        "registration_length": "Option<Moment>"
     },
     "SignData": {
         "custodian_did": "IdentityId",
@@ -169,5 +189,20 @@
         "voting_start": "Moment",
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
+    },
+    "TickerTransferApproval": {
+        "authorized_by": "IdentityId",
+        "next_ticker": "Option<Vec<u8>>",
+        "previous_ticker": "Option<Vec<u8>>"
+    },
+    "OffChainSignature": "H512",
+    "PermissionedValidator": {
+        "compliance": "Compliance"
+    },
+    "Compliance": {
+        "_enum": [
+            "Pending",
+            "Active"
+        ]
     }
 }
