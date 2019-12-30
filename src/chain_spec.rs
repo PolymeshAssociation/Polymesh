@@ -233,7 +233,7 @@ fn testnet_genesis(
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             force_era: Forcing::NotForcing,
             slash_reward_fraction: Perbill::from_percent(10),
-            kyc_expiry_tradeoff: 2629746, // seconds in 1 month  
+            kyc_expiry_tradeoff: 2629746, // seconds in 1 month
             ..Default::default()
         }),
         membership_Instance1: Some(Default::default()),
