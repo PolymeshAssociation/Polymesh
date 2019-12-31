@@ -60,13 +60,13 @@ decl_event!(
 		<T as Trait<I>>::Event,
 	{
 		/// The given member was added; see the transaction for who.
-		MemberAdded,
+		MemberAdded(IdentityId),
 		/// The given member was removed; see the transaction for who.
-		MemberRemoved,
+		MemberRemoved(IdentityId),
 		/// Two members were swapped; see the transaction for who.
-		MembersSwapped,
+		MembersSwapped(IdentityId, IdentityId),
 		/// The membership was reset; see the transaction for who the new set is.
-		MembersReset,
+		MembersReset(Vec<IdentityId>),
 		/// Phantom member, never used.
 		Dummy(rstd::marker::PhantomData<(AccountId, Event)>),
 	}
@@ -96,7 +96,7 @@ decl_module! {
             members.insert(location, who.clone());
             <Members<I>>::put(&members);
 
-            Self::deposit_event(RawEvent::MemberAdded);
+            Self::deposit_event(RawEvent::MemberAdded(who));
         }
 
         /// Remove a member `who` from the set. May only be called from `RemoveOrigin` or root.
@@ -116,7 +116,7 @@ decl_module! {
             members.remove(location);
             <Members<I>>::put(&members);
 
-            Self::deposit_event(RawEvent::MemberRemoved);
+            Self::deposit_event(RawEvent::MemberRemoved(who));
         }
 
         /// Swap out one member `remove` for another `add`.
@@ -144,7 +144,7 @@ decl_module! {
             members.sort();
             <Members<I>>::put(&members);
 
-            Self::deposit_event(RawEvent::MembersSwapped);
+            Self::deposit_event(RawEvent::MembersSwapped(remove, add));
         }
 
         /// Change the membership to a new set, disregarding the existing membership.
@@ -160,13 +160,13 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            let mut members = members;
-            members.sort();
+            let mut new_members = members.clone();
+            new_members.sort();
             <Members<I>>::mutate(|m| {
-                *m = members;
+                *m = new_members;
             });
 
-            Self::deposit_event(RawEvent::MembersReset);
+            Self::deposit_event(RawEvent::MembersReset(members));
         }
     }
 }
