@@ -4,7 +4,7 @@ use core::str;
 use rstd::prelude::*;
 use runtime_primitives::traits::Printable;
 #[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
+use runtime_primitives::{Deserialize, Serialize};
 use sr_io;
 const _POLY_DID_PREFIX: &'static str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
