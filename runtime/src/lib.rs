@@ -10,6 +10,7 @@ pub mod balances;
 /// Constant values used within the runtime.
 pub mod constants;
 
+mod committee;
 mod contracts_wrapper;
 mod dividend;
 mod exemption;
