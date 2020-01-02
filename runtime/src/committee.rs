@@ -12,8 +12,9 @@
 //! ### Dispatchable Functions
 //!
 //!
-use primitives::IdentityId;
-use rstd::{prelude::*, result};
+use crate::identity;
+use primitives::{IdentityId, Key, Signer};
+use rstd::{convert::TryFrom, prelude::*, result};
 use sr_primitives::traits::{EnsureOrigin, Hash};
 use sr_primitives::weights::SimpleDispatchInfo;
 use srml_support::{
@@ -32,7 +33,7 @@ pub type ProposalIndex = u32;
 /// The number of committee members
 pub type MemberCount = u32;
 
-pub trait Trait<I = DefaultInstance>: system::Trait {
+pub trait Trait<I = DefaultInstance>: system::Trait + identity::Trait {
     /// The outer origin type.
     type Origin: From<RawOrigin<I>>;
 
@@ -60,8 +61,6 @@ pub type Origin<I = DefaultInstance> = RawOrigin<I>;
 pub struct Votes<IdentityId> {
     /// The proposal's unique index.
     index: ProposalIndex,
-    /// The number of approval votes that are needed to pass the motion.
-    threshold: MemberCount,
     /// The current set of commmittee members that approved it.
     ayes: Vec<IdentityId>,
     /// The current set of commmittee members that rejected it.
@@ -111,14 +110,56 @@ decl_module! {
 
         /// Set the committee's membership manually to `new_members`.
         /// Requires root origin.
+        ///
+        /// # Arguments
+        /// * `origin` Root
+        /// * `new_members` Members to be initialized as committee.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_members(origin, new_members: Vec<IdentityId>) {
             ensure_root(origin)?;
+
             let mut new_members = new_members;
             new_members.sort();
             <Members<I>>::mutate(|m| {
                 *m = new_members;
             });
         }
+
+        /// Any committee member proposes a dispatchable.
+        ///
+        /// # Arguments
+        /// * `did` Identity of the proposer
+        /// * `proposal` A dispatchable call
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
+        fn propose(origin, did: IdentityId, proposal: Box<<T as Trait<I>>::Proposal>) {
+            let who = ensure_signed(origin)?;
+            let signer = Signer::Key(Key::try_from(who.encode())?);
+
+            // Ensure sender can sign for the given identity
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
+
+            // Only committee members can propose
+            ensure!(Self::is_member(&did), "proposer is not a member");
+
+            // Reject duplicate proposals
+            let proposal_hash = T::Hashing::hash_of(&proposal);
+            ensure!(!<ProposalOf<T, I>>::exists(proposal_hash), "duplicate proposals not allowed");
+
+            let index = Self::proposal_count();
+            <ProposalCount<I>>::mutate(|i| *i += 1);
+            <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
+            <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
+            
+            let votes = Votes { index, ayes: vec![did.clone()], nays: vec![] };
+            <Voting<T, I>>::insert(proposal_hash, votes);
+
+            Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
+        }
+    }
+}
+
+impl<T: Trait<I>, I: Instance> Module<T, I> {
+    pub fn is_member(who: &IdentityId) -> bool {
+        Self::members().contains(who)
     }
 }
