@@ -62,6 +62,10 @@
         "signer_type": "SignerType",
         "permissions": "Vec<Permission>"
     },
+    "SigningItemWithAuth":{
+        "signing_item": "SigningItem",
+        "auth_signature": "Signature"
+    },
     "LinkedKeyInfo": {
         "_enum": "[u8;1]",
         "did": "[u8;32]"

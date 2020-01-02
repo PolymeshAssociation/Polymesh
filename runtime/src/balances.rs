@@ -1334,9 +1334,9 @@ mod tests {
     use sr_io::{self, with_externalities};
     use sr_primitives::{
         testing::Header,
-        traits::{Convert, IdentityLookup},
+        traits::{Convert, IdentityLookup, Verify},
         weights::{DispatchInfo, Weight},
-        Perbill,
+        AnySignature, Perbill,
     };
     use srml_support::{
         assert_err, assert_ok,
@@ -1346,6 +1346,7 @@ mod tests {
     };
     use std::{cell::RefCell, result::Result};
     use substrate_primitives::{Blake2Hasher, H256};
+    use test_client::AccountKeyring;
 
     use crate::identity;
 
@@ -1408,7 +1409,7 @@ mod tests {
     // Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
     #[derive(Clone, PartialEq, Eq, Debug)]
     pub struct Runtime;
-    type AccountId = u64;
+    type AccountId = <AnySignature as Verify>::Signer;
     parameter_types! {
         pub const BlockHashCount: u64 = 250;
         pub const MaximumBlockWeight: u32 = 1024;
@@ -1423,7 +1424,7 @@ mod tests {
         type Call = ();
         type Hash = H256;
         type Hashing = ::sr_primitives::traits::BlakeTwo256;
-        type AccountId = u64;
+        type AccountId = AccountId;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type WeightMultiplierUpdate = ();
@@ -1544,20 +1545,31 @@ mod tests {
             GenesisConfig::<Runtime> {
                 balances: if self.monied {
                     vec![
-                        (1, 10 * self.existential_deposit),
-                        (2, 20 * self.existential_deposit),
-                        (3, 30 * self.existential_deposit),
-                        (4, 40 * self.existential_deposit),
-                        (12, 10 * self.existential_deposit),
+                        (
+                            AccountKeyring::Alice.public(),
+                            10 * self.existential_deposit,
+                        ),
+                        (AccountKeyring::Bob.public(), 20 * self.existential_deposit),
+                        (
+                            AccountKeyring::Charlie.public(),
+                            30 * self.existential_deposit,
+                        ),
+                        (AccountKeyring::Dave.public(), 40 * self.existential_deposit),
+                        // (12, 10 * self.existential_deposit),
                     ]
                 } else {
                     vec![]
                 },
                 vesting: if self.vesting && self.monied {
                     vec![
-                        (1, 0, 10, 5 * self.existential_deposit),
-                        (2, 10, 20, 0),
-                        (12, 10, 20, 5 * self.existential_deposit),
+                        (
+                            AccountKeyring::Alice.public(),
+                            0,
+                            10,
+                            5 * self.existential_deposit,
+                        ),
+                        (AccountKeyring::Bob.public(), 10, 20, 0),
+                        // (12, 10, 20, 5 * self.existential_deposit),
                     ]
                 } else {
                     vec![]
@@ -1601,14 +1613,15 @@ mod tests {
                 .build(),
             || {
                 let len = 10;
+                let alice_pub = AccountKeyring::Alice.public();
                 assert!(TakeFees::<Runtime>::from(0)
-                    .pre_dispatch(&1, CALL, info_from_weight(5), len)
+                    .pre_dispatch(&alice_pub, CALL, info_from_weight(5), len)
                     .is_ok());
-                assert_eq!(Balances::free_balance(&1), 100 - 20 - 25);
+                assert_eq!(Balances::free_balance(&alice_pub), 100 - 20 - 25);
                 assert!(TakeFees::<Runtime>::from(0 /* 0 tip */)
-                    .pre_dispatch(&1, CALL, info_from_weight(3), len)
+                    .pre_dispatch(&alice_pub, CALL, info_from_weight(3), len)
                     .is_ok());
-                assert_eq!(Balances::free_balance(&1), 100 - 20 - 25 - 20 - 15);
+                assert_eq!(Balances::free_balance(&alice_pub), 100 - 20 - 25 - 20 - 15);
             },
         );
     }
@@ -1624,7 +1637,12 @@ mod tests {
             || {
                 let len = 10;
                 assert!(TakeFees::<Runtime>::from(5 /* 5 tip */)
-                    .pre_dispatch(&1, CALL, info_from_weight(3), len)
+                    .pre_dispatch(
+                        &AccountKeyring::Alice.public(),
+                        CALL,
+                        info_from_weight(3),
+                        len
+                    )
                     .is_err());
             },
         );
@@ -1639,10 +1657,11 @@ mod tests {
                 .monied(true)
                 .build(),
             || {
-                let (signed_acc_id, acc_did) = make_account(&4).unwrap();
+                let dave_pub = AccountKeyring::Dave.public();
+                let (signed_acc_id, acc_did) = make_account(&dave_pub).unwrap();
                 let len = 10;
                 assert!(TakeFees::<Runtime>::from(0 /* 0 tip */)
-                    .pre_dispatch(&4, CALL, info_from_weight(3), len)
+                    .pre_dispatch(&dave_pub, CALL, info_from_weight(3), len)
                     .is_ok());
                 assert_ok!(Balances::change_charge_did_flag(
                     signed_acc_id.clone(),
@@ -1650,19 +1669,19 @@ mod tests {
                 ));
                 assert!(
                     TakeFees::<Runtime>::from(0 /* 0 tip */)
-                        .pre_dispatch(&4, CALL, info_from_weight(3), len)
+                        .pre_dispatch(&dave_pub, CALL, info_from_weight(3), len)
                         .is_err() // no balance in identity
                 );
-                assert_eq!(Balances::free_balance(&4), 365);
+                assert_eq!(Balances::free_balance(&dave_pub), 365);
                 assert_ok!(Balances::top_up_identity_balance(
                     signed_acc_id.clone(),
                     acc_did,
                     300
                 ));
-                assert_eq!(Balances::free_balance(&4), 65);
+                assert_eq!(Balances::free_balance(&dave_pub), 65);
                 assert_eq!(Balances::identity_balance(acc_did), 300);
                 assert!(TakeFees::<Runtime>::from(0 /* 0 tip */)
-                    .pre_dispatch(&4, CALL, info_from_weight(3), len)
+                    .pre_dispatch(&dave_pub, CALL, info_from_weight(3), len)
                     .is_ok());
                 assert_ok!(Balances::reclaim_identity_balance(
                     signed_acc_id.clone(),
@@ -1673,7 +1692,7 @@ mod tests {
                     Balances::reclaim_identity_balance(signed_acc_id, acc_did, 230),
                     "too few free funds in account"
                 );
-                assert_eq!(Balances::free_balance(&4), 295);
+                assert_eq!(Balances::free_balance(&dave_pub), 295);
                 assert_eq!(Balances::identity_balance(acc_did), 35);
             },
         );
