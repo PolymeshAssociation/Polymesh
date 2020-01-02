@@ -149,11 +149,83 @@ decl_module! {
             <ProposalCount<I>>::mutate(|i| *i += 1);
             <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
             <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
-            
+
             let votes = Votes { index, ayes: vec![did.clone()], nays: vec![] };
             <Voting<T, I>>::insert(proposal_hash, votes);
 
             Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
+        }
+
+        /// # <weight>
+        /// - Bounded storage read and writes.
+        /// - Will be slightly heavier if the proposal is approved / disapproved after the vote.
+        /// # </weight>
+        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        fn vote(origin, did: IdentityId, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
+            let who = ensure_signed(origin)?;
+            let signer = Signer::Key(Key::try_from(who.encode())?);
+
+            // Ensure sender can sign for the given identity
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
+
+            // Only committee members can vote
+            ensure!(Self::is_member(&did), "voter is not a member");
+
+            let mut voting = Self::voting(&proposal).ok_or("proposal must exist")?;
+            ensure!(voting.index == index, "mismatched index");
+
+            let position_yes = voting.ayes.iter().position(|a| a == &did);
+            let position_no = voting.nays.iter().position(|a| a == &did);
+
+            if approve {
+                if position_yes.is_none() {
+                    voting.ayes.push(did.clone());
+                } else {
+                    return Err("duplicate vote ignored")
+                }
+                if let Some(pos) = position_no {
+                    voting.nays.swap_remove(pos);
+                }
+            } else {
+                if position_no.is_none() {
+                    voting.nays.push(did.clone());
+                } else {
+                    return Err("duplicate vote ignored")
+                }
+                if let Some(pos) = position_yes {
+                    voting.ayes.swap_remove(pos);
+                }
+            }
+
+//            let yes_votes = voting.ayes.len() as MemberCount;
+//            let no_votes = voting.nays.len() as MemberCount;
+//            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
+//
+//            let seats = Self::members().len() as MemberCount;
+//            let approved = yes_votes >= voting.threshold;
+//            let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
+//            if approved || disapproved {
+//                if approved {
+//                    Self::deposit_event(RawEvent::Approved(proposal));
+//
+//                    // execute motion, assuming it exists.
+//                    if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
+//                        let origin = RawOrigin::Members(voting.threshold, seats).into();
+//                        let ok = p.dispatch(origin).is_ok();
+//                        Self::deposit_event(RawEvent::Executed(proposal, ok));
+//                    }
+//                } else {
+//                    // disapproved
+//                    Self::deposit_event(RawEvent::Rejected(proposal));
+//                }
+//
+//                // remove vote
+//                <Voting<T, I>>::remove(&proposal);
+//                <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
+//            } else {
+//                // update voting
+//                <Voting<T, I>>::insert(&proposal, voting);
+//            }
         }
     }
 }
@@ -161,5 +233,53 @@ decl_module! {
 impl<T: Trait<I>, I: Instance> Module<T, I> {
     pub fn is_member(who: &IdentityId) -> bool {
         Self::members().contains(who)
+    }
+}
+
+pub trait VoteThreshold<N, D> {
+    fn meets(n: N, d: D) -> bool;
+}
+
+pub struct VoteThresholdAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
+    rstd::marker::PhantomData<(N, D, AccountId, I)>,
+);
+impl<N: U32, D: U32, AccountId, I> VoteThreshold<N, D>
+    for VoteThresholdAtLeast<N, D, AccountId, I>
+{
+    fn meets(n: N, d: D) -> bool {
+        true
+    }
+}
+
+pub struct EnsureProportionMoreThan<N: U32, D: U32, I=DefaultInstance>(
+    rstd::marker::PhantomData<(N, D, I)>
+);
+impl<
+    O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>,
+    N: U32,
+    D: U32,
+    I,
+> EnsureOrigin<O> for EnsureProportionMoreThan<N, D, I> {
+    type Success = ();
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
+            r => Err(O::from(r)),
+        })
+    }
+}
+
+pub struct EnsureProportionAtLeast<N: U32, D: U32, I = DefaultInstance>(
+    rstd::marker::PhantomData<(N, D, I)>,
+);
+impl<O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>, N: U32, D: U32, I> EnsureOrigin<O>
+    for EnsureProportionAtLeast<N, D, I>
+{
+    type Success = ();
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
+            r => Err(O::from(r)),
+        })
     }
 }
