@@ -4,6 +4,7 @@ use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
+use polymesh_runtime::asset::TickerRegistrationConfig;
 use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
@@ -192,6 +193,11 @@ fn testnet_genesis(
         }),
         asset: Some(AssetConfig {
             asset_creation_fee: 250,
+            ticker_registration_fee: 250,
+            ticker_registration_config: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                registration_length: None,
+            },
             fee_collector: get_from_seed::<AccountId>("Dave"),
         }),
         identity: Some(IdentityConfig {

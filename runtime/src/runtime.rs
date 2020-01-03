@@ -3,7 +3,7 @@ use crate::{
     constants::{currency::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
-    mips, percentage_tm, registry, simple_token, staking, sto_capped,
+    mips, percentage_tm, simple_token, staking, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -462,8 +462,6 @@ impl dividend::Trait for Runtime {
     type Event = Event;
 }
 
-impl registry::Trait for Runtime {}
-
 construct_runtime!(
     pub enum Runtime where
     Block = Block,
@@ -507,7 +505,6 @@ construct_runtime!(
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
-        Registry: registry::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
