@@ -1823,6 +1823,26 @@ dependencies = [
  "ed25519-dalek 1.0.0-pre.2 (git+https://github.com/dalek-cryptography/ed25519-dalek.git?tag=1.0.0-pre.2)",
  "hex 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-scale-codec 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sr-io 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "sr-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "sr-std 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "sr-version 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "srml-babe 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "srml-support 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "substrate-application-crypto 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "substrate-client 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "substrate-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+]
+
+[[package]]
+name = "polymesh-runtime-common"
+version = "0.1.0"
+dependencies = [
+ "bitvec 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ed25519-dalek 1.0.0-pre.2 (git+https://github.com/dalek-cryptography/ed25519-dalek.git?tag=1.0.0-pre.2)",
+ "hex 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-scale-codec 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "polymesh-primitives 0.6.0",
  "pretty_assertions 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
@@ -1831,6 +1851,8 @@ dependencies = [
  "sr-version 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "srml-babe 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "srml-support 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "srml-system 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
+ "srml-timestamp 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "substrate-application-crypto 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "substrate-client 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",
  "substrate-primitives 2.0.0 (git+https://github.com/paritytech/substrate?rev=7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50)",

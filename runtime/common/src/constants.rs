@@ -1,6 +1,6 @@
 /// Money matters.
 pub mod currency {
-    use primitives::Balance;
+    use polymesh_primitives::Balance;
     // TODO: Define proper units. These are placeholders.
     pub const POLY: Balance = 1_000_000;
     pub const DOLLARS: Balance = POLY;
@@ -12,7 +12,7 @@ pub mod currency {
 
 /// Time and blocks.
 pub mod time {
-    use primitives::{BlockNumber, Moment};
+    use polymesh_primitives::{BlockNumber, Moment};
     // Kusama & mainnet
     pub const MILLISECS_PER_BLOCK: Moment = 6000;
     // Testnet
@@ -34,7 +34,7 @@ pub mod time {
 
 /// Fee-related.
 pub mod fee {
-    pub use sr_primitives::Perbill;
+    pub use srml_support::sr_primitives::Perbill;
 
     /// The block saturation level. Fees will be updates based on this value.
     pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
