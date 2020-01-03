@@ -1,5 +1,5 @@
 use crate::{
-    asset, balances,
+    asset, balances, committee,
     constants::{currency::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
@@ -488,7 +488,8 @@ construct_runtime!(
 
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Storage, Event<T>},        
-        GovernanceCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        TechnicalCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        //GovernanceCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
