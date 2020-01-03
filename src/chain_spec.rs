@@ -14,6 +14,7 @@ use polymesh_runtime::{
     },
     runtime::KYCServiceProvidersConfig,
     runtime::TechnicalCommitteeConfig,
+    runtime::TheCommitteeConfig,
     Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
@@ -265,9 +266,9 @@ fn testnet_genesis(
             members: vec![],
             phantom: Default::default(),
         }),
-        //        committee_Instance1: Some(GovernanceCommitteeConfig {
-        //            members: vec![],
-        //            phantom: Default::default(),
-        //        }),
+        committee_Instance1: Some(TheCommitteeConfig {
+            members: vec![],
+            phantom: Default::default(),
+        }),
     }
 }

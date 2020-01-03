@@ -268,6 +268,13 @@ impl collective::Trait<GovernanceCollective> for Runtime {
     type Event = Event;
 }
 
+type DefaultCommittee = committee::Instance1;
+impl committee::Trait<DefaultCommittee> for Runtime {
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
+}
+
 parameter_types! {
     pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
@@ -489,7 +496,7 @@ construct_runtime!(
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Storage, Event<T>},        
         TechnicalCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        //GovernanceCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        TheCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},

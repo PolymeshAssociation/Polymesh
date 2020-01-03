@@ -197,35 +197,35 @@ decl_module! {
                 }
             }
 
-//            let yes_votes = voting.ayes.len() as MemberCount;
-//            let no_votes = voting.nays.len() as MemberCount;
-//            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
-//
-//            let seats = Self::members().len() as MemberCount;
-//            let approved = yes_votes >= voting.threshold;
-//            let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
-//            if approved || disapproved {
-//                if approved {
-//                    Self::deposit_event(RawEvent::Approved(proposal));
-//
-//                    // execute motion, assuming it exists.
-//                    if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
-//                        let origin = RawOrigin::Members(voting.threshold, seats).into();
-//                        let ok = p.dispatch(origin).is_ok();
-//                        Self::deposit_event(RawEvent::Executed(proposal, ok));
-//                    }
-//                } else {
-//                    // disapproved
-//                    Self::deposit_event(RawEvent::Rejected(proposal));
-//                }
-//
-//                // remove vote
-//                <Voting<T, I>>::remove(&proposal);
-//                <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
-//            } else {
-//                // update voting
-//                <Voting<T, I>>::insert(&proposal, voting);
-//            }
+            let yes_votes = voting.ayes.len() as MemberCount;
+            let no_votes = voting.nays.len() as MemberCount;
+            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
+
+            let seats = Self::members().len() as MemberCount;
+            let approved = yes_votes >= voting.threshold;
+            let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
+            if approved || disapproved {
+                if approved {
+                    Self::deposit_event(RawEvent::Approved(proposal));
+
+                    // execute motion, assuming it exists.
+                    if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
+                        let origin = RawOrigin::Members(voting.threshold, seats).into();
+                        let ok = p.dispatch(origin).is_ok();
+                        Self::deposit_event(RawEvent::Executed(proposal, ok));
+                    }
+                } else {
+                    // disapproved
+                    Self::deposit_event(RawEvent::Rejected(proposal));
+                }
+
+                // remove vote
+                <Voting<T, I>>::remove(&proposal);
+                <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
+            } else {
+                // update voting
+                <Voting<T, I>>::insert(&proposal, voting);
+            }
         }
     }
 }
@@ -251,15 +251,12 @@ impl<N: U32, D: U32, AccountId, I> VoteThreshold<N, D>
     }
 }
 
-pub struct EnsureProportionMoreThan<N: U32, D: U32, I=DefaultInstance>(
-    rstd::marker::PhantomData<(N, D, I)>
+pub struct EnsureProportionMoreThan<N: U32, D: U32, I = DefaultInstance>(
+    rstd::marker::PhantomData<(N, D, I)>,
 );
-impl<
-    O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>,
-    N: U32,
-    D: U32,
-    I,
-> EnsureOrigin<O> for EnsureProportionMoreThan<N, D, I> {
+impl<O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>, N: U32, D: U32, I> EnsureOrigin<O>
+    for EnsureProportionMoreThan<N, D, I>
+{
     type Success = ();
     fn try_origin(o: O) -> Result<Self::Success, O> {
         o.into().and_then(|o| match o {

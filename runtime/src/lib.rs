@@ -44,8 +44,7 @@ pub mod config {
     pub type StakingConfig = crate::staking::GenesisConfig<crate::Runtime>;
     pub type TechnicalCommitteeConfig =
         collective::GenesisConfig<crate::Runtime, collective::Instance1>;
-    //    pub type GovernanceCommitteeConfig =
-    //        committee::GenesisConfig<crate::Runtime, committee::Instance1>;
+    pub type TheCommitteeConfig = committee::GenesisConfig<crate::Runtime, committee::Instance1>;
     pub type ContractsConfig = contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = indices::GenesisConfig<crate::Runtime>;
     pub type SudoConfig = sudo::GenesisConfig<crate::Runtime>;
