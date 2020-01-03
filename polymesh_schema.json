@@ -28,8 +28,8 @@
         "active": "bool",
         "jurisdiction": "u16"
     },
-    "LinkedKeyInfo": { 
-        "_enum": { 
+    "LinkedKeyInfo": {
+        "_enum": {
             "Unique": "IdentityId",
             "Group": "Vec<IdentityId>"
         }
@@ -52,10 +52,10 @@
         ]
     },
     "Signer":{
-       "_enum": { 
+       "_enum": {
             "Identity": "IdentityId",
             "Key": "Key"
-        } 
+        }
     },
     "SigningItem": {
         "signer": "Signer",
@@ -163,6 +163,11 @@
         "expires_at": "Option<u64>",
         "payout_currency": "Option<Vec<u8>>",
         "checkpoint_id": "u64"
+    },
+    "TargetIdAuthorization": {
+        "target_id": "IdentityId",
+        "nonce": "u64",
+        "expires_at": "Moment"
     },
     "TickerRegistration": {
         "owner": "IdentityId",
