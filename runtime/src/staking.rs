@@ -228,9 +228,9 @@ use crate::constants::KYC_EXPIRY_CLAIM_KEY;
 use crate::identity;
 use codec::{Decode, Encode, HasCompact};
 use core::convert::TryInto;
+use phragmen::{elect, ExtendedBalance, Support, SupportMap, ACCURACY};
 use primitives::Key;
 use rstd::{convert::TryFrom, prelude::*, result};
-use phragmen::{elect, ExtendedBalance, Support, SupportMap, ACCURACY};
 
 #[cfg(feature = "equalize")]
 use phragmen::equalize;
@@ -1918,14 +1918,19 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{balances, identity, test::storage::{ account_from, make_account, make_account_with_balance }};
+    use crate::constants::KYC_EXPIRY_CLAIM_KEY;
+    use crate::{
+        balances, identity,
+        test::storage::{account_from, make_account, make_account_with_balance},
+    };
+    use identity::{ClaimMetaData, ClaimValue, DataTypes};
     use std::{
         cell::RefCell,
         collections::{HashMap, HashSet},
     };
-    use identity::{ ClaimValue, DataTypes, ClaimMetaData };
-    use crate::constants::KYC_EXPIRY_CLAIM_KEY;
 
+    use chrono::prelude::*;
+    use primitives::{IdentityId, Key};
     use sr_io::{with_externalities, TestExternalities};
     use sr_primitives::{
         testing::{sr25519::Public, Header, UintAuthorityId},
@@ -1944,8 +1949,6 @@ mod tests {
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
     use test_client::AccountKeyring;
-    use primitives::{IdentityId, Key};
-    use chrono::prelude::*;
 
     /// Mock types for testing
     /// The AccountId alias in this test module.
@@ -2399,8 +2402,8 @@ mod tests {
             .assimilate_storage(&mut storage);
 
             let _ = identity::GenesisConfig::<Test> {
-                    owner: AccountKeyring::Alice.public().into(),
-                    did_creation_fee: 250,
+                owner: AccountKeyring::Alice.public().into(),
+                did_creation_fee: 250,
             }
             .assimilate_storage(&mut storage);
 
@@ -2435,7 +2438,7 @@ mod tests {
         idendity_id: IdentityId,
         claim_issuer_account_id: AccountId,
         account_id: AccountId,
-        claim_value: ClaimValue
+        claim_value: ClaimValue,
     ) -> Result<(), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Identity::add_claim_issuer(signed_id, idendity_id, claim_issuer);
@@ -2447,9 +2450,9 @@ mod tests {
             KYC_EXPIRY_CLAIM_KEY.to_vec(),
             claim_issuer,
             (now.timestamp() as u64 + 1000_u64).into(),
-            claim_value
-            );
-        Ok(())   
+            claim_value,
+        );
+        Ok(())
     }
 
     #[test]
@@ -2574,38 +2577,44 @@ mod tests {
                 .kyc_expiry_tradeoff(200)
                 .build(),
             || {
-            let account_alice = AccountId::from(AccountKeyring::Alice);
-            let (alice_signed, alice_did) = make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
-            let account_alice_controller = AccountId::from(AccountKeyring::Dave);
-            let controller_signed = Origin::signed(account_alice_controller.clone());
-            let account_bob = AccountId::from(AccountKeyring::Bob);
-            let (bob_signed, bob_did) = make_account(account_bob.clone()).unwrap();
-            
-            let now = Utc::now();
-            // Add nominator claim 
-            let claim = ClaimValue { 
-                data_type: DataTypes::U64,
-                value:  (now.timestamp() as u64).to_be_bytes().to_vec() 
-            };
-            
-            add_nominator_claim(bob_did, alice_did, account_bob.clone(), account_alice.clone(), claim);
+                let account_alice = AccountId::from(AccountKeyring::Alice);
+                let (alice_signed, alice_did) =
+                    make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
+                let account_alice_controller = AccountId::from(AccountKeyring::Dave);
+                let controller_signed = Origin::signed(account_alice_controller.clone());
+                let account_bob = AccountId::from(AccountKeyring::Bob);
+                let (bob_signed, bob_did) = make_account(account_bob.clone()).unwrap();
 
-            // bond 
-            assert_ok!(
-                Staking::bond(
+                let now = Utc::now();
+                // Add nominator claim
+                let claim = ClaimValue {
+                    data_type: DataTypes::U64,
+                    value: (now.timestamp() as u64).to_be_bytes().to_vec(),
+                };
+
+                add_nominator_claim(
+                    bob_did,
+                    alice_did,
+                    account_bob.clone(),
+                    account_alice.clone(),
+                    claim,
+                );
+
+                // bond
+                assert_ok!(Staking::bond(
                     Origin::signed(account_alice.clone()),
                     account_alice_controller,
                     1000,
                     RewardDestination::Stash
-                )
-            );
+                ));
 
-            let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
-            let validators = vec![account_from(10), account_from(20), account_from(30)];
-            assert_ok!(Staking::nominate(controller_signed.clone(),  validators));
-            assert_eq!(Staking::nominators(&account_alice).is_empty(), true);
-        });
+                let now = Utc::now();
+                <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+                let validators = vec![account_from(10), account_from(20), account_from(30)];
+                assert_ok!(Staking::nominate(controller_signed.clone(), validators));
+                assert_eq!(Staking::nominators(&account_alice).is_empty(), true);
+            },
+        );
     }
 
     #[test]
@@ -2620,57 +2629,73 @@ mod tests {
                 .kyc_expiry_tradeoff(800)
                 .build(),
             || {
-            let account_alice = AccountId::from(AccountKeyring::Alice);
-            let (alice_signed, alice_did) = make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
-            
-            let account_alice_controller = AccountId::from(AccountKeyring::Dave);
-            let controller_signed = Origin::signed(account_alice_controller.clone());
-            
-            let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
-            let (claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1.clone()).unwrap();
+                let account_alice = AccountId::from(AccountKeyring::Alice);
+                let (alice_signed, alice_did) =
+                    make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
 
-            let now = Utc::now();
-            // Add nominator claim 
-            let claim = ClaimValue { 
-                data_type: DataTypes::U64,
-                value:  (now.timestamp() as u64).to_be_bytes().to_vec() 
-            };
-            
-            add_nominator_claim(claim_issuer_1_did, alice_did, claim_issuer_1.clone(), account_alice.clone(), claim);
-            assert_eq!(Identity::is_claim_issuer(alice_did, claim_issuer_1_did), true);
+                let account_alice_controller = AccountId::from(AccountKeyring::Dave);
+                let controller_signed = Origin::signed(account_alice_controller.clone());
 
-            // add one more claim issuer
-            let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
-            let (claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2.clone()).unwrap();
+                let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
+                let (claim_issuer_1_signed, claim_issuer_1_did) =
+                    make_account(claim_issuer_1.clone()).unwrap();
 
-            let claim = ClaimValue { 
-                data_type: DataTypes::U64,
-                value:  ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec() 
-            };
+                let now = Utc::now();
+                // Add nominator claim
+                let claim = ClaimValue {
+                    data_type: DataTypes::U64,
+                    value: (now.timestamp() as u64).to_be_bytes().to_vec(),
+                };
 
-            // add claim by claim issuer
-            add_nominator_claim(claim_issuer_2_did, alice_did, claim_issuer_2.clone(), account_alice.clone(), claim);
-            let claim_issuers = Identity::claim_issuers(alice_did);
-            assert_eq!(claim_issuers.len(), 2);
+                add_nominator_claim(
+                    claim_issuer_1_did,
+                    alice_did,
+                    claim_issuer_1.clone(),
+                    account_alice.clone(),
+                    claim,
+                );
+                assert_eq!(
+                    Identity::is_claim_issuer(alice_did, claim_issuer_1_did),
+                    true
+                );
 
-            // bond 
-            assert_ok!(
-                Staking::bond(
+                // add one more claim issuer
+                let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
+                let (claim_issuer_2_signed, claim_issuer_2_did) =
+                    make_account(claim_issuer_2.clone()).unwrap();
+
+                let claim = ClaimValue {
+                    data_type: DataTypes::U64,
+                    value: ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec(),
+                };
+
+                // add claim by claim issuer
+                add_nominator_claim(
+                    claim_issuer_2_did,
+                    alice_did,
+                    claim_issuer_2.clone(),
+                    account_alice.clone(),
+                    claim,
+                );
+                let claim_issuers = Identity::claim_issuers(alice_did);
+                assert_eq!(claim_issuers.len(), 2);
+
+                // bond
+                assert_ok!(Staking::bond(
                     Origin::signed(account_alice.clone()),
                     account_alice_controller,
                     1000,
                     RewardDestination::Stash
-                )
-            );
+                ));
 
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
-            let validators = vec![account_from(10), account_from(20), account_from(30)];
+                <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+                let validators = vec![account_from(10), account_from(20), account_from(30)];
 
-            assert_ok!(Staking::nominate(controller_signed.clone(),  validators));
-            assert_eq!(Staking::nominators(&account_alice).is_empty(), false);
-        });
+                assert_ok!(Staking::nominate(controller_signed.clone(), validators));
+                assert_eq!(Staking::nominators(&account_alice).is_empty(), false);
+            },
+        );
     }
-
 
     #[test]
     fn validate_nominators_with_valid_kyc() {
@@ -2684,89 +2709,107 @@ mod tests {
                 .kyc_expiry_tradeoff(300)
                 .build(),
             || {
-            let account_alice = AccountId::from(AccountKeyring::Alice);
-            let (alice_signed, alice_did) = make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
-            
-            let account_alice_controller = AccountId::from(AccountKeyring::Dave);
-            let controller_signed_alice = Origin::signed(account_alice_controller.clone());
-            
-            let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
-            let (claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1.clone()).unwrap();
+                let account_alice = AccountId::from(AccountKeyring::Alice);
+                let (alice_signed, alice_did) =
+                    make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
 
-            let account_eve = AccountId::from(AccountKeyring::Eve);
-            let (eve_signed, eve_did) = make_account_with_balance(account_eve.clone(), 1_000_000).unwrap();
+                let account_alice_controller = AccountId::from(AccountKeyring::Dave);
+                let controller_signed_alice = Origin::signed(account_alice_controller.clone());
 
-            let account_eve_controller = AccountId::from(AccountKeyring::Ferdie);
-            let controller_signed_eve = Origin::signed(account_eve_controller.clone());
+                let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
+                let (claim_issuer_1_signed, claim_issuer_1_did) =
+                    make_account(claim_issuer_1.clone()).unwrap();
 
-            let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
-            let (claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2.clone()).unwrap();
+                let account_eve = AccountId::from(AccountKeyring::Eve);
+                let (eve_signed, eve_did) =
+                    make_account_with_balance(account_eve.clone(), 1_000_000).unwrap();
 
-            let now = Utc::now();
-            // Add nominator claim 
-            let claim = ClaimValue { 
-                data_type: DataTypes::U64,
-                value:  ((now.timestamp() as u64) + 500_u64).to_be_bytes().to_vec() 
-            };
-            
-            add_nominator_claim(claim_issuer_1_did, alice_did, claim_issuer_1.clone(), account_alice.clone(), claim);
+                let account_eve_controller = AccountId::from(AccountKeyring::Ferdie);
+                let controller_signed_eve = Origin::signed(account_eve_controller.clone());
 
-            let mut claim_issuers = Identity::claim_issuers(alice_did);
-            assert_eq!(claim_issuers.len(), 1);
+                let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
+                let (claim_issuer_2_signed, claim_issuer_2_did) =
+                    make_account(claim_issuer_2.clone()).unwrap();
 
-            let claim = ClaimValue { 
-                data_type: DataTypes::U64,
-                value:  ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec() 
-            };
-            // add claim by claim issuer
-            add_nominator_claim(claim_issuer_2_did, eve_did, claim_issuer_2.clone(), account_eve.clone(), claim);
-            
-            claim_issuers = Identity::claim_issuers(eve_did);
-            assert_eq!(claim_issuers.len(), 1);
+                let now = Utc::now();
+                // Add nominator claim
+                let claim = ClaimValue {
+                    data_type: DataTypes::U64,
+                    value: ((now.timestamp() as u64) + 500_u64).to_be_bytes().to_vec(),
+                };
 
-            // bond 
-            assert_ok!(
-                Staking::bond(
+                add_nominator_claim(
+                    claim_issuer_1_did,
+                    alice_did,
+                    claim_issuer_1.clone(),
+                    account_alice.clone(),
+                    claim,
+                );
+
+                let mut claim_issuers = Identity::claim_issuers(alice_did);
+                assert_eq!(claim_issuers.len(), 1);
+
+                let claim = ClaimValue {
+                    data_type: DataTypes::U64,
+                    value: ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec(),
+                };
+                // add claim by claim issuer
+                add_nominator_claim(
+                    claim_issuer_2_did,
+                    eve_did,
+                    claim_issuer_2.clone(),
+                    account_eve.clone(),
+                    claim,
+                );
+
+                claim_issuers = Identity::claim_issuers(eve_did);
+                assert_eq!(claim_issuers.len(), 1);
+
+                // bond
+                assert_ok!(Staking::bond(
                     Origin::signed(account_alice.clone()),
                     account_alice_controller.clone(),
                     1000,
                     RewardDestination::Stash
-                )
-            );
+                ));
 
-            // bond 
-            assert_ok!(
-                Staking::bond(
+                // bond
+                assert_ok!(Staking::bond(
                     Origin::signed(account_eve.clone()),
                     account_eve_controller,
                     1000,
                     RewardDestination::Stash
-                )
-            );
+                ));
 
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
-            let validators_1 = vec![account_from(10), account_from(20), account_from(30)];
-            assert_ok!(Staking::nominate(controller_signed_alice.clone(),  validators_1));
-            assert_eq!(Staking::nominators(&account_alice).is_empty(), false);
+                <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+                let validators_1 = vec![account_from(10), account_from(20), account_from(30)];
+                assert_ok!(Staking::nominate(
+                    controller_signed_alice.clone(),
+                    validators_1
+                ));
+                assert_eq!(Staking::nominators(&account_alice).is_empty(), false);
 
-            let validators_2 = vec![account_from(11), account_from(21), account_from(31)];
-            assert_ok!(Staking::nominate(controller_signed_eve.clone(),  validators_2));
-            assert_eq!(Staking::nominators(&account_eve).is_empty(), false);
+                let validators_2 = vec![account_from(11), account_from(21), account_from(31)];
+                assert_ok!(Staking::nominate(
+                    controller_signed_eve.clone(),
+                    validators_2
+                ));
+                assert_eq!(Staking::nominators(&account_eve).is_empty(), false);
 
-            <timestamp::Module<Test>>::set_timestamp((now.timestamp() as u64) + 800_u64);
-            let claimed_nominator = vec![account_alice.clone(), account_eve.clone()];
+                <timestamp::Module<Test>>::set_timestamp((now.timestamp() as u64) + 800_u64);
+                let claimed_nominator = vec![account_alice.clone(), account_eve.clone()];
 
-            assert_ok!(
-                Staking::validate_kyc_expiry_nominators(
+                assert_ok!(Staking::validate_kyc_expiry_nominators(
                     Origin::signed(claim_issuer_1),
                     claimed_nominator
-            ));
-            assert_eq!(Staking::nominators(&account_alice).is_empty(), true);
-            assert_eq!(Staking::nominators(&account_eve).is_empty(), false);
+                ));
+                assert_eq!(Staking::nominators(&account_alice).is_empty(), true);
+                assert_eq!(Staking::nominators(&account_eve).is_empty(), false);
 
-            let ledger_data = Staking::ledger(&account_alice_controller).unwrap();
-            assert_eq!(ledger_data.active, 0);
-            assert_eq!(ledger_data.unlocking.len(), 1);
-        });
+                let ledger_data = Staking::ledger(&account_alice_controller).unwrap();
+                assert_eq!(ledger_data.active, 0);
+                assert_eq!(ledger_data.unlocking.len(), 1);
+            },
+        );
     }
 }
