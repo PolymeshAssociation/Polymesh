@@ -932,8 +932,9 @@ decl_module! {
                         match claim.value.as_slice().try_into() {
                             Ok(value) => {
                                 let kyc_expiry: [u8; 8] = value;
-                                let threshold = (((<timestamp::Module<T>>::get()).saturated_into::<u64>()).checked_add(Self::kyc_expiry_tradeoff())).ok_or("Overflow")?;
-                                if u64::from_ne_bytes(kyc_expiry) > threshold {
+                                let now = <timestamp::Module<T>>::get();
+                                let threshold = ((now.saturated_into::<u64>()).checked_add(Self::kyc_expiry_tradeoff())).ok_or("Overflow")?;
+                                if u64::from_be_bytes(kyc_expiry) > threshold {
                                     let targets = targets.into_iter()
                                     .take(MAX_NOMINATIONS)
                                     .map(|t| T::Lookup::lookup(t))
@@ -1137,9 +1138,10 @@ decl_module! {
                                     Ok(value) => {
                                         // Converting a dynamic size array into fixed size array
                                         let kyc_expiry: [u8; 8] = value;
+                                        let now = <timestamp::Module<T>>::get();
                                         // Assumption here that every claim issuer will choose expiry timestamp data type will be u64
-                                        let threshold = (<timestamp::Module<T>>::get()).saturated_into::<u64>();
-                                        if u64::from_ne_bytes(kyc_expiry) > threshold {
+                                        let threshold = now.saturated_into::<u64>();
+                                        if u64::from_be_bytes(kyc_expiry) > threshold {
                                             break;
                                         }
                                     },
@@ -1149,7 +1151,7 @@ decl_module! {
                             }
                             count = count + 1;
                         }
-                        if count == (claim_issuers.len() - 1) as u32 {
+                        if count == claim_issuers.len() as u32 {
                             // Unbonding the balance that bonded with the controller account of a Stash account
                             // This unbonded amount only be accessible after completion of the BondingDuration
                             // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
@@ -1916,11 +1918,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{balances, identity, test::storage::account_from};
+    use crate::{balances, identity, test::storage::{ account_from, make_account, make_account_with_balance }};
     use std::{
         cell::RefCell,
         collections::{HashMap, HashSet},
     };
+    use identity::{ ClaimValue, DataTypes, ClaimMetaData };
+    use crate::constants::KYC_EXPIRY_CLAIM_KEY;
 
     use sr_io::{with_externalities, TestExternalities};
     use sr_primitives::{
@@ -1940,6 +1944,8 @@ mod tests {
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
     use test_client::AccountKeyring;
+    use primitives::{IdentityId, Key};
+    use chrono::prelude::*;
 
     /// Mock types for testing
     /// The AccountId alias in this test module.
@@ -2184,6 +2190,7 @@ mod tests {
     type System = system::Module<Test>;
     type Session = session::Module<Test>;
     type Timestamp = timestamp::Module<Test>;
+    type Identity = identity::Module<Test>;
 
     pub struct ExtBuilder {
         existential_deposit: u64,
@@ -2194,6 +2201,7 @@ mod tests {
         fair: bool,
         num_validators: Option<u32>,
         invulnerables: Vec<AccountId>,
+        kyc_expiry_tradeoff: u64,
     }
 
     impl Default for ExtBuilder {
@@ -2207,6 +2215,7 @@ mod tests {
                 fair: true,
                 num_validators: None,
                 invulnerables: vec![],
+                kyc_expiry_tradeoff: 2629746, // seconds in 1 month
             }
         }
     }
@@ -2242,6 +2251,10 @@ mod tests {
         }
         pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
             self.invulnerables = invulnerables;
+            self
+        }
+        pub fn kyc_expiry_tradeoff(mut self, kyc_expiry_tradeoff: u64) -> Self {
+            self.kyc_expiry_tradeoff = kyc_expiry_tradeoff;
             self
         }
         pub fn set_associated_consts(&self) {
@@ -2367,6 +2380,7 @@ mod tests {
                 validator_count: self.validator_count,
                 minimum_validator_count: self.minimum_validator_count,
                 invulnerables: self.invulnerables,
+                kyc_expiry_tradeoff: self.kyc_expiry_tradeoff,
                 slash_reward_fraction: Perbill::from_percent(10),
                 ..Default::default()
             }
@@ -2381,6 +2395,12 @@ mod tests {
                         (acc_pub, uint_auth_id)
                     })
                     .collect(),
+            }
+            .assimilate_storage(&mut storage);
+
+            let _ = identity::GenesisConfig::<Test> {
+                    owner: AccountKeyring::Alice.public().into(),
+                    did_creation_fee: 250,
             }
             .assimilate_storage(&mut storage);
 
@@ -2408,6 +2428,28 @@ mod tests {
         }
 
         assert_eq!(Session::current_index(), session_index);
+    }
+
+    fn add_nominator_claim(
+        claim_issuer: IdentityId,
+        idendity_id: IdentityId,
+        claim_issuer_account_id: AccountId,
+        account_id: AccountId,
+        claim_value: ClaimValue
+    ) -> Result<(), &'static str> {
+        let signed_id = Origin::signed(account_id.clone());
+        Identity::add_claim_issuer(signed_id, idendity_id, claim_issuer);
+        let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id.clone());
+        let now = Utc::now();
+        Identity::add_claim(
+            signed_claim_issuer_id,
+            idendity_id,
+            KYC_EXPIRY_CLAIM_KEY.to_vec(),
+            claim_issuer,
+            (now.timestamp() as u64 + 1000_u64).into(),
+            claim_value
+            );
+        Ok(())   
     }
 
     #[test]
@@ -2518,5 +2560,213 @@ mod tests {
                 assert_eq!(Staking::permissioned_validators(&acc_30), None);
             },
         );
+    }
+
+    #[test]
+    fn add_nominator_with_invalid_expiry() {
+        with_externalities(
+            &mut ExtBuilder::default()
+                .minimum_validator_count(2)
+                .validator_count(2)
+                .num_validators(2)
+                .validator_pool(true)
+                .nominate(true)
+                .kyc_expiry_tradeoff(200)
+                .build(),
+            || {
+            let account_alice = AccountId::from(AccountKeyring::Alice);
+            let (alice_signed, alice_did) = make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
+            let account_alice_controller = AccountId::from(AccountKeyring::Dave);
+            let controller_signed = Origin::signed(account_alice_controller.clone());
+            let account_bob = AccountId::from(AccountKeyring::Bob);
+            let (bob_signed, bob_did) = make_account(account_bob.clone()).unwrap();
+            
+            let now = Utc::now();
+            // Add nominator claim 
+            let claim = ClaimValue { 
+                data_type: DataTypes::U64,
+                value:  (now.timestamp() as u64).to_be_bytes().to_vec() 
+            };
+            
+            add_nominator_claim(bob_did, alice_did, account_bob.clone(), account_alice.clone(), claim);
+
+            // bond 
+            assert_ok!(
+                Staking::bond(
+                    Origin::signed(account_alice.clone()),
+                    account_alice_controller,
+                    1000,
+                    RewardDestination::Stash
+                )
+            );
+
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            let validators = vec![account_from(10), account_from(20), account_from(30)];
+            assert_ok!(Staking::nominate(controller_signed.clone(),  validators));
+            assert_eq!(Staking::nominators(&account_alice).is_empty(), true);
+        });
+    }
+
+    #[test]
+    fn add_valid_nominator_with_multiple_claims() {
+        with_externalities(
+            &mut ExtBuilder::default()
+                .minimum_validator_count(2)
+                .validator_count(2)
+                .num_validators(2)
+                .validator_pool(true)
+                .nominate(true)
+                .kyc_expiry_tradeoff(800)
+                .build(),
+            || {
+            let account_alice = AccountId::from(AccountKeyring::Alice);
+            let (alice_signed, alice_did) = make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
+            
+            let account_alice_controller = AccountId::from(AccountKeyring::Dave);
+            let controller_signed = Origin::signed(account_alice_controller.clone());
+            
+            let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
+            let (claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1.clone()).unwrap();
+
+            let now = Utc::now();
+            // Add nominator claim 
+            let claim = ClaimValue { 
+                data_type: DataTypes::U64,
+                value:  (now.timestamp() as u64).to_be_bytes().to_vec() 
+            };
+            
+            add_nominator_claim(claim_issuer_1_did, alice_did, claim_issuer_1.clone(), account_alice.clone(), claim);
+            assert_eq!(Identity::is_claim_issuer(alice_did, claim_issuer_1_did), true);
+
+            // add one more claim issuer
+            let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
+            let (claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2.clone()).unwrap();
+
+            let claim = ClaimValue { 
+                data_type: DataTypes::U64,
+                value:  ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec() 
+            };
+
+            // add claim by claim issuer
+            add_nominator_claim(claim_issuer_2_did, alice_did, claim_issuer_2.clone(), account_alice.clone(), claim);
+            let claim_issuers = Identity::claim_issuers(alice_did);
+            assert_eq!(claim_issuers.len(), 2);
+
+            // bond 
+            assert_ok!(
+                Staking::bond(
+                    Origin::signed(account_alice.clone()),
+                    account_alice_controller,
+                    1000,
+                    RewardDestination::Stash
+                )
+            );
+
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            let validators = vec![account_from(10), account_from(20), account_from(30)];
+
+            assert_ok!(Staking::nominate(controller_signed.clone(),  validators));
+            assert_eq!(Staking::nominators(&account_alice).is_empty(), false);
+        });
+    }
+
+
+    #[test]
+    fn validate_nominators_with_valid_kyc() {
+        with_externalities(
+            &mut ExtBuilder::default()
+                .minimum_validator_count(2)
+                .validator_count(2)
+                .num_validators(2)
+                .validator_pool(true)
+                .nominate(true)
+                .kyc_expiry_tradeoff(300)
+                .build(),
+            || {
+            let account_alice = AccountId::from(AccountKeyring::Alice);
+            let (alice_signed, alice_did) = make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
+            
+            let account_alice_controller = AccountId::from(AccountKeyring::Dave);
+            let controller_signed_alice = Origin::signed(account_alice_controller.clone());
+            
+            let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
+            let (claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1.clone()).unwrap();
+
+            let account_eve = AccountId::from(AccountKeyring::Eve);
+            let (eve_signed, eve_did) = make_account_with_balance(account_eve.clone(), 1_000_000).unwrap();
+
+            let account_eve_controller = AccountId::from(AccountKeyring::Ferdie);
+            let controller_signed_eve = Origin::signed(account_eve_controller.clone());
+
+            let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
+            let (claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2.clone()).unwrap();
+
+            let now = Utc::now();
+            // Add nominator claim 
+            let claim = ClaimValue { 
+                data_type: DataTypes::U64,
+                value:  ((now.timestamp() as u64) + 500_u64).to_be_bytes().to_vec() 
+            };
+            
+            add_nominator_claim(claim_issuer_1_did, alice_did, claim_issuer_1.clone(), account_alice.clone(), claim);
+
+            let mut claim_issuers = Identity::claim_issuers(alice_did);
+            assert_eq!(claim_issuers.len(), 1);
+
+            let claim = ClaimValue { 
+                data_type: DataTypes::U64,
+                value:  ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec() 
+            };
+            // add claim by claim issuer
+            add_nominator_claim(claim_issuer_2_did, eve_did, claim_issuer_2.clone(), account_eve.clone(), claim);
+            
+            claim_issuers = Identity::claim_issuers(eve_did);
+            assert_eq!(claim_issuers.len(), 1);
+
+            // bond 
+            assert_ok!(
+                Staking::bond(
+                    Origin::signed(account_alice.clone()),
+                    account_alice_controller.clone(),
+                    1000,
+                    RewardDestination::Stash
+                )
+            );
+
+            // bond 
+            assert_ok!(
+                Staking::bond(
+                    Origin::signed(account_eve.clone()),
+                    account_eve_controller,
+                    1000,
+                    RewardDestination::Stash
+                )
+            );
+
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            let validators_1 = vec![account_from(10), account_from(20), account_from(30)];
+            assert_ok!(Staking::nominate(controller_signed_alice.clone(),  validators_1));
+            assert_eq!(Staking::nominators(&account_alice).is_empty(), false);
+
+            let validators_2 = vec![account_from(11), account_from(21), account_from(31)];
+            assert_ok!(Staking::nominate(controller_signed_eve.clone(),  validators_2));
+            assert_eq!(Staking::nominators(&account_eve).is_empty(), false);
+
+            <timestamp::Module<Test>>::set_timestamp((now.timestamp() as u64) + 800_u64);
+            let claimed_nominator = vec![account_alice.clone(), account_eve.clone()];
+
+            assert_ok!(
+                Staking::validate_kyc_expiry_nominators(
+                    Origin::signed(claim_issuer_1),
+                    claimed_nominator
+            ));
+            assert_eq!(Staking::nominators(&account_alice).is_empty(), true);
+            assert_eq!(Staking::nominators(&account_eve).is_empty(), false);
+
+            let ledger_data = Staking::ledger(&account_alice_controller).unwrap();
+            assert_eq!(ledger_data.active, 0);
+            assert_eq!(ledger_data.unlocking.len(), 1);
+        });
     }
 }
