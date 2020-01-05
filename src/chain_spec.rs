@@ -13,6 +13,7 @@ use polymesh_runtime::{
         SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
     runtime::GovernanceCommitteeConfig,
+    runtime::KYCServiceProvidersConfig,
     Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
@@ -242,7 +243,6 @@ fn testnet_genesis(
             kyc_expiry_tradeoff: 2629746, // seconds in 1 month
             ..Default::default()
         }),
-        membership_Instance1: Some(Default::default()),
         collective_Instance1: Some(GovernanceCommitteeConfig {
             members: vec![
                 get_from_seed::<AccountId>("Alice"),
@@ -261,6 +261,10 @@ fn testnet_genesis(
                 ..Default::default()
             },
             gas_price: 1 * MILLICENTS,
+        }),
+        group_Instance1: Some(KYCServiceProvidersConfig {
+            members: vec![],
+            phantom: Default::default(),
         }),
     }
 }
