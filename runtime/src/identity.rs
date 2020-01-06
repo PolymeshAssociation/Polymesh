@@ -46,8 +46,8 @@ use rstd::{convert::TryFrom, prelude::*};
 
 use crate::{balances, constants::did::USER};
 use primitives::{
-    Identity as DidRecord, IdentityId, Key, Permission, PreAuthorizedKeyInfo, Signer, SignerType,
-    SigningItem,
+    Authorization, AuthorizationData, Identity as DidRecord, IdentityId, Key, Permission,
+    PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
 };
 
 use codec::Encode;
@@ -202,6 +202,8 @@ decl_storage! {
 
         /// Inmediate revoke of any off-chain authorization.
         pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
+
+        pub Authorizations get(authorizations): map(IdentityId, Option<u64>) => Authorization<T::Moment>;
     }
 }
 
@@ -553,6 +555,34 @@ decl_module! {
             } else {
                 Err("No did linked to the user")
             }
+        }
+
+        // Manage generic authorizations
+        pub fn add_authorization(
+            origin,
+            target_did: IdentityId,
+            authorization_data: AuthorizationData,
+            expiry: Option<T::Moment>
+        ) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let from_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+            let auth = Authorization {
+                authorization_data: authorization_data,
+                authorized_by: from_did,
+                expiry: expiry,
+                next_authorization: None,
+                previous_authorization: None
+            };
+            Ok(())
         }
 
 
