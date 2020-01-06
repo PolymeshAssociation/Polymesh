@@ -254,21 +254,14 @@ impl staking::Trait for Runtime {
     type SessionInterface = Self;
     type Time = Timestamp;
     type RewardCurve = RewardCurve;
-    type AddOrigin = committee::EnsureProportionMoreThan<_2, _3, AccountId, DefaultCommittee>;
-    type RemoveOrigin = committee::EnsureProportionMoreThan<_2, _3, AccountId, DefaultCommittee>;
+    type AddOrigin = committee::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCommittee>;
+    type RemoveOrigin = committee::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCommittee>;
     type ComplianceOrigin =
-        committee::EnsureProportionMoreThan<_2, _3, AccountId, DefaultCommittee>;
+        committee::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCommittee>;
 }
 
-type GovernanceCollective = collective::Instance1;
-impl collective::Trait<GovernanceCollective> for Runtime {
-    type Origin = Origin;
-    type Proposal = Call;
-    type Event = Event;
-}
-
-type DefaultCommittee = committee::Instance1;
-impl committee::Trait<DefaultCommittee> for Runtime {
+type GovernanceCommittee = committee::Instance1;
+impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
     type Event = Event;
@@ -343,8 +336,8 @@ parameter_types! {
 
 impl treasury::Trait for Runtime {
     type Currency = Balances;
-    type ApproveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, DefaultCommittee>;
-    type RejectOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
+    type ApproveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type RejectOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type Event = Event;
     type MintedForSpending = ();
     type ProposalRejection = ();
@@ -448,10 +441,10 @@ impl dividend::Trait for Runtime {
 
 impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
-    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
-    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
-    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
-    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
+    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
 }
 
 construct_runtime!(
@@ -490,8 +483,7 @@ construct_runtime!(
 
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Storage, Event<T>},        
-        GovernanceCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TechnicalCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},

@@ -42,9 +42,7 @@ pub mod config {
     pub type IdentityConfig = crate::identity::GenesisConfig<crate::Runtime>;
     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = crate::staking::GenesisConfig<crate::Runtime>;
-    pub type GovernanceCommitteeConfig =
-        collective::GenesisConfig<crate::Runtime, collective::Instance1>;
-    pub type TechnicalCommitteeConfig =
+    pub type PolymeshCommitteeConfig =
         crate::committee::GenesisConfig<crate::Runtime, crate::committee::Instance1>;
     pub type ContractsConfig = contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = indices::GenesisConfig<crate::Runtime>;
