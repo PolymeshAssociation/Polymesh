@@ -14,7 +14,7 @@ use polymesh_runtime::{
     },
     runtime::KYCServiceProvidersConfig,
     runtime::PolymeshCommitteeConfig,
-    Perbill, SessionKeys, StakerStatus, WASM_BINARY,
+    Perbill, ProportionMatch, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
 use serde_json::json;
@@ -259,6 +259,7 @@ fn testnet_genesis(
         }),
         committee_Instance1: Some(PolymeshCommitteeConfig {
             members: vec![],
+            vote_threshold: (ProportionMatch::AtLeast, 1, 2),
             phantom: Default::default(),
         }),
     }

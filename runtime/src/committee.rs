@@ -17,6 +17,8 @@ use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*, result};
 use sr_primitives::traits::{EnsureOrigin, Hash};
 use sr_primitives::weights::SimpleDispatchInfo;
+#[cfg(feature = "std")]
+use sr_primitives::{Deserialize, Serialize};
 use srml_support::{
     codec::{Decode, Encode},
     decl_event, decl_module, decl_storage,
@@ -44,10 +46,23 @@ pub trait Trait<I = DefaultInstance>: system::Trait + identity::Trait {
     type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum ProportionMatch {
+    AtLeast,
+    MoreThan,
+}
+
+impl Default for ProportionMatch {
+    fn default() -> Self {
+        ProportionMatch::MoreThan
+    }
+}
+
 /// Origin for the committee module.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum RawOrigin<AccountId, I> {
-    /// It has been condoned by a M of N members of the committee.
+    /// It has been condoned by M of N members of this committee.
     Members(MemberCount, MemberCount),
     /// Dummy to manage the fact we have instancing.
     _Phantom(rstd::marker::PhantomData<(AccountId, I)>),
@@ -79,6 +94,8 @@ decl_storage! {
         pub ProposalCount get(proposal_count): u32;
         /// The current members of the committee.
         pub Members get(members) config(): Vec<IdentityId>;
+        /// Vote threshold for an approval.
+        pub VoteThreshold get(vote_threshold) config(): (ProportionMatch, u32, u32);
     }
     add_extra_genesis {
         config(phantom): rstd::marker::PhantomData<(T, I)>;
@@ -197,13 +214,17 @@ decl_module! {
                 }
             }
 
-//            let yes_votes = voting.ayes.len() as MemberCount;
-//            let no_votes = voting.nays.len() as MemberCount;
-//            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
-//
+            let yes_votes = voting.ayes.len() as MemberCount;
+            let no_votes = voting.nays.len() as MemberCount;
+            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
+
+            let threshold = <VoteThreshold<I>>::get();
 //            let seats = Self::members().len() as MemberCount;
 //            let approved = yes_votes >= voting.threshold;
 //            let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
+//
+//            let approved = is_threshold_satisfied(yes_votes, seats);
+//
 //            if approved || disapproved {
 //                if approved {
 //                    Self::deposit_event(RawEvent::Approved(proposal));
@@ -234,17 +255,15 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     pub fn is_member(who: &IdentityId) -> bool {
         Self::members().contains(who)
     }
-}
 
-pub trait VoteThreshold<N, D> {
-    fn meets(n: N, d: D) -> bool;
-}
-
-pub struct VoteThresholdAtLeast<N: U32, D: U32, I = DefaultInstance>(
-    rstd::marker::PhantomData<(N, D, I)>,
-);
-impl<N: U32, D: U32, I> VoteThreshold<N, D> for VoteThresholdAtLeast<N, D, I> {
-    fn meets(n: N, d: D) -> bool {
+    /// Given `approve` votes for and `against` votes against from a total electorate size of
+    /// `electorate` of whom `voters` voted (`electorate - voters` are abstainers) then returns true if the
+    /// overall outcome is in favor of approval.
+    fn is_threshold_satisfied(
+        votes: u32,
+        total: u32,
+        (condition, n, d): (ProportionMatch, u32, u32),
+    ) -> bool {
         true
     }
 }
