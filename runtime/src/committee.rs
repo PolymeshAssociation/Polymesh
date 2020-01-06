@@ -173,10 +173,13 @@ decl_module! {
             Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
         }
 
-        /// # <weight>
-        /// - Bounded storage read and writes.
-        /// - Will be slightly heavier if the proposal is approved / disapproved after the vote.
-        /// # </weight>
+        /// Member casts a vote.
+        ///
+        /// # Arguments
+        /// * `did` Identity of the proposer
+        /// * `proposal` Hash of proposal to be voted on
+        /// * `index` Proposal index
+        /// * `approve` Represents a `for` or `against` vote
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
         fn vote(origin, did: IdentityId, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
             let who = ensure_signed(origin)?;
@@ -251,6 +254,7 @@ decl_module! {
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
+    /// Returns true if given did is contained in `Members` set. `false`, otherwise.
     pub fn is_member(who: &IdentityId) -> bool {
         Self::members().contains(who)
     }
@@ -262,7 +266,10 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         total: u32,
         (threshold, n, d): (ProportionMatch, u32, u32),
     ) -> bool {
-        true
+        match threshold {
+            ProportionMatch::AtLeast => votes * d >= n * total,
+            ProportionMatch::MoreThan => votes * d > n * total,
+        }
     }
 }
 
