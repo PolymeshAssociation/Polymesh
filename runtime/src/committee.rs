@@ -35,7 +35,7 @@ pub type MemberCount = u32;
 
 pub trait Trait<I = DefaultInstance>: system::Trait + identity::Trait {
     /// The outer origin type.
-    type Origin: From<RawOrigin<I>>;
+    type Origin: From<RawOrigin<Self::AccountId, I>>;
 
     /// The outer call dispatch type.
     type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin>;
@@ -45,18 +45,18 @@ pub trait Trait<I = DefaultInstance>: system::Trait + identity::Trait {
 }
 
 /// Origin for the committee module.
-#[derive(PartialEq, Eq, Clone)]
-pub enum RawOrigin<I> {
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum RawOrigin<AccountId, I> {
     /// It has been condoned by a M of N members of the committee.
     Members(MemberCount, MemberCount),
     /// Dummy to manage the fact we have instancing.
-    _Phantom(rstd::marker::PhantomData<I>),
+    _Phantom(rstd::marker::PhantomData<(AccountId, I)>),
 }
 
 /// Origin for the committee module.
-pub type Origin<I = DefaultInstance> = RawOrigin<I>;
+pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::AccountId, I>;
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 /// Info for keeping track of a motion being voted on.
 pub struct Votes<IdentityId> {
     /// The proposal's unique index.
@@ -197,35 +197,35 @@ decl_module! {
                 }
             }
 
-            let yes_votes = voting.ayes.len() as MemberCount;
-            let no_votes = voting.nays.len() as MemberCount;
-            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
-
-            let seats = Self::members().len() as MemberCount;
-            let approved = yes_votes >= voting.threshold;
-            let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
-            if approved || disapproved {
-                if approved {
-                    Self::deposit_event(RawEvent::Approved(proposal));
-
-                    // execute motion, assuming it exists.
-                    if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
-                        let origin = RawOrigin::Members(voting.threshold, seats).into();
-                        let ok = p.dispatch(origin).is_ok();
-                        Self::deposit_event(RawEvent::Executed(proposal, ok));
-                    }
-                } else {
-                    // disapproved
-                    Self::deposit_event(RawEvent::Rejected(proposal));
-                }
-
-                // remove vote
-                <Voting<T, I>>::remove(&proposal);
-                <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
-            } else {
-                // update voting
-                <Voting<T, I>>::insert(&proposal, voting);
-            }
+//            let yes_votes = voting.ayes.len() as MemberCount;
+//            let no_votes = voting.nays.len() as MemberCount;
+//            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
+//
+//            let seats = Self::members().len() as MemberCount;
+//            let approved = yes_votes >= voting.threshold;
+//            let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
+//            if approved || disapproved {
+//                if approved {
+//                    Self::deposit_event(RawEvent::Approved(proposal));
+//
+//                    // execute motion, assuming it exists.
+//                    if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
+//                        let origin = RawOrigin::Members(voting.threshold, seats).into();
+//                        let ok = p.dispatch(origin).is_ok();
+//                        Self::deposit_event(RawEvent::Executed(proposal, ok));
+//                    }
+//                } else {
+//                    // disapproved
+//                    Self::deposit_event(RawEvent::Rejected(proposal));
+//                }
+//
+//                // remove vote
+//                <Voting<T, I>>::remove(&proposal);
+//                <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
+//            } else {
+//                // update voting
+//                <Voting<T, I>>::insert(&proposal, voting);
+//            }
         }
     }
 }
@@ -240,43 +240,41 @@ pub trait VoteThreshold<N, D> {
     fn meets(n: N, d: D) -> bool;
 }
 
-pub struct VoteThresholdAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
-    rstd::marker::PhantomData<(N, D, AccountId, I)>,
+pub struct VoteThresholdAtLeast<N: U32, D: U32, I = DefaultInstance>(
+    rstd::marker::PhantomData<(N, D, I)>,
 );
-impl<N: U32, D: U32, AccountId, I> VoteThreshold<N, D>
-    for VoteThresholdAtLeast<N, D, AccountId, I>
-{
+impl<N: U32, D: U32, I> VoteThreshold<N, D> for VoteThresholdAtLeast<N, D, I> {
     fn meets(n: N, d: D) -> bool {
         true
     }
 }
 
-pub struct EnsureProportionMoreThan<N: U32, D: U32, I = DefaultInstance>(
-    rstd::marker::PhantomData<(N, D, I)>,
-);
-impl<O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>, N: U32, D: U32, I> EnsureOrigin<O>
-    for EnsureProportionMoreThan<N, D, I>
-{
-    type Success = ();
-    fn try_origin(o: O) -> Result<Self::Success, O> {
-        o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
-            r => Err(O::from(r)),
-        })
-    }
-}
-
-pub struct EnsureProportionAtLeast<N: U32, D: U32, I = DefaultInstance>(
-    rstd::marker::PhantomData<(N, D, I)>,
-);
-impl<O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>, N: U32, D: U32, I> EnsureOrigin<O>
-    for EnsureProportionAtLeast<N, D, I>
-{
-    type Success = ();
-    fn try_origin(o: O) -> Result<Self::Success, O> {
-        o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
-            r => Err(O::from(r)),
-        })
-    }
-}
+//pub struct EnsureProportionMoreThan<N: U32, D: U32, I = DefaultInstance>(
+//    rstd::marker::PhantomData<(N, D, I)>,
+//);
+//impl<O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>, N: U32, D: U32, I> EnsureOrigin<O>
+//    for EnsureProportionMoreThan<N, D, I>
+//{
+//    type Success = ();
+//    fn try_origin(o: O) -> Result<Self::Success, O> {
+//        o.into().and_then(|o| match o {
+//            RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
+//            r => Err(O::from(r)),
+//        })
+//    }
+//}
+//
+//pub struct EnsureProportionAtLeast<N: U32, D: U32, I = DefaultInstance>(
+//    rstd::marker::PhantomData<(N, D, I)>,
+//);
+//impl<O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>, N: U32, D: U32, I> EnsureOrigin<O>
+//    for EnsureProportionAtLeast<N, D, I>
+//{
+//    type Success = ();
+//    fn try_origin(o: O) -> Result<Self::Success, O> {
+//        o.into().and_then(|o| match o {
+//            RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
+//            r => Err(O::from(r)),
+//        })
+//    }
+//}
