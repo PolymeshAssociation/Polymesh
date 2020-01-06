@@ -249,32 +249,42 @@ impl<N: U32, D: U32, I> VoteThreshold<N, D> for VoteThresholdAtLeast<N, D, I> {
     }
 }
 
-//pub struct EnsureProportionMoreThan<N: U32, D: U32, I = DefaultInstance>(
-//    rstd::marker::PhantomData<(N, D, I)>,
-//);
-//impl<O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>, N: U32, D: U32, I> EnsureOrigin<O>
-//    for EnsureProportionMoreThan<N, D, I>
-//{
-//    type Success = ();
-//    fn try_origin(o: O) -> Result<Self::Success, O> {
-//        o.into().and_then(|o| match o {
-//            RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
-//            r => Err(O::from(r)),
-//        })
-//    }
-//}
-//
-//pub struct EnsureProportionAtLeast<N: U32, D: U32, I = DefaultInstance>(
-//    rstd::marker::PhantomData<(N, D, I)>,
-//);
-//impl<O: Into<Result<RawOrigin<I>, O>> + From<RawOrigin<I>>, N: U32, D: U32, I> EnsureOrigin<O>
-//    for EnsureProportionAtLeast<N, D, I>
-//{
-//    type Success = ();
-//    fn try_origin(o: O) -> Result<Self::Success, O> {
-//        o.into().and_then(|o| match o {
-//            RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
-//            r => Err(O::from(r)),
-//        })
-//    }
-//}
+pub struct EnsureProportionMoreThan<N: U32, D: U32, AccountId, I = DefaultInstance>(
+    rstd::marker::PhantomData<(N, D, AccountId, I)>,
+);
+impl<
+        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+        N: U32,
+        D: U32,
+        AccountId,
+        I,
+    > EnsureOrigin<O> for EnsureProportionMoreThan<N, D, AccountId, I>
+{
+    type Success = ();
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
+            r => Err(O::from(r)),
+        })
+    }
+}
+
+pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
+    rstd::marker::PhantomData<(N, D, AccountId, I)>,
+);
+impl<
+        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+        N: U32,
+        D: U32,
+        AccountId,
+        I,
+    > EnsureOrigin<O> for EnsureProportionAtLeast<N, D, AccountId, I>
+{
+    type Success = ();
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
+            r => Err(O::from(r)),
+        })
+    }
+}

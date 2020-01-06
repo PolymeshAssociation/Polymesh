@@ -254,11 +254,10 @@ impl staking::Trait for Runtime {
     type SessionInterface = Self;
     type Time = Timestamp;
     type RewardCurve = RewardCurve;
-    type AddOrigin = collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
-    type RemoveOrigin =
-        collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+    type AddOrigin = committee::EnsureProportionMoreThan<_2, _3, AccountId, DefaultCommittee>;
+    type RemoveOrigin = committee::EnsureProportionMoreThan<_2, _3, AccountId, DefaultCommittee>;
     type ComplianceOrigin =
-        collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+        committee::EnsureProportionMoreThan<_2, _3, AccountId, DefaultCommittee>;
 }
 
 type GovernanceCollective = collective::Instance1;
@@ -344,10 +343,8 @@ parameter_types! {
 
 impl treasury::Trait for Runtime {
     type Currency = Balances;
-    type ApproveOrigin =
-        collective::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCollective>;
-    type RejectOrigin =
-        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type ApproveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, DefaultCommittee>;
+    type RejectOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
     type Event = Event;
     type MintedForSpending = ();
     type ProposalRejection = ();
@@ -451,12 +448,10 @@ impl dividend::Trait for Runtime {
 
 impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
-    type AddOrigin = collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type RemoveOrigin =
-        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type SwapOrigin = collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type ResetOrigin =
-        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
+    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
+    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
+    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, DefaultCommittee>;
 }
 
 construct_runtime!(
