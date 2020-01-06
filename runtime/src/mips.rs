@@ -110,7 +110,7 @@ decl_storage! {
         pub ProposalMetadata get(proposal_meta): Vec<MipsMetadata<T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
-        /// proposal index -> (deposit, proposer)
+        /// proposal hash -> (deposit, proposer)
         pub Deposits get(deposit_of): map T::Hash => Option<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.
@@ -381,11 +381,12 @@ impl<T: Trait> Module<T> {
                 T::Currency::unreserve(&proposer, deposit);
                 if let Some(_) = <Proposals<T>>::take(&proposal_hash) {
                     <Voting<T>>::remove(&proposal_hash);
+                    let hash = proposal_hash.clone();
                     <ProposalMetadata<T>>::mutate(|metadata| {
-                        metadata.retain(|m| m.proposal_hash != proposal_hash.clone())
+                        metadata.retain(|m| m.proposal_hash != hash)
                     });
 
-                    Self::deposit_event(RawEvent::ProposalClosed(proposal_hash.clone()));
+                    Self::deposit_event(RawEvent::ProposalClosed(hash));
                 }
             }
         }
