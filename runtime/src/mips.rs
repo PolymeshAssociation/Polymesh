@@ -354,11 +354,9 @@ impl<T: Trait> Module<T> {
                 .iter()
                 .fold(<BalanceOf<T>>::zero(), |acc, nays| acc + nays.1);
 
-            let net_stake = aye_stake.saturating_sub(nay_stake);
-
-            // 1. Ayes staked must be more than nays staked
+            // 1. Ayes staked must be more than nays staked (simple majority)
             // 2. Ayes staked are more than the minimum quorum threshold
-            if net_stake > 0 && aye_stake >= Self::quorum_threshold() {
+            if aye_stake > nay_stake && aye_stake >= Self::quorum_threshold() {
                 if let Some(proposal) = <Proposals<T>>::get(&proposal_hash) {
                     Self::create_referendum(index, proposal_hash.clone(), proposal);
                 }
