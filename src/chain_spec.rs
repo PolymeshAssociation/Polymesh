@@ -5,6 +5,7 @@ use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
 use polymesh_runtime::asset::TickerRegistrationConfig;
+use polymesh_runtime::committee::ProportionMatch;
 use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
@@ -14,7 +15,7 @@ use polymesh_runtime::{
     },
     runtime::KYCServiceProvidersConfig,
     runtime::PolymeshCommitteeConfig,
-    Perbill, ProportionMatch, SessionKeys, StakerStatus, WASM_BINARY,
+    Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
 use serde_json::json;

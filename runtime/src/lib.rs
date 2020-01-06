@@ -10,7 +10,6 @@ pub mod balances;
 /// Constant values used within the runtime.
 pub mod constants;
 
-mod committee;
 mod contracts_wrapper;
 mod dividend;
 mod exemption;
@@ -20,6 +19,7 @@ mod identity;
 mod percentage_tm;
 mod simple_token;
 
+pub mod committee;
 pub mod staking;
 #[cfg(feature = "std")]
 pub use staking::StakerStatus;

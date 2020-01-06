@@ -219,34 +219,33 @@ decl_module! {
             Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
 
             let threshold = <VoteThreshold<I>>::get();
-//            let seats = Self::members().len() as MemberCount;
-//            let approved = yes_votes >= voting.threshold;
-//            let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
-//
-//            let approved = is_threshold_satisfied(yes_votes, seats);
-//
-//            if approved || disapproved {
-//                if approved {
-//                    Self::deposit_event(RawEvent::Approved(proposal));
-//
-//                    // execute motion, assuming it exists.
-//                    if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
-//                        let origin = RawOrigin::Members(voting.threshold, seats).into();
-//                        let ok = p.dispatch(origin).is_ok();
-//                        Self::deposit_event(RawEvent::Executed(proposal, ok));
-//                    }
-//                } else {
-//                    // disapproved
-//                    Self::deposit_event(RawEvent::Rejected(proposal));
-//                }
-//
-//                // remove vote
-//                <Voting<T, I>>::remove(&proposal);
-//                <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
-//            } else {
-//                // update voting
-//                <Voting<T, I>>::insert(&proposal, voting);
-//            }
+            let seats = Self::members().len() as MemberCount;
+
+            let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
+            let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
+
+            if approved || rejected {
+                if approved {
+                    Self::deposit_event(RawEvent::Approved(proposal));
+
+                    // execute motion, assuming it exists.
+                    if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
+                        let origin = RawOrigin::Members(yes_votes, seats).into();
+                        let ok = p.dispatch(origin).is_ok();
+                        Self::deposit_event(RawEvent::Executed(proposal, ok));
+                    }
+                } else {
+                    // rejected
+                    Self::deposit_event(RawEvent::Rejected(proposal));
+                }
+
+                // remove vote
+                <Voting<T, I>>::remove(&proposal);
+                <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
+            } else {
+                // update voting
+                <Voting<T, I>>::insert(&proposal, voting);
+            }
         }
     }
 }
@@ -256,13 +255,12 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         Self::members().contains(who)
     }
 
-    /// Given `approve` votes for and `against` votes against from a total electorate size of
-    /// `electorate` of whom `voters` voted (`electorate - voters` are abstainers) then returns true if the
-    /// overall outcome is in favor of approval.
+    /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
+    /// in relation to the threshold proporion `n`/`d`.   
     fn is_threshold_satisfied(
         votes: u32,
         total: u32,
-        (condition, n, d): (ProportionMatch, u32, u32),
+        (threshold, n, d): (ProportionMatch, u32, u32),
     ) -> bool {
         true
     }
