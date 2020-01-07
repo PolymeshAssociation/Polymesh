@@ -10,7 +10,7 @@ use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
     config::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
-        SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
+        MIPSConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
     runtime::GovernanceCommitteeConfig,
     runtime::KYCServiceProvidersConfig,
@@ -249,6 +249,11 @@ fn testnet_genesis(
                 get_from_seed::<AccountId>("Charlie"),
             ],
             phantom: Default::default(),
+        }),
+        mips: Some(MIPSConfig {
+            min_proposal_deposit: 5000,
+            quorum_threshold: 100000,
+            proposal_duration: 50,
         }),
         im_online: Some(Default::default()),
         authority_discovery: Some(Default::default()),

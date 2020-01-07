@@ -195,6 +195,17 @@
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
     },
+    "MipsMetadata": {
+        "index": "u32",
+        "end": "u64",
+        "proposal_hash": "Hash"
+    },
+    "Votes": {
+        "index": "u32",
+        "ayes": "Vec<(IdentityId, Balance)>",
+        "nays": "Vec<(IdentityId, Balance)>"
+    },
+    "MipsIndex": "u32",
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
         "next_ticker": "Option<Vec<u8>>",

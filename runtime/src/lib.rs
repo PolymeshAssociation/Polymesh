@@ -16,6 +16,7 @@ mod exemption;
 mod general_tm;
 mod group;
 mod identity;
+mod mips;
 mod percentage_tm;
 mod simple_token;
 
@@ -43,6 +44,7 @@ pub mod config {
     pub type StakingConfig = crate::staking::GenesisConfig<crate::Runtime>;
     pub type GovernanceCommitteeConfig =
         collective::GenesisConfig<crate::Runtime, collective::Instance1>;
+    pub type MIPSConfig = crate::mips::GenesisConfig<crate::Runtime>;
     pub type ContractsConfig = contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = indices::GenesisConfig<crate::Runtime>;
     pub type SudoConfig = sudo::GenesisConfig<crate::Runtime>;
