@@ -793,6 +793,8 @@ decl_module! {
     }
 }
 
+// rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation
+#[rustfmt::skip]
 decl_event!(
     pub enum Event<T>
     where
@@ -838,7 +840,7 @@ decl_event!(
             IdentityId,
             IdentityId,
             AuthorizationData,
-            Option<Moment>,
+            Option<Moment>
         ),
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
