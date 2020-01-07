@@ -3,7 +3,7 @@ use crate::{
     constants::{currency::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
-    percentage_tm, simple_token, staking, sto_capped,
+    mips, percentage_tm, simple_token, staking, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -268,6 +268,14 @@ impl collective::Trait<GovernanceCollective> for Runtime {
     type Event = Event;
 }
 
+impl mips::Trait for Runtime {
+    type Currency = Balances;
+    type Proposal = Call;
+    type CommitteeOrigin =
+        collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+    type Event = Event;
+}
+
 parameter_types! {
     pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
@@ -489,6 +497,7 @@ construct_runtime!(
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Storage, Event<T>},        
         GovernanceCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+   		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
