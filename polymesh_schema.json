@@ -28,8 +28,8 @@
         "active": "bool",
         "jurisdiction": "u16"
     },
-    "LinkedKeyInfo": { 
-        "_enum": { 
+    "LinkedKeyInfo": {
+        "_enum": {
             "Unique": "IdentityId",
             "Group": "Vec<IdentityId>"
         }
@@ -52,10 +52,10 @@
         ]
     },
     "Signer":{
-       "_enum": { 
+       "_enum": {
             "Identity": "IdentityId",
             "Key": "Key"
-        } 
+        }
     },
     "SigningItem": {
         "signer": "Signer",
@@ -202,6 +202,19 @@
     "OffChainSignature": "H512",
     "PermissionedValidator": {
         "compliance": "Compliance"
+    },
+    "Authorization": {
+        "authorization_data": "AuthorizationData",
+        "authorized_by": "IdentityId",
+        "expiry": "Option<Moment>",
+        "next_authorization": "u64",
+        "previous_authorization": "u64"
+    },
+    "AuthorizationData": {
+        "_enum": {
+            "TransferTicker": "Vec<u8>",
+            "Custom": "Vec<u8>"
+        }
     },
     "Compliance": {
         "_enum": [
