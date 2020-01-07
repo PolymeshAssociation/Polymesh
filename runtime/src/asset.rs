@@ -2473,7 +2473,7 @@ mod tests {
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (_alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+            let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
 
             let bob_acc = AccountId::from(AccountKeyring::Bob);
             let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
@@ -2483,19 +2483,19 @@ mod tests {
             assert_eq!(Asset::is_ticker_available(&ticker), true);
             assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker.clone()));
 
-            assert_ok!(Identity::add_auth(
-                owner_signed.clone(),
+            Identity::add_auth(
+                owner_did,
                 alice_did,
                 AuthorizationData::TransferTicker(ticker.clone()),
-                expiry: None
-            ));
+                None,
+            );
 
-            assert_ok!(Identity::add_auth(
-                owner_signed.clone(),
+            Identity::add_auth(
+                owner_did,
                 bob_did,
                 AuthorizationData::TransferTicker(ticker.clone()),
-                expiry: None
-            ));
+                None,
+            );
 
             assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
             assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), false);
@@ -2516,36 +2516,36 @@ mod tests {
                 "Not authorized"
             );
 
-            assert_ok!(Identity::add_auth(
-                alice_signed.clone(),
+            Identity::add_auth(
+                alice_did,
                 bob_did,
                 AuthorizationData::TransferTicker(ticker.clone()),
-                expiry: Some(now.timestamp() as u64 - 100)
-            ));
+                Some(now.timestamp() as u64 - 100),
+            );
             auth_id = Identity::last_authorization(bob_did);
             assert_err!(
                 Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
                 "Auth expired already"
             );
 
-            assert_ok!(Identity::add_auth(
-                alice_signed.clone(),
+            Identity::add_auth(
+                alice_did,
                 bob_did,
                 AuthorizationData::Custom(ticker.clone()),
-                expiry: Some(now.timestamp() as u64 + 100)
-            ));
+                Some(now.timestamp() as u64 + 100),
+            );
             auth_id = Identity::last_authorization(bob_did);
             assert_err!(
                 Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
                 "Not a ticker transfer auth"
             );
 
-            assert_ok!(Identity::add_auth(
-                alice_signed.clone(),
+            Identity::add_auth(
+                alice_did,
                 bob_did,
-                AuthorizationData::Custom(ticker.clone()),
-                expiry: Some(now.timestamp() as u64 + 100)
-            ));
+                AuthorizationData::TransferTicker(ticker.clone()),
+                Some(now.timestamp() as u64 + 100),
+            );
             auth_id = Identity::last_authorization(bob_did);
             assert_ok!(Asset::accept_ticker_transfer(bob_signed.clone(), auth_id));
 
