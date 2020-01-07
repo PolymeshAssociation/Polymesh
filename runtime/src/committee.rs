@@ -319,18 +319,39 @@ mod tests {
     use crate as committee;
     use crate::{balances, identity};
     use hex_literal::hex;
+    use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
         traits::{BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Verify},
         AnySignature, BuildStorage, Perbill,
     };
     use srml_support::{
-        assert_noop, assert_ok,
+        assert_err, assert_noop, assert_ok,
         dispatch::{DispatchError, DispatchResult},
-        parameter_types, Hashable,
+        impl_outer_dispatch, impl_outer_origin, parameter_types, Hashable,
     };
     use substrate_primitives::{Blake2Hasher, H256};
-    use system::{EventRecord, Phase};
+    use system::{EnsureSignedBy, EventRecord, Phase};
+
+    #[derive(Clone, Eq, PartialEq, Debug)]
+    pub struct Test;
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    impl_outer_dispatch! {
+        pub enum Call for Test where origin: Origin {
+            balances::Balances,
+            system::System,
+        }
+    }
+
+    //    impl_outer_event! {
+    //        pub enum TestEvent for Test {
+    //            committee<T>,
+    //        }
+    //    }
 
     parameter_types! {
         pub const BlockHashCount: u64 = 250;
@@ -385,12 +406,15 @@ mod tests {
         type Identity = identity::Module<Test>;
     }
 
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
+    }
+
     impl timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
     }
-
     #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
     pub struct IdentityProposal {
         pub dummy: u8,
@@ -411,54 +435,85 @@ mod tests {
         type Proposal = IdentityProposal;
     }
 
-    impl Trait<Instance1> for Test {
-        type Origin = Origin;
-        type Proposal = Call;
-        type Event = Event;
+    //    impl Trait<Instance1> for Test {
+    //        type Origin = Origin;
+    //        type Proposal = Call;
+    //        type Event = Event;
+    //    }
+
+    parameter_types! {
+        pub const One: u64 = 1;
+        pub const Two: u64 = 2;
+        pub const Three: u64 = 3;
+        pub const Four: u64 = 4;
+        pub const Five: u64 = 5;
     }
 
     impl Trait for Test {
-        type Origin = Origin;
+        type Origin = One;
         type Proposal = Call;
-        type Event = Event;
+        type Event = ();
     }
 
     pub type Block = sr_primitives::generic::Block<Header, UncheckedExtrinsic>;
     pub type UncheckedExtrinsic = sr_primitives::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
 
-    srml_support::construct_runtime!(
-        pub enum Test where
-            Block = Block,
-            NodeBlock = Block,
-            UncheckedExtrinsic = UncheckedExtrinsic
-        {
-            System: system::{Module, Call, Event},
-            Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
-            DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
-        }
-    );
+    //    srml_support::construct_runtime!(
+    //        pub enum Test where
+    //            Block = Block,
+    //            NodeBlock = Block,
+    //            UncheckedExtrinsic = UncheckedExtrinsic
+    //        {
+    //            System: system::{Module, Call, Event},
+    //            Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
+    //            DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
+    //        }
+    //    );
 
-    fn make_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-        GenesisConfig {
-            committee_Instance1: Some(committee::GenesisConfig {
-                members: vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3),
-                ],
-                vote_threshold: (ProportionMatch::AtLeast, 1, 2),
-                phantom: Default::default(),
-            }),
-            committee: None,
+    type System = system::Module<Test>;
+    type Balances = balances::Module<Test>;
+    type Committee = Module<Test>;
+
+    //    fn make_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+    //        GenesisConfig {
+    //            committee_Instance1: Some(committee::GenesisConfig {
+    //                members: vec![
+    //                    IdentityId::from(1),
+    //                    IdentityId::from(2),
+    //                    IdentityId::from(3),
+    //                ],
+    //                vote_threshold: (ProportionMatch::AtLeast, 1, 2),
+    //                phantom: Default::default(),
+    //            }),
+    //            committee: None,
+    //        }
+    //        .build_storage()
+    //        .unwrap()
+    //        .into()
+    //    }
+
+    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+        let mut t = system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+
+        // We use default for brevity, but you can configure as desired if needed.
+        GenesisConfig::<Test> {
+            members: vec![
+                IdentityId::from(1),
+                IdentityId::from(2),
+                IdentityId::from(3),
+            ],
+            ..Default::default()
         }
-        .build_storage()
-        .unwrap()
-        .into()
+        .assimilate_storage(&mut t)
+        .unwrap();
+        t.into()
     }
 
     #[test]
     fn motions_basic_environment_works() {
-        make_ext().execute_with(|| {
+        with_externalities(&mut new_test_ext(), || {
             System::set_block_number(1);
             assert_eq!(
                 Committee::members(),
