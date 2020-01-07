@@ -220,5 +220,6 @@
             "Pending",
             "Active"
         ]
-    }
+    },
+    "AuthorizationNonce": "u64"
 }
