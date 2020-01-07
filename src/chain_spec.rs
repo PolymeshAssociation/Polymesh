@@ -197,7 +197,7 @@ fn testnet_genesis(
             ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
-                registration_length: Some(5184000),
+                registration_length: Some(5184000000),
             },
             fee_collector: get_from_seed::<AccountId>("Dave"),
         }),
