@@ -618,6 +618,8 @@ mod tests {
                 50
             ));
 
+            assert_eq!(Balances::free_balance(&6), 10);
+
             assert_eq!(
                 MIPS::voting(&hash),
                 Some(Votes {
@@ -643,6 +645,8 @@ mod tests {
                 50
             ));
 
+            assert_eq!(Balances::free_balance(&6), 10);
+
             assert_eq!(
                 MIPS::voting(&hash),
                 Some(Votes {
@@ -653,6 +657,9 @@ mod tests {
             );
 
             assert_ok!(MIPS::kill_proposal(Origin::signed(1), hash));
+
+            assert_eq!(Balances::free_balance(&6), 60);
+
             assert_eq!(MIPS::voting(&hash), None);
         });
     }
@@ -681,9 +688,15 @@ mod tests {
                 })
             );
 
+            assert_eq!(Balances::free_balance(&5), 0);
+            assert_eq!(Balances::free_balance(&6), 10);
+
             fast_forward_to(20);
 
             assert_eq!(MIPS::referendums(&hash), Some(proposal));
+
+            assert_eq!(Balances::free_balance(&5), 50);
+            assert_eq!(Balances::free_balance(&6), 60);
         });
     }
 
