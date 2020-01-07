@@ -191,8 +191,8 @@ decl_storage! {
         /// It stores validated identities by any KYC.
         pub KYCValidation get(has_valid_kyc): map IdentityId => bool;
 
-        /// Nonce to ensure unique DIDs are generated. starts from 1.
-        pub DidNonce get(did_nonce) build(|_| 1u128): u128;
+        /// Nonce to ensure unique actions. starts from 1.
+        pub MultiPurposeNonce get(multi_purpose_nonce) build(|_| 1u64): u64;
 
         /// Pre-authorize join to Identity.
         pub PreAuthorizedJoinDid get( pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
@@ -203,7 +203,11 @@ decl_storage! {
         /// Inmediate revoke of any off-chain authorization.
         pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
 
-        pub Authorizations get(authorizations): map(IdentityId, Option<u64>) => Authorization<T::Moment>;
+        /// All authorizations that an identity has
+        pub Authorizations get(authorizations): map(IdentityId, u64) => Authorization<T::Moment>;
+
+        /// Auth id of the latest auth of an identity. Used to allow iterating over auths
+        pub LastAuthorization get(last_authorization): map(IdentityId) => u64;
     }
 }
 
@@ -226,9 +230,9 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             // Adding extrensic count to did nonce for some unpredictability
             // NB: this does not guarantee randomness
-            let new_nonce = Self::did_nonce() + u128::from(<system::Module<T>>::extrinsic_count()) + 7u128;
+            let new_nonce = Self::multi_purpose_nonce() + u64::from(<system::Module<T>>::extrinsic_count()) + 7u64;
             // Even if this transaction fails, nonce should be increased for added unpredictability of dids
-            <DidNonce>::put(&new_nonce);
+            <MultiPurposeNonce>::put(&new_nonce);
 
             let master_key = Key::try_from( sender.encode())?;
 
@@ -558,6 +562,7 @@ decl_module! {
         }
 
         // Manage generic authorizations
+        /// Adds an authorization
         pub fn add_authorization(
             origin,
             target_did: IdentityId,
@@ -575,16 +580,34 @@ decl_module! {
                     }
                 }
             };
-            let auth = Authorization {
-                authorization_data: authorization_data,
-                authorized_by: from_did,
-                expiry: expiry,
-                next_authorization: None,
-                previous_authorization: None
-            };
+
+            Self::add_auth(from_did, target_did, authorization_data, expiry);
+
             Ok(())
         }
 
+        /// Removes an authorization
+        pub fn remove_authorization(
+            origin,
+            target_did: IdentityId,
+            auth_id: u64
+        ) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let from_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+
+            ensure!(Self::remove_auth(from_did, target_did, auth_id), "Error in revoking the authorization");
+
+            Ok(())
+        }
 
         // Manage Authorizations to join to an Identity
         // ================================================
@@ -808,10 +831,91 @@ decl_event!(
 
         /// DID queried
         DidQuery(Key, IdentityId),
+
+        /// New authorization added (auth_id, from, to, authorization_data, expiry)
+        NewAuthorization(
+            u64,
+            IdentityId,
+            IdentityId,
+            AuthorizationData,
+            Option<Moment>,
+        ),
+
+        /// Authorization revoked or consumed. (auth_id, authorized_identity)
+        AuthorizationRemoved(u64, IdentityId),
     }
 );
 
 impl<T: Trait> Module<T> {
+    pub fn add_auth(
+        from_did: IdentityId,
+        target_did: IdentityId,
+        authorization_data: AuthorizationData,
+        expiry: Option<T::Moment>,
+    ) {
+        let new_nonce = Self::multi_purpose_nonce() + 1u64;
+        // Even if this transaction fails, nonce should be increased for added unpredictability
+        <MultiPurposeNonce>::put(&new_nonce);
+
+        let last_auth = Self::last_authorization(&target_did);
+
+        if last_auth > 0 {
+            //0 means no previous auth. 0 is the default value.
+            // Changing the last auth to point to new auth as next auth.
+            <Authorizations<T>>::mutate((target_did, last_auth), |last_authorization| {
+                last_authorization.next_authorization = new_nonce
+            });
+        }
+
+        let auth = Authorization {
+            authorization_data: authorization_data.clone(),
+            authorized_by: from_did,
+            expiry: expiry,
+            next_authorization: 0,
+            previous_authorization: last_auth,
+        };
+
+        <LastAuthorization>::insert(&target_did, new_nonce);
+        <Authorizations<T>>::insert((target_did, new_nonce), auth);
+
+        Self::deposit_event(RawEvent::NewAuthorization(
+            new_nonce,
+            from_did,
+            target_did,
+            authorization_data,
+            expiry,
+        ));
+    }
+
+    pub fn remove_auth(from_did: IdentityId, target_did: IdentityId, auth_id: u64) -> bool {
+        if !<Authorizations<T>>::exists((target_did, auth_id)) {
+            // Auth does not exist
+            return false;
+        }
+        let auth = Self::authorizations((target_did, auth_id));
+        if auth.authorized_by != from_did && target_did != from_did {
+            // Not authorized to revoke this authorization
+            return false;
+        }
+        if auth.next_authorization != 0 {
+            // update next auth's previous auth to point to previous auth of this auth
+            <Authorizations<T>>::mutate((target_did, auth.next_authorization), |next_auth| {
+                next_auth.previous_authorization = auth.previous_authorization
+            });
+        } else {
+            // this was the last auth. update last auth to be previous auth.
+            <LastAuthorization>::insert(&target_did, auth.previous_authorization);
+        }
+        if auth.previous_authorization != 0 {
+            // update previous auth's next auth to point to next auth of this auth
+            <Authorizations<T>>::mutate((target_did, auth.previous_authorization), |prev_auth| {
+                prev_auth.next_authorization = auth.next_authorization
+            });
+        }
+        Self::deposit_event(RawEvent::AuthorizationRemoved(auth_id, target_did));
+        return true;
+    }
+
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
     fn update_signing_item_permissions(
