@@ -23,8 +23,13 @@
 //!
 //! ### Dispatchable Functions
 //!
+//! - `set_min_proposal_deposit` change min deposit to create a proposal
+//! - `set_quorum_threshold` change stake required to make a proposal into a referendum
+//! - `set_proposal_duration` change duration in blocks for which proposal stays active
 //! - `propose` - Token holders can propose a new ballot.
 //! - `vote` - Token holders can vote on a ballot.
+//! - `kill_proposal` - close a proposal and refund all deposits
+//! - `enact_referundum` committee calls to execute a referendum
 //!
 //! ### Public Functions
 //!
@@ -111,7 +116,7 @@ decl_storage! {
 
         /// Those who have locked a deposit.
         /// proposal hash -> (deposit, proposer)
-        pub Deposits get(deposit_of): map T::Hash => Option<(T::AccountId, BalanceOf<T>)>;
+        pub Deposits get(deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
@@ -229,7 +234,7 @@ decl_module! {
             };
             <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
 
-            <Deposits<T>>::insert(proposal_hash, (proposer.clone(), deposit));
+            <Deposits<T>>::insert(proposal_hash, vec![(proposer.clone(), deposit)]);
 
             <Proposals<T>>::insert(proposal_hash, *proposal);
 
@@ -268,6 +273,12 @@ decl_module! {
                 } else {
                     voting.nays.push((proposer.clone(), deposit));
                 }
+
+                // Reserve the deposit
+                T::Currency::reserve(&proposer, deposit).map_err(|_| "voter can't afford to lock deposit they intend to stake")?;
+
+                <Deposits<T>>::mutate(proposal_hash, |deposits| deposits.push((proposer.clone(), deposit)));
+
                 <Voting<T>>::remove(&proposal_hash);
                 <Voting<T>>::insert(&proposal_hash, voting);
                 Self::deposit_event(RawEvent::Voted(proposer, proposal_hash, aye_or_nay));
@@ -375,18 +386,24 @@ impl<T: Trait> Module<T> {
     /// Close a proposal. Voting ceases and proposal is removed from storage.
     /// All deposits are unlocked and returned to respective stakers.
     fn close_proposal(proposal_hash: T::Hash) {
-        if let Some(_) = <Voting<T>>::get(proposal_hash) {
-            if let Some((proposer, deposit)) = <Deposits<T>>::take(&proposal_hash) {
-                T::Currency::unreserve(&proposer, deposit);
-                if let Some(_) = <Proposals<T>>::take(&proposal_hash) {
-                    <Voting<T>>::remove(&proposal_hash);
-                    let hash = proposal_hash.clone();
-                    <ProposalMetadata<T>>::mutate(|metadata| {
-                        metadata.retain(|m| m.proposal_hash != hash)
-                    });
+        if <Voting<T>>::get(proposal_hash).is_some() {
+            if <Deposits<T>>::exists(&proposal_hash) {
+                let deposits: Vec<(T::AccountId, BalanceOf<T>)> =
+                    <Deposits<T>>::take(&proposal_hash);
 
-                    Self::deposit_event(RawEvent::ProposalClosed(hash));
+                for (depositor, deposit) in deposits.iter() {
+                    T::Currency::unreserve(depositor, *deposit);
                 }
+            }
+
+            if <Proposals<T>>::take(&proposal_hash).is_some() {
+                <Voting<T>>::remove(&proposal_hash);
+                let hash = proposal_hash.clone();
+                <ProposalMetadata<T>>::mutate(|metadata| {
+                    metadata.retain(|m| m.proposal_hash != hash)
+                });
+
+                Self::deposit_event(RawEvent::ProposalClosed(hash));
             }
         }
     }
