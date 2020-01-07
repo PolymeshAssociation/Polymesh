@@ -225,7 +225,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, HasCompact};
-use phragmen::{elect, equalize, ExtendedBalance, Support, SupportMap, ACCURACY};
+use phragmen::{elect, ExtendedBalance, Support, SupportMap, ACCURACY};
+
+#[cfg(feature = "equalize")]
+use phragmen::equalize;
+
 use rstd::{prelude::*, result};
 use session::{historical::OnSessionEnding, SelectInitialValidators};
 use sr_primitives::{
@@ -244,6 +248,7 @@ use sr_staking_primitives::{
     offence::{Offence, OffenceDetails, OnOffenceHandler, ReportOffence},
     SessionIndex,
 };
+// use sp_core::sr25519::Pair;
 use srml_support::{
     decl_event, decl_module, decl_storage, ensure,
     traits::{
@@ -1802,31 +1807,34 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::balances;
-    use crate::identity;
-    use std::{cell::RefCell, collections::HashSet};
+    use crate::{balances, identity, test::storage::account_from};
+    use std::{
+        cell::RefCell,
+        collections::{HashMap, HashSet},
+    };
 
     use sr_io::{with_externalities, TestExternalities};
     use sr_primitives::{
-        testing::{Header, UintAuthorityId},
+        testing::{sr25519::Public, Header, UintAuthorityId},
         traits::{
             BlakeTwo256, Convert, ConvertInto, IdentityLookup, OnInitialize, OpaqueKeys,
-            SaturatedConversion,
+            SaturatedConversion, Verify,
         },
-        Perbill,
+        AnySignature, Perbill,
     };
-    use srml_support::traits::FindAuthor;
     use srml_support::{
         assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
+        traits::FindAuthor,
     };
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
+    use test_client::AccountKeyring;
 
     /// Mock types for testing
     /// The AccountId alias in this test module.
-    pub type AccountId = u64;
+    type AccountId = <AnySignature as Verify>::Signer;
     pub type BlockNumber = u64;
     pub type Balance = u128;
 
@@ -1872,7 +1880,7 @@ mod tests {
         fn on_disabled(validator_index: usize) {
             SESSION.with(|d| {
                 let mut d = d.borrow_mut();
-                let value = d.0[validator_index];
+                let value = d.0[validator_index].clone();
                 d.1.insert(value);
             })
         }
@@ -1884,12 +1892,13 @@ mod tests {
 
     /// Author of block is always 11
     pub struct Author11;
-    impl FindAuthor<u64> for Author11 {
-        fn find_author<'a, I>(_digests: I) -> Option<u64>
+    impl FindAuthor<AccountId> for Author11 {
+        fn find_author<'a, I>(_digests: I) -> Option<AccountId>
         where
             I: 'a + IntoIterator<Item = (srml_support::ConsensusEngineId, &'a [u8])>,
         {
-            Some(11)
+            // Some(11)
+            Some(AccountKeyring::Alice.into())
         }
     }
 
@@ -1912,7 +1921,7 @@ mod tests {
         type BlockNumber = BlockNumber;
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
+        type AccountId = AccountId;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type WeightMultiplierUpdate = ();
@@ -2026,9 +2035,12 @@ mod tests {
         pub const SessionsPerEra: SessionIndex = 3;
         pub const BondingDuration: EraIndex = 3;
         pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
-        pub const One: u64 = 1;
-        pub const Two: u64 = 2;
-        pub const Three: u64 = 3;
+        // pub const One: u64 = 1;
+        pub const One: Public = AccountKeyring::Alice.public();
+        // pub const Two: u64 = 2;
+        pub const Two: Public = AccountKeyring::Bob.public();
+        // pub const Three: u64 = 3;
+        pub const Three: Public = AccountKeyring::Charlie.public();
         pub const Four: u64 = 4;
         pub const Five: u64 = 5;
     }
@@ -2045,12 +2057,24 @@ mod tests {
         type BondingDuration = BondingDuration;
         type SessionInterface = Self;
         type RewardCurve = RewardCurve;
-        type AddOrigin = EnsureSignedBy<One, u64>;
-        type RemoveOrigin = EnsureSignedBy<Two, u64>;
-        type ComplianceOrigin = EnsureSignedBy<Three, u64>;
+
+        /// Required origin for adding a potential validator (can always be Root).
+        //type AddOrigin: EnsureOrigin<Self::Origin>;
+        type AddOrigin = EnsureSignedBy<One, Self::AccountId>;
+
+        /// Required origin for removing a validator (can always be Root).
+        // type RemoveOrigin: EnsureOrigin<Self::Origin>;
+        type RemoveOrigin = EnsureSignedBy<Two, Self::AccountId>;
+
+        /// Required origin for changing compliance status (can always be Root).
+        // type ComplianceOrigin: EnsureOrigin<Self::Origin>;
+        type ComplianceOrigin = EnsureSignedBy<Three, Self::AccountId>;
     }
 
     type Staking = super::Module<Test>;
+    type System = system::Module<Test>;
+    type Session = session::Module<Test>;
+    type Timestamp = timestamp::Module<Test>;
 
     pub struct ExtBuilder {
         existential_deposit: u64,
@@ -2060,7 +2084,7 @@ mod tests {
         minimum_validator_count: u32,
         fair: bool,
         num_validators: Option<u32>,
-        invulnerables: Vec<u64>,
+        invulnerables: Vec<AccountId>,
     }
 
     impl Default for ExtBuilder {
@@ -2107,7 +2131,7 @@ mod tests {
             self.num_validators = Some(num_validators);
             self
         }
-        pub fn invulnerables(mut self, invulnerables: Vec<u64>) -> Self {
+        pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
             self.invulnerables = invulnerables;
             self
         }
@@ -2126,24 +2150,51 @@ mod tests {
                 .map(|x| ((x + 1) * 10 + 1) as u64)
                 .collect::<Vec<_>>();
 
+            let account_key_ring: HashMap<u64, Public> =
+                [10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999]
+                    .into_iter()
+                    .map(|id| (*id, account_from(*id)))
+                    .collect();
+
             let _ = balances::GenesisConfig::<Test> {
                 balances: vec![
-                    (1, 10 * balance_factor),
-                    (2, 20 * balance_factor),
-                    (3, 300 * balance_factor),
-                    (4, 400 * balance_factor),
-                    (10, balance_factor),
-                    (11, balance_factor * 1000),
-                    (20, balance_factor),
-                    (21, balance_factor * 2000),
-                    (30, balance_factor),
-                    (31, balance_factor * 2000),
-                    (40, balance_factor),
-                    (41, balance_factor * 2000),
-                    (100, 2000 * balance_factor),
-                    (101, 2000 * balance_factor),
+                    (AccountKeyring::Alice.public(), 10 * balance_factor),
+                    (AccountKeyring::Bob.public(), 20 * balance_factor),
+                    (AccountKeyring::Charlie.public(), 300 * balance_factor),
+                    (AccountKeyring::Dave.public(), 400 * balance_factor),
+                    (account_key_ring.get(&10).unwrap().clone(), balance_factor),
+                    (
+                        account_key_ring.get(&11).unwrap().clone(),
+                        balance_factor * 1000,
+                    ),
+                    (account_key_ring.get(&20).unwrap().clone(), balance_factor),
+                    (
+                        account_key_ring.get(&21).unwrap().clone(),
+                        balance_factor * 2000,
+                    ),
+                    (account_key_ring.get(&30).unwrap().clone(), balance_factor),
+                    (
+                        account_key_ring.get(&31).unwrap().clone(),
+                        balance_factor * 2000,
+                    ),
+                    (account_key_ring.get(&40).unwrap().clone(), balance_factor),
+                    (
+                        account_key_ring.get(&41).unwrap().clone(),
+                        balance_factor * 2000,
+                    ),
+                    (
+                        account_key_ring.get(&100).unwrap().clone(),
+                        2000 * balance_factor,
+                    ),
+                    (
+                        account_key_ring.get(&101).unwrap().clone(),
+                        2000 * balance_factor,
+                    ),
                     // This allow us to have a total_payout different from 0.
-                    (999, 1_000_000_000_000),
+                    (
+                        account_key_ring.get(&999).unwrap().clone(),
+                        1_000_000_000_000,
+                    ),
                 ],
                 vesting: vec![],
             }
@@ -2160,24 +2211,46 @@ mod tests {
             } else {
                 StakerStatus::<AccountId>::Idle
             };
-            let nominated = if self.nominate { vec![11, 21] } else { vec![] };
+            let nominated = if self.nominate {
+                vec![
+                    account_key_ring.get(&11).unwrap().clone(),
+                    account_key_ring.get(&21).unwrap().clone(),
+                ]
+            } else {
+                vec![]
+            };
             let _ = GenesisConfig::<Test> {
                 current_era: 0,
                 stakers: vec![
                     // (stash, controller, staked_amount, status)
                     (
-                        11,
-                        10,
+                        account_key_ring.get(&11).unwrap().clone(),
+                        account_key_ring.get(&10).unwrap().clone(),
                         balance_factor * 1000,
                         StakerStatus::<AccountId>::Validator,
                     ),
-                    (21, 20, stake_21, StakerStatus::<AccountId>::Validator),
-                    (31, 30, stake_31, StakerStatus::<AccountId>::Validator),
-                    (41, 40, balance_factor * 1000, status_41),
+                    (
+                        account_key_ring.get(&21).unwrap().clone(),
+                        account_key_ring.get(&20).unwrap().clone(),
+                        stake_21,
+                        StakerStatus::<AccountId>::Validator,
+                    ),
+                    (
+                        account_key_ring.get(&31).unwrap().clone(),
+                        account_key_ring.get(&30).unwrap().clone(),
+                        stake_31,
+                        StakerStatus::<AccountId>::Validator,
+                    ),
+                    (
+                        account_key_ring.get(&41).unwrap().clone(),
+                        account_key_ring.get(&40).unwrap().clone(),
+                        balance_factor * 1000,
+                        status_41,
+                    ),
                     // nominator
                     (
-                        101,
-                        100,
+                        account_key_ring.get(&101).unwrap().clone(),
+                        account_key_ring.get(&100).unwrap().clone(),
                         balance_factor * 500,
                         StakerStatus::<AccountId>::Nominator(nominated),
                     ),
@@ -2193,7 +2266,11 @@ mod tests {
             let _ = session::GenesisConfig::<Test> {
                 keys: validators
                     .iter()
-                    .map(|x| (*x, UintAuthorityId(*x)))
+                    .map(|x| {
+                        let acc_pub = account_key_ring.get(x).unwrap().clone();
+                        let uint_auth_id = UintAuthorityId(*x);
+                        (acc_pub, uint_auth_id)
+                    })
                     .collect(),
             }
             .assimilate_storage(&mut storage);
@@ -2224,24 +2301,19 @@ mod tests {
         assert_eq!(Session::current_index(), session_index);
     }
 
-    pub type System = system::Module<Test>;
-    pub type Balances = balances::Module<Test>;
-    pub type Session = session::Module<Test>;
-    pub type Timestamp = timestamp::Module<Test>;
-
     #[test]
     fn should_initialize_stakers_and_validators() {
         // Verifies initial conditions of mock
         with_externalities(&mut ExtBuilder::default().build(), || {
-            assert_eq!(Staking::bonded(&11), Some(10)); // Account 11 is stashed and locked, and account 10 is the controller
-            assert_eq!(Staking::bonded(&21), Some(20)); // Account 21 is stashed and locked, and account 20 is the controller
-            assert_eq!(Staking::bonded(&1), None); // Account 1 is not a stashed
+            assert_eq!(Staking::bonded(&account_from(11)), Some(account_from(10))); // Account 11 is stashed and locked, and account 10 is the controller
+            assert_eq!(Staking::bonded(&account_from(21)), Some(account_from(20))); // Account 21 is stashed and locked, and account 20 is the controller
+            assert_eq!(Staking::bonded(&AccountKeyring::Alice.public()), None); // Account 1 is not a stashed
 
             // Account 10 controls the stash from account 11, which is 100 * balance_factor units
             assert_eq!(
-                Staking::ledger(&10),
+                Staking::ledger(&account_from(10)),
                 Some(StakingLedger {
-                    stash: 11,
+                    stash: account_from(11),
                     total: 1000,
                     active: 1000,
                     unlocking: vec![]
@@ -2249,16 +2321,16 @@ mod tests {
             );
             // Account 20 controls the stash from account 21, which is 200 * balance_factor units
             assert_eq!(
-                Staking::ledger(&20),
+                Staking::ledger(&account_from(20)),
                 Some(StakingLedger {
-                    stash: 21,
+                    stash: account_from(21),
                     total: 1000,
                     active: 1000,
                     unlocking: vec![]
                 })
             );
             // Account 1 does not control any stash
-            assert_eq!(Staking::ledger(&1), None);
+            assert_eq!(Staking::ledger(&AccountKeyring::Alice.public()), None);
         });
     }
 
@@ -2273,13 +2345,24 @@ mod tests {
                 .nominate(false)
                 .build(),
             || {
-                assert_ok!(Staking::add_potential_validator(Origin::signed(1), 10));
-                assert_ok!(Staking::add_potential_validator(Origin::signed(1), 20));
+                let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+                let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
+                let acc_10 = account_from(10);
+                let acc_20 = account_from(20);
 
-                assert_ok!(Staking::compliance_failed(Origin::signed(3), 20));
+                assert_ok!(Staking::add_potential_validator(
+                    alice_signed.clone(),
+                    acc_10.clone()
+                ));
+                assert_ok!(Staking::add_potential_validator(
+                    alice_signed,
+                    acc_20.clone()
+                ));
 
-                assert_eq!(Staking::is_controller_eligible(&10), true);
-                assert_eq!(Staking::is_controller_eligible(&20), false);
+                assert_ok!(Staking::compliance_failed(charlie_signed, acc_20.clone()));
+
+                assert_eq!(Staking::is_controller_eligible(&acc_10), true);
+                assert_eq!(Staking::is_controller_eligible(&acc_20), false);
             },
         );
     }
@@ -2295,22 +2378,35 @@ mod tests {
                 .nominate(false)
                 .build(),
             || {
-                assert_ok!(Staking::add_potential_validator(Origin::signed(1), 10));
-                assert_ok!(Staking::add_potential_validator(Origin::signed(1), 20));
+                let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+                let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
+                let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+                let acc_10 = account_from(10);
+                let acc_20 = account_from(20);
+                let acc_30 = account_from(30);
 
-                assert_ok!(Staking::compliance_failed(Origin::signed(3), 20));
+                assert_ok!(Staking::add_potential_validator(
+                    alice_signed.clone(),
+                    acc_10.clone()
+                ));
+                assert_ok!(Staking::add_potential_validator(
+                    alice_signed,
+                    acc_20.clone()
+                ));
 
-                assert_ok!(Staking::remove_validator(Origin::signed(2), 20));
+                assert_ok!(Staking::compliance_failed(charlie_signed, acc_20.clone()));
+
+                assert_ok!(Staking::remove_validator(bob_signed, acc_20.clone()));
 
                 assert_eq!(
-                    Staking::permissioned_validators(&10),
+                    Staking::permissioned_validators(&acc_10),
                     Some(PermissionedValidator {
                         compliance: Compliance::Active
                     })
                 );
-                assert_eq!(Staking::permissioned_validators(&20), None);
+                assert_eq!(Staking::permissioned_validators(&acc_20), None);
 
-                assert_eq!(Staking::permissioned_validators(&30), None);
+                assert_eq!(Staking::permissioned_validators(&acc_30), None);
             },
         );
     }
