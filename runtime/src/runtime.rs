@@ -1,7 +1,7 @@
 use crate::{
     asset, balances,
     constants::{currency::*, time::*},
-    contracts_wrapper, dividend, exemption, general_tm, identity,
+    contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
     percentage_tm, simple_token, staking, sto_capped,
     update_did_signed_extension::UpdateDid,
@@ -268,18 +268,6 @@ impl collective::Trait<GovernanceCollective> for Runtime {
     type Event = Event;
 }
 
-impl membership::Trait<membership::Instance1> for Runtime {
-    type Event = Event;
-    type AddOrigin = collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type RemoveOrigin =
-        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type SwapOrigin = collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type ResetOrigin =
-        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type MembershipInitialized = GovernanceCommittee;
-    type MembershipChanged = GovernanceCommittee;
-}
-
 parameter_types! {
     pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
@@ -454,6 +442,16 @@ impl dividend::Trait for Runtime {
     type Event = Event;
 }
 
+impl group::Trait<group::Instance1> for Runtime {
+    type Event = Event;
+    type AddOrigin = collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type RemoveOrigin =
+        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type SwapOrigin = collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type ResetOrigin =
+        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+}
+
 construct_runtime!(
     pub enum Runtime where
     Block = Block,
@@ -489,8 +487,7 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Storage, Event<T>},
-        GovernanceMembership: membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+        Treasury: treasury::{Module, Call, Storage, Event<T>},        
         GovernanceCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 
         //Polymesh
@@ -503,6 +500,7 @@ construct_runtime!(
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
+        KYCServiceProviders: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 

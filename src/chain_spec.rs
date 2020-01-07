@@ -13,6 +13,7 @@ use polymesh_runtime::{
         SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
     runtime::GovernanceCommitteeConfig,
+    runtime::KYCServiceProvidersConfig,
     Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
@@ -241,7 +242,6 @@ fn testnet_genesis(
             slash_reward_fraction: Perbill::from_percent(10),
             ..Default::default()
         }),
-        membership_Instance1: Some(Default::default()),
         collective_Instance1: Some(GovernanceCommitteeConfig {
             members: vec![
                 get_from_seed::<AccountId>("Alice"),
@@ -260,6 +260,10 @@ fn testnet_genesis(
                 ..Default::default()
             },
             gas_price: 1 * MILLICENTS,
+        }),
+        group_Instance1: Some(KYCServiceProvidersConfig {
+            members: vec![],
+            phantom: Default::default(),
         }),
     }
 }

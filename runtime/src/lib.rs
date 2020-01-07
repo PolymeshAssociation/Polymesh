@@ -14,6 +14,7 @@ mod contracts_wrapper;
 mod dividend;
 mod exemption;
 mod general_tm;
+mod group;
 mod identity;
 mod percentage_tm;
 mod simple_token;
