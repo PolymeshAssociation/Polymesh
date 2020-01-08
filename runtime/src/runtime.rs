@@ -271,7 +271,7 @@ impl mips::Trait for Runtime {
     type Currency = Balances;
     type Proposal = Call;
     type CommitteeOrigin =
-        collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+        committee::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCommittee>;
     type Event = Event;
 }
 
