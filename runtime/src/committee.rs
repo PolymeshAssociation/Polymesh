@@ -312,3 +312,161 @@ impl<
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as committee;
+    use crate::{balances, identity};
+    use hex_literal::hex;
+    use sr_io::with_externalities;
+    use sr_primitives::{
+        testing::Header,
+        traits::{BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Verify},
+        AnySignature, BuildStorage, Perbill,
+    };
+    use srml_support::{
+        assert_err, assert_noop, assert_ok,
+        dispatch::{DispatchError, DispatchResult},
+        impl_outer_dispatch, impl_outer_origin, parameter_types, Hashable,
+    };
+    use substrate_primitives::{Blake2Hasher, H256};
+    use system::{EnsureSignedBy, EventRecord, Phase};
+
+    #[derive(Clone, Eq, PartialEq, Debug)]
+    pub struct Test;
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    parameter_types! {
+        pub const BlockHashCount: u64 = 250;
+        pub const MaximumBlockWeight: u32 = 1024;
+        pub const MaximumBlockLength: u32 = 2 * 1024;
+        pub const AvailableBlockRatio: Perbill = Perbill::one();
+    }
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Call = ();
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type WeightMultiplierUpdate = ();
+        type Event = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type Version = ();
+    }
+
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 0;
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const TransactionBaseFee: u64 = 0;
+        pub const TransactionByteFee: u64 = 0;
+    }
+
+    impl balances::Trait for Test {
+        type Balance = u128;
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type TransactionPayment = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+        type TransactionBaseFee = TransactionBaseFee;
+        type TransactionByteFee = TransactionByteFee;
+        type WeightToFee = ConvertInto;
+        type Identity = identity::Module<Test>;
+    }
+
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
+    }
+
+    impl timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
+    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
+    pub struct TestProposal {
+        pub dummy: u8,
+    }
+
+    impl sr_primitives::traits::Dispatchable for TestProposal {
+        type Origin = Origin;
+        type Trait = Test;
+        type Error = DispatchError;
+
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+            Ok(())
+        }
+    }
+
+    impl identity::Trait for Test {
+        type Event = ();
+        type Proposal = TestProposal;
+    }
+
+    pub enum RawOrigin<T: Trait<I>, I>
+    where
+        T::BlockNumber: From<u32>,
+    {
+        Members(u32, u32),
+        _Phantom(std::marker::PhantomData<(T, I)>),
+    }
+
+    impl Trait for Test {
+        type Event = ();
+        type Origin = Origin;
+        type Proposal = TestProposal;
+    }
+
+    type Committee = Module<Test>;
+
+    // This function basically just builds a genesis storage key/value store according to
+    // our desired mockup.
+    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+        let mut t = system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+
+        // We use default for brevity, but you can configure as desired if needed.
+        GenesisConfig::<Test> {
+            members: vec![
+                IdentityId::from(1),
+                IdentityId::from(2),
+                IdentityId::from(3),
+            ],
+            ..Default::default()
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        t.into()
+    }
+
+    #[test]
+    fn query_membership_works() {
+        with_externalities(&mut new_test_ext(), || {
+            assert_eq!(
+                Committee::members(),
+                vec![
+                    IdentityId::from(1),
+                    IdentityId::from(2),
+                    IdentityId::from(3)
+                ]
+            );
+        });
+    }
+}
