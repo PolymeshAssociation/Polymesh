@@ -32,10 +32,10 @@ pub struct Authorization<U> {
     pub expiry: Option<U>,
 
     // Extra data to allow iterating over the authorizations.
-    /// Authorization number of the next Authorization
-    /// Authorization number starts with 1
+    /// Authorization number of the next Authorization.
+    /// Authorization number starts with 1.
     pub next_authorization: u64,
-    /// Authorization number of the previous Authorization
-    /// Authorization number starts with 1
+    /// Authorization number of the previous Authorization.
+    /// Authorization number starts with 1.
     pub previous_authorization: u64,
 }
