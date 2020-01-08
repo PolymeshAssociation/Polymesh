@@ -89,6 +89,46 @@ pub struct ClaimValue {
     pub value: Vec<u8>,
 }
 
+/// A structure for passing claims to `add_claims_batch`.
+pub struct ClaimRecord<T: Trait> {
+    did: IdentityId,
+    claim_key: Vec<u8>,
+    expiry: <T as timestamp::Trait>::Moment,
+    claim_value: ClaimValue,
+}
+
+impl<T: Trait> ClaimRecord<T> {
+    pub fn new(
+        did: IdentityId,
+        claim_key: Vec<u8>,
+        expiry: <T as timestamp::Trait>::Moment,
+        claim_value: ClaimValue,
+    ) -> Self {
+        ClaimRecord {
+            did,
+            claim_key,
+            expiry,
+            claim_value,
+        }
+    }
+
+    pub fn did(&self) -> &IdentityId {
+        &self.did
+    }
+
+    pub fn claim_key(&self) -> &[u8] {
+        self.claim_key.as_slice()
+    }
+
+    pub fn expiry(&self) -> &<T as timestamp::Trait>::Moment {
+        &self.expiry
+    }
+
+    pub fn claim_value(&self) -> &ClaimValue {
+        &self.claim_value
+    }
+}
+
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum DataTypes {
     U8,
@@ -418,11 +458,11 @@ decl_module! {
             ensure!(<DidRecords>::exists(did), "DID must already exist");
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
 
-            let sender_key = Key::try_from( sender.encode())?;
+            let sender_key = Key::try_from(sender.encode())?;
             ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_signer = Signer::Key( sender_key);
+            let sender_signer = Signer::Key(sender_key);
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
@@ -448,6 +488,58 @@ decl_module! {
 
             Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
 
+            Ok(())
+        }
+
+        /// Adds a new batch of claim records or edits an existing one. Only called by did_issuer's
+        /// signing key.
+        pub fn add_claims_batch(
+            origin,
+            did_issuer: IdentityId,
+            claims: Vec<ClaimRecord<T>>,
+        ) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
+            let sender_key = Key::try_from(sender.encode())?;
+            // Verify that sender key is one of did_issuer's signing keys
+            let sender_signer = Signer::Key(sender_key);
+            ensure!(Self::is_signer_authorized(did_issuer, &sender_signer),
+                    "Sender must hold a claim issuer's signing key");
+            // Claims that successfully passed all required checks. Unless all claims pass those
+            // checks, the whole operation fails.
+            let checked_claims = Vec::new();
+            // Check input claims.
+            for ClaimRecord {
+                did,
+                claim_key,
+                expiry,
+                claim_value,
+            } in claims {
+                ensure!(<DidRecords>::exists(did), "DID must already exist");
+                ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key),
+                        "did_issuer must be a claim issuer or master key for DID");
+                let claim_meta_data = ClaimMetaData {
+                    claim_key: claim_key,
+                    claim_issuer: did_issuer,
+                };
+                let now = <timestamp::Module<T>>::get();
+                let claim = Claim {
+                    issuance_date: now,
+                    expiry: expiry,
+                    claim_value: claim_value,
+                };
+                checked_claims.push((did, claim_meta_data, claim));
+            }
+            // Register the claims.
+            for (did, claim_meta_data, claim) in checked_claims {
+                <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
+                <ClaimKeys>::mutate(&did, |old_claim_data| {
+                    if !old_claim_data.contains(&claim_meta_data) {
+                        old_claim_data.push(claim_meta_data.clone());
+                    }
+                });
+                Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
+            }
             Ok(())
         }
 
