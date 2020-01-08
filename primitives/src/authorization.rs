@@ -19,6 +19,19 @@ impl Default for AuthorizationData {
     }
 }
 
+/// Status of an Authorization after consume is called on it.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum AuthorizationStatus {
+    /// Auth does not exist
+    Invalid,
+    /// Caller not authorized
+    Unauthorized,
+    /// Auth expired already
+    Expired,
+    /// Consumed without errors
+    Consumed,
+}
+
 /// Authorization struct
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct Authorization<U> {

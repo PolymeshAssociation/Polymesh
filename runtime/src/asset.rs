@@ -60,7 +60,7 @@ use crate::{balances, constants::*, general_tm, identity, percentage_tm, utils};
 use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
-use primitives::{AuthorizationData, IdentityId, Key, Signer};
+use primitives::{AuthorizationData, AuthorizationStatus, IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub, Verify};
@@ -266,16 +266,22 @@ decl_module! {
                 _ => return Err("Not a ticker transfer auth")
             };
 
-            if let Some(expiry) = auth.expiry {
-                let now = <timestamp::Module<T>>::get();
-                ensure!(expiry > now, "Auth expired already");
-            };
-
             ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
 
             let current_owner = Self::ticker_registration(&ticker).owner;
-            ensure!(<identity::Module<T>>::remove_auth(current_owner, to_did, auth_id), "Not authorized");
-            <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
+
+            match <identity::Module<T>>::consume_auth(current_owner, to_did, auth_id) {
+                //Unreachable due to the check above. Being defensive by being inclusive.
+                AuthorizationStatus::Invalid => return Err("Invalid auth"),
+
+                AuthorizationStatus::Unauthorized => return Err("Ticker owner did not authorize the transfer"),
+                AuthorizationStatus::Expired => return Err("Authorization expired"),
+
+                // Only remaining case is AuthorizationStatus::Consumed so it can be moved out of the match stamement.
+                // Being defensive here. Just in case we add more status later and forget to change this.
+                AuthorizationStatus::Consumed => <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did),
+            }
+
             Self::deposit_event(RawEvent::TickerTransferred(ticker, current_owner, to_did));
 
             Ok(())
@@ -2513,7 +2519,7 @@ mod tests {
             auth_id = Identity::last_authorization(bob_did);
             assert_err!(
                 Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
-                "Not authorized"
+                "Ticker owner did not authorize the transfer"
             );
 
             Identity::add_auth(
@@ -2525,7 +2531,7 @@ mod tests {
             auth_id = Identity::last_authorization(bob_did);
             assert_err!(
                 Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
-                "Auth expired already"
+                "Authorization expired"
             );
 
             Identity::add_auth(

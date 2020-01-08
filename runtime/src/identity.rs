@@ -46,8 +46,8 @@ use rstd::{convert::TryFrom, prelude::*};
 
 use crate::{balances, constants::did::USER};
 use primitives::{
-    Authorization, AuthorizationData, Identity as DidRecord, IdentityId, Key, Permission,
-    PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+    Authorization, AuthorizationData, AuthorizationStatus, Identity as DidRecord, IdentityId, Key,
+    Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
 };
 
 use codec::Encode;
@@ -604,7 +604,13 @@ decl_module! {
                 }
             };
 
-            ensure!(Self::remove_auth(from_did, target_did, auth_id), "Error in revoking the authorization");
+            ensure!(<Authorizations<T>>::exists((target_did, auth_id)), "Invalid auth");
+
+            let auth = Self::authorizations((target_did, auth_id));
+
+            ensure!(auth.authorized_by == from_did || target_did == from_did, "Unauthorized");
+
+            Self::remove_auth(target_did, auth_id, auth.next_authorization, auth.previous_authorization);
 
             Ok(())
         }
@@ -889,33 +895,57 @@ impl<T: Trait> Module<T> {
         ));
     }
 
-    pub fn remove_auth(from_did: IdentityId, target_did: IdentityId, auth_id: u64) -> bool {
-        if !<Authorizations<T>>::exists((target_did, auth_id)) {
-            // Auth does not exist
-            return false;
-        }
-        let auth = Self::authorizations((target_did, auth_id));
-        if auth.authorized_by != from_did && target_did != from_did {
-            // Not authorized to revoke this authorization
-            return false;
-        }
-        if auth.next_authorization != 0 {
+    /// Remove any authorization. No questions asked.
+    /// NB: Please do all the required checks before calling this function.
+    pub fn remove_auth(target_did: IdentityId, auth_id: u64, next_auth: u64, previous_auth: u64) {
+        if next_auth != 0 {
             // update next auth's previous auth to point to previous auth of this auth
-            <Authorizations<T>>::mutate((target_did, auth.next_authorization), |next_auth| {
-                next_auth.previous_authorization = auth.previous_authorization
+            <Authorizations<T>>::mutate((target_did, next_auth), |next_auth| {
+                next_auth.previous_authorization = previous_auth
             });
         } else {
             // this was the last auth. update last auth to be previous auth.
-            <LastAuthorization>::insert(&target_did, auth.previous_authorization);
+            <LastAuthorization>::insert(&target_did, previous_auth);
         }
-        if auth.previous_authorization != 0 {
+        if previous_auth != 0 {
             // update previous auth's next auth to point to next auth of this auth
-            <Authorizations<T>>::mutate((target_did, auth.previous_authorization), |prev_auth| {
-                prev_auth.next_authorization = auth.next_authorization
+            <Authorizations<T>>::mutate((target_did, previous_auth), |prev_auth| {
+                prev_auth.next_authorization = next_auth
             });
         }
+        <Authorizations<T>>::remove((target_did, auth_id));
         Self::deposit_event(RawEvent::AuthorizationRemoved(auth_id, target_did));
-        return true;
+    }
+
+    /// Consumes an authorization.
+    /// Checks if the auth has not expired and the caller is authorized to consume this auth.
+    pub fn consume_auth(
+        from_did: IdentityId,
+        target_did: IdentityId,
+        auth_id: u64,
+    ) -> AuthorizationStatus {
+        if !<Authorizations<T>>::exists((target_did, auth_id)) {
+            // Auth does not exist
+            return AuthorizationStatus::Invalid;
+        }
+        let auth = Self::authorizations((target_did, auth_id));
+        if auth.authorized_by != from_did {
+            // Not authorized to revoke this authorization
+            return AuthorizationStatus::Unauthorized;
+        }
+        if let Some(expiry) = auth.expiry {
+            let now = <timestamp::Module<T>>::get();
+            if expiry <= now {
+                return AuthorizationStatus::Expired;
+            }
+        }
+        Self::remove_auth(
+            target_did,
+            auth_id,
+            auth.next_authorization,
+            auth.previous_authorization,
+        );
+        return AuthorizationStatus::Consumed;
     }
 
     /// Private and not sanitized function. It is designed to be used internally by
