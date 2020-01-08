@@ -21,7 +21,7 @@
 //! ### Dispatchable Functions
 //!
 //! - `register_ticker` - Used to either register a new ticker or extend registration of an existing ticker
-//! - `transfer_ticker` - Used to transfer ticker to a different DID
+//! - `accept_ticker_transfer` - Used to accept a ticker transfer authorization
 //! - `create_token` - Initializes a new security token
 //! - `transfer` - Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level
 //! - `controller_transfer` - Forces a transfer between two DIDs.
@@ -364,7 +364,6 @@ decl_module! {
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert((ticker.clone(), did), total_supply);
             Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, did, divisible));
-            sr_primitives::print("Initialized!!!");
 
             Ok(())
         }
@@ -2388,9 +2387,7 @@ mod tests {
                     );
                 }
             });
-            println!("Instance {} done", i);
         }
-        println!("Done");
     }
 
     #[test]
