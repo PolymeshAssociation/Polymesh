@@ -47,8 +47,8 @@ use polymesh_primitives::{
     SigningItem,
 };
 use polymesh_runtime_common::{
+    impl_currency, CurrencyModule,
     constants::did::USER,
-    impl_currency,
     traits::{
         balances::imbalances::{NegativeImbalance, PositiveImbalance},
         identity::{
@@ -57,7 +57,6 @@ use polymesh_runtime_common::{
         },
         BalanceLock, CommonTrait,
     },
-    CurrencyModule,
 };
 
 use codec::Encode;

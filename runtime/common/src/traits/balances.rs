@@ -2,7 +2,10 @@ use self::imbalances::NegativeImbalance;
 use crate::traits::{identity::IdentityTrait, CommonTrait};
 
 use runtime_primitives::{traits::Convert, weights::Weight};
-use srml_support::traits::{Get, OnFreeBalanceZero, OnUnbalanced};
+use srml_support::{
+    decl_event,
+    traits::{Get, OnFreeBalanceZero, OnUnbalanced}
+};
 use system::{self, OnNewAccount};
 
 /// Tag a type as an instance of a module.
@@ -69,6 +72,22 @@ pub trait Subtrait<I: Instance = DefaultInstance>: CommonTrait {
     type Identity: IdentityTrait<Self::Balance>;
 }
 
+
+decl_event!(
+    pub enum Event<T, I: Instance = DefaultInstance> where
+    <T as system::Trait>::AccountId,
+    <T as CommonTrait>::Balance
+    {
+        /// A new account was created.
+        NewAccount(AccountId, Balance),
+        /// An account was reaped.
+        ReapedAccount(AccountId),
+        /// Transfer succeeded (from, to, value, fees).
+        Transfer(AccountId, AccountId, Balance, Balance),
+    }
+);
+
+
 pub trait Trait<I: Instance = DefaultInstance>: Subtrait<I> {
     /// Handler for the unbalanced reduction when taking transaction fees.
     type TransactionPayment: OnUnbalanced<NegativeImbalance<Self>>;
@@ -81,7 +100,7 @@ pub trait Trait<I: Instance = DefaultInstance>: Subtrait<I> {
     type DustRemoval: OnUnbalanced<NegativeImbalance<Self>>;
 
     // / The overarching event type.
-    // type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
 }
 
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy

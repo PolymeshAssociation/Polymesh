@@ -1,0 +1,1241 @@
+// Copyright 2017-2019 Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+// Modified by Polymath Inc - 18th November 2019
+// Added ability to manage balances of identities with the balances module
+// In Polymesh, POLY balances can be held at either the identity or account level
+
+//! # Balances Module
+//!
+//! The Balances module provides functionality for handling accounts and balances.
+//!
+//! - [`balances::Trait`](./trait.Trait.html)
+//! - [`Call`](./enum.Call.html)
+//! - [`Module`](./struct.Module.html)
+//!
+//! ## Overview
+//!
+//! This is a modified implementation of substrate's balances SRML.
+//! The modifications made are as follows:
+//!
+//! - Added ability to pay transaction fees from identity's balance instead of user's balance.
+//! - To curb front running, sending a tip along with your transaction is now prohibited.
+//! - Added ability to store balance at identity level and use that to pay tx fees.
+//! - Added From<u128> trait to Balances type.
+//! - Removed existential amount requirement to prevent a replay attack scenario.
+//!
+//! The Original Balances module provides functions for:
+//!
+//! - Getting and setting free balances.
+//! - Retrieving total, reserved and unreserved balances.
+//! - Repatriating a reserved balance to a beneficiary account that exists.
+//! - Transferring a balance between accounts (when not reserved).
+//! - Slashing an account balance.
+//! - Account creation and removal.
+//! - Managing total issuance.
+//! - Setting and managing locks.
+//!
+//! ### Terminology
+//!
+//! - **Total Issuance:** The total number of units in existence in a system.
+//! - **Reaping an account:** The act of removing an account by resetting its nonce. Happens after its balance is set
+//! to zero.
+//! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only balance that matters
+//! for most operations.
+//! - **Reserved Balance:** Reserved balance still belongs to the account holder, but is suspended. Reserved balance
+//! can still be slashed, but only after all the free balance has been slashed.
+//! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite accounting
+//! (i.e. a difference between total issuance and account balances). Functions that result in an imbalance will
+//! return an object of the `Imbalance` trait that can be managed within your runtime logic. (If an imbalance is
+//! simply dropped, it should automatically maintain any book-keeping such as total issuance.)
+//! - **Lock:** A freeze on a specified amount of an account's free balance until a specified block number. Multiple
+//! locks always operate over the same funds, so they "overlay" rather than "stack".
+//! - **Vesting:** Similar to a lock, this is another, but independent, liquidity restriction that reduces linearly
+//! over time.
+//!
+//! ### Implementations
+//!
+//! The Balances module provides implementations for the following traits. If these traits provide the functionality
+//! that you need, then you can avoid coupling with the Balances module.
+//!
+//! - [`Currency`](../srml_support/traits/trait.Currency.html): Functions for dealing with a
+//! fungible assets system.
+//! - [`ReservableCurrency`](../srml_support/traits/trait.ReservableCurrency.html):
+//! Functions for dealing with assets that can be reserved from an account.
+//! - [`LockableCurrency`](../srml_support/traits/trait.LockableCurrency.html): Functions for
+//! dealing with accounts that allow liquidity restrictions.
+//! - [`Imbalance`](../srml_support/traits/trait.Imbalance.html): Functions for handling
+//! imbalances between total issuance in the system and account balances. Must be used when a function
+//! creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).
+//! - [`IsDeadAccount`](../srml_system/trait.IsDeadAccount.html): Determiner to say whether a
+//! given account is unused.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `transfer` - Transfer some liquid free balance to another account.
+//! - `top_up_identity_balance` - Move some poly from balance of self to balance of an identity.
+//! - `reclaim_identity_balance` - Claim back poly from an identity. Can only be called by master key of the identity.
+//! - `change_charge_did_flag` - Change setting that governs if user pays fee via their own balance or identity's balance.
+//! - `set_balance` - Set the balances of a given account. The origin of this call must be root.
+//!
+//! ### Public Functions
+//!
+//! - `vesting_balance` - Get the amount that is currently being vested and cannot be transferred out of this account.
+//!
+//! ### Signed Extensions
+//!
+//! The balances module defines the following extensions:
+//!
+//!   - [`TakeFees`]: Consumes fees proportional to the length and weight of the transaction.
+//!
+//!
+//! ## Usage
+//!
+//! The following examples show how to use the Balances module in your custom module.
+//!
+//! ### Examples from the SRML
+//!
+//! The Contract module uses the `Currency` trait to handle gas payment, and its types inherit from `Currency`:
+//!
+//! ```
+//! use srml_support::traits::Currency;
+//! # pub trait Trait: system::Trait {
+//! # 	type Currency: Currency<Self::AccountId>;
+//! # }
+//!
+//! pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+//! pub type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+//!
+//! # fn main() {}
+//! ```
+//!
+//! The Staking module uses the `LockableCurrency` trait to lock a stash account's funds:
+//!
+//! ```
+//! use srml_support::traits::{WithdrawReasons, LockableCurrency};
+//! use sr_primitives::traits::Bounded;
+//! pub trait Trait: system::Trait {
+//! 	type Currency: LockableCurrency<Self::AccountId, Moment=Self::BlockNumber>;
+//! }
+//! # struct StakingLedger<T: Trait> {
+//! # 	stash: <T as system::Trait>::AccountId,
+//! # 	total: <<T as Trait>::Currency as srml_support::traits::Currency<<T as system::Trait>::AccountId>>::Balance,
+//! # 	phantom: std::marker::PhantomData<T>,
+//! # }
+//! # const STAKING_ID: [u8; 8] = *b"staking ";
+//!
+//! fn update_ledger<T: Trait>(
+//! 	controller: &T::AccountId,
+//! 	ledger: &StakingLedger<T>
+//! ) {
+//! 	T::Currency::set_lock(
+//! 		STAKING_ID,
+//! 		&ledger.stash,
+//! 		ledger.total,
+//! 		T::BlockNumber::max_value(),
+//! 		WithdrawReasons::all()
+//! 	);
+//! 	// <Ledger<T>>::insert(controller, ledger); // Commented out as we don't have access to Staking's storage here.
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! ## Assumptions
+//!
+//! * Total issued balanced of all accounts should be less than `Trait::Balance::max_value()`.
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+
+use polymesh_primitives::{IdentityId, Key, Permission, Signer, TransactionError};
+use polymesh_runtime_common::{
+    impl_currency, CurrencyModule,
+    traits::{
+        balances::{
+            RawEvent, Subtrait, Trait,
+            imbalances::{ NegativeImbalance, PositiveImbalance}},
+        identity::IdentityTrait,
+    }
+};
+
+use runtime_primitives::{
+    traits::{
+        Bounded, CheckedAdd, CheckedSub, Convert, MaybeSerializeDebug,
+        Saturating, SignedExtension, SimpleArithmetic, StaticLookup, Zero, One },
+    transaction_validity::{
+        InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
+        ValidTransaction },
+    weights::{DispatchInfo, SimpleDispatchInfo }
+};
+use srml_support::{
+    traits::{
+        Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency,
+        OnUnbalanced, ReservableCurrency, UpdateBalanceOutcome, WithdrawReason,
+        WithdrawReasons, SignedImbalance },
+    decl_module, decl_storage, ensure, StorageValue
+};
+use system::{ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
+
+use codec::{ Decode, Encode};
+use rstd::{cmp, convert::TryFrom, mem, prelude::*, result};
+
+
+
+
+/// Struct to encode the vesting schedule of an individual account.
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct VestingSchedule<Balance, BlockNumber> {
+    /// Locked amount at genesis.
+    pub locked: Balance,
+    /// Amount that gets unlocked every block after `starting_block`.
+    pub per_block: Balance,
+    /// Starting block for unlocking(vesting).
+    pub starting_block: BlockNumber,
+}
+
+impl<Balance: SimpleArithmetic + Copy, BlockNumber: SimpleArithmetic + Copy>
+    VestingSchedule<Balance, BlockNumber>
+{
+    /// Amount locked at block `n`.
+    pub fn locked_at(&self, n: BlockNumber) -> Balance
+    where
+        Balance: From<BlockNumber>,
+    {
+        // Number of blocks that count toward vesting
+        // Saturating to 0 when n < starting_block
+        let vested_block_count = n.saturating_sub(self.starting_block);
+        // Return amount that is still locked in vesting
+        if let Some(x) = Balance::from(vested_block_count).checked_mul(&self.per_block) {
+            self.locked.max(x) - x
+        } else {
+            Zero::zero()
+        }
+    }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct BalanceLock<Balance, BlockNumber> {
+    pub id: LockIdentifier,
+    pub amount: Balance,
+    pub until: BlockNumber,
+    pub reasons: WithdrawReasons,
+}
+
+decl_storage! {
+    trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Balances {
+        /// The total units issued in the system.
+        pub TotalIssuance get(total_issuance) build(|config: &GenesisConfig<T, I>| {
+            config.balances.iter().fold(Zero::zero(), |acc: T::Balance, &(_, n)| acc + n)
+        }): T::Balance;
+
+        /// Information regarding the vesting of a given account.
+        pub Vesting get(vesting) build(|config: &GenesisConfig<T, I>| {
+            // Generate initial vesting configuration
+            // * who - Account which we are generating vesting configuration for
+            // * begin - Block when the account will start to vest
+            // * length - Number of blocks from `begin` until fully vested
+            // * liquid - Number of units which can be spent before vesting begins
+            config.vesting.iter().filter_map(|&(ref who, begin, length, liquid)| {
+                let length = <T::Balance as From<T::BlockNumber>>::from(length);
+
+                config.balances.iter()
+                    .find(|&&(ref w, _)| w == who)
+                    .map(|&(_, balance)| {
+                        // Total genesis `balance` minus `liquid` equals funds locked for vesting
+                        let locked = balance.saturating_sub(liquid);
+                        // Number of units unlocked per block after `begin`
+                        let per_block = locked / length.max(One::one());
+
+                        (who.clone(), VestingSchedule {
+                            locked: locked,
+                            per_block: per_block,
+                            starting_block: begin
+                        })
+                    })
+            }).collect::<Vec<_>>()
+        }): map T::AccountId => Option<VestingSchedule<T::Balance, T::BlockNumber>>;
+
+        /// The 'free' balance of a given account.
+        ///
+        /// This is the only balance that matters in terms of most operations on tokens. It
+        /// alone is used to determine the balance when in the contract execution environment.
+        pub FreeBalance get(free_balance)
+            build(|config: &GenesisConfig<T, I>| config.balances.clone()):
+            map T::AccountId => T::Balance;
+
+        /// The amount of the balance of a given account that is externally reserved; this can still get
+        /// slashed, but gets slashed last of all.
+        ///
+        /// This balance is a 'reserve' balance that other subsystems use in order to set aside tokens
+        /// that are still 'owned' by the account holder, but which are suspendable.
+        pub ReservedBalance get(reserved_balance): map T::AccountId => T::Balance;
+
+        /// Any liquidity locks on some account balances.
+        pub Locks get(locks): map T::AccountId => Vec<BalanceLock<T::Balance, T::BlockNumber>>;
+
+        /// Balance held by the identity. It can be spent by its signing keys.
+        pub IdentityBalance get(identity_balance): map IdentityId => T::Balance;
+
+        /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
+        pub ChargeDid get(charge_did): map Key => bool;
+    }
+    add_extra_genesis {
+        config(balances): Vec<(T::AccountId, T::Balance)>;
+        config(vesting): Vec<(T::AccountId, T::BlockNumber, T::BlockNumber, T::Balance)>;
+        // ^^ begin, length, amount liquid at genesis
+    }
+}
+
+decl_module! {
+    pub struct Module<T: Trait<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
+        /// This is no longer needede but kept for compatibility reasons
+        /// The minimum amount required to keep an account open.
+        const ExistentialDeposit: T::Balance = 0.into();
+
+        /// The fee required to make a transfer.
+        const TransferFee: T::Balance = T::TransferFee::get();
+
+        /// The fee required to create an account.
+        const CreationFee: T::Balance = T::CreationFee::get();
+
+        /// The fee to be paid for making a transaction; the base.
+        const TransactionBaseFee: T::Balance = T::TransactionBaseFee::get();
+
+        /// The fee to be paid for making a transaction; the per-byte portion.
+        const TransactionByteFee: T::Balance = T::TransactionByteFee::get();
+
+        fn deposit_event() = default;
+
+        /// Transfer some liquid free balance to another account.
+        ///
+        /// `transfer` will set the `FreeBalance` of the sender and receiver.
+        /// It will decrease the total issuance of the system by the `TransferFee`.
+        ///
+        /// The dispatch origin for this call must be `Signed` by the transactor.
+        ///
+        /// # <weight>
+        /// - Dependent on arguments but not critical, given proper implementations for
+        ///   input config types. See related functions below.
+        /// - It contains a limited number of reads and writes internally and no complex computation.
+        ///
+        /// Related functions:
+        ///
+        ///   - `ensure_can_withdraw` is always called internally but has a bounded complexity.
+        ///   - Transferring balances to accounts that did not exist before will cause
+        ///      `T::OnNewAccount::on_new_account` to be called.
+        ///
+        /// # </weight>
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        pub fn transfer(
+            origin,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] value: T::Balance
+        ) {
+            let transactor = ensure_signed(origin)?;
+            let dest = T::Lookup::lookup(dest)?;
+            <Self as Currency<_>>::transfer(&transactor, &dest, value)?;
+        }
+
+        /// Move some poly from balance of self to balance of an identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        pub fn top_up_identity_balance(
+            origin,
+            did: IdentityId,
+            #[compact] value: T::Balance
+        ) {
+            let transactor = ensure_signed(origin)?;
+            match <Self as Currency<_>>::withdraw(
+                &transactor,
+                value,
+                WithdrawReason::TransactionPayment,
+                ExistenceRequirement::KeepAlive,
+            ) {
+                Ok(_) => {
+                    let new_balance = Self::identity_balance(&did) + value;
+                    <IdentityBalance<T, I>>::insert(did, new_balance);
+                    return Ok(())
+                },
+                Err(err) => return Err(err),
+            };
+        }
+
+        /// Claim back poly from an identity. Can only be called by master key of the identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        pub fn reclaim_identity_balance(
+            origin,
+            did: IdentityId,
+            #[compact] value: T::Balance
+        ) {
+            let transactor = ensure_signed(origin)?;
+            let encoded_transactor = Key::try_from(transactor.encode())?;
+            ensure!(<T::Identity>::is_master_key(did, &encoded_transactor), "Not authorized");
+            // Not managing imbalances because they will cancel out.
+            // withdraw function will create negative imbalance and
+            // deposit function will create positive imbalance
+            let _ = Self::withdraw_identity_balance(&did, value)?;
+            let _ = <Self as Currency<_>>::deposit_creating(&transactor, value);
+            return Ok(())
+        }
+
+        /// Change setting that governs if user pays fee via their own balance or identity's balance.
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+        pub fn change_charge_did_flag(origin, charge_did: bool) {
+            let transactor = ensure_signed(origin)?;
+            let encoded_transactor = Key::try_from(transactor.encode())?;
+            <ChargeDid>::insert(encoded_transactor, charge_did);
+        }
+
+        /// Set the balances of a given account.
+        ///
+        /// This will alter `FreeBalance` and `ReservedBalance` in storage. it will
+        /// also decrease the total issuance of the system (`TotalIssuance`).
+        ///
+        /// The dispatch origin for this call is `root`.
+        ///
+        /// # <weight>
+        /// - Independent of the arguments.
+        /// - Contains a limited number of reads and writes.
+        /// # </weight>
+        #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
+        fn set_balance(
+            origin,
+            who: <T::Lookup as StaticLookup>::Source,
+            #[compact] new_free: T::Balance,
+            #[compact] new_reserved: T::Balance
+        ) {
+            ensure_root(origin)?;
+            let who = T::Lookup::lookup(who)?;
+
+            let current_free = <FreeBalance<T, I>>::get(&who);
+            if new_free > current_free {
+                mem::drop(PositiveImbalance::<T, I>::new(new_free - current_free));
+            } else if new_free < current_free {
+                mem::drop(NegativeImbalance::<T, I>::new(current_free - new_free));
+            }
+            Self::set_free_balance(&who, new_free);
+
+            let current_reserved = <ReservedBalance<T, I>>::get(&who);
+            if new_reserved > current_reserved {
+                mem::drop(PositiveImbalance::<T, I>::new(new_reserved - current_reserved));
+            } else if new_reserved < current_reserved {
+                mem::drop(NegativeImbalance::<T, I>::new(current_reserved - new_reserved));
+            }
+            Self::set_reserved_balance(&who, new_reserved);
+        }
+
+        /// Exactly as `transfer`, except the origin must be root and the source account may be
+        /// specified.
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        pub fn force_transfer(
+            origin,
+            source: <T::Lookup as StaticLookup>::Source,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] value: T::Balance
+        ) {
+            ensure_root(origin)?;
+            let source = T::Lookup::lookup(source)?;
+            let dest = T::Lookup::lookup(dest)?;
+            <Self as Currency<_>>::transfer(&source, &dest, value)?;
+        }
+    }
+}
+
+impl<T, I> Module<T, I>
+    where
+        T: polymesh_runtime_common::traits::balances::Trait<I>,
+        I: Instance + polymesh_runtime_common::traits::balances::Instance
+{
+    // PUBLIC IMMUTABLES
+
+    /// Get the amount that is currently being vested and cannot be transferred out of this account.
+    pub fn vesting_balance(who: &T::AccountId) -> T::Balance {
+        if let Some(v) = Self::vesting(who) {
+            Self::free_balance(who).min(v.locked_at(<system::Module<T>>::block_number()))
+        } else {
+            Zero::zero()
+        }
+    }
+
+    // PRIVATE MUTABLES
+
+    /// Set the reserved balance of an account to some new value.
+    ///
+    /// Doesn't do any preparatory work for creating a new account, so should only be used when it
+    /// is known that the account already exists.
+    ///
+    /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
+    /// the caller will do this.
+    fn set_reserved_balance(who: &T::AccountId, balance: T::Balance) -> UpdateBalanceOutcome {
+        <ReservedBalance<T, I>>::insert(who, balance);
+        UpdateBalanceOutcome::Updated
+    }
+
+    /// Set the free balance of an account to some new value.
+    ///
+    /// Doesn't do any preparatory work for creating a new account, so should only be used when it
+    /// is known that the account already exists.
+    ///
+    /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
+    /// the caller will do this.
+    fn set_free_balance(who: &T::AccountId, balance: T::Balance) -> UpdateBalanceOutcome {
+        // Commented out for now - but consider it instructive.
+        // assert!(!Self::total_balance(who).is_zero());
+        <FreeBalance<T, I>>::insert(who, balance);
+        UpdateBalanceOutcome::Updated
+    }
+
+    fn withdraw_identity_balance(
+        who: &IdentityId,
+        value: T::Balance,
+    ) -> result::Result<NegativeImbalance<T>, &'static str> {
+        if let Some(new_balance) = Self::identity_balance(who).checked_sub(&value) {
+            <IdentityBalance<T, I>>::insert(who, new_balance);
+            Ok(NegativeImbalance::new(value))
+        } else {
+            Err("too few free funds in account")
+        }
+    }
+
+    fn charge_fee_to_identity(who: &Key) -> Option<IdentityId> {
+        if <Module<T, I>>::charge_did(who) {
+            if let Some(did) = <T::Identity>::get_identity(&who) {
+                if <T::Identity>::is_signer_authorized_with_permissions(
+                    did,
+                    &Signer::Key(who.clone()),
+                    vec![Permission::SpendFunds],
+                ) {
+                    return Some(did);
+                }
+            }
+        }
+        return None;
+    }
+
+    /// Register a new account
+    ///
+    /// This just calls appropriate hooks. It doesn't (necessarily) make any state changes.
+    fn new_account(who: &T::AccountId, balance: T::Balance) {
+        T::OnNewAccount::on_new_account(&who);
+        Self::deposit_event(RawEvent::NewAccount(who.clone(), balance));
+    }
+}
+
+/*
+
+// TODO: #2052
+// Somewhat ugly hack in order to gain access to module's `increase_total_issuance_by`
+// using only the Subtrait (which defines only the types that are not dependent
+// on Positive/NegativeImbalance). Subtrait must be used otherwise we end up with a
+// circular dependency with Trait having some types be dependent on PositiveImbalance<Trait>
+// and PositiveImbalance itself depending back on Trait for its Drop impl (and thus
+// its type declaration).
+// This works as long as `increase_total_issuance_by` doesn't use the Imbalance
+// types (basically for charging fees).
+// This should eventually be refactored so that the three type items that do
+// depend on the Imbalance type (TransactionPayment, TransferPayment, DustRemoval)
+// are placed in their own SRML module.
+struct ElevatedTrait<T: Subtrait<I>, I: Instance>(T, I);
+impl<T: Subtrait<I>, I: Instance> Clone for ElevatedTrait<T, I> {
+    fn clone(&self) -> Self {
+        unimplemented!()
+    }
+}
+impl<T: Subtrait<I>, I: Instance> PartialEq for ElevatedTrait<T, I> {
+    fn eq(&self, _: &Self) -> bool {
+        unimplemented!()
+    }
+}
+impl<T: Subtrait<I>, I: Instance> Eq for ElevatedTrait<T, I> {}
+impl<T: Subtrait<I>, I: Instance> system::Trait for ElevatedTrait<T, I> {
+    type Origin = T::Origin;
+    type Call = T::Call;
+    type Index = T::Index;
+    type BlockNumber = T::BlockNumber;
+    type Hash = T::Hash;
+    type Hashing = T::Hashing;
+    type AccountId = T::AccountId;
+    type Lookup = T::Lookup;
+    type Header = T::Header;
+    type WeightMultiplierUpdate = T::WeightMultiplierUpdate;
+    type Event = ();
+    type BlockHashCount = T::BlockHashCount;
+    type MaximumBlockWeight = T::MaximumBlockWeight;
+    type MaximumBlockLength = T::MaximumBlockLength;
+    type AvailableBlockRatio = T::AvailableBlockRatio;
+    type Version = T::Version;
+}
+impl<T: Subtrait<I>, I: Instance> Trait<I> for ElevatedTrait<T, I> {
+    type Balance = T::Balance;
+    type OnFreeBalanceZero = T::OnFreeBalanceZero;
+    type OnNewAccount = T::OnNewAccount;
+    type Event = ();
+    type TransactionPayment = ();
+    type TransferPayment = ();
+    type DustRemoval = ();
+    type ExistentialDeposit = T::ExistentialDeposit;
+    type TransferFee = T::TransferFee;
+    type CreationFee = T::CreationFee;
+    type TransactionBaseFee = T::TransactionBaseFee;
+    type TransactionByteFee = T::TransactionByteFee;
+    type WeightToFee = T::WeightToFee;
+    type Identity = T::Identity;
+}
+*/
+
+impl_currency!();
+
+/*
+impl<T, I> ReservableCurrency<T::AccountId> for Module<T, I>
+where
+    T: polymesh_runtime_common::traits::balances::Trait<I>,
+    // T::Balance: MaybeSerializeDebug,
+    I: Instance + polymesh_runtime_common::traits::balances::Instance
+{
+    fn can_reserve(who: &T::AccountId, value: Self::Balance) -> bool {
+        Self::free_balance(who)
+            .checked_sub(&value)
+            .map_or(false, |new_balance| {
+                Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve, new_balance).is_ok()
+            })
+    }
+
+    fn reserved_balance(who: &T::AccountId) -> Self::Balance {
+        <ReservedBalance<T, I>>::get(who)
+    }
+
+    fn reserve(who: &T::AccountId, value: Self::Balance) -> result::Result<(), &'static str> {
+        let b = Self::free_balance(who);
+        if b < value {
+            return Err("not enough free funds");
+        }
+        let new_balance = b - value;
+        Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve, new_balance)?;
+        Self::set_reserved_balance(who, Self::reserved_balance(who) + value);
+        Self::set_free_balance(who, new_balance);
+        Ok(())
+    }
+
+    fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
+        let b = Self::reserved_balance(who);
+        let actual = cmp::min(b, value);
+        Self::set_free_balance(who, Self::free_balance(who) + actual);
+        Self::set_reserved_balance(who, b - actual);
+        value - actual
+    }
+
+    fn slash_reserved(
+        who: &T::AccountId,
+        value: Self::Balance,
+    ) -> (Self::NegativeImbalance, Self::Balance) {
+        let b = Self::reserved_balance(who);
+        let slash = cmp::min(b, value);
+        // underflow should never happen, but it if does, there's nothing to be done here.
+        Self::set_reserved_balance(who, b - slash);
+        (NegativeImbalance::new(slash), value - slash)
+    }
+
+    fn repatriate_reserved(
+        slashed: &T::AccountId,
+        beneficiary: &T::AccountId,
+        value: Self::Balance,
+    ) -> result::Result<Self::Balance, &'static str> {
+        if Self::total_balance(beneficiary).is_zero() {
+            return Err("beneficiary account must pre-exist");
+        }
+        let b = Self::reserved_balance(slashed);
+        let slash = cmp::min(b, value);
+        Self::set_free_balance(beneficiary, Self::free_balance(beneficiary) + slash);
+        Self::set_reserved_balance(slashed, b - slash);
+        Ok(value - slash)
+    }
+}
+
+impl<T: Trait<I>, I> LockableCurrency<T::AccountId> for Module<T, I>
+where
+    T::Balance: MaybeSerializeDebug,
+    I: Instance + polymesh_runtime_common::traits::balances::Instance
+{
+    type Moment = T::BlockNumber;
+
+    fn set_lock(
+        id: LockIdentifier,
+        who: &T::AccountId,
+        amount: T::Balance,
+        until: T::BlockNumber,
+        reasons: WithdrawReasons,
+    ) {
+        let now = <system::Module<T>>::block_number();
+        let mut new_lock = Some(BalanceLock {
+            id,
+            amount,
+            until,
+            reasons,
+        });
+        let mut locks = Self::locks(who)
+            .into_iter()
+            .filter_map(|l| {
+                if l.id == id {
+                    new_lock.take()
+                } else if l.until > now {
+                    Some(l)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        if let Some(lock) = new_lock {
+            locks.push(lock)
+        }
+        <Locks<T, I>>::insert(who, locks);
+    }
+
+    fn extend_lock(
+        id: LockIdentifier,
+        who: &T::AccountId,
+        amount: T::Balance,
+        until: T::BlockNumber,
+        reasons: WithdrawReasons,
+    ) {
+        let now = <system::Module<T>>::block_number();
+        let mut new_lock = Some(BalanceLock {
+            id,
+            amount,
+            until,
+            reasons,
+        });
+        let mut locks = Self::locks(who)
+            .into_iter()
+            .filter_map(|l| {
+                if l.id == id {
+                    new_lock.take().map(|nl| BalanceLock {
+                        id: l.id,
+                        amount: l.amount.max(nl.amount),
+                        until: l.until.max(nl.until),
+                        reasons: l.reasons | nl.reasons,
+                    })
+                } else if l.until > now {
+                    Some(l)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        if let Some(lock) = new_lock {
+            locks.push(lock)
+        }
+        <Locks<T, I>>::insert(who, locks);
+    }
+
+    fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
+        let now = <system::Module<T>>::block_number();
+        let locks = Self::locks(who)
+            .into_iter()
+            .filter_map(|l| {
+                if l.until > now && l.id != id {
+                    Some(l)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        <Locks<T, I>>::insert(who, locks);
+    }
+}
+
+/// Require the transactor pay for themselves and maybe include a tip to gain additional priority
+/// in the queue.
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+pub struct TakeFees<T: Trait<I>, I: Instance = DefaultInstance>(#[codec(compact)] T::Balance);
+
+impl<T: Trait<I>, I: Instance> TakeFees<T, I> {
+    /// utility constructor. Used only in client/factory code.
+    pub fn from(fee: T::Balance) -> Self {
+        Self(fee)
+    }
+
+    /// Compute the final fee value for a particular transaction.
+    ///
+    /// The final fee is composed of:
+    ///   - _length-fee_: This is the amount paid merely to pay for size of the transaction.
+    ///   - _weight-fee_: This amount is computed based on the weight of the transaction. Unlike
+    ///      size-fee, this is not input dependent and reflects the _complexity_ of the execution
+    ///      and the time it consumes.
+    fn compute_fee(len: usize, info: DispatchInfo) -> T::Balance {
+        let len_fee = if info.pay_length_fee() {
+            let len = T::Balance::from(len as u32);
+            let base = T::TransactionBaseFee::get();
+            let per_byte = T::TransactionByteFee::get();
+            base.saturating_add(per_byte.saturating_mul(len))
+        } else {
+            Zero::zero()
+        };
+
+        let weight_fee = {
+            // cap the weight to the maximum defined in runtime, otherwise it will be the `Bounded`
+            // maximum of its data type, which is not desired.
+            let capped_weight = info
+                .weight
+                .min(<T as system::Trait>::MaximumBlockWeight::get());
+            let weight_update = <system::Module<T>>::next_weight_multiplier();
+            let adjusted_weight = weight_update.apply_to(capped_weight);
+            T::WeightToFee::convert(adjusted_weight)
+        };
+
+        len_fee.saturating_add(weight_fee)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: Trait<I>, I: Instance> rstd::fmt::Debug for TakeFees<T, I> {
+    fn fmt(&self, f: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<T: Trait<I>, I: Instance + Clone + Eq> SignedExtension for TakeFees<T, I> {
+    type AccountId = T::AccountId;
+    type Call = T::Call;
+    type AdditionalSigned = ();
+    type Pre = ();
+    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> {
+        Ok(())
+    }
+
+    /// Validate a transactions and charge fees to either the user or the identity.
+    /// By default, user is charged the fee but it's configurable in the Identity module
+    fn validate(
+        &self,
+        who: &Self::AccountId,
+        _call: &Self::Call,
+        info: DispatchInfo,
+        len: usize,
+    ) -> TransactionValidity {
+        if self.0 != Zero::zero() {
+            // Tip must be set to zero.
+            // This is enforced to curb front running.
+            return InvalidTransaction::Custom(TransactionError::ZeroTip as u8).into();
+        }
+        // pay any fees.
+        let fee = Self::compute_fee(len, info);
+        let encoded_transactor =
+            Key::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
+        let imbalance;
+        if let Some(did) = <Module<T, I>>::charge_fee_to_identity(&encoded_transactor) {
+            runtime_primitives::print("Charging fee to identity");
+            imbalance = <Module<T, I>>::withdraw_identity_balance(&did, fee)
+                .map_err(|_| InvalidTransaction::Payment)?;
+        } else {
+            imbalance = <Module<T, I>>::withdraw(
+                who,
+                fee,
+                WithdrawReason::TransactionPayment,
+                ExistenceRequirement::KeepAlive,
+            )
+            .map_err(|_| InvalidTransaction::Payment)?;
+        }
+        T::TransactionPayment::on_unbalanced(imbalance);
+        let mut r = ValidTransaction::default();
+        // NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
+        // will be a bit more than setting the priority to tip. For now, this is enough.
+        r.priority = fee.saturated_into::<TransactionPriority>();
+        Ok(r)
+    }
+}
+
+impl<T: Trait<I>, I: Instance> IsDeadAccount<T::AccountId> for Module<T, I>
+where
+    T::Balance: MaybeSerializeDebug,
+{
+    fn is_dead_account(who: &T::AccountId) -> bool {
+        Self::total_balance(who).is_zero()
+    }
+}
+*/
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sr_io::{self, with_externalities};
+    use sr_primitives::{
+        testing::Header,
+        traits::{Convert, IdentityLookup, Verify},
+        weights::{DispatchInfo, Weight},
+        AnySignature, Perbill,
+    };
+    use srml_support::{
+        assert_err, assert_ok,
+        dispatch::{DispatchError, DispatchResult},
+        impl_outer_origin, parameter_types,
+        traits::Get,
+    };
+    use std::{cell::RefCell, result::Result};
+    use substrate_primitives::{Blake2Hasher, H256};
+    use test_client::AccountKeyring;
+
+    use crate::identity;
+
+    impl_outer_origin! {
+        pub enum Origin for Runtime {}
+    }
+
+    thread_local! {
+        static EXISTENTIAL_DEPOSIT: RefCell<u128> = RefCell::new(0);
+        static TRANSFER_FEE: RefCell<u128> = RefCell::new(0);
+        static CREATION_FEE: RefCell<u128> = RefCell::new(0);
+        static TRANSACTION_BASE_FEE: RefCell<u128> = RefCell::new(0);
+        static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(1);
+        static TRANSACTION_WEIGHT_FEE: RefCell<u128> = RefCell::new(1);
+        static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
+    }
+
+    pub struct ExistentialDeposit;
+    impl Get<u128> for ExistentialDeposit {
+        fn get() -> u128 {
+            EXISTENTIAL_DEPOSIT.with(|v| *v.borrow())
+        }
+    }
+
+    pub struct TransferFee;
+    impl Get<u128> for TransferFee {
+        fn get() -> u128 {
+            TRANSFER_FEE.with(|v| *v.borrow())
+        }
+    }
+
+    pub struct CreationFee;
+    impl Get<u128> for CreationFee {
+        fn get() -> u128 {
+            CREATION_FEE.with(|v| *v.borrow())
+        }
+    }
+
+    pub struct TransactionBaseFee;
+    impl Get<u128> for TransactionBaseFee {
+        fn get() -> u128 {
+            TRANSACTION_BASE_FEE.with(|v| *v.borrow())
+        }
+    }
+
+    pub struct TransactionByteFee;
+    impl Get<u128> for TransactionByteFee {
+        fn get() -> u128 {
+            TRANSACTION_BYTE_FEE.with(|v| *v.borrow())
+        }
+    }
+
+    pub struct WeightToFee(u128);
+    impl Convert<Weight, u128> for WeightToFee {
+        fn convert(t: Weight) -> u128 {
+            WEIGHT_TO_FEE.with(|v| *v.borrow() * (t as u128))
+        }
+    }
+
+    // Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    pub struct Runtime;
+    type AccountId = <AnySignature as Verify>::Signer;
+    parameter_types! {
+        pub const BlockHashCount: u64 = 250;
+        pub const MaximumBlockWeight: u32 = 1024;
+        pub const MaximumBlockLength: u32 = 2 * 1024;
+        pub const AvailableBlockRatio: Perbill = Perbill::one();
+        pub const MinimumPeriod: u64 = 3;
+    }
+    impl system::Trait for Runtime {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Call = ();
+        type Hash = H256;
+        type Hashing = ::sr_primitives::traits::BlakeTwo256;
+        type AccountId = AccountId;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type WeightMultiplierUpdate = ();
+        type Event = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type Version = ();
+    }
+
+    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
+    pub struct IdentityProposal {
+        pub dummy: u8,
+    }
+
+    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+        type Origin = Origin;
+        type Trait = Runtime;
+        type Error = DispatchError;
+
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+            Ok(())
+        }
+    }
+
+    impl identity::Trait for Runtime {
+        type Event = ();
+        type Proposal = IdentityProposal;
+    }
+    impl timestamp::Trait for Runtime {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
+    impl Trait for Runtime {
+        type Balance = u128;
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type TransactionPayment = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+        type TransactionBaseFee = TransactionBaseFee;
+        type TransactionByteFee = TransactionByteFee;
+        type WeightToFee = WeightToFee;
+        type Identity = identity::Module<Runtime>;
+    }
+
+    pub struct ExtBuilder {
+        transaction_base_fee: u128,
+        transaction_byte_fee: u128,
+        weight_to_fee: u128,
+        existential_deposit: u128,
+        transfer_fee: u128,
+        creation_fee: u128,
+        monied: bool,
+        vesting: bool,
+    }
+    impl Default for ExtBuilder {
+        fn default() -> Self {
+            Self {
+                transaction_base_fee: 0,
+                transaction_byte_fee: 0,
+                weight_to_fee: 0,
+                existential_deposit: 0,
+                transfer_fee: 0,
+                creation_fee: 0,
+                monied: false,
+                vesting: false,
+            }
+        }
+    }
+    impl ExtBuilder {
+        pub fn transaction_fees(
+            mut self,
+            base_fee: u128,
+            byte_fee: u128,
+            weight_fee: u128,
+        ) -> Self {
+            self.transaction_base_fee = base_fee;
+            self.transaction_byte_fee = byte_fee;
+            self.weight_to_fee = weight_fee;
+            self
+        }
+        pub fn existential_deposit(mut self, existential_deposit: u128) -> Self {
+            self.existential_deposit = existential_deposit;
+            self
+        }
+        #[allow(dead_code)]
+        pub fn transfer_fee(mut self, transfer_fee: u128) -> Self {
+            self.transfer_fee = transfer_fee;
+            self
+        }
+        pub fn monied(mut self, monied: bool) -> Self {
+            self.monied = monied;
+            if self.existential_deposit == 0 {
+                self.existential_deposit = 1;
+            }
+            self
+        }
+        pub fn set_associated_consts(&self) {
+            EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
+            TRANSFER_FEE.with(|v| *v.borrow_mut() = self.transfer_fee);
+            CREATION_FEE.with(|v| *v.borrow_mut() = self.creation_fee);
+            TRANSACTION_BASE_FEE.with(|v| *v.borrow_mut() = self.transaction_base_fee);
+            TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
+            WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
+        }
+        pub fn build(self) -> sr_io::TestExternalities<Blake2Hasher> {
+            self.set_associated_consts();
+            let mut t = system::GenesisConfig::default()
+                .build_storage::<Runtime>()
+                .unwrap();
+            GenesisConfig::<Runtime> {
+                balances: if self.monied {
+                    vec![
+                        (
+                            AccountKeyring::Alice.public(),
+                            10 * self.existential_deposit,
+                        ),
+                        (AccountKeyring::Bob.public(), 20 * self.existential_deposit),
+                        (
+                            AccountKeyring::Charlie.public(),
+                            30 * self.existential_deposit,
+                        ),
+                        (AccountKeyring::Dave.public(), 40 * self.existential_deposit),
+                        // (12, 10 * self.existential_deposit),
+                    ]
+                } else {
+                    vec![]
+                },
+                vesting: if self.vesting && self.monied {
+                    vec![
+                        (
+                            AccountKeyring::Alice.public(),
+                            0,
+                            10,
+                            5 * self.existential_deposit,
+                        ),
+                        (AccountKeyring::Bob.public(), 10, 20, 0),
+                        // (12, 10, 20, 5 * self.existential_deposit),
+                    ]
+                } else {
+                    vec![]
+                },
+            }
+            .assimilate_storage(&mut t)
+            .unwrap();
+            t.into()
+        }
+    }
+
+    pub type Balances = Module<Runtime>;
+    pub type Identity = identity::Module<Runtime>;
+
+    pub const CALL: &<Runtime as system::Trait>::Call = &();
+
+    /// create a transaction info struct from weight. Handy to avoid building the whole struct.
+    pub fn info_from_weight(w: Weight) -> DispatchInfo {
+        DispatchInfo {
+            weight: w,
+            ..Default::default()
+        }
+    }
+
+    fn make_account(
+        account_id: &AccountId,
+    ) -> Result<(<Runtime as system::Trait>::Origin, IdentityId), &'static str> {
+        let signed_id = Origin::signed(account_id.clone());
+        Identity::register_did(signed_id.clone(), vec![])?;
+        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
+        Ok((signed_id, did))
+    }
+
+    #[test]
+    fn signed_extension_take_fees_work() {
+        with_externalities(
+            &mut ExtBuilder::default()
+                .existential_deposit(10)
+                .transaction_fees(10, 1, 5)
+                .monied(true)
+                .build(),
+            || {
+                let len = 10;
+                let alice_pub = AccountKeyring::Alice.public();
+                assert!(TakeFees::<Runtime>::from(0)
+                    .pre_dispatch(&alice_pub, CALL, info_from_weight(5), len)
+                    .is_ok());
+                assert_eq!(Balances::free_balance(&alice_pub), 100 - 20 - 25);
+                assert!(TakeFees::<Runtime>::from(0 /* 0 tip */)
+                    .pre_dispatch(&alice_pub, CALL, info_from_weight(3), len)
+                    .is_ok());
+                assert_eq!(Balances::free_balance(&alice_pub), 100 - 20 - 25 - 20 - 15);
+            },
+        );
+    }
+
+    #[test]
+    fn tipping_fails() {
+        with_externalities(
+            &mut ExtBuilder::default()
+                .existential_deposit(10)
+                .transaction_fees(10, 1, 5)
+                .monied(true)
+                .build(),
+            || {
+                let len = 10;
+                assert!(TakeFees::<Runtime>::from(5 /* 5 tip */)
+                    .pre_dispatch(
+                        &AccountKeyring::Alice.public(),
+                        CALL,
+                        info_from_weight(3),
+                        len
+                    )
+                    .is_err());
+            },
+        );
+    }
+
+    #[test]
+    fn should_charge_identity() {
+        with_externalities(
+            &mut ExtBuilder::default()
+                .existential_deposit(10)
+                .transaction_fees(10, 1, 5)
+                .monied(true)
+                .build(),
+            || {
+                let dave_pub = AccountKeyring::Dave.public();
+                let (signed_acc_id, acc_did) = make_account(&dave_pub).unwrap();
+                let len = 10;
+                assert!(TakeFees::<Runtime>::from(0 /* 0 tip */)
+                    .pre_dispatch(&dave_pub, CALL, info_from_weight(3), len)
+                    .is_ok());
+                assert_ok!(Balances::change_charge_did_flag(
+                    signed_acc_id.clone(),
+                    true
+                ));
+                assert!(
+                    TakeFees::<Runtime>::from(0 /* 0 tip */)
+                        .pre_dispatch(&dave_pub, CALL, info_from_weight(3), len)
+                        .is_err() // no balance in identity
+                );
+                assert_eq!(Balances::free_balance(&dave_pub), 365);
+                assert_ok!(Balances::top_up_identity_balance(
+                    signed_acc_id.clone(),
+                    acc_did,
+                    300
+                ));
+                assert_eq!(Balances::free_balance(&dave_pub), 65);
+                assert_eq!(Balances::identity_balance(acc_did), 300);
+                assert!(TakeFees::<Runtime>::from(0 /* 0 tip */)
+                    .pre_dispatch(&dave_pub, CALL, info_from_weight(3), len)
+                    .is_ok());
+                assert_ok!(Balances::reclaim_identity_balance(
+                    signed_acc_id.clone(),
+                    acc_did,
+                    230
+                ));
+                assert_err!(
+                    Balances::reclaim_identity_balance(signed_acc_id, acc_did, 230),
+                    "too few free funds in account"
+                );
+                assert_eq!(Balances::free_balance(&dave_pub), 295);
+                assert_eq!(Balances::identity_balance(acc_did), 35);
+            },
+        );
+    }
+}

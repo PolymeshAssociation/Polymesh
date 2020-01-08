@@ -21,6 +21,7 @@ where
 #[macro_export]
 macro_rules! impl_currency {
     () => {
+        // impl<T: Trait, I: Instance> Currency<T::AccountId> for Module<T, I>
         impl<T: Trait> Currency<T::AccountId> for Module<T>
         where
             T::Balance: MaybeSerializeDebug,
@@ -84,7 +85,7 @@ macro_rules! impl_currency {
                 _amount: T::Balance,
                 reason: WithdrawReason,
                 new_balance: T::Balance,
-            ) -> Result {
+            ) -> srml_support::dispatch::Result {
                 match reason {
                     WithdrawReason::Reserve | WithdrawReason::Transfer
                         if Self::currency_vesting_balance(who) > new_balance =>
@@ -112,7 +113,7 @@ macro_rules! impl_currency {
                 transactor: &T::AccountId,
                 dest: &T::AccountId,
                 value: Self::Balance,
-            ) -> Result {
+            ) -> srml_support::dispatch::Result {
                 /*
                 let from_balance = Self::free_balance(transactor);
                 let to_balance = Self::free_balance(dest);

@@ -5,7 +5,14 @@ authors = ["Polymath"]
 edition = "2018"
 build = "build.rs"
 
+
 [dependencies]
+polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
+polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false }
+polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false }
+
+
 serde_json = { version = "1.0.41", default-features = false }
 rand = "0.7.2"
 chrono = { version = "0.4.9", default-features = false }
@@ -17,7 +24,6 @@ log = { version = "0.4.8"}
 serde = { version = "1.0.102", default-features = false }
 serde_derive = { version = "1.0.102", optional = true }
 safe-mix = { version = "1.0.0", default-features = false }
-primitives = { package = "polymesh-primitives", path = "../primitives", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 substrate-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
@@ -56,8 +62,6 @@ authority-discovery-primitives = { package = "substrate-authority-discovery-prim
 srml-staking-reward-curve = { git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 phragmen = { package = "substrate-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 
-identity = { package = "polymesh-runtime-identity", path = "identity", default-features = false }
-
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 
@@ -73,7 +77,6 @@ std = [
     "authority-discovery-primitives/std",
     "authority-discovery/std",
 	"bitvec/std",
-	"primitives/std",
 	"rustc-hex/std",
 	"codec/std",
 	"inherents/std",
