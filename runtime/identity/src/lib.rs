@@ -42,36 +42,45 @@
 //! # TODO
 //!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
-use polymesh_runtime_common::{
-    identity::Trait,
-    constants::did::USER
-};
 use polymesh_primitives::{
     Identity as DidRecord, IdentityId, Key, Permission, PreAuthorizedKeyInfo, Signer, SignerType,
     SigningItem,
+};
+use polymesh_runtime_common::{
+    constants::did::USER,
+    impl_currency,
+    traits::{
+        balances::imbalances::{NegativeImbalance, PositiveImbalance},
+        identity::{
+            AuthorizationNonce, Claim, ClaimMetaData, ClaimValue, IdentityTrait, LinkedKeyInfo,
+            RawEvent, SigningItemWithAuth, TargetIdAuthorization, Trait,
+        },
+        BalanceLock, CommonTrait,
+    },
+    CurrencyModule,
 };
 
 use codec::Encode;
 use core::convert::From;
 
+use primitives::sr25519::{Public, Signature};
 use rstd::{convert::TryFrom, prelude::*};
-use sr_io::blake2_256;
 use runtime_primitives::{
-    traits::{Dispatchable, Verify},
+    traits::{CheckedSub, Dispatchable, MaybeSerializeDebug, Verify, Zero},
     AnySignature, DispatchError,
 };
+use sr_io::blake2_256;
 use srml_support::{
-    decl_event, decl_module, decl_storage,
+    decl_module, decl_storage,
     dispatch::Result,
     ensure,
-    traits::{Currency, ExistenceRequirement, WithdrawReason},
-    Parameter,
-};
-use primitives::{
-    sr25519::{Public, Signature},
-    H512,
+    traits::{
+        Currency, ExistenceRequirement, Imbalance, SignedImbalance, UpdateBalanceOutcome,
+        WithdrawReason,
+    },
 };
 use system::{self, ensure_signed};
+
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
@@ -174,9 +183,13 @@ decl_module! {
 
             // 2. Apply changes to our extrinsics.
             // TODO: Subtract the fee
-            let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
+            // let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
+            //
+            let fee = Self::did_creation_fee();
+            // let _imbalance = <T as CommonTrait>::Currency::withdraw(
+            let _imbalance = <Self as Currency<_>>::withdraw(
                 &sender,
-                Self::did_creation_fee(),
+                fee,
                 WithdrawReason::Fee,
                 ExistenceRequirement::KeepAlive
                 )?;
@@ -221,7 +234,7 @@ decl_module! {
             // Ignore any key which is already valid in that identity.
             let authorized_signing_items = Self::did_records( did).signing_items;
             signing_items.iter()
-                .filter( |si| authorized_signing_items.contains(si) == false)
+                .filter( |si| !authorized_signing_items.contains(si))
                 .for_each( |si| Self::add_pre_join_identity( si, did));
 
             Self::deposit_event(RawEvent::NewSigningItems(did, signing_items));
@@ -266,7 +279,7 @@ decl_module! {
 
             <DidRecords>::mutate(did,
             |record| {
-                (*record).master_key = new_key.clone();
+                (*record).master_key = new_key;
             });
 
             Self::deposit_event(RawEvent::NewMasterKey(did, sender, new_key));
@@ -344,7 +357,7 @@ decl_module! {
                 claim_value: claim_value,
             };
 
-            <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
+            <Claims<T>>::insert((did, claim_meta_data.clone()), claim.clone());
 
             <ClaimKeys>::mutate(&did, |old_claim_data| {
                 if !old_claim_data.contains(&claim_meta_data) {
@@ -387,7 +400,7 @@ decl_module! {
                 Ok(_) => true,
                 Err(e) => {
                     let e: DispatchError = e.into();
-                    sr_primitives::print(e);
+                    runtime_primitives::print(e);
                     false
                 }
             };
@@ -410,7 +423,7 @@ decl_module! {
                 claim_issuer: did_issuer,
             };
 
-            <Claims<T>>::remove((did.clone(), claim_meta_data.clone()));
+            <Claims<T>>::remove((did, claim_meta_data.clone()));
 
             <ClaimKeys>::mutate(&did, |old_claim_metadata| {
                 *old_claim_metadata = old_claim_metadata
@@ -439,7 +452,7 @@ decl_module! {
             }
 
             // Find key in `DidRecord::signing_keys`
-            if record.signing_items.iter().find(|&si| si.signer == signer).is_some() {
+            if record.signing_items.iter().any(|si| si.signer == signer) {
                 Self::update_signing_item_permissions(did, &signer, permissions)
             } else {
                 Err( "Sender is not part of did's signing keys")
@@ -462,7 +475,7 @@ decl_module! {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             if let Some(did) = Self::get_identity(&sender_key) {
                 Self::deposit_event(RawEvent::DidQuery(sender_key, did));
-                sr_primitives::print(did);
+                runtime_primitives::print(did);
                 Ok(())
             } else {
                 Err("No did linked to the user")
@@ -481,7 +494,7 @@ decl_module! {
         ///  - Key is not linked to any other identity.
         pub fn authorize_join_to_identity(origin, target_id: IdentityId) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            let signer_from_key = Signer::Key( sender_key.clone());
+            let signer_from_key = Signer::Key( sender_key);
             let signer_id_found = Self::key_to_identity_ids(sender_key);
 
             // Double check that `origin` (its key or identity) has been pre-authorize.
@@ -605,7 +618,7 @@ decl_module! {
                     }
 
                     // 1.2. Offchain authorization is not revoked explicitly.
-                    ensure!( Self::is_offchain_authorization_revoked((si.signer.clone(), authorization.clone())) == false,
+                    ensure!( !Self::is_offchain_authorization_revoked((si.signer.clone(), authorization.clone())),
                         "Authorization has been explicitly revoked");
 
                     // 1.3. Verify the signature.
@@ -654,47 +667,6 @@ decl_module! {
     }
 }
 
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as system::Trait>::AccountId,
-        Moment = <T as timestamp::Trait>::Moment,
-    {
-        /// DID, master key account ID, signing keys
-        NewDid(IdentityId, AccountId, Vec<SigningItem>),
-
-        /// DID, new keys
-        NewSigningItems(IdentityId, Vec<SigningItem>),
-
-        /// DID, the keys that got removed
-        RevokedSigningItems(IdentityId, Vec<Signer>),
-
-        /// DID, updated signing key, previous permissions
-        SigningPermissionsUpdated(IdentityId, SigningItem, Vec<Permission>),
-
-        /// DID, old master key account ID, new key
-        NewMasterKey(IdentityId, AccountId, Key),
-
-        /// DID, claim issuer DID
-        NewClaimIssuer(IdentityId, IdentityId),
-
-        /// DID, removed claim issuer DID
-        RemovedClaimIssuer(IdentityId, IdentityId),
-
-        /// DID, claim issuer DID, claims
-        NewClaims(IdentityId, ClaimMetaData, Claim<Moment>),
-
-        /// DID, claim issuer DID, claim
-        RevokedClaim(IdentityId, ClaimMetaData),
-
-        /// DID
-        NewIssuer(IdentityId),
-
-        /// DID queried
-        DidQuery(Key, IdentityId),
-    }
-);
-
 impl<T: Trait> Module<T> {
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
@@ -726,7 +698,7 @@ impl<T: Trait> Module<T> {
         if let Some(s) = new_s_item {
             Self::deposit_event(RawEvent::SigningPermissionsUpdated(
                 target_did,
-                s.clone(),
+                s,
                 permissions,
             ));
         }
@@ -751,11 +723,7 @@ impl<T: Trait> Module<T> {
             _ => {
                 // Check signing items if DID is not frozen.
                 !Self::is_did_frozen(did)
-                    && record
-                        .signing_items
-                        .iter()
-                        .find(|&si| si.signer == *signer)
-                        .is_some()
+                    && record.signing_items.iter().any(|si| si.signer == *signer)
             }
         }
     }
@@ -799,17 +767,18 @@ impl<T: Trait> Module<T> {
         claim_issuer: IdentityId,
     ) -> Option<ClaimValue> {
         let claim_meta_data = ClaimMetaData {
-            claim_key: claim_key,
-            claim_issuer: claim_issuer,
+            claim_key,
+            claim_issuer,
         };
-        if <Claims<T>>::exists((did.clone(), claim_meta_data.clone())) {
+        if <Claims<T>>::exists((did, claim_meta_data.clone())) {
             let now = <timestamp::Module<T>>::get();
             let claim = <Claims<T>>::get((did, claim_meta_data));
             if claim.expiry > now {
                 return Some(claim.claim_value);
             }
         }
-        return None;
+
+        None
     }
 
     pub fn fetch_claim_value_multiple_issuers(
@@ -818,12 +787,12 @@ impl<T: Trait> Module<T> {
         claim_issuers: Vec<IdentityId>,
     ) -> Option<ClaimValue> {
         for claim_issuer in claim_issuers {
-            let claim_value = Self::fetch_claim_value(did.clone(), claim_key.clone(), claim_issuer);
+            let claim_value = Self::fetch_claim_value(did, claim_key.clone(), claim_issuer);
             if claim_value.is_some() {
                 return claim_value;
             }
         }
-        return None;
+        None
     }
 
     /// It checks that `sender_key` is the master key of `did` Identifier and that
@@ -853,7 +822,7 @@ impl<T: Trait> Module<T> {
                 return Some(linked_id);
             }
         }
-        return None;
+        None
     }
 
     /// It freezes/unfreezes the target `did` identity.
@@ -891,17 +860,12 @@ impl<T: Trait> Module<T> {
     /// nothing.
     fn link_key_to_did(key: &Key, key_type: SignerType, did: IdentityId) {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
-            match linked_key_info {
-                LinkedKeyInfo::Group(mut dids) => {
-                    if !dids.contains(&did) && key_type != SignerType::External {
-                        dids.push(did);
-                        dids.sort();
+            if let LinkedKeyInfo::Group(mut dids) = linked_key_info {
+                if !dids.contains(&did) && key_type != SignerType::External {
+                    dids.push(did);
+                    dids.sort();
 
-                        <KeyToIdentityIds>::insert(key, LinkedKeyInfo::Group(dids));
-                    }
-                }
-                _ => {
-                    // This case is protected by `can_key_be_linked_to_did`.
+                    <KeyToIdentityIds>::insert(key, LinkedKeyInfo::Group(dids));
                 }
             }
         } else {
@@ -969,7 +933,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
+impl<T: Trait> IdentityTrait<<T as CommonTrait>::Balance> for Module<T> {
     fn get_identity(key: &Key) -> Option<IdentityId> {
         Self::get_identity(&key)
     }
@@ -988,5 +952,46 @@ impl<T: Trait> IdentityTrait<T::Balance> for Module<T> {
         permissions: Vec<Permission>,
     ) -> bool {
         Self::is_signer_authorized_with_permissions(did, signer, permissions)
+    }
+}
+
+// Implement Currencty for this module
+// =======================================
+
+impl_currency!();
+
+impl<T: Trait> CurrencyModule<T> for Module<T> {
+    fn currency_reserved_balance(_who: &T::AccountId) -> T::Balance {
+        unimplemented!()
+    }
+    fn set_reserved_balance(_who: &T::AccountId, _amount: T::Balance) {
+        unimplemented!()
+    }
+    fn currency_total_issuance() -> T::Balance {
+        unimplemented!()
+    }
+    fn currency_free_balance(_who: &T::AccountId) -> T::Balance {
+        unimplemented!()
+    }
+    fn set_free_balance(_who: &T::AccountId, _amount: T::Balance) -> T::Balance {
+        unimplemented!()
+    }
+    fn currency_burn(_amount: T::Balance) {
+        unimplemented!();
+    }
+    fn currency_issue(_amount: T::Balance) {
+        unimplemented!();
+    }
+    fn currency_vesting_balance(_who: &T::AccountId) -> T::Balance {
+        unimplemented!()
+    }
+    fn currency_locks(_who: &T::AccountId) -> Vec<BalanceLock<T::Balance, T::BlockNumber>> {
+        unimplemented!()
+    }
+    fn new_account(_who: &T::AccountId, _amount: T::Balance) {
+        unimplemented!();
+    }
+    fn free_balance_exists(_who: &T::AccountId) -> bool {
+        unimplemented!()
     }
 }

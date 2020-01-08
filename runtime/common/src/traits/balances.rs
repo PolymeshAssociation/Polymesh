@@ -1,21 +1,14 @@
-use crate::traits::identity::IdentityTrait;
-use self::imbalances::{ NegativeImbalance };
+use self::imbalances::NegativeImbalance;
+use crate::traits::{identity::IdentityTrait, CommonTrait};
 
-use codec::Codec;
-
-use system::{ self, Event, OnNewAccount };
-use srml_support::{
-    traits::{ OnFreeBalanceZero, OnUnbalanced, Get },
-    Parameter
-};
-use runtime_primitives::{
-    weights::Weight,
-    traits::{ Member, SimpleArithmetic, MaybeSerializeDebug, Convert, }
- };
+use runtime_primitives::{traits::Convert, weights::Weight};
+use srml_support::traits::{Get, OnFreeBalanceZero, OnUnbalanced};
+use system::{self, OnNewAccount};
 
 /// Tag a type as an instance of a module.
 ///
 /// Defines storage prefixes, they must be unique.
+#[allow(non_upper_case_globals)]
 pub trait Instance: 'static {
     /// The prefix used by any storage entry of an instance.
     const PREFIX: &'static str;
@@ -29,6 +22,8 @@ pub trait Instance: 'static {
 }
 
 pub struct DefaultInstance;
+
+#[allow(non_upper_case_globals)]
 impl Instance for DefaultInstance {
     const PREFIX: &'static str = "Balances";
     const PREFIX_FOR_TotalIssuance: &'static str = "Balances TotalIssuance";
@@ -40,18 +35,7 @@ impl Instance for DefaultInstance {
     const PREFIX_FOR_ChargeDid: &'static str = "Balances ChargeDid";
 }
 
-pub trait Trait<I: Instance>: system::Trait {
-    /// The balance of an account.
-    type Balance: Parameter
-        + Member
-        + SimpleArithmetic
-        + Codec
-        + Default
-        + Copy
-        + MaybeSerializeDebug
-        + From<u128>
-        + From<Self::BlockNumber>;
-
+pub trait Subtrait<I: Instance = DefaultInstance>: CommonTrait {
     /// This type is no longer needed but kept for compatibility reasons.
     /// A function that is invoked when the free-balance has fallen below the existential deposit and
     /// has been reduced to zero.
@@ -62,103 +46,59 @@ pub trait Trait<I: Instance>: system::Trait {
     /// Handler for when a new account is created.
     type OnNewAccount: OnNewAccount<Self::AccountId>;
 
+    /// This type is no longer needed but kept for compatibility reasons.
+    /// The minimum amount required to keep an account open.
+    type ExistentialDeposit: Get<Self::Balance>;
+
+    /// The fee required to make a transfer.
+    type TransferFee: Get<Self::Balance>;
+
+    /// The fee required to create an account.
+    type CreationFee: Get<Self::Balance>;
+
+    /// The fee to be paid for making a transaction; the base.
+    type TransactionBaseFee: Get<Self::Balance>;
+
+    /// The fee to be paid for making a transaction; the per-byte portion.
+    type TransactionByteFee: Get<Self::Balance>;
+
+    /// Convert a weight value into a deductible fee based on the currency type.
+    type WeightToFee: Convert<Weight, Self::Balance>;
+
+    /// Used to charge fee to identity rather than user directly
+    type Identity: IdentityTrait<Self::Balance>;
+}
+
+pub trait Trait<I: Instance = DefaultInstance>: Subtrait<I> {
     /// Handler for the unbalanced reduction when taking transaction fees.
-    type TransactionPayment: OnUnbalanced<NegativeImbalance<Self, I>>;
+    type TransactionPayment: OnUnbalanced<NegativeImbalance<Self>>;
 
     /// Handler for the unbalanced reduction when taking fees associated with balance
     /// transfer (which may also include account creation).
-    type TransferPayment: OnUnbalanced<NegativeImbalance<Self, I>>;
+    type TransferPayment: OnUnbalanced<NegativeImbalance<Self>>;
 
     /// Handler for the unbalanced reduction when removing a dust account.
-    type DustRemoval: OnUnbalanced<NegativeImbalance<Self, I>>;
+    type DustRemoval: OnUnbalanced<NegativeImbalance<Self>>;
 
-    /// The overarching event type.
-    type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
-
-    /// This type is no longer needed but kept for compatibility reasons.
-    /// The minimum amount required to keep an account open.
-    type ExistentialDeposit: Get<Self::Balance>;
-
-    /// The fee required to make a transfer.
-    type TransferFee: Get<Self::Balance>;
-
-    /// The fee required to create an account.
-    type CreationFee: Get<Self::Balance>;
-
-    /// The fee to be paid for making a transaction; the base.
-    type TransactionBaseFee: Get<Self::Balance>;
-
-    /// The fee to be paid for making a transaction; the per-byte portion.
-    type TransactionByteFee: Get<Self::Balance>;
-
-    /// Convert a weight value into a deductible fee based on the currency type.
-    type WeightToFee: Convert<Weight, Self::Balance>;
-
-    /// Used to charge fee to identity rather than user directly
-    type Identity: IdentityTrait<Self::Balance>;
+    // / The overarching event type.
+    // type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
 }
-
-pub trait Subtrait<I: Instance = DefaultInstance>: system::Trait {
-    /// The balance of an account.
-    type Balance: Parameter
-        + Member
-        + SimpleArithmetic
-        + Codec
-        + Default
-        + Copy
-        + MaybeSerializeDebug
-        + From<u128>
-        + From<Self::BlockNumber>;
-
-    /// This type is no longer needed but kept for compatibility reasons.
-    /// A function that is invoked when the free-balance has fallen below the existential deposit and
-    /// has been reduced to zero.
-    ///
-    /// Gives a chance to clean up resources associated with the given account.
-    type OnFreeBalanceZero: OnFreeBalanceZero<Self::AccountId>;
-
-    /// Handler for when a new account is created.
-    type OnNewAccount: OnNewAccount<Self::AccountId>;
-
-    /// This type is no longer needed but kept for compatibility reasons.
-    /// The minimum amount required to keep an account open.
-    type ExistentialDeposit: Get<Self::Balance>;
-
-    /// The fee required to make a transfer.
-    type TransferFee: Get<Self::Balance>;
-
-    /// The fee required to create an account.
-    type CreationFee: Get<Self::Balance>;
-
-    /// The fee to be paid for making a transaction; the base.
-    type TransactionBaseFee: Get<Self::Balance>;
-
-    /// The fee to be paid for making a transaction; the per-byte portion.
-    type TransactionByteFee: Get<Self::Balance>;
-
-    /// Convert a weight value into a deductible fee based on the currency type.
-    type WeightToFee: Convert<Weight, Self::Balance>;
-
-    /// Used to charge fee to identity rather than user directly
-    type Identity: IdentityTrait<Self::Balance>;
-}
-
 
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy
 // of the inner member.
-mod imbalances {
-    use super::{ Instance, DefaultInstance, Subtrait, Trait };
+pub mod imbalances {
+    use crate::traits::CommonTrait;
 
-    use runtime_primitives::traits::{ Zero };
+    use rstd::{mem, result};
+    use runtime_primitives::traits::{Saturating, Zero};
     use srml_support::traits::Imbalance;
-    use rstd::{ mem, result };
 
     /// Opaque, move-only struct with private fields that serves as a token denoting that
     /// funds have been created without any equal and opposite accounting.
     #[must_use]
-    pub struct PositiveImbalance<T: Subtrait<I>, I: Instance = DefaultInstance>(T::Balance);
+    pub struct PositiveImbalance<T: CommonTrait>(T::Balance);
 
-    impl<T: Subtrait<I>, I: Instance> PositiveImbalance<T, I> {
+    impl<T: CommonTrait> PositiveImbalance<T> {
         /// Create a new positive imbalance from a balance.
         pub fn new(amount: T::Balance) -> Self {
             PositiveImbalance(amount)
@@ -168,17 +108,17 @@ mod imbalances {
     /// Opaque, move-only struct with private fields that serves as a token denoting that
     /// funds have been destroyed without any equal and opposite accounting.
     #[must_use]
-    pub struct NegativeImbalance<T: Subtrait<I>, I: Instance = DefaultInstance>(T::Balance);
+    pub struct NegativeImbalance<T: CommonTrait>(T::Balance);
 
-    impl<T: Subtrait<I>, I: Instance> NegativeImbalance<T, I> {
+    impl<T: CommonTrait> NegativeImbalance<T> {
         /// Create a new negative imbalance from a balance.
         pub fn new(amount: T::Balance) -> Self {
             NegativeImbalance(amount)
         }
     }
 
-    impl<T: Trait<I>, I: Instance> Imbalance<T::Balance> for PositiveImbalance<T, I> {
-        type Opposite = NegativeImbalance<T, I>;
+    impl<T: CommonTrait> Imbalance<T::Balance> for PositiveImbalance<T> {
+        type Opposite = NegativeImbalance<T>;
 
         fn zero() -> Self {
             Self(Zero::zero())
@@ -218,12 +158,12 @@ mod imbalances {
             }
         }
         fn peek(&self) -> T::Balance {
-            self.0.clone()
+            self.0
         }
     }
 
-    impl<T: Trait<I>, I: Instance> Imbalance<T::Balance> for NegativeImbalance<T, I> {
-        type Opposite = PositiveImbalance<T, I>;
+    impl<T: CommonTrait> Imbalance<T::Balance> for NegativeImbalance<T> {
+        type Opposite = PositiveImbalance<T>;
 
         fn zero() -> Self {
             Self(Zero::zero())
@@ -263,11 +203,12 @@ mod imbalances {
             }
         }
         fn peek(&self) -> T::Balance {
-            self.0.clone()
+            self.0
         }
     }
 
-    impl<T: Subtrait<I>, I: Instance> Drop for PositiveImbalance<T, I> {
+    /*
+    impl<T: CommonTrait> Drop for PositiveImbalance<T> {
         /// Basic drop handler will just square up the total issuance.
         fn drop(&mut self) {
             <super::TotalIssuance<super::ElevatedTrait<T, I>, I>>::mutate(|v| {
@@ -283,5 +224,5 @@ mod imbalances {
                 *v = v.saturating_sub(self.0)
             });
         }
-    }
+    }*/
 }

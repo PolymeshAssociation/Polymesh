@@ -4,8 +4,8 @@ use core::str;
 use rstd::prelude::*;
 use runtime_primitives::traits::Printable;
 use sr_io;
-const _POLY_DID_PREFIX: &'static str = "did:poly:";
-const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
+const POLY_DID_PREFIX: &str = "did:poly:";
+const POLY_DID_PREFIX_LEN: usize = 9; // POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
 const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
 const UUID_LEN: usize = 32usize;
 
@@ -52,7 +52,7 @@ impl TryFrom<&str> for IdentityId {
 
         // Check prefix
         let prefix = &did[..POLY_DID_PREFIX_LEN];
-        ensure!(prefix == _POLY_DID_PREFIX, "Missing 'did:poly:' prefix");
+        ensure!(prefix == POLY_DID_PREFIX, "Missing 'did:poly:' prefix");
 
         // Check hex code
         let did_code = (POLY_DID_PREFIX_LEN..POLY_DID_LEN)
@@ -88,7 +88,7 @@ impl From<[u8; UUID_LEN]> for IdentityId {
 
 impl Printable for IdentityId {
     fn print(&self) {
-        sr_io::print_utf8("did:poly:".as_bytes());
+        sr_io::print_utf8(b"did:poly:");
         sr_io::print_hex(&self.0);
     }
 }

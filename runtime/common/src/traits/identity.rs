@@ -1,21 +1,22 @@
-use polymesh_primitives::{ IdentityId, SigningItem, Signer, Key, Permission };
+use crate::traits::CommonTrait;
+use polymesh_primitives::{IdentityId, Key, Permission, Signer, SigningItem};
 
 use primitives::H512;
 use runtime_primitives::traits::Dispatchable;
-use srml_support::{ decl_event, Parameter };
+use srml_support::{decl_event, Parameter};
 use system;
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
-    issuance_date: U,
-    expiry: U,
-    claim_value: ClaimValue,
+    pub issuance_date: U,
+    pub expiry: U,
+    pub claim_value: ClaimValue,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimMetaData {
-    claim_key: Vec<u8>,
-    claim_issuer: IdentityId,
+    pub claim_key: Vec<u8>,
+    pub claim_issuer: IdentityId,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
@@ -126,9 +127,8 @@ decl_event!(
     }
 );
 
-
 /// The module's configuration trait.
-pub trait Trait: system::Trait + timestamp::Trait {
+pub trait Trait: CommonTrait + timestamp::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     /// An extrinsic call.
@@ -145,5 +145,3 @@ pub trait IdentityTrait<T> {
     ) -> bool;
     fn is_master_key(did: IdentityId, key: &Key) -> bool;
 }
-
-
