@@ -89,19 +89,20 @@ pub struct ClaimValue {
     pub value: Vec<u8>,
 }
 
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 /// A structure for passing claims to `add_claims_batch`.
-pub struct ClaimRecord<T: Trait> {
+pub struct ClaimRecord<U> {
     did: IdentityId,
     claim_key: Vec<u8>,
-    expiry: <T as timestamp::Trait>::Moment,
+    expiry: U,
     claim_value: ClaimValue,
 }
 
-impl<T: Trait> ClaimRecord<T> {
+impl<U> ClaimRecord<U> {
     pub fn new(
         did: IdentityId,
         claim_key: Vec<u8>,
-        expiry: <T as timestamp::Trait>::Moment,
+        expiry: U,
         claim_value: ClaimValue,
     ) -> Self {
         ClaimRecord {
@@ -120,7 +121,7 @@ impl<T: Trait> ClaimRecord<T> {
         self.claim_key.as_slice()
     }
 
-    pub fn expiry(&self) -> &<T as timestamp::Trait>::Moment {
+    pub fn expiry(&self) -> &U {
         &self.expiry
     }
 
@@ -496,7 +497,7 @@ decl_module! {
         pub fn add_claims_batch(
             origin,
             did_issuer: IdentityId,
-            claims: Vec<ClaimRecord<T>>,
+            claims: Vec<ClaimRecord<T>>
         ) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
@@ -507,7 +508,7 @@ decl_module! {
                     "Sender must hold a claim issuer's signing key");
             // Claims that successfully passed all required checks. Unless all claims pass those
             // checks, the whole operation fails.
-            let checked_claims = Vec::new();
+            let mut checked_claims = Vec::new();
             // Check input claims.
             for ClaimRecord {
                 did,
@@ -519,16 +520,16 @@ decl_module! {
                 ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key),
                         "did_issuer must be a claim issuer or master key for DID");
                 let claim_meta_data = ClaimMetaData {
-                    claim_key: claim_key,
-                    claim_issuer: did_issuer,
+                    claim_key: claim_key.clone(),
+                    claim_issuer: did_issuer.clone(),
                 };
                 let now = <timestamp::Module<T>>::get();
                 let claim = Claim {
                     issuance_date: now,
-                    expiry: expiry,
-                    claim_value: claim_value,
+                    expiry: expiry.clone(),
+                    claim_value: claim_value.clone(),
                 };
-                checked_claims.push((did, claim_meta_data, claim));
+                checked_claims.push((did.clone(), claim_meta_data, claim));
             }
             // Register the claims.
             for (did, claim_meta_data, claim) in checked_claims {
