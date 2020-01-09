@@ -494,6 +494,79 @@ mod tests {
     }
 
     #[test]
+    fn propose_works() {
+        with_externalities(&mut make_ext(), || {
+            System::set_block_number(1);
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
+
+            Committee::set_members(Origin::ROOT, vec![alice_did]);
+
+            let proposal = make_proposal(42);
+            let hash = proposal.blake2_256().into();
+            assert_ok!(Committee::propose(
+                alice_signer.clone(),
+                alice_did,
+                Box::new(proposal.clone())
+            ));
+            assert_eq!(Committee::proposals(), vec![hash]);
+            assert_eq!(Committee::proposal_of(&hash), Some(proposal));
+            assert_eq!(
+                Committee::voting(&hash),
+                Some(Votes {
+                    index: 0,
+                    ayes: vec![alice_did],
+                    nays: vec![]
+                })
+            );
+        });
+    }
+
+    #[test]
+    fn preventing_motions_from_non_members_works() {
+        with_externalities(&mut make_ext(), || {
+            System::set_block_number(1);
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
+
+            let proposal = make_proposal(42);
+            assert_noop!(
+                Committee::propose(alice_signer.clone(), alice_did, Box::new(proposal.clone())),
+                "proposer is not a member"
+            );
+        });
+    }
+
+    #[test]
+    fn preventing_voting_from_non_members_works() {
+        with_externalities(&mut make_ext(), || {
+            System::set_block_number(1);
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
+
+            let bob_acc = AccountId::from(AccountKeyring::Bob);
+            let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
+
+            Committee::set_members(Origin::ROOT, vec![alice_did]);
+
+            let proposal = make_proposal(42);
+            let hash: H256 = proposal.blake2_256().into();
+            assert_ok!(Committee::propose(
+                alice_signer.clone(),
+                alice_did,
+                Box::new(proposal.clone())
+            ));
+            assert_noop!(
+                Committee::vote(bob_signer, bob_did, hash.clone(), 0, true),
+                "voter is not a member"
+            );
+        });
+    }
+
+    #[test]
     fn voting_works() {
         with_externalities(&mut make_ext(), || {
             System::set_block_number(1);
