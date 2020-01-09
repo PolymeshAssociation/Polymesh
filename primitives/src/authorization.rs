@@ -10,12 +10,12 @@ pub enum AuthorizationData {
     /// Any other authorization
     Custom(Vec<u8>),
     /// No authorization data
-    None,
+    NoData,
 }
 
 impl Default for AuthorizationData {
     fn default() -> Self {
-        AuthorizationData::None
+        AuthorizationData::NoData
     }
 }
 

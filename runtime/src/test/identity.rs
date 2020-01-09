@@ -886,7 +886,7 @@ fn removing_authorizations() {
             assert_eq!(auth.next_authorization, auth_ids_bob[auth_to_remove + 1]);
             Identity::remove_authorization(alice.clone(), bob_did, auth_ids_bob[auth_to_remove]);
             let removed_auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
-            assert_eq!(removed_auth.authorization_data, AuthorizationData::None);
+            assert_eq!(removed_auth.authorization_data, AuthorizationData::NoData);
             auth_ids_bob.remove(auth_to_remove);
             for i in 1..(auth_ids_bob.len() - 1) {
                 let auth = Identity::authorizations((bob_did, auth_ids_bob[i]));
