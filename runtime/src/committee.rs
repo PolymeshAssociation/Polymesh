@@ -567,6 +567,90 @@ mod tests {
     }
 
     #[test]
+    fn motions_ignoring_bad_index_vote_works() {
+        with_externalities(&mut make_ext(), || {
+            System::set_block_number(3);
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
+
+            let bob_acc = AccountId::from(AccountKeyring::Bob);
+            let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
+
+            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did]);
+
+            let proposal = make_proposal(42);
+            let hash: H256 = proposal.blake2_256().into();
+            assert_ok!(Committee::propose(
+                alice_signer.clone(),
+                alice_did,
+                Box::new(proposal.clone())
+            ));
+            assert_noop!(
+                Committee::vote(bob_signer, bob_did, hash.clone(), 1, true),
+                "mismatched index"
+            );
+        });
+    }
+
+    #[test]
+    fn motions_revoting_works() {
+        with_externalities(&mut make_ext(), || {
+            System::set_block_number(1);
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
+
+            let bob_acc = AccountId::from(AccountKeyring::Bob);
+            let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
+
+            let charlie_acc = AccountId::from(AccountKeyring::Charlie);
+            let (charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
+
+            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]);
+
+            let proposal = make_proposal(42);
+            let hash: H256 = proposal.blake2_256().into();
+            assert_ok!(Committee::propose(
+                alice_signer.clone(),
+                alice_did,
+                Box::new(proposal.clone())
+            ));
+            assert_eq!(
+                Committee::voting(&hash),
+                Some(Votes {
+                    index: 0,
+                    ayes: vec![alice_did],
+                    nays: vec![]
+                })
+            );
+            assert_noop!(
+                Committee::vote(alice_signer.clone(), alice_did, hash.clone(), 0, true),
+                "duplicate vote ignored"
+            );
+            assert_ok!(Committee::vote(
+                alice_signer.clone(),
+                alice_did,
+                hash.clone(),
+                0,
+                false
+            ));
+            assert_eq!(
+                Committee::voting(&hash),
+                Some(Votes {
+                    index: 0,
+                    ayes: vec![],
+                    nays: vec![alice_did]
+                })
+            );
+            assert_noop!(
+                Committee::vote(alice_signer.clone(), alice_did, hash.clone(), 0, false),
+                "duplicate vote ignored"
+            );
+        });
+    }
+
+    #[test]
     fn voting_works() {
         with_externalities(&mut make_ext(), || {
             System::set_block_number(1);
