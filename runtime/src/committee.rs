@@ -110,12 +110,14 @@ decl_event!(
 		/// `MemberCount`).
 		Proposed(IdentityId, ProposalIndex, Hash),
 		/// A motion (given hash) has been voted on by given account, leaving
-		/// a tally (yes votes and no votes given respectively as `MemberCount`).
-		Voted(IdentityId, Hash, bool, MemberCount, MemberCount),
-		/// A motion was approved by the required threshold.
-		Approved(Hash),
-		/// A motion was rejected by the required threshold.
-		Rejected(Hash),
+		/// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
+		Voted(IdentityId, Hash, bool, MemberCount, MemberCount, MemberCount),
+		/// A motion was approved by the required threshold with the following
+		/// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
+		Approved(Hash, MemberCount, MemberCount, MemberCount),
+		/// A motion was rejected by the required threshold with the following
+		/// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
+		Rejected(Hash, MemberCount, MemberCount, MemberCount),
 		/// A motion was executed; `bool` is true if returned without error.
 		Executed(Hash, bool),
 	}
@@ -217,19 +219,19 @@ decl_module! {
                 }
             }
 
+            let seats = Self::members().len() as MemberCount;
             let yes_votes = voting.ayes.len() as MemberCount;
             let no_votes = voting.nays.len() as MemberCount;
-            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes));
+            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes, seats));
 
             let threshold = <VoteThreshold<I>>::get();
-            let seats = Self::members().len() as MemberCount;
 
             let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
             let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
 
             if approved || rejected {
                 if approved {
-                    Self::deposit_event(RawEvent::Approved(proposal));
+                    Self::deposit_event(RawEvent::Approved(proposal, yes_votes, no_votes, seats));
 
                     // execute motion, assuming it exists.
                     if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
@@ -239,7 +241,7 @@ decl_module! {
                     }
                 } else {
                     // rejected
-                    Self::deposit_event(RawEvent::Rejected(proposal));
+                    Self::deposit_event(RawEvent::Rejected(proposal, yes_votes, no_votes, seats));
                 }
 
                 // remove vote
