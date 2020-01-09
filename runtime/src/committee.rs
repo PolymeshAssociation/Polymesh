@@ -319,7 +319,9 @@ impl<
 mod tests {
     use super::*;
     use crate::{balances, committee, identity};
+    use core::result::Result as StdResult;
     use hex_literal::hex;
+    use lazy_static::lazy_static;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
@@ -333,6 +335,7 @@ mod tests {
     };
     use substrate_primitives::{Blake2Hasher, H256};
     use system::{self, EnsureSignedBy, EventRecord, Phase};
+    use test_client::{self, AccountKeyring};
 
     parameter_types! {
         pub const BlockHashCount: u64 = 250;
@@ -347,7 +350,7 @@ mod tests {
         type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
+        type AccountId = AccountId;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
@@ -425,6 +428,9 @@ mod tests {
         type Event = ();
     }
 
+    type Identity = identity::Module<Test>;
+    type AccountId = <AnySignature as Verify>::Signer;
+
     pub type Block = sr_primitives::generic::Block<Header, UncheckedExtrinsic>;
     pub type UncheckedExtrinsic = sr_primitives::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
 
@@ -471,6 +477,83 @@ mod tests {
                 ]
             );
             assert_eq!(Committee::proposals(), Vec::<H256>::new());
+        });
+    }
+
+    fn make_proposal(value: u64) -> Call {
+        Call::System(system::Call::remark(value.encode()))
+    }
+
+    fn make_account(
+        account_id: &AccountId,
+    ) -> StdResult<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+        let signed_id = Origin::signed(account_id.clone());
+        Identity::register_did(signed_id.clone(), vec![])?;
+        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
+        Ok((signed_id, did))
+    }
+
+    #[test]
+    fn voting_works() {
+        with_externalities(&mut make_ext(), || {
+            System::set_block_number(1);
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
+
+            let bob_acc = AccountId::from(AccountKeyring::Bob);
+            let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
+
+            let charlie_acc = AccountId::from(AccountKeyring::Charlie);
+            let (charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
+
+            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]);
+
+            //            let proposal = make_proposal(42);
+            //            let hash = BlakeTwo256::hash_of(&proposal);
+            //            assert_ok!(Committee::propose(
+            //                alice_signer.clone(),
+            //                alice_did,
+            //                Box::new(proposal.clone())
+            //            ));
+            //            assert_ok!(Committee::vote(
+            //                bob_signer.clone(),
+            //                bob_did,
+            //                hash.clone(),
+            //                0,
+            //                true
+            //            ));
+            //            assert_eq!(
+            //                Committee::voting(&hash),
+            //                Some(Votes {
+            //                    index: 0,
+            //                    ayes: vec![alice_did, bob_did],
+            //                    nays: vec![]
+            //                })
+            //            );
+
+            let proposal = make_proposal(69);
+            let hash = BlakeTwo256::hash_of(&proposal);
+            assert_ok!(Committee::propose(
+                charlie_signer.clone(),
+                charlie_did,
+                Box::new(proposal.clone())
+            ));
+            assert_ok!(Committee::vote(
+                bob_signer.clone(),
+                bob_did,
+                hash.clone(),
+                0,
+                false
+            ));
+            assert_eq!(
+                Committee::voting(&hash),
+                Some(Votes {
+                    index: 0,
+                    ayes: vec![charlie_did],
+                    nays: vec![bob_did]
+                })
+            );
         });
     }
 }
