@@ -6,7 +6,7 @@
 //!
 //! ## Overview
 //! Allows control of membership of a set of `IdentityId`s, useful for managing membership of a
-//! collective.
+//! committee.
 //!
 //!
 //! ### Dispatchable Functions
@@ -333,13 +333,6 @@ mod tests {
     use substrate_primitives::{Blake2Hasher, H256};
     use system::{EnsureSignedBy, EventRecord, Phase};
 
-    #[derive(Clone, Eq, PartialEq, Debug)]
-    pub struct Test;
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
-
     parameter_types! {
         pub const BlockHashCount: u64 = 250;
         pub const MaximumBlockWeight: u32 = 1024;
@@ -356,8 +349,8 @@ mod tests {
         type AccountId = u64;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
+        type Event = Event;
         type WeightMultiplierUpdate = ();
-        type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
@@ -419,46 +412,54 @@ mod tests {
         type Proposal = TestProposal;
     }
 
-    pub enum RawOrigin<T: Trait<I>, I>
-    where
-        T::BlockNumber: From<u32>,
-    {
-        Members(u32, u32),
-        _Phantom(std::marker::PhantomData<(T, I)>),
+    impl Trait<Instance1> for Test {
+        type Origin = Origin;
+        type Proposal = Call;
+        type Event = Event;
     }
 
     impl Trait for Test {
-        type Event = ();
         type Origin = Origin;
-        type Proposal = TestProposal;
+        type Proposal = Call;
+        type Event = Event;
     }
 
-    type Committee = Module<Test>;
+    pub type Block = sr_primitives::generic::Block<Header, UncheckedExtrinsic>;
+    pub type UncheckedExtrinsic = sr_primitives::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
 
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
+    srml_support::construct_runtime!(
+		pub enum Test where
+			Block = Block,
+			NodeBlock = Block,
+			UncheckedExtrinsic = UncheckedExtrinsic
+		{
+			System: system::{Module, Call, Event},
+			Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
+			DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
+		}
+	);
 
-        // We use default for brevity, but you can configure as desired if needed.
-        GenesisConfig::<Test> {
-            members: vec![
-                IdentityId::from(1),
-                IdentityId::from(2),
-                IdentityId::from(3),
-            ],
-            ..Default::default()
+    fn make_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+        GenesisConfig {
+            committee_Instance1: Some(committee::GenesisConfig {
+                members: vec![
+                    IdentityId::from(1),
+                    IdentityId::from(2),
+                    IdentityId::from(3),
+                ],
+                phantom: Default::default(),
+            }),
+            committee: None,
         }
-        .assimilate_storage(&mut t)
-        .unwrap();
-        t.into()
+        .build_storage()
+        .unwrap()
+        .into()
     }
 
     #[test]
-    fn query_membership_works() {
-        with_externalities(&mut new_test_ext(), || {
+    fn motions_basic_environment_works() {
+        with_externalities(&mut make_ext(), || {
+            System::set_block_number(1);
             assert_eq!(
                 Committee::members(),
                 vec![
@@ -467,6 +468,7 @@ mod tests {
                     IdentityId::from(3)
                 ]
             );
+            assert_eq!(Committee::proposals(), Vec::<H256>::new());
         });
     }
 }
