@@ -262,7 +262,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
-    /// in relation to the threshold proporion `n`/`d`.   
+    /// in relation to the threshold proporion `n`/`d`.
     fn is_threshold_satisfied(
         votes: u32,
         total: u32,
@@ -318,8 +318,7 @@ impl<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as committee;
-    use crate::{balances, identity};
+    use crate::{balances, committee, identity};
     use hex_literal::hex;
     use sr_io::with_externalities;
     use sr_primitives::{
@@ -333,7 +332,7 @@ mod tests {
         impl_outer_dispatch, impl_outer_origin, parameter_types, Hashable,
     };
     use substrate_primitives::{Blake2Hasher, H256};
-    use system::{EnsureSignedBy, EventRecord, Phase};
+    use system::{self, EnsureSignedBy, EventRecord, Phase};
 
     parameter_types! {
         pub const BlockHashCount: u64 = 250;
@@ -351,7 +350,7 @@ mod tests {
         type AccountId = u64;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
-        type Event = Event;
+        type Event = ();
         type WeightMultiplierUpdate = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
@@ -417,13 +416,13 @@ mod tests {
     impl Trait<Instance1> for Test {
         type Origin = Origin;
         type Proposal = Call;
-        type Event = Event;
+        type Event = ();
     }
 
     impl Trait for Test {
         type Origin = Origin;
         type Proposal = Call;
-        type Event = Event;
+        type Event = ();
     }
 
     pub type Block = sr_primitives::generic::Block<Header, UncheckedExtrinsic>;
@@ -449,6 +448,7 @@ mod tests {
                     IdentityId::from(2),
                     IdentityId::from(3),
                 ],
+                vote_threshold: (ProportionMatch::AtLeast, 1, 1),
                 phantom: Default::default(),
             }),
             committee: None,
