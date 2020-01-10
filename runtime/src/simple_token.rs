@@ -32,7 +32,7 @@
 //! - `balance_of` - Returns the simple token balance associated with an identity
 
 use crate::{balances, identity, utils};
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
@@ -76,10 +76,10 @@ decl_module! {
 
         /// Create a new token and mint a balance to the issuing identity
         pub fn create_token(origin, did: IdentityId, ticker: Vec<u8>, total_supply: T::Balance) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
@@ -110,12 +110,12 @@ decl_module! {
 
         /// Approve another identity to transfer tokens on behalf of the caller
         fn approve(origin, did: IdentityId, ticker: Vec<u8>, spender_did: IdentityId, value: T::Balance) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
             let ticker_did = (ticker.clone(), did.clone());
             ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             let ticker_did_spender_did = (ticker.clone(), did, spender_did);
             let allowance = Self::allowance(&ticker_did_spender_did);
@@ -129,20 +129,20 @@ decl_module! {
 
         /// Transfer tokens to another identity
         pub fn transfer(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, amount: T::Balance) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             Self::_transfer(&ticker, did, to_did, amount)
         }
 
         /// Transfer tokens to another identity using the approval mechanic
         fn transfer_from(origin, did: IdentityId, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> Result {
-            let spender = ensure_signed(origin)?;
+            let spender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(spender.encode())?), "spender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "spender must be a signing key for DID");
 
             let ticker_from_did_did = (ticker.clone(), from_did, did);
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist.");

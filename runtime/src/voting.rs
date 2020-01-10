@@ -35,7 +35,7 @@ use crate::{
     balances, identity, utils,
 };
 use codec::Encode;
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -113,11 +113,11 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         /// * `ballot_details` - Other details of the ballot
         pub fn add_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again.
@@ -166,11 +166,12 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
         pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
@@ -236,11 +237,11 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
         pub fn cancel_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>) -> Result {
-            let sender = ensure_signed(origin)?;
+            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_authorized_key(did, &Key::try_from(sender.encode())?), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again
@@ -320,7 +321,8 @@ mod tests {
     use test_client::{self, AccountKeyring};
 
     use crate::{
-        asset::SecurityToken, balances, exemption, general_tm, identity, percentage_tm, registry,
+        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
+        identity, percentage_tm,
     };
 
     impl_outer_origin! {
@@ -349,7 +351,7 @@ mod tests {
     impl system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
-        type BlockNumber = u64;
+        type BlockNumber = BlockNumber;
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = AccountId;
@@ -480,8 +482,6 @@ mod tests {
         type Event = ();
     }
 
-    impl registry::Trait for Test {}
-
     impl exemption::Trait for Test {
         type Event = ();
         type Asset = asset::Module<Test>;
@@ -505,10 +505,21 @@ mod tests {
 
     /// Create externalities
     fn build_ext() -> TestExternalities<Blake2Hasher> {
-        system::GenesisConfig::default()
+        let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
-            .unwrap()
-            .into()
+            .unwrap();
+        asset::GenesisConfig::<Test> {
+            asset_creation_fee: 0,
+            ticker_registration_fee: 0,
+            ticker_registration_config: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                registration_length: Some(10000),
+            },
+            fee_collector: AccountKeyring::Dave.public().into(),
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        sr_io::TestExternalities::new(t)
     }
 
     fn make_account(

@@ -4,14 +4,16 @@ use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
+use polymesh_runtime::asset::TickerRegistrationConfig;
 use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
     config::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
-        SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
+        MIPSConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
     runtime::GovernanceCommitteeConfig,
+    runtime::KYCServiceProvidersConfig,
     Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
@@ -192,6 +194,11 @@ fn testnet_genesis(
         }),
         asset: Some(AssetConfig {
             asset_creation_fee: 250,
+            ticker_registration_fee: 250,
+            ticker_registration_config: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                registration_length: Some(5184000000),
+            },
             fee_collector: get_from_seed::<AccountId>("Dave"),
         }),
         identity: Some(IdentityConfig {
@@ -235,7 +242,6 @@ fn testnet_genesis(
             slash_reward_fraction: Perbill::from_percent(10),
             ..Default::default()
         }),
-        membership_Instance1: Some(Default::default()),
         collective_Instance1: Some(GovernanceCommitteeConfig {
             members: vec![
                 get_from_seed::<AccountId>("Alice"),
@@ -243,6 +249,11 @@ fn testnet_genesis(
                 get_from_seed::<AccountId>("Charlie"),
             ],
             phantom: Default::default(),
+        }),
+        mips: Some(MIPSConfig {
+            min_proposal_deposit: 5000,
+            quorum_threshold: 100000,
+            proposal_duration: 50,
         }),
         im_online: Some(Default::default()),
         authority_discovery: Some(Default::default()),
@@ -254,6 +265,10 @@ fn testnet_genesis(
                 ..Default::default()
             },
             gas_price: 1 * MILLICENTS,
+        }),
+        group_Instance1: Some(KYCServiceProvidersConfig {
+            members: vec![],
+            phantom: Default::default(),
         }),
     }
 }
