@@ -5,8 +5,7 @@ use crate::{
 };
 use codec::Encode;
 use primitives::{
-    Authorization, AuthorizationData, AuthorizationStatus, Key, Permission, Signer, SignerType,
-    SigningItem,
+    Authorization, AuthorizationData, Key, Permission, Signer, SignerType, SigningItem,
 };
 use rand::Rng;
 use sr_io::with_externalities;

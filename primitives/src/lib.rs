@@ -87,7 +87,7 @@ pub use pre_authorized_key_info::PreAuthorizedKeyInfo;
 pub mod authorization;
 pub use authorization::Authorization;
 pub use authorization::AuthorizationData;
-pub use authorization::AuthorizationStatus;
+pub use authorization::AuthorizationError;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

@@ -60,7 +60,7 @@ use crate::{balances, constants::*, general_tm, identity, percentage_tm, utils};
 use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
-use primitives::{AuthorizationData, AuthorizationStatus, IdentityId, Key, Signer};
+use primitives::{AuthorizationData, AuthorizationError, IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub, Verify};
@@ -1490,7 +1490,7 @@ impl<T: Trait> Module<T> {
     pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result {
         ensure!(
             <identity::Authorizations<T>>::exists((to_did, auth_id)),
-            "Invalid auth"
+            AuthorizationError::Invalid.into()
         );
 
         let auth = <identity::Module<T>>::authorizations((to_did, auth_id));
@@ -1504,19 +1504,9 @@ impl<T: Trait> Module<T> {
 
         let current_owner = Self::ticker_registration(&ticker).owner;
 
-        match <identity::Module<T>>::consume_auth(current_owner, to_did, auth_id) {
-            //Unreachable due to the check above. Being defensive by being inclusive.
-            AuthorizationStatus::Invalid => return Err("Invalid auth"),
+        <identity::Module<T>>::consume_auth(current_owner, to_did, auth_id)?;
 
-            AuthorizationStatus::Unauthorized => {
-                return Err("Ticker owner did not authorize the transfer")
-            }
-            AuthorizationStatus::Expired => return Err("Authorization expired"),
-
-            // Only remaining case is AuthorizationStatus::Consumed so it can be moved out of the match stamement.
-            // Being defensive here. Just in case we add more status later and forget to change this.
-            AuthorizationStatus::Consumed => <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did),
-        }
+        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
 
         Self::deposit_event(RawEvent::TickerTransferred(ticker, current_owner, to_did));
 
@@ -2527,7 +2517,7 @@ mod tests {
 
             assert_err!(
                 Asset::accept_ticker_transfer(alice_signed.clone(), auth_id + 1),
-                "Invalid auth"
+                "Authorization does not exist"
             );
 
             assert_ok!(Asset::accept_ticker_transfer(alice_signed.clone(), auth_id));
@@ -2535,7 +2525,7 @@ mod tests {
             auth_id = Identity::last_authorization(bob_did);
             assert_err!(
                 Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
-                "Ticker owner did not authorize the transfer"
+                "Illegal use of Authorization"
             );
 
             Identity::add_auth(

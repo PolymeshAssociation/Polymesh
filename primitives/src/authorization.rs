@@ -21,15 +21,24 @@ impl Default for AuthorizationData {
 
 /// Status of an Authorization after consume is called on it.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum AuthorizationStatus {
+pub enum AuthorizationError {
     /// Auth does not exist
     Invalid,
-    /// Caller not authorized
+    /// Caller not authorized or the identity who created
+    /// this authorization is not authorized to create this authorization
     Unauthorized,
     /// Auth expired already
     Expired,
-    /// Consumed without errors
-    Consumed,
+}
+
+impl From<AuthorizationError> for &'static str {
+    fn from(error: AuthorizationError) -> &'static str {
+        match error {
+            AuthorizationError::Invalid => "Authorization does not exist",
+            AuthorizationError::Unauthorized => "Illegal use of Authorization",
+            AuthorizationError::Expired => "Authorization expired",
+        }
+    }
 }
 
 /// Authorization struct

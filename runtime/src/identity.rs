@@ -46,7 +46,7 @@ use rstd::{convert::TryFrom, prelude::*};
 
 use crate::{asset::AcceptTickerTransfer, balances, constants::did::USER};
 use primitives::{
-    Authorization, AuthorizationData, AuthorizationStatus, Identity as DidRecord, IdentityId, Key,
+    Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
     Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
 };
 
@@ -1041,24 +1041,20 @@ impl<T: Trait> Module<T> {
 
     /// Consumes an authorization.
     /// Checks if the auth has not expired and the caller is authorized to consume this auth.
-    pub fn consume_auth(
-        from_did: IdentityId,
-        target_did: IdentityId,
-        auth_id: u64,
-    ) -> AuthorizationStatus {
+    pub fn consume_auth(from_did: IdentityId, target_did: IdentityId, auth_id: u64) -> Result {
         if !<Authorizations<T>>::exists((target_did, auth_id)) {
             // Auth does not exist
-            return AuthorizationStatus::Invalid;
+            return Err(AuthorizationError::Invalid.into());
         }
         let auth = Self::authorizations((target_did, auth_id));
         if auth.authorized_by != from_did {
             // Not authorized to revoke this authorization
-            return AuthorizationStatus::Unauthorized;
+            return Err(AuthorizationError::Unauthorized.into());
         }
         if let Some(expiry) = auth.expiry {
             let now = <timestamp::Module<T>>::get();
             if expiry <= now {
-                return AuthorizationStatus::Expired;
+                return Err(AuthorizationError::Expired.into());
             }
         }
         Self::remove_auth(
@@ -1067,7 +1063,7 @@ impl<T: Trait> Module<T> {
             auth.next_authorization,
             auth.previous_authorization,
         );
-        return AuthorizationStatus::Consumed;
+        Ok(())
     }
 
     /// Private and not sanitized function. It is designed to be used internally by
