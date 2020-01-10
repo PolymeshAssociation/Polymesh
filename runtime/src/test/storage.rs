@@ -109,6 +109,7 @@ impl sr_primitives::traits::Dispatchable for IdentityProposal {
 impl identity::Trait for TestStorage {
     type Event = ();
     type Proposal = IdentityProposal;
+    type AcceptTickerTransferTarget = crate::asset::Module<Test>;
 }
 
 // Publish type alias for each module

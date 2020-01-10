@@ -44,7 +44,7 @@
 
 use rstd::{convert::TryFrom, prelude::*};
 
-use crate::{balances, constants::did::USER};
+use crate::{asset::AcceptTickerTransfer, balances, constants::did::USER};
 use primitives::{
     Authorization, AuthorizationData, AuthorizationStatus, Identity as DidRecord, IdentityId, Key,
     Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
@@ -156,6 +156,8 @@ pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     /// An extrinsic call.
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
+    /// Asset module
+    type AcceptTickerTransferTarget: AcceptTickerTransfer;
 }
 
 decl_storage! {
@@ -586,6 +588,32 @@ decl_module! {
             Ok(())
         }
 
+        // Manage generic authorizations
+        /// Adds an array of authorization
+        pub fn batch_add_authorization(
+            origin,
+            // Vec<(target_did, auth_data, expiry)>
+            auths: Vec<(IdentityId, AuthorizationData, Option<T::Moment>)>
+        ) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let from_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+
+            for auth in auths {
+                Self::add_auth(from_did, auth.0, auth.1, auth.2);
+            }
+
+            Ok(())
+        }
+
         /// Removes an authorization
         pub fn remove_authorization(
             origin,
@@ -611,6 +639,101 @@ decl_module! {
             ensure!(auth.authorized_by == from_did || target_did == from_did, "Unauthorized");
 
             Self::remove_auth(target_did, auth_id, auth.next_authorization, auth.previous_authorization);
+
+            Ok(())
+        }
+
+        /// Removes an array of authorizations
+        pub fn batch_remove_authorization(
+            origin,
+            // Vec<(target_did, auth_id)>
+            auth_identifiers: Vec<(IdentityId, u64)>
+        ) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let from_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+
+            for auth_identifier in &auth_identifiers {
+                ensure!(<Authorizations<T>>::exists(auth_identifier), "Invalid auth");
+
+                let auth = Self::authorizations(auth_identifier);
+
+                ensure!(auth.authorized_by == from_did || auth_identifier.0 == from_did, "Unauthorized");
+            }
+
+            for auth_identifier in auth_identifiers {
+                let auth = Self::authorizations(&auth_identifier);
+
+                Self::remove_auth(auth_identifier.0, auth_identifier.1, auth.next_authorization, auth.previous_authorization);
+            }
+
+            Ok(())
+        }
+
+        /// Accepts an authorization
+        pub fn accept_authorization(
+            origin,
+            auth_id: u64
+        ) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+
+            ensure!(<Authorizations<T>>::exists((sender_did, auth_id)), "Invalid auth");
+
+            let auth = Self::authorizations((sender_did, auth_id));
+
+            match auth.authorization_data {
+                AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
+                _ => return Err("Unknown authorization")
+            }
+        }
+
+        /// Accepts an array of authorizations
+        pub fn batch_accept_authorization(
+            origin,
+            auth_ids: Vec<u64>
+        ) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+
+            for auth_id in auth_ids {
+                // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
+                // It will just skip that particular authorization.
+                if <Authorizations<T>>::exists((sender_did, auth_id)) {
+                    let auth = Self::authorizations((sender_did, auth_id));
+                    // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
+                    let _result = match auth.authorization_data {
+                        AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
+                        _ => Err("Unknown authorization data")
+                    };
+                }
+            }
 
             Ok(())
         }

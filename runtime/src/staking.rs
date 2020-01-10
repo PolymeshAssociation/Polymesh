@@ -1977,6 +1977,7 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
+        type AcceptTickerTransferTarget = ();
     }
 
     parameter_types! {

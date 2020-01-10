@@ -1454,6 +1454,7 @@ mod tests {
     impl identity::Trait for Runtime {
         type Event = ();
         type Proposal = IdentityProposal;
+        type AcceptTickerTransferTarget = ();
     }
     impl timestamp::Trait for Runtime {
         type Moment = u64;

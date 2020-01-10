@@ -256,35 +256,7 @@ decl_module! {
                     }
                 }
             };
-
-            ensure!(<identity::Authorizations<T>>::exists((to_did, auth_id)), "Invalid auth");
-
-            let auth = <identity::Module<T>>::authorizations((to_did, auth_id));
-
-            let ticker = match auth.authorization_data {
-                AuthorizationData::TransferTicker(_ticker) => utils::bytes_to_upper(_ticker.as_slice()),
-                _ => return Err("Not a ticker transfer auth")
-            };
-
-            ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
-
-            let current_owner = Self::ticker_registration(&ticker).owner;
-
-            match <identity::Module<T>>::consume_auth(current_owner, to_did, auth_id) {
-                //Unreachable due to the check above. Being defensive by being inclusive.
-                AuthorizationStatus::Invalid => return Err("Invalid auth"),
-
-                AuthorizationStatus::Unauthorized => return Err("Ticker owner did not authorize the transfer"),
-                AuthorizationStatus::Expired => return Err("Authorization expired"),
-
-                // Only remaining case is AuthorizationStatus::Consumed so it can be moved out of the match stamement.
-                // Being defensive here. Just in case we add more status later and forget to change this.
-                AuthorizationStatus::Consumed => <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did),
-            }
-
-            Self::deposit_event(RawEvent::TickerTransferred(ticker, current_owner, to_did));
-
-            Ok(())
+            Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
         /// Initializes a new security token
@@ -1134,6 +1106,16 @@ impl<T: Trait> AssetTrait<T::Balance> for Module<T> {
     }
 }
 
+pub trait AcceptTickerTransfer {
+    fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result;
+}
+
+impl<T: Trait> AcceptTickerTransfer for Module<T> {
+    fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result {
+        Self::_accept_ticker_transfer(to_did, auth_id)
+    }
+}
+
 /// All functions in the decl_module macro become part of the public interface of the module
 /// If they are there, they are accessible via extrinsics calls whether they are public or not
 /// However, in the impl module section (this, below) the functions can be public and private
@@ -1504,6 +1486,42 @@ impl<T: Trait> Module<T> {
         ));
         Ok(())
     }
+
+    pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result {
+        ensure!(
+            <identity::Authorizations<T>>::exists((to_did, auth_id)),
+            "Invalid auth"
+        );
+
+        let auth = <identity::Module<T>>::authorizations((to_did, auth_id));
+
+        let ticker = match auth.authorization_data {
+            AuthorizationData::TransferTicker(_ticker) => utils::bytes_to_upper(_ticker.as_slice()),
+            _ => return Err("Not a ticker transfer auth"),
+        };
+
+        ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
+
+        let current_owner = Self::ticker_registration(&ticker).owner;
+
+        match <identity::Module<T>>::consume_auth(current_owner, to_did, auth_id) {
+            //Unreachable due to the check above. Being defensive by being inclusive.
+            AuthorizationStatus::Invalid => return Err("Invalid auth"),
+
+            AuthorizationStatus::Unauthorized => {
+                return Err("Ticker owner did not authorize the transfer")
+            }
+            AuthorizationStatus::Expired => return Err("Authorization expired"),
+
+            // Only remaining case is AuthorizationStatus::Consumed so it can be moved out of the match stamement.
+            // Being defensive here. Just in case we add more status later and forget to change this.
+            AuthorizationStatus::Consumed => <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did),
+        }
+
+        Self::deposit_event(RawEvent::TickerTransferred(ticker, current_owner, to_did));
+
+        Ok(())
+    }
 }
 
 /// tests for this module
@@ -1664,6 +1682,7 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
+        type AcceptTickerTransferTarget = Module<Test>;
     }
     impl percentage_tm::Trait for Test {
         type Event = ();

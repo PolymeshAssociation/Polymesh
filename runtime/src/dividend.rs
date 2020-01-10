@@ -543,16 +543,17 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
+        type AcceptTickerTransferTarget = asset::Module<Test>;
     }
 
     impl exemption::Trait for Test {
         type Event = ();
-        type Asset = Module<Test>;
+        type Asset = asset::Module<Test>;
     }
 
     impl general_tm::Trait for Test {
         type Event = ();
-        type Asset = Module<Test>;
+        type Asset = asset::Module<Test>;
     }
 
     impl percentage_tm::Trait for Test {
