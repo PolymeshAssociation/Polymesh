@@ -44,14 +44,18 @@
 
 use rstd::{convert::TryFrom, prelude::*};
 
-use crate::{balances, constants::{ did::USER, KYC_EXPIRY_CLAIM_KEY }, group};
+use crate::{
+    balances,
+    constants::{did::USER, KYC_EXPIRY_CLAIM_KEY},
+    group,
+};
+use codec::Encode;
+use core::convert::From;
+use group::GroupTrait;
 use primitives::{
     Identity as DidRecord, IdentityId, Key, Permission, PreAuthorizedKeyInfo, Signer, SignerType,
     SigningItem,
 };
-use group::GroupTrait;
-use codec::Encode;
-use core::convert::From;
 use sr_io::blake2_256;
 use sr_primitives::{
     traits::{Dispatchable, Verify},
@@ -919,12 +923,18 @@ impl<T: Trait> Module<T> {
         let mut trusted_claim = Vec::new();
         if trusted_kyc_providers.len() > 0 {
             for trusted_kyc_provider in trusted_kyc_providers {
-                match Self::fetch_claim_value(claim_for, KYC_EXPIRY_CLAIM_KEY.to_vec(), trusted_kyc_provider) {
+                match Self::fetch_claim_value(
+                    claim_for,
+                    KYC_EXPIRY_CLAIM_KEY.to_vec(),
+                    trusted_kyc_provider,
+                ) {
                     Some(value) => trusted_claim.push(value),
-                    None => {},
+                    None => {}
                 }
             }
-            if trusted_claim.len() > 0 { return Some(trusted_claim); }
+            if trusted_claim.len() > 0 {
+                return Some(trusted_claim);
+            }
         }
         return None;
     }

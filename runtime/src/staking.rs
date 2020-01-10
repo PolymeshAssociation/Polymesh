@@ -225,12 +225,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::identity;
+use babe;
 use codec::{Decode, Encode, HasCompact};
 use core::convert::TryInto;
 use phragmen::{elect, ExtendedBalance, Support, SupportMap, ACCURACY};
 use primitives::Key;
 use rstd::{convert::TryFrom, prelude::*, result};
-use babe;
 
 #[cfg(feature = "equalize")]
 use phragmen::equalize;
@@ -1131,7 +1131,7 @@ decl_module! {
                         // valid KYC otherwise it will be removed from the pool of the nominators.
                         match <identity::Module<T>>::fetch_kyc_claim_by_trusted_issuers(nominate_identity) {
                             Some(claim_values) => {
-                                let mut count: u32 = 0;   
+                                let mut count: u32 = 0;
                                 for claim_value in &claim_values {
                                     match claim_value.value.as_slice().try_into() {
                                         Ok(value) => {
