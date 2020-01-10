@@ -47,7 +47,7 @@ pub trait Trait<I = DefaultInstance>: system::Trait {
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
         /// Identities that are part of this group
-        Members get(members) config(): Vec<IdentityId>;
+        pub Members get(members) config(): Vec<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): rstd::marker::PhantomData<(T, I)>;
@@ -168,6 +168,16 @@ decl_module! {
 
             Self::deposit_event(RawEvent::MembersReset(members));
         }
+    }
+}
+
+pub trait GroupTrait<T> {
+    fn get_members() -> Vec<IdentityId>;
+}
+
+impl<T: Trait<I>, I: Instance> GroupTrait<T> for Module<T, I> {
+    fn get_members() -> Vec<IdentityId> {
+        <Members<I>>::get()
     }
 }
 

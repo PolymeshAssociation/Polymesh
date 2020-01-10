@@ -44,12 +44,12 @@
 
 use rstd::{convert::TryFrom, prelude::*};
 
-use crate::{balances, constants::did::USER};
+use crate::{balances, constants::{ did::USER, KYC_EXPIRY_CLAIM_KEY }, group};
 use primitives::{
     Identity as DidRecord, IdentityId, Key, Permission, PreAuthorizedKeyInfo, Signer, SignerType,
     SigningItem,
 };
-
+use group::GroupTrait;
 use codec::Encode;
 use core::convert::From;
 use sr_io::blake2_256;
@@ -156,6 +156,8 @@ pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     /// An extrinsic call.
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
+    /// A custom trait of Group
+    type KYCServiceProviders: group::GroupTrait<Self>;
 }
 
 decl_storage! {
@@ -908,6 +910,21 @@ impl<T: Trait> Module<T> {
             if claim_value.is_some() {
                 return claim_value;
             }
+        }
+        return None;
+    }
+
+    pub fn fetch_kyc_claim_by_trusted_issuers(claim_for: IdentityId) -> Option<Vec<ClaimValue>> {
+        let trusted_kyc_providers = T::KYCServiceProviders::get_members();
+        let mut trusted_claim = Vec::new();
+        if trusted_kyc_providers.len() > 0 {
+            for trusted_kyc_provider in trusted_kyc_providers {
+                match Self::fetch_claim_value(claim_for, KYC_EXPIRY_CLAIM_KEY.to_vec(), trusted_kyc_provider) {
+                    Some(value) => trusted_claim.push(value),
+                    None => {},
+                }
+            }
+            if trusted_claim.len() > 0 { return Some(trusted_claim); }
         }
         return None;
     }

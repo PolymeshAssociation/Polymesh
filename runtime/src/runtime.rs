@@ -429,6 +429,7 @@ impl percentage_tm::Trait for Runtime {
 impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
+    type KYCServiceProviders = KYCServiceProviders;
 }
 
 impl contracts_wrapper::Trait for Runtime {}

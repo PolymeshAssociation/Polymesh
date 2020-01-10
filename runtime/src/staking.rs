@@ -224,13 +224,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::constants::KYC_EXPIRY_CLAIM_KEY;
 use crate::identity;
 use codec::{Decode, Encode, HasCompact};
 use core::convert::TryInto;
 use phragmen::{elect, ExtendedBalance, Support, SupportMap, ACCURACY};
 use primitives::Key;
 use rstd::{convert::TryFrom, prelude::*, result};
+use babe;
 
 #[cfg(feature = "equalize")]
 use phragmen::equalize;
@@ -514,7 +514,7 @@ where
     }
 }
 
-pub trait Trait: system::Trait + identity::Trait {
+pub trait Trait: system::Trait + identity::Trait + babe::Trait {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 
@@ -655,8 +655,6 @@ decl_storage! {
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
             linked_map T::AccountId => Option<PermissionedValidator>;
-        /// No of seconds allowed as a tradeoff in the kyc expiry check
-        pub KYCExpiryTradeOff get(kyc_expiry_tradeoff) config(): u64;
     }
     add_extra_genesis {
         config(stakers):
@@ -709,7 +707,7 @@ decl_event!(
 		PermissionedValidatorStatusChanged(AccountId),
         /// Remove the nominators from the valid nominators when there KYC expired
         /// Caller, Stash accountId of nominators
-        InValidateNominator(AccountId, Vec<AccountId>),
+        InvalidatedNominators(AccountId, Vec<AccountId>),
     }
 );
 
@@ -922,32 +920,34 @@ decl_module! {
             ensure!(!targets.is_empty(), "targets cannot be empty");
             // A Claim_key can have multiple claim value provided by different claim issuers.
             // So here we iterate every claim value of the "KYCExpiryTimestamp" claim key. If
-            // any key value will be greater than the threshold value of timestamp i.e current_timestamp + kyc_expiry_tradeoff()
+            // any key value will be greater than the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then it break the loop and the given nominator in the nominator pool.
 
             if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(Key::try_from(stash.encode())?)) {
-                let claim_issuers = <identity::Module<T>>::claim_issuers(nominate_identity);
-                for x in 0..claim_issuers.len() {
-                    if let Some(claim) = <identity::Module<T>>::fetch_claim_value(nominate_identity, KYC_EXPIRY_CLAIM_KEY.to_vec(), claim_issuers[x]) {
-                        match claim.value.as_slice().try_into() {
-                            Ok(value) => {
-                                let kyc_expiry: [u8; 8] = value;
-                                let now = <timestamp::Module<T>>::get();
-                                let threshold = ((now.saturated_into::<u64>()).checked_add(Self::kyc_expiry_tradeoff())).ok_or("Overflow")?;
-                                if u64::from_be_bytes(kyc_expiry) > threshold {
-                                    let targets = targets.into_iter()
-                                    .take(MAX_NOMINATIONS)
-                                    .map(|t| T::Lookup::lookup(t))
-                                    .collect::<result::Result<Vec<T::AccountId>, _>>()?;
+                match <identity::Module<T>>::fetch_kyc_claim_by_trusted_issuers(nominate_identity) {
+                    Some(claim_values) => {
+                        for claim_value in claim_values {
+                            match claim_value.value.as_slice().try_into() {
+                                Ok(value) => {
+                                    let kyc_expiry: [u8; 8] = value;
+                                    let now = <timestamp::Module<T>>::get();
+                                    let threshold = ((now.saturated_into::<u64>()).checked_add(Self::get_bonding_duration_period())).ok_or("Overflow")?;
+                                    if u64::from_be_bytes(kyc_expiry) > threshold {
+                                        let targets = targets.into_iter()
+                                        .take(MAX_NOMINATIONS)
+                                        .map(|t| T::Lookup::lookup(t))
+                                        .collect::<result::Result<Vec<T::AccountId>, _>>()?;
 
-                                    <Validators<T>>::remove(stash);
-                                    <Nominators<T>>::insert(stash, targets);
-                                    break;
-                                }
-                            },
-                            Err(_) => continue,
+                                        <Validators<T>>::remove(stash);
+                                        <Nominators<T>>::insert(stash, targets);
+                                        break;
+                                    }
+                                },
+                                Err(_) => continue,
+                            }
                         }
-                    }
+                    },
+                    None => {}
                 }
             }
         }
@@ -1119,58 +1119,59 @@ decl_module! {
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
             // Iterate provided list of accountIds (These accountIds should be stash type account)
-            for i in 0..targets.len() {
+            for target in targets.iter() {
                 // Check whether given nominator is vouching for someone or not
 
-                if !(Self::nominators(&targets[i])).is_empty() {
+                if !(Self::nominators(target)).is_empty() {
                     // Access the identity of the nominator
-                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(Key::try_from(targets[i].encode())?)) {
-                        // Access all the claim issuers for a given nominator
-                        // then iterate all of them which provide the claim for KYC expiration.
+                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(Key::try_from(target.encode())?)) {
+                        // Fetch all the claim values provided by the trusted service providers
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                         // valid KYC otherwise it will be removed from the pool of the nominators.
-                        let claim_issuers = <identity::Module<T>>::claim_issuers(nominate_identity);
-                        let mut count: u32 = 0;
-                        for x in 0..claim_issuers.len() {
-                            if let Some(claim) = <identity::Module<T>>::fetch_claim_value(nominate_identity, KYC_EXPIRY_CLAIM_KEY.to_vec(), claim_issuers[x]) {
-                                match claim.value.as_slice().try_into() {
-                                    Ok(value) => {
-                                        // Converting a dynamic size array into fixed size array
-                                        let kyc_expiry: [u8; 8] = value;
-                                        let now = <timestamp::Module<T>>::get();
-                                        // Assumption here that every claim issuer will choose expiry timestamp data type will be u64
-                                        let threshold = now.saturated_into::<u64>();
-                                        if u64::from_be_bytes(kyc_expiry) > threshold {
-                                            break;
-                                        }
-                                    },
-                                    // Continue the for loop to avoid the erroneous data condition which will always fail the transaction
-                                    Err(_) => continue,
+                        match <identity::Module<T>>::fetch_kyc_claim_by_trusted_issuers(nominate_identity) {
+                            Some(claim_values) => {
+                                let mut count: u32 = 0;   
+                                for claim_value in &claim_values {
+                                    match claim_value.value.as_slice().try_into() {
+                                        Ok(value) => {
+                                            // Converting a dynamic size array into fixed size array
+                                            let kyc_expiry: [u8; 8] = value;
+                                            let now = <timestamp::Module<T>>::get();
+                                            // Assumption here that every claim issuer will choose expiry timestamp data type will be u64
+                                            let threshold = now.saturated_into::<u64>();
+                                            if u64::from_be_bytes(kyc_expiry) > threshold {
+                                                break;
+                                            }
+                                        },
+                                        // Continue the for loop to avoid the erroneous data condition which will always fail the transaction
+                                        Err(_) => continue,
+                                    }
+                                    count = count + 1;
                                 }
-                            }
-                            count = count + 1;
-                        }
-                        if count == claim_issuers.len() as u32 {
-                            // Unbonding the balance that bonded with the controller account of a Stash account
-                            // This unbonded amount only be accessible after completion of the BondingDuration
-                            // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
+                                if count == claim_values.len() as u32 {
+                                    // Unbonding the balance that bonded with the controller account of a Stash account
+                                    // This unbonded amount only be accessible after completion of the BondingDuration
+                                    // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
 
-                            let controller = Self::bonded(&targets[i]).ok_or("not a stash")?;
-                            let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
-                            let active_balance = ledger.active;
-                            if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
-                                Self::unbond_balance(controller, &mut ledger, active_balance);
+                                    let controller = Self::bonded(target).ok_or("not a stash")?;
+                                    let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
+                                    let active_balance = ledger.active;
+                                    if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
+                                        Self::unbond_balance(controller, &mut ledger, active_balance);
 
-                                expired_nominators.push(targets[i].clone());
-                                // Free the nominator from the valid nominator list
-                                <Nominators<T>>::remove(targets[i].clone());
-                            }
+                                        expired_nominators.push(target.clone());
+                                        // Free the nominator from the valid nominator list
+                                        <Nominators<T>>::remove(target.clone());
+                                    }
+                                }
+                            },
+                            None => {}
                         }
                     }
                 }
             }
-            Self::deposit_event(RawEvent::InValidateNominator(caller, expired_nominators));
+            Self::deposit_event(RawEvent::InvalidatedNominators(caller, expired_nominators));
         }
 
         // ----- Root calls.
@@ -1716,6 +1717,12 @@ impl<T: Trait> Module<T> {
             ledger.unlocking.push(UnlockChunk { value, era });
             Self::update_ledger(&controller, &ledger);
         }
+    }
+
+    fn get_bonding_duration_period() -> u64 {
+        let total_session = (T::SessionsPerEra::get() as u32) * (T::BondingDuration::get() as u32);
+        let session_length = <T as babe::Trait>::EpochDuration::get();
+        total_session as u64 * session_length
     }
 }
 
