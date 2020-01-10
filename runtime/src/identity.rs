@@ -985,7 +985,6 @@ impl<T: Trait> Module<T> {
         expiry: Option<T::Moment>,
     ) {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
-        // Even if this transaction fails, nonce should be increased for added unpredictability
         <MultiPurposeNonce>::put(&new_nonce);
 
         let last_auth = Self::last_authorization(&target_did);
