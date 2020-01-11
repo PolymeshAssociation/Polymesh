@@ -90,7 +90,8 @@ pub struct ClaimValue {
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-/// A structure for passing claims to `add_claims_batch`.
+/// A structure for passing claims to `add_claims_batch`. The type argument is required to be
+/// `timestamp::Trait::Moment`.
 pub struct ClaimRecord<U> {
     did: IdentityId,
     claim_key: Vec<u8>,
@@ -99,6 +100,7 @@ pub struct ClaimRecord<U> {
 }
 
 impl<U> ClaimRecord<U> {
+    /// Constructs a new claim record.
     pub fn new(
         did: IdentityId,
         claim_key: Vec<u8>,
@@ -113,18 +115,22 @@ impl<U> ClaimRecord<U> {
         }
     }
 
+    /// Returns a reference to the DID.
     pub fn did(&self) -> &IdentityId {
         &self.did
     }
 
+    /// Returns a reference to the claim key.
     pub fn claim_key(&self) -> &[u8] {
         self.claim_key.as_slice()
     }
 
+    /// Returns a reference to the expiry timestamp.
     pub fn expiry(&self) -> &U {
         &self.expiry
     }
 
+    /// Returns a reference to the claim calue.
     pub fn claim_value(&self) -> &ClaimValue {
         &self.claim_value
     }
@@ -492,12 +498,12 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds a new batch of claim records or edits an existing one. Only called by did_issuer's
-        /// signing key.
+        /// Adds a new batch of claim records or edits an existing one. Only called by
+        /// `did_issuer`'s signing key.
         pub fn add_claims_batch(
             origin,
             did_issuer: IdentityId,
-            claims: Vec<ClaimRecord<T>>
+            claims: Vec<ClaimRecord<<T as timestamp::Trait>::Moment>>
         ) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
