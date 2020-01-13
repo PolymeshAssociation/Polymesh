@@ -401,10 +401,11 @@ mod tests {
         collections::HashMap,
         sync::{Arc, Mutex},
     };
+    use system::EnsureSignedBy;
 
     use crate::{
         asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
-        identity, percentage_tm, simple_token::SimpleTokenRecord,
+        group, identity, percentage_tm, simple_token::SimpleTokenRecord,
     };
 
     type SessionIndex = u32;
@@ -514,6 +515,22 @@ mod tests {
         type TransactionByteFee = TransactionByteFee;
         type WeightToFee = ConvertInto;
         type Identity = identity::Module<Test>;
+    }
+
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
     }
 
     impl simple_token::Trait for Test {

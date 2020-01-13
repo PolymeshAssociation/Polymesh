@@ -1634,7 +1634,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{exemption, identity};
+    use crate::{exemption, group, identity};
     use primitives::{IdentityId, Key};
     use rand::Rng;
 
@@ -1653,6 +1653,7 @@ mod tests {
     };
     use std::sync::{Arc, Mutex};
     use substrate_primitives::{Blake2Hasher, H256};
+    use system::EnsureSignedBy;
     use test_client::{self, AccountKeyring};
 
     type SessionIndex = u32;
@@ -1768,6 +1769,22 @@ mod tests {
     impl general_tm::Trait for Test {
         type Event = ();
         type Asset = Module<Test>;
+    }
+
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
     }
 
     #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]

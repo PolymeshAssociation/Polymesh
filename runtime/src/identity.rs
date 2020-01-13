@@ -51,14 +51,14 @@ use crate::{
 };
 use codec::Encode;
 use core::convert::From;
-use group::GroupTrait;
+use core::convert::TryInto;
 use primitives::{
     Identity as DidRecord, IdentityId, Key, Permission, PreAuthorizedKeyInfo, Signer, SignerType,
     SigningItem,
 };
 use sr_io::blake2_256;
 use sr_primitives::{
-    traits::{Dispatchable, Verify},
+    traits::{Dispatchable, SaturatedConversion, Verify},
     AnySignature, DispatchError,
 };
 use srml_support::{
@@ -155,13 +155,13 @@ pub struct SigningItemWithAuth {
 }
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
+pub trait Trait:
+    system::Trait + balances::Trait + timestamp::Trait + group::Trait<group::Instance1>
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     /// An extrinsic call.
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
-    /// A custom trait of Group
-    type KYCServiceProviders: group::GroupTrait<Self>;
 }
 
 decl_storage! {
@@ -743,6 +743,29 @@ decl_module! {
             <RevokeOffChainAuthorization<T>>::insert( (signer,auth), true);
             Ok(())
         }
+
+        /// Query whether given signer identity has valid KYC or not
+        ///
+        /// # Arguments
+        /// * `origin` Signer whose identity get checked
+        /// * `buffer_time` Buffer time corresponds to which kyc expiry need to check
+        pub fn is_my_identity_has_valid_kyc(origin, buffer_time: u64) ->  Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let my_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+            let is_kyced = Self::is_identity_has_valid_kyc(my_did, buffer_time);
+            Self::deposit_event(RawEvent::MyKycStatus(my_did, is_kyced));
+            Ok(())
+        }
     }
 }
 
@@ -784,6 +807,9 @@ decl_event!(
 
         /// DID queried
         DidQuery(Key, IdentityId),
+
+        /// To query the status of DID
+        MyKycStatus(IdentityId, bool),
     }
 );
 
@@ -918,8 +944,8 @@ impl<T: Trait> Module<T> {
         return None;
     }
 
-    pub fn fetch_kyc_claim_by_trusted_issuers(claim_for: IdentityId) -> Option<Vec<ClaimValue>> {
-        let trusted_kyc_providers = T::KYCServiceProviders::get_members();
+    pub fn is_identity_has_valid_kyc(claim_for: IdentityId, buffer: u64) -> bool {
+        let trusted_kyc_providers = <group::Module<T, group::Instance1>>::members();
         let mut trusted_claim = Vec::new();
         if trusted_kyc_providers.len() > 0 {
             for trusted_kyc_provider in trusted_kyc_providers {
@@ -928,15 +954,29 @@ impl<T: Trait> Module<T> {
                     KYC_EXPIRY_CLAIM_KEY.to_vec(),
                     trusted_kyc_provider,
                 ) {
-                    Some(value) => trusted_claim.push(value),
+                    Some(claim) => {
+                        trusted_claim.push(claim.clone());
+                        match claim.value.as_slice().try_into() {
+                            Ok(value) => {
+                                let kyc_expiry: [u8; 8] = value;
+                                let now = <timestamp::Module<T>>::get();
+                                match (now.saturated_into::<u64>()).checked_add(buffer) {
+                                    Some(threshold) => {
+                                        if u64::from_be_bytes(kyc_expiry) > threshold {
+                                            return true;
+                                        }
+                                    }
+                                    None => return false,
+                                }
+                            }
+                            Err(_) => continue,
+                        }
+                    }
                     None => {}
                 }
             }
-            if trusted_claim.len() > 0 {
-                return Some(trusted_claim);
-            }
         }
-        return None;
+        return false;
     }
 
     /// It checks that `sender_key` is the master key of `did` Identifier and that

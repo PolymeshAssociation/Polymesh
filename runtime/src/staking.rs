@@ -227,7 +227,6 @@
 use crate::identity;
 use babe;
 use codec::{Decode, Encode, HasCompact};
-use core::convert::TryInto;
 use phragmen::{elect, ExtendedBalance, Support, SupportMap, ACCURACY};
 use primitives::Key;
 use rstd::{convert::TryFrom, prelude::*, result};
@@ -553,13 +552,13 @@ pub trait Trait: system::Trait + identity::Trait + babe::Trait {
     type RewardCurve: Get<&'static PiecewiseLinear<'static>>;
 
     /// Required origin for adding a potential validator (can always be Root).
-    type AddOrigin: EnsureOrigin<Self::Origin>;
+    type RequiredAddOrigin: EnsureOrigin<Self::Origin>;
 
     /// Required origin for removing a validator (can always be Root).
-    type RemoveOrigin: EnsureOrigin<Self::Origin>;
+    type RequiredRemoveOrigin: EnsureOrigin<Self::Origin>;
 
     /// Required origin for changing compliance status (can always be Root).
-    type ComplianceOrigin: EnsureOrigin<Self::Origin>;
+    type RequiredComplianceOrigin: EnsureOrigin<Self::Origin>;
 }
 
 /// Mode of era-forcing.
@@ -924,30 +923,14 @@ decl_module! {
             // then it break the loop and the given nominator in the nominator pool.
 
             if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(Key::try_from(stash.encode())?)) {
-                match <identity::Module<T>>::fetch_kyc_claim_by_trusted_issuers(nominate_identity) {
-                    Some(claim_values) => {
-                        for claim_value in claim_values {
-                            match claim_value.value.as_slice().try_into() {
-                                Ok(value) => {
-                                    let kyc_expiry: [u8; 8] = value;
-                                    let now = <timestamp::Module<T>>::get();
-                                    let threshold = ((now.saturated_into::<u64>()).checked_add(Self::get_bonding_duration_period())).ok_or("Overflow")?;
-                                    if u64::from_be_bytes(kyc_expiry) > threshold {
-                                        let targets = targets.into_iter()
-                                        .take(MAX_NOMINATIONS)
-                                        .map(|t| T::Lookup::lookup(t))
-                                        .collect::<result::Result<Vec<T::AccountId>, _>>()?;
+                if <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, Self::get_bonding_duration_period()) {
+                    let targets = targets.into_iter()
+                    .take(MAX_NOMINATIONS)
+                    .map(|t| T::Lookup::lookup(t))
+                    .collect::<result::Result<Vec<T::AccountId>, _>>()?;
 
-                                        <Validators<T>>::remove(stash);
-                                        <Nominators<T>>::insert(stash, targets);
-                                        break;
-                                    }
-                                },
-                                Err(_) => continue,
-                            }
-                        }
-                    },
-                    None => {}
+                    <Validators<T>>::remove(stash);
+                    <Nominators<T>>::insert(stash, targets);
                 }
             }
         }
@@ -1030,7 +1013,7 @@ decl_module! {
         /// validators have completed KYB compliance and considers them for validation.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn add_potential_validator(origin, controller: T::AccountId) {
-            T::AddOrigin::try_origin(origin)
+            T::RequiredAddOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
@@ -1050,7 +1033,7 @@ decl_module! {
         /// completed KYB compliance
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn remove_validator(origin, controller: T::AccountId) {
-            T::RemoveOrigin::try_origin(origin)
+            T::RequiredRemoveOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
@@ -1067,7 +1050,7 @@ decl_module! {
         /// as `Pending`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_failed(origin, controller: T::AccountId) {
-            T::ComplianceOrigin::try_origin(origin)
+            T::RequiredComplianceOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
@@ -1087,7 +1070,7 @@ decl_module! {
         /// as `Active`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_passed(origin, controller: T::AccountId) {
-            T::ComplianceOrigin::try_origin(origin)
+            T::RequiredComplianceOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
@@ -1129,45 +1112,23 @@ decl_module! {
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                         // valid KYC otherwise it will be removed from the pool of the nominators.
-                        match <identity::Module<T>>::fetch_kyc_claim_by_trusted_issuers(nominate_identity) {
-                            Some(claim_values) => {
-                                let mut count: u32 = 0;
-                                for claim_value in &claim_values {
-                                    match claim_value.value.as_slice().try_into() {
-                                        Ok(value) => {
-                                            // Converting a dynamic size array into fixed size array
-                                            let kyc_expiry: [u8; 8] = value;
-                                            let now = <timestamp::Module<T>>::get();
-                                            // Assumption here that every claim issuer will choose expiry timestamp data type will be u64
-                                            let threshold = now.saturated_into::<u64>();
-                                            if u64::from_be_bytes(kyc_expiry) > threshold {
-                                                break;
-                                            }
-                                        },
-                                        // Continue the for loop to avoid the erroneous data condition which will always fail the transaction
-                                        Err(_) => continue,
-                                    }
-                                    count = count + 1;
-                                }
-                                if count == claim_values.len() as u32 {
-                                    // Unbonding the balance that bonded with the controller account of a Stash account
-                                    // This unbonded amount only be accessible after completion of the BondingDuration
-                                    // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
+                        if !<identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, 0_u64) {
+                            // Unbonding the balance that bonded with the controller account of a Stash account
+                            // This unbonded amount only be accessible after completion of the BondingDuration
+                            // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
 
-                                    let controller = Self::bonded(target).ok_or("not a stash")?;
-                                    let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
-                                    let active_balance = ledger.active;
-                                    if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
-                                        Self::unbond_balance(controller, &mut ledger, active_balance);
+                            let controller = Self::bonded(target).ok_or("not a stash")?;
+                            let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
+                            let active_balance = ledger.active;
+                            if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
+                                Self::unbond_balance(controller, &mut ledger, active_balance);
 
-                                        expired_nominators.push(target.clone());
-                                        // Free the nominator from the valid nominator list
-                                        <Nominators<T>>::remove(target.clone());
-                                    }
-                                }
-                            },
-                            None => {}
+                                expired_nominators.push(target.clone());
+                                // Free the nominator from the valid nominator list
+                                <Nominators<T>>::remove(target.clone());
+                            }
                         }
+
                     }
                 }
             }
@@ -1927,14 +1888,16 @@ mod tests {
     use super::*;
     use crate::constants::KYC_EXPIRY_CLAIM_KEY;
     use crate::{
-        balances, identity,
+        balances, group, identity,
         test::storage::{account_from, make_account, make_account_with_balance},
     };
+    use babe;
     use identity::{ClaimMetaData, ClaimValue, DataTypes};
     use std::{
         cell::RefCell,
         collections::{HashMap, HashSet},
     };
+    use system::EnsureSignedBy;
 
     use chrono::prelude::*;
     use primitives::{IdentityId, Key};
@@ -1954,7 +1917,6 @@ mod tests {
         traits::FindAuthor,
     };
     use substrate_primitives::{Blake2Hasher, H256};
-    use system::EnsureSignedBy;
     use test_client::AccountKeyring;
 
     /// Mock types for testing
@@ -2099,6 +2061,22 @@ mod tests {
         }
     }
 
+    parameter_types! {
+        pub const One1: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two2: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three3: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four4: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five5: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One1, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two2, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three3, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four4, AccountId>;
+    }
+
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
@@ -2145,6 +2123,16 @@ mod tests {
         type MinimumPeriod = MinimumPeriod;
     }
 
+    parameter_types! {
+        pub const EpochDuration: u64 =  20 as u64;
+        pub const ExpectedBlockTime: u64 = 6000;
+    }
+
+    impl babe::Trait for Test {
+        type EpochDuration = EpochDuration;
+        type ExpectedBlockTime = ExpectedBlockTime;
+    }
+
     srml_staking_reward_curve::build! {
         const I_NPOS: PiecewiseLinear<'static> = curve!(
             min_inflation: 0_025_000,
@@ -2185,15 +2173,15 @@ mod tests {
 
         /// Required origin for adding a potential validator (can always be Root).
         //type AddOrigin: EnsureOrigin<Self::Origin>;
-        type AddOrigin = EnsureSignedBy<One, Self::AccountId>;
+        type RequiredAddOrigin = EnsureSignedBy<One, Self::AccountId>;
 
         /// Required origin for removing a validator (can always be Root).
         // type RemoveOrigin: EnsureOrigin<Self::Origin>;
-        type RemoveOrigin = EnsureSignedBy<Two, Self::AccountId>;
+        type RequiredRemoveOrigin = EnsureSignedBy<Two, Self::AccountId>;
 
         /// Required origin for changing compliance status (can always be Root).
         // type ComplianceOrigin: EnsureOrigin<Self::Origin>;
-        type ComplianceOrigin = EnsureSignedBy<Three, Self::AccountId>;
+        type RequiredComplianceOrigin = EnsureSignedBy<Three, Self::AccountId>;
     }
 
     type Staking = super::Module<Test>;
@@ -2201,6 +2189,8 @@ mod tests {
     type Session = session::Module<Test>;
     type Timestamp = timestamp::Module<Test>;
     type Identity = identity::Module<Test>;
+    type Babe = babe::Module<Test>;
+    type Group = group::Module<Test, group::Instance1>;
 
     pub struct ExtBuilder {
         existential_deposit: u64,
@@ -2211,7 +2201,6 @@ mod tests {
         fair: bool,
         num_validators: Option<u32>,
         invulnerables: Vec<AccountId>,
-        kyc_expiry_tradeoff: u64,
     }
 
     impl Default for ExtBuilder {
@@ -2225,7 +2214,6 @@ mod tests {
                 fair: true,
                 num_validators: None,
                 invulnerables: vec![],
-                kyc_expiry_tradeoff: 2629746, // seconds in 1 month
             }
         }
     }
@@ -2261,10 +2249,6 @@ mod tests {
         }
         pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
             self.invulnerables = invulnerables;
-            self
-        }
-        pub fn kyc_expiry_tradeoff(mut self, kyc_expiry_tradeoff: u64) -> Self {
-            self.kyc_expiry_tradeoff = kyc_expiry_tradeoff;
             self
         }
         pub fn set_associated_consts(&self) {
@@ -2390,7 +2374,6 @@ mod tests {
                 validator_count: self.validator_count,
                 minimum_validator_count: self.minimum_validator_count,
                 invulnerables: self.invulnerables,
-                kyc_expiry_tradeoff: self.kyc_expiry_tradeoff,
                 slash_reward_fraction: Perbill::from_percent(10),
                 ..Default::default()
             }
@@ -2411,6 +2394,16 @@ mod tests {
             let _ = identity::GenesisConfig::<Test> {
                 owner: AccountKeyring::Alice.public().into(),
                 did_creation_fee: 250,
+            }
+            .assimilate_storage(&mut storage);
+
+            let _ = group::GenesisConfig::<Test, group::Instance1> {
+                members: vec![
+                    IdentityId::from(1),
+                    IdentityId::from(2),
+                    IdentityId::from(3),
+                ],
+                ..Default::default()
             }
             .assimilate_storage(&mut storage);
 
@@ -2573,6 +2566,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn add_nominator_with_invalid_expiry() {
         with_externalities(
             &mut ExtBuilder::default()
@@ -2581,7 +2575,6 @@ mod tests {
                 .num_validators(2)
                 .validator_pool(true)
                 .nominate(true)
-                .kyc_expiry_tradeoff(200)
                 .build(),
             || {
                 let account_alice = AccountId::from(AccountKeyring::Alice);
@@ -2589,8 +2582,11 @@ mod tests {
                     make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
                 let account_alice_controller = AccountId::from(AccountKeyring::Dave);
                 let controller_signed = Origin::signed(account_alice_controller.clone());
+
+                // For valid trusted KYC service providers
                 let account_bob = AccountId::from(AccountKeyring::Bob);
                 let (bob_signed, bob_did) = make_account(account_bob.clone()).unwrap();
+                //add_trusted_kyc_provider(bob_did).unwrap();
 
                 let now = Utc::now();
                 // Add nominator claim
@@ -2625,6 +2621,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn add_valid_nominator_with_multiple_claims() {
         with_externalities(
             &mut ExtBuilder::default()
@@ -2633,7 +2630,6 @@ mod tests {
                 .num_validators(2)
                 .validator_pool(true)
                 .nominate(true)
-                .kyc_expiry_tradeoff(800)
                 .build(),
             || {
                 let account_alice = AccountId::from(AccountKeyring::Alice);
@@ -2705,6 +2701,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn validate_nominators_with_valid_kyc() {
         with_externalities(
             &mut ExtBuilder::default()
@@ -2713,7 +2710,6 @@ mod tests {
                 .num_validators(2)
                 .validator_pool(true)
                 .nominate(true)
-                .kyc_expiry_tradeoff(300)
                 .build(),
             || {
                 let account_alice = AccountId::from(AccountKeyring::Alice);

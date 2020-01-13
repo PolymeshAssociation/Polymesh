@@ -254,10 +254,11 @@ impl staking::Trait for Runtime {
     type SessionInterface = Self;
     type Time = Timestamp;
     type RewardCurve = RewardCurve;
-    type AddOrigin = collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
-    type RemoveOrigin =
+    type RequiredAddOrigin =
         collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
-    type ComplianceOrigin =
+    type RequiredRemoveOrigin =
+        collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+    type RequiredComplianceOrigin =
         collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
 }
 
@@ -429,7 +430,6 @@ impl percentage_tm::Trait for Runtime {
 impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
-    type KYCServiceProviders = KYCServiceProviders;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
