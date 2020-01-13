@@ -946,33 +946,24 @@ impl<T: Trait> Module<T> {
 
     pub fn is_identity_has_valid_kyc(claim_for: IdentityId, buffer: u64) -> bool {
         let trusted_kyc_providers = <group::Module<T, group::Instance1>>::members();
-        let mut trusted_claim = Vec::new();
         if trusted_kyc_providers.len() > 0 {
             for trusted_kyc_provider in trusted_kyc_providers {
-                match Self::fetch_claim_value(
+                if let Some(claim) = Self::fetch_claim_value(
                     claim_for,
                     KYC_EXPIRY_CLAIM_KEY.to_vec(),
                     trusted_kyc_provider,
                 ) {
-                    Some(claim) => {
-                        trusted_claim.push(claim.clone());
-                        match claim.value.as_slice().try_into() {
-                            Ok(value) => {
-                                let kyc_expiry: [u8; 8] = value;
-                                let now = <timestamp::Module<T>>::get();
-                                match (now.saturated_into::<u64>()).checked_add(buffer) {
-                                    Some(threshold) => {
-                                        if u64::from_be_bytes(kyc_expiry) > threshold {
-                                            return true;
-                                        }
-                                    }
-                                    None => return false,
-                                }
+                    if let Ok(value) = claim.value.as_slice().try_into() {
+                        //let kyc_expiry: [u8; 8] = value;
+                        if let Some(threshold) = ((<timestamp::Module<T>>::get())
+                            .saturated_into::<u64>())
+                        .checked_add(buffer)
+                        {
+                            if u64::from_be_bytes(value) > threshold {
+                                return true;
                             }
-                            Err(_) => continue,
                         }
                     }
-                    None => {}
                 }
             }
         }

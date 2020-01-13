@@ -1125,7 +1125,7 @@ decl_module! {
 
                                 expired_nominators.push(target.clone());
                                 // Free the nominator from the valid nominator list
-                                <Nominators<T>>::remove(target.clone());
+                                <Nominators<T>>::remove(target);
                             }
                         }
 
