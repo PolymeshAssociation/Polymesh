@@ -1808,6 +1808,7 @@ where
 mod tests {
     use super::*;
     use crate::{balances, identity, test::storage::account_from};
+    use primitives::IdentityId;
     use std::{
         cell::RefCell,
         collections::{HashMap, HashSet},
@@ -1977,6 +1978,12 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
+        type AcceptTickerTransferTarget = Test;
+    }
+    impl crate::asset::AcceptTickerTransfer for Test {
+        fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
     }
 
     parameter_types! {

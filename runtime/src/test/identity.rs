@@ -3,11 +3,14 @@ use crate::{
     identity::{self, ClaimValue, DataTypes, SigningItemWithAuth, TargetIdAuthorization},
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
-use primitives::{Key, Permission, Signer, SignerType, SigningItem};
-
 use codec::Encode;
+use primitives::{
+    Authorization, AuthorizationData, Key, Permission, Signer, SignerType, SigningItem,
+};
+use rand::Rng;
 use sr_io::with_externalities;
 use srml_support::{assert_err, assert_ok, traits::Currency};
+use std::convert::TryInto;
 use substrate_primitives::H512;
 use test_client::AccountKeyring;
 
@@ -763,4 +766,132 @@ fn one_step_join_id_with_ext() {
         ),
         "Offchain authorization has expired"
     );
+}
+
+#[test]
+fn adding_authorizations() {
+    with_externalities(&mut build_ext(), || {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+
+        let mut auth_ids_bob = Vec::new();
+        auth_ids_bob.push(0); // signifies that there are no more auths left
+        assert_ok!(Identity::add_authorization(
+            alice.clone(),
+            bob_did,
+            AuthorizationData::TransferTicker(vec![0x50]),
+            None,
+        ));
+        auth_ids_bob.push(Identity::last_authorization(bob_did));
+        assert_ok!(Identity::add_authorization(
+            alice.clone(),
+            bob_did,
+            AuthorizationData::TransferTicker(vec![0x51]),
+            None,
+        ));
+        auth_ids_bob.push(Identity::last_authorization(bob_did));
+        assert_ok!(Identity::add_authorization(
+            alice,
+            bob_did,
+            AuthorizationData::TransferTicker(vec![0x50]),
+            Some(100),
+        ));
+        auth_ids_bob.push(Identity::last_authorization(bob_did));
+        assert_ok!(Identity::add_authorization(
+            charlie,
+            bob_did,
+            AuthorizationData::TransferTicker(vec![0x50]),
+            Some(100),
+        ));
+        auth_ids_bob.push(Identity::last_authorization(bob_did));
+        auth_ids_bob.push(0); // signifies that there are no more auths left
+        for i in 1..(auth_ids_bob.len() - 1) {
+            let auth = Identity::authorizations((bob_did, auth_ids_bob[i]));
+            assert_eq!(auth.previous_authorization, auth_ids_bob[i - 1]);
+            assert_eq!(auth.next_authorization, auth_ids_bob[i + 1]);
+            match i {
+                1 => {
+                    assert_eq!(auth.authorized_by, alice_did);
+                    assert_eq!(auth.expiry, None);
+                    assert_eq!(
+                        auth.authorization_data,
+                        AuthorizationData::TransferTicker(vec![0x50])
+                    );
+                }
+                2 => {
+                    assert_eq!(auth.authorized_by, alice_did);
+                    assert_eq!(auth.expiry, None);
+                    assert_eq!(
+                        auth.authorization_data,
+                        AuthorizationData::TransferTicker(vec![0x51])
+                    );
+                }
+                3 => {
+                    assert_eq!(auth.authorized_by, alice_did);
+                    assert_eq!(auth.expiry, Some(100));
+                    assert_eq!(
+                        auth.authorization_data,
+                        AuthorizationData::TransferTicker(vec![0x50])
+                    );
+                }
+                4 => {
+                    assert_eq!(auth.authorized_by, charlie_did);
+                    assert_eq!(auth.expiry, Some(100));
+                    assert_eq!(
+                        auth.authorization_data,
+                        AuthorizationData::TransferTicker(vec![0x50])
+                    );
+                }
+                _ => {}
+            }
+        }
+    });
+}
+
+#[test]
+fn removing_authorizations() {
+    with_externalities(&mut build_ext(), || {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+        let mut auth_ids_bob = Vec::new();
+        auth_ids_bob.push(0); // signifies that there are no more auths left
+        for _ in 0..10 {
+            assert_ok!(Identity::add_authorization(
+                alice.clone(),
+                bob_did,
+                AuthorizationData::TransferTicker(vec![0x50]),
+                None,
+            ));
+            auth_ids_bob.push(Identity::last_authorization(bob_did));
+        }
+        auth_ids_bob.push(0); // signifies that there are no more auths left
+        let mut rng = rand::thread_rng();
+        for _ in 0..10 {
+            let auth_to_remove = rng.gen_range(1, auth_ids_bob.len() - 1);
+            let auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
+            assert_eq!(
+                auth.authorization_data,
+                AuthorizationData::TransferTicker(vec![0x50])
+            );
+            assert_eq!(
+                auth.previous_authorization,
+                auth_ids_bob[auth_to_remove - 1]
+            );
+            assert_eq!(auth.next_authorization, auth_ids_bob[auth_to_remove + 1]);
+            Identity::remove_authorization(alice.clone(), bob_did, auth_ids_bob[auth_to_remove]);
+            let removed_auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
+            assert_eq!(removed_auth.authorization_data, AuthorizationData::NoData);
+            auth_ids_bob.remove(auth_to_remove);
+            for i in 1..(auth_ids_bob.len() - 1) {
+                let auth = Identity::authorizations((bob_did, auth_ids_bob[i]));
+                assert_eq!(auth.previous_authorization, auth_ids_bob[i - 1]);
+                assert_eq!(auth.next_authorization, auth_ids_bob[i + 1]);
+            }
+        }
+    });
 }
