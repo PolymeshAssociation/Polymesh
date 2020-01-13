@@ -1,6 +1,8 @@
 use crate::{
     balances,
-    identity::{self, ClaimValue, DataTypes, SigningItemWithAuth, TargetIdAuthorization},
+    identity::{
+        self, ClaimRecord, ClaimValue, DataTypes, SigningItemWithAuth, TargetIdAuthorization,
+    },
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use codec::Encode;
@@ -63,6 +65,77 @@ fn only_claim_issuers_can_add_claims() {
                 claim_issuer_did,
                 100u64,
                 claim_value
+            ),
+            "Sender must hold a claim issuer\'s signing key"
+        );
+    });
+}
+
+#[test]
+fn only_claim_issuers_can_add_claims_batch() {
+    with_externalities(&mut build_ext(), || {
+        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let issuer = AccountKeyring::Bob.public();
+        let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let claim_issuer = AccountKeyring::Charlie.public();
+        let mut claim_records = Vec::new();
+        let claim_key = "key".as_bytes();
+        claim_records.push(ClaimRecord::new(
+            claim_issuer_did.clone(),
+            claim_key.to_vec(),
+            100u64,
+            ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "value 1".as_bytes().to_vec(),
+            },
+        ));
+        claim_records.push(ClaimRecord::new(
+            claim_issuer_did.clone(),
+            claim_key.to_vec(),
+            200u64,
+            ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "value 2".as_bytes().to_vec(),
+            },
+        ));
+        assert_ok!(Identity::add_claims_batch(
+            Origin::signed(claim_issuer.clone()),
+            claim_issuer_did.clone(),
+            claim_records.clone(),
+        ));
+        claim_records.push(ClaimRecord::new(
+            owner_did.clone(),
+            claim_key.to_vec(),
+            300u64,
+            ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "value 3".as_bytes().to_vec(),
+            },
+        ));
+        assert_err!(
+            Identity::add_claims_batch(
+                Origin::signed(claim_issuer.clone()),
+                issuer_did,
+                claim_records,
+            ),
+            "did must be a claim issuer or master key for DID"
+        );
+        let mut claim_records_err2 = Vec::new();
+        claim_records_err2.push(ClaimRecord::new(
+            issuer_did.clone(),
+            claim_key.to_vec(),
+            400u64,
+            ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "value 4".as_bytes().to_vec(),
+            },
+        ));
+        assert_err!(
+            Identity::add_claims_batch(
+                Origin::signed(issuer),
+                claim_issuer_did,
+                claim_records_err2,
             ),
             "Sender must hold a claim issuer\'s signing key"
         );

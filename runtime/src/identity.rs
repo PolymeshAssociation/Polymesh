@@ -101,12 +101,7 @@ pub struct ClaimRecord<U> {
 
 impl<U> ClaimRecord<U> {
     /// Constructs a new claim record.
-    pub fn new(
-        did: IdentityId,
-        claim_key: Vec<u8>,
-        expiry: U,
-        claim_value: ClaimValue,
-    ) -> Self {
+    pub fn new(did: IdentityId, claim_key: Vec<u8>, expiry: U, claim_value: ClaimValue) -> Self {
         ClaimRecord {
             did,
             claim_key,
