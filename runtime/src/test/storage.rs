@@ -2,13 +2,13 @@ use crate::{balances, identity};
 use primitives::{IdentityId, Key};
 
 use codec::Encode;
-use sr_io::TestExternalities;
-use sr_primitives::{
+use sp_io::TestExternalities;
+use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
     Perbill,
 };
-use srml_support::{
+use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     impl_outer_origin, parameter_types,
     traits::Currency,
@@ -94,7 +94,7 @@ pub struct IdentityProposal {
     pub dummy: u8,
 }
 
-impl sr_primitives::traits::Dispatchable for IdentityProposal {
+impl sp_runtime::traits::Dispatchable for IdentityProposal {
     type Origin = Origin;
     type Trait = TestStorage;
     type Error = DispatchError;

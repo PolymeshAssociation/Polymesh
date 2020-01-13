@@ -1,7 +1,7 @@
 use crate::{identity, identity::LinkedKeyInfo, runtime, Runtime};
 use primitives::{IdentityId, Key, TransactionError};
 
-use sr_primitives::{
+use sp_runtime::{
     traits::SignedExtension,
     transaction_validity::{
         InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -11,7 +11,7 @@ use sr_primitives::{
 use codec::{Decode, Encode};
 use core::convert::TryFrom;
 use rstd::marker::PhantomData;
-use srml_support::dispatch::DispatchInfo;
+use frame_support::dispatch::DispatchInfo;
 
 type Identity = identity::Module<Runtime>;
 type Call = runtime::Call;
@@ -86,7 +86,7 @@ impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
                         Err(InvalidTransaction::Custom(TransactionError::RequiredKYC as u8).into())
                     }
                 } else {
-                    sr_primitives::print("ERROR: This transaction requires an Identity");
+                    sp_runtime::print("ERROR: This transaction requires an Identity");
                     Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
                 }
             }
@@ -109,12 +109,12 @@ mod tests {
     };
     use core::default::Default;
     use primitives::TransactionError;
-    use sr_io::with_externalities;
-    use sr_primitives::{
+    use sp_io::with_externalities;
+    use sp_runtime::{
         traits::SignedExtension,
         transaction_validity::{InvalidTransaction, ValidTransaction},
     };
-    use srml_support::dispatch::DispatchInfo;
+    use frame_support::dispatch::DispatchInfo;
 
     type Call = runtime::Call;
     type IdentityCall = identity::Call<Runtime>;

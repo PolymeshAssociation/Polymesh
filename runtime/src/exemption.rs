@@ -6,7 +6,7 @@ use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use system::ensure_signed;
 
 /// The module's configuration trait.
@@ -32,7 +32,7 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        fn modify_exemption_list(origin, did: IdentityId, ticker: Vec<u8>, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> Result {
+        fn modify_exemption_list(origin, did: IdentityId, ticker: Vec<u8>, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
             let upper_ticker = utils::bytes_to_upper(&ticker);
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
@@ -76,13 +76,13 @@ mod tests {
     // use super::*;
 
     // use substrate_primitives::{Blake2Hasher, H256};
-    // use sr_io::with_externalities;
-    // use sr_primitives::{
+    // use sp_io::with_externalities;
+    // use sp_runtime::{
     //     testing::{Digest, DigestItem, Header},
     //     traits::{BlakeTwo256, IdentityLookup},
     //     BuildStorage,
     // };
-    // use srml_support::{assert_ok, impl_outer_origin};
+    // use frame_support::{assert_ok, impl_outer_origin};
 
     // impl_outer_origin! {
     //     pub enum Origin for Test {}
@@ -113,7 +113,7 @@ mod tests {
 
     // // This function basically just builds a genesis storage key/value store according to
     // // our desired mockup.
-    // fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+    // fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
     //     system::GenesisConfig::default()
     //         .build_storage()
     //         .unwrap()

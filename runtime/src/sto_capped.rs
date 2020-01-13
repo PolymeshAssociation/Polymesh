@@ -37,9 +37,9 @@ use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
-use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use srml_support::traits::Currency;
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use frame_support::traits::Currency;
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
@@ -77,7 +77,7 @@ decl_storage! {
         StosByToken get(stos_by_token): map (Vec<u8>, u32) => STO<T::Balance,T::Moment>;
         /// It returns the sto count corresponds to its ticker
         /// ticker -> sto count
-        StoCount get(sto_count): map (Vec<u8>) => u32;
+        StoCount get(sto_count): map Vec<u8> => u32;
         /// List of SimpleToken tokens which will be accepted as the fund raised type for the STO
         /// (asset_ticker, sto_id, index) -> simple_token_ticker
         AllowedTokens get(allowed_tokens): map(Vec<u8>, u32, u32) => Vec<u8>;
@@ -125,7 +125,7 @@ decl_module! {
             start_date: T::Moment,
             end_date: T::Moment,
             simple_token_ticker: Vec<u8>
-        ) -> Result {
+        ) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -164,7 +164,7 @@ decl_module! {
 
                 Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, simple_token_ticker, sto_count, true));
             }
-            sr_primitives::print("Capped STOlaunched!!!");
+            sp_runtime::print("Capped STOlaunched!!!");
 
             Ok(())
         }
@@ -177,7 +177,7 @@ decl_module! {
         /// * `_ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
-        pub fn buy_tokens(origin, did: IdentityId,  _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> Result {
+        pub fn buy_tokens(origin, did: IdentityId,  _ticker: Vec<u8>, sto_id: u32, value: T::Balance ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::Key( Key::try_from( sender.encode())?);
 
@@ -239,7 +239,7 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in.
         /// * `simple_token_ticker` Ticker of the stable coin
         /// * `modify_status` Boolean to know whether the provided simple token ticker will be used or not.
-        pub fn modify_allowed_tokens(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32, simple_token_ticker: Vec<u8>, modify_status: bool) -> Result {
+        pub fn modify_allowed_tokens(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32, simple_token_ticker: Vec<u8>, modify_status: bool) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             /// Check that sender is allowed to act on behalf of `did`
@@ -292,7 +292,7 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
         /// * `simple_token_ticker` Ticker of the simple token
-        pub fn buy_tokens_by_simple_token(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32, value: T::Balance, simple_token_ticker: Vec<u8>) -> Result {
+        pub fn buy_tokens_by_simple_token(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32, value: T::Balance, simple_token_ticker: Vec<u8>) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -349,7 +349,7 @@ decl_module! {
         /// * `did` DID of the token owner
         /// * `_ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to paused
-        pub fn pause_sto(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32) -> Result {
+        pub fn pause_sto(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -377,7 +377,7 @@ decl_module! {
         /// * `did` DID of the token owner
         /// * `_ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to un paused
-        pub fn unpause_sto(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32) -> Result {
+        pub fn unpause_sto(origin, did: IdentityId, _ticker: Vec<u8>, sto_id: u32) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -422,7 +422,7 @@ impl<T: Trait> Module<T> {
         _ticker: &Vec<u8>,
         _did: IdentityId,
         selected_sto: STO<T::Balance, T::Moment>,
-    ) -> Result {
+    ) -> DispatchResult {
         // TODO: Validate that buyer is whitelisted for primary issuance.
         // Check whether the sto is unpaused or not
         ensure!(selected_sto.active, "sto is paused");
@@ -468,7 +468,7 @@ impl<T: Trait> Module<T> {
         simple_token_ticker: Vec<u8>,
         simple_token_investment: T::Balance,
         selected_sto: STO<T::Balance, T::Moment>,
-    ) -> Result {
+    ) -> DispatchResult {
         // Store Investment DATA
         let mut investor_holder = Self::investment_data((ticker.clone(), sto_id, did));
         if investor_holder.investor_did == IdentityId::default() {
@@ -501,7 +501,7 @@ impl<T: Trait> Module<T> {
             investment_amount,
             new_tokens_minted,
         ));
-        sr_primitives::print("Invested in STO");
+        sp_runtime::print("Invested in STO");
         Ok(())
     }
 }
@@ -513,13 +513,13 @@ mod tests {
      *    use super::*;
      *
      *    use substrate_primitives::{Blake2Hasher, H256};
-     *    use sr_io::with_externalities;
-     *    use sr_primitives::{
+     *    use sp_io::with_externalities;
+     *    use sp_runtime::{
      *        testing::{Digest, DigestItem, Header},
      *        traits::{BlakeTwo256, IdentityLookup},
      *        BuildStorage,
      *    };
-     *    use srml_support::{assert_ok, impl_outer_origin};
+     *    use frame_support::{assert_ok, impl_outer_origin};
      *
      *    impl_outer_origin! {
      *        pub enum Origin for Test {}
@@ -550,7 +550,7 @@ mod tests {
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
-     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+     *    fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
      *        system::GenesisConfig::default()
      *            .build_storage()
      *            .unwrap()

@@ -53,7 +53,7 @@ pub mod config {
 pub mod update_did_signed_extension;
 pub use update_did_signed_extension::UpdateDid;
 
-pub use sr_primitives::{Perbill, Permill};
+pub use sp_runtime::{Perbill, Permill};
 
 #[cfg(test)]
 pub mod test;

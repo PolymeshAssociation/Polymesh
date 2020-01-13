@@ -35,8 +35,8 @@ use crate::{asset, balances, identity, simple_token, utils};
 use codec::Encode;
 use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
-use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use system::ensure_signed;
 
 /// The module's configuration trait.
@@ -78,7 +78,7 @@ decl_storage! {
         Dividends get(dividends): map (Vec<u8>, u32) => Dividend<T::Balance, T::Moment>;
 
         /// How many dividends were created for a ticker so far; (ticker) => count
-        DividendCount get(dividend_count): map (Vec<u8>) => u32;
+        DividendCount get(dividend_count): map Vec<u8> => u32;
 
         /// Payout flags, decide whether a user already was paid their dividend
         /// (DID, ticker, dividend_id) -> whether they got their payout
@@ -102,7 +102,7 @@ decl_module! {
             expires_at: T::Moment,
             payout_ticker: Vec<u8>,
             checkpoint_id: u64
-        ) -> Result {
+        ) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
             let ticker = utils::bytes_to_upper(ticker.as_slice());
 
@@ -176,7 +176,7 @@ decl_module! {
         }
 
         /// Lets the owner cancel a dividend before start/maturity date
-        pub fn cancel(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
+        pub fn cancel(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> DispatchResult {
             let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -214,7 +214,7 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        pub fn claim(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
+        pub fn claim(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> DispatchResult {
             let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -281,7 +281,7 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
-        pub fn claim_unclaimed(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
+        pub fn claim_unclaimed(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -381,15 +381,15 @@ mod tests {
     use chrono::{prelude::*, Duration};
     use core::result::Result as StdResult;
     use lazy_static::lazy_static;
-    use sr_io::with_externalities;
-    use sr_primitives::traits::Verify;
-    use sr_primitives::{
+    use sp_io::with_externalities;
+    use sp_runtime::traits::Verify;
+    use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         AnySignature, Perbill,
     };
-    use srml_support::traits::Currency;
-    use srml_support::{
+    use frame_support::traits::Currency;
+    use frame_support::{
         assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
@@ -530,7 +530,7 @@ mod tests {
         pub dummy: u8,
     }
 
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+    impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
         type Error = DispatchError;
@@ -638,7 +638,7 @@ mod tests {
     type Identity = identity::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by_1() -> sr_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by_1() -> sp_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -659,7 +659,7 @@ mod tests {
         }
         .assimilate_storage(&mut t)
         .unwrap();
-        sr_io::TestExternalities::new(t)
+        sp_io::TestExternalities::new(t)
     }
 
     fn make_account(

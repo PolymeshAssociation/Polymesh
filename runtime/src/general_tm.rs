@@ -54,7 +54,7 @@ use core::result::Result as StdResult;
 use identity::ClaimValue;
 use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use system::{self, ensure_signed};
 
 /// Type of operators that a rule can have
@@ -124,7 +124,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Adds an asset rule to active rules for a ticker
-        pub fn add_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+        pub fn add_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> DispatchResult {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
@@ -145,7 +145,7 @@ decl_module! {
         }
 
         /// Removes a rule from active asset rules
-        pub fn remove_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
+        pub fn remove_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> DispatchResult {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
@@ -167,7 +167,7 @@ decl_module! {
         }
 
         /// Removes all active rules of a ticker
-        pub fn reset_active_rules(origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
+        pub fn reset_active_rules(origin, did: IdentityId, _ticker: Vec<u8>) -> DispatchResult {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
@@ -267,12 +267,12 @@ impl<T: Trait> Module<T> {
             }
 
             if !rule_broken {
-                sr_primitives::print("Satisfied Identity TM restrictions");
+                sp_runtime::print("Satisfied Identity TM restrictions");
                 return Ok(ERC1400_TRANSFER_SUCCESS);
             }
         }
 
-        sr_primitives::print("Identity TM restrictions not satisfied");
+        sp_runtime::print("Identity TM restrictions not satisfied");
         Ok(ERC1400_TRANSFER_FAILURE)
     }
 }
@@ -282,19 +282,19 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use chrono::prelude::*;
-    use sr_io::with_externalities;
-    use sr_primitives::{
+    use sp_io::with_externalities;
+    use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
         AnySignature, Perbill,
     };
-    use srml_support::traits::Currency;
-    use srml_support::{
+    use frame_support::traits::Currency;
+    use frame_support::{
         assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
     };
-    use std::result::Result;
+    use rstd::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
 
@@ -436,7 +436,7 @@ mod tests {
         pub dummy: u8,
     }
 
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+    impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
         type Error = DispatchError;
@@ -476,7 +476,7 @@ mod tests {
     type Asset = asset::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by_alice() -> sp_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -497,7 +497,7 @@ mod tests {
         }
         .assimilate_storage(&mut t)
         .unwrap();
-        sr_io::TestExternalities::new(t)
+        sp_io::TestExternalities::new(t)
     }
 
     fn make_account(

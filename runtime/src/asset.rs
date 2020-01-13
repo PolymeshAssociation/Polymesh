@@ -61,14 +61,14 @@ use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
 use primitives::{IdentityId, Key, Signer};
-use rstd::{convert::TryFrom, prelude::*};
+use rstd::{convert::TryFrom, prelude::* };
 use session;
-use sr_primitives::traits::{CheckedAdd, CheckedSub, Verify};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]
-use sr_primitives::{Deserialize, Serialize};
-use srml_support::{
+use sp_runtime::{Deserialize, Serialize};
+use frame_support::{
     decl_event, decl_module, decl_storage,
-    dispatch::Result,
+    dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
 };
@@ -169,7 +169,7 @@ decl_storage! {
             map (IdentityId, Option<Vec<u8>>) => TickerTransferApproval<IdentityId>;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
-        pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u64;
+        pub TotalCheckpoints get(total_checkpoints_of): map Vec<u8> => u64;
         /// Total supply of the token at the checkpoint
         /// (ticker, checkpointId) -> total supply at given checkpoint
         pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u64) => T::Balance;
@@ -206,7 +206,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `_ticker` ticker to register
-        pub fn register_ticker(origin, _ticker: Vec<u8>) -> Result {
+        pub fn register_ticker(origin, _ticker: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             let signer = Signer::Key( sender_key.clone());
@@ -250,7 +250,7 @@ decl_module! {
         /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `to_did` DID of the future owner of the ticker
         /// * `_ticker` ticker to transfer
-        pub fn approve_ticker_transfer(origin, to_did: IdentityId, _ticker: Vec<u8>) -> Result {
+        pub fn approve_ticker_transfer(origin, to_did: IdentityId, _ticker: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             let from_did =  match <identity::Module<T>>::current_did() {
@@ -315,7 +315,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `_ticker` ticker to transfer
-        pub fn process_ticker_transfer(origin, _ticker: Vec<u8>) -> Result {
+        pub fn process_ticker_transfer(origin, _ticker: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             let to_did =  match <identity::Module<T>>::current_did() {
@@ -366,7 +366,7 @@ decl_module! {
             Ok(())
         }
 
-        pub fn withdraw_ticker_transfer_approval(origin, to_did: IdentityId, _ticker: Vec<u8>) -> Result {
+        pub fn withdraw_ticker_transfer_approval(origin, to_did: IdentityId, _ticker: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             let from_did =  match <identity::Module<T>>::current_did() {
@@ -421,7 +421,7 @@ decl_module! {
         /// * `_ticker` Symbol of the token
         /// * `total_supply` Total supply of the token
         /// * `divisible` boolean to identify the divisibility status of the token.
-        pub fn create_token(origin, did: IdentityId, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::Balance, divisible: bool) -> Result {
+        pub fn create_token(origin, did: IdentityId, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::Balance, divisible: bool) -> DispatchResult {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -487,7 +487,7 @@ decl_module! {
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert((ticker.clone(), did), total_supply);
             Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, did, divisible));
-            sr_primitives::print("Initialized!!!");
+            sp_runtime::print("Initialized!!!");
 
             Ok(())
         }
@@ -500,7 +500,7 @@ decl_module! {
         /// * `_ticker` Ticker of the token
         /// * `to_did` DID of the `to` token holder, to whom token needs to transferred
         /// * `value` Value that needs to transferred
-        pub fn transfer(_origin, did: IdentityId, _ticker: Vec<u8>, to_did: IdentityId, value: T::Balance) -> Result {
+        pub fn transfer(_origin, did: IdentityId, _ticker: Vec<u8>, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -528,7 +528,7 @@ decl_module! {
         /// * `value` Amount of tokens.
         /// * `data` Some off chain data to validate the restriction.
         /// * `operator_data` It is a string which describes the reason of this control transfer call.
-        pub fn controller_transfer(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
+        pub fn controller_transfer(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -553,7 +553,7 @@ decl_module! {
         /// * `did` DID of the sender
         /// * `spender_did` DID of the spender
         /// * `value` Amount of the tokens approved
-        fn approve(_origin, did: IdentityId, _ticker: Vec<u8>, spender_did: IdentityId, value: T::Balance) -> Result {
+        fn approve(_origin, did: IdentityId, _ticker: Vec<u8>, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -581,7 +581,7 @@ decl_module! {
         /// * `from_did` DID from whom token is being transferred
         /// * `to_did` DID to whom token is being transferred
         /// * `value` Amount of the token for transfer
-        pub fn transfer_from(origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> Result {
+        pub fn transfer_from(origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let spender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
@@ -614,7 +614,7 @@ decl_module! {
         /// * `_origin` Signing key of the token owner. (Only token owner can call this function).
         /// * `did` DID of the token owner
         /// * `_ticker` Ticker of the token
-        pub fn create_checkpoint(_origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
+        pub fn create_checkpoint(_origin, did: IdentityId, _ticker: Vec<u8>) -> DispatchResult {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -635,7 +635,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `to_did` DID of the token holder to whom new tokens get issued.
         /// * `value` Amount of tokens that get issued
-        pub fn issue(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> Result {
+        pub fn issue(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let upper_ticker = utils::bytes_to_upper(&ticker);
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -656,7 +656,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `investor_dids` Array of the DID of the token holders to whom new tokens get issued.
         /// * `values` Array of the Amount of tokens that get issued
-        pub fn batch_issue(origin, did: IdentityId, ticker: Vec<u8>, investor_dids: Vec<IdentityId>, values: Vec<T::Balance>) -> Result {
+        pub fn batch_issue(origin, did: IdentityId, ticker: Vec<u8>, investor_dids: Vec<IdentityId>, values: Vec<T::Balance>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
 
@@ -722,7 +722,7 @@ decl_module! {
         /// * `_ticker` Ticker of the token
         /// * `value` Amount of the tokens needs to redeem
         /// * `_data` An off chain data blob used to validate the redeem functionality.
-        pub fn redeem(_origin, did: IdentityId, _ticker: Vec<u8>, value: T::Balance, _data: Vec<u8>) -> Result {
+        pub fn redeem(_origin, did: IdentityId, _ticker: Vec<u8>, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -774,7 +774,7 @@ decl_module! {
         /// * `from_did` DID from whom balance get reduced
         /// * `value` Amount of the tokens needs to redeem
         /// * `_data` An off chain data blob used to validate the redeem functionality.
-        pub fn redeem_from(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> Result {
+        pub fn redeem_from(_origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(_origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -833,7 +833,7 @@ decl_module! {
         /// * `value` Amount of the tokens needs to redeem
         /// * `data` An off chain data blob used to validate the redeem functionality.
         /// * `operator_data` Any data blob that defines the reason behind the force redeem.
-        pub fn controller_redeem(origin, did: IdentityId, ticker: Vec<u8>, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> Result {
+        pub fn controller_redeem(origin, did: IdentityId, ticker: Vec<u8>, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -877,7 +877,7 @@ decl_module! {
         /// * `origin` Signing key of the token owner.
         /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
-        pub fn make_divisible(origin, did: IdentityId, ticker: Vec<u8>) -> Result {
+        pub fn make_divisible(origin, did: IdentityId, ticker: Vec<u8>) -> DispatchResult {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -913,7 +913,7 @@ decl_module! {
                 current_balance = current_balance - value;
             }
             if current_balance < Self::total_custody_allowance((ticker.clone(), from_did)) {
-                sr_primitives::print("Insufficient balance");
+                sp_runtime::print("Insufficient balance");
                 Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_INSUFFICIENT_BALANCE as u32));
             } else {
                 match Self::_is_valid_transfer(&ticker, Some(from_did), Some(to_did), value) {
@@ -924,7 +924,7 @@ decl_module! {
                     Err(msg) => {
                         // We emit a generic error with the event whenever there's an internal issue - i.e. captured
                         // in a string error and not using the status codes
-                        sr_primitives::print(msg);
+                        sp_runtime::print(msg);
                         Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_TRANSFER_FAILURE as u32));
                     }
                 }
@@ -942,7 +942,7 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        pub fn transfer_with_data(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> Result {
+        pub fn transfer_with_data(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
             Self::transfer(origin, did, ticker.clone(), to_did, value)?;
             Self::deposit_event(RawEvent::TransferWithData(ticker, did, to_did, value, data));
             Ok(())
@@ -960,7 +960,7 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        pub fn transfer_from_with_data(origin, did: IdentityId, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> Result {
+        pub fn transfer_from_with_data(origin, did: IdentityId, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
             Self::transfer_from(origin, did, ticker.clone(), from_did,  to_did, value)?;
             Self::deposit_event(RawEvent::TransferWithData(ticker, from_did, to_did, value, data));
             Ok(())
@@ -981,7 +981,7 @@ decl_module! {
         /// * `_origin` Caller signing key
         /// * `ticker` Ticker of the token
         /// * `name` Name of the document
-        pub fn get_document(_origin, ticker: Vec<u8>, name: Vec<u8>) -> Result {
+        pub fn get_document(_origin, ticker: Vec<u8>, name: Vec<u8>) -> DispatchResult {
             let record = <Documents<T>>::get((ticker.clone(), name.clone()));
             Self::deposit_event(RawEvent::GetDocument(ticker, name, record.0, record.1, record.2));
             Ok(())
@@ -996,7 +996,7 @@ decl_module! {
         /// * `name` Name of the document
         /// * `uri` Off chain URL of the document
         /// * `document_hash` Hash of the document to proof the incorruptibility of the document
-        pub fn set_document(origin, did: IdentityId, ticker: Vec<u8>, name: Vec<u8>, uri: Vec<u8>, document_hash: Vec<u8>) -> Result {
+        pub fn set_document(origin, did: IdentityId, ticker: Vec<u8>, name: Vec<u8>, uri: Vec<u8>, document_hash: Vec<u8>) -> DispatchResult {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -1016,7 +1016,7 @@ decl_module! {
         /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `name` Name of the document
-        pub fn remove_document(origin, did: IdentityId, ticker: Vec<u8>, name: Vec<u8>) -> Result {
+        pub fn remove_document(origin, did: IdentityId, ticker: Vec<u8>, name: Vec<u8>) -> DispatchResult {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -1043,7 +1043,7 @@ decl_module! {
         /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance)
         /// * `custodian_did` DID of the custodian (i.e whom allowance provided)
         /// * `value` Allowance amount
-        pub fn increase_custody_allowance(origin, ticker: Vec<u8>, holder_did: IdentityId, custodian_did: IdentityId, value: T::Balance) -> Result {
+        pub fn increase_custody_allowance(origin, ticker: Vec<u8>, holder_did: IdentityId, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -1079,7 +1079,7 @@ decl_module! {
             value: T::Balance,
             nonce: u16,
             signature: T::OffChainSignature
-        ) -> Result {
+        ) -> DispatchResult {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
 
@@ -1126,7 +1126,7 @@ decl_module! {
             custodian_did: IdentityId,
             receiver_did: IdentityId,
             value: T::Balance
-        ) -> Result {
+        ) -> DispatchResult {
             let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -1225,13 +1225,13 @@ decl_event! {
 pub trait AssetTrait<V> {
     fn total_supply(ticker: &[u8]) -> V;
     fn balance(ticker: &[u8], did: IdentityId) -> V;
-    fn _mint_from_sto(ticker: &[u8], sender_did: IdentityId, tokens_purchased: V) -> Result;
+    fn _mint_from_sto(ticker: &[u8], sender_did: IdentityId, tokens_purchased: V) -> DispatchResult;
     fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool;
     fn get_balance_at(ticker: &Vec<u8>, did: IdentityId, at: u64) -> V;
 }
 
 impl<T: Trait> AssetTrait<T::Balance> for Module<T> {
-    fn _mint_from_sto(ticker: &[u8], sender: IdentityId, tokens_purchased: T::Balance) -> Result {
+    fn _mint_from_sto(ticker: &[u8], sender: IdentityId, tokens_purchased: T::Balance) -> DispatchResult {
         let upper_ticker = utils::bytes_to_upper(ticker);
         Self::_mint(&upper_ticker, sender, tokens_purchased)
     }
@@ -1453,7 +1453,7 @@ impl<T: Trait> Module<T> {
         from_did: IdentityId,
         to_did: IdentityId,
         value: T::Balance,
-    ) -> Result {
+    ) -> DispatchResult {
         // Granularity check
         ensure!(
             Self::check_granularity(ticker, value),
@@ -1488,7 +1488,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn _create_checkpoint(ticker: &Vec<u8>) -> Result {
+    pub fn _create_checkpoint(ticker: &Vec<u8>) -> DispatchResult {
         if <TotalCheckpoints>::exists(ticker) {
             let mut checkpoint_count = Self::total_checkpoints_of(ticker);
             checkpoint_count = checkpoint_count
@@ -1526,7 +1526,7 @@ impl<T: Trait> Module<T> {
         Self::_is_owner(ticker, did)
     }
 
-    pub fn _mint(ticker: &Vec<u8>, to_did: IdentityId, value: T::Balance) -> Result {
+    pub fn _mint(ticker: &Vec<u8>, to_did: IdentityId, value: T::Balance) -> DispatchResult {
         // Granularity check
         ensure!(
             Self::check_granularity(ticker, value),
@@ -1578,7 +1578,7 @@ impl<T: Trait> Module<T> {
         ticker: &Vec<u8>,
         holder_did: IdentityId,
         value: T::Balance,
-    ) -> Result {
+    ) -> DispatchResult {
         let remaining_balance = Self::balance_of((ticker.clone(), holder_did))
             .checked_sub(&value)
             .ok_or("underflow in balance deduction")?;
@@ -1594,7 +1594,7 @@ impl<T: Trait> Module<T> {
         holder_did: IdentityId,
         custodian_did: IdentityId,
         value: T::Balance,
-    ) -> Result {
+    ) -> DispatchResult {
         let new_custody_allowance = Self::total_custody_allowance((ticker.clone(), holder_did))
             .checked_add(&value)
             .ok_or("total custody allowance get overflowed")?;
@@ -1640,13 +1640,13 @@ mod tests {
 
     use chrono::prelude::*;
     use lazy_static::lazy_static;
-    use sr_io::with_externalities;
-    use sr_primitives::{
+    use sp_io::with_externalities;
+    use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         AnySignature, Perbill,
     };
-    use srml_support::{
+    use frame_support::{
         assert_err, assert_noop, assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
@@ -1775,7 +1775,7 @@ mod tests {
         pub dummy: u8,
     }
 
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+    impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
         type Error = DispatchError;
@@ -1829,7 +1829,7 @@ mod tests {
     }
 
     /// Build a genesis identity instance owned by account No. 1
-    fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by_alice() -> sp_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -1850,7 +1850,7 @@ mod tests {
         }
         .assimilate_storage(&mut t)
         .unwrap();
-        sr_io::TestExternalities::new(t)
+        sp_io::TestExternalities::new(t)
     }
 
     fn make_account(

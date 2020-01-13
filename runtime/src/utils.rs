@@ -4,13 +4,13 @@ use crate::identity::DataTypes;
 use codec::{Decode, Encode};
 use rstd::prelude::*;
 use session;
-use sr_primitives::traits::{Member, Verify};
+use sp_runtime::traits::{Member, Verify, IdentifyAccount};
 use system;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + session::Trait {
-    type OffChainSignature: Verify<Signer = Self::AccountId> + Member + Decode + Encode;
-    fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId;
+    type OffChainSignature: Verify<Signer = IdentifyAccount<AccountId=Self::AccountId>> + Member + Decode + Encode;
+    fn validator_id_to_account_id(v: &<Self as session::Trait>::ValidatorId) -> <Self as system::Trait>::AccountId;
 }
 
 // Other utility functions

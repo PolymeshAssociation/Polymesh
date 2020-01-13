@@ -19,9 +19,9 @@ use primitives::{IdentityId, Key, Signer};
 use codec::Encode;
 use contracts::{CodeHash, Gas, Schedule};
 use rstd::{convert::TryFrom, prelude::*};
-use sr_primitives::traits::StaticLookup;
-use srml_support::traits::Currency;
-use srml_support::{decl_module, decl_storage, dispatch::Result, ensure};
+use sp_runtime::traits::StaticLookup;
+use frame_support::traits::Currency;
+use frame_support::{decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
 use system::ensure_signed;
 
 // pub type CodeHash<T> = <T as system::Trait>::Hash;
@@ -43,7 +43,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
         // Simply forwards to the `update_schedule` function in the Contract module.
-        pub fn update_schedule(origin, schedule: Schedule) -> Result {
+        pub fn update_schedule(origin, schedule: Schedule) -> DispatchResult {
             <contracts::Module<T>>::update_schedule(origin, schedule)
         }
 
@@ -53,7 +53,7 @@ decl_module! {
             did: IdentityId,
             #[compact] gas_limit: Gas,
             code: Vec<u8>
-        ) -> Result {
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
 
@@ -74,7 +74,7 @@ decl_module! {
             #[compact] value: BalanceOf<T>,
             #[compact] gas_limit: Gas,
             data: Vec<u8>
-        ) -> Result {
+        ) -> DispatchResult {
             <contracts::Module<T>>::call(origin, dest, value, gas_limit, data)
         }
 
@@ -85,7 +85,7 @@ decl_module! {
             #[compact] gas_limit: Gas,
             code_hash: CodeHash<T>,
             data: Vec<u8>
-        ) -> Result {
+        ) -> DispatchResult {
             <contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
         }
     }

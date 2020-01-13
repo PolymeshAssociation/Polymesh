@@ -52,11 +52,11 @@ use primitives::{
 };
 
 use codec::Encode;
-use sr_io::blake2_256;
-use sr_primitives::{traits::Dispatchable, DispatchError};
-use srml_support::{
+use sp_io::hashing::blake2_256;
+use sp_runtime::{traits::Dispatchable, DispatchError};
+use frame_support::{
     decl_event, decl_module, decl_storage,
-    dispatch::Result,
+    dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
     Parameter,
@@ -172,7 +172,7 @@ decl_module! {
         /// # Failure
         /// - Master key (administrator) can be linked to just one identity.
         /// - External signing keys can be linked to just one identity.
-        pub fn register_did(origin, signing_items: Vec<SigningItem>) -> Result {
+        pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             // Adding extrensic count to did nonce for some unpredictability
             // NB: this does not guarantee randomness
@@ -243,7 +243,7 @@ decl_module! {
         ///  - It can only called by master key owner.
         ///  - If any signing key is already linked to any identity, it will fail.
         ///  - If any signing key is already
-        pub fn add_signing_items(origin, did: IdentityId, signing_items: Vec<SigningItem>) -> Result {
+        pub fn add_signing_items(origin, did: IdentityId, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
@@ -270,7 +270,7 @@ decl_module! {
         ///
         /// # Failure
         /// It can only called by master key owner.
-        fn remove_signing_items(origin, did: IdentityId, signers_to_remove: Vec<Signer>) -> Result {
+        fn remove_signing_items(origin, did: IdentityId, signers_to_remove: Vec<Signer>) -> DispatchResult {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
@@ -295,7 +295,7 @@ decl_module! {
         ///
         /// # Failure
         /// Only called by master key owner.
-        fn set_master_key(origin, did: IdentityId, new_key: Key) -> Result {
+        fn set_master_key(origin, did: IdentityId, new_key: Key) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from( sender.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
@@ -312,7 +312,7 @@ decl_module! {
         }
 
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        pub fn add_claim_issuer(origin, did: IdentityId, claim_issuer_did: IdentityId) -> Result {
+        pub fn add_claim_issuer(origin, did: IdentityId, claim_issuer_did: IdentityId) -> DispatchResult {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
 
@@ -330,7 +330,7 @@ decl_module! {
         }
 
         /// Removes a claim issuer DID. Only called by master key owner.
-        fn remove_claim_issuer(origin, did: IdentityId, did_issuer: IdentityId) -> Result {
+        fn remove_claim_issuer(origin, did: IdentityId, did_issuer: IdentityId) -> DispatchResult {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
 
@@ -356,7 +356,7 @@ decl_module! {
             did_issuer: IdentityId,
             expiry: <T as timestamp::Trait>::Moment,
             claim_value: ClaimValue
-        ) -> Result {
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
             ensure!(<DidRecords>::exists(did), "DID must already exist");
@@ -395,7 +395,7 @@ decl_module! {
             Ok(())
         }
 
-        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> Result {
+        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
             // 1. Constraints.
@@ -425,7 +425,7 @@ decl_module! {
                 Ok(_) => true,
                 Err(e) => {
                     let e: DispatchError = e.into();
-                    sr_primitives::print(e);
+                    sp_runtime::print(e);
                     false
                 }
             };
@@ -434,7 +434,7 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked
-        pub fn revoke_claim(origin, did: IdentityId, claim_key: Vec<u8>, did_issuer: IdentityId) -> Result {
+        pub fn revoke_claim(origin, did: IdentityId, claim_key: Vec<u8>, did_issuer: IdentityId) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             ensure!(<DidRecords>::exists(&did), "DID must already exist");
@@ -465,7 +465,7 @@ decl_module! {
 
         /// It sets permissions for an specific `target_key` key.
         /// Only the master key of an identity is able to set signing key permissions.
-        fn set_permission_to_signer(origin, did: IdentityId, signer: Signer, permissions: Vec<Permission>) -> Result {
+        fn set_permission_to_signer(origin, did: IdentityId, signer: Signer, permissions: Vec<Permission>) -> DispatchResult {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let record = Self::grant_check_only_master_key( &sender_key, did)?;
 
@@ -488,19 +488,19 @@ decl_module! {
         ///
         /// # Errors
         ///
-        fn freeze_signing_keys(origin, did: IdentityId) -> Result {
+        fn freeze_signing_keys(origin, did: IdentityId) -> DispatchResult {
             Self::set_frozen_signing_key_flags( origin, did, true)
         }
 
-        fn unfreeze_signing_keys(origin, did: IdentityId) -> Result {
+        fn unfreeze_signing_keys(origin, did: IdentityId) -> DispatchResult {
             Self::set_frozen_signing_key_flags( origin, did, false)
         }
 
-        pub fn get_my_did(origin) -> Result {
+        pub fn get_my_did(origin) -> DispatchResult {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             if let Some(did) = Self::get_identity(&sender_key) {
                 Self::deposit_event(RawEvent::DidQuery(sender_key, did));
-                sr_primitives::print(did);
+                sp_runtime::print(did);
                 Ok(())
             } else {
                 Err("No did linked to the user")
@@ -517,7 +517,7 @@ decl_module! {
         /// # Errors
         ///  - Key should be authorized previously to join to that target identity.
         ///  - Key is not linked to any other identity.
-        pub fn authorize_join_to_identity(origin, target_id: IdentityId) -> Result {
+        pub fn authorize_join_to_identity(origin, target_id: IdentityId) -> DispatchResult {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
             let signer_from_key = Signer::Key( sender_key.clone());
             let signer_id_found = Self::key_to_identity_ids(sender_key);
@@ -570,7 +570,7 @@ decl_module! {
         /// Identity's master key or target key are allowed to reject a pre authorization to join.
         /// It only affects the authorization: if key accepted it previously, then this transaction
         /// shall have no effect.
-        pub fn unauthorized_join_to_identity(origin, signer: Signer, target_id: IdentityId) -> Result {
+        pub fn unauthorized_join_to_identity(origin, signer: Signer, target_id: IdentityId) -> DispatchResult {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
 
             let mut is_remove_allowed = Self::is_master_key( target_id, &sender_key);
@@ -640,7 +640,7 @@ impl<T: Trait> Module<T> {
         target_did: IdentityId,
         signer: &Signer,
         mut permissions: Vec<Permission>,
-    ) -> Result {
+    ) -> DispatchResult {
         // Remove duplicates.
         permissions.sort();
         permissions.dedup();
@@ -798,7 +798,7 @@ impl<T: Trait> Module<T> {
     ///
     /// # Errors
     /// Only master key can freeze/unfreeze an identity.
-    fn set_frozen_signing_key_flags(origin: T::Origin, did: IdentityId, freeze: bool) -> Result {
+    fn set_frozen_signing_key_flags(origin: T::Origin, did: IdentityId, freeze: bool) -> DispatchResult {
         let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
         let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
@@ -946,13 +946,13 @@ mod tests {
     use super::*;
     use primitives::SignerType;
 
-    use sr_io::{with_externalities, TestExternalities};
-    use sr_primitives::{
+    use sp_io::{with_externalities, TestExternalities};
+    use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, ConvertInto, IdentityLookup},
         Perbill,
     };
-    use srml_support::{
+    use frame_support::{
         assert_err, assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
@@ -1038,7 +1038,7 @@ mod tests {
         pub dummy: u8,
     }
 
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+    impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = IdentityTest;
         type Error = DispatchError;

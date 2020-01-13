@@ -3,7 +3,7 @@ use core::fmt::{Display, Formatter};
 use core::str;
 use rstd::prelude::*;
 use runtime_primitives::traits::Printable;
-use sr_io;
+use sp_io;
 const _POLY_DID_PREFIX: &'static str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
 const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
@@ -42,7 +42,7 @@ impl From<u128> for IdentityId {
 }
 
 use rstd::convert::TryFrom;
-use srml_support::ensure;
+use frame_support::ensure;
 
 impl TryFrom<&str> for IdentityId {
     type Error = &'static str;
@@ -88,15 +88,15 @@ impl From<[u8; UUID_LEN]> for IdentityId {
 
 impl Printable for IdentityId {
     fn print(&self) {
-        sr_io::print_utf8("did:poly:".as_bytes());
-        sr_io::print_hex(&self.0);
+        sp_io::misc::print_utf8("did:poly:".as_bytes());
+        sp_io::misc::print_hex(&self.0);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use srml_support::assert_err;
+    use frame_support::assert_err;
     use std::convert::TryFrom;
 
     #[test]
