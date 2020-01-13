@@ -102,9 +102,9 @@ fn only_claim_issuers_can_add_claims_batch() {
         assert_ok!(Identity::add_claims_batch(
             Origin::signed(claim_issuer.clone()),
             claim_issuer_did.clone(),
-            claim_records.clone(),
+            claim_records,
         ));
-        claim_records.push(ClaimRecord::new(
+        let claim_records_err1 = vec![ClaimRecord::new(
             owner_did.clone(),
             claim_key.to_vec(),
             300u64,
@@ -112,17 +112,16 @@ fn only_claim_issuers_can_add_claims_batch() {
                 data_type: DataTypes::VecU8,
                 value: "value 3".as_bytes().to_vec(),
             },
-        ));
+        )];
         assert_err!(
             Identity::add_claims_batch(
                 Origin::signed(claim_issuer.clone()),
-                issuer_did,
-                claim_records,
+                claim_issuer_did,
+                claim_records_err1,
             ),
-            "did must be a claim issuer or master key for DID"
+            "did_issuer must be a claim issuer or master key for DID"
         );
-        let mut claim_records_err2 = Vec::new();
-        claim_records_err2.push(ClaimRecord::new(
+        let claim_records_err2 = vec![ClaimRecord::new(
             issuer_did.clone(),
             claim_key.to_vec(),
             400u64,
@@ -130,7 +129,7 @@ fn only_claim_issuers_can_add_claims_batch() {
                 data_type: DataTypes::VecU8,
                 value: "value 4".as_bytes().to_vec(),
             },
-        ));
+        )];
         assert_err!(
             Identity::add_claims_batch(
                 Origin::signed(issuer),
