@@ -428,7 +428,7 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
-    use crate::{balances, identity, group};
+    use crate::{balances, group, identity};
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
