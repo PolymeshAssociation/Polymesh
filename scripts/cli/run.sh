@@ -2,7 +2,7 @@
 trap cleanup INT
 
 cleanup() {
-	pm2 kill
+	./node_modules/.bin/pm2 kill
 	rm -rf /tmp/pmesh-*-node*
 }
 
@@ -17,8 +17,8 @@ pool_limit=${POOL_LIMIT:=100000}
 # Cleanup
 cleanup
 
-pm2 start environment.config.js --only pmesh-primary-node
+./node_modules/.bin/pm2 start environment.config.js --only pmesh-primary-node
 
 sleep 2
 
-pm2 start environment.config.js --only "pmesh-peer-node-1,pmesh-peer-node-2"
+./node_modules/.bin/pm2 start environment.config.js --only "pmesh-peer-node-1,pmesh-peer-node-2"
