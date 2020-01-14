@@ -1,20 +1,28 @@
 //! # Committee Module
 //!
-//! The Group module is used to manage a set of identities. A group of identities can be a
-//! collection of KYC providers, council members for governance and so on. This is an instantiable
-//! module.
+//! The Committee module is used to create a committee of members who vote and ratify proposals.
+//! This was based on Substrate's `srml-collective` but this module differs in the following way:
+//! - Winning proposal is determined by a vote threshold which is set at genesis
+//! - Vote threshold can be modified per instance
+//! - Membership consists of DIDs
 //!
 //! ## Overview
 //! Allows control of membership of a set of `IdentityId`s, useful for managing membership of a
 //! committee.
-//!
+//! - Add members to committee
+//! - Members can propose a dispatchable
+//! - Members vote on a proposal.
+//! - Proposal automatically dispatches if it meets a vote threshold
 //!
 //! ### Dispatchable Functions
-//!
+//! - `set_members` - Initialize membership. Called by Root.
+//! - `propose` - Members can propose a new dispatchable
+//! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
+//!-  
 //!
 use crate::identity;
 use primitives::{IdentityId, Key, Signer};
-use rstd::{convert::TryFrom, prelude::*, result};
+use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::{EnsureOrigin, Hash};
 use sr_primitives::weights::SimpleDispatchInfo;
 #[cfg(feature = "std")]
@@ -24,7 +32,6 @@ use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::{Dispatchable, Parameter},
     ensure,
-    traits::{ChangeMembers, InitializeMembers},
 };
 use substrate_primitives::u32_trait::Value as U32;
 use system::{self, ensure_root, ensure_signed};
@@ -41,6 +48,9 @@ pub trait Trait<I = DefaultInstance>: system::Trait + identity::Trait {
 
     /// The outer call dispatch type.
     type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin>;
+
+    /// Required origin for changing behaviour of this module.
+    type CommitteeOrigin: EnsureOrigin<<Self as system::Trait>::Origin>;
 
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
@@ -126,6 +136,23 @@ decl_event!(
 decl_module! {
     pub struct Module<T: Trait<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as system::Trait>::Origin {
         fn deposit_event() = default;
+
+        /// Change the vote threshold the determines the winning proposal. For e.g., for a simple
+        /// majority use (ProportionMatch.AtLeast, 1, 2) which represents the inequation ">= 1/2"
+        ///
+        /// # Arguments
+        /// * `match_criteria` One of {AtLeast, MoreThan}
+        /// * `n` Numerator of the fraction representing vote threshold
+        /// * `d` Denominator of the fraction representing vote threshold
+        /// * `match_criteria` One of {AtLeast, MoreThan}
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_vote_threshold(origin, match_criteria: ProportionMatch, n: u32, d: u32) {
+            T::CommitteeOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
+            <VoteThreshold<I>>::put(((match_criteria, n, d)));
+        }
 
         /// Set the committee's membership manually to `new_members`.
         /// Requires root origin.
@@ -321,7 +348,6 @@ mod tests {
     use crate::{balances, committee, identity};
     use core::result::Result as StdResult;
     use hex_literal::hex;
-    use lazy_static::lazy_static;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
@@ -329,12 +355,13 @@ mod tests {
         AnySignature, BuildStorage, Perbill,
     };
     use srml_support::{
-        assert_err, assert_noop, assert_ok,
+        assert_noop, assert_ok,
         dispatch::{DispatchError, DispatchResult},
-        impl_outer_dispatch, impl_outer_origin, parameter_types, Hashable,
+        parameter_types, Hashable,
     };
     use substrate_primitives::{Blake2Hasher, H256};
-    use system::{self, EnsureSignedBy, EventRecord, Phase};
+    use system::EnsureSignedBy;
+    use system::{self, EventRecord, Phase};
     use test_client::{self, AccountKeyring};
 
     parameter_types! {
@@ -416,20 +443,26 @@ mod tests {
         type Proposal = TestProposal;
     }
 
+    type Identity = identity::Module<Test>;
+    type AccountId = <AnySignature as Verify>::Signer;
+
+    parameter_types! {
+        pub const CommitteeOrigin: AccountId = AccountId::from(AccountKeyring::Alice);
+    }
+
     impl Trait<Instance1> for Test {
         type Origin = Origin;
         type Proposal = Call;
+        type CommitteeOrigin = EnsureSignedBy<CommitteeOrigin, AccountId>;
         type Event = ();
     }
 
     impl Trait for Test {
         type Origin = Origin;
         type Proposal = Call;
+        type CommitteeOrigin = EnsureSignedBy<CommitteeOrigin, AccountId>;
         type Event = ();
     }
-
-    type Identity = identity::Module<Test>;
-    type AccountId = <AnySignature as Verify>::Signer;
 
     pub type Block = sr_primitives::generic::Block<Header, UncheckedExtrinsic>;
     pub type UncheckedExtrinsic = sr_primitives::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
@@ -501,7 +534,7 @@ mod tests {
             let alice_acc = AccountId::from(AccountKeyring::Alice);
             let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did]);
+            Committee::set_members(Origin::ROOT, vec![alice_did]).unwrap();
 
             let proposal = make_proposal(42);
             let hash = proposal.blake2_256().into();
@@ -550,7 +583,7 @@ mod tests {
             let bob_acc = AccountId::from(AccountKeyring::Bob);
             let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did]);
+            Committee::set_members(Origin::ROOT, vec![alice_did]).unwrap();
 
             let proposal = make_proposal(42);
             let hash: H256 = proposal.blake2_256().into();
@@ -577,7 +610,7 @@ mod tests {
             let bob_acc = AccountId::from(AccountKeyring::Bob);
             let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did]);
+            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did]).unwrap();
 
             let proposal = make_proposal(42);
             let hash: H256 = proposal.blake2_256().into();
@@ -607,7 +640,7 @@ mod tests {
             let charlie_acc = AccountId::from(AccountKeyring::Charlie);
             let (charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]);
+            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]).unwrap();
 
             let proposal = make_proposal(42);
             let hash: H256 = proposal.blake2_256().into();
@@ -664,30 +697,7 @@ mod tests {
             let charlie_acc = AccountId::from(AccountKeyring::Charlie);
             let (charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]);
-
-            //            let proposal = make_proposal(42);
-            //            let hash = BlakeTwo256::hash_of(&proposal);
-            //            assert_ok!(Committee::propose(
-            //                alice_signer.clone(),
-            //                alice_did,
-            //                Box::new(proposal.clone())
-            //            ));
-            //            assert_ok!(Committee::vote(
-            //                bob_signer.clone(),
-            //                bob_did,
-            //                hash.clone(),
-            //                0,
-            //                true
-            //            ));
-            //            assert_eq!(
-            //                Committee::voting(&hash),
-            //                Some(Votes {
-            //                    index: 0,
-            //                    ayes: vec![alice_did, bob_did],
-            //                    nays: vec![]
-            //                })
-            //            );
+            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]).unwrap();
 
             let proposal = make_proposal(69);
             let hash = BlakeTwo256::hash_of(&proposal);
@@ -710,6 +720,26 @@ mod tests {
                     ayes: vec![charlie_did],
                     nays: vec![bob_did]
                 })
+            );
+        });
+    }
+
+    #[test]
+    fn changing_vote_threshold_works() {
+        with_externalities(&mut make_ext(), || {
+            assert_eq!(
+                Committee::vote_threshold(),
+                (ProportionMatch::AtLeast, 1, 1)
+            );
+            assert_ok!(Committee::set_vote_threshold(
+                Origin::signed(AccountId::from(AccountKeyring::Alice)),
+                ProportionMatch::AtLeast,
+                4,
+                17
+            ));
+            assert_eq!(
+                Committee::vote_threshold(),
+                (ProportionMatch::AtLeast, 4, 17)
             );
         });
     }
