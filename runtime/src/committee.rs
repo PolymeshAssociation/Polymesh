@@ -18,7 +18,6 @@
 //! - `set_members` - Initialize membership. Called by Root.
 //! - `propose` - Members can propose a new dispatchable
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
-//!-  
 //!
 use crate::identity;
 use primitives::{IdentityId, Key, Signer};
@@ -151,7 +150,7 @@ decl_module! {
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
-            <VoteThreshold<I>>::put(((match_criteria, n, d)));
+            <VoteThreshold<I>>::put((match_criteria, n, d));
         }
 
         /// Set the committee's membership manually to `new_members`.
@@ -441,6 +440,13 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = TestProposal;
+        type AcceptTickerTransferTarget = Test;
+    }
+
+    impl crate::asset::AcceptTickerTransfer for Test {
+        fn accept_ticker_transfer(_: IdentityId, _: u64) -> srml_support::dispatch::Result {
+            unimplemented!()
+        }
     }
 
     type Identity = identity::Module<Test>;
@@ -635,10 +641,10 @@ mod tests {
             let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
 
             let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
+            let (_bob_signer, bob_did) = make_account(&bob_acc).unwrap();
 
             let charlie_acc = AccountId::from(AccountKeyring::Charlie);
-            let (charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
+            let (_charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
 
             Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]).unwrap();
 
@@ -689,7 +695,7 @@ mod tests {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
+            let (_alice_signer, alice_did) = make_account(&alice_acc).unwrap();
 
             let bob_acc = AccountId::from(AccountKeyring::Bob);
             let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
