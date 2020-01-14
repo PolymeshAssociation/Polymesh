@@ -11,7 +11,6 @@ use primitives::{AuthorizationData, Key, Permission, Signer, SignerType, Signing
 use rand::Rng;
 use sr_io::with_externalities;
 use srml_support::{assert_err, assert_ok, traits::Currency};
-use std::convert::TryInto;
 use substrate_primitives::H512;
 use test_client::AccountKeyring;
 
@@ -781,7 +780,7 @@ fn one_step_join_id_with_ext() {
         AccountKeyring::Charlie,
         AccountKeyring::Dave,
     ]
-    .into_iter()
+    .iter()
     .map(|acc| H512::from(acc.sign(&auth_encoded)))
     .collect::<Vec<_>>();
 
@@ -997,7 +996,8 @@ fn removing_authorizations() {
                 auth_ids_bob[auth_to_remove - 1]
             );
             assert_eq!(auth.next_authorization, auth_ids_bob[auth_to_remove + 1]);
-            Identity::remove_authorization(alice.clone(), bob_did, auth_ids_bob[auth_to_remove]);
+            Identity::remove_authorization(alice.clone(), bob_did, auth_ids_bob[auth_to_remove])
+                .unwrap();
             let removed_auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
             assert_eq!(removed_auth.authorization_data, AuthorizationData::NoData);
             auth_ids_bob.remove(auth_to_remove);
