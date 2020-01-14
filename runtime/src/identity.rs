@@ -46,8 +46,8 @@ use rstd::{convert::TryFrom, prelude::*};
 
 use crate::{asset::AcceptTickerTransfer, balances, constants::did::USER};
 use primitives::{
-    Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId,
-    IdentityOrKey, Key, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+    Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
+    Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
 };
 
 use codec::Encode;
@@ -206,10 +206,10 @@ decl_storage! {
         pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity has
-        pub Authorizations get(authorizations): map(IdentityOrKey, u64) => Authorization<T::Moment>;
+        pub Authorizations get(authorizations): map(Signer, u64) => Authorization<T::Moment>;
 
         /// Auth id of the latest auth of an identity. Used to allow iterating over auths
-        pub LastAuthorization get(last_authorization): map(IdentityOrKey) => u64;
+        pub LastAuthorization get(last_authorization): map(Signer) => u64;
     }
 }
 
@@ -567,7 +567,7 @@ decl_module! {
         /// Adds an authorization
         pub fn add_authorization(
             origin,
-            target: IdentityOrKey,
+            target: Signer,
             authorization_data: AuthorizationData,
             expiry: Option<T::Moment>
         ) -> Result {
@@ -583,7 +583,7 @@ decl_module! {
                 }
             };
 
-            Self::add_auth(IdentityOrKey::from(from_did), target, authorization_data, expiry);
+            Self::add_auth(Signer::from(from_did), target, authorization_data, expiry);
 
             Ok(())
         }
@@ -592,13 +592,13 @@ decl_module! {
         /// To be used by signing keys that don't have an identity
         pub fn add_authorization_as_key(
             origin,
-            target: IdentityOrKey,
+            target: Signer,
             authorization_data: AuthorizationData,
             expiry: Option<T::Moment>
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
 
-            Self::add_auth(IdentityOrKey::from(sender_key), target, authorization_data, expiry);
+            Self::add_auth(Signer::from(sender_key), target, authorization_data, expiry);
 
             Ok(())
         }
@@ -608,7 +608,7 @@ decl_module! {
         pub fn batch_add_authorization(
             origin,
             // Vec<(target_did, auth_data, expiry)>
-            auths: Vec<(IdentityOrKey, AuthorizationData, Option<T::Moment>)>
+            auths: Vec<(Signer, AuthorizationData, Option<T::Moment>)>
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let from_did =  match Self::current_did() {
@@ -623,7 +623,7 @@ decl_module! {
             };
 
             for auth in auths {
-                Self::add_auth(IdentityOrKey::from(from_did), auth.0, auth.1, auth.2);
+                Self::add_auth(Signer::from(from_did), auth.0, auth.1, auth.2);
             }
 
             Ok(())
@@ -632,7 +632,7 @@ decl_module! {
         /// Removes an authorization
         pub fn remove_authorization(
             origin,
-            target: IdentityOrKey,
+            target: Signer,
             auth_id: u64
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
@@ -662,7 +662,7 @@ decl_module! {
         pub fn batch_remove_authorization(
             origin,
             // Vec<(target_did, auth_id)>
-            auth_identifiers: Vec<(IdentityOrKey, u64)>
+            auth_identifiers: Vec<(Signer, u64)>
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let from_did =  match Self::current_did() {
@@ -710,11 +710,11 @@ decl_module! {
             };
 
             let auth;
-            if <Authorizations<T>>::exists((IdentityOrKey::from(sender_did), auth_id)) {
-                auth = Self::authorizations((IdentityOrKey::from(sender_did), auth_id));
+            if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
+                auth = Self::authorizations((Signer::from(sender_did), auth_id));
             } else {
-                ensure!(<Authorizations<T>>::exists((IdentityOrKey::from(sender_key), auth_id)), "Invalid auth");
-                auth = Self::authorizations((IdentityOrKey::from(sender_key), auth_id));
+                ensure!(<Authorizations<T>>::exists((Signer::from(sender_key), auth_id)), "Invalid auth");
+                auth = Self::authorizations((Signer::from(sender_key), auth_id));
             }
 
 
@@ -745,10 +745,10 @@ decl_module! {
                 // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                 // It will just skip that particular authorization.
                 let auth;
-                if <Authorizations<T>>::exists((IdentityOrKey::from(sender_did), auth_id)) {
-                    auth = Self::authorizations((IdentityOrKey::from(sender_did), auth_id));
-                } else if <Authorizations<T>>::exists((IdentityOrKey::from(sender_key), auth_id)) {
-                    auth = Self::authorizations((IdentityOrKey::from(sender_key), auth_id));
+                if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
+                    auth = Self::authorizations((Signer::from(sender_did), auth_id));
+                } else if <Authorizations<T>>::exists((Signer::from(sender_key), auth_id)) {
+                    auth = Self::authorizations((Signer::from(sender_key), auth_id));
                 } else {
                     continue
                 }
@@ -990,21 +990,21 @@ decl_event!(
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
         NewAuthorization(
             u64,
-            IdentityOrKey,
-            IdentityOrKey,
+            Signer,
+            Signer,
             AuthorizationData,
             Option<Moment>
         ),
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
-        AuthorizationRemoved(u64, IdentityOrKey),
+        AuthorizationRemoved(u64, Signer),
     }
 );
 
 impl<T: Trait> Module<T> {
     pub fn add_auth(
-        from: IdentityOrKey,
-        target: IdentityOrKey,
+        from: Signer,
+        target: Signer,
         authorization_data: AuthorizationData,
         expiry: Option<T::Moment>,
     ) {
@@ -1043,7 +1043,7 @@ impl<T: Trait> Module<T> {
 
     /// Remove any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
-    pub fn remove_auth(target: IdentityOrKey, auth_id: u64, next_auth: u64, previous_auth: u64) {
+    pub fn remove_auth(target: Signer, auth_id: u64, next_auth: u64, previous_auth: u64) {
         if next_auth != 0 {
             // update next auth's previous auth to point to previous auth of this auth
             <Authorizations<T>>::mutate((target, next_auth), |next_auth| {
@@ -1065,7 +1065,7 @@ impl<T: Trait> Module<T> {
 
     /// Consumes an authorization.
     /// Checks if the auth has not expired and the caller is authorized to consume this auth.
-    pub fn consume_auth(from: IdentityOrKey, target: IdentityOrKey, auth_id: u64) -> Result {
+    pub fn consume_auth(from: Signer, target: Signer, auth_id: u64) -> Result {
         if !<Authorizations<T>>::exists((target, auth_id)) {
             // Auth does not exist
             return Err(AuthorizationError::Invalid.into());

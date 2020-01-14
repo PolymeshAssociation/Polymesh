@@ -89,10 +89,6 @@ pub use authorization::Authorization;
 pub use authorization::AuthorizationData;
 pub use authorization::AuthorizationError;
 
-/// Represents either an Identity or a Key
-pub mod identity_or_key;
-pub use identity_or_key::IdentityOrKey;
-
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
