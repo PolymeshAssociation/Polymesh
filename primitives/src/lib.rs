@@ -93,6 +93,11 @@ pub use authorization::AuthorizationError;
 pub mod identity_or_key;
 pub use identity_or_key::IdentityOrKey;
 
+/// Generic links that contains information about a key/identity for example ownership of a ticker
+pub mod link;
+pub use link::Link;
+pub use link::LinkData;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

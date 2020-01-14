@@ -47,7 +47,8 @@ use rstd::{convert::TryFrom, prelude::*};
 use crate::{asset::AcceptTickerTransfer, balances, constants::did::USER};
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId,
-    IdentityOrKey, Key, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+    IdentityOrKey, Key, Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType,
+    SigningItem,
 };
 
 use codec::Encode;
@@ -205,11 +206,17 @@ decl_storage! {
         /// Inmediate revoke of any off-chain authorization.
         pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
 
-        /// All authorizations that an identity has
+        /// All authorizations that an identity/key has
         pub Authorizations get(authorizations): map(IdentityOrKey, u64) => Authorization<T::Moment>;
 
-        /// Auth id of the latest auth of an identity. Used to allow iterating over auths
+        /// Auth id of the latest auth of an identity/key. Used to allow iterating over auths
         pub LastAuthorization get(last_authorization): map(IdentityOrKey) => u64;
+
+        /// All links that an identity/key has
+        pub Links get(links): map(IdentityOrKey, u64) => Link<T::Moment>;
+
+        /// Link id of the latest auth of an identity/key. Used to allow iterating over links
+        pub LastLink get(last_link): map(IdentityOrKey) => u64;
     }
 }
 
@@ -998,6 +1005,17 @@ decl_event!(
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
         AuthorizationRemoved(u64, IdentityOrKey),
+
+        /// New link added (link_id, associated identity or key, link_data, expiry)
+        NewLink(
+            u64,
+            IdentityOrKey,
+            LinkData,
+            Option<Moment>
+        ),
+
+        /// Link removed. (link_id, associated identity or key)
+        LinkRemoved(u64, IdentityOrKey),
     }
 );
 
@@ -1088,6 +1106,60 @@ impl<T: Trait> Module<T> {
             auth.previous_authorization,
         );
         Ok(())
+    }
+
+    /// Adds a link to a key or an identity
+    /// NB: Please do all the required checks before calling this function.
+    pub fn add_link(target: IdentityOrKey, link_data: LinkData, expiry: Option<T::Moment>) {
+        let new_nonce = Self::multi_purpose_nonce() + 1u64;
+        <MultiPurposeNonce>::put(&new_nonce);
+
+        let last_link = Self::last_link(&target);
+
+        if last_link > 0 {
+            // 0 means no previous link. 0 is the default value.
+            // Changing the last link to point to new link as next link.
+            <Links<T>>::mutate((target, last_link), |last_link| {
+                last_link.next_link = new_nonce
+            });
+        }
+
+        let link = Link {
+            link_data: link_data.clone(),
+            expiry: expiry,
+            next_link: 0,
+            previous_link: last_link,
+        };
+
+        <LastLink>::insert(&target, new_nonce);
+        <Links<T>>::insert((target, new_nonce), link);
+
+        Self::deposit_event(RawEvent::NewLink(new_nonce, target, link_data, expiry));
+    }
+
+    /// Remove a link (if it exists) from a key or identity
+    /// NB: Please do all the required checks before calling this function.
+    pub fn remove_link(target: IdentityOrKey, link_id: u64) {
+        if <Links<T>>::exists((target, link_id)) {
+            let link = Self::links((target, link_id));
+            if link.next_link != 0 {
+                // update next link's previous link to point to previous link of this link
+                <Links<T>>::mutate((target, link.next_link), |next_link| {
+                    next_link.previous_link = link.previous_link
+                });
+            } else {
+                // this was the last link. update last link to be previous link.
+                <LastLink>::insert(&target, link.previous_link);
+            }
+            if link.previous_link != 0 {
+                // update previous link's next link to point to next link of this link
+                <Links<T>>::mutate((target, link.previous_link), |prev_link| {
+                    prev_link.next_link = link.next_link
+                });
+            }
+            <Links<T>>::remove((target, link_id));
+            Self::deposit_event(RawEvent::LinkRemoved(link_id, target));
+        }
     }
 
     /// Private and not sanitized function. It is designed to be used internally by
