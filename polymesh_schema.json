@@ -228,6 +228,12 @@
             "Custom": "Vec<u8>"
         }
     },
+    "IdentityOrKey": {
+        "_enum": {
+            "Identity": "IdentityId",
+            "Key": "[u8;32]"
+        }
+    },
     "Compliance": {
         "_enum": [
             "Pending",
