@@ -83,6 +83,12 @@ pub use signing_item::{Permission, Signer, SignerType, SigningItem};
 pub mod pre_authorized_key_info;
 pub use pre_authorized_key_info::PreAuthorizedKeyInfo;
 
+/// Generic authorization data types for all two step processes
+pub mod authorization;
+pub use authorization::Authorization;
+pub use authorization::AuthorizationData;
+pub use authorization::AuthorizationError;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

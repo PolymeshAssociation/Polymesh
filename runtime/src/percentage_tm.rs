@@ -133,7 +133,6 @@ impl<T: Trait> Module<T> {
                     return Ok(APP_FUNDS_LIMIT_REACHED);
                 }
             }
-            sr_primitives::print("It is passing thorugh the PercentageTM");
             Ok(ERC1400_TRANSFER_SUCCESS)
         } else {
             sr_primitives::print("to account is not active");

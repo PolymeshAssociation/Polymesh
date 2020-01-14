@@ -215,6 +215,19 @@
     "PermissionedValidator": {
         "compliance": "Compliance"
     },
+    "Authorization": {
+        "authorization_data": "AuthorizationData",
+        "authorized_by": "IdentityId",
+        "expiry": "Option<Moment>",
+        "next_authorization": "u64",
+        "previous_authorization": "u64"
+    },
+    "AuthorizationData": {
+        "_enum": {
+            "TransferTicker": "Vec<u8>",
+            "Custom": "Vec<u8>"
+        }
+    },
     "Compliance": {
         "_enum": [
             "Pending",

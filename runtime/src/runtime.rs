@@ -436,6 +436,7 @@ impl percentage_tm::Trait for Runtime {
 impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
+    type AcceptTickerTransferTarget = Asset;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
