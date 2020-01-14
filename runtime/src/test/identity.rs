@@ -5,7 +5,8 @@ use crate::{
 };
 use codec::Encode;
 use primitives::{
-    Authorization, AuthorizationData, Key, Permission, Signer, SignerType, SigningItem,
+    Authorization, AuthorizationData, IdentityOrKey, Key, Permission, Signer, SignerType,
+    SigningItem,
 };
 use rand::Rng;
 use sr_io::with_externalities;
@@ -771,10 +772,12 @@ fn one_step_join_id_with_ext() {
 #[test]
 fn adding_authorizations() {
     with_externalities(&mut build_ext(), || {
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_did =
+            IdentityOrKey::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let bob_did = IdentityOrKey::from(register_keyring_account(AccountKeyring::Bob).unwrap());
+        let charlie_did =
+            IdentityOrKey::from(register_keyring_account(AccountKeyring::Charlie).unwrap());
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
 
         let mut auth_ids_bob = Vec::new();
@@ -854,9 +857,10 @@ fn adding_authorizations() {
 #[test]
 fn removing_authorizations() {
     with_externalities(&mut build_ext(), || {
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_did =
+            IdentityOrKey::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let bob_did = IdentityOrKey::from(register_keyring_account(AccountKeyring::Bob).unwrap());
 
         let mut auth_ids_bob = Vec::new();
         auth_ids_bob.push(0); // signifies that there are no more auths left
