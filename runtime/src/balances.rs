@@ -1454,6 +1454,12 @@ mod tests {
     impl identity::Trait for Runtime {
         type Event = ();
         type Proposal = IdentityProposal;
+        type AcceptTickerTransferTarget = Runtime;
+    }
+    impl crate::asset::AcceptTickerTransfer for Runtime {
+        fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
     }
     impl timestamp::Trait for Runtime {
         type Moment = u64;

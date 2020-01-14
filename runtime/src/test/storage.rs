@@ -109,6 +109,13 @@ impl sr_primitives::traits::Dispatchable for IdentityProposal {
 impl identity::Trait for TestStorage {
     type Event = ();
     type Proposal = IdentityProposal;
+    type AcceptTickerTransferTarget = TestStorage;
+}
+
+impl crate::asset::AcceptTickerTransfer for TestStorage {
+    fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+        Ok(())
+    }
 }
 
 // Publish type alias for each module
