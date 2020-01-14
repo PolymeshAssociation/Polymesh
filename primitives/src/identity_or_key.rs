@@ -63,3 +63,23 @@ impl IdentityOrKey {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::convert::TryFrom;
+
+    #[test]
+    fn build_and_eq_tests() {
+        let k = "ABCDABCD".as_bytes().to_vec();
+        let key = Key::try_from(k.as_slice()).unwrap();
+        let iden = IdentityId::try_from(
+            "did:poly:f1d273950ddaf693db228084d63ef18282e00f91997ae9df4f173f09e86d0976",
+        )
+        .unwrap();
+        assert_eq!(IdentityOrKey::from(key), key);
+        assert_ne!(IdentityOrKey::from(key), iden);
+        assert_eq!(IdentityOrKey::from(iden), iden);
+        assert_ne!(IdentityOrKey::from(iden), key);
+    }
+}
