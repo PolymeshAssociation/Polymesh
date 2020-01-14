@@ -24,7 +24,10 @@ use codec::{Decode, Encode, HasCompact};
 use primitives::IdentityId;
 use rstd::prelude::*;
 use sr_primitives::{traits::EnsureOrigin, weights::SimpleDispatchInfo};
-use srml_support::{decl_event, decl_module, decl_storage};
+use srml_support::{
+    decl_event, decl_module, decl_storage,
+    traits::{ChangeMembers, InitializeMembers},
+};
 use system::ensure_root;
 
 pub trait Trait<I = DefaultInstance>: system::Trait {
@@ -42,6 +45,14 @@ pub trait Trait<I = DefaultInstance>: system::Trait {
 
     /// Required origin for resetting membership.
     type ResetOrigin: EnsureOrigin<Self::Origin>;
+
+    /// The receiver of the signal for when the membership has been initialized. This happens pre-
+    /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
+    /// different on initialization, then you can change this accordingly.
+    type MembershipInitialized: InitializeMembers<IdentityId>;
+
+    /// The receiver of the signal for when the membership has changed.
+    type MembershipChanged: ChangeMembers<IdentityId>;
 }
 
 decl_storage! {
@@ -95,6 +106,8 @@ decl_module! {
             let location = members.binary_search(&who).err().ok_or("already a member")?;
             members.insert(location, who.clone());
             <Members<I>>::put(&members);
+
+            T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
 
             Self::deposit_event(RawEvent::MemberAdded(who));
         }

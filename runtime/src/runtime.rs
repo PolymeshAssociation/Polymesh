@@ -269,6 +269,16 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type Event = Event;
 }
 
+impl group::Trait<group::Instance1> for Runtime {
+    type Event = Event;
+    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
+}
+
 impl mips::Trait for Runtime {
     type Currency = Balances;
     type Proposal = Call;
@@ -450,12 +460,14 @@ impl dividend::Trait for Runtime {
     type Event = Event;
 }
 
-impl group::Trait<group::Instance1> for Runtime {
+impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
     type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
 }
 
 construct_runtime!(
@@ -495,6 +507,7 @@ construct_runtime!(
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Storage, Event<T>},        
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
    		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
@@ -507,7 +520,7 @@ construct_runtime!(
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
-        KYCServiceProviders: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+        KYCServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 

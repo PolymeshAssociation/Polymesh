@@ -31,6 +31,7 @@ use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::{Dispatchable, Parameter},
     ensure,
+    traits::{ChangeMembers, InitializeMembers},
 };
 use substrate_primitives::u32_trait::Value as U32;
 use system::{self, ensure_root, ensure_signed};
@@ -297,6 +298,50 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         match threshold {
             ProportionMatch::AtLeast => votes * d >= n * total,
             ProportionMatch::MoreThan => votes * d > n * total,
+        }
+    }
+}
+
+impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
+    fn change_members_sorted(
+        _incoming: &[IdentityId],
+        outgoing: &[IdentityId],
+        new: &[IdentityId],
+    ) {
+        // remove accounts from all current voting in motions.
+        let mut outgoing = outgoing.to_vec();
+        outgoing.sort_unstable();
+
+        for h in Self::proposals().into_iter() {
+            <Voting<T, I>>::mutate(h, |v| {
+                if let Some(mut votes) = v.take() {
+                    votes.ayes = votes
+                        .ayes
+                        .into_iter()
+                        .filter(|i| outgoing.binary_search(i).is_err())
+                        .collect();
+
+                    votes.nays = votes
+                        .nays
+                        .into_iter()
+                        .filter(|i| outgoing.binary_search(i).is_err())
+                        .collect();
+                    *v = Some(votes);
+                }
+            });
+        }
+        <Members<I>>::put_ref(new);
+    }
+}
+
+impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
+    fn initialize_members(members: &[IdentityId]) {
+        if !members.is_empty() {
+            assert!(
+                <Members<I>>::get().is_empty(),
+                "Members are already initialized!"
+            );
+            <Members<I>>::put_ref(members);
         }
     }
 }

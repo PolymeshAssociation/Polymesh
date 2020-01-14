@@ -13,6 +13,7 @@ use polymesh_runtime::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
         MIPSConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
+    runtime::CommitteeMembershipConfig,
     runtime::KYCServiceProvidersConfig,
     runtime::PolymeshCommitteeConfig,
     Perbill, SessionKeys, StakerStatus, WASM_BINARY,
@@ -259,13 +260,17 @@ fn testnet_genesis(
             },
             gas_price: 1 * MILLICENTS,
         }),
-        group_Instance1: Some(KYCServiceProvidersConfig {
+        group_Instance1: Some(CommitteeMembershipConfig {
             members: vec![],
             phantom: Default::default(),
         }),
         committee_Instance1: Some(PolymeshCommitteeConfig {
             members: vec![],
             vote_threshold: (ProportionMatch::AtLeast, 1, 2),
+            phantom: Default::default(),
+        }),
+        group_Instance2: Some(KYCServiceProvidersConfig {
+            members: vec![],
             phantom: Default::default(),
         }),
     }
