@@ -367,6 +367,17 @@ decl_module! {
             Ok(())
         }
 
+        /// Attempt to change the master key for a DID.
+        ///
+        /// # Failure
+        /// Only called by master key owner.
+        fn change_master_key(origin, did: IdentityId, new_key: Key) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+
+            Ok(())
+        }
+
         /// Appends a claim issuer DID to a DID. Only called by master key owner.
         pub fn add_claim_issuer(origin, did: IdentityId, claim_issuer_did: IdentityId) -> Result {
             let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
