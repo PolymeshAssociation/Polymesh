@@ -1,4 +1,4 @@
-use crate::identity_id::IdentityId;
+use crate::signing_item::Signer;
 use codec::{Decode, Encode};
 use rstd::prelude::Vec;
 
@@ -48,7 +48,7 @@ pub struct Authorization<U> {
     pub authorization_data: AuthorizationData,
 
     /// Identity of the organization/individual that added this authorization
-    pub authorized_by: IdentityId,
+    pub authorized_by: Signer,
 
     /// time when this authorization expires. optional.
     pub expiry: Option<U>,
