@@ -60,7 +60,7 @@ use crate::{balances, constants::*, general_tm, identity, percentage_tm, utils};
 use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
-use primitives::{AuthorizationData, AuthorizationError, IdentityId, Key, Signer};
+use primitives::{AuthorizationData, AuthorizationError, IdentityId, IdentityOrKey, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use session;
 use sr_primitives::traits::{CheckedAdd, CheckedSub, Verify};
@@ -1489,11 +1489,11 @@ impl<T: Trait> Module<T> {
 
     pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result {
         ensure!(
-            <identity::Authorizations<T>>::exists((to_did, auth_id)),
+            <identity::Authorizations<T>>::exists((IdentityOrKey::from(to_did), auth_id)),
             AuthorizationError::Invalid.into()
         );
 
-        let auth = <identity::Module<T>>::authorizations((to_did, auth_id));
+        let auth = <identity::Module<T>>::authorizations((IdentityOrKey::from(to_did), auth_id));
 
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferTicker(_ticker) => utils::bytes_to_upper(_ticker.as_slice()),
@@ -1504,7 +1504,11 @@ impl<T: Trait> Module<T> {
 
         let current_owner = Self::ticker_registration(&ticker).owner;
 
-        <identity::Module<T>>::consume_auth(current_owner, to_did, auth_id)?;
+        <identity::Module<T>>::consume_auth(
+            IdentityOrKey::from(current_owner),
+            IdentityOrKey::from(to_did),
+            auth_id,
+        )?;
 
         <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
 
