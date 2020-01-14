@@ -72,15 +72,15 @@ use system::{self, ensure_signed};
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
-    issuance_date: U,
-    expiry: U,
-    claim_value: ClaimValue,
+    pub issuance_date: U,
+    pub expiry: U,
+    pub claim_value: ClaimValue,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimMetaData {
-    claim_key: Vec<u8>,
-    claim_issuer: IdentityId,
+    pub claim_key: Vec<u8>,
+    pub claim_issuer: IdentityId,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
@@ -93,42 +93,10 @@ pub struct ClaimValue {
 /// A structure for passing claims to `add_claims_batch`. The type argument is required to be
 /// `timestamp::Trait::Moment`.
 pub struct ClaimRecord<U> {
-    did: IdentityId,
-    claim_key: Vec<u8>,
-    expiry: U,
-    claim_value: ClaimValue,
-}
-
-impl<U> ClaimRecord<U> {
-    /// Constructs a new claim record.
-    pub fn new(did: IdentityId, claim_key: Vec<u8>, expiry: U, claim_value: ClaimValue) -> Self {
-        ClaimRecord {
-            did,
-            claim_key,
-            expiry,
-            claim_value,
-        }
-    }
-
-    /// Returns a reference to the DID.
-    pub fn did(&self) -> &IdentityId {
-        &self.did
-    }
-
-    /// Returns a reference to the claim key.
-    pub fn claim_key(&self) -> &[u8] {
-        self.claim_key.as_slice()
-    }
-
-    /// Returns a reference to the expiry timestamp.
-    pub fn expiry(&self) -> &U {
-        &self.expiry
-    }
-
-    /// Returns a reference to the claim calue.
-    pub fn claim_value(&self) -> &ClaimValue {
-        &self.claim_value
-    }
+    pub did: IdentityId,
+    pub claim_key: Vec<u8>,
+    pub expiry: U,
+    pub claim_value: ClaimValue,
 }
 
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -239,19 +207,19 @@ decl_storage! {
         pub MultiPurposeNonce get(multi_purpose_nonce) build(|_| 1u64): u64;
 
         /// Pre-authorize join to Identity.
-        pub PreAuthorizedJoinDid get( pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
+        pub PreAuthorizedJoinDid get(pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
 
         /// Authorization nonce per Identity. Initially is 0.
-        pub OffChainAuthorizationNonce get( offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
+        pub OffChainAuthorizationNonce get(offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
-        pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
+        pub RevokeOffChainAuthorization get(is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity has
         pub Authorizations get(authorizations): map(Signer, u64) => Authorization<T::Moment>;
 
         /// Auth id of the latest auth of an identity. Used to allow iterating over auths
-        pub LastAuthorization get(last_authorization): map(Signer) => u64;
+        pub LastAuthorization get(last_authorization): map Signer => u64;
     }
 }
 
