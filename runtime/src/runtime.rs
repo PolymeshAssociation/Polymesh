@@ -275,8 +275,8 @@ impl group::Trait<group::Instance1> for Runtime {
     type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
+    type MembershipInitialized = PolymeshCommittee;
+    type MembershipChanged = PolymeshCommittee;
 }
 
 impl mips::Trait for Runtime {

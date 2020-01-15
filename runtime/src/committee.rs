@@ -391,7 +391,6 @@ mod tests {
     use super::*;
     use crate::{balances, committee, identity};
     use core::result::Result as StdResult;
-    use hex_literal::hex;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
@@ -405,7 +404,7 @@ mod tests {
     };
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
-    use system::{self, EventRecord, Phase};
+    use system::{self};
     use test_client::{self, AccountKeyring};
 
     parameter_types! {
