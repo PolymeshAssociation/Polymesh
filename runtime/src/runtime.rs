@@ -1,5 +1,5 @@
 use crate::{
-    asset, balances,
+    asset, balances, committee,
     constants::{currency::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
@@ -254,25 +254,36 @@ impl staking::Trait for Runtime {
     type SessionInterface = Self;
     type Time = Timestamp;
     type RewardCurve = RewardCurve;
-    type AddOrigin = collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
-    type RemoveOrigin =
-        collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+    type AddOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type RemoveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
     type ComplianceOrigin =
-        collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
 }
 
-type GovernanceCollective = collective::Instance1;
-impl collective::Trait<GovernanceCollective> for Runtime {
+type GovernanceCommittee = committee::Instance1;
+impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
+    type CommitteeOrigin =
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
     type Event = Event;
+}
+
+impl group::Trait<group::Instance1> for Runtime {
+    type Event = Event;
+    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type MembershipInitialized = PolymeshCommittee;
+    type MembershipChanged = PolymeshCommittee;
 }
 
 impl mips::Trait for Runtime {
     type Currency = Balances;
     type Proposal = Call;
     type CommitteeOrigin =
-        collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
     type Event = Event;
 }
 
@@ -345,10 +356,8 @@ parameter_types! {
 
 impl treasury::Trait for Runtime {
     type Currency = Balances;
-    type ApproveOrigin =
-        collective::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCollective>;
-    type RejectOrigin =
-        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type ApproveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type RejectOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type Event = Event;
     type MintedForSpending = ();
     type ProposalRejection = ();
@@ -451,14 +460,14 @@ impl dividend::Trait for Runtime {
     type Event = Event;
 }
 
-impl group::Trait<group::Instance1> for Runtime {
+impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
-    type AddOrigin = collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type RemoveOrigin =
-        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type SwapOrigin = collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type ResetOrigin =
-        collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
 }
 
 construct_runtime!(
@@ -496,8 +505,9 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Storage, Event<T>},
-        GovernanceCommittee: collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        Treasury: treasury::{Module, Call, Storage, Event<T>},        
+        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
    		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
@@ -510,7 +520,7 @@ construct_runtime!(
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
-        KYCServiceProviders: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+        KYCServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 

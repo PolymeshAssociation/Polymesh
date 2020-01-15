@@ -441,7 +441,7 @@ mod tests {
         impl_outer_dispatch, impl_outer_origin, parameter_types,
     };
     use substrate_primitives::{Blake2Hasher, H256};
-    use system::{EnsureSignedBy, EventRecord, Phase};
+    use system::EnsureSignedBy;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
