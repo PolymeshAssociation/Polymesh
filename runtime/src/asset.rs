@@ -340,6 +340,24 @@ decl_module! {
             Ok(())
         }
 
+        /// Renames a given token.
+        ///
+        /// # Arguments
+        /// * `origin` - the signing key of the sender
+        /// * `ticker` - the ticker of the token
+        /// * `name` - the new name of the token
+        pub fn rename_token(origin, ticker: Vec<u8>, name: Vec<u8>) -> Result {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            let sender = ensure_signed(origin)?;
+            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
+            let token = <Tokens<T>>::get(&ticker);
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer), "sender must be a signing key for the token owner DID");
+            <Tokens<T>>::mutate(&ticker, |token| token.name = name);
+            Ok(())
+        }
+
         /// Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level
         ///
         /// # Arguments
@@ -1753,7 +1771,7 @@ mod tests {
     }
 
     #[test]
-    fn issuers_can_create_tokens() {
+    fn issuers_can_create_and_rename_tokens() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
@@ -1763,17 +1781,17 @@ mod tests {
             // Expected token entry
             let token = SecurityToken {
                 name: vec![0x01],
-                owner_did: owner_did,
+                owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
             };
-
+            let ticker_name = token.name.clone();
             assert_err!(
                 Asset::create_token(
                     owner_signed.clone(),
                     owner_did,
                     token.name.clone(),
-                    token.name.clone(),
+                    ticker_name.clone(),
                     1_000_000_000_000_000_000_000_000, // Total supply over the limit
                     true
                 ),
@@ -1785,13 +1803,40 @@ mod tests {
                 owner_signed.clone(),
                 owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker_name.clone(),
                 token.total_supply,
                 true
             ));
 
             // A correct entry is added
-            assert_eq!(Asset::token_details(token.name.clone()), token);
+            assert_eq!(Asset::token_details(ticker_name.clone()), token);
+
+            // Unauthorized identities cannot rename the token.
+            let eve_acc = AccountId::from(AccountKeyring::Eve);
+            let (eve_signed, _eve_did) = make_account(&eve_acc).unwrap();
+            assert_err!(
+                Asset::rename_token(
+                    eve_signed,
+                    ticker_name.clone(),
+                    vec![0xde, 0xad, 0xbe, 0xef]
+                ),
+                "sender must be a signing key for the token owner DID"
+            );
+            // The token should remain unchanged in storage.
+            assert_eq!(Asset::token_details(ticker_name.clone()), token);
+            // Rename the token and check storage has been updated.
+            let renamed_token = SecurityToken {
+                name: vec![0x42],
+                owner_did: token.owner_did,
+                total_supply: token.total_supply,
+                divisible: token.divisible,
+            };
+            assert_ok!(Asset::rename_token(
+                owner_signed.clone(),
+                ticker_name.clone(),
+                renamed_token.name.clone()
+            ));
+            assert_eq!(Asset::token_details(ticker_name.clone()), renamed_token);
         });
     }
 
