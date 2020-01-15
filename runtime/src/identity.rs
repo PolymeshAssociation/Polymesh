@@ -16,20 +16,13 @@
 //! `MuliSign`, etc.) and/or its permission.
 //!
 //! Some operations at identity level are only allowed to its administrator account, like
-//! [set_master_key](./struct.Module.html#method.set_master_key) or
-//! [add_claim_issuer](./struct.Module.html#method.add_claim_issuer).
+//! [set_master_key](./struct.Module.html#method.set_master_key)
 //!
 //! ## Identity information
 //!
 //! Identity contains the following data:
 //!  - `master_key`. It is the administrator account of the identity.
 //!  - `signing_keys`. List of keys and their capabilities (type of key and its permissions) .
-//!
-//! ## Claim Issuers
-//!
-//! The administrator of the entity can add/remove claim issuers (see
-//! [add_claim_issuer](./struct.Module.html#method.add_claim_issuer) ). Only these claim issuers
-//! are able to add claims to that identity.
 //!
 //! ## Freeze signing keys
 //!
@@ -55,6 +48,7 @@ use core::convert::From;
 use sr_io::blake2_256;
 use sr_primitives::{
     traits::{Dispatchable, Verify},
+    weights::SimpleDispatchInfo,
     AnySignature, DispatchError,
 };
 use srml_support::{
@@ -365,6 +359,7 @@ decl_module! {
         }
 
         /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
+        #[weight = SimpleDispatchInfo::FixedNormal(5_000)]
         pub fn add_claim(
             origin,
             did: IdentityId,
