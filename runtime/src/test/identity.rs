@@ -4,13 +4,10 @@ use crate::{
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use codec::Encode;
-use primitives::{
-    Authorization, AuthorizationData, Key, Permission, Signer, SignerType, SigningItem,
-};
+use primitives::{AuthorizationData, Key, Permission, Signer, SignerType, SigningItem};
 use rand::Rng;
 use sr_io::with_externalities;
 use srml_support::{assert_err, assert_ok, traits::Currency};
-use std::convert::TryInto;
 use substrate_primitives::H512;
 use test_client::AccountKeyring;
 
@@ -20,54 +17,6 @@ type System = system::Module<TestStorage>;
 type Timestamp = timestamp::Module<TestStorage>;
 
 type Origin = <TestStorage as system::Trait>::Origin;
-
-#[test]
-fn only_claim_issuers_can_add_claims() {
-    with_externalities(&mut build_ext(), || {
-        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let issuer = AccountKeyring::Bob.public();
-        let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let claim_issuer = AccountKeyring::Charlie.public();
-
-        let claim_value = ClaimValue {
-            data_type: DataTypes::VecU8,
-            value: "some_value".as_bytes().to_vec(),
-        };
-
-        assert_ok!(Identity::add_claim(
-            Origin::signed(claim_issuer.clone()),
-            claim_issuer_did.clone(),
-            "some_key".as_bytes().to_vec(),
-            claim_issuer_did.clone(),
-            100u64,
-            claim_value.clone()
-        ));
-
-        assert_err!(
-            Identity::add_claim(
-                Origin::signed(claim_issuer.clone()),
-                owner_did,
-                "some_key".as_bytes().to_vec(),
-                issuer_did.clone(),
-                100u64,
-                claim_value.clone()
-            ),
-            "did_issuer must be a claim issuer or master key for DID"
-        );
-        assert_err!(
-            Identity::add_claim(
-                Origin::signed(issuer),
-                issuer_did,
-                "some_key".as_bytes().to_vec(),
-                claim_issuer_did,
-                100u64,
-                claim_value
-            ),
-            "Sender must hold a claim issuer\'s signing key"
-        );
-    });
-}
 
 /// TODO Add `Signer::Identity(..)` test.
 #[test]
@@ -115,17 +64,10 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
 fn revoking_claims() {
     with_externalities(&mut build_ext(), || {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let owner = Origin::signed(AccountKeyring::Alice.public());
         let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
-
-        assert_ok!(Identity::add_claim_issuer(
-            owner.clone(),
-            owner_did,
-            claim_issuer_did
-        ));
 
         let claim_value = ClaimValue {
             data_type: DataTypes::VecU8,
@@ -406,34 +348,6 @@ fn remove_frozen_signing_keys_with_externalities() {
     // Check DidRecord.
     let did_rec = Identity::did_records(alice_did);
     assert_eq!(did_rec.signing_items, vec![charlie_signing_key]);
-}
-
-#[test]
-fn add_claim_issuer_tests() {
-    with_externalities(&mut build_ext(), &add_claim_issuer_tests_with_externalities);
-}
-
-fn add_claim_issuer_tests_with_externalities() {
-    // Register identities
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let charlie = Origin::signed(AccountKeyring::Charlie.public());
-
-    // Check `add_claim_issuer` constraints.
-    assert_ok!(Identity::add_claim_issuer(
-        alice.clone(),
-        alice_did,
-        bob_did
-    ));
-    assert_err!(
-        Identity::add_claim_issuer(charlie, alice_did, bob_did),
-        "Only master key of an identity is able to execute this operation"
-    );
-    assert_err!(
-        Identity::add_claim_issuer(alice, alice_did, alice_did),
-        "Master key cannot add itself as claim issuer"
-    );
 }
 
 #[test]
@@ -854,7 +768,7 @@ fn adding_authorizations() {
 #[test]
 fn removing_authorizations() {
     with_externalities(&mut build_ext(), || {
-        let alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
+        let _alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
 
@@ -883,7 +797,11 @@ fn removing_authorizations() {
                 auth_ids_bob[auth_to_remove - 1]
             );
             assert_eq!(auth.next_authorization, auth_ids_bob[auth_to_remove + 1]);
-            Identity::remove_authorization(alice.clone(), bob_did, auth_ids_bob[auth_to_remove]);
+            assert_ok!(Identity::remove_authorization(
+                alice.clone(),
+                bob_did,
+                auth_ids_bob[auth_to_remove]
+            ));
             let removed_auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
             assert_eq!(removed_auth.authorization_data, AuthorizationData::NoData);
             auth_ids_bob.remove(auth_to_remove);

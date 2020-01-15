@@ -20,7 +20,6 @@
 //! - `swap_member` - Replace one identity with the other.
 //! - `reset_members` - Re-initialize group members.
 //!
-use codec::{Decode, Encode, HasCompact};
 use primitives::IdentityId;
 use rstd::prelude::*;
 use sr_primitives::{traits::EnsureOrigin, weights::SimpleDispatchInfo};
@@ -177,7 +176,6 @@ mod tests {
 
     use sr_io::with_externalities;
     use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
-    use std::cell::RefCell;
     use substrate_primitives::{Blake2Hasher, H256};
 
     use sr_primitives::{

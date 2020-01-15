@@ -172,9 +172,6 @@ decl_storage! {
         /// DID -> bool that indicates if signing keys are frozen.
         pub IsDidFrozen get(is_did_frozen): map IdentityId => bool;
 
-        /// DID -> DID claim issuers
-        pub ClaimIssuers get(claim_issuers): map IdentityId => Vec<IdentityId>;
-
         /// It stores the current identity for current transaction.
         pub CurrentDid get(current_did): Option<IdentityId>;
 
@@ -367,43 +364,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        pub fn add_claim_issuer(origin, did: IdentityId, claim_issuer_did: IdentityId) -> Result {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
-
-            // Master key shouldn't be added itself as claim issuer.
-            ensure!( did != claim_issuer_did, "Master key cannot add itself as claim issuer");
-
-            <ClaimIssuers>::mutate(did, |old_claim_issuers| {
-                if !old_claim_issuers.contains(&claim_issuer_did) {
-                    old_claim_issuers.push(claim_issuer_did);
-                }
-            });
-
-            Self::deposit_event(RawEvent::NewClaimIssuer(did, claim_issuer_did));
-            Ok(())
-        }
-
-        /// Removes a claim issuer DID. Only called by master key owner.
-        fn remove_claim_issuer(origin, did: IdentityId, did_issuer: IdentityId) -> Result {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
-
-            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
-
-            <ClaimIssuers>::mutate(did, |old_claim_issuers| {
-                *old_claim_issuers = old_claim_issuers
-                    .iter()
-                    .filter(|&issuer| *issuer != did_issuer)
-                    .cloned()
-                    .collect();
-            });
-
-            Self::deposit_event(RawEvent::RemovedClaimIssuer(did, did_issuer));
-            Ok(())
-        }
-
         /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
         pub fn add_claim(
             origin,
@@ -419,7 +379,6 @@ decl_module! {
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
 
             let sender_key = Key::try_from( sender.encode())?;
-            ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_signer = Signer::Key( sender_key);
@@ -1125,10 +1084,6 @@ impl<T: Trait> Module<T> {
             ));
         }
         Ok(())
-    }
-
-    pub fn is_claim_issuer(did: IdentityId, issuer_did: IdentityId) -> bool {
-        <ClaimIssuers>::get(did).contains(&issuer_did)
     }
 
     /// It checks if `key` is a signing key of `did` identity.
