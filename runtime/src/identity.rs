@@ -417,6 +417,7 @@ decl_module! {
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
         /// `did_issuer`'s signing key.
+        #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
         pub fn add_claims_batch(
             origin,
             did_issuer: IdentityId,
@@ -440,8 +441,6 @@ decl_module! {
                 claim_value,
             } in claims {
                 ensure!(<DidRecords>::exists(did), "DID must already exist");
-                ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key),
-                        "did_issuer must be a claim issuer or master key for DID");
                 let claim_meta_data = ClaimMetaData {
                     claim_key: claim_key.clone(),
                     claim_issuer: did_issuer.clone(),
