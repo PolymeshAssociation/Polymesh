@@ -18,17 +18,13 @@ mod identity;
 mod percentage_tm;
 mod simple_token;
 
-pub mod staking;
-#[cfg(feature = "std")]
-pub use staking::StakerStatus;
-
 pub mod runtime;
 mod sto_capped;
 mod utils;
 mod voting;
 pub use runtime::{
     api, Asset, Authorship, Balances, MaximumBlockWeight, NegativeImbalance, Runtime, RuntimeApi,
-    SessionKeys,
+    SessionKeys, System, Contracts, TransactionPayment,
 };
 #[cfg(feature = "std")]
 pub use runtime::{native_version, WASM_BINARY};
@@ -39,10 +35,10 @@ pub mod config {
     pub type BalancesConfig = crate::balances::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = crate::identity::GenesisConfig<crate::Runtime>;
     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
-    pub type StakingConfig = crate::staking::GenesisConfig<crate::Runtime>;
+    pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type GovernanceCommitteeConfig =
         collective::GenesisConfig<crate::Runtime, collective::Instance1>;
-    pub type ContractsConfig = contracts::GenesisConfig<crate::Runtime>;
+    pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = indices::GenesisConfig<crate::Runtime>;
     pub type SudoConfig = sudo::GenesisConfig<crate::Runtime>;
     pub type SystemConfig = system::GenesisConfig;

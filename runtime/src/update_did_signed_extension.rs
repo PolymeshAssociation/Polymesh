@@ -39,10 +39,15 @@ impl<T: system::Trait + Send + Sync> UpdateDid<T> {
     }
 }
 
-#[cfg(feature = "std")]
+
 impl<T: system::Trait + Send + Sync> rstd::fmt::Debug for UpdateDid<T> {
+    #[cfg(feature = "std")]
     fn fmt(&self, f: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
         write!(f, "UpdateDid")
+    }
+    #[cfg(not(feature = "std"))]
+    fn fmt(&self, f: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
+        Ok(())
     }
 }
 
@@ -50,6 +55,7 @@ impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     type AccountId = T::AccountId;
     type Call = runtime::Call;
     type AdditionalSigned = ();
+    type DispatchInfo = DispatchInfo;
     type Pre = ();
 
     fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> {

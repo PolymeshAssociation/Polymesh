@@ -481,7 +481,7 @@ decl_module! {
             match <Self as Currency<_>>::withdraw(
                 &transactor,
                 value,
-                WithdrawReason::TransactionPayment,
+                WithdrawReason::TransactionPayment.into(),
                 ExistenceRequirement::KeepAlive,
             ) {
                 Ok(_) => {
@@ -984,11 +984,11 @@ where
     fn withdraw(
         who: &T::AccountId,
         value: Self::Balance,
-        reason: WithdrawReason,
+        reasons: WithdrawReasons,
         _liveness: ExistenceRequirement,
     ) -> result::Result<Self::NegativeImbalance, DispatchError> {
         if let Some(new_balance) = Self::free_balance(who).checked_sub(&value) {
-            Self::ensure_can_withdraw(who, value, reason, new_balance)?;
+            Self::ensure_can_withdraw(who, value, reasons, new_balance)?;
             Self::set_free_balance(who, new_balance);
             Ok(NegativeImbalance::new(value))
         } else {
@@ -1068,7 +1068,7 @@ where
         Self::free_balance(who)
             .checked_sub(&value)
             .map_or(false, |new_balance| {
-                Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve, new_balance).is_ok()
+                Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve.into(), new_balance).is_ok()
             })
     }
 
@@ -1082,7 +1082,7 @@ where
             Err(Error::<T, I>::InsufficientBalance)?
         }
         let new_balance = b - value;
-        Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve, new_balance)?;
+        Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve.into(), new_balance)?;
         Self::set_reserved_balance(who, Self::reserved_balance(who) + value);
         Self::set_free_balance(who, new_balance);
         Ok(())

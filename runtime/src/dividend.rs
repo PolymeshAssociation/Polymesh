@@ -36,7 +36,7 @@ use codec::Encode;
 use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{decl_event, decl_module, decl_storage, decl_error, dispatch::DispatchResult, ensure};
 use system::ensure_signed;
 
 /// The module's configuration trait.
@@ -90,6 +90,9 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        
+        type Error = Error<T>;
+        
         // Initializing events
         fn deposit_event() = default;
 
@@ -198,7 +201,7 @@ decl_module! {
             ensure!(starts_in_future, "Cancellable dividend must mature in the future");
 
             // Pay amount back to owner
-            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> Result {
+            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> DispatchResult {
                 *balance  = balance
                     .checked_add(&entry.amount)
                     .ok_or("Could not add amount back to asset owner account")?;
@@ -256,7 +259,7 @@ decl_module! {
                 .ok_or("balance_amount_product division failed")?;
 
             // Adjust the paid_out amount
-            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
+            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> DispatchResult {
                 entry.amount_left = entry.amount_left.checked_sub(&share).ok_or("Could not increase paid_out")?;
                 Ok(())
             })?;
@@ -264,7 +267,7 @@ decl_module! {
             // Perform the payout in designated tokens
             <simple_token::BalanceOf<T>>::mutate(
                 (dividend.payout_currency.clone(), did),
-                |balance| -> Result {
+                |balance| -> DispatchResult {
                     *balance = balance
                         .checked_add(&share)
                         .ok_or("Could not add share to sender balance")?;
@@ -298,18 +301,18 @@ decl_module! {
             if let Some(ref end) = entry.expires_at {
                 ensure!(*end < now, "Dividend not finished for returning unclaimed payout");
             } else {
-                return Err("Claiming unclaimed payouts requires an end date");
+                return Err(Error::<T>::NotEnded.into());
             }
 
             // Transfer the computed amount
-            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> Result {
+            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> DispatchResult {
                 let new_balance = balance.checked_add(&entry.amount_left).ok_or("Could not add amount back to asset owner DID")?;
                 *balance  = new_balance;
                 Ok(())
             })?;
 
             // Set amount_left, flip remaining_claimed
-            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
+            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> DispatchResult {
                 entry.amount_left = 0.into();
                 entry.remaining_claimed = true;
                 Ok(())
@@ -340,6 +343,13 @@ decl_event!(
         DividendRemainingClaimed(Vec<u8>, u32, Balance),
     }
 );
+
+decl_error! {
+	pub enum Error for Module<T: Trait> {
+		/// Claiming unclaimed payouts requires an end date
+		NotEnded,
+	}
+}
 
 impl<T: Trait> Module<T> {
     /// A helper method for dividend creation. Returns dividend ID

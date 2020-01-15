@@ -18,7 +18,6 @@
 //! Auxillary struct/enums
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{Authorship, Balances, System, MaximumBlockWeight, NegativeImbalance};
 use primitives::Balance;
 use sp_runtime::{
     traits::{Convert, Saturating},
@@ -29,6 +28,7 @@ use frame_support::{
     weights::Weight
 };
 use rstd;
+use crate::{System, Authorship, Balances, MaximumBlockWeight, NegativeImbalance};
 
 pub struct Author;
 impl OnUnbalanced<NegativeImbalance> for Author {

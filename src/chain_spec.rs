@@ -250,6 +250,7 @@ fn testnet_genesis(
             ],
             phantom: Default::default(),
         }),
+        treasury: Some(Default::default()),
         im_online: Some(Default::default()),
         authority_discovery: Some(Default::default()),
         babe: Some(Default::default()),

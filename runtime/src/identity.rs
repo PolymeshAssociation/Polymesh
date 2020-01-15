@@ -55,7 +55,7 @@ use codec::Encode;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::Dispatchable, DispatchError};
 use frame_support::{
-    decl_event, decl_module, decl_storage,
+    decl_event, decl_module, decl_storage, decl_error,
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
@@ -160,6 +160,9 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        
+        type Error = Error<T>;
+        
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
@@ -205,7 +208,7 @@ decl_module! {
             for s_item in &signing_items {
                 if let Signer::Key(ref key) = s_item.signer {
                     if !Self::can_key_be_linked_to_did( key, s_item.signer_type){
-                        return Err("One signing key can only belong to one DID");
+                        return Err(Error::<T>::AlreadyLinked.into());
                     }
                 }
             }
@@ -215,7 +218,7 @@ decl_module! {
             let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
                 &sender,
                 Self::did_creation_fee(),
-                WithdrawReason::Fee,
+                WithdrawReason::Fee.into(),
                 ExistenceRequirement::KeepAlive
                 )?;
 
@@ -251,7 +254,7 @@ decl_module! {
             for s_item in &signing_items{
                 if let Signer::Key(ref key) = s_item.signer {
                     if !Self::can_key_be_linked_to_did( key, s_item.signer_type) {
-                        return Err( "One signing key can only belong to one DID");
+                        return Err(Error::<T>::AlreadyLinked.into());
                     }
                 }
             }
@@ -405,7 +408,7 @@ decl_module! {
                 ensure!( Self::is_signer_authorized(current_did, &Signer::Identity(target_did)),
                     "Current identity cannot be forwarded, it is not a signing key of target identity");
             } else {
-                return Err("Missing current identity on the transaction");
+                return Err(Error::<T>::MissingCurrentIdentity.into());
             }
 
             // 1.3. Check that target_did has a KYC.
@@ -480,7 +483,7 @@ decl_module! {
             if record.signing_items.iter().find(|&si| si.signer == signer).is_some() {
                 Self::update_signing_item_permissions(did, &signer, permissions)
             } else {
-                Err( "Sender is not part of did's signing keys")
+                Err(Error::<T>::InvalidSender.into())
             }
         }
 
@@ -503,7 +506,7 @@ decl_module! {
                 sp_runtime::print(did);
                 Ok(())
             } else {
-                Err("No did linked to the user")
+                Err(Error::<T>::NoDIDFound.into())
             }
         }
 
@@ -527,7 +530,7 @@ decl_module! {
                 // Sender key is valid.
                 // Verify 1-to-1 relation between key and identity.
                 if signer_id_found.is_some() {
-                    return Err("Key is already linked to an identity");
+                    return Err(Error::<T>::AlreadyLinked.into());
                 }
                 Some( signer_from_key)
             } else {
@@ -560,10 +563,10 @@ decl_module! {
                     });
                     Ok(())
                 } else {
-                    Err( "Signer is not pre authorized by the identity")
+                    Err(Error::<T>::Unauthorized.into())
                 }
             } else {
-                Err( "Signer is not pre authorized by any identity")
+                Err(Error::<T>::Unauthorized.into())
             }
         }
 
@@ -586,7 +589,7 @@ decl_module! {
                 Self::remove_pre_join_identity( &signer, target_id);
                 Ok(())
             } else {
-                Err("Account cannot remove this authorization")
+                Err(Error::<T>::Unauthorized.into())
             }
         }
     }
@@ -632,6 +635,21 @@ decl_event!(
         DidQuery(Key, IdentityId),
     }
 );
+
+decl_error! {
+	pub enum Error for Module<T: Trait> {
+		/// One signing key can only belong to one DID
+		AlreadyLinked,
+		/// Missing current identity on the transaction
+		MissingCurrentIdentity,
+		/// Sender is not part of did's signing keys
+		InvalidSender,
+		/// No did linked to the user
+		NoDIDFound,
+		/// Signer is not pre authorized by the identity
+		Unauthorized,
+	}
+}
 
 impl<T: Trait> Module<T> {
     /// Private and not sanitized function. It is designed to be used internally by

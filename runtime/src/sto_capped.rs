@@ -273,7 +273,8 @@ decl_module! {
             } else {
                 let new_count = token_count.checked_sub(1).ok_or("underflow new token count value")?;
                 <TokenIndexForSTO>::insert((ticker.clone(), sto_id, simple_token_ticker.clone()), new_count);
-                <AllowedTokens>::insert((ticker.clone(), sto_id, new_count), vec![]);
+                let empty_vector: Vec<u8> = vec![]; 
+                <AllowedTokens>::insert((ticker.clone(), sto_id, new_count), empty_vector);
                 <TokensCountForSto>::insert((ticker.clone(), sto_id), new_count);
             }
 

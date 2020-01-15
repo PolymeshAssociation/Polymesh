@@ -67,7 +67,7 @@ use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use frame_support::{
-    decl_event, decl_module, decl_storage,
+    decl_event, decl_module, decl_storage, decl_error,
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
@@ -197,6 +197,9 @@ decl_storage! {
 // public interface for this runtime module
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        
+        type Error = Error<T>;
+        
         /// initialize the default event for this module
         fn deposit_event() = default;
 
@@ -216,7 +219,7 @@ decl_module! {
                     if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
                         did
                     } else {
-                        return Err("did not found");
+                        return Err(Error::<T>::DIDNotFound.into());
                     }
                 }
             };
@@ -259,7 +262,7 @@ decl_module! {
                     if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
                         did
                     } else {
-                        return Err("did not found");
+                        return Err(Error::<T>::DIDNotFound.into());
                     }
                 }
             };
@@ -324,7 +327,7 @@ decl_module! {
                     if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
                         did
                     } else {
-                        return Err("did not found");
+                        return Err(Error::<T>::DIDNotFound.into());
                     }
                 }
             };
@@ -341,7 +344,9 @@ decl_module! {
 
             if tta.next_ticker.is_none() && tta.previous_ticker.is_none(){
                 // This transfer approval is the last approval
-                <TickerTransferApprovals>::remove((to_did, None));
+                let x :(IdentityId, Option<Vec<u8>>) = (to_did, None);
+                <TickerTransferApprovals>::remove(x);
+                //<TickerTransferApprovals>::remove((to_did, None));
             } else {
                 <TickerTransferApprovals>::mutate(
                     (to_did, tta.previous_ticker.clone()),
@@ -375,7 +380,7 @@ decl_module! {
                     if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
                         did
                     } else {
-                        return Err("did not found");
+                        return Err(Error::<T>::DIDNotFound.into());
                     }
                 }
             };
@@ -463,11 +468,12 @@ decl_module! {
                 <balances::Module<T> as Currency<_>>::transfer(
                     &sender,
                     &<T as utils::Trait>::validator_id_to_account_id(v),
-                    proportional_fee
+                    proportional_fee,
+                    ExistenceRequirement::AllowDeath
                 )?;
             }
             let remainder_fee = fee - (proportional_fee * validator_len);
-            let _withdraw_result = <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
+            let _withdraw_result = <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee.into(), ExistenceRequirement::KeepAlive)?;
 
             if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {
                 // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
@@ -1220,6 +1226,13 @@ decl_event! {
         /// ticker, approved did
         TickerTransferApprovalWithdrawal(Vec<u8>, IdentityId),
     }
+}
+
+decl_error! {
+	pub enum Error for Module<T: Trait> {
+		/// DID not found
+		DIDNotFound,
+	}
 }
 
 pub trait AssetTrait<V> {

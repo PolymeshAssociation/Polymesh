@@ -17,7 +17,7 @@ use crate::identity;
 use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
-use contracts::{CodeHash, Gas, Schedule};
+use pallet_contracts::{CodeHash, Gas, Schedule};
 use rstd::{convert::TryFrom, prelude::*};
 use sp_runtime::traits::StaticLookup;
 use frame_support::traits::Currency;
@@ -27,9 +27,9 @@ use system::ensure_signed;
 // pub type CodeHash<T> = <T as system::Trait>::Hash;
 
 pub type BalanceOf<T> =
-    <<T as contracts::Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+    <<T as pallet_contracts::Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
-pub trait Trait: contracts::Trait + identity::Trait {}
+pub trait Trait: pallet_contracts::Trait + identity::Trait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
@@ -44,7 +44,7 @@ decl_module! {
 
         // Simply forwards to the `update_schedule` function in the Contract module.
         pub fn update_schedule(origin, schedule: Schedule) -> DispatchResult {
-            <contracts::Module<T>>::update_schedule(origin, schedule)
+            <pallet_contracts::Module<T>>::update_schedule(origin, schedule)
         }
 
         // Simply forwards to the `put_code` function in the Contract module.
@@ -62,9 +62,7 @@ decl_module! {
 
             // Call underlying function
             let new_origin = system::RawOrigin::Signed(sender).into();
-            let result:Result = <contracts::Module<T>>::put_code(new_origin, gas_limit, code);
-
-            result
+            <pallet_contracts::Module<T>>::put_code(new_origin, gas_limit, code)
         }
 
         // Simply forwards to the `call` function in the Contract module.
@@ -75,7 +73,7 @@ decl_module! {
             #[compact] gas_limit: Gas,
             data: Vec<u8>
         ) -> DispatchResult {
-            <contracts::Module<T>>::call(origin, dest, value, gas_limit, data)
+            <pallet_contracts::Module<T>>::call(origin, dest, value, gas_limit, data)
         }
 
         // Simply forwards to the `instantiate` function in the Contract module.
@@ -86,7 +84,7 @@ decl_module! {
             code_hash: CodeHash<T>,
             data: Vec<u8>
         ) -> DispatchResult {
-            <contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
+            <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
         }
     }
 }

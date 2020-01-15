@@ -37,7 +37,7 @@ use crate::{
 use codec::Encode;
 use primitives::{IdentityId, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::{DispatchResult}, ensure};
+use frame_support::{decl_event, decl_module, decl_storage, decl_error, dispatch::{DispatchResult}, ensure};
 use system::{self, ensure_signed};
 
 /// The module's configuration trait.
@@ -101,6 +101,8 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Define Error type
+        type Error = Error<T>;
 
         // Initializing events
         fn deposit_event() = default;
@@ -117,20 +119,20 @@ decl_module! {
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
+            ensure!(Self::is_owner(&upper_ticker, did), Error::<T>::InvalidOwner);
 
             // This avoids cloning the variables to make the same tupple again and again.
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
 
             // Ensure the uniqueness of the ballot
-            ensure!(!<Ballots<T>>::exists(&upper_ticker_ballot_name), "A ballot with same name already exisits");
+            ensure!(!<Ballots<T>>::exists(&upper_ticker_ballot_name), Error::<T>::AlreadyExists);
 
             let now = <timestamp::Module<T>>::get();
 
-            ensure!(now < ballot_details.voting_end, "Voting end date in past");
-            ensure!(ballot_details.voting_end > ballot_details.voting_start, "Voting end date before voting start date");
-            ensure!(ballot_details.motions.len() > 0, "No motion submitted");
+            ensure!(now < ballot_details.voting_end, Error::<T>::InvalidDate);
+            ensure!(ballot_details.voting_end > ballot_details.voting_start, Error::<T>::InvalidDate);
+            ensure!(ballot_details.motions.len() > 0, Error::<T>::NoMotions);
 
             // NB: Checkpoint ID is not verified here to allow creating ballots that will become active in future.
             // Voting will only be allowed on checkpoints that exist.
@@ -138,19 +140,19 @@ decl_module! {
             let mut total_choices:usize = 0usize;
 
             for motion in &ballot_details.motions {
-                ensure!(motion.choices.len() > 0, "No choice submitted");
+                ensure!(motion.choices.len() > 0, Error::<T>::NoChoicesInMotions);
                 total_choices += motion.choices.len();
             }
 
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
                 <TotalChoices>::insert(&upper_ticker_ballot_name, total_choices_u64);
             } else {
-                return Err("Could not decode choices")
+                return Err(Error::<T>::InvalidChoicesType.into());
             }
 
             <Ballots<T>>::insert(&upper_ticker_ballot_name, ballot_details.clone());
 
-            let initial_results = vec![0.into(); total_choices];
+            let initial_results = vec![T::Balance::from(0); total_choices];
             <Results<T>>::insert(&upper_ticker_ballot_name, initial_results);
 
             Self::deposit_event(RawEvent::BallotCreated(upper_ticker, ballot_name, ballot_details));
@@ -171,35 +173,35 @@ decl_module! {
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
 
             // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
 
             // Ensure validity the ballot
-            ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exist");
+            ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), Error::<T>::NotExists);
             let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
             let now = <timestamp::Module<T>>::get();
-            ensure!(ballot.voting_start <= now, "Voting hasn't started yet");
-            ensure!(ballot.voting_end > now, "Voting ended already");
+            ensure!(ballot.voting_start <= now, Error::<T>::NotStarted);
+            ensure!(ballot.voting_end > now, Error::<T>::AlreadyEnded);
 
             // Ensure validity of checkpoint
-            ensure!(<asset::TotalCheckpoints>::exists(&upper_ticker), "No checkpoints created");
+            ensure!(<asset::TotalCheckpoints>::exists(&upper_ticker), Error::<T>::NoCheckpoints);
             let count = <asset::TotalCheckpoints>::get(&upper_ticker);
-            ensure!(ballot.checkpoint_id <= count, "Checkpoint has not been created yet");
+            ensure!(ballot.checkpoint_id <= count, Error::<T>::NoCheckpoints);
 
             // Ensure vote is valid
             if let Ok(votes_len) = u64::try_from(votes.len()) {
-                ensure!(votes_len == <TotalChoices>::get(&upper_ticker_ballot_name), "Invalid vote");
+                ensure!(votes_len == <TotalChoices>::get(&upper_ticker_ballot_name), Error::<T>::InvalidVote);
             } else {
-                return Err("Invalid vote")
+                return Err(Error::<T>::InvalidVote.into())
             }
 
             let mut total_votes: T::Balance = 0.into();
             for vote in &votes {
                 total_votes += *vote;
             }
-            ensure!(total_votes <= T::Asset::get_balance_at(&upper_ticker, did, ballot.checkpoint_id), "Not enough balance");
+            ensure!(total_votes <= T::Asset::get_balance_at(&upper_ticker, did, ballot.checkpoint_id), Error::<T>::InsufficientBalance);
 
             // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name_did = (upper_ticker.clone(), ballot_name.clone(), did);
@@ -241,17 +243,17 @@ decl_module! {
             let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
+            ensure!(Self::is_owner(&upper_ticker, did), Error::<T>::InvalidOwner);
 
             // This avoids cloning the variables to make the same tupple again and again
             let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
 
             // Ensure the existance of valid ballot
-            ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exisit");
+            ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), Error::<T>::NotExists);
             let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
             let now = <timestamp::Module<T>>::get();
-            ensure!(now < ballot.voting_end, "Voting already ended");
+            ensure!(now < ballot.voting_end, Error::<T>::AlreadyEnded);
 
             // Clearing results
             <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
@@ -291,6 +293,37 @@ decl_event!(
         BallotCancelled(Vec<u8>, Vec<u8>),
     }
 );
+
+decl_error! {
+	pub enum Error for Module<T: Trait> {
+		/// sender must be a signing key for DID
+		InvalidSigner,
+		/// Sender must be the token owner
+		InvalidOwner,
+		/// A ballot with same name already exisits
+		AlreadyExists,
+		/// Voting end date in past / Voting end date before voting start date
+		InvalidDate,
+		/// No motion submitted
+		NoMotions,
+		/// No choice submitted
+		NoChoicesInMotions,
+		/// Could not decode choices
+		InvalidChoicesType,
+		/// Ballot does not exist
+		NotExists,
+        /// Voting hasn't started yet
+        NotStarted,
+        /// Voting ended already
+        AlreadyEnded,
+        /// No checkpoints created
+        NoCheckpoints,
+        /// Invalid vote
+        InvalidVote,
+        /// Not enough balance
+        InsufficientBalance,
+	}
+}
 
 impl<T: Trait> Module<T> {
     fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool {

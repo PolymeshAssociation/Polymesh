@@ -9,8 +9,9 @@ use system;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + session::Trait {
-    type OffChainSignature: Verify<Signer = IdentifyAccount<AccountId=Self::AccountId>> + Member + Decode + Encode;
-    fn validator_id_to_account_id(v: &<Self as session::Trait>::ValidatorId) -> <Self as system::Trait>::AccountId;
+    type Public: IdentifyAccount<AccountId = Self::AccountId>;
+    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
+    fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId;
 }
 
 // Other utility functions
