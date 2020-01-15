@@ -72,21 +72,31 @@ use system::{self, ensure_signed};
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
-    issuance_date: U,
-    expiry: U,
-    claim_value: ClaimValue,
+    pub issuance_date: U,
+    pub expiry: U,
+    pub claim_value: ClaimValue,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimMetaData {
-    claim_key: Vec<u8>,
-    claim_issuer: IdentityId,
+    pub claim_key: Vec<u8>,
+    pub claim_issuer: IdentityId,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimValue {
     pub data_type: DataTypes,
     pub value: Vec<u8>,
+}
+
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+/// A structure for passing claims to `add_claims_batch`. The type argument is required to be
+/// `timestamp::Trait::Moment`.
+pub struct ClaimRecord<U> {
+    pub did: IdentityId,
+    pub claim_key: Vec<u8>,
+    pub expiry: U,
+    pub claim_value: ClaimValue,
 }
 
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -197,19 +207,19 @@ decl_storage! {
         pub MultiPurposeNonce get(multi_purpose_nonce) build(|_| 1u64): u64;
 
         /// Pre-authorize join to Identity.
-        pub PreAuthorizedJoinDid get( pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
+        pub PreAuthorizedJoinDid get(pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
 
         /// Authorization nonce per Identity. Initially is 0.
-        pub OffChainAuthorizationNonce get( offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
+        pub OffChainAuthorizationNonce get(offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
-        pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
+        pub RevokeOffChainAuthorization get(is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity has
         pub Authorizations get(authorizations): map(Signer, u64) => Authorization<T::Moment>;
 
         /// Auth id of the latest auth of an identity. Used to allow iterating over auths
-        pub LastAuthorization get(last_authorization): map(Signer) => u64;
+        pub LastAuthorization get(last_authorization): map Signer => u64;
     }
 }
 
@@ -418,11 +428,11 @@ decl_module! {
             ensure!(<DidRecords>::exists(did), "DID must already exist");
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
 
-            let sender_key = Key::try_from( sender.encode())?;
+            let sender_key = Key::try_from(sender.encode())?;
             ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_signer = Signer::Key( sender_key);
+            let sender_signer = Signer::Key(sender_key);
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
@@ -448,6 +458,58 @@ decl_module! {
 
             Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
 
+            Ok(())
+        }
+
+        /// Adds a new batch of claim records or edits an existing one. Only called by
+        /// `did_issuer`'s signing key.
+        pub fn add_claims_batch(
+            origin,
+            did_issuer: IdentityId,
+            claims: Vec<ClaimRecord<<T as timestamp::Trait>::Moment>>
+        ) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
+            let sender_key = Key::try_from(sender.encode())?;
+            // Verify that sender key is one of did_issuer's signing keys
+            let sender_signer = Signer::Key(sender_key);
+            ensure!(Self::is_signer_authorized(did_issuer, &sender_signer),
+                    "Sender must hold a claim issuer's signing key");
+            // Claims that successfully passed all required checks. Unless all claims pass those
+            // checks, the whole operation fails.
+            let mut checked_claims = Vec::new();
+            // Check input claims.
+            for ClaimRecord {
+                did,
+                claim_key,
+                expiry,
+                claim_value,
+            } in claims {
+                ensure!(<DidRecords>::exists(did), "DID must already exist");
+                ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key),
+                        "did_issuer must be a claim issuer or master key for DID");
+                let claim_meta_data = ClaimMetaData {
+                    claim_key: claim_key.clone(),
+                    claim_issuer: did_issuer.clone(),
+                };
+                let now = <timestamp::Module<T>>::get();
+                let claim = Claim {
+                    issuance_date: now,
+                    expiry: expiry.clone(),
+                    claim_value: claim_value.clone(),
+                };
+                checked_claims.push((did.clone(), claim_meta_data, claim));
+            }
+            // Register the claims.
+            for (did, claim_meta_data, claim) in checked_claims {
+                <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
+                <ClaimKeys>::mutate(&did, |old_claim_data| {
+                    if !old_claim_data.contains(&claim_meta_data) {
+                        old_claim_data.push(claim_meta_data.clone());
+                    }
+                });
+                Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
+            }
             Ok(())
         }
 

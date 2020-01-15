@@ -1,16 +1,16 @@
 use crate::{
     balances,
-    identity::{self, ClaimValue, DataTypes, SigningItemWithAuth, TargetIdAuthorization},
+    identity::{
+        self, Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, SigningItemWithAuth,
+        TargetIdAuthorization,
+    },
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use codec::Encode;
-use primitives::{
-    Authorization, AuthorizationData, Key, Permission, Signer, SignerType, SigningItem,
-};
+use primitives::{AuthorizationData, Key, Permission, Signer, SignerType, SigningItem};
 use rand::Rng;
 use sr_io::with_externalities;
 use srml_support::{assert_err, assert_ok, traits::Currency};
-use std::convert::TryInto;
 use substrate_primitives::H512;
 use test_client::AccountKeyring;
 
@@ -65,6 +65,119 @@ fn only_claim_issuers_can_add_claims() {
                 claim_value
             ),
             "Sender must hold a claim issuer\'s signing key"
+        );
+    });
+}
+
+#[test]
+fn only_claim_issuers_can_add_claims_batch() {
+    with_externalities(&mut build_ext(), || {
+        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let issuer = AccountKeyring::Bob.public();
+        let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let claim_issuer = AccountKeyring::Charlie.public();
+        let claim_key = "key".as_bytes();
+        let claim_records = vec![
+            ClaimRecord {
+                did: claim_issuer_did.clone(),
+                claim_key: claim_key.to_vec(),
+                expiry: 100u64,
+                claim_value: ClaimValue {
+                    data_type: DataTypes::VecU8,
+                    value: "value 1".as_bytes().to_vec(),
+                },
+            },
+            ClaimRecord {
+                did: claim_issuer_did.clone(),
+                claim_key: claim_key.to_vec(),
+                expiry: 200u64,
+                claim_value: ClaimValue {
+                    data_type: DataTypes::VecU8,
+                    value: "value 2".as_bytes().to_vec(),
+                },
+            },
+        ];
+        assert_ok!(Identity::add_claims_batch(
+            Origin::signed(claim_issuer.clone()),
+            claim_issuer_did.clone(),
+            claim_records,
+        ));
+        // Check that the last claim value was stored with `claim_key`.
+        let Claim {
+            issuance_date: _issuance_date,
+            expiry,
+            claim_value,
+        } = Identity::claims((
+            claim_issuer_did.clone(),
+            ClaimMetaData {
+                claim_key: claim_key.to_vec(),
+                claim_issuer: claim_issuer_did.clone(),
+            },
+        ));
+        assert_eq!(expiry, 200u64);
+        assert_eq!(
+            claim_value,
+            ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "value 2".as_bytes().to_vec(),
+            }
+        );
+        let claim_records_err1 = vec![ClaimRecord {
+            did: owner_did.clone(),
+            claim_key: claim_key.to_vec(),
+            expiry: 300u64,
+            claim_value: ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "value 3".as_bytes().to_vec(),
+            },
+        }];
+        assert_err!(
+            Identity::add_claims_batch(
+                Origin::signed(claim_issuer.clone()),
+                claim_issuer_did,
+                claim_records_err1,
+            ),
+            "did_issuer must be a claim issuer or master key for DID"
+        );
+        // Check that no claim has been stored.
+        assert_eq!(
+            Identity::claims((
+                owner_did.clone(),
+                ClaimMetaData {
+                    claim_key: claim_key.to_vec(),
+                    claim_issuer: claim_issuer_did.clone(),
+                },
+            )),
+            Claim::default(),
+        );
+        let claim_records_err2 = vec![ClaimRecord {
+            did: issuer_did.clone(),
+            claim_key: claim_key.to_vec(),
+            expiry: 400u64,
+            claim_value: ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "value 4".as_bytes().to_vec(),
+            },
+        }];
+        assert_err!(
+            Identity::add_claims_batch(
+                Origin::signed(issuer),
+                claim_issuer_did,
+                claim_records_err2,
+            ),
+            "Sender must hold a claim issuer\'s signing key"
+        );
+        // Check that no claim has been stored.
+        assert_eq!(
+            Identity::claims((
+                issuer_did.clone(),
+                ClaimMetaData {
+                    claim_key: claim_key.to_vec(),
+                    claim_issuer: claim_issuer_did.clone(),
+                },
+            )),
+            Claim::default(),
         );
     });
 }
@@ -667,7 +780,7 @@ fn one_step_join_id_with_ext() {
         AccountKeyring::Charlie,
         AccountKeyring::Dave,
     ]
-    .into_iter()
+    .iter()
     .map(|acc| H512::from(acc.sign(&auth_encoded)))
     .collect::<Vec<_>>();
 
@@ -883,7 +996,8 @@ fn removing_authorizations() {
                 auth_ids_bob[auth_to_remove - 1]
             );
             assert_eq!(auth.next_authorization, auth_ids_bob[auth_to_remove + 1]);
-            Identity::remove_authorization(alice.clone(), bob_did, auth_ids_bob[auth_to_remove]);
+            Identity::remove_authorization(alice.clone(), bob_did, auth_ids_bob[auth_to_remove])
+                .unwrap();
             let removed_auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
             assert_eq!(removed_auth.authorization_data, AuthorizationData::NoData);
             auth_ids_bob.remove(auth_to_remove);

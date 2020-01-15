@@ -30,7 +30,11 @@ pub struct IdentityId([u8; UUID_LEN]);
 
 impl Display for IdentityId {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "did:poly:{:?}", self.0)
+        write!(f, "did:poly:")?;
+        for byte in &self.0 {
+            f.write_fmt(format_args!("{:02x}", byte))?;
+        }
+        Ok(())
     }
 }
 

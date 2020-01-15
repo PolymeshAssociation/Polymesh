@@ -102,6 +102,12 @@
         "data_type": "DataTypes",
         "value": "Vec<u8>"
     },
+    "ClaimRecord": {
+        "did": "IdentityId",
+        "claim_key": "Vec<u8>",
+        "expiry": "Moment",
+        "claim_value": "ClaimValue"
+    },
     "DataTypes": {
         "_enum": [
             "U8",
