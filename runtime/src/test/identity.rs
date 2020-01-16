@@ -7,7 +7,7 @@ use crate::{
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use codec::Encode;
-use primitives::{AuthorizationData, Key, Permission, Signer, SignerType, SigningItem};
+use primitives::{AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem};
 use rand::Rng;
 use sr_io::with_externalities;
 use srml_support::{assert_err, assert_ok, traits::Currency};
@@ -1005,6 +1005,81 @@ fn removing_authorizations() {
                 let auth = Identity::authorizations((bob_did, auth_ids_bob[i]));
                 assert_eq!(auth.previous_authorization, auth_ids_bob[i - 1]);
                 assert_eq!(auth.next_authorization, auth_ids_bob[i + 1]);
+            }
+        }
+    });
+}
+
+#[test]
+fn adding_links() {
+    with_externalities(&mut build_ext(), || {
+        let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
+
+        let mut link_ids_bob = Vec::new();
+        link_ids_bob.push(0); // signifies that there are no more links left
+        Identity::add_link(bob_did, LinkData::TickerOwned(vec![0x50]), None);
+        link_ids_bob.push(Identity::last_link(bob_did));
+        Identity::add_link(bob_did, LinkData::TickerOwned(vec![0x51]), None);
+        link_ids_bob.push(Identity::last_link(bob_did));
+        Identity::add_link(bob_did, LinkData::TickerOwned(vec![0x50]), Some(100));
+        link_ids_bob.push(Identity::last_link(bob_did));
+        Identity::add_link(bob_did, LinkData::TickerOwned(vec![0x50]), Some(100));
+        link_ids_bob.push(Identity::last_link(bob_did));
+        link_ids_bob.push(0); // signifies that there are no more links left
+        for i in 1..(link_ids_bob.len() - 1) {
+            let link = Identity::links((bob_did, link_ids_bob[i]));
+            assert_eq!(link.previous_link, link_ids_bob[i - 1]);
+            assert_eq!(link.next_link, link_ids_bob[i + 1]);
+            match i {
+                1 => {
+                    assert_eq!(link.expiry, None);
+                    assert_eq!(link.link_data, LinkData::TickerOwned(vec![0x50]));
+                }
+                2 => {
+                    assert_eq!(link.expiry, None);
+                    assert_eq!(link.link_data, LinkData::TickerOwned(vec![0x51]));
+                }
+                3 => {
+                    assert_eq!(link.expiry, Some(100));
+                    assert_eq!(link.link_data, LinkData::TickerOwned(vec![0x50]));
+                }
+                4 => {
+                    assert_eq!(link.expiry, Some(100));
+                    assert_eq!(link.link_data, LinkData::TickerOwned(vec![0x50]));
+                }
+                _ => {}
+            }
+        }
+    });
+}
+
+#[test]
+fn removing_links() {
+    with_externalities(&mut build_ext(), || {
+        let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
+
+        let mut link_ids_bob = Vec::new();
+        link_ids_bob.push(0); // signifies that there are no more links left
+        for _ in 0..10 {
+            Identity::add_link(bob_did, LinkData::TickerOwned(vec![0x50]), None);
+            link_ids_bob.push(Identity::last_link(bob_did));
+        }
+        link_ids_bob.push(0); // signifies that there are no more links left
+        let mut rng = rand::thread_rng();
+        for _ in 0..10 {
+            let link_to_remove = rng.gen_range(1, link_ids_bob.len() - 1);
+            let link = Identity::links((bob_did, link_ids_bob[link_to_remove]));
+            assert_eq!(link.link_data, LinkData::TickerOwned(vec![0x50]));
+            assert_eq!(link.previous_link, link_ids_bob[link_to_remove - 1]);
+            assert_eq!(link.next_link, link_ids_bob[link_to_remove + 1]);
+            Identity::remove_link(bob_did, link_ids_bob[link_to_remove]);
+            let removed_link = Identity::links((bob_did, link_ids_bob[link_to_remove]));
+            assert_eq!(removed_link.link_data, LinkData::NoData);
+            link_ids_bob.remove(link_to_remove);
+            for i in 1..(link_ids_bob.len() - 1) {
+                let link = Identity::links((bob_did, link_ids_bob[i]));
+                assert_eq!(link.previous_link, link_ids_bob[i - 1]);
+                assert_eq!(link.next_link, link_ids_bob[i + 1]);
             }
         }
     });
