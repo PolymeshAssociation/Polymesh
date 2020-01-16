@@ -354,7 +354,8 @@ decl_module! {
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer), "sender must be a signing key for the token owner DID");
-            <Tokens<T>>::mutate(&ticker, |token| token.name = name);
+            <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
+            Self::deposit_event(RawEvent::TokenRenamed(ticker.to_vec(), name));
             Ok(())
         }
 
@@ -1085,6 +1086,9 @@ decl_event! {
         /// ticker transfer approval withdrawal
         /// ticker, approved did
         TickerTransferApprovalWithdrawal(Vec<u8>, IdentityId),
+        /// An event emitted when a token is renamed.
+        /// Parameters: ticker name, new token name.
+        TokenRenamed(Vec<u8>, Vec<u8>),
     }
 }
 
