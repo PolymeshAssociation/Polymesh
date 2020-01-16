@@ -24,7 +24,7 @@ type Origin = <TestStorage as system::Trait>::Origin;
 #[test]
 fn add_claims_batch() {
     with_externalities(&mut build_ext(), || {
-        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let issuer = AccountKeyring::Bob.public();
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
@@ -75,15 +75,6 @@ fn add_claims_batch() {
                 value: "value 2".as_bytes().to_vec(),
             }
         );
-        let claim_records_err1 = vec![ClaimRecord {
-            did: owner_did.clone(),
-            claim_key: claim_key.to_vec(),
-            expiry: 300u64,
-            claim_value: ClaimValue {
-                data_type: DataTypes::VecU8,
-                value: "value 3".as_bytes().to_vec(),
-            },
-        }];
         let claim_records_err2 = vec![ClaimRecord {
             did: issuer_did.clone(),
             claim_key: claim_key.to_vec(),
