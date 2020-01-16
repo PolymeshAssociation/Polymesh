@@ -267,7 +267,6 @@ impl<T: Trait> Module<T> {
             }
 
             if !rule_broken {
-                sr_primitives::print("Satisfied Identity TM restrictions");
                 return Ok(ERC1400_TRANSFER_SUCCESS);
             }
         }
@@ -466,6 +465,7 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
+        type AcceptTickerTransferTarget = asset::Module<Test>;
     }
 
     impl asset::Trait for Test {

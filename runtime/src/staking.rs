@@ -2080,6 +2080,12 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
+        type AcceptTickerTransferTarget = Test;
+    }
+    impl crate::asset::AcceptTickerTransfer for Test {
+        fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
     }
 
     parameter_types! {

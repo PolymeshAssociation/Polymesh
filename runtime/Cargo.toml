@@ -58,6 +58,7 @@ phragmen = { package = "substrate-phragmen", git = "https://github.com/paritytec
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+hex-literal = "0.2.1"
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.2" }

@@ -125,6 +125,13 @@ impl group::Trait<group::Instance1> for TestStorage {
 impl identity::Trait for TestStorage {
     type Event = ();
     type Proposal = IdentityProposal;
+    type AcceptTickerTransferTarget = TestStorage;
+}
+
+impl crate::asset::AcceptTickerTransfer for TestStorage {
+    fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+        Ok(())
+    }
 }
 
 // Publish type alias for each module
