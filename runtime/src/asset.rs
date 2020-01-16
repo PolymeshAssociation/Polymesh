@@ -1551,7 +1551,7 @@ impl<T: Trait> Module<T> {
 
         ensure!(<Tokens<T>>::exists(&ticker), "Token does not exist");
 
-        let current_owner = Self::ticker_registration(&ticker).owner;
+        let current_owner = Self::token_details(&ticker).owner_did;
 
         <identity::Module<T>>::consume_auth(
             Signer::from(current_owner),
