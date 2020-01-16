@@ -37,7 +37,7 @@
 
 use rstd::{convert::TryFrom, prelude::*};
 
-use crate::{asset::AcceptTickerTransfer, balances, constants::did::USER};
+use crate::{asset::AcceptTickerTransfer, balances, constants::did::USER, BatchDispatchInfo};
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
     Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
@@ -153,6 +153,7 @@ pub struct SigningItemWithAuth {
     /// Off-chain authorization signature.
     pub auth_signature: H512,
 }
+
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
@@ -369,7 +370,7 @@ decl_module! {
         }
 
         /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
-        #[weight = SimpleDispatchInfo::FixedNormal(5_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
         pub fn add_claim(
             origin,
             did: IdentityId,
@@ -417,7 +418,7 @@ decl_module! {
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
         /// `did_issuer`'s signing key.
-        #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
+        #[weight = BatchDispatchInfo::new_normal(3_000, 10_000)]
         pub fn add_claims_batch(
             origin,
             did_issuer: IdentityId,

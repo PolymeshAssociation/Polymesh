@@ -22,7 +22,7 @@ type Timestamp = timestamp::Module<TestStorage>;
 type Origin = <TestStorage as system::Trait>::Origin;
 
 #[test]
-fn only_claim_issuers_can_add_claims_batch() {
+fn add_claims_batch() {
     with_externalities(&mut build_ext(), || {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -84,25 +84,6 @@ fn only_claim_issuers_can_add_claims_batch() {
                 value: "value 3".as_bytes().to_vec(),
             },
         }];
-        assert_err!(
-            Identity::add_claims_batch(
-                Origin::signed(claim_issuer.clone()),
-                claim_issuer_did,
-                claim_records_err1,
-            ),
-            "did_issuer must be a claim issuer or master key for DID"
-        );
-        // Check that no claim has been stored.
-        assert_eq!(
-            Identity::claims((
-                owner_did.clone(),
-                ClaimMetaData {
-                    claim_key: claim_key.to_vec(),
-                    claim_issuer: claim_issuer_did.clone(),
-                },
-            )),
-            Claim::default(),
-        );
         let claim_records_err2 = vec![ClaimRecord {
             did: issuer_did.clone(),
             claim_key: claim_key.to_vec(),
