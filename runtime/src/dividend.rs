@@ -543,7 +543,7 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
-        type AcceptTickerTransferTarget = asset::Module<Test>;
+        type AcceptTransferTarget = asset::Module<Test>;
     }
 
     impl exemption::Trait for Test {

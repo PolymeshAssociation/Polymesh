@@ -45,7 +45,7 @@
 use rstd::{convert::TryFrom, prelude::*};
 
 use crate::{
-    asset::AcceptTickerTransfer,
+    asset::AcceptTransfer,
     balances,
     constants::did::{SECURITY_TOKEN, USER},
 };
@@ -172,7 +172,7 @@ pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     /// An extrinsic call.
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
     /// Asset module
-    type AcceptTickerTransferTarget: AcceptTickerTransfer;
+    type AcceptTransferTarget: AcceptTransfer;
 }
 
 decl_storage! {
@@ -789,9 +789,9 @@ decl_module! {
                 Signer::Identity(did) => {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
-                            T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                            T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
                         AuthorizationData::TransferTokenOwnership(_) =>
-                            T::AcceptTickerTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                            T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
                         _ => return Err("Unknown authorization")
                     }
                 },
@@ -830,9 +830,9 @@ decl_module! {
                             // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::TransferTicker(_) =>
-                                    T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                                    T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
                                 AuthorizationData::TransferTokenOwnership(_) =>
-                                    T::AcceptTickerTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                                    T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
                                 _ => Err("Unknown authorization")
                             };
                         }

@@ -109,11 +109,14 @@ impl sr_primitives::traits::Dispatchable for IdentityProposal {
 impl identity::Trait for TestStorage {
     type Event = ();
     type Proposal = IdentityProposal;
-    type AcceptTickerTransferTarget = TestStorage;
+    type AcceptTransferTarget = TestStorage;
 }
 
-impl crate::asset::AcceptTickerTransfer for TestStorage {
+impl crate::asset::AcceptTransfer for TestStorage {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+        Ok(())
+    }
+    fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
         Ok(())
     }
 }

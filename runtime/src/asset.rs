@@ -1118,12 +1118,12 @@ impl<T: Trait> AssetTrait<T::Balance> for Module<T> {
     }
 }
 
-pub trait AcceptTickerTransfer {
+pub trait AcceptTransfer {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result;
     fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> Result;
 }
 
-impl<T: Trait> AcceptTickerTransfer for Module<T> {
+impl<T: Trait> AcceptTransfer for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result {
         Self::_accept_ticker_transfer(to_did, auth_id)
     }
@@ -1546,10 +1546,10 @@ impl<T: Trait> Module<T> {
             AuthorizationData::TransferTokenOwnership(_ticker) => {
                 utils::bytes_to_upper(_ticker.as_slice())
             }
-            _ => return Err("Not a ticker transfer auth"),
+            _ => return Err("Not a token ownership transfer auth"),
         };
 
-        ensure!(<Tokens<T>>::exists(&ticker), "token does not exist");
+        ensure!(<Tokens<T>>::exists(&ticker), "Token does not exist");
 
         let current_owner = Self::ticker_registration(&ticker).owner;
 
@@ -1729,7 +1729,7 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
-        type AcceptTickerTransferTarget = Module<Test>;
+        type AcceptTransferTarget = Module<Test>;
     }
     impl percentage_tm::Trait for Test {
         type Event = ();
@@ -2628,6 +2628,118 @@ mod tests {
             assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), false);
             assert_eq!(Asset::is_ticker_registry_valid(&ticker, bob_did), true);
             assert_eq!(Asset::is_ticker_available(&ticker), false);
+        })
+    }
+
+    #[test]
+    fn transfer_token_ownership() {
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+
+            let bob_acc = AccountId::from(AccountKeyring::Bob);
+            let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
+
+            let ticker = vec![0x01, 0x01];
+
+            assert_ok!(Asset::create_token(
+                owner_signed.clone(),
+                owner_did,
+                ticker.clone(),
+                ticker.clone(),
+                1_000_000,
+                true
+            ));
+
+            Identity::add_auth(
+                Signer::from(owner_did),
+                Signer::from(alice_did),
+                AuthorizationData::TransferTokenOwnership(ticker.clone()),
+                None,
+            );
+
+            Identity::add_auth(
+                Signer::from(owner_did),
+                Signer::from(bob_did),
+                AuthorizationData::TransferTokenOwnership(ticker.clone()),
+                None,
+            );
+
+            assert_eq!(Asset::token_details(&ticker).owner_did, owner_did);
+
+            let mut auth_id = Identity::last_authorization(Signer::from(alice_did));
+
+            assert_err!(
+                Asset::accept_token_ownership_transfer(alice_signed.clone(), auth_id + 1),
+                "Authorization does not exist"
+            );
+
+            assert_ok!(Asset::accept_token_ownership_transfer(
+                alice_signed.clone(),
+                auth_id
+            ));
+            assert_eq!(Asset::token_details(&ticker).owner_did, alice_did);
+
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_err!(
+                Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+                "Illegal use of Authorization"
+            );
+
+            Identity::add_auth(
+                Signer::from(alice_did),
+                Signer::from(bob_did),
+                AuthorizationData::TransferTokenOwnership(ticker.clone()),
+                Some(now.timestamp() as u64 - 100),
+            );
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_err!(
+                Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+                "Authorization expired"
+            );
+
+            Identity::add_auth(
+                Signer::from(alice_did),
+                Signer::from(bob_did),
+                AuthorizationData::Custom(ticker.clone()),
+                Some(now.timestamp() as u64 + 100),
+            );
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_err!(
+                Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+                "Not a token ownership transfer auth"
+            );
+
+            Identity::add_auth(
+                Signer::from(alice_did),
+                Signer::from(bob_did),
+                AuthorizationData::TransferTokenOwnership(vec![0x50]),
+                Some(now.timestamp() as u64 + 100),
+            );
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_err!(
+                Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+                "Token does not exist"
+            );
+
+            Identity::add_auth(
+                Signer::from(alice_did),
+                Signer::from(bob_did),
+                AuthorizationData::TransferTokenOwnership(ticker.clone()),
+                Some(now.timestamp() as u64 + 100),
+            );
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_ok!(Asset::accept_token_ownership_transfer(
+                bob_signed.clone(),
+                auth_id
+            ));
+            assert_eq!(Asset::token_details(&ticker).owner_did, bob_did);
         })
     }
 
