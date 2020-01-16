@@ -52,16 +52,16 @@ use primitives::{
 };
 
 use codec::Encode;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{traits::Dispatchable, DispatchError};
 use frame_support::{
-    decl_event, decl_module, decl_storage, decl_error,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
+use sp_io::hashing::blake2_256;
+use sp_runtime::{traits::Dispatchable, DispatchError};
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
@@ -160,9 +160,9 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        
+
         type Error = Error<T>;
-        
+
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
@@ -637,18 +637,18 @@ decl_event!(
 );
 
 decl_error! {
-	pub enum Error for Module<T: Trait> {
-		/// One signing key can only belong to one DID
-		AlreadyLinked,
-		/// Missing current identity on the transaction
-		MissingCurrentIdentity,
-		/// Sender is not part of did's signing keys
-		InvalidSender,
-		/// No did linked to the user
-		NoDIDFound,
-		/// Signer is not pre authorized by the identity
-		Unauthorized,
-	}
+    pub enum Error for Module<T: Trait> {
+        /// One signing key can only belong to one DID
+        AlreadyLinked,
+        /// Missing current identity on the transaction
+        MissingCurrentIdentity,
+        /// Sender is not part of did's signing keys
+        InvalidSender,
+        /// No did linked to the user
+        NoDIDFound,
+        /// Signer is not pre authorized by the identity
+        Unauthorized,
+    }
 }
 
 impl<T: Trait> Module<T> {
@@ -816,7 +816,11 @@ impl<T: Trait> Module<T> {
     ///
     /// # Errors
     /// Only master key can freeze/unfreeze an identity.
-    fn set_frozen_signing_key_flags(origin: T::Origin, did: IdentityId, freeze: bool) -> DispatchResult {
+    fn set_frozen_signing_key_flags(
+        origin: T::Origin,
+        did: IdentityId,
+        freeze: bool,
+    ) -> DispatchResult {
         let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
         let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
@@ -964,16 +968,16 @@ mod tests {
     use super::*;
     use primitives::SignerType;
 
+    use frame_support::{
+        assert_err, assert_ok,
+        dispatch::{DispatchError, DispatchResult},
+        impl_outer_origin, parameter_types,
+    };
     use sp_io::{with_externalities, TestExternalities};
     use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, ConvertInto, IdentityLookup},
         Perbill,
-    };
-    use frame_support::{
-        assert_err, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
     };
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};

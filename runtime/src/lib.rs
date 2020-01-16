@@ -26,8 +26,8 @@ mod sto_capped;
 mod utils;
 mod voting;
 pub use runtime::{
-    api, Asset, Authorship, Balances, MaximumBlockWeight, NegativeImbalance, Runtime, RuntimeApi,
-    SessionKeys, System, Contracts, TransactionPayment,
+    api, Asset, Authorship, Balances, Contracts, MaximumBlockWeight, NegativeImbalance, Runtime,
+    RuntimeApi, SessionKeys, System, TransactionPayment,
 };
 #[cfg(feature = "std")]
 pub use runtime::{native_version, WASM_BINARY};

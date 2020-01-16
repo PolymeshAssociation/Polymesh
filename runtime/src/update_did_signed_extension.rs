@@ -10,8 +10,8 @@ use sp_runtime::{
 
 use codec::{Decode, Encode};
 use core::convert::TryFrom;
-use sp_std::marker::PhantomData;
 use frame_support::dispatch::DispatchInfo;
+use sp_std::marker::PhantomData;
 
 type Identity = identity::Module<Runtime>;
 type Call = runtime::Call;
@@ -38,7 +38,6 @@ impl<T: frame_system::Trait + Send + Sync> UpdateDid<T> {
         None
     }
 }
-
 
 impl<T: frame_system::Trait + Send + Sync> sp_std::fmt::Debug for UpdateDid<T> {
     #[cfg(feature = "std")]
@@ -114,13 +113,13 @@ mod tests {
         Runtime,
     };
     use core::default::Default;
+    use frame_support::dispatch::DispatchInfo;
     use primitives::TransactionError;
     use sp_io::with_externalities;
     use sp_runtime::{
         traits::SignedExtension,
         transaction_validity::{InvalidTransaction, ValidTransaction},
     };
-    use frame_support::dispatch::DispatchInfo;
 
     type Call = runtime::Call;
     type IdentityCall = identity::Call<Runtime>;

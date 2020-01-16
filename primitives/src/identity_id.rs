@@ -1,9 +1,9 @@
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
-use sp_std::prelude::*;
-use sp_runtime::traits::Printable;
 use sp_io;
+use sp_runtime::traits::Printable;
+use sp_std::prelude::*;
 const _POLY_DID_PREFIX: &'static str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
 const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
@@ -41,8 +41,8 @@ impl From<u128> for IdentityId {
     }
 }
 
-use sp_std::convert::TryFrom;
 use frame_support::ensure;
+use sp_std::convert::TryFrom;
 
 impl TryFrom<&str> for IdentityId {
     type Error = &'static str;

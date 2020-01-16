@@ -60,19 +60,19 @@ use crate::{balances, constants::*, general_tm, identity, percentage_tm, utils};
 use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
-use primitives::{IdentityId, Key, Signer};
-use sp_std::{convert::TryFrom, prelude::* };
-use pallet_session;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use frame_support::{
-    decl_event, decl_module, decl_storage, decl_error,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_session;
+use primitives::{IdentityId, Key, Signer};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -197,9 +197,9 @@ decl_storage! {
 // public interface for this runtime module
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        
+
         type Error = Error<T>;
-        
+
         /// initialize the default event for this module
         fn deposit_event() = default;
 
@@ -1229,22 +1229,27 @@ decl_event! {
 }
 
 decl_error! {
-	pub enum Error for Module<T: Trait> {
-		/// DID not found
-		DIDNotFound,
-	}
+    pub enum Error for Module<T: Trait> {
+        /// DID not found
+        DIDNotFound,
+    }
 }
 
 pub trait AssetTrait<V> {
     fn total_supply(ticker: &[u8]) -> V;
     fn balance(ticker: &[u8], did: IdentityId) -> V;
-    fn _mint_from_sto(ticker: &[u8], sender_did: IdentityId, tokens_purchased: V) -> DispatchResult;
+    fn _mint_from_sto(ticker: &[u8], sender_did: IdentityId, tokens_purchased: V)
+        -> DispatchResult;
     fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool;
     fn get_balance_at(ticker: &Vec<u8>, did: IdentityId, at: u64) -> V;
 }
 
 impl<T: Trait> AssetTrait<T::Balance> for Module<T> {
-    fn _mint_from_sto(ticker: &[u8], sender: IdentityId, tokens_purchased: T::Balance) -> DispatchResult {
+    fn _mint_from_sto(
+        ticker: &[u8],
+        sender: IdentityId,
+        tokens_purchased: T::Balance,
+    ) -> DispatchResult {
         let upper_ticker = utils::bytes_to_upper(ticker);
         Self::_mint(&upper_ticker, sender, tokens_purchased)
     }
@@ -1652,17 +1657,17 @@ mod tests {
     use rand::Rng;
 
     use chrono::prelude::*;
+    use frame_support::{
+        assert_err, assert_noop, assert_ok,
+        dispatch::{DispatchError, DispatchResult},
+        impl_outer_origin, parameter_types,
+    };
     use lazy_static::lazy_static;
     use sp_io::with_externalities;
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         AnySignature, Perbill,
-    };
-    use frame_support::{
-        assert_err, assert_noop, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
     };
     use std::sync::{Arc, Mutex};
     use substrate_primitives::{Blake2Hasher, H256};
@@ -1823,7 +1828,9 @@ mod tests {
 
     impl utils::Trait for Test {
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as pallet_session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(
+            v: <Self as pallet_session::Trait>::ValidatorId,
+        ) -> Self::AccountId {
             v
         }
     }

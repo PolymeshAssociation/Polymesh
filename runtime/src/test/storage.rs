@@ -2,16 +2,16 @@ use crate::{balances, identity};
 use primitives::{IdentityId, Key};
 
 use codec::Encode;
+use frame_support::{
+    dispatch::{DispatchError, DispatchResult},
+    impl_outer_origin, parameter_types,
+    traits::Currency,
+};
 use sp_io::TestExternalities;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
     Perbill,
-};
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    impl_outer_origin, parameter_types,
-    traits::Currency,
 };
 use std::convert::TryFrom;
 use substrate_primitives::{Blake2Hasher, H256};

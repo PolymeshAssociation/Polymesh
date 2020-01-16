@@ -51,11 +51,11 @@ use crate::{
 };
 use codec::Encode;
 use core::result::Result as StdResult;
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::{self as system, ensure_signed};
 use identity::ClaimValue;
 use primitives::{IdentityId, Key, Signer};
 use sp_std::{convert::TryFrom, prelude::*};
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
-use frame_system::{self as system, ensure_signed};
 
 /// Type of operators that a rule can have
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -282,17 +282,17 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use chrono::prelude::*;
-    use sp_io::with_externalities;
-    use sp_runtime::{
-        testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-        AnySignature, Perbill,
-    };
     use frame_support::traits::Currency;
     use frame_support::{
         assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
+    };
+    use sp_io::with_externalities;
+    use sp_runtime::{
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        AnySignature, Perbill,
     };
     use sp_std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
@@ -382,7 +382,9 @@ mod tests {
 
     impl utils::Trait for Test {
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as pallet_session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(
+            v: <Self as pallet_session::Trait>::ValidatorId,
+        ) -> Self::AccountId {
             v
         }
     }

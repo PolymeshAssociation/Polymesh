@@ -33,11 +33,13 @@
 
 use crate::{asset, balances, identity, simple_token, utils};
 use codec::Encode;
-use primitives::{IdentityId, Key, Signer};
-use sp_std::{convert::TryFrom, prelude::*};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use frame_support::{decl_event, decl_module, decl_storage, decl_error, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
 use frame_system::{self as system, ensure_signed};
+use primitives::{IdentityId, Key, Signer};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -90,9 +92,9 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        
+
         type Error = Error<T>;
-        
+
         // Initializing events
         fn deposit_event() = default;
 
@@ -345,10 +347,10 @@ decl_event!(
 );
 
 decl_error! {
-	pub enum Error for Module<T: Trait> {
-		/// Claiming unclaimed payouts requires an end date
-		NotEnded,
-	}
+    pub enum Error for Module<T: Trait> {
+        /// Claiming unclaimed payouts requires an end date
+        NotEnded,
+    }
 }
 
 impl<T: Trait> Module<T> {
@@ -390,6 +392,12 @@ mod tests {
     use super::*;
     use chrono::{prelude::*, Duration};
     use core::result::Result as StdResult;
+    use frame_support::traits::Currency;
+    use frame_support::{
+        assert_ok,
+        dispatch::{DispatchError, DispatchResult},
+        impl_outer_origin, parameter_types,
+    };
     use lazy_static::lazy_static;
     use sp_io::with_externalities;
     use sp_runtime::traits::Verify;
@@ -397,12 +405,6 @@ mod tests {
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         AnySignature, Perbill,
-    };
-    use frame_support::traits::Currency;
-    use frame_support::{
-        assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
     };
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
@@ -581,7 +583,9 @@ mod tests {
 
     impl utils::Trait for Test {
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as pallet_session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(
+            v: <Self as pallet_session::Trait>::ValidatorId,
+        ) -> Self::AccountId {
             v
         }
     }

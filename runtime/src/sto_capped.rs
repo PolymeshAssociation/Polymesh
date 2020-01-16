@@ -36,11 +36,11 @@ use crate::{
 use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
-use sp_std::{convert::TryFrom, prelude::*};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use frame_support::traits::Currency;
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use frame_system::{self as system, ensure_signed};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -273,7 +273,7 @@ decl_module! {
             } else {
                 let new_count = token_count.checked_sub(1).ok_or("underflow new token count value")?;
                 <TokenIndexForSTO>::insert((ticker.clone(), sto_id, simple_token_ticker.clone()), new_count);
-                let empty_vector: Vec<u8> = vec![]; 
+                let empty_vector: Vec<u8> = vec![];
                 <AllowedTokens>::insert((ticker.clone(), sto_id, new_count), empty_vector);
                 <TokensCountForSto>::insert((ticker.clone(), sto_id), new_count);
             }

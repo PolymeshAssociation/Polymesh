@@ -17,17 +17,18 @@ use crate::identity;
 use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
-use pallet_contracts::{CodeHash, Gas, Schedule};
-use sp_std::{convert::TryFrom, prelude::*};
-use sp_runtime::traits::StaticLookup;
 use frame_support::traits::Currency;
-use frame_support::{decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
+use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use frame_system::ensure_signed;
+use pallet_contracts::{CodeHash, Gas, Schedule};
+use sp_runtime::traits::StaticLookup;
+use sp_std::{convert::TryFrom, prelude::*};
 
 // pub type CodeHash<T> = <T as frame_system::Trait>::Hash;
 
-pub type BalanceOf<T> =
-    <<T as pallet_contracts::Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as pallet_contracts::Trait>::Currency as Currency<
+    <T as frame_system::Trait>::AccountId,
+>>::Balance;
 
 pub trait Trait: pallet_contracts::Trait + identity::Trait {}
 

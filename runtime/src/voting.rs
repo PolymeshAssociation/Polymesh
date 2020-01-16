@@ -35,13 +35,17 @@ use crate::{
     balances, identity, utils,
 };
 use codec::Encode;
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
+use frame_system::{self as system, ensure_signed};
 use primitives::{IdentityId, Key, Signer};
 use sp_std::{convert::TryFrom, prelude::*};
-use frame_support::{decl_event, decl_module, decl_storage, decl_error, dispatch::{DispatchResult}, ensure};
-use frame_system::{self as system, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + utils::Trait + identity::Trait {
+pub trait Trait:
+    pallet_timestamp::Trait + frame_system::Trait + utils::Trait + identity::Trait
+{
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::Balance>;
 }
@@ -295,23 +299,23 @@ decl_event!(
 );
 
 decl_error! {
-	pub enum Error for Module<T: Trait> {
-		/// sender must be a signing key for DID
-		InvalidSigner,
-		/// Sender must be the token owner
-		InvalidOwner,
-		/// A ballot with same name already exisits
-		AlreadyExists,
-		/// Voting end date in past / Voting end date before voting start date
-		InvalidDate,
-		/// No motion submitted
-		NoMotions,
-		/// No choice submitted
-		NoChoicesInMotions,
-		/// Could not decode choices
-		InvalidChoicesType,
-		/// Ballot does not exist
-		NotExists,
+    pub enum Error for Module<T: Trait> {
+        /// sender must be a signing key for DID
+        InvalidSigner,
+        /// Sender must be the token owner
+        InvalidOwner,
+        /// A ballot with same name already exisits
+        AlreadyExists,
+        /// Voting end date in past / Voting end date before voting start date
+        InvalidDate,
+        /// No motion submitted
+        NoMotions,
+        /// No choice submitted
+        NoChoicesInMotions,
+        /// Could not decode choices
+        InvalidChoicesType,
+        /// Ballot does not exist
+        NotExists,
         /// Voting hasn't started yet
         NotStarted,
         /// Voting ended already
@@ -322,7 +326,7 @@ decl_error! {
         InvalidVote,
         /// Not enough balance
         InsufficientBalance,
-	}
+    }
 }
 
 impl<T: Trait> Module<T> {
@@ -337,17 +341,17 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use chrono::prelude::*;
-    use sp_io::{with_externalities, TestExternalities};
-    use sp_runtime::{
-        testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-        AnySignature, Perbill,
-    };
     use frame_support::traits::Currency;
     use frame_support::{
         assert_err, assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
+    };
+    use sp_io::{with_externalities, TestExternalities};
+    use sp_runtime::{
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        AnySignature, Perbill,
     };
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
@@ -437,7 +441,9 @@ mod tests {
 
     impl utils::Trait for Test {
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as pallet_session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(
+            v: <Self as pallet_session::Trait>::ValidatorId,
+        ) -> Self::AccountId {
             v
         }
     }

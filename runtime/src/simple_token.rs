@@ -38,9 +38,9 @@ use codec::Encode;
 use sp_std::{convert::TryFrom, prelude::*};
 
 use crate::constants::currency::MAX_SUPPLY;
-use sp_runtime::traits::{CheckedAdd, CheckedSub};
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use frame_system::{self as system, ensure_signed};
+use sp_runtime::traits::{CheckedAdd, CheckedSub};
 
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + balances::Trait + utils::Trait + identity::Trait {
@@ -179,7 +179,12 @@ decl_event!(
 
 pub trait SimpleTokenTrait<V> {
     /// Tranfers tokens between two identities
-    fn transfer(sender_did: IdentityId, ticker: &Vec<u8>, to_did: IdentityId, amount: V) -> DispatchResult;
+    fn transfer(
+        sender_did: IdentityId,
+        ticker: &Vec<u8>,
+        to_did: IdentityId,
+        amount: V,
+    ) -> DispatchResult;
     /// Returns the balance associated with an identity and ticker
     fn balance_of(ticker: Vec<u8>, owner_did: IdentityId) -> V;
 }

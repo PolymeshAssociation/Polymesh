@@ -162,23 +162,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-use sp_std::{cmp, convert::TryFrom, mem, prelude::*, result, fmt::Debug};
-use sp_runtime::traits::{
-    Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Member,
-    Saturating, SimpleArithmetic, StaticLookup, Zero,
-};
-use sp_runtime::{ RuntimeDebug };
 use frame_support::traits::{
     Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
-    OnFreeBalanceZero, OnUnbalanced, ReservableCurrency, SignedImbalance, UpdateBalanceOutcome,
-    WithdrawReason, WithdrawReasons, VestingCurrency, TryDrop,
+    OnFreeBalanceZero, OnUnbalanced, ReservableCurrency, SignedImbalance, TryDrop,
+    UpdateBalanceOutcome, VestingCurrency, WithdrawReason, WithdrawReasons,
 };
-use frame_support::weights::{SimpleDispatchInfo};
+use frame_support::weights::SimpleDispatchInfo;
 use frame_support::{
-    decl_event, decl_module, decl_storage, decl_error, Parameter,
-    StorageValue, dispatch::{ DispatchResult, DispatchError},
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    Parameter, StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
+use sp_runtime::traits::{
+    Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Member, Saturating,
+    SimpleArithmetic, StaticLookup, Zero,
+};
+use sp_runtime::RuntimeDebug;
+use sp_std::{cmp, convert::TryFrom, fmt::Debug, mem, prelude::*, result};
 
 use crate::identity::IdentityTrait;
 use primitives::{IdentityId, Key, Permission, Signer};
@@ -298,26 +299,26 @@ decl_event!(
 );
 
 decl_error! {
-	pub enum Error for Module<T: Trait<I>, I: Instance> {
-		/// Vesting balance too high to send value
-		VestingBalance,
-		/// Account liquidity restrictions prevent withdrawal
-		LiquidityRestrictions,
-		/// Got an overflow after adding
-		Overflow,
-		/// Balance too low to send value
-		InsufficientBalance,
-		/// Value too low to create account due to existential deposit
-		ExistentialDeposit,
-		/// Transfer/payment would kill account
-		KeepAlive,
-		/// A vesting schedule already exists for this account
-		ExistingVestingSchedule,
-		/// Beneficiary account must pre-exist
-		DeadAccount,
+    pub enum Error for Module<T: Trait<I>, I: Instance> {
+        /// Vesting balance too high to send value
+        VestingBalance,
+        /// Account liquidity restrictions prevent withdrawal
+        LiquidityRestrictions,
+        /// Got an overflow after adding
+        Overflow,
+        /// Balance too low to send value
+        InsufficientBalance,
+        /// Value too low to create account due to existential deposit
+        ExistentialDeposit,
+        /// Transfer/payment would kill account
+        KeepAlive,
+        /// A vesting schedule already exists for this account
+        ExistingVestingSchedule,
+        /// Beneficiary account must pre-exist
+        DeadAccount,
         /// AccountId is not attached with Identity
         UnAuthorized,
-	}
+    }
 }
 
 /// Struct to encode the vesting schedule of an individual account.
@@ -427,7 +428,7 @@ decl_storage! {
 decl_module! {
     pub struct Module<T: Trait<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
         type Error = Error<T, I>;
-        
+
         /// This is no longer needede but kept for compatibility reasons
         /// The minimum amount required to keep an account open.
         const ExistentialDeposit: T::Balance = 0.into();
@@ -575,7 +576,6 @@ decl_module! {
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
-
     //type Error = Error<T, I>;
 
     // PRIVATE MUTABLES
@@ -646,8 +646,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 // of the inner member.
 mod imbalances {
     use super::{
-        result, Subtrait, DefaultInstance, Imbalance, Trait, Zero, Instance, Saturating,
-		StorageValue, TryDrop,
+        result, DefaultInstance, Imbalance, Instance, Saturating, StorageValue, Subtrait, Trait,
+        TryDrop, Zero,
     };
     use sp_std::mem;
 
@@ -676,10 +676,10 @@ mod imbalances {
     }
 
     impl<T: Trait<I>, I: Instance> TryDrop for PositiveImbalance<T, I> {
-		fn try_drop(self) -> result::Result<(), Self> {
-			self.drop_zero()
-		}
-	}
+        fn try_drop(self) -> result::Result<(), Self> {
+            self.drop_zero()
+        }
+    }
 
     impl<T: Trait<I>, I: Instance> Imbalance<T::Balance> for PositiveImbalance<T, I> {
         type Opposite = NegativeImbalance<T, I>;
@@ -727,10 +727,10 @@ mod imbalances {
     }
 
     impl<T: Trait<I>, I: Instance> TryDrop for NegativeImbalance<T, I> {
-		fn try_drop(self) -> result::Result<(), Self> {
-			self.drop_zero()
-		}
-	}
+        fn try_drop(self) -> result::Result<(), Self> {
+            self.drop_zero()
+        }
+    }
 
     impl<T: Trait<I>, I: Instance> Imbalance<T::Balance> for NegativeImbalance<T, I> {
         type Opposite = PositiveImbalance<T, I>;
@@ -836,7 +836,7 @@ impl<T: Subtrait<I>, I: Instance> frame_system::Trait for ElevatedTrait<T, I> {
     type MaximumBlockLength = T::MaximumBlockLength;
     type AvailableBlockRatio = T::AvailableBlockRatio;
     type Version = T::Version;
-    type ModuleToIndex= T::ModuleToIndex;
+    type ModuleToIndex = T::ModuleToIndex;
 }
 impl<T: Subtrait<I>, I: Instance> Trait<I> for ElevatedTrait<T, I> {
     type Balance = T::Balance;
@@ -853,7 +853,7 @@ impl<T: Subtrait<I>, I: Instance> Trait<I> for ElevatedTrait<T, I> {
 
 impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
 where
-    T::Balance: MaybeSerializeDeserialize + Debug
+    T::Balance: MaybeSerializeDeserialize + Debug,
 {
     type Balance = T::Balance;
     type PositiveImbalance = PositiveImbalance<T, I>;
@@ -900,45 +900,42 @@ where
     }
 
     // # <weight>
-	// Despite iterating over a list of locks, they are limited by the number of
-	// lock IDs, which means the number of runtime modules that intend to use and create locks.
-	// # </weight>
-	fn ensure_can_withdraw(
-		who: &T::AccountId,
-		_amount: T::Balance,
-		reasons: WithdrawReasons,
-		new_balance: T::Balance,
-	) -> DispatchResult {
-		if reasons.intersects(WithdrawReason::Reserve | WithdrawReason::Transfer)
-			&& Self::vesting_balance(who) > new_balance
-		{
-			Err(Error::<T, I>::VestingBalance)?
-		}
-		let locks = Self::locks(who);
-		if locks.is_empty() {
-			return Ok(())
-		}
+    // Despite iterating over a list of locks, they are limited by the number of
+    // lock IDs, which means the number of runtime modules that intend to use and create locks.
+    // # </weight>
+    fn ensure_can_withdraw(
+        who: &T::AccountId,
+        _amount: T::Balance,
+        reasons: WithdrawReasons,
+        new_balance: T::Balance,
+    ) -> DispatchResult {
+        if reasons.intersects(WithdrawReason::Reserve | WithdrawReason::Transfer)
+            && Self::vesting_balance(who) > new_balance
+        {
+            Err(Error::<T, I>::VestingBalance)?
+        }
+        let locks = Self::locks(who);
+        if locks.is_empty() {
+            return Ok(());
+        }
 
-		let now = <frame_system::Module<T>>::block_number();
-		if locks.into_iter()
-			.all(|l|
-				now >= l.until
-				|| new_balance >= l.amount
-				|| !l.reasons.intersects(reasons)
-			)
-		{
-			Ok(())
-		} else {
-			Err(Error::<T, I>::LiquidityRestrictions.into())
-		}
-	}
+        let now = <frame_system::Module<T>>::block_number();
+        if locks
+            .into_iter()
+            .all(|l| now >= l.until || new_balance >= l.amount || !l.reasons.intersects(reasons))
+        {
+            Ok(())
+        } else {
+            Err(Error::<T, I>::LiquidityRestrictions.into())
+        }
+    }
 
     fn transfer(
         transactor: &T::AccountId,
         dest: &T::AccountId,
         value: Self::Balance,
         _existence_requirement: ExistenceRequirement,
-        ) -> DispatchResult {
+    ) -> DispatchResult {
         let from_balance = Self::free_balance(transactor);
         let to_balance = Self::free_balance(dest);
         let would_create = to_balance.is_zero();
@@ -948,7 +945,9 @@ where
             T::TransferFee::get()
         };
         let liability = value.checked_add(&fee).ok_or(Error::<T, I>::Overflow)?;
-		let new_from_balance = from_balance.checked_sub(&liability).ok_or(Error::<T, I>::InsufficientBalance)?;
+        let new_from_balance = from_balance
+            .checked_sub(&liability)
+            .ok_or(Error::<T, I>::InsufficientBalance)?;
 
         Self::ensure_can_withdraw(
             transactor,
@@ -959,7 +958,9 @@ where
 
         // NOTE: total stake being stored in the same type means that this could never overflow
         // but better to be safe than sorry.
-        let new_to_balance = to_balance.checked_add(&value).ok_or(Error::<T, I>::Overflow)?;
+        let new_to_balance = to_balance
+            .checked_add(&value)
+            .ok_or(Error::<T, I>::Overflow)?;
 
         if transactor != dest {
             Self::set_free_balance(transactor, new_from_balance);
@@ -1062,13 +1063,14 @@ where
 
 impl<T: Trait<I>, I: Instance> ReservableCurrency<T::AccountId> for Module<T, I>
 where
-    T::Balance: MaybeSerializeDeserialize + Debug
+    T::Balance: MaybeSerializeDeserialize + Debug,
 {
     fn can_reserve(who: &T::AccountId, value: Self::Balance) -> bool {
         Self::free_balance(who)
             .checked_sub(&value)
             .map_or(false, |new_balance| {
-                Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve.into(), new_balance).is_ok()
+                Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve.into(), new_balance)
+                    .is_ok()
             })
     }
 
@@ -1125,7 +1127,7 @@ where
 
 impl<T: Trait<I>, I: Instance> LockableCurrency<T::AccountId> for Module<T, I>
 where
-    T::Balance: MaybeSerializeDeserialize + Debug
+    T::Balance: MaybeSerializeDeserialize + Debug,
 {
     type Moment = T::BlockNumber;
 
@@ -1216,51 +1218,50 @@ where
 
 impl<T: Trait<I>, I: Instance> VestingCurrency<T::AccountId> for Module<T, I>
 where
-	T::Balance: MaybeSerializeDeserialize + Debug
+    T::Balance: MaybeSerializeDeserialize + Debug,
 {
-	type Moment = T::BlockNumber;
+    type Moment = T::BlockNumber;
 
-	/// Get the amount that is currently being vested and cannot be transferred out of this account.
-	fn vesting_balance(who: &T::AccountId) -> T::Balance {
-		if let Some(v) = Self::vesting(who) {
-			Self::free_balance(who)
-				.min(v.locked_at(<frame_system::Module<T>>::block_number()))
-		} else {
-			Zero::zero()
-		}
-	}
+    /// Get the amount that is currently being vested and cannot be transferred out of this account.
+    fn vesting_balance(who: &T::AccountId) -> T::Balance {
+        if let Some(v) = Self::vesting(who) {
+            Self::free_balance(who).min(v.locked_at(<frame_system::Module<T>>::block_number()))
+        } else {
+            Zero::zero()
+        }
+    }
 
-	/// Adds a vesting schedule to a given account.
-	///
-	/// If there already exists a vesting schedule for the given account, an `Err` is returned
-	/// and nothing is updated.
-	fn add_vesting_schedule(
-		who: &T::AccountId,
-		locked: T::Balance,
-		per_block: T::Balance,
-		starting_block: T::BlockNumber
-	) -> DispatchResult {
-		if <Vesting<T, I>>::exists(who) {
-			Err(Error::<T, I>::ExistingVestingSchedule)?
-		}
-		let vesting_schedule = VestingSchedule {
-			locked,
-			per_block,
-			starting_block
-		};
-		<Vesting<T, I>>::insert(who, vesting_schedule);
-		Ok(())
-	}
+    /// Adds a vesting schedule to a given account.
+    ///
+    /// If there already exists a vesting schedule for the given account, an `Err` is returned
+    /// and nothing is updated.
+    fn add_vesting_schedule(
+        who: &T::AccountId,
+        locked: T::Balance,
+        per_block: T::Balance,
+        starting_block: T::BlockNumber,
+    ) -> DispatchResult {
+        if <Vesting<T, I>>::exists(who) {
+            Err(Error::<T, I>::ExistingVestingSchedule)?
+        }
+        let vesting_schedule = VestingSchedule {
+            locked,
+            per_block,
+            starting_block,
+        };
+        <Vesting<T, I>>::insert(who, vesting_schedule);
+        Ok(())
+    }
 
-	/// Remove a vesting schedule for a given account.
-	fn remove_vesting_schedule(who: &T::AccountId) {
-		<Vesting<T, I>>::remove(who);
-	}
+    /// Remove a vesting schedule for a given account.
+    fn remove_vesting_schedule(who: &T::AccountId) {
+        <Vesting<T, I>>::remove(who);
+    }
 }
 
 impl<T: Trait<I>, I: Instance> IsDeadAccount<T::AccountId> for Module<T, I>
 where
-    T::Balance: MaybeSerializeDeserialize + Debug
+    T::Balance: MaybeSerializeDeserialize + Debug,
 {
     fn is_dead_account(who: &T::AccountId) -> bool {
         Self::total_balance(who).is_zero()
@@ -1270,18 +1271,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frame_support::{
+        assert_err, assert_ok,
+        dispatch::{DispatchError, DispatchResult},
+        impl_outer_origin, parameter_types,
+        traits::Get,
+    };
     use sp_io::{self, with_externalities};
     use sp_runtime::{
         testing::Header,
         traits::{Convert, IdentityLookup},
         weights::{DispatchInfo, Weight},
         Perbill,
-    };
-    use frame_support::{
-        assert_err, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
-        traits::Get,
     };
     use std::{cell::RefCell, result::Result};
     use substrate_primitives::{Blake2Hasher, H256};

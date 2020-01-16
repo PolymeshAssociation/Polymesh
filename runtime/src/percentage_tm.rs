@@ -28,10 +28,10 @@ use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
 use core::result::Result as StdResult;
-use sp_std::{convert::TryFrom, prelude::*};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use frame_system::{self as system, ensure_signed};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + utils::Trait + exemption::Trait {
