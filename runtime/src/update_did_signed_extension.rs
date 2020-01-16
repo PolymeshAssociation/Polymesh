@@ -72,7 +72,9 @@ impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
         match call {
             // Add here any function from any module which does *not* need a current identity.
             Call::Identity(identity::Call::register_did(..))
-            | Call::Identity(identity::Call::authorize_join_to_identity(..)) => {
+            | Call::Identity(identity::Call::authorize_join_to_identity(..))
+            | Call::Identity(identity::Call::accept_authorization(..))
+            | Call::Identity(identity::Call::batch_accept_authorization(..)) => {
                 Ok(ValidTransaction::default())
             }
             // Other calls should be identified

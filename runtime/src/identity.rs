@@ -766,29 +766,32 @@ decl_module! {
             auth_id: u64
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let sender_did = match Self::current_did() {
-                Some(x) => x,
+            let signer = match Self::current_did() {
+                Some(x) => Signer::from(x),
                 None => {
                     if let Some(did) = Self::get_identity(&sender_key) {
-                        did
+                        Signer::from(did)
                     } else {
-                        return Err("did not found");
+                        Signer::from(sender_key)
                     }
                 }
             };
 
-            let auth;
-            if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
-                auth = Self::authorizations((Signer::from(sender_did), auth_id));
-            } else {
-                ensure!(<Authorizations<T>>::exists((Signer::from(sender_key), auth_id)), "Invalid auth");
-                auth = Self::authorizations((Signer::from(sender_key), auth_id));
-            }
+            ensure!(<Authorizations<T>>::exists((signer, auth_id)), "Invalid auth");
+            let auth = Self::authorizations((signer, auth_id));
 
-
-            match auth.authorization_data {
-                AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
-                _ => return Err("Unknown authorization")
+            match signer {
+                Signer::Identity(did) => {
+                    match auth.authorization_data {
+                        AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                        _ => return Err("Unknown authorization")
+                    }
+                },
+                Signer::Key(key) => {
+                    match auth.authorization_data {
+                        _ => return Err("Unknown authorization")
+                    }
+                }
             }
         }
 
@@ -798,33 +801,46 @@ decl_module! {
             auth_ids: Vec<u64>
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let sender_did =  match Self::current_did() {
-                Some(x) => x,
+            let signer = match Self::current_did() {
+                Some(x) => Signer::from(x),
                 None => {
                     if let Some(did) = Self::get_identity(&sender_key) {
-                        did
+                        Signer::from(did)
                     } else {
-                        return Err("did not found");
+                        Signer::from(sender_key)
                     }
                 }
             };
 
-            for auth_id in auth_ids {
-                // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
-                // It will just skip that particular authorization.
-                let auth;
-                if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
-                    auth = Self::authorizations((Signer::from(sender_did), auth_id));
-                } else if <Authorizations<T>>::exists((Signer::from(sender_key), auth_id)) {
-                    auth = Self::authorizations((Signer::from(sender_key), auth_id));
-                } else {
-                    continue
+            match signer {
+                Signer::Identity(did) => {
+                    for auth_id in auth_ids {
+                        // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
+                        // It will just skip that particular authorization.
+                        if <Authorizations<T>>::exists((signer, auth_id)) {
+                            let auth = Self::authorizations((signer, auth_id));
+                            // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
+                            let _result = match auth.authorization_data {
+                                AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                                _ => Err("Unknown authorization")
+                            };
+                        }
+                    }
+                },
+                Signer::Key(key) => {
+                    for auth_id in auth_ids {
+                        // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
+                        // It will just skip that particular authorization.
+                        if <Authorizations<T>>::exists((signer, auth_id)) {
+                            let auth = Self::authorizations((signer, auth_id));
+                            // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
+                            // TODO: Add cases where signing key is authorized
+                            // let _result = match auth.authorization_data {
+                            //     _ => Err("Unknown authorization")
+                            // };
+                        }
+                    }
                 }
-                // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
-                let _result = match auth.authorization_data {
-                    AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
-                    _ => Err("Unknown authorization data")
-                };
             }
 
             Ok(())
