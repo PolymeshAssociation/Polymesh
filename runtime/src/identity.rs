@@ -787,7 +787,7 @@ decl_module! {
                         _ => return Err("Unknown authorization")
                     }
                 },
-                Signer::Key(key) => {
+                Signer::Key(_key) => {
                     match auth.authorization_data {
                         _ => return Err("Unknown authorization")
                     }
@@ -827,12 +827,12 @@ decl_module! {
                         }
                     }
                 },
-                Signer::Key(key) => {
+                Signer::Key(_key) => {
                     for auth_id in auth_ids {
                         // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                         // It will just skip that particular authorization.
                         if <Authorizations<T>>::exists((signer, auth_id)) {
-                            let auth = Self::authorizations((signer, auth_id));
+                            let _auth = Self::authorizations((signer, auth_id));
                             // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             // TODO: Add cases where signing key is authorized
                             // let _result = match auth.authorization_data {

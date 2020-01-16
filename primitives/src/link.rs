@@ -8,7 +8,7 @@ pub enum LinkData {
     TickerOwned(Vec<u8>),
     /// Represents a token ownership
     TokenOwned(Vec<u8>),
-    /// No linked data
+    /// No linked data.
     NoData,
 }
 
