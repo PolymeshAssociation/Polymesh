@@ -42,7 +42,7 @@
 //! # TODO
 //!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 
 use crate::balances;
 use crate::constants::did::USER;
@@ -61,7 +61,7 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, WithdrawReason},
     Parameter,
 };
-use system::{self, ensure_signed};
+use frame_system::{self as system, ensure_signed};
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
@@ -109,9 +109,9 @@ pub enum LinkedKeyInfo {
 }
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
+pub trait Trait: frame_system::Trait + balances::Trait + pallet_timestamp::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
 }
@@ -179,7 +179,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             // Adding extrensic count to did nonce for some unpredictability
             // NB: this does not guarantee randomness
-            let new_nonce = Self::did_nonce() + u128::from(<system::Module<T>>::extrinsic_count()) + 7u128;
+            let new_nonce = Self::did_nonce() + u128::from(<frame_system::Module<T>>::extrinsic_count()) + 7u128;
             // Even if this transaction fails, nonce should be increased for added unpredictability of dids
             <DidNonce>::put(&new_nonce);
 
@@ -193,7 +193,7 @@ decl_module! {
             ensure!( signing_items.iter().find( |sk| **sk == master_key).is_none(),
                 "Signing keys contains the master key");
 
-            let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
+            let block_hash = <frame_system::Module<T>>::block_hash(<frame_system::Module<T>>::block_number());
 
             let did = IdentityId::from(
                 blake2_256(
@@ -357,7 +357,7 @@ decl_module! {
             did: IdentityId,
             claim_key: Vec<u8>,
             did_issuer: IdentityId,
-            expiry: <T as timestamp::Trait>::Moment,
+            expiry: <T as pallet_timestamp::Trait>::Moment,
             claim_value: ClaimValue
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -377,7 +377,7 @@ decl_module! {
                 claim_issuer: did_issuer,
             };
 
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             let claim = Claim {
                 issuance_date: now,
@@ -422,7 +422,7 @@ decl_module! {
 
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
-            let new_origin = system::RawOrigin::Signed(sender).into();
+            let new_origin = frame_system::RawOrigin::Signed(sender).into();
 
             let _res = match proposal.dispatch(new_origin) {
                 Ok(_) => true,
@@ -598,8 +598,8 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
-        Moment = <T as timestamp::Trait>::Moment,
+        AccountId = <T as frame_system::Trait>::AccountId,
+        Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// DID, master key account ID, signing keys
         NewDid(IdentityId, AccountId, Vec<SigningItem>),
@@ -672,7 +672,7 @@ impl<T: Trait> Module<T> {
                 .find(|si| si.signer == *signer)
                 .cloned()
             {
-                rstd::mem::swap(&mut signing_item.permissions, &mut permissions);
+                sp_std::mem::swap(&mut signing_item.permissions, &mut permissions);
                 (*record).signing_items.retain(|si| si.signer != *signer);
                 (*record).signing_items.push(signing_item.clone());
                 new_s_item = Some(signing_item);
@@ -759,7 +759,7 @@ impl<T: Trait> Module<T> {
             claim_issuer: claim_issuer,
         };
         if <Claims<T>>::exists((did.clone(), claim_meta_data.clone())) {
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             let claim = <Claims<T>>::get((did, claim_meta_data));
             if claim.expiry > now {
                 return Some(claim.claim_value);
@@ -789,7 +789,7 @@ impl<T: Trait> Module<T> {
     pub fn grant_check_only_master_key(
         sender_key: &Key,
         did: IdentityId,
-    ) -> rstd::result::Result<DidRecord, &'static str> {
+    ) -> sp_std::result::Result<DidRecord, &'static str> {
         ensure!(<DidRecords>::exists(did), "DID does not exist");
         let record = <DidRecords>::get(did);
         ensure!(
@@ -995,7 +995,7 @@ mod tests {
         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     }
 
-    impl system::Trait for IdentityTest {
+    impl frame_system::Trait for IdentityTest {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
@@ -1045,7 +1045,7 @@ mod tests {
         pub const MinimumPeriod: u64 = 3;
     }
 
-    impl timestamp::Trait for IdentityTest {
+    impl pallet_timestamp::Trait for IdentityTest {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
@@ -1075,7 +1075,7 @@ mod tests {
 
     /// Create externalities
     fn build_ext() -> TestExternalities<Blake2Hasher> {
-        system::GenesisConfig::default()
+        frame_system::GenesisConfig::default()
             .build_storage::<IdentityTest>()
             .unwrap()
             .into()
@@ -1084,7 +1084,7 @@ mod tests {
     /// It creates an Account and registers its DID.
     fn make_account(
         id: &u64,
-    ) -> Result<(<IdentityTest as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> Result<(<IdentityTest as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(id.clone());
         Identity::register_did(signed_id.clone(), vec![])?;
         let did = Identity::get_identity(&Key::try_from(id.encode())?).unwrap();

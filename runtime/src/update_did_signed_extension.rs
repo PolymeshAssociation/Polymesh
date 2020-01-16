@@ -10,7 +10,7 @@ use sp_runtime::{
 
 use codec::{Decode, Encode};
 use core::convert::TryFrom;
-use rstd::marker::PhantomData;
+use sp_std::marker::PhantomData;
 use frame_support::dispatch::DispatchInfo;
 
 type Identity = identity::Module<Runtime>;
@@ -19,9 +19,9 @@ type Call = runtime::Call;
 /// This signed extension double-checks and updates the current identifier extracted from
 /// the caller account in each transaction.
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
-pub struct UpdateDid<T: system::Trait + Send + Sync>(PhantomData<T>);
+pub struct UpdateDid<T: frame_system::Trait + Send + Sync>(PhantomData<T>);
 
-impl<T: system::Trait + Send + Sync> UpdateDid<T> {
+impl<T: frame_system::Trait + Send + Sync> UpdateDid<T> {
     pub fn new() -> Self {
         UpdateDid(PhantomData)
     }
@@ -40,25 +40,25 @@ impl<T: system::Trait + Send + Sync> UpdateDid<T> {
 }
 
 
-impl<T: system::Trait + Send + Sync> rstd::fmt::Debug for UpdateDid<T> {
+impl<T: frame_system::Trait + Send + Sync> sp_std::fmt::Debug for UpdateDid<T> {
     #[cfg(feature = "std")]
-    fn fmt(&self, f: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
         write!(f, "UpdateDid")
     }
     #[cfg(not(feature = "std"))]
-    fn fmt(&self, f: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
         Ok(())
     }
 }
 
-impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
+impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     type AccountId = T::AccountId;
     type Call = runtime::Call;
     type AdditionalSigned = ();
     type DispatchInfo = DispatchInfo;
     type Pre = ();
 
-    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> {
+    fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
         Ok(())
     }
 

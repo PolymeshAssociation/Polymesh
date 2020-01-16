@@ -18,16 +18,16 @@ use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
 use pallet_contracts::{CodeHash, Gas, Schedule};
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 use sp_runtime::traits::StaticLookup;
 use frame_support::traits::Currency;
 use frame_support::{decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
-use system::ensure_signed;
+use frame_system::ensure_signed;
 
-// pub type CodeHash<T> = <T as system::Trait>::Hash;
+// pub type CodeHash<T> = <T as frame_system::Trait>::Hash;
 
 pub type BalanceOf<T> =
-    <<T as pallet_contracts::Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+    <<T as pallet_contracts::Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 pub trait Trait: pallet_contracts::Trait + identity::Trait {}
 
@@ -61,7 +61,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             // Call underlying function
-            let new_origin = system::RawOrigin::Signed(sender).into();
+            let new_origin = frame_system::RawOrigin::Signed(sender).into();
             <pallet_contracts::Module<T>>::put_code(new_origin, gas_limit, code)
         }
 

@@ -5,14 +5,14 @@ use crate::{
 use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + utils::Trait + balances::Trait + identity::Trait {
+pub trait Trait: frame_system::Trait + utils::Trait + balances::Trait + identity::Trait {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::Balance>;
 }
 
@@ -93,7 +93,7 @@ mod tests {
     // // configuration traits of modules we want to use.
     // #[derive(Clone, Eq, PartialEq)]
     // pub struct Test;
-    // impl system::Trait for Test {
+    // impl frame_system::Trait for Test {
     //     type Origin = Origin;
     //     type Index = u64;
     //     type BlockNumber = u64;
@@ -114,7 +114,7 @@ mod tests {
     // // This function basically just builds a genesis storage key/value store according to
     // // our desired mockup.
     // fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
-    //     system::GenesisConfig::default()
+    //     frame_system::GenesisConfig::default()
     //         .build_storage()
     //         .unwrap()
     //         .0

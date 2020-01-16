@@ -36,18 +36,18 @@ use crate::{
 use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use frame_support::traits::Currency;
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
-use system::{self, ensure_signed};
+use frame_system::{self as system, ensure_signed};
 
 /// The module's configuration trait.
 pub trait Trait:
-    timestamp::Trait + system::Trait + utils::Trait + balances::Trait + general_tm::Trait
+    pallet_timestamp::Trait + frame_system::Trait + utils::Trait + balances::Trait + general_tm::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type SimpleTokenTrait: simple_token::SimpleTokenTrait<Self::Balance>;
 }
 
@@ -248,7 +248,7 @@ decl_module! {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
 
             let selected_sto = Self::stos_by_token((ticker.clone(),sto_id));
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             // Right now we are only allowing the issuer to change the configuration only before the STO start not after the start
             // or STO should be in non-active stage
             ensure!(now < selected_sto.start_date || !selected_sto.active, "STO is already started");
@@ -428,7 +428,7 @@ impl<T: Trait> Module<T> {
         // Check whether the sto is unpaused or not
         ensure!(selected_sto.active, "sto is paused");
         // Check whether the sto is already ended
-        let now = <timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Module<T>>::get();
         ensure!(
             now >= selected_sto.start_date && now <= selected_sto.end_date,
             "STO has not started or already ended"
@@ -479,7 +479,7 @@ impl<T: Trait> Module<T> {
             .tokens_purchased
             .checked_add(&new_tokens_minted)
             .ok_or("overflow while updating the invested amount")?;
-        investor_holder.last_purchase_date = <timestamp::Module<T>>::get();
+        investor_holder.last_purchase_date = <pallet_timestamp::Module<T>>::get();
 
         if simple_token_ticker != vec![0] {
             <SimpleTokenSpent<T>>::insert(
@@ -531,7 +531,7 @@ mod tests {
      *    // configuration traits of modules we want to use.
      *    #[derive(Clone, Eq, PartialEq)]
      *    pub struct Test;
-     *    impl system::Trait for Test {
+     *    impl frame_system::Trait for Test {
      *        type Origin = Origin;
      *        type Index = u64;
      *        type BlockNumber = u64;
@@ -552,7 +552,7 @@ mod tests {
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
      *    fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::default()
+     *        frame_system::GenesisConfig::default()
      *            .build_storage()
      *            .unwrap()
      *            .0

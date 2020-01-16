@@ -27,7 +27,7 @@ use frame_support::{
     traits::{Currency, OnUnbalanced, Get},
     weights::Weight
 };
-use rstd;
+use sp_std;
 use crate::{System, Authorship, Balances, MaximumBlockWeight, NegativeImbalance};
 
 pub struct Author;
@@ -55,7 +55,7 @@ impl Convert<u128, Balance> for CurrencyToVoteHandler {
 
 /// Convert from weight to balance via a simple coefficient multiplication
 /// The associated type C encapsulates a constant in units of balance per weight
-pub struct LinearWeightToFee<C>(rstd::marker::PhantomData<C>);
+pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
 
 impl<C: Get<Balance>> Convert<Weight, Balance> for LinearWeightToFee<C> {
 	fn convert(w: Weight) -> Balance {
@@ -71,7 +71,7 @@ impl<C: Get<Balance>> Convert<Weight, Balance> for LinearWeightToFee<C> {
 ///
 /// Where `target_weight` must be given as the `Get` implementation of the `T` generic type.
 /// https://research.web3.foundation/en/latest/polkadot/Token%20Economics/#relay-chain-transaction-fees
-pub struct TargetedFeeAdjustment<T>(rstd::marker::PhantomData<T>);
+pub struct TargetedFeeAdjustment<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Get<Perbill>> Convert<Fixed64, Fixed64> for TargetedFeeAdjustment<T> {
 	fn convert(multiplier: Fixed64) -> Fixed64 {

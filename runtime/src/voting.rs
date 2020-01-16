@@ -36,13 +36,13 @@ use crate::{
 };
 use codec::Encode;
 use primitives::{IdentityId, Key, Signer};
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 use frame_support::{decl_event, decl_module, decl_storage, decl_error, dispatch::{DispatchResult}, ensure};
-use system::{self, ensure_signed};
+use frame_system::{self as system, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + utils::Trait + identity::Trait {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::Balance>;
 }
 
@@ -128,7 +128,7 @@ decl_module! {
             // Ensure the uniqueness of the ballot
             ensure!(!<Ballots<T>>::exists(&upper_ticker_ballot_name), Error::<T>::AlreadyExists);
 
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             ensure!(now < ballot_details.voting_end, Error::<T>::InvalidDate);
             ensure!(ballot_details.voting_end > ballot_details.voting_start, Error::<T>::InvalidDate);
@@ -181,7 +181,7 @@ decl_module! {
             // Ensure validity the ballot
             ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), Error::<T>::NotExists);
             let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             ensure!(ballot.voting_start <= now, Error::<T>::NotStarted);
             ensure!(ballot.voting_end > now, Error::<T>::AlreadyEnded);
 
@@ -252,7 +252,7 @@ decl_module! {
             // Ensure the existance of valid ballot
             ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), Error::<T>::NotExists);
             let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             ensure!(now < ballot.voting_end, Error::<T>::AlreadyEnded);
 
             // Clearing results
@@ -281,7 +281,7 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = <T as balances::Trait>::Balance,
-        Moment = <T as timestamp::Trait>::Moment,
+        Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// A new ballot is created (Ticker, BallotName, BallotDetails)
         BallotCreated(Vec<u8>, Vec<u8>, Ballot<Moment>),
@@ -381,7 +381,7 @@ mod tests {
     type AccountId = <AnySignature as Verify>::Signer;
     type OffChainSignature = AnySignature;
 
-    impl system::Trait for Test {
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
@@ -429,7 +429,7 @@ mod tests {
         pub const MinimumPeriod: u64 = 3;
     }
 
-    impl timestamp::Trait for Test {
+    impl pallet_timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
@@ -437,20 +437,20 @@ mod tests {
 
     impl utils::Trait for Test {
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(v: <Self as pallet_session::Trait>::ValidatorId) -> Self::AccountId {
             v
         }
     }
 
     pub struct TestOnSessionEnding;
-    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+    impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
             None
         }
     }
 
     pub struct TestSessionHandler;
-    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+    impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -469,10 +469,10 @@ mod tests {
         pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
     }
 
-    impl session::Trait for Test {
+    impl pallet_session::Trait for Test {
         type OnSessionEnding = TestOnSessionEnding;
         type Keys = UintAuthorityId;
-        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
         type SessionHandler = TestSessionHandler;
         type Event = ();
         type ValidatorId = AuthorityId;
@@ -481,7 +481,7 @@ mod tests {
         type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     }
 
-    impl session::historical::Trait for Test {
+    impl pallet_session::historical::Trait for Test {
         type FullIdentification = ();
         type FullIdentificationOf = ();
     }
@@ -538,7 +538,7 @@ mod tests {
 
     /// Create externalities
     fn build_ext() -> TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
+        let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         asset::GenesisConfig::<Test> {
@@ -557,7 +557,7 @@ mod tests {
 
     fn make_account(
         account_id: &AccountId,
-    ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
         Identity::register_did(signed_id.clone(), vec![])?;
@@ -598,7 +598,7 @@ mod tests {
             ));
 
             let now = Utc::now().timestamp() as u64;
-            <timestamp::Module<Test>>::set_timestamp(now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
                 title: vec![0x01],
@@ -775,7 +775,7 @@ mod tests {
             ));
 
             let now = Utc::now().timestamp() as u64;
-            <timestamp::Module<Test>>::set_timestamp(now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
                 title: vec![0x01],
@@ -835,7 +835,7 @@ mod tests {
                 "Sender must be the token owner"
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now + now + now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now + now + now);
 
             assert_err!(
                 Voting::cancel_ballot(
@@ -847,7 +847,7 @@ mod tests {
                 "Voting already ended"
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             // Cancelling ballot
             assert_ok!(Voting::cancel_ballot(
@@ -907,7 +907,7 @@ mod tests {
             ));
 
             let now = Utc::now().timestamp() as u64;
-            <timestamp::Module<Test>>::set_timestamp(now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
                 title: vec![0x01],
@@ -961,7 +961,7 @@ mod tests {
                 "Ballot does not exist"
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now - 1);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now - 1);
 
             assert_err!(
                 Voting::vote(
@@ -974,7 +974,7 @@ mod tests {
                 "Voting hasn't started yet"
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now + now + 1);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now + now + 1);
 
             assert_err!(
                 Voting::vote(
@@ -987,7 +987,7 @@ mod tests {
                 "Voting ended already"
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now + 1);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now + 1);
 
             assert_err!(
                 Voting::vote(

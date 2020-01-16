@@ -34,21 +34,21 @@
 use crate::{asset, balances, identity, simple_token, utils};
 use codec::Encode;
 use primitives::{IdentityId, Key, Signer};
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use frame_support::{decl_event, decl_module, decl_storage, decl_error, dispatch::DispatchResult, ensure};
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
 
 /// The module's configuration trait.
 pub trait Trait:
     asset::Trait
     + balances::Trait
     + simple_token::Trait
-    + system::Trait
+    + frame_system::Trait
     + utils::Trait
-    + timestamp::Trait
+    + pallet_timestamp::Trait
 {
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 /// Details about the dividend
@@ -135,7 +135,7 @@ decl_module! {
             ensure!(<asset::Module<T>>::total_checkpoints_of(&ticker) >= checkpoint_id,
             "Checkpoint for dividend does not exist");
 
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             let zero_ts = now - now; // A 0 timestamp
 
             // Check maturity/expiration dates
@@ -190,7 +190,7 @@ decl_module! {
 
             // Check that the dividend has not started yet
             let entry: Dividend<_, _> = Self::get_dividend(&ticker, dividend_id).ok_or("Dividend not found")?;
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             let starts_in_future = if let Some(ref start) = entry.matures_at {
                 (*start) > now
@@ -235,7 +235,7 @@ decl_module! {
             // Check if the owner hadn't yanked the remaining amount out
             ensure!(!dividend.remaining_claimed, "The remaining payout funds were already claimed");
 
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             // Check if the current time is within maturity/expiration bounds
             if let Some(start) = dividend.matures_at.as_ref() {
@@ -296,7 +296,7 @@ decl_module! {
             let entry = Self::get_dividend(&ticker, dividend_id).ok_or("Could not retrieve dividend")?;
 
             // Check that the expiry date had passed
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             if let Some(ref end) = entry.expires_at {
                 ensure!(*end < now, "Dividend not finished for returning unclaimed payout");
@@ -424,14 +424,14 @@ mod tests {
     type AccountId = <AnySignature as Verify>::Signer;
 
     pub struct TestOnSessionEnding;
-    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+    impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
             None
         }
     }
 
     pub struct TestSessionHandler;
-    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+    impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -459,7 +459,7 @@ mod tests {
         pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     }
-    impl system::Trait for Test {
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Call = ();
         type Index = u64;
@@ -492,10 +492,10 @@ mod tests {
         pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
     }
 
-    impl session::Trait for Test {
+    impl pallet_session::Trait for Test {
         type OnSessionEnding = TestOnSessionEnding;
         type Keys = UintAuthorityId;
-        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
         type SessionHandler = TestSessionHandler;
         type Event = ();
         type ValidatorId = AuthorityId;
@@ -504,7 +504,7 @@ mod tests {
         type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     }
 
-    impl session::historical::Trait for Test {
+    impl pallet_session::historical::Trait for Test {
         type FullIdentification = ();
         type FullIdentificationOf = ();
     }
@@ -573,7 +573,7 @@ mod tests {
         pub const MinimumPeriod: u64 = 3;
     }
 
-    impl timestamp::Trait for Test {
+    impl pallet_timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
@@ -581,7 +581,7 @@ mod tests {
 
     impl utils::Trait for Test {
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(v: <Self as pallet_session::Trait>::ValidatorId) -> Self::AccountId {
             v
         }
     }
@@ -649,7 +649,7 @@ mod tests {
 
     /// Build a genesis identity instance owned by the specified account
     fn identity_owned_by_1() -> sp_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
+        let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         identity::GenesisConfig::<Test> {
@@ -674,7 +674,7 @@ mod tests {
 
     fn make_account(
         account_id: &AccountId,
-    ) -> StdResult<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
         Identity::register_did(signed_id.clone(), vec![])?;
@@ -736,7 +736,7 @@ mod tests {
             let amount_invested = 50_000;
 
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             // We need a lock to exist till assertions are done
             let outer = TOKEN_MAP_OUTER_LOCK.lock().unwrap();

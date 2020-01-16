@@ -10,6 +10,9 @@ pub mod balances;
 /// Constant values used within the runtime.
 pub mod constants;
 
+#[cfg(feature = "std")]
+pub use pallet_staking::StakerStatus;
+
 mod contracts_wrapper;
 mod dividend;
 mod exemption;
@@ -37,13 +40,13 @@ pub mod config {
     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type GovernanceCommitteeConfig =
-        collective::GenesisConfig<crate::Runtime, collective::Instance1>;
+        pallet_collective::GenesisConfig<crate::Runtime, pallet_collective::Instance1>;
     pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
-    pub type IndicesConfig = indices::GenesisConfig<crate::Runtime>;
-    pub type SudoConfig = sudo::GenesisConfig<crate::Runtime>;
-    pub type SystemConfig = system::GenesisConfig;
+    pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;
+    pub type SudoConfig = pallet_sudo::GenesisConfig<crate::Runtime>;
+    pub type SystemConfig = frame_system::GenesisConfig;
     pub type GenesisConfig = crate::runtime::GenesisConfig;
-    pub type SessionConfig = session::GenesisConfig<crate::Runtime>;
+    pub type SessionConfig = pallet_session::GenesisConfig<crate::Runtime>;
 }
 
 pub mod update_did_signed_extension;

@@ -114,12 +114,12 @@
 //!
 //! ```
 //! use frame_support::traits::Currency;
-//! # pub trait Trait: system::Trait {
+//! # pub trait Trait: frame_system::Trait {
 //! # 	type Currency: Currency<Self::AccountId>;
 //! # }
 //!
-//! pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
-//! pub type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+//! pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+//! pub type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 //!
 //! # fn main() {}
 //! ```
@@ -129,12 +129,12 @@
 //! ```
 //! use frame_support::traits::{WithdrawReasons, LockableCurrency};
 //! use sp_runtime::traits::Bounded;
-//! pub trait Trait: system::Trait {
+//! pub trait Trait: frame_system::Trait {
 //! 	type Currency: LockableCurrency<Self::AccountId, Moment=Self::BlockNumber>;
 //! }
 //! # struct StakingLedger<T: Trait> {
-//! # 	stash: <T as system::Trait>::AccountId,
-//! # 	total: <<T as Trait>::Currency as frame_support::traits::Currency<<T as system::Trait>::AccountId>>::Balance,
+//! # 	stash: <T as frame_system::Trait>::AccountId,
+//! # 	total: <<T as Trait>::Currency as frame_support::traits::Currency<<T as sysframe_systemtem::Trait>::AccountId>>::Balance,
 //! # 	phantom: std::marker::PhantomData<T>,
 //! # }
 //! # const STAKING_ID: [u8; 8] = *b"staking ";
@@ -162,7 +162,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-use rstd::{cmp, convert::TryFrom, mem, prelude::*, result, fmt::Debug};
+use sp_std::{cmp, convert::TryFrom, mem, prelude::*, result, fmt::Debug};
 use sp_runtime::traits::{
     Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Member,
     Saturating, SimpleArithmetic, StaticLookup, Zero,
@@ -178,14 +178,14 @@ use frame_support::{
     decl_event, decl_module, decl_storage, decl_error, Parameter,
     StorageValue, dispatch::{ DispatchResult, DispatchError},
 };
-use system::{self, ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
+use frame_system::{self as system, ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 
 use crate::identity::IdentityTrait;
 use primitives::{IdentityId, Key, Permission, Signer};
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 
-pub trait Subtrait<I: Instance = DefaultInstance>: system::Trait {
+pub trait Subtrait<I: Instance = DefaultInstance>: frame_system::Trait {
     /// The balance of an account.
     type Balance: Parameter
         + Member
@@ -222,7 +222,7 @@ pub trait Subtrait<I: Instance = DefaultInstance>: system::Trait {
     type Identity: IdentityTrait<Self::Balance>;
 }
 
-pub trait Trait<I: Instance = DefaultInstance>: system::Trait {
+pub trait Trait<I: Instance = DefaultInstance>: frame_system::Trait {
     /// The balance of an account.
     type Balance: Parameter
         + Member
@@ -253,7 +253,7 @@ pub trait Trait<I: Instance = DefaultInstance>: system::Trait {
     type DustRemoval: OnUnbalanced<NegativeImbalance<Self, I>>;
 
     /// The overarching event type.
-    type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 
     /// This type is no longer needed but kept for compatibility reasons.
     /// The minimum amount required to keep an account open.
@@ -281,7 +281,7 @@ impl<T: Trait<I>, I: Instance> Subtrait<I> for T {
 
 decl_event!(
 	pub enum Event<T, I: Instance = DefaultInstance> where
-		<T as system::Trait>::AccountId,
+		<T as frame_system::Trait>::AccountId,
 		<T as Trait<I>>::Balance
 	{
 		/// A new account was created.
@@ -649,7 +649,7 @@ mod imbalances {
         result, Subtrait, DefaultInstance, Imbalance, Trait, Zero, Instance, Saturating,
 		StorageValue, TryDrop,
     };
-    use rstd::mem;
+    use sp_std::mem;
 
     /// Opaque, move-only struct with private fields that serves as a token denoting that
     /// funds have been created without any equal and opposite accounting.
@@ -820,7 +820,7 @@ impl<T: Subtrait<I>, I: Instance> PartialEq for ElevatedTrait<T, I> {
     }
 }
 impl<T: Subtrait<I>, I: Instance> Eq for ElevatedTrait<T, I> {}
-impl<T: Subtrait<I>, I: Instance> system::Trait for ElevatedTrait<T, I> {
+impl<T: Subtrait<I>, I: Instance> frame_system::Trait for ElevatedTrait<T, I> {
     type Origin = T::Origin;
     type Call = T::Call;
     type Index = T::Index;
@@ -919,7 +919,7 @@ where
 			return Ok(())
 		}
 
-		let now = <system::Module<T>>::block_number();
+		let now = <frame_system::Module<T>>::block_number();
 		if locks.into_iter()
 			.all(|l|
 				now >= l.until
@@ -1136,7 +1136,7 @@ where
         until: T::BlockNumber,
         reasons: WithdrawReasons,
     ) {
-        let now = <system::Module<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
         let mut new_lock = Some(BalanceLock {
             id,
             amount,
@@ -1168,7 +1168,7 @@ where
         until: T::BlockNumber,
         reasons: WithdrawReasons,
     ) {
-        let now = <system::Module<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
         let mut new_lock = Some(BalanceLock {
             id,
             amount,
@@ -1199,7 +1199,7 @@ where
     }
 
     fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
-        let now = <system::Module<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
         let locks = Self::locks(who)
             .into_iter()
             .filter_map(|l| {
@@ -1224,7 +1224,7 @@ where
 	fn vesting_balance(who: &T::AccountId) -> T::Balance {
 		if let Some(v) = Self::vesting(who) {
 			Self::free_balance(who)
-				.min(v.locked_at(<system::Module<T>>::block_number()))
+				.min(v.locked_at(<frame_system::Module<T>>::block_number()))
 		} else {
 			Zero::zero()
 		}
@@ -1355,7 +1355,7 @@ mod tests {
         pub const AvailableBlockRatio: Perbill = Perbill::one();
         pub const MinimumPeriod: u64 = 3;
     }
-    impl system::Trait for Runtime {
+    impl frame_system::Trait for Runtime {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
@@ -1393,7 +1393,7 @@ mod tests {
         type Event = ();
         type Proposal = IdentityProposal;
     }
-    impl timestamp::Trait for Runtime {
+    impl pallet_timestamp::Trait for Runtime {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
@@ -1477,7 +1477,7 @@ mod tests {
         }
         pub fn build(self) -> sp_io::TestExternalities<Blake2Hasher> {
             self.set_associated_consts();
-            let mut t = system::GenesisConfig::default()
+            let mut t = frame_system::GenesisConfig::default()
                 .build_storage::<Runtime>()
                 .unwrap();
             GenesisConfig::<Runtime> {
@@ -1511,7 +1511,7 @@ mod tests {
     pub type Balances = Module<Runtime>;
     pub type Identity = identity::Module<Runtime>;
 
-    pub const CALL: &<Runtime as system::Trait>::Call = &();
+    pub const CALL: &<Runtime as frame_system::Trait>::Call = &();
 
     /// create a transaction info struct from weight. Handy to avoid building the whole struct.
     pub fn info_from_weight(w: Weight) -> DispatchInfo {
@@ -1523,7 +1523,7 @@ mod tests {
 
     fn make_account(
         account_id: &AccountId,
-    ) -> Result<(<Runtime as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> Result<(<Runtime as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Identity::register_did(signed_id.clone(), vec![])?;
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();

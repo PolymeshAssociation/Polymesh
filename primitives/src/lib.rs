@@ -3,9 +3,9 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use runtime_primitives::{generic, AnySignature};
+use sp_runtime::{generic, AnySignature};
 
-pub use runtime_primitives::traits::{BlakeTwo256, Hash as HashT, Verify};
+pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, Verify};
 
 pub use codec::Compact;
 
@@ -30,7 +30,7 @@ pub type AccountIndex = u32;
 pub type ChainId = u32;
 
 /// A hash of some data used by the relay chain.
-pub type Hash = primitives::H256;
+pub type Hash = sp_core::H256;
 
 /// Index of a transaction in the relay chain. 32-bit should be plenty.
 pub type Nonce = u32;
@@ -52,7 +52,7 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// Opaque, encoded, unchecked extrinsic.
-pub use runtime_primitives::OpaqueExtrinsic as UncheckedExtrinsic;
+pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
 /// Utility byte container where equality comparision are ignored case.
 pub mod ignored_case_string;

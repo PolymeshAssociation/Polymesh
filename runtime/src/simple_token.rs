@@ -35,17 +35,17 @@ use crate::{balances, identity, utils};
 use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 
 use crate::constants::currency::MAX_SUPPLY;
 use sp_runtime::traits::{CheckedAdd, CheckedSub};
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trait {
+pub trait Trait: frame_system::Trait + balances::Trait + utils::Trait + identity::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 /// Struct to store the details of each simple token
@@ -256,7 +256,7 @@ mod tests {
      *    // configuration traits of modules we want to use.
      *    #[derive(Clone, Eq, PartialEq)]
      *    pub struct Test;
-     *    impl system::Trait for Test {
+     *    impl frame_system::Trait for Test {
      *        type Origin = Origin;
      *        type Index = u64;
      *        type BlockNumber = u64;
@@ -277,7 +277,7 @@ mod tests {
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
      *    fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::default()
+     *        frame_system::GenesisConfig::default()
      *            .build_storage()
      *            .unwrap()
      *            .0

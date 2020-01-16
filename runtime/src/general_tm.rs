@@ -53,9 +53,9 @@ use codec::Encode;
 use core::result::Result as StdResult;
 use identity::ClaimValue;
 use primitives::{IdentityId, Key, Signer};
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
-use system::{self, ensure_signed};
+use frame_system::{self as system, ensure_signed};
 
 /// Type of operators that a rule can have
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -76,10 +76,10 @@ impl Default for Operators {
 
 /// The module's configuration trait.
 pub trait Trait:
-    timestamp::Trait + system::Trait + balances::Trait + utils::Trait + identity::Trait
+    pallet_timestamp::Trait + frame_system::Trait + balances::Trait + utils::Trait + identity::Trait
 {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Asset module
     type Asset: asset::AssetTrait<Self::Balance>;
@@ -294,7 +294,7 @@ mod tests {
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
     };
-    use rstd::result::Result;
+    use sp_std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
 
@@ -320,7 +320,7 @@ mod tests {
         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     }
 
-    impl system::Trait for Test {
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = BlockNumber;
@@ -374,7 +374,7 @@ mod tests {
     type AccountId = <AnySignature as Verify>::Signer;
     type OffChainSignature = AnySignature;
 
-    impl timestamp::Trait for Test {
+    impl pallet_timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
@@ -382,20 +382,20 @@ mod tests {
 
     impl utils::Trait for Test {
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(v: <Self as pallet_session::Trait>::ValidatorId) -> Self::AccountId {
             v
         }
     }
 
     pub struct TestOnSessionEnding;
-    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+    impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
             None
         }
     }
 
     pub struct TestSessionHandler;
-    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+    impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -414,10 +414,10 @@ mod tests {
         pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
     }
 
-    impl session::Trait for Test {
+    impl pallet_session::Trait for Test {
         type OnSessionEnding = TestOnSessionEnding;
         type Keys = UintAuthorityId;
-        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
         type SessionHandler = TestSessionHandler;
         type Event = ();
         type ValidatorId = AuthorityId;
@@ -426,7 +426,7 @@ mod tests {
         type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     }
 
-    impl session::historical::Trait for Test {
+    impl pallet_session::historical::Trait for Test {
         type FullIdentification = ();
         type FullIdentificationOf = ();
     }
@@ -477,7 +477,7 @@ mod tests {
 
     /// Build a genesis identity instance owned by the specified account
     fn identity_owned_by_alice() -> sp_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
+        let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         identity::GenesisConfig::<Test> {
@@ -502,7 +502,7 @@ mod tests {
 
     fn make_account(
         account_id: &AccountId,
-    ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
         Identity::register_did(signed_id.clone(), vec![])?;
@@ -561,7 +561,7 @@ mod tests {
             ));
 
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = RuleData {
                 key: "some_key".as_bytes().to_vec(),
@@ -647,7 +647,7 @@ mod tests {
             ));
 
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = RuleData {
                 key: "some_key".as_bytes().to_vec(),

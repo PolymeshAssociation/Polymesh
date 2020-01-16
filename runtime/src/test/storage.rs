@@ -33,7 +33,7 @@ parameter_types! {
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 
-impl system::Trait for TestStorage {
+impl frame_system::Trait for TestStorage {
     type Origin = Origin;
     type Index = u64;
     type BlockNumber = u64;
@@ -83,7 +83,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 3;
 }
 
-impl timestamp::Trait for TestStorage {
+impl pallet_timestamp::Trait for TestStorage {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
@@ -115,7 +115,7 @@ pub type Balances = balances::Module<TestStorage>;
 
 /// Create externalities
 pub fn build_ext() -> TestExternalities<Blake2Hasher> {
-    system::GenesisConfig::default()
+    frame_system::GenesisConfig::default()
         .build_storage::<TestStorage>()
         .unwrap()
         .into()
@@ -125,7 +125,7 @@ pub fn build_ext() -> TestExternalities<Blake2Hasher> {
 pub fn make_account_with_balance(
     id: u64,
     balance: <TestStorage as balances::Trait>::Balance,
-) -> Result<(<TestStorage as system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id);
     Balances::make_free_balance_be(&id, balance);
 

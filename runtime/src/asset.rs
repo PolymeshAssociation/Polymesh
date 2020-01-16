@@ -61,8 +61,8 @@ use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
 use primitives::{IdentityId, Key, Signer};
-use rstd::{convert::TryFrom, prelude::* };
-use session;
+use sp_std::{convert::TryFrom, prelude::* };
+use pallet_session;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -72,20 +72,20 @@ use frame_support::{
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
 };
-use system::{self, ensure_signed};
+use frame_system::{self as system, ensure_signed};
 
 /// The module's configuration trait.
 pub trait Trait:
-    system::Trait
+    frame_system::Trait
     + general_tm::Trait
     + percentage_tm::Trait
     + utils::Trait
     + balances::Trait
     + identity::Trait
-    + session::Trait
+    + pallet_session::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Currency: Currency<Self::AccountId>;
 }
 
@@ -239,7 +239,7 @@ decl_module! {
                 "ticker registered to someone else"
             );
 
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
 
             Self::_register_ticker(&ticker, sender, to_did, expiry);
@@ -455,7 +455,7 @@ decl_module! {
             ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
 
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
-            let validators = <session::Module<T>>::validators();
+            let validators = <pallet_session::Module<T>>::validators();
             let fee = Self::asset_creation_fee();
             let validator_len:T::Balance;
             if validators.len() < 1 {
@@ -1011,7 +1011,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
-            <Documents<T>>::insert((ticker, name), (uri, document_hash, <timestamp::Module<T>>::get()));
+            <Documents<T>>::insert((ticker, name), (uri, document_hash, <pallet_timestamp::Module<T>>::get()));
             Ok(())
         }
 
@@ -1166,7 +1166,7 @@ decl_event! {
     pub enum Event<T>
         where
         Balance = <T as balances::Trait>::Balance,
-        Moment = <T as timestamp::Trait>::Moment,
+        Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// event for transfer of tokens
         /// ticker, from DID, to DID, value
@@ -1287,7 +1287,7 @@ impl<T: Trait> Module<T> {
     pub fn is_ticker_available(ticker: &Vec<u8>) -> bool {
         // Assumes uppercase ticker
         if <Tickers<T>>::exists(ticker.clone()) {
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             if let Some(expiry) = Self::ticker_registration(ticker.clone()).expiry {
                 if now <= expiry {
                     return false;
@@ -1302,7 +1302,7 @@ impl<T: Trait> Module<T> {
     pub fn is_ticker_registry_valid(ticker: &Vec<u8>, did: IdentityId) -> bool {
         // Assumes uppercase ticker
         if <Tickers<T>>::exists(ticker.clone()) {
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             let ticker_reg = Self::ticker_registration(ticker.clone());
             if ticker_reg.owner == did {
                 if let Some(expiry) = ticker_reg.expiry {
@@ -1329,7 +1329,7 @@ impl<T: Trait> Module<T> {
         if <Tickers<T>>::exists(ticker.clone()) {
             let ticker_reg = Self::ticker_registration(ticker.clone());
             if let Some(expiry) = ticker_reg.expiry {
-                let now = <timestamp::Module<T>>::get();
+                let now = <pallet_timestamp::Module<T>>::get();
                 if now > expiry {
                     // ticker registered to someone but expired and can be registered again
                     return TickerRegistrationStatus::Available;
@@ -1675,14 +1675,14 @@ mod tests {
     type OffChainSignature = AnySignature;
 
     pub struct TestOnSessionEnding;
-    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+    impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
             None
         }
     }
 
     pub struct TestSessionHandler;
-    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+    impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -1712,7 +1712,7 @@ mod tests {
         pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     }
-    impl system::Trait for Test {
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Call = ();
         type Index = u64;
@@ -1736,10 +1736,10 @@ mod tests {
         pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
     }
 
-    impl session::Trait for Test {
+    impl pallet_session::Trait for Test {
         type OnSessionEnding = TestOnSessionEnding;
         type Keys = UintAuthorityId;
-        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
         type SessionHandler = TestSessionHandler;
         type Event = ();
         type ValidatorId = AuthorityId;
@@ -1748,7 +1748,7 @@ mod tests {
         type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     }
 
-    impl session::historical::Trait for Test {
+    impl pallet_session::historical::Trait for Test {
         type FullIdentification = ();
         type FullIdentificationOf = ();
     }
@@ -1815,7 +1815,7 @@ mod tests {
         pub const MinimumPeriod: u64 = 3;
     }
 
-    impl timestamp::Trait for Test {
+    impl pallet_timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
@@ -1823,7 +1823,7 @@ mod tests {
 
     impl utils::Trait for Test {
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(v: <Self as pallet_session::Trait>::ValidatorId) -> Self::AccountId {
             v
         }
     }
@@ -1843,7 +1843,7 @@ mod tests {
 
     /// Build a genesis identity instance owned by account No. 1
     fn identity_owned_by_alice() -> sp_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
+        let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         identity::GenesisConfig::<Test> {
@@ -1868,7 +1868,7 @@ mod tests {
 
     fn make_account(
         account_id: &AccountId,
-    ) -> StdResult<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
         Identity::register_did(signed_id.clone(), vec![])?;
@@ -1949,7 +1949,7 @@ mod tests {
     fn valid_transfers_pass() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
@@ -2012,7 +2012,7 @@ mod tests {
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             // Expected token entry
             let token = SecurityToken {
@@ -2199,7 +2199,7 @@ mod tests {
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             // Expected token entry
             let token = SecurityToken {
@@ -2407,7 +2407,7 @@ mod tests {
             // When fuzzing in local, feel free to bump this number to add more fuzz runs.
             with_externalities(&mut identity_owned_by_alice(), || {
                 let now = Utc::now();
-                <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+                <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
                 let owner_acc = AccountId::from(AccountKeyring::Dave);
                 let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
@@ -2533,7 +2533,7 @@ mod tests {
     fn register_ticker() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
@@ -2598,7 +2598,7 @@ mod tests {
             assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
             assert_eq!(Asset::is_ticker_available(&ticker), false);
 
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64 + 10001);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64 + 10001);
 
             assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
             assert_eq!(Asset::is_ticker_available(&ticker), true);
@@ -2609,7 +2609,7 @@ mod tests {
     fn approve_transfer_ticker() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
@@ -2702,7 +2702,7 @@ mod tests {
     fn process_transfer_ticker() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
@@ -2813,7 +2813,7 @@ mod tests {
     fn withdraw_transfer_ticker() {
         with_externalities(&mut identity_owned_by_alice(), || {
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
@@ -2978,7 +2978,7 @@ mod tests {
      *                        .expect("Could not get identity owner's ID") as u64,
      *                )
      *            } else {
-     *                system::GenesisConfig::default()
+     *                frame_system::GenesisConfig::default()
      *                    .build_storage()
      *                    .unwrap()
      *                    .0
@@ -2988,7 +2988,7 @@ mod tests {
      *            with_externalities(&mut externalities, || {
      *                // Instantiate accounts
      *                for (name, account) in accounts {
-     *                    <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+     *                    <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
      *                    let name = name
      *                        .as_str()
      *                        .expect("Could not take named_accounts key as string");

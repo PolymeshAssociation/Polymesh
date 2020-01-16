@@ -2,16 +2,16 @@ use crate::balances;
 use crate::general_tm::Operators;
 use crate::identity::DataTypes;
 use codec::{Decode, Encode};
-use rstd::prelude::*;
-use session;
+use sp_std::prelude::*;
+use pallet_session;
 use sp_runtime::traits::{Member, Verify, IdentifyAccount};
-use system;
+use frame_system;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + session::Trait {
+pub trait Trait: frame_system::Trait + balances::Trait + pallet_session::Trait {
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
-    fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId;
+    fn validator_id_to_account_id(v: <Self as pallet_session::Trait>::ValidatorId) -> Self::AccountId;
 }
 
 // Other utility functions

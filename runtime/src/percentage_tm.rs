@@ -28,15 +28,15 @@ use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
 use core::result::Result as StdResult;
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::{ DispatchResult }, ensure};
-use system::{self, ensure_signed};
+use frame_system::{self as system, ensure_signed};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + utils::Trait + exemption::Trait {
+pub trait Trait: frame_system::Trait + utils::Trait + exemption::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 decl_event!(
@@ -173,7 +173,7 @@ mod tests {
     // #[derive(Clone, Eq, PartialEq)]
     // pub struct Test;
 
-    // impl system::Trait for Test {
+    // impl frame_system::Trait for Test {
     //     type Origin = Origin;
     //     type Index = u64;
     //     type BlockNumber = u64;
@@ -199,13 +199,13 @@ mod tests {
     //     type Balance = u128;
     // }
 
-    // impl timestamp::Trait for Test {
+    // impl pallet_timestamp::Trait for Test {
     //     type Moment = u64;
     //     type OnTimestampSet = ();
     // }
 
-    // impl asset::HasOwner<<Test as system::Trait>::AccountId> for Module<Test> {
-    //     fn is_owner(_ticker: Vec<u8>, sender: <Test as system::Trait>::AccountId) -> bool {
+    // impl asset::HasOwner<<Test as frame_system::Trait>::AccountId> for Module<Test> {
+    //     fn is_owner(_ticker: Vec<u8>, sender: <Test as frame_system::Trait>::AccountId) -> bool {
     //         if let Some(token) = TOKEN_MAP.lock().unwrap().get(&_ticker) {
     //             token.owner == sender
     //         } else {
@@ -221,7 +221,7 @@ mod tests {
     // // This function basically just builds a genesis storage key/value store according to
     // // our desired mockup.
     // fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
-    //     system::GenesisConfig::default()
+    //     frame_system::GenesisConfig::default()
     //         .build_storage()
     //         .unwrap()
     //         .0
@@ -236,7 +236,7 @@ mod tests {
     //                 Vec<u8>,
     //                 SecurityToken<
     //                     <Test as balances::Trait>::Balance,
-    //                     <Test as system::Trait>::AccountId,
+    //                     <Test as frame_system::Trait>::AccountId,
     //                 >,
     //             >,
     //         >,
