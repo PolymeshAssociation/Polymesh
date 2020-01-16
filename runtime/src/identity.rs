@@ -154,7 +154,6 @@ pub struct SigningItemWithAuth {
     pub auth_signature: H512,
 }
 
-
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     /// The overarching event type.
