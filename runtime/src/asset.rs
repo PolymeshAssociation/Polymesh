@@ -1767,7 +1767,9 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
             };
-
+            assert!(!<identity::DidRecords>::exists(
+                Identity::get_token_did(&token.name).unwrap()
+            ));
             assert_err!(
                 Asset::create_token(
                     owner_signed.clone(),
@@ -1792,6 +1794,10 @@ mod tests {
 
             // A correct entry is added
             assert_eq!(Asset::token_details(token.name.clone()), token);
+            //assert!(Identity::is_existing_identity(Identity::get_token_did(&token.name).unwrap()));
+            assert!(<identity::DidRecords>::exists(
+                Identity::get_token_did(&token.name).unwrap()
+            ));
         });
     }
 
