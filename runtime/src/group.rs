@@ -202,11 +202,11 @@ decl_module! {
 mod tests {
     use super::*;
 
+    use rstd::cell::RefCell;
     use sr_io::with_externalities;
     use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
     use substrate_primitives::{Blake2Hasher, H256};
 
-    use rstd::cell::RefCell;
     use sr_primitives::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup},
