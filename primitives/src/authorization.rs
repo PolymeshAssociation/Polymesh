@@ -1,3 +1,4 @@
+use crate::key::Key;
 use crate::signing_item::Signer;
 use codec::{Decode, Encode};
 use rstd::prelude::Vec;
@@ -7,6 +8,8 @@ use rstd::prelude::Vec;
 pub enum AuthorizationData {
     /// Authorization to transfer a ticker
     TransferTicker(Vec<u8>),
+    /// Authorization to change master key
+    RotateMasterKey(Key),
     /// Any other authorization
     Custom(Vec<u8>),
     /// No authorization data
