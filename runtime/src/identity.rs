@@ -788,7 +788,10 @@ decl_module! {
             match signer {
                 Signer::Identity(did) => {
                     match auth.authorization_data {
-                        AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                        AuthorizationData::TransferTicker(_) =>
+                            T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                        AuthorizationData::TransferTokenOwnership(_) =>
+                            T::AcceptTickerTransferTarget::accept_token_ownership_transfer(did, auth_id),
                         _ => return Err("Unknown authorization")
                     }
                 },
@@ -826,7 +829,10 @@ decl_module! {
                             let auth = Self::authorizations((signer, auth_id));
                             // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
-                                AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                                AuthorizationData::TransferTicker(_) =>
+                                    T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                                AuthorizationData::TransferTokenOwnership(_) =>
+                                    T::AcceptTickerTransferTarget::accept_token_ownership_transfer(did, auth_id),
                                 _ => Err("Unknown authorization")
                             };
                         }

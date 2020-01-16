@@ -123,14 +123,7 @@ pub struct TickerRegistrationConfig<U> {
     pub registration_length: Option<U>,
 }
 
-/// struct to store the ticker transfer approvals
-#[derive(codec::Encode, codec::Decode, Clone, Default, PartialEq, Debug)]
-pub struct TickerTransferApproval<U> {
-    pub authorized_by: U,
-    pub next_ticker: Option<Vec<u8>>,
-    pub previous_ticker: Option<Vec<u8>>,
-}
-
+/// Enum that represents the current status of a ticker
 #[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq, Debug)]
 pub enum TickerRegistrationStatus {
     RegisteredByOther,
@@ -257,6 +250,28 @@ decl_module! {
                 }
             };
             Self::_accept_ticker_transfer(to_did, auth_id)
+        }
+
+        /// This function is used to accept a token ownership transfer
+        /// NB: To reject the transfer, call remove auth function in identity module.
+        ///
+        /// # Arguments
+        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `auth_id` Authorization ID of the token ownership transfer authorization
+        pub fn accept_token_ownership_transfer(origin, auth_id: u64) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let to_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+            Self::_accept_token_ownership_transfer(to_did, auth_id)
         }
 
         /// Initializes a new security token
@@ -1061,12 +1076,9 @@ decl_event! {
         /// emit when ticker is transferred
         /// ticker, from, to
         TickerTransferred(Vec<u8>, IdentityId, IdentityId),
-        /// emit when ticker is registered
-        /// ticker, current owner, approved owner
-        TickerTransferApproval(Vec<u8>, IdentityId, IdentityId),
-        /// ticker transfer approval withdrawal
-        /// ticker, approved did
-        TickerTransferApprovalWithdrawal(Vec<u8>, IdentityId),
+        /// emit when token ownership is transferred
+        /// ticker, from, to
+        TokenOwnershipTransferred(Vec<u8>, IdentityId, IdentityId),
     }
 }
 
@@ -1108,11 +1120,16 @@ impl<T: Trait> AssetTrait<T::Balance> for Module<T> {
 
 pub trait AcceptTickerTransfer {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result;
+    fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> Result;
 }
 
 impl<T: Trait> AcceptTickerTransfer for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result {
         Self::_accept_ticker_transfer(to_did, auth_id)
+    }
+
+    fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> Result {
+        Self::_accept_token_ownership_transfer(to_did, auth_id)
     }
 }
 
@@ -1513,6 +1530,42 @@ impl<T: Trait> Module<T> {
         <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
 
         Self::deposit_event(RawEvent::TickerTransferred(ticker, current_owner, to_did));
+
+        Ok(())
+    }
+
+    pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> Result {
+        ensure!(
+            <identity::Authorizations<T>>::exists((Signer::from(to_did), auth_id)),
+            AuthorizationError::Invalid.into()
+        );
+
+        let auth = <identity::Module<T>>::authorizations((Signer::from(to_did), auth_id));
+
+        let ticker = match auth.authorization_data {
+            AuthorizationData::TransferTokenOwnership(_ticker) => {
+                utils::bytes_to_upper(_ticker.as_slice())
+            }
+            _ => return Err("Not a ticker transfer auth"),
+        };
+
+        ensure!(<Tokens<T>>::exists(&ticker), "token does not exist");
+
+        let current_owner = Self::ticker_registration(&ticker).owner;
+
+        <identity::Module<T>>::consume_auth(
+            Signer::from(current_owner),
+            Signer::from(to_did),
+            auth_id,
+        )?;
+
+        <Tokens<T>>::mutate(&ticker, |t| t.owner_did = to_did);
+
+        Self::deposit_event(RawEvent::TokenOwnershipTransferred(
+            ticker,
+            current_owner,
+            to_did,
+        ));
 
         Ok(())
     }
