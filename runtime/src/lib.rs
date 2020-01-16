@@ -20,6 +20,7 @@ mod mips;
 mod percentage_tm;
 mod simple_token;
 
+pub mod committee;
 pub mod staking;
 #[cfg(feature = "std")]
 pub use staking::StakerStatus;
@@ -42,8 +43,8 @@ pub mod config {
     pub type IdentityConfig = crate::identity::GenesisConfig<crate::Runtime>;
     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = crate::staking::GenesisConfig<crate::Runtime>;
-    pub type GovernanceCommitteeConfig =
-        collective::GenesisConfig<crate::Runtime, collective::Instance1>;
+    pub type PolymeshCommitteeConfig =
+        crate::committee::GenesisConfig<crate::Runtime, crate::committee::Instance1>;
     pub type MIPSConfig = crate::mips::GenesisConfig<crate::Runtime>;
     pub type ContractsConfig = contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = indices::GenesisConfig<crate::Runtime>;
