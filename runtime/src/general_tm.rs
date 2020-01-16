@@ -299,10 +299,8 @@ mod tests {
     use system::EnsureSignedBy;
     use test_client::{self, AccountKeyring};
 
-    use crate::{
-        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, group,
-        identity, identity::DataTypes, percentage_tm,
-    };
+    use crate::asset::{AssetType, Identifiers, SecurityToken, TickerRegistrationConfig};
+    use crate::{balances, exemption, group, identity, identity::DataTypes, percentage_tm};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -542,6 +540,8 @@ mod tests {
                 owner_did: token_owner_did.clone(),
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
@@ -553,7 +553,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
@@ -622,6 +624,8 @@ mod tests {
                 owner_did: token_owner_did.clone(),
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
@@ -633,7 +637,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
@@ -709,6 +715,8 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
@@ -720,7 +728,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
 
             let asset_rule = AssetRule {

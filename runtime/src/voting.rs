@@ -321,10 +321,8 @@ mod tests {
     use system::EnsureSignedBy;
     use test_client::{self, AccountKeyring};
 
-    use crate::{
-        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
-        group, identity, percentage_tm,
-    };
+    use crate::asset::{AssetType, Identifiers, SecurityToken, TickerRegistrationConfig};
+    use crate::{balances, exemption, general_tm, group, identity, percentage_tm};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -566,6 +564,8 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             // Share issuance is successful
@@ -575,7 +575,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -743,6 +745,8 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             // Share issuance is successful
@@ -752,7 +756,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -860,6 +866,8 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             // Share issuance is successful
@@ -869,7 +877,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
 
             let asset_rule = general_tm::AssetRule {

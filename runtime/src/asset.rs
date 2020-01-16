@@ -57,6 +57,7 @@
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
 
 use crate::{balances, constants::*, general_tm, identity, percentage_tm, utils};
+use codec::alloc::collections::btree_map::BTreeMap;
 use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
@@ -89,6 +90,39 @@ pub trait Trait:
     type Currency: Currency<Self::AccountId>;
 }
 
+/// The type of an asset represented by a token.
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Debug)]
+pub enum AssetType {
+    Equity,
+    Debt,
+    Commodity,
+    StructuredProduct,
+    Custom(Vec<u8>),
+}
+
+impl Default for AssetType {
+    fn default() -> Self {
+        AssetType::Custom(b"undefined".to_vec())
+    }
+}
+
+/// The type of an identifier associated with a token.
+#[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum IdentifierType {
+    Isin,
+    Cusip,
+    Custom(Vec<u8>),
+}
+
+impl Default for IdentifierType {
+    fn default() -> Self {
+        IdentifierType::Custom(b"undefined".to_vec())
+    }
+}
+
+/// A notational shorthand for the identifier map type.
+pub type Identifiers = BTreeMap<IdentifierType, Vec<u8>>;
+
 /// struct to store the token details
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U> {
@@ -96,6 +130,8 @@ pub struct SecurityToken<U> {
     pub total_supply: U,
     pub owner_did: IdentityId,
     pub divisible: bool,
+    pub asset_type: AssetType,
+    pub identifiers: Identifiers,
 }
 
 /// struct to store the signed data
@@ -155,7 +191,7 @@ decl_storage! {
         TickerRegistrationFee get(ticker_registration_fee) config(): T::Balance;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
-        pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u64;
+        pub TotalCheckpoints get(total_checkpoints_of): map Vec<u8> => u64;
         /// Total supply of the token at the checkpoint
         /// (ticker, checkpointId) -> total supply at given checkpoint
         pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u64) => T::Balance;
@@ -291,7 +327,16 @@ decl_module! {
         /// * `_ticker` Symbol of the token
         /// * `total_supply` Total supply of the token
         /// * `divisible` boolean to identify the divisibility status of the token.
-        pub fn create_token(origin, did: IdentityId, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::Balance, divisible: bool) -> Result {
+        pub fn create_token(
+            origin,
+            did: IdentityId,
+            name: Vec<u8>,
+            _ticker: Vec<u8>,
+            total_supply: T::Balance,
+            divisible: bool,
+            asset_type: AssetType,
+            identifiers: Identifiers
+        ) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -351,7 +396,9 @@ decl_module! {
                 name,
                 total_supply,
                 owner_did: did,
-                divisible: divisible
+                divisible,
+                asset_type,
+                identifiers
             };
 
             <Tokens<T>>::insert(&ticker, token);
@@ -1934,6 +1981,8 @@ mod tests {
                 owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
             assert!(!<identity::DidRecords>::exists(
                 Identity::get_token_did(&token.name).unwrap()
@@ -1946,7 +1995,9 @@ mod tests {
                     token.name.clone(),
                     ticker_name.clone(),
                     1_000_000_000_000_000_000_000_000, // Total supply over the limit
-                    true
+                    true,
+                    AssetType::default(),
+                    Identifiers::default()
                 ),
                 "Total supply above the limit"
             );
@@ -1958,7 +2009,9 @@ mod tests {
                 token.name.clone(),
                 ticker_name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default()
             ));
 
             // A correct entry is added
@@ -1988,6 +2041,8 @@ mod tests {
                 owner_did: token.owner_did,
                 total_supply: token.total_supply,
                 divisible: token.divisible,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
             assert_ok!(Asset::rename_token(
                 owner_signed.clone(),
@@ -2013,6 +2068,8 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             let wrong_acc = AccountId::from(AccountKeyring::Bob);
@@ -2039,6 +2096,8 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -2055,7 +2114,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
 
             // A correct entry is added
@@ -2099,6 +2160,8 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -2125,7 +2188,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
 
             assert_eq!(
@@ -2302,6 +2367,8 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -2328,7 +2395,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
 
             assert_eq!(
@@ -2513,6 +2582,8 @@ mod tests {
                     owner_did: owner_did,
                     total_supply: 1_000_000,
                     divisible: true,
+                    asset_type: AssetType::default(),
+                    identifiers: Identifiers::default(),
                 };
 
                 let bob_acc = AccountId::from(AccountKeyring::Bob);
@@ -2525,7 +2596,9 @@ mod tests {
                     token.name.clone(),
                     token.name.clone(),
                     token.total_supply,
-                    true
+                    true,
+                    AssetType::default(),
+                    Identifiers::default(),
                 ));
 
                 let asset_rule = general_tm::AssetRule {
@@ -2638,6 +2711,8 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
+                identifiers: Identifiers::default(),
             };
 
             // Issuance is successful
@@ -2647,7 +2722,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
 
             assert_eq!(
@@ -2814,7 +2891,9 @@ mod tests {
                 ticker.clone(),
                 ticker.clone(),
                 1_000_000,
-                true
+                true,
+                AssetType::default(),
+                Identifiers::default(),
             ));
 
             Identity::add_auth(
