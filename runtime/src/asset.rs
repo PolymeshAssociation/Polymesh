@@ -1560,6 +1560,7 @@ impl<T: Trait> Module<T> {
         )?;
 
         <Tokens<T>>::mutate(&ticker, |t| t.owner_did = to_did);
+        <Tickers<T>>::mutate(&ticker, |t| t.owner = to_did);
 
         Self::deposit_event(RawEvent::TokenOwnershipTransferred(
             ticker,
