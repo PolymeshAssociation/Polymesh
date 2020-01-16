@@ -317,7 +317,7 @@ decl_module! {
             }
             let remainder_fee = fee - (proportional_fee * validator_len);
             let _withdraw_result = <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
-
+            <identity::Module<T>>::register_asset_did(&ticker)?;
             if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {
                 // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
                 Self::_register_ticker(&ticker, sender, did, None);
