@@ -190,7 +190,7 @@ decl_module! {
         /// NB Ticker validity does not get carryforward when renewing ticker
         ///
         /// # Arguments
-        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `_ticker` ticker to register
         pub fn register_ticker(origin, _ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
@@ -234,7 +234,7 @@ decl_module! {
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `auth_id` Authorization ID of ticker transfer authorization
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
@@ -256,7 +256,7 @@ decl_module! {
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `auth_id` Authorization ID of the token ownership transfer authorization
         pub fn accept_token_ownership_transfer(origin, auth_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
@@ -279,7 +279,7 @@ decl_module! {
         /// & the balance of the owner is set to total supply
         ///
         /// # Arguments
-        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `did` DID of the creator of the token or the owner of the token
         /// * `name` Name of the token
         /// * `_ticker` Symbol of the token
@@ -1146,8 +1146,19 @@ impl<T: Trait> AssetTrait<T::Balance> for Module<T> {
     }
 }
 
+/// This trait is used to call functions that accept transfer of a ticker or token ownership
 pub trait AcceptTransfer {
+    /// Accept and process a ticker transfer
+    ///
+    /// # Arguments
+    /// * `to_did` did of the receiver
+    /// * `auth_id` Authorization id of the authorization created by current ticker owner
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result;
+    /// Accept and process a token ownership transfer
+    ///
+    /// # Arguments
+    /// * `to_did` did of the receiver
+    /// * `auth_id` Authorization id of the authorization created by current token owner
     fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> Result;
 }
 
@@ -1532,6 +1543,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Accept and process a ticker transfer
     pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result {
         ensure!(
             <identity::Authorizations<T>>::exists((Signer::from(to_did), auth_id)),
@@ -1562,6 +1574,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Accept and process a token ownership transfer
     pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> Result {
         ensure!(
             <identity::Authorizations<T>>::exists((Signer::from(to_did), auth_id)),

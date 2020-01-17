@@ -1522,6 +1522,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// It registers a did for a new asset. Only called by create_token function.
     pub fn register_asset_did(ticker: &Vec<u8>) -> Result {
         let did = Self::get_token_did(ticker)?;
         // Making sure there's no pre-existing entry for the DID
@@ -1531,12 +1532,12 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// It is a helper function that can be used to get did for any asset
     pub fn get_token_did(ticker: &Vec<u8>) -> StdResult<IdentityId, &'static str> {
         let mut buf = Vec::new();
         buf.extend_from_slice(&SECURITY_TOKEN.encode());
         buf.extend_from_slice(&ticker.encode());
-        let did = IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())?;
-        Ok(did)
+        IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
     }
 }
 
