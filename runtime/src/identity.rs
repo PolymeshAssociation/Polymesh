@@ -72,21 +72,31 @@ use system::{self, ensure_signed};
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
-    issuance_date: U,
-    expiry: U,
-    claim_value: ClaimValue,
+    pub issuance_date: U,
+    pub expiry: U,
+    pub claim_value: ClaimValue,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimMetaData {
-    claim_key: Vec<u8>,
-    claim_issuer: IdentityId,
+    pub claim_key: Vec<u8>,
+    pub claim_issuer: IdentityId,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimValue {
     pub data_type: DataTypes,
     pub value: Vec<u8>,
+}
+
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+/// A structure for passing claims to `add_claims_batch`. The type argument is required to be
+/// `timestamp::Trait::Moment`.
+pub struct ClaimRecord<U> {
+    pub did: IdentityId,
+    pub claim_key: Vec<u8>,
+    pub expiry: U,
+    pub claim_value: ClaimValue,
 }
 
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -197,19 +207,19 @@ decl_storage! {
         pub MultiPurposeNonce get(multi_purpose_nonce) build(|_| 1u64): u64;
 
         /// Pre-authorize join to Identity.
-        pub PreAuthorizedJoinDid get( pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
+        pub PreAuthorizedJoinDid get(pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
 
         /// Authorization nonce per Identity. Initially is 0.
-        pub OffChainAuthorizationNonce get( offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
+        pub OffChainAuthorizationNonce get(offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
-        pub RevokeOffChainAuthorization get( is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
+        pub RevokeOffChainAuthorization get(is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity has
-        pub Authorizations get(authorizations): map(IdentityId, u64) => Authorization<T::Moment>;
+        pub Authorizations get(authorizations): map(Signer, u64) => Authorization<T::Moment>;
 
         /// Auth id of the latest auth of an identity. Used to allow iterating over auths
-        pub LastAuthorization get(last_authorization): map(IdentityId) => u64;
+        pub LastAuthorization get(last_authorization): map Signer => u64;
     }
 }
 
@@ -418,11 +428,11 @@ decl_module! {
             ensure!(<DidRecords>::exists(did), "DID must already exist");
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
 
-            let sender_key = Key::try_from( sender.encode())?;
+            let sender_key = Key::try_from(sender.encode())?;
             ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_signer = Signer::Key( sender_key);
+            let sender_signer = Signer::Key(sender_key);
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
@@ -448,6 +458,58 @@ decl_module! {
 
             Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
 
+            Ok(())
+        }
+
+        /// Adds a new batch of claim records or edits an existing one. Only called by
+        /// `did_issuer`'s signing key.
+        pub fn add_claims_batch(
+            origin,
+            did_issuer: IdentityId,
+            claims: Vec<ClaimRecord<<T as timestamp::Trait>::Moment>>
+        ) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
+            let sender_key = Key::try_from(sender.encode())?;
+            // Verify that sender key is one of did_issuer's signing keys
+            let sender_signer = Signer::Key(sender_key);
+            ensure!(Self::is_signer_authorized(did_issuer, &sender_signer),
+                    "Sender must hold a claim issuer's signing key");
+            // Claims that successfully passed all required checks. Unless all claims pass those
+            // checks, the whole operation fails.
+            let mut checked_claims = Vec::new();
+            // Check input claims.
+            for ClaimRecord {
+                did,
+                claim_key,
+                expiry,
+                claim_value,
+            } in claims {
+                ensure!(<DidRecords>::exists(did), "DID must already exist");
+                ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key),
+                        "did_issuer must be a claim issuer or master key for DID");
+                let claim_meta_data = ClaimMetaData {
+                    claim_key: claim_key.clone(),
+                    claim_issuer: did_issuer.clone(),
+                };
+                let now = <timestamp::Module<T>>::get();
+                let claim = Claim {
+                    issuance_date: now,
+                    expiry: expiry.clone(),
+                    claim_value: claim_value.clone(),
+                };
+                checked_claims.push((did.clone(), claim_meta_data, claim));
+            }
+            // Register the claims.
+            for (did, claim_meta_data, claim) in checked_claims {
+                <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
+                <ClaimKeys>::mutate(&did, |old_claim_data| {
+                    if !old_claim_data.contains(&claim_meta_data) {
+                        old_claim_data.push(claim_meta_data.clone());
+                    }
+                });
+                Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
+            }
             Ok(())
         }
 
@@ -567,7 +629,7 @@ decl_module! {
         /// Adds an authorization
         pub fn add_authorization(
             origin,
-            target_did: IdentityId,
+            target: Signer,
             authorization_data: AuthorizationData,
             expiry: Option<T::Moment>
         ) -> Result {
@@ -583,7 +645,22 @@ decl_module! {
                 }
             };
 
-            Self::add_auth(from_did, target_did, authorization_data, expiry);
+            Self::add_auth(Signer::from(from_did), target, authorization_data, expiry);
+
+            Ok(())
+        }
+
+        /// Adds an authorization as a key.
+        /// To be used by signing keys that don't have an identity
+        pub fn add_authorization_as_key(
+            origin,
+            target: Signer,
+            authorization_data: AuthorizationData,
+            expiry: Option<T::Moment>
+        ) -> Result {
+            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+
+            Self::add_auth(Signer::from(sender_key), target, authorization_data, expiry);
 
             Ok(())
         }
@@ -593,7 +670,7 @@ decl_module! {
         pub fn batch_add_authorization(
             origin,
             // Vec<(target_did, auth_data, expiry)>
-            auths: Vec<(IdentityId, AuthorizationData, Option<T::Moment>)>
+            auths: Vec<(Signer, AuthorizationData, Option<T::Moment>)>
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let from_did =  match Self::current_did() {
@@ -608,7 +685,7 @@ decl_module! {
             };
 
             for auth in auths {
-                Self::add_auth(from_did, auth.0, auth.1, auth.2);
+                Self::add_auth(Signer::from(from_did), auth.0, auth.1, auth.2);
             }
 
             Ok(())
@@ -617,7 +694,7 @@ decl_module! {
         /// Removes an authorization
         pub fn remove_authorization(
             origin,
-            target_did: IdentityId,
+            target: Signer,
             auth_id: u64
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
@@ -632,13 +709,13 @@ decl_module! {
                 }
             };
 
-            ensure!(<Authorizations<T>>::exists((target_did, auth_id)), "Invalid auth");
+            ensure!(<Authorizations<T>>::exists((target, auth_id)), "Invalid auth");
 
-            let auth = Self::authorizations((target_did, auth_id));
+            let auth = Self::authorizations((target, auth_id));
 
-            ensure!(auth.authorized_by == from_did || target_did == from_did, "Unauthorized");
+            ensure!(auth.authorized_by.eq_either(&from_did, &sender_key) || target.eq_either(&from_did, &sender_key) , "Unauthorized");
 
-            Self::remove_auth(target_did, auth_id, auth.next_authorization, auth.previous_authorization);
+            Self::remove_auth(target, auth_id, auth.next_authorization, auth.previous_authorization);
 
             Ok(())
         }
@@ -647,7 +724,7 @@ decl_module! {
         pub fn batch_remove_authorization(
             origin,
             // Vec<(target_did, auth_id)>
-            auth_identifiers: Vec<(IdentityId, u64)>
+            auth_identifiers: Vec<(Signer, u64)>
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
             let from_did =  match Self::current_did() {
@@ -665,8 +742,7 @@ decl_module! {
                 ensure!(<Authorizations<T>>::exists(auth_identifier), "Invalid auth");
 
                 let auth = Self::authorizations(auth_identifier);
-
-                ensure!(auth.authorized_by == from_did || auth_identifier.0 == from_did, "Unauthorized");
+                ensure!(auth.authorized_by.eq_either(&from_did, &sender_key) || auth_identifier.0.eq_either(&from_did, &sender_key) , "Unauthorized");
             }
 
             for auth_identifier in auth_identifiers {
@@ -695,9 +771,14 @@ decl_module! {
                 }
             };
 
-            ensure!(<Authorizations<T>>::exists((sender_did, auth_id)), "Invalid auth");
+            let auth;
+            if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
+                auth = Self::authorizations((Signer::from(sender_did), auth_id));
+            } else {
+                ensure!(<Authorizations<T>>::exists((Signer::from(sender_key), auth_id)), "Invalid auth");
+                auth = Self::authorizations((Signer::from(sender_key), auth_id));
+            }
 
-            let auth = Self::authorizations((sender_did, auth_id));
 
             match auth.authorization_data {
                 AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
@@ -725,14 +806,19 @@ decl_module! {
             for auth_id in auth_ids {
                 // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                 // It will just skip that particular authorization.
-                if <Authorizations<T>>::exists((sender_did, auth_id)) {
-                    let auth = Self::authorizations((sender_did, auth_id));
-                    // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
-                    let _result = match auth.authorization_data {
-                        AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
-                        _ => Err("Unknown authorization data")
-                    };
+                let auth;
+                if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
+                    auth = Self::authorizations((Signer::from(sender_did), auth_id));
+                } else if <Authorizations<T>>::exists((Signer::from(sender_key), auth_id)) {
+                    auth = Self::authorizations((Signer::from(sender_key), auth_id));
+                } else {
+                    continue
                 }
+                // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
+                let _result = match auth.authorization_data {
+                    AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
+                    _ => Err("Unknown authorization data")
+                };
             }
 
             Ok(())
@@ -966,52 +1052,52 @@ decl_event!(
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
         NewAuthorization(
             u64,
-            IdentityId,
-            IdentityId,
+            Signer,
+            Signer,
             AuthorizationData,
             Option<Moment>
         ),
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
-        AuthorizationRemoved(u64, IdentityId),
+        AuthorizationRemoved(u64, Signer),
     }
 );
 
 impl<T: Trait> Module<T> {
     pub fn add_auth(
-        from_did: IdentityId,
-        target_did: IdentityId,
+        from: Signer,
+        target: Signer,
         authorization_data: AuthorizationData,
         expiry: Option<T::Moment>,
     ) {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
         <MultiPurposeNonce>::put(&new_nonce);
 
-        let last_auth = Self::last_authorization(&target_did);
+        let last_auth = Self::last_authorization(&target);
 
         if last_auth > 0 {
             //0 means no previous auth. 0 is the default value.
             // Changing the last auth to point to new auth as next auth.
-            <Authorizations<T>>::mutate((target_did, last_auth), |last_authorization| {
+            <Authorizations<T>>::mutate((target, last_auth), |last_authorization| {
                 last_authorization.next_authorization = new_nonce
             });
         }
 
         let auth = Authorization {
             authorization_data: authorization_data.clone(),
-            authorized_by: from_did,
+            authorized_by: from,
             expiry: expiry,
             next_authorization: 0,
             previous_authorization: last_auth,
         };
 
-        <LastAuthorization>::insert(&target_did, new_nonce);
-        <Authorizations<T>>::insert((target_did, new_nonce), auth);
+        <LastAuthorization>::insert(&target, new_nonce);
+        <Authorizations<T>>::insert((target, new_nonce), auth);
 
         Self::deposit_event(RawEvent::NewAuthorization(
             new_nonce,
-            from_did,
-            target_did,
+            from,
+            target,
             authorization_data,
             expiry,
         ));
@@ -1019,35 +1105,35 @@ impl<T: Trait> Module<T> {
 
     /// Remove any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
-    pub fn remove_auth(target_did: IdentityId, auth_id: u64, next_auth: u64, previous_auth: u64) {
+    pub fn remove_auth(target: Signer, auth_id: u64, next_auth: u64, previous_auth: u64) {
         if next_auth != 0 {
             // update next auth's previous auth to point to previous auth of this auth
-            <Authorizations<T>>::mutate((target_did, next_auth), |next_auth| {
+            <Authorizations<T>>::mutate((target, next_auth), |next_auth| {
                 next_auth.previous_authorization = previous_auth
             });
         } else {
             // this was the last auth. update last auth to be previous auth.
-            <LastAuthorization>::insert(&target_did, previous_auth);
+            <LastAuthorization>::insert(&target, previous_auth);
         }
         if previous_auth != 0 {
             // update previous auth's next auth to point to next auth of this auth
-            <Authorizations<T>>::mutate((target_did, previous_auth), |prev_auth| {
+            <Authorizations<T>>::mutate((target, previous_auth), |prev_auth| {
                 prev_auth.next_authorization = next_auth
             });
         }
-        <Authorizations<T>>::remove((target_did, auth_id));
-        Self::deposit_event(RawEvent::AuthorizationRemoved(auth_id, target_did));
+        <Authorizations<T>>::remove((target, auth_id));
+        Self::deposit_event(RawEvent::AuthorizationRemoved(auth_id, target));
     }
 
     /// Consumes an authorization.
     /// Checks if the auth has not expired and the caller is authorized to consume this auth.
-    pub fn consume_auth(from_did: IdentityId, target_did: IdentityId, auth_id: u64) -> Result {
-        if !<Authorizations<T>>::exists((target_did, auth_id)) {
+    pub fn consume_auth(from: Signer, target: Signer, auth_id: u64) -> Result {
+        if !<Authorizations<T>>::exists((target, auth_id)) {
             // Auth does not exist
             return Err(AuthorizationError::Invalid.into());
         }
-        let auth = Self::authorizations((target_did, auth_id));
-        if auth.authorized_by != from_did {
+        let auth = Self::authorizations((target, auth_id));
+        if auth.authorized_by != from {
             // Not authorized to revoke this authorization
             return Err(AuthorizationError::Unauthorized.into());
         }
@@ -1058,7 +1144,7 @@ impl<T: Trait> Module<T> {
             }
         }
         Self::remove_auth(
-            target_did,
+            target,
             auth_id,
             auth.next_authorization,
             auth.previous_authorization,

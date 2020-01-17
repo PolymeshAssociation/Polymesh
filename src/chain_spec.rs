@@ -5,6 +5,7 @@ use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::AccountId;
 use polymesh_runtime::asset::TickerRegistrationConfig;
+use polymesh_runtime::committee::ProportionMatch;
 use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
@@ -12,8 +13,9 @@ use polymesh_runtime::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
         MIPSConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
-    runtime::GovernanceCommitteeConfig,
+    runtime::CommitteeMembershipConfig,
     runtime::KYCServiceProvidersConfig,
+    runtime::PolymeshCommitteeConfig,
     Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use primitives::{Pair, Public};
@@ -242,14 +244,6 @@ fn testnet_genesis(
             slash_reward_fraction: Perbill::from_percent(10),
             ..Default::default()
         }),
-        collective_Instance1: Some(GovernanceCommitteeConfig {
-            members: vec![
-                get_from_seed::<AccountId>("Alice"),
-                get_from_seed::<AccountId>("Bob"),
-                get_from_seed::<AccountId>("Charlie"),
-            ],
-            phantom: Default::default(),
-        }),
         mips: Some(MIPSConfig {
             min_proposal_deposit: 5000,
             quorum_threshold: 100000,
@@ -266,7 +260,16 @@ fn testnet_genesis(
             },
             gas_price: 1 * MILLICENTS,
         }),
-        group_Instance1: Some(KYCServiceProvidersConfig {
+        group_Instance1: Some(CommitteeMembershipConfig {
+            members: vec![],
+            phantom: Default::default(),
+        }),
+        committee_Instance1: Some(PolymeshCommitteeConfig {
+            members: vec![],
+            vote_threshold: (ProportionMatch::AtLeast, 1, 2),
+            phantom: Default::default(),
+        }),
+        group_Instance2: Some(KYCServiceProvidersConfig {
             members: vec![],
             phantom: Default::default(),
         }),

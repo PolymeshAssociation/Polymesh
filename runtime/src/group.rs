@@ -20,11 +20,13 @@
 //! - `swap_member` - Replace one identity with the other.
 //! - `reset_members` - Re-initialize group members.
 //!
-use codec::{Decode, Encode, HasCompact};
 use primitives::IdentityId;
 use rstd::prelude::*;
 use sr_primitives::{traits::EnsureOrigin, weights::SimpleDispatchInfo};
-use srml_support::{decl_event, decl_module, decl_storage};
+use srml_support::{
+    decl_event, decl_module, decl_storage,
+    traits::{ChangeMembers, InitializeMembers},
+};
 use system::ensure_root;
 
 pub trait Trait<I = DefaultInstance>: system::Trait {
@@ -42,6 +44,14 @@ pub trait Trait<I = DefaultInstance>: system::Trait {
 
     /// Required origin for resetting membership.
     type ResetOrigin: EnsureOrigin<Self::Origin>;
+
+    /// The receiver of the signal for when the membership has been initialized. This happens pre-
+    /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
+    /// different on initialization, then you can change this accordingly.
+    type MembershipInitialized: InitializeMembers<IdentityId>;
+
+    /// The receiver of the signal for when the membership has changed.
+    type MembershipChanged: ChangeMembers<IdentityId>;
 }
 
 decl_storage! {
@@ -51,6 +61,12 @@ decl_storage! {
     }
     add_extra_genesis {
         config(phantom): rstd::marker::PhantomData<(T, I)>;
+        build(|config: &Self| {
+            let mut members = config.members.clone();
+            members.sort();
+            T::MembershipInitialized::initialize_members(&members);
+            <Members<I>>::put(members);
+        })
     }
 }
 
@@ -96,6 +112,8 @@ decl_module! {
             members.insert(location, who.clone());
             <Members<I>>::put(&members);
 
+            T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
+
             Self::deposit_event(RawEvent::MemberAdded(who));
         }
 
@@ -115,6 +133,8 @@ decl_module! {
             let location = members.binary_search(&who).ok().ok_or("not a member")?;
             members.remove(location);
             <Members<I>>::put(&members);
+
+            T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
 
             Self::deposit_event(RawEvent::MemberRemoved(who));
         }
@@ -144,6 +164,12 @@ decl_module! {
             members.sort();
             <Members<I>>::put(&members);
 
+            T::MembershipChanged::change_members_sorted(
+                &[add],
+                &[remove],
+                &members[..],
+            );
+
             Self::deposit_event(RawEvent::MembersSwapped(remove, add));
         }
 
@@ -163,6 +189,7 @@ decl_module! {
             let mut new_members = members.clone();
             new_members.sort();
             <Members<I>>::mutate(|m| {
+                T::MembershipChanged::set_members_sorted(&members[..], m);
                 *m = new_members;
             });
 
@@ -225,12 +252,42 @@ mod tests {
         pub const Five: u64 = 5;
     }
 
+    thread_local! {
+        static MEMBERS: RefCell<Vec<IdentityId>> = RefCell::new(vec![]);
+    }
+
+    pub struct TestChangeMembers;
+    impl ChangeMembers<IdentityId> for TestChangeMembers {
+        fn change_members_sorted(
+            incoming: &[IdentityId],
+            outgoing: &[IdentityId],
+            new: &[IdentityId],
+        ) {
+            let mut old_plus_incoming = MEMBERS.with(|m| m.borrow().to_vec());
+            old_plus_incoming.extend_from_slice(incoming);
+            old_plus_incoming.sort();
+            let mut new_plus_outgoing = new.to_vec();
+            new_plus_outgoing.extend_from_slice(outgoing);
+            new_plus_outgoing.sort();
+            assert_eq!(old_plus_incoming, new_plus_outgoing);
+
+            MEMBERS.with(|m| *m.borrow_mut() = new.to_vec());
+        }
+    }
+    impl InitializeMembers<IdentityId> for TestChangeMembers {
+        fn initialize_members(members: &[IdentityId]) {
+            MEMBERS.with(|m| *m.borrow_mut() = members.to_vec());
+        }
+    }
+
     impl Trait for Test {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, u64>;
         type RemoveOrigin = EnsureSignedBy<Two, u64>;
         type SwapOrigin = EnsureSignedBy<Three, u64>;
         type ResetOrigin = EnsureSignedBy<Four, u64>;
+        type MembershipInitialized = TestChangeMembers;
+        type MembershipChanged = TestChangeMembers;
     }
 
     type Group = Module<Test>;
@@ -267,6 +324,14 @@ mod tests {
                     IdentityId::from(3)
                 ]
             );
+            assert_eq!(
+                MEMBERS.with(|m| m.borrow().clone()),
+                vec![
+                    IdentityId::from(1),
+                    IdentityId::from(2),
+                    IdentityId::from(3)
+                ]
+            );
         });
     }
 
@@ -291,6 +356,7 @@ mod tests {
                     IdentityId::from(4)
                 ]
             );
+            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
         });
     }
 
@@ -310,6 +376,7 @@ mod tests {
                 Group::members(),
                 vec![IdentityId::from(1), IdentityId::from(2),]
             );
+            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
         });
     }
 
@@ -354,6 +421,7 @@ mod tests {
                     IdentityId::from(6),
                 ]
             );
+            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
         });
     }
 
@@ -387,6 +455,7 @@ mod tests {
                     IdentityId::from(6),
                 ]
             );
+            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
         });
     }
 }
