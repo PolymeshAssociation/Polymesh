@@ -160,6 +160,15 @@ pub struct SigningItemWithAuth {
     pub auth_signature: H512,
 }
 
+///
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct MasterKeyRotationPrefs {
+    pub new_key: Key,
+    /// Target identity which is authorized to make an operation.
+    pub target_accepted: bool,
+    pub kyc_verified: bool,
+}
+
 /// The module's configuration trait.
 pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     /// The overarching event type.
@@ -178,6 +187,9 @@ decl_storage! {
 
         /// DID -> identity info
         pub DidRecords get(did_records): map IdentityId => DidRecord;
+
+        /// DID -> state of master key rotation
+        pub MasterKeyRotation get(master_key_rotation): map IdentityId => Option<MasterKeyRotationPrefs>;
 
         /// DID -> bool that indicates if signing keys are frozen.
         pub IsDidFrozen get(is_did_frozen): map IdentityId => bool;
@@ -377,13 +389,30 @@ decl_module! {
             Ok(())
         }
 
-        /// Attempt to change the master key for a DID.
+        /// Initiates master key rotation for a DID.
         ///
         /// # Failure
         /// Only called by master key owner.
-        fn change_master_key(origin, did: IdentityId, new_key: Key) -> Result {
+        ///
+        /// # Arguments
+        /// * `did` caller's DID
+        /// * `new_key` master key replacing current key
+        pub fn change_master_key(origin, did: IdentityId, new_key: Key) -> Result {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let master_key = Key::try_from(sender.encode())?;
+            let _grants_checked = Self::grant_check_only_master_key(&master_key, did)?;
+
+            ensure!(!<MasterKeyRotation>::exists(did), "a key rotation process already in progress");
+
+            let rotation = MasterKeyRotationPrefs {
+                new_key,
+                target_accepted: false,
+                kyc_verified: false
+            };
+
+            <MasterKeyRotation>::insert(did, rotation);
+
+            Self::add_auth(Signer::Key(master_key), Signer::Key(master_key), AuthorizationData::RotateMasterKey(new_key), None);
 
             Ok(())
         }
@@ -793,6 +822,7 @@ decl_module! {
 
             match auth.authorization_data {
                 AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
+                AuthorizationData::RotateMasterKey(_) => Self::accept_master_key(sender_key, sender_did, auth_id),
                 _ => return Err("Unknown authorization")
             }
         }
@@ -828,6 +858,7 @@ decl_module! {
                 // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                 let _result = match auth.authorization_data {
                     AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
+                    AuthorizationData::RotateMasterKey(_) => Self::accept_master_key(sender_key, sender_did, auth_id),
                     _ => Err("Unknown authorization data")
                 };
             }
@@ -1434,6 +1465,37 @@ impl<T: Trait> Module<T> {
             <PreAuthorizedJoinDid>::remove(signer);
         }
     }
+
+    /// Handler for accepting AuthorizationData::RotateMasterKey. When changing the master key,
+    /// caller `target_did` must have accepted authorization `auth_id` with the new master key `sender_key`.
+    fn accept_master_key(sender_key: Key, target_did: IdentityId, auth_id: u64) -> Result {
+        ensure!(
+            <MasterKeyRotation>::exists(target_did),
+            "master key rotation request does not exist"
+        );
+
+        // If this call originated from the new master key, `sender_key` would be the new master key
+        if let Some(rotation) = <MasterKeyRotation>::get(target_did) {
+            ensure!(
+                sender_key == rotation.new_key,
+                "target_did must accept key rotation using the new master key"
+            );
+
+            <MasterKeyRotation>::mutate(target_did, |entry| {
+                if let Some(rotation) = entry {
+                    rotation.target_accepted = true
+                }
+            });
+
+            if rotation.kyc_verified {
+                Self::_change_master_key();
+            }
+        }
+
+        Ok(())
+    }
+
+    fn _change_master_key() {}
 }
 
 pub trait IdentityTrait<T> {
