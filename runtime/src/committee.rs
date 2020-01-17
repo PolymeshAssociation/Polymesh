@@ -485,6 +485,7 @@ mod tests {
         type Event = ();
         type Proposal = TestProposal;
         type AcceptTickerTransferTarget = Test;
+        type IsKYCProvider = Test;
     }
 
     impl crate::asset::AcceptTickerTransfer for Test {
@@ -492,7 +493,11 @@ mod tests {
             unimplemented!()
         }
     }
-
+    impl sr_primitives::traits::IsMember<IdentityId> for Test {
+        fn is_member(did: &IdentityId) -> bool {
+            unimplemented!()
+        }
+    }
     type Identity = identity::Module<Test>;
     type AccountId = <AnySignature as Verify>::Signer;
 

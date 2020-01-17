@@ -1,8 +1,8 @@
 use crate::{
     balances,
     identity::{
-        self, Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, SigningItemWithAuth,
-        TargetIdAuthorization,
+        self, Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, MasterKeyRotationPrefs,
+        SigningItemWithAuth, TargetIdAuthorization,
     },
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
@@ -1007,5 +1007,76 @@ fn removing_authorizations() {
                 assert_eq!(auth.next_authorization, auth_ids_bob[i + 1]);
             }
         }
+    });
+}
+
+#[test]
+fn changing_master_key() {
+    with_externalities(&mut build_ext(), || {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+
+        let target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let new_key = Key::from(AccountKeyring::Bob.public().0);
+        let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
+
+        let kyc_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+
+        // Master key matches Alice's key
+        assert_eq!(
+            Identity::did_records(alice_did).master_key,
+            Key::from(AccountKeyring::Alice.public().0)
+        );
+
+        // Alice triggers change of master key
+        assert_ok!(Identity::change_master_key(
+            alice.clone(),
+            alice_did,
+            new_key
+        ));
+        assert_eq!(
+            Identity::master_key_rotation(alice_did),
+            Some(MasterKeyRotationPrefs {
+                new_key,
+                target_accepted: false,
+                kyc_verified: false
+            })
+        );
+
+        // Charlie a KYC provider approves the change
+        assert_ok!(Identity::kyc_accept_master_key(
+            charlie.clone(),
+            alice_did,
+            new_key
+        ));
+        assert_eq!(
+            Identity::master_key_rotation(alice_did),
+            Some(MasterKeyRotationPrefs {
+                new_key,
+                target_accepted: false,
+                kyc_verified: true
+            })
+        );
+
+        // Alice accepts the authorization with the new key
+        assert_ok!(Identity::accept_authorization(
+            new_key_origin,
+            Identity::last_authorization(Signer::from(alice_did))
+        ));
+        assert_eq!(
+            Identity::master_key_rotation(alice_did),
+            Some(MasterKeyRotationPrefs {
+                new_key,
+                target_accepted: true,
+                kyc_verified: true
+            })
+        );
+
+        // Alice's master key is now Bob's
+        assert_eq!(
+            Identity::did_records(alice_did).master_key,
+            Key::from(AccountKeyring::Bob.public().0)
+        );
     });
 }

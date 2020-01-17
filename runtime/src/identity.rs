@@ -163,9 +163,11 @@ pub struct SigningItemWithAuth {
 ///
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub struct MasterKeyRotationPrefs {
+    /// Key to be replaced with
     pub new_key: Key,
     /// Target identity which is authorized to make an operation.
     pub target_accepted: bool,
+    /// KYC provider approved this change
     pub kyc_verified: bool,
 }
 
@@ -414,7 +416,7 @@ decl_module! {
 
             <MasterKeyRotation>::insert(did, rotation);
 
-            Self::add_auth(Signer::Key(master_key), Signer::Key(master_key), AuthorizationData::RotateMasterKey(new_key), None);
+            Self::add_auth(Signer::Key(master_key), Signer::Key(master_key), AuthorizationData::RotateMasterKey(new_key, did), None);
 
             Self::deposit_event(RawEvent::MasterKeyChangeInitiated(did, new_key));
 
@@ -878,7 +880,7 @@ decl_module! {
 
             match auth.authorization_data {
                 AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
-                AuthorizationData::RotateMasterKey(_) => Self::accept_master_key(sender_key, sender_did, auth_id),
+                AuthorizationData::RotateMasterKey(_, did) => Self::accept_master_key(sender_key, sender_did, did, auth_id),
                 _ => return Err("Unknown authorization")
             }
         }
@@ -914,7 +916,7 @@ decl_module! {
                 // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                 let _result = match auth.authorization_data {
                     AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
-                    AuthorizationData::RotateMasterKey(_) => Self::accept_master_key(sender_key, sender_did, auth_id),
+                    AuthorizationData::RotateMasterKey(_, did) => Self::accept_master_key(sender_key, sender_did, did, auth_id),
                     _ => Err("Unknown authorization data")
                 };
             }
@@ -1536,27 +1538,32 @@ impl<T: Trait> Module<T> {
 
     /// Handler for accepting AuthorizationData::RotateMasterKey. When changing the master key,
     /// caller `target_did` must have accepted authorization `auth_id` with the new master key `sender_key`.
-    fn accept_master_key(sender_key: Key, target_did: IdentityId, auth_id: u64) -> Result {
+    fn accept_master_key(
+        sender_key: Key,
+        target_did: IdentityId,
+        from_did: IdentityId,
+        auth_id: u64,
+    ) -> Result {
         ensure!(
             <MasterKeyRotation>::exists(target_did),
             "master key rotation request does not exist"
         );
 
         // If this call originated from the new master key, `sender_key` would be the new master key
-        if let Some(rotation) = <MasterKeyRotation>::get(target_did) {
+        if let Some(rotation) = <MasterKeyRotation>::get(from_did) {
             ensure!(
                 sender_key == rotation.new_key,
                 "target_did must accept key rotation using the new master key"
             );
 
-            <MasterKeyRotation>::mutate(target_did, |entry| {
+            <MasterKeyRotation>::mutate(from_did, |entry| {
                 if let Some(rotation) = entry {
                     rotation.target_accepted = true
                 }
             });
 
             if rotation.kyc_verified {
-                Self::_change_master_key(target_did, rotation.new_key);
+                Self::_change_master_key(from_did, rotation.new_key);
             }
 
             Self::consume_auth(

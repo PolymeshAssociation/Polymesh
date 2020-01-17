@@ -1979,13 +1979,18 @@ mod tests {
         type Event = ();
         type Proposal = IdentityProposal;
         type AcceptTickerTransferTarget = Test;
+        type IsKYCProvider = Test;
     }
     impl crate::asset::AcceptTickerTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
     }
-
+    impl sr_primitives::traits::IsMember<IdentityId> for Test {
+        fn is_member(did: &IdentityId) -> bool {
+            unimplemented!()
+        }
+    }
     parameter_types! {
         pub const Period: BlockNumber = 1;
         pub const Offset: BlockNumber = 0;

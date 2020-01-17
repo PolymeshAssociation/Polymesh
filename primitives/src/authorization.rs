@@ -1,3 +1,4 @@
+use crate::identity_id::IdentityId;
 use crate::key::Key;
 use crate::signing_item::Signer;
 use codec::{Decode, Encode};
@@ -9,7 +10,7 @@ pub enum AuthorizationData {
     /// Authorization to transfer a ticker
     TransferTicker(Vec<u8>),
     /// Authorization to change master key
-    RotateMasterKey(Key),
+    RotateMasterKey(Key, IdentityId),
     /// Any other authorization
     Custom(Vec<u8>),
     /// No authorization data

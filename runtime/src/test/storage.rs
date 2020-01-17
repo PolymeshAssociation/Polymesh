@@ -119,7 +119,7 @@ impl crate::asset::AcceptTickerTransfer for TestStorage {
     }
 }
 
-impl sr_primitives::traits::IsMember for TestStorage {
+impl sr_primitives::traits::IsMember<IdentityId> for TestStorage {
     fn is_member(did: &IdentityId) -> bool {
         true
     }

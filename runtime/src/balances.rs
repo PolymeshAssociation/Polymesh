@@ -1455,9 +1455,15 @@ mod tests {
         type Event = ();
         type Proposal = IdentityProposal;
         type AcceptTickerTransferTarget = Runtime;
+        type IsKYCProvider = Runtime;
     }
     impl crate::asset::AcceptTickerTransfer for Runtime {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
+    }
+    impl sr_primitives::traits::IsMember<IdentityId> for Runtime {
+        fn is_member(did: &IdentityId) -> bool {
             unimplemented!()
         }
     }

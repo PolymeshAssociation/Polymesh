@@ -528,9 +528,15 @@ mod tests {
         type Event = ();
         type Proposal = IdentityProposal;
         type AcceptTickerTransferTarget = Test;
+        type IsKYCProvider = Test;
     }
     impl crate::asset::AcceptTickerTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result {
+            unimplemented!()
+        }
+    }
+    impl sr_primitives::traits::IsMember<IdentityId> for Test {
+        fn is_member(did: &IdentityId) -> bool {
             unimplemented!()
         }
     }

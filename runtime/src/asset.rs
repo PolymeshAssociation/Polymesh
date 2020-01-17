@@ -1694,11 +1694,16 @@ mod tests {
             Ok(())
         }
     }
-
+    impl sr_primitives::traits::IsMember<IdentityId> for Test {
+        fn is_member(did: &IdentityId) -> bool {
+            unimplemented!()
+        }
+    }
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
         type AcceptTickerTransferTarget = Module<Test>;
+        type IsKYCProvider = Test;
     }
     impl percentage_tm::Trait for Test {
         type Event = ();
