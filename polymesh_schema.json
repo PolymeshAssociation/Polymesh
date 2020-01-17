@@ -43,6 +43,18 @@
             "SpendFunds"
        ]
     },
+    "Link": {
+        "link_data": "LinkData",
+        "expiry": "Option<Moment>",
+        "next_link": "u64",
+        "previous_link": "u64"
+    },
+    "LinkData": {
+       "_enum": {
+            "TickerOwned": "Vec<u8>",
+            "TokenOwned": "Vec<u8>"
+       }
+    },
     "SignerType": {
         "_enum": [
             "External",
@@ -240,5 +252,11 @@
             "Active"
         ]
     },
-    "AuthorizationNonce": "u64"
+    "AuthorizationNonce": "u64",
+    "ProportionMatch": {
+        "_enum": [
+            "AtLeast",
+            "MoreThan"
+        ]
+    }
 }
