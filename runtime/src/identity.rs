@@ -54,7 +54,7 @@ use codec::Encode;
 use core::convert::From;
 use sr_io::blake2_256;
 use sr_primitives::{
-    traits::{Dispatchable, Verify},
+    traits::{Dispatchable, IsMember, Verify},
     AnySignature, DispatchError,
 };
 use srml_support::{
@@ -177,6 +177,8 @@ pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
     /// Asset module
     type AcceptTickerTransferTarget: AcceptTickerTransfer;
+    //    /// Reference to KYCServiceProviders group
+    //    type KYCServiceProviders: IsMember<IdentityId>;
 }
 
 decl_storage! {
@@ -413,6 +415,32 @@ decl_module! {
             <MasterKeyRotation>::insert(did, rotation);
 
             Self::add_auth(Signer::Key(master_key), Signer::Key(master_key), AuthorizationData::RotateMasterKey(new_key), None);
+
+            Ok(())
+        }
+
+        /// A KYC provider calls this method to sign off on replacing master key of `target_did`.
+        /// Caller provides the new master key given by `new_key`.
+        ///
+        /// # Arguments
+        /// * `target_did` caller's DID
+        /// * `new_key` master key replacing current key
+        pub fn kyc_accept_master_key(origin, target_did: IdentityId, new_key: Key) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+
+            let kyc_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+
+            // ensure!(T::KYCServiceProviders::is_member(kyc_did), "caller is not a member of KYC service providers group");
 
             Ok(())
         }
@@ -1490,6 +1518,12 @@ impl<T: Trait> Module<T> {
             if rotation.kyc_verified {
                 Self::_change_master_key();
             }
+
+            Self::consume_auth(
+                Signer::Key(sender_key.clone()),
+                Signer::from(target_did),
+                auth_id,
+            )?
         }
 
         Ok(())
