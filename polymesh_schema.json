@@ -1,11 +1,29 @@
 {
     "Balance": "u128",
     "IdentityId":"[u8;32]",
+    "AssetType": {
+        "_enum": {
+            "Equity": "",
+            "Debt": "",
+            "Commodity": "",
+            "StructuredProduct": "",
+            "Custom": "Vec<u8>"
+        }
+    },
+    "IdentifierType": {
+        "_enum": {
+            "Isin": "",
+            "Cusip": "",
+            "Custom": "Vec<u8>"
+        }
+    },
     "SecurityToken": {
         "name": "Vec<u8>",
         "total_supply": "Balance",
         "owner_did": "IdentityId",
-        "divisible": "bool"
+        "divisible": "bool",
+        "asset_type": "AssetType",
+        "identifiers": "BTreeMap<IdentifierType, Vec<u8>>"
     },
     "Restriction": {
         "name": "Vec<u8>",

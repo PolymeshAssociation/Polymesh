@@ -91,7 +91,7 @@ pub trait Trait:
 }
 
 /// The type of an asset represented by a token.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Debug)]
+#[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
     Equity,
     Debt,
@@ -397,13 +397,20 @@ decl_module! {
                 total_supply,
                 owner_did: did,
                 divisible,
-                asset_type,
-                identifiers
+                asset_type: asset_type.clone(),
+                identifiers: identifiers.clone()
             };
 
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert((ticker.clone(), did), total_supply);
-            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, did, divisible));
+            Self::deposit_event(RawEvent::IssuedToken(
+                ticker,
+                total_supply,
+                did,
+                divisible,
+                asset_type,
+                identifiers
+            ));
 
             Ok(())
         }
@@ -1150,8 +1157,8 @@ decl_event! {
         /// ticker, controller DID, token holder DID, value, data, operator data
         ControllerRedemption(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
         /// Event for creation of the asset
-        /// ticker, total supply, owner DID, divisibility
-        IssuedToken(Vec<u8>, Balance, IdentityId, bool),
+        /// ticker, total supply, owner DID, divisibility, asset type, identifiers
+        IssuedToken(Vec<u8>, Balance, IdentityId, bool, AssetType, Identifiers),
         /// Event for change in divisibility
         /// ticker, divisibility
         DivisibilityChanged(Vec<u8>, bool),
@@ -1996,8 +2003,8 @@ mod tests {
                     ticker_name.clone(),
                     1_000_000_000_000_000_000_000_000, // Total supply over the limit
                     true,
-                    AssetType::default(),
-                    Identifiers::default()
+                    token.asset_type.clone(),
+                    token.identifiers.clone(),
                 ),
                 "Total supply above the limit"
             );
@@ -2010,8 +2017,8 @@ mod tests {
                 ticker_name.clone(),
                 token.total_supply,
                 true,
-                AssetType::default(),
-                Identifiers::default()
+                token.asset_type.clone(),
+                token.identifiers.clone(),
             ));
 
             // A correct entry is added
@@ -2115,8 +2122,8 @@ mod tests {
                 token.name.clone(),
                 token.total_supply,
                 true,
-                AssetType::default(),
-                Identifiers::default(),
+                token.asset_type.clone(),
+                token.identifiers.clone(),
             ));
 
             // A correct entry is added
@@ -2189,8 +2196,8 @@ mod tests {
                 token.name.clone(),
                 token.total_supply,
                 true,
-                AssetType::default(),
-                Identifiers::default(),
+                token.asset_type.clone(),
+                token.identifiers.clone(),
             ));
 
             assert_eq!(
@@ -2396,8 +2403,8 @@ mod tests {
                 token.name.clone(),
                 token.total_supply,
                 true,
-                AssetType::default(),
-                Identifiers::default(),
+                token.asset_type.clone(),
+                token.identifiers.clone(),
             ));
 
             assert_eq!(
@@ -2597,8 +2604,8 @@ mod tests {
                     token.name.clone(),
                     token.total_supply,
                     true,
-                    AssetType::default(),
-                    Identifiers::default(),
+                    token.asset_type.clone(),
+                    token.identifiers.clone(),
                 ));
 
                 let asset_rule = general_tm::AssetRule {
@@ -2723,8 +2730,8 @@ mod tests {
                 token.name.clone(),
                 token.total_supply,
                 true,
-                AssetType::default(),
-                Identifiers::default(),
+                token.asset_type.clone(),
+                token.identifiers.clone(),
             ));
 
             assert_eq!(
@@ -2732,6 +2739,9 @@ mod tests {
                 true
             );
             assert_eq!(Asset::is_ticker_available(&token.name), false);
+            let stored_token = <Module<Test>>::token_details(&token.name.clone());
+            assert_eq!(stored_token.asset_type, token.asset_type);
+            assert_eq!(stored_token.identifiers, token.identifiers);
 
             assert_err!(
                 Asset::register_ticker(owner_signed.clone(), vec![0x01]),
