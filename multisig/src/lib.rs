@@ -6,7 +6,9 @@ use codec::{Decode, Encode};
 use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::{
     traits::{Dispatchable, Hash},
-    weights::SimpleDispatchInfo,
+    weights::{
+        GetDispatchInfo, WeighData, Weight,
+    },
     DispatchError,
 };
 use support::{
@@ -14,12 +16,42 @@ use support::{
 };
 use system::ensure_signed;
 
+pub trait GetCallWeightTrait<AccountId> {
+    fn get_proposal_weight(multi_sig: &AccountId, proposal_id: &u64) -> Weight;
+}
+
+impl<T: Trait, AccountId: std::clone::Clone> GetCallWeightTrait<AccountId> for Module<T>
+where (AccountId, u64): std::borrow::Borrow<(<T as system::Trait>::AccountId, u64)>
+{
+    fn get_proposal_weight(multi_sig: &AccountId, proposal_id: &u64) -> Weight {
+        if let Some(proposal) = Self::proposals(((*multi_sig).clone(), *proposal_id)) {
+            proposal.get_dispatch_info().weight
+        } else {
+            0
+        }
+    }
+}
+
+/// Simple index-based pass through for the weight functions.
+struct Passthrough<GetCallWeight, AccountId>(std::marker::PhantomData<(GetCallWeight, AccountId)>);
+
+impl<GetCallWeight, AccountId> Passthrough<GetCallWeight, AccountId> {
+	fn new() -> Self { Self(Default::default()) }
+}
+
+impl<GetCallWeight: GetCallWeightTrait<AccountId>, AccountId> WeighData<(&AccountId, &u64)> for Passthrough<GetCallWeight, AccountId> {
+	fn weigh_data(&self, (multi_sig, proposal_id): (&AccountId, &u64)) -> Weight {
+        let weight = GetCallWeight::get_proposal_weight(multi_sig, proposal_id);
+		weight + 10_000
+	}
+}
+
 pub trait Trait: system::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
     /// A forwardable call.
-    type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
+    type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
 }
 
 decl_storage! {
@@ -97,6 +129,12 @@ decl_module! {
             ensure!(Self::ms_owners((multi_sig.clone(), sender.clone())), "not an owner");
             Self::approve_for(multi_sig, proposal_id, sender)
         }
+
+        pub fn execute(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(Self::ms_owners((multi_sig.clone(), sender.clone())), "not an owner");
+            Self::execute_tx(multi_sig, proposal_id)
+        }
     }
 }
 
@@ -119,10 +157,17 @@ impl<T: Trait> Module<T> {
         let multi_sig_signer_proposal = (multi_sig.clone(), signer.clone(), proposal_id);
         let multi_sig_proposal = (multi_sig.clone(), proposal_id);
         ensure!(!Self::votes(&multi_sig_signer_proposal), "Already approved");
+        ensure!(Self::proposals(&multi_sig_proposal).is_some(), "Invalid proposal");
+        <Votes<T>>::insert(&multi_sig_signer_proposal, true);
+        let approvals: u64 = Self::tx_approvals(&multi_sig_proposal) + 1u64;
+        <TxApprovals<T>>::insert(&multi_sig_proposal, approvals);
+        Ok(())
+    }
+
+    fn execute_tx(multi_sig: T::AccountId, proposal_id: u64) -> Result {
+        let multi_sig_proposal = (multi_sig.clone(), proposal_id);
         if let Some(proposal) = Self::proposals(&multi_sig_proposal) {
-            <Votes<T>>::insert(&multi_sig_signer_proposal, true);
-            let approvals: u64 = Self::tx_approvals(&multi_sig_proposal) + 1u64;
-            <TxApprovals<T>>::insert(&multi_sig_proposal, approvals);
+            let approvals = Self::tx_approvals(&multi_sig_proposal);
             let approvals_needed = Self::ms_signs_required(multi_sig.clone());
             if approvals >= approvals_needed {
                 let res =
@@ -135,10 +180,8 @@ impl<T: Trait> Module<T> {
                         }
                     };
                 Self::deposit_event(RawEvent::ProposalExecuted(multi_sig, proposal_id, res));
-                return Ok(());
-            } else {
-                return Ok(());
             }
+            return Ok(());
         } else {
             return Err("Invalid proposal");
         }
