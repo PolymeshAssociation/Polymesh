@@ -47,7 +47,7 @@ use rstd::{convert::TryFrom, prelude::*};
 use crate::{asset::AcceptTickerTransfer, balances, constants::did::USER};
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
-    Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+    Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
 };
 
 use codec::Encode;
@@ -220,6 +220,12 @@ decl_storage! {
 
         /// Auth id of the latest auth of an identity. Used to allow iterating over auths
         pub LastAuthorization get(last_authorization): map Signer => u64;
+
+        /// All links that an identity/key has
+        pub Links get(links): map(Signer, u64) => Link<T::Moment>;
+
+        /// Link id of the latest auth of an identity/key. Used to allow iterating over links
+        pub LastLink get(last_link): map(Signer) => u64;
     }
 }
 
@@ -760,29 +766,32 @@ decl_module! {
             auth_id: u64
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let sender_did =  match Self::current_did() {
-                Some(x) => x,
+            let signer = match Self::current_did() {
+                Some(x) => Signer::from(x),
                 None => {
                     if let Some(did) = Self::get_identity(&sender_key) {
-                        did
+                        Signer::from(did)
                     } else {
-                        return Err("did not found");
+                        Signer::from(sender_key)
                     }
                 }
             };
 
-            let auth;
-            if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
-                auth = Self::authorizations((Signer::from(sender_did), auth_id));
-            } else {
-                ensure!(<Authorizations<T>>::exists((Signer::from(sender_key), auth_id)), "Invalid auth");
-                auth = Self::authorizations((Signer::from(sender_key), auth_id));
-            }
+            ensure!(<Authorizations<T>>::exists((signer, auth_id)), "Invalid auth");
+            let auth = Self::authorizations((signer, auth_id));
 
-
-            match auth.authorization_data {
-                AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
-                _ => return Err("Unknown authorization")
+            match signer {
+                Signer::Identity(did) => {
+                    match auth.authorization_data {
+                        AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                        _ => return Err("Unknown authorization")
+                    }
+                },
+                Signer::Key(_key) => {
+                    match auth.authorization_data {
+                        _ => return Err("Unknown authorization")
+                    }
+                }
             }
         }
 
@@ -792,33 +801,46 @@ decl_module! {
             auth_ids: Vec<u64>
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let sender_did =  match Self::current_did() {
-                Some(x) => x,
+            let signer = match Self::current_did() {
+                Some(x) => Signer::from(x),
                 None => {
                     if let Some(did) = Self::get_identity(&sender_key) {
-                        did
+                        Signer::from(did)
                     } else {
-                        return Err("did not found");
+                        Signer::from(sender_key)
                     }
                 }
             };
 
-            for auth_id in auth_ids {
-                // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
-                // It will just skip that particular authorization.
-                let auth;
-                if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
-                    auth = Self::authorizations((Signer::from(sender_did), auth_id));
-                } else if <Authorizations<T>>::exists((Signer::from(sender_key), auth_id)) {
-                    auth = Self::authorizations((Signer::from(sender_key), auth_id));
-                } else {
-                    continue
+            match signer {
+                Signer::Identity(did) => {
+                    for auth_id in auth_ids {
+                        // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
+                        // It will just skip that particular authorization.
+                        if <Authorizations<T>>::exists((signer, auth_id)) {
+                            let auth = Self::authorizations((signer, auth_id));
+                            // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
+                            let _result = match auth.authorization_data {
+                                AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                                _ => Err("Unknown authorization")
+                            };
+                        }
+                    }
+                },
+                Signer::Key(_key) => {
+                    for auth_id in auth_ids {
+                        // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
+                        // It will just skip that particular authorization.
+                        if <Authorizations<T>>::exists((signer, auth_id)) {
+                            let _auth = Self::authorizations((signer, auth_id));
+                            // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
+                            // TODO: Add cases where signing key is authorized
+                            // let _result = match auth.authorization_data {
+                            //     _ => Err("Unknown authorization")
+                            // };
+                        }
+                    }
                 }
-                // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
-                let _result = match auth.authorization_data {
-                    AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
-                    _ => Err("Unknown authorization data")
-                };
             }
 
             Ok(())
@@ -1060,6 +1082,17 @@ decl_event!(
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
         AuthorizationRemoved(u64, Signer),
+
+        /// New link added (link_id, associated identity or key, link_data, expiry)
+        NewLink(
+            u64,
+            Signer,
+            LinkData,
+            Option<Moment>
+        ),
+
+        /// Link removed. (link_id, associated identity or key)
+        LinkRemoved(u64, Signer),
     }
 );
 
@@ -1150,6 +1183,60 @@ impl<T: Trait> Module<T> {
             auth.previous_authorization,
         );
         Ok(())
+    }
+
+    /// Adds a link to a key or an identity
+    /// NB: Please do all the required checks before calling this function.
+    pub fn add_link(target: Signer, link_data: LinkData, expiry: Option<T::Moment>) {
+        let new_nonce = Self::multi_purpose_nonce() + 1u64;
+        <MultiPurposeNonce>::put(&new_nonce);
+
+        let last_link = Self::last_link(&target);
+
+        if last_link > 0 {
+            // 0 means no previous link. 0 is the default value.
+            // Changing the last link to point to new link as next link.
+            <Links<T>>::mutate((target, last_link), |last_link| {
+                last_link.next_link = new_nonce
+            });
+        }
+
+        let link = Link {
+            link_data: link_data.clone(),
+            expiry: expiry,
+            next_link: 0,
+            previous_link: last_link,
+        };
+
+        <LastLink>::insert(&target, new_nonce);
+        <Links<T>>::insert((target, new_nonce), link);
+
+        Self::deposit_event(RawEvent::NewLink(new_nonce, target, link_data, expiry));
+    }
+
+    /// Remove a link (if it exists) from a key or identity
+    /// NB: Please do all the required checks before calling this function.
+    pub fn remove_link(target: Signer, link_id: u64) {
+        if <Links<T>>::exists((target, link_id)) {
+            let link = Self::links((target, link_id));
+            if link.next_link != 0 {
+                // update next link's previous link to point to previous link of this link
+                <Links<T>>::mutate((target, link.next_link), |next_link| {
+                    next_link.previous_link = link.previous_link
+                });
+            } else {
+                // this was the last link. update last link to be previous link.
+                <LastLink>::insert(&target, link.previous_link);
+            }
+            if link.previous_link != 0 {
+                // update previous link's next link to point to next link of this link
+                <Links<T>>::mutate((target, link.previous_link), |prev_link| {
+                    prev_link.next_link = link.next_link
+                });
+            }
+            <Links<T>>::remove((target, link_id));
+            Self::deposit_event(RawEvent::LinkRemoved(link_id, target));
+        }
     }
 
     /// Private and not sanitized function. It is designed to be used internally by
