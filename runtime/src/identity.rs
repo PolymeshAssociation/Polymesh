@@ -47,21 +47,21 @@ use rstd::{convert::TryFrom, prelude::*};
 use crate::{
     asset::AcceptTickerTransfer,
     balances,
-    constants::{did::USER, KYC_EXPIRY_CLAIM_KEY},
+    constants::{did::USER, did::SECURITY_TOKEN, KYC_EXPIRY_CLAIM_KEY},
     group,
 };
-use codec::Encode;
-use core::convert::From;
-use core::convert::TryInto;
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
     Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
 };
 use sr_io::blake2_256;
 use sr_primitives::{
-    traits::{Dispatchable, SaturatedConversion, Verify},
-    AnySignature, DispatchError,
-};
+    traits::{Dispatchable, SaturatedConversion, Hash, Verify},
+
+use codec::Encode;
+use core::convert::From;
+use core::convert::TryInto;
+use core::result::Result as StdResult;
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
@@ -1571,6 +1571,23 @@ impl<T: Trait> Module<T> {
         if is_pre_auth_list_empty {
             <PreAuthorizedJoinDid>::remove(signer);
         }
+    }
+
+    pub fn register_asset_did(ticker: &Vec<u8>) -> Result {
+        let did = Self::get_token_did(ticker)?;
+        // Making sure there's no pre-existing entry for the DID
+        // This should never happen but just being defensive here
+        ensure!(!<DidRecords>::exists(did), "DID must be unique");
+        <DidRecords>::insert(did, DidRecord::default());
+        Ok(())
+    }
+
+    pub fn get_token_did(ticker: &Vec<u8>) -> StdResult<IdentityId, &'static str> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&SECURITY_TOKEN.encode());
+        buf.extend_from_slice(&ticker.encode());
+        let did = IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())?;
+        Ok(did)
     }
 }
 
