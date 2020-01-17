@@ -47,7 +47,7 @@ use rstd::{convert::TryFrom, prelude::*};
 use crate::{
     asset::AcceptTickerTransfer,
     balances,
-    constants::{did::USER, did::SECURITY_TOKEN, KYC_EXPIRY_CLAIM_KEY},
+    constants::{did::SECURITY_TOKEN, did::USER, KYC_EXPIRY_CLAIM_KEY},
     group,
 };
 use primitives::{
@@ -56,7 +56,7 @@ use primitives::{
 };
 use sr_io::blake2_256;
 use sr_primitives::{
-    traits::{Dispatchable, SaturatedConversion, Hash, Verify},
+    traits::{Dispatchable, Hash, SaturatedConversion, Verify},
     AnySignature, DispatchError,
 };
 
