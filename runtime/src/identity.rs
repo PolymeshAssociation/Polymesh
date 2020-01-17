@@ -177,8 +177,8 @@ pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
     /// Asset module
     type AcceptTickerTransferTarget: AcceptTickerTransfer;
-    //    /// Reference to KYCServiceProviders group
-    //    type KYCServiceProviders: IsMember<IdentityId>;
+    /// Reference to KYCServiceProviders group
+    type IsKYCProvider: IsMember<IdentityId>;
 }
 
 decl_storage! {
@@ -416,6 +416,8 @@ decl_module! {
 
             Self::add_auth(Signer::Key(master_key), Signer::Key(master_key), AuthorizationData::RotateMasterKey(new_key), None);
 
+            Self::deposit_event(RawEvent::MasterKeyChangeInitiated(did, new_key));
+
             Ok(())
         }
 
@@ -423,7 +425,7 @@ decl_module! {
         /// Caller provides the new master key given by `new_key`.
         ///
         /// # Arguments
-        /// * `target_did` caller's DID
+        /// * `target_did` DID who requested master key change
         /// * `new_key` master key replacing current key
         pub fn kyc_accept_master_key(origin, target_did: IdentityId, new_key: Key) -> Result {
             let sender = ensure_signed(origin)?;
@@ -440,7 +442,33 @@ decl_module! {
                 }
             };
 
-            // ensure!(T::KYCServiceProviders::is_member(kyc_did), "caller is not a member of KYC service providers group");
+            // Caller must be a KYC service provider
+            ensure!(
+                T::IsKYCProvider::is_member(&kyc_did),
+                "caller is not a member of KYC service providers group"
+            );
+
+            // DID that's changing the master key
+            ensure!(
+                <MasterKeyRotation>::exists(target_did),
+                "master key rotation request does not exist"
+            );
+
+            // If this call originated from the new master key, `sender_key` would be the new master key
+            if let Some(rotation) = <MasterKeyRotation>::get(target_did) {
+                <MasterKeyRotation>::mutate(target_did, |entry| {
+                    if let Some(rotation) = entry {
+                        rotation.kyc_verified = true
+                    }
+                });
+
+                Self::deposit_event(RawEvent::MasterKeyChangeApproved(target_did, new_key, kyc_did));
+
+                // If the key has been accepted by the target, attempt key change
+                if rotation.target_accepted {
+                    Self::_change_master_key(target_did, new_key);
+                }
+            }
 
             Ok(())
         }
@@ -1130,6 +1158,18 @@ decl_event!(
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
         AuthorizationRemoved(u64, Signer),
+        
+        /// MasterKey change process initiated (Requestor DID, Key)
+        MasterKeyChangeInitiated(IdentityId, Key),
+        
+        /// MasterKey authorization accepted (Requestor DID, auth_id)
+        MasterKeyAccepted(IdentityId, u64),
+
+        /// MasterKey change approved by KYC provider (Requestor DID, New MasterKey, KYC IdentityId)
+        MasterKeyChangeApproved(IdentityId, Key, IdentityId),
+        
+        /// MasterKey changed (Requestor DID, New MasterKey)
+        MasterKeyChanged(IdentityId, Key),
     }
 );
 
@@ -1516,20 +1556,36 @@ impl<T: Trait> Module<T> {
             });
 
             if rotation.kyc_verified {
-                Self::_change_master_key();
+                Self::_change_master_key(target_did, rotation.new_key);
             }
 
             Self::consume_auth(
                 Signer::Key(sender_key.clone()),
                 Signer::from(target_did),
                 auth_id,
-            )?
+            )?;
+
+            Self::deposit_event(RawEvent::MasterKeyAccepted(target_did, auth_id));
         }
 
         Ok(())
     }
 
-    fn _change_master_key() {}
+    /// Replaces the master key for a DIDRecord of an IdentityId.
+    /// To call this, both of these must have happened:
+    /// 1. Target DID has accepted authorization for key change
+    /// 2. A KYC service provider has approved the change
+    fn _change_master_key(did: IdentityId, new_key: Key) {
+        // Update the master key
+        <DidRecords>::mutate(did, |record| {
+            (*record).master_key = new_key.clone();
+        });
+
+        // Remove key rotation info from storage
+        <MasterKeyRotation>::remove(did);
+
+        Self::deposit_event(RawEvent::MasterKeyChanged(did, new_key));
+    }
 }
 
 pub trait IdentityTrait<T> {

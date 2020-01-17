@@ -110,11 +110,18 @@ impl identity::Trait for TestStorage {
     type Event = ();
     type Proposal = IdentityProposal;
     type AcceptTickerTransferTarget = TestStorage;
+    type IsKYCProvider = TestStorage;
 }
 
 impl crate::asset::AcceptTickerTransfer for TestStorage {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
         Ok(())
+    }
+}
+
+impl sr_primitives::traits::IsMember for TestStorage {
+    fn is_member(did: &IdentityId) -> bool {
+        true
     }
 }
 

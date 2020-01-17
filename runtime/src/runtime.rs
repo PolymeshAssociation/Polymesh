@@ -447,6 +447,7 @@ impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AcceptTickerTransferTarget = Asset;
+    type IsKYCProvider = KYCServiceProviders;
 }
 
 impl contracts_wrapper::Trait for Runtime {}

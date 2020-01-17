@@ -22,7 +22,10 @@
 //!
 use primitives::IdentityId;
 use rstd::prelude::*;
-use sr_primitives::{traits::EnsureOrigin, weights::SimpleDispatchInfo};
+use sr_primitives::{
+    traits::{EnsureOrigin, IsMember},
+    weights::SimpleDispatchInfo,
+};
 use srml_support::{
     decl_event, decl_module, decl_storage,
     traits::{ChangeMembers, InitializeMembers},
@@ -195,6 +198,12 @@ decl_module! {
 
             Self::deposit_event(RawEvent::MembersReset(members));
         }
+    }
+}
+
+impl<T: Trait<I>, I: Instance> IsMember<IdentityId> for Module<T, I> {
+    fn is_member(did: &IdentityId) -> bool {
+        Self::members().iter().any(|id| id == did)
     }
 }
 
