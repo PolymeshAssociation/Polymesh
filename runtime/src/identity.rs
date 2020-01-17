@@ -57,6 +57,8 @@ use primitives::{
 use sr_io::blake2_256;
 use sr_primitives::{
     traits::{Dispatchable, SaturatedConversion, Hash, Verify},
+    AnySignature, DispatchError,
+};
 
 use codec::Encode;
 use core::convert::From;
