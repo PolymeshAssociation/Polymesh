@@ -389,7 +389,7 @@ impl<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{balances, committee, identity};
+    use crate::{balances, committee, identity, group};
     use core::result::Result as StdResult;
     use sr_io::with_externalities;
     use sr_primitives::{
@@ -401,7 +401,9 @@ mod tests {
         assert_noop, assert_ok,
         dispatch::{DispatchError, DispatchResult},
         parameter_types, Hashable,
+        traits::{ChangeMembers, InitializeMembers}
     };
+    use primitives::IdentityId;
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
     use system::{self};
@@ -479,6 +481,40 @@ mod tests {
         fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
             Ok(())
         }
+    }
+
+    pub struct TestChangeMembers;
+    impl ChangeMembers<IdentityId> for TestChangeMembers {
+        fn change_members_sorted(
+            _: &[IdentityId],
+            _: &[IdentityId],
+            _: &[IdentityId],
+        ) {
+            unimplemented!()
+        }
+    }
+    impl InitializeMembers<IdentityId> for TestChangeMembers {
+        fn initialize_members(_: &[IdentityId]) {
+            unimplemented!()
+        }
+    }
+
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = TestChangeMembers;
+        type MembershipChanged = TestChangeMembers;
     }
 
     impl identity::Trait for Test {

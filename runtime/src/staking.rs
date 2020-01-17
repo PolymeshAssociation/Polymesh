@@ -923,7 +923,8 @@ decl_module! {
             // then it break the loop and the given nominator in the nominator pool.
 
             if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(Key::try_from(stash.encode())?)) {
-                if <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, Self::get_bonding_duration_period()) {
+                let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, Self::get_bonding_duration_period());
+                if is_kyced {
                     let targets = targets.into_iter()
                     .take(MAX_NOMINATIONS)
                     .map(|t| T::Lookup::lookup(t))
@@ -1112,7 +1113,8 @@ decl_module! {
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                         // valid KYC otherwise it will be removed from the pool of the nominators.
-                        if !<identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, 0_u64) {
+                        let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, 0_u64);
+                        if !is_kyced {
                             // Unbonding the balance that bonded with the controller account of a Stash account
                             // This unbonded amount only be accessible after completion of the BondingDuration
                             // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
@@ -1888,7 +1890,7 @@ mod tests {
     use super::*;
     use crate::constants::KYC_EXPIRY_CLAIM_KEY;
     use crate::{
-        balances, group, identity,
+        balances, group, identity, staking,
         test::storage::{account_from, make_account, make_account_with_balance},
     };
     use babe;
@@ -1906,15 +1908,15 @@ mod tests {
         testing::{sr25519::Public, Header, UintAuthorityId},
         traits::{
             BlakeTwo256, Convert, ConvertInto, IdentityLookup, OnInitialize, OpaqueKeys,
-            SaturatedConversion, Verify,
+            SaturatedConversion, Verify, Block as BlockT,
         },
-        AnySignature, Perbill,
+        AnySignature, BuildStorage, Perbill,
     };
     use srml_support::{
         assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
-        traits::FindAuthor,
+        traits::{FindAuthor, InitializeMembers, ChangeMembers},
     };
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::AccountKeyring;
@@ -2061,6 +2063,34 @@ mod tests {
         }
     }
 
+    thread_local! {
+        static MEMBERS: RefCell<Vec<IdentityId>> = RefCell::new(vec![]);
+    }
+
+    pub struct TestChangeMembers;
+    impl ChangeMembers<IdentityId> for TestChangeMembers {
+        fn change_members_sorted(
+            incoming: &[IdentityId],
+            outgoing: &[IdentityId],
+            new: &[IdentityId],
+        ) {
+            let mut old_plus_incoming = MEMBERS.with(|m| m.borrow().to_vec());
+            old_plus_incoming.extend_from_slice(incoming);
+            old_plus_incoming.sort();
+            let mut new_plus_outgoing = new.to_vec();
+            new_plus_outgoing.extend_from_slice(outgoing);
+            new_plus_outgoing.sort();
+            assert_eq!(old_plus_incoming, new_plus_outgoing);
+
+            MEMBERS.with(|m| *m.borrow_mut() = new.to_vec());
+        }
+    }
+    impl InitializeMembers<IdentityId> for TestChangeMembers {
+        fn initialize_members(members: &[IdentityId]) {
+            MEMBERS.with(|m| *m.borrow_mut() = members.to_vec());
+        }
+    }
+
     parameter_types! {
         pub const One1: AccountId = AccountId::from(AccountKeyring::Dave);
         pub const Two2: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -2075,6 +2105,8 @@ mod tests {
         type RemoveOrigin = EnsureSignedBy<Two2, AccountId>;
         type SwapOrigin = EnsureSignedBy<Three3, AccountId>;
         type ResetOrigin = EnsureSignedBy<Four4, AccountId>;
+        type MembershipInitialized = TestChangeMembers;
+        type MembershipChanged = TestChangeMembers;
     }
 
     impl identity::Trait for Test {
@@ -2190,13 +2222,13 @@ mod tests {
         type RequiredComplianceOrigin = EnsureSignedBy<Three, Self::AccountId>;
     }
 
-    type Staking = super::Module<Test>;
-    type System = system::Module<Test>;
-    type Session = session::Module<Test>;
-    type Timestamp = timestamp::Module<Test>;
-    type Identity = identity::Module<Test>;
-    type Babe = babe::Module<Test>;
-    type Group = group::Module<Test, group::Instance1>;
+    pub type Staking = super::Module<Test>;
+    pub type System = system::Module<Test>;	   
+    pub type Session = session::Module<Test>;
+    pub type Timestamp = timestamp::Module<Test>;
+    pub type Identity = identity::Module<Test>;
+    pub type Babe = babe::Module<Test>;
+    pub type Group = group::Module<Test, group::Instance1>;
 
     pub struct ExtBuilder {
         existential_deposit: u64,
@@ -2341,7 +2373,7 @@ mod tests {
             } else {
                 vec![]
             };
-            let _ = GenesisConfig::<Test> {
+            let _ = staking::GenesisConfig::<Test> {
                 current_era: 0,
                 stakers: vec![
                     // (stash, controller, staked_amount, status)
@@ -2403,16 +2435,6 @@ mod tests {
             }
             .assimilate_storage(&mut storage);
 
-            let _ = group::GenesisConfig::<Test, group::Instance1> {
-                members: vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3),
-                ],
-                ..Default::default()
-            }
-            .assimilate_storage(&mut storage);
-
             let mut ext = storage.into();
             with_externalities(&mut ext, || {
                 let validators = Session::validators();
@@ -2459,6 +2481,11 @@ mod tests {
             claim_value,
         );
         Ok(())
+    }
+
+    fn add_trusted_kyc_provider(kyc_sp: IdentityId) -> Result<(), &'static str> {
+        let signed_id = Origin::signed(AccountId::from(AccountKeyring::Dave));
+        Group::add_member(signed_id, kyc_sp)
     }
 
     #[test]
@@ -2572,7 +2599,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    // #[ignore]
     fn add_nominator_with_invalid_expiry() {
         with_externalities(
             &mut ExtBuilder::default()
@@ -2592,7 +2619,7 @@ mod tests {
                 // For valid trusted KYC service providers
                 let account_bob = AccountId::from(AccountKeyring::Bob);
                 let (bob_signed, bob_did) = make_account(account_bob.clone()).unwrap();
-                //add_trusted_kyc_provider(bob_did).unwrap();
+                add_trusted_kyc_provider(bob_did).unwrap();
 
                 let now = Utc::now();
                 // Add nominator claim
@@ -2627,7 +2654,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn add_valid_nominator_with_multiple_claims() {
         with_externalities(
             &mut ExtBuilder::default()
@@ -2648,6 +2674,7 @@ mod tests {
                 let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
                 let (claim_issuer_1_signed, claim_issuer_1_did) =
                     make_account(claim_issuer_1.clone()).unwrap();
+                add_trusted_kyc_provider(claim_issuer_1_did).unwrap();
 
                 let now = Utc::now();
                 // Add nominator claim
@@ -2672,6 +2699,7 @@ mod tests {
                 let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
                 let (claim_issuer_2_signed, claim_issuer_2_did) =
                     make_account(claim_issuer_2.clone()).unwrap();
+                add_trusted_kyc_provider(claim_issuer_2_did).unwrap();
 
                 let claim = ClaimValue {
                     data_type: DataTypes::U64,
@@ -2707,7 +2735,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn validate_nominators_with_valid_kyc() {
         with_externalities(
             &mut ExtBuilder::default()
@@ -2728,6 +2755,7 @@ mod tests {
                 let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
                 let (claim_issuer_1_signed, claim_issuer_1_did) =
                     make_account(claim_issuer_1.clone()).unwrap();
+                add_trusted_kyc_provider(claim_issuer_1_did).unwrap();
 
                 let account_eve = AccountId::from(AccountKeyring::Eve);
                 let (eve_signed, eve_did) =
@@ -2739,6 +2767,7 @@ mod tests {
                 let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
                 let (claim_issuer_2_signed, claim_issuer_2_did) =
                     make_account(claim_issuer_2.clone()).unwrap();
+                add_trusted_kyc_provider(claim_issuer_2_did).unwrap();
 
                 let now = Utc::now();
                 // Add nominator claim

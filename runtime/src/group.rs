@@ -101,7 +101,7 @@ decl_module! {
         /// * `origin` Origin representing `AddOrigin` or root
         /// * `who` IdentityId to be added to the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn add_member(origin, who: IdentityId) {
+        pub fn add_member(origin, who: IdentityId) {
             T::AddOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
@@ -198,15 +198,6 @@ decl_module! {
     }
 }
 
-pub trait GroupTrait<T> {
-    fn get_members() -> Vec<IdentityId>;
-}
-
-impl<T: Trait<I>, I: Instance> GroupTrait<T> for Module<T, I> {
-    fn get_members() -> Vec<IdentityId> {
-        <Members<I>>::get()
-    }
-}
 
 #[cfg(test)]
 mod tests {

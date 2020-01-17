@@ -439,6 +439,7 @@ mod tests {
         assert_err, assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_dispatch, impl_outer_origin, parameter_types,
+        traits::{ChangeMembers, InitializeMembers},
     };
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
@@ -562,12 +563,30 @@ mod tests {
         type Event = ();
     }
 
+    pub struct TestChangeMembers;
+    impl ChangeMembers<IdentityId> for TestChangeMembers {
+        fn change_members_sorted(
+            _: &[IdentityId],
+            _: &[IdentityId],
+            _: &[IdentityId],
+        ) {
+            unimplemented!()
+        }
+    }
+    impl InitializeMembers<IdentityId> for TestChangeMembers {
+        fn initialize_members(_: &[IdentityId]) {
+            unimplemented!()
+        }
+    }
+
     impl group::Trait<group::Instance1> for Test {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, u64>;
         type RemoveOrigin = EnsureSignedBy<Two, u64>;
         type SwapOrigin = EnsureSignedBy<Three, u64>;
         type ResetOrigin = EnsureSignedBy<Four, u64>;
+        type MembershipInitialized = TestChangeMembers;
+        type MembershipChanged = TestChangeMembers;
     }
 
     type System = system::Module<Test>;
