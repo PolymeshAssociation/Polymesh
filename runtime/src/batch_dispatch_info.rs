@@ -45,11 +45,9 @@ impl<'a, T> WeighData<IdentityAndVecParams<'a, T>> for BatchDispatchInfo {
     /// The weight is calculated base on the number of elements of the second parameter of the
     /// call.
     fn weigh_data(&self, params: IdentityAndVecParams<'a, T>) -> Weight {
-        let (_, items) = params;
-
         max(
             self.min_weight,
-            self.per_item_weight * items.len() as Weight,
+            self.per_item_weight * params.1.len() as Weight,
         )
     }
 }
