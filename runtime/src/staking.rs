@@ -1907,8 +1907,8 @@ mod tests {
     use sr_primitives::{
         testing::{sr25519::Public, Header, UintAuthorityId},
         traits::{
-            BlakeTwo256, Convert, ConvertInto, IdentityLookup, OnInitialize, OpaqueKeys,
-            SaturatedConversion, Verify, Block as BlockT,
+            BlakeTwo256, Block as BlockT, Convert, ConvertInto, IdentityLookup, OnInitialize,
+            OpaqueKeys, SaturatedConversion, Verify,
         },
         AnySignature, BuildStorage, Perbill,
     };
@@ -1916,7 +1916,7 @@ mod tests {
         assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
-        traits::{FindAuthor, InitializeMembers, ChangeMembers},
+        traits::{ChangeMembers, FindAuthor, InitializeMembers},
     };
     use substrate_primitives::{Blake2Hasher, H256};
     use test_client::AccountKeyring;
@@ -2223,7 +2223,7 @@ mod tests {
     }
 
     pub type Staking = super::Module<Test>;
-    pub type System = system::Module<Test>;	   
+    pub type System = system::Module<Test>;
     pub type Session = session::Module<Test>;
     pub type Timestamp = timestamp::Module<Test>;
     pub type Identity = identity::Module<Test>;

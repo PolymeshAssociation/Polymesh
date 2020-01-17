@@ -565,11 +565,7 @@ mod tests {
 
     pub struct TestChangeMembers;
     impl ChangeMembers<IdentityId> for TestChangeMembers {
-        fn change_members_sorted(
-            _: &[IdentityId],
-            _: &[IdentityId],
-            _: &[IdentityId],
-        ) {
+        fn change_members_sorted(_: &[IdentityId], _: &[IdentityId], _: &[IdentityId]) {
             unimplemented!()
         }
     }

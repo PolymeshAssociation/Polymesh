@@ -281,6 +281,7 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use chrono::prelude::*;
+    use primitives::IdentityId;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::{Header, UintAuthorityId},
@@ -294,7 +295,6 @@ mod tests {
         impl_outer_origin, parameter_types,
         traits::{ChangeMembers, InitializeMembers},
     };
-    use primitives::IdentityId;
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
@@ -450,11 +450,7 @@ mod tests {
 
     pub struct TestChangeMembers;
     impl ChangeMembers<IdentityId> for TestChangeMembers {
-        fn change_members_sorted(
-            _: &[IdentityId],
-            _: &[IdentityId],
-            _: &[IdentityId],
-        ) {
+        fn change_members_sorted(_: &[IdentityId], _: &[IdentityId], _: &[IdentityId]) {
             unimplemented!()
         }
     }

@@ -10,7 +10,7 @@ use sr_primitives::{
 use srml_support::{
     dispatch::{DispatchError, DispatchResult},
     impl_outer_origin, parameter_types,
-    traits::{ChangeMembers, InitializeMembers, Currency},
+    traits::{ChangeMembers, Currency, InitializeMembers},
 };
 use std::convert::TryFrom;
 use substrate_primitives::{crypto::Pair as PairTrait, sr25519::Pair, Blake2Hasher, H256};
@@ -116,11 +116,7 @@ parameter_types! {
 
 pub struct TestChangeMembers;
 impl ChangeMembers<IdentityId> for TestChangeMembers {
-    fn change_members_sorted(
-        _: &[IdentityId],
-        _: &[IdentityId],
-        _: &[IdentityId],
-    ) {
+    fn change_members_sorted(_: &[IdentityId], _: &[IdentityId], _: &[IdentityId]) {
         unimplemented!()
     }
 }

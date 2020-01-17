@@ -1315,7 +1315,10 @@ impl<T: Trait> Module<T> {
         return None;
     }
 
-    pub fn is_identity_has_valid_kyc(claim_for: IdentityId, buffer: u64) -> (bool, Option<IdentityId>) {
+    pub fn is_identity_has_valid_kyc(
+        claim_for: IdentityId,
+        buffer: u64,
+    ) -> (bool, Option<IdentityId>) {
         let trusted_kyc_providers = <group::Module<T, group::Instance1>>::members();
         if trusted_kyc_providers.len() > 0 {
             for trusted_kyc_provider in trusted_kyc_providers {

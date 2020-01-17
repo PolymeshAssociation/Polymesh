@@ -198,7 +198,6 @@ decl_module! {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

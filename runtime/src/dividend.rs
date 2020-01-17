@@ -381,6 +381,7 @@ mod tests {
     use chrono::{prelude::*, Duration};
     use core::result::Result as StdResult;
     use lazy_static::lazy_static;
+    use primitives::IdentityId;
     use sr_io::with_externalities;
     use sr_primitives::traits::Verify;
     use sr_primitives::{
@@ -393,16 +394,15 @@ mod tests {
         assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
-        traits::{ChangeMembers, InitializeMembers}
+        traits::{ChangeMembers, InitializeMembers},
     };
-    use substrate_primitives::{Blake2Hasher, H256};
-    use test_client::{self, AccountKeyring};
-    use primitives::IdentityId;
     use std::{
         collections::HashMap,
         sync::{Arc, Mutex},
     };
+    use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
+    use test_client::{self, AccountKeyring};
 
     use crate::{
         asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
@@ -520,11 +520,7 @@ mod tests {
 
     pub struct TestChangeMembers;
     impl ChangeMembers<IdentityId> for TestChangeMembers {
-        fn change_members_sorted(
-            _: &[IdentityId],
-            _: &[IdentityId],
-            _: &[IdentityId],
-        ) {
+        fn change_members_sorted(_: &[IdentityId], _: &[IdentityId], _: &[IdentityId]) {
             unimplemented!()
         }
     }

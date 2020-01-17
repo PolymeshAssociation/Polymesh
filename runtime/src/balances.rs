@@ -1331,8 +1331,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sr_io::{self, with_externalities};
     use primitives::IdentityId;
+    use sr_io::{self, with_externalities};
     use sr_primitives::{
         testing::Header,
         traits::{Convert, IdentityLookup, Verify},
@@ -1343,7 +1343,7 @@ mod tests {
         assert_err, assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
-        traits::{ChangeMembers, InitializeMembers, Get},
+        traits::{ChangeMembers, Get, InitializeMembers},
     };
     use std::{cell::RefCell, result::Result};
     use substrate_primitives::{Blake2Hasher, H256};
@@ -1453,14 +1453,9 @@ mod tests {
         }
     }
 
-
     pub struct TestChangeMembers;
     impl ChangeMembers<IdentityId> for TestChangeMembers {
-        fn change_members_sorted(
-            _: &[IdentityId],
-            _: &[IdentityId],
-            _: &[IdentityId],
-        ) {
+        fn change_members_sorted(_: &[IdentityId], _: &[IdentityId], _: &[IdentityId]) {
             unimplemented!()
         }
     }
@@ -1485,7 +1480,7 @@ mod tests {
         type SwapOrigin = EnsureSignedBy<Three, AccountId>;
         type ResetOrigin = EnsureSignedBy<Four, AccountId>;
         type MembershipInitialized = TestChangeMembers;
-        type MembershipChanged =  TestChangeMembers;
+        type MembershipChanged = TestChangeMembers;
     }
 
     impl identity::Trait for Runtime {

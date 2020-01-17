@@ -310,7 +310,7 @@ mod tests {
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
         AnySignature, Perbill,
     };
-    use srml_support::traits::{Currency, InitializeMembers, ChangeMembers};
+    use srml_support::traits::{ChangeMembers, Currency, InitializeMembers};
     use srml_support::{
         assert_err, assert_ok,
         dispatch::{DispatchError, DispatchResult},
@@ -471,11 +471,7 @@ mod tests {
 
     pub struct TestChangeMembers;
     impl ChangeMembers<IdentityId> for TestChangeMembers {
-        fn change_members_sorted(
-            _: &[IdentityId],
-            _: &[IdentityId],
-            _: &[IdentityId],
-        ) {
+        fn change_members_sorted(_: &[IdentityId], _: &[IdentityId], _: &[IdentityId]) {
             unimplemented!()
         }
     }

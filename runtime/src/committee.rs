@@ -389,8 +389,9 @@ impl<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{balances, committee, identity, group};
+    use crate::{balances, committee, group, identity};
     use core::result::Result as StdResult;
+    use primitives::IdentityId;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
@@ -400,10 +401,10 @@ mod tests {
     use srml_support::{
         assert_noop, assert_ok,
         dispatch::{DispatchError, DispatchResult},
-        parameter_types, Hashable,
-        traits::{ChangeMembers, InitializeMembers}
+        parameter_types,
+        traits::{ChangeMembers, InitializeMembers},
+        Hashable,
     };
-    use primitives::IdentityId;
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
     use system::{self};
@@ -485,11 +486,7 @@ mod tests {
 
     pub struct TestChangeMembers;
     impl ChangeMembers<IdentityId> for TestChangeMembers {
-        fn change_members_sorted(
-            _: &[IdentityId],
-            _: &[IdentityId],
-            _: &[IdentityId],
-        ) {
+        fn change_members_sorted(_: &[IdentityId], _: &[IdentityId], _: &[IdentityId]) {
             unimplemented!()
         }
     }

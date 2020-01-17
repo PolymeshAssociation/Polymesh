@@ -1535,10 +1535,10 @@ mod tests {
         AnySignature, Perbill,
     };
     use srml_support::{
-        traits::{ChangeMembers, InitializeMembers},
         assert_err, assert_noop, assert_ok,
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
+        traits::{ChangeMembers, InitializeMembers},
     };
     use std::sync::{Arc, Mutex};
     use substrate_primitives::{Blake2Hasher, H256};
@@ -1660,14 +1660,9 @@ mod tests {
         type Asset = Module<Test>;
     }
 
-
     pub struct TestChangeMembers;
     impl ChangeMembers<IdentityId> for TestChangeMembers {
-        fn change_members_sorted(
-            _: &[IdentityId],
-            _: &[IdentityId],
-            _: &[IdentityId],
-        ) {
+        fn change_members_sorted(_: &[IdentityId], _: &[IdentityId], _: &[IdentityId]) {
             unimplemented!()
         }
     }
