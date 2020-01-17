@@ -22,8 +22,7 @@
         "total_supply": "Balance",
         "owner_did": "IdentityId",
         "divisible": "bool",
-        "asset_type": "AssetType",
-        "identifiers": "BTreeMap<IdentifierType, Vec<u8>>"
+        "asset_type": "AssetType"
     },
     "Restriction": {
         "name": "Vec<u8>",

@@ -321,7 +321,7 @@ mod tests {
     use system::EnsureSignedBy;
     use test_client::{self, AccountKeyring};
 
-    use crate::asset::{AssetType, Identifiers, SecurityToken, TickerRegistrationConfig};
+    use crate::asset::{AssetType, SecurityToken, TickerRegistrationConfig};
     use crate::{balances, exemption, general_tm, group, identity, percentage_tm};
 
     impl_outer_origin! {
@@ -565,7 +565,6 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
-                identifiers: Identifiers::default(),
             };
 
             // Share issuance is successful
@@ -577,7 +576,7 @@ mod tests {
                 token.total_supply,
                 true,
                 AssetType::default(),
-                Identifiers::default(),
+                vec![],
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -746,7 +745,6 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
-                identifiers: Identifiers::default(),
             };
 
             // Share issuance is successful
@@ -758,7 +756,7 @@ mod tests {
                 token.total_supply,
                 true,
                 AssetType::default(),
-                Identifiers::default(),
+                vec![],
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -867,7 +865,6 @@ mod tests {
                 total_supply: 1000,
                 divisible: true,
                 asset_type: AssetType::default(),
-                identifiers: Identifiers::default(),
             };
 
             // Share issuance is successful
@@ -879,7 +876,7 @@ mod tests {
                 token.total_supply,
                 true,
                 AssetType::default(),
-                Identifiers::default(),
+                vec![],
             ));
 
             let asset_rule = general_tm::AssetRule {

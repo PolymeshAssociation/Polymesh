@@ -78,7 +78,7 @@ decl_storage! {
         Dividends get(dividends): map (Vec<u8>, u32) => Dividend<T::Balance, T::Moment>;
 
         /// How many dividends were created for a ticker so far; (ticker) => count
-        DividendCount get(dividend_count): map (Vec<u8>) => u32;
+        DividendCount get(dividend_count): map Vec<u8> => u32;
 
         /// Payout flags, decide whether a user already was paid their dividend
         /// (DID, ticker, dividend_id) -> whether they got their payout
@@ -403,7 +403,7 @@ mod tests {
     use system::EnsureSignedBy;
     use test_client::{self, AccountKeyring};
 
-    use crate::asset::{AssetType, Identifiers, SecurityToken, TickerRegistrationConfig};
+    use crate::asset::{AssetType, SecurityToken, TickerRegistrationConfig};
     use crate::{
         balances, exemption, general_tm, group, identity, percentage_tm,
         simple_token::SimpleTokenRecord,
@@ -709,7 +709,6 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
-                identifiers: Identifiers::default(),
             };
 
             // A token used for payout
@@ -731,8 +730,8 @@ mod tests {
                 token.name.clone(),
                 token.total_supply,
                 true,
-                AssetType::default(),
-                Identifiers::default(),
+                token.asset_type.clone(),
+                vec![],
             ));
 
             // Issuance for payout token is successful
