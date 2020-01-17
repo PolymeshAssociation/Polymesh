@@ -82,8 +82,16 @@ impl TryFrom<&[u8]> for IdentityId {
     type Error = &'static str;
 
     fn try_from(did: &[u8]) -> Result<Self, Self::Error> {
-        let did_str = str::from_utf8(did).map_err(|_| "DID is not valid UTF-8")?;
-        IdentityId::try_from(did_str)
+        if did.len() == UUID_LEN {
+            // case where a 256 bit hash is being converted
+            let mut uuid_fixed = [0; 32];
+            uuid_fixed.copy_from_slice(&did);
+            Ok(IdentityId(uuid_fixed))
+        } else {
+            // case where a string represented as u8 is being converted
+            let did_str = str::from_utf8(did).map_err(|_| "DID is not valid UTF-8")?;
+            IdentityId::try_from(did_str)
+        }
     }
 }
 

@@ -44,6 +44,8 @@ pub mod fee {
 pub mod did {
     /// prefix for user dids
     pub const USER: [u8; 5] = *b"USER:";
+    /// prefix for security token dids
+    pub const SECURITY_TOKEN: [u8; 15] = *b"SECURITY_TOKEN:";
 }
 
 // ERC1400 transfer status codes

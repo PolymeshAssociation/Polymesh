@@ -317,7 +317,7 @@ decl_module! {
             }
             let remainder_fee = fee - (proportional_fee * validator_len);
             let _withdraw_result = <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee, ExistenceRequirement::KeepAlive)?;
-
+            <identity::Module<T>>::register_asset_did(&ticker)?;
             if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {
                 // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
                 Self::_register_ticker(&ticker, sender, did, None);
@@ -1789,6 +1789,9 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
             };
+            assert!(!<identity::DidRecords>::exists(
+                Identity::get_token_did(&token.name).unwrap()
+            ));
             let ticker_name = token.name.clone();
             assert_err!(
                 Asset::create_token(
@@ -1813,6 +1816,11 @@ mod tests {
             ));
 
             // A correct entry is added
+            assert_eq!(Asset::token_details(token.name.clone()), token);
+            //assert!(Identity::is_existing_identity(Identity::get_token_did(&token.name).unwrap()));
+            assert!(<identity::DidRecords>::exists(
+                Identity::get_token_did(&token.name).unwrap()
+            ));
             assert_eq!(Asset::token_details(ticker_name.clone()), token);
 
             // Unauthorized identities cannot rename the token.
