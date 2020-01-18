@@ -80,6 +80,20 @@ pub struct Votes<AccountId, Balance> {
     nays: Vec<(AccountId, Balance)>,
 }
 
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
+pub enum MipsPriority {
+    /// A proposal made by the committee for e.g.,
+    High,
+    /// By default all proposals have a normal priority
+    Normal,
+}
+
+impl Default for MipsPriority {
+    fn default() -> Self {
+        MipsPriority::Normal
+    }
+}
+
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
     /// Currency type for this module.
@@ -127,7 +141,7 @@ decl_storage! {
         pub Voting get(voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
-        pub ReferendumMetadata get(referendum_meta): Vec<(MipsIndex, T::Hash)>;
+        pub ReferendumMetadata get(referendum_meta): Vec<(MipsIndex, MipsPriority, T::Hash)>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
@@ -149,7 +163,7 @@ decl_event!(
         /// Proposal referenced by `Hash` has been closed
         ProposalClosed(Hash),
         /// Referendum created for proposal referenced by `Hash`
-        ReferendumCreated(MipsIndex, Hash),
+        ReferendumCreated(MipsIndex, MipsPriority, Hash),
         /// Proposal referenced by `Hash` was dispatched with the result `bool`
         ReferendumEnacted(Hash, bool),
     }
@@ -203,6 +217,30 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
             <ProposalDuration<T>>::put(duration);
+        }
+
+        /// An emergency proposal that bypasses network voting process. Governance committee can make
+        /// a proposal that automatically becomes a referendum on which the committee can vote on.
+        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        pub fn emergency_referendum(origin, proposal: Box<T::Proposal>) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+
+            let proposal_hash = T::Hashing::hash_of(&proposal);
+
+            // Proposal must be new
+            ensure!(!<Proposals<T>>::exists(proposal_hash), "proposal from committee already exists");
+
+            let index = Self::proposal_count();
+            <ProposalCount>::mutate(|i| *i += 1);
+
+            <ReferendumMetadata<T>>::mutate(|metadata| metadata.push((index, MipsPriority::High, proposal_hash)));
+            <Referendums<T>>::insert(proposal_hash.clone(), proposal);
+
+            Self::deposit_event(RawEvent::ReferendumCreated(
+                index,
+                MipsPriority::High,
+                proposal_hash.clone()
+            ));
         }
 
         /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which
@@ -289,7 +327,7 @@ decl_module! {
 
         /// An emergency stop measure to kill a proposal. Governance committee can kill
         /// a proposal at any time.
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn kill_proposal(origin, proposal_hash: T::Hash) {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
@@ -300,7 +338,7 @@ decl_module! {
         }
 
         /// Moves a referendum instance into dispatch queue.
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn enact_referundum(origin, proposal_hash: T::Hash) {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
@@ -378,9 +416,16 @@ impl<T: Trait> Module<T> {
     /// Create a referendum object from a proposal.
     /// Committee votes on this referendum instance
     fn create_referendum(index: MipsIndex, proposal_hash: T::Hash, proposal: T::Proposal) {
-        <ReferendumMetadata<T>>::mutate(|metadata| metadata.push((index, proposal_hash)));
+        <ReferendumMetadata<T>>::mutate(|metadata| {
+            metadata.push((index, MipsPriority::Normal, proposal_hash))
+        });
         <Referendums<T>>::insert(proposal_hash.clone(), proposal);
-        Self::deposit_event(RawEvent::ReferendumCreated(index, proposal_hash.clone()));
+
+        Self::deposit_event(RawEvent::ReferendumCreated(
+            index,
+            MipsPriority::Normal,
+            proposal_hash.clone(),
+        ));
     }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
