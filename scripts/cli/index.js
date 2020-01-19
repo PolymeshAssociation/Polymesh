@@ -86,7 +86,7 @@ async function main() {
   );
 
   const filePath = path.join(
-    __dirname + "/../../../Polymesh/polymesh_schema.json"
+    __dirname + "/../../polymesh_schema.json"
   );
   const customTypes = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
@@ -177,10 +177,10 @@ async function main() {
     'Complete: ISSUE SECURITY TOKEN           ': n_accounts,
     'Submit  : CREATE CLAIM ISSUER IDENTITIES ': n_claim_accounts,
     'Complete: CREATE CLAIM ISSUER IDENTITIES ': n_claim_accounts,
-    'Submit  : ADD CLAIM ISSUERS              ': n_accounts,
-    'Complete: ADD CLAIM ISSUERS              ': n_accounts,
     'Submit  : MAKE CLAIMS                    ': n_accounts,
     'Complete: MAKE CLAIMS                    ': n_accounts,
+    'Submit  : AUTH JOIN TO IDENTITIES        ': n_accounts,
+    'Complete: AUTH JOIN TO IDENTITIES        ': n_accounts,
   };
   const init_bars = [];
 
@@ -208,23 +208,25 @@ async function main() {
   let timestamp_extrinsic = current_block["block"]["extrinsics"][0];
   synced_block_ts = parseInt(JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw));
 
-  await createIdentities(api, [alice, bob], "issuer", prepend, init_bars[4], init_bars[5], fast);
+  await createIdentities(api, [alice, bob], init_bars[4], init_bars[5], fast);
   await tps(api, keyring, n_accounts, init_bars[0], init_bars[1], fast); // base currency transfer sanity-check
   await distributePoly(api, keyring, master_keys.concat(signing_keys).concat(claim_keys), transfer_amount, init_bars[2], init_bars[3], fast);
   // Need to wait until POLY has been distributed to pay for the next set of transactions
   await blockTillPoolEmpty(api);
 
-  let issuer_dids = await createIdentities(api, master_keys, "issuer", prepend, init_bars[4], init_bars[5], fast);
+  let issuer_dids = await createIdentities(api, master_keys, init_bars[4], init_bars[5], fast);
   await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7], fast);
+  await authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys, init_bars[18], init_bars[19], fast);
   await addSigningKeyRoles(api, master_keys, issuer_dids, signing_keys, init_bars[8], init_bars[9], fast);
   await issueTokenPerDid(api, master_keys, issuer_dids, prepend, init_bars[10], init_bars[11], fast);
-  let claim_issuer_dids = await createIdentities(api, claim_keys, "claim_issuer", prepend, init_bars[12], init_bars[13], fast);
-  // Need to wait until identites have been created before we use them
-  await addClaimIssuersToDids(api, master_keys, issuer_dids, claim_issuer_dids, init_bars[14], init_bars[15], fast);
+  let claim_issuer_dids = await createIdentities(api, claim_keys, init_bars[12], init_bars[13], fast);
+  console.log(`Create Claim Keys`);
   // Need to wait until identites have been added as claim issuers
   await blockTillPoolEmpty(api);
+  console.log(`Empty pool`);
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids, n_claims, init_bars[16], init_bars[17], fast);
+  console.log(`AddClaimsToDid`);
   // All transactions subitted, wait for queue to empty
   await blockTillPoolEmpty(api);
   await new Promise(resolve => setTimeout(resolve, 3000));
@@ -260,10 +262,7 @@ async function tps(api, keyring, n_accounts, submitBar, completeBar, fast) {
         alice,
         { nonce: nonces.get(alice.address) });
     } else {
-      const unsub = await api.tx.balances
-      .transfer(bob.address, 10)
-      .signAndSend(
-        alice,
+      const unsub = await api.tx.balances .transfer(bob.address, 10) .signAndSend( alice,
         { nonce: nonces.get(alice.address) },
         ({ events = [], status }) => {
           if (status.isFinalized) {
@@ -380,7 +379,7 @@ async function distributePoly(api, keyring, accounts, transfer_amount, submitBar
 }
 
 // Create a new DID for each of accounts[]
-async function createIdentities(api, accounts, identity_type, prepend, submitBar, completeBar, fast) {
+async function createIdentities(api, accounts, submitBar, completeBar, fast) {
   let dids = [];
   if (!("CREATE IDENTITIES" in fail_type)) {
     fail_type["CREATE IDENTITIES"] = 0;
@@ -421,8 +420,9 @@ async function createIdentities(api, accounts, identity_type, prepend, submitBar
   }
   await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
-    const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-    dids.push(d.raw.did);
+    const linkedKeyInfo = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
+    const did = JSON.parse(linkedKeyInfo).Unique;
+    dids.push(did);
   }
   return dids;
 }
@@ -469,15 +469,45 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
         });
     }
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+    submitBar.increment();
+  }
+}
 
-    // 2. Authorize
-    const unsub = await api.tx.identity
-      .authorizeJoinToIdentity(dids[i])
-      .signAndSend(signing_accounts[i],
-        { nonce: nonces.get(signing_accounts[i].address) });
-    nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
+async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
+  fail_type["AUTH SIGNING KEY"] = 0;
+  for (let i = 0; i < accounts.length; i++) {
+    // 1. Authorize
+    if (fast) {
+        const unsub = await api.tx.identity
+            .authorizeJoinToIdentity(dids[i])
+            .signAndSend(signing_accounts[i],
+                { nonce: nonces.get(signing_accounts[i].address) });
+        nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
+    } else {
+        const unsub = await api.tx.identity
+        .authorizeJoinToIdentity(dids[i])
+        .signAndSend(signing_accounts[i],
+          { nonce: nonces.get(signing_accounts[i].address) },
+          ({ events = [], status }) => {
+          if (status.isFinalized) {
+            let tx_ok = false;
+            events.forEach(({ phase, event: { data, method, section } }) => {
+              if (section == "identity" && method == "SignerJoinedToIdentityApproved") {
+                tx_ok = true;
+                completeBar.increment();
+              }
+            });
 
-    // 3. Update bar.
+            if (!tx_ok) {
+              fail_count++;
+              completeBar.increment();
+              fail_type["AUTH SIGNING KEY"]++;
+            }
+            unsub();
+          }
+        });
+    }
+
     submitBar.increment();
   }
 
@@ -565,44 +595,6 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
   }
 }
 
-async function addClaimIssuersToDids(api, accounts, dids, claim_dids, submitBar, completeBar, fast) {
-  fail_type["ADD CLAIM ISSUERS"] = 0;
-  for (let i = 0; i < dids.length; i++) {
-    if (fast) {
-      const unsub = await api.tx.identity
-      .addClaimIssuer(dids[i], claim_dids[i%claim_dids.length])
-      .signAndSend(accounts[i],
-        { nonce: nonces.get(accounts[i].address) });
-    } else {
-      const unsub = await api.tx.identity
-      .addClaimIssuer(dids[i], claim_dids[i%claim_dids.length])
-      .signAndSend(accounts[i],
-        { nonce: nonces.get(accounts[i].address) },
-        ({ events = [], status }) => {
-        if (status.isFinalized) {
-          let new_issuer_ok = false;
-          events.forEach(({ phase, event: { data, method, section } }) => {
-            if (section == "identity" && method == "NewClaimIssuer") {
-              new_issuer_ok = true;
-              completeBar.increment();
-            }
-          });
-
-          if (!new_issuer_ok) {
-            fail_count++;
-            completeBar.increment();
-            fail_type["ADD CLAIM ISSUERS"]++;
-          }
-          unsub();
-        }
-      });
-    }
-    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
-    submitBar.increment();
-
-  }
-}
-
 async function addClaimsToDids(api, accounts, dids, claim_dids, n_claims, submitBar, completeBar, fast) {
   //accounts should have the same length as claim_dids
   fail_type["MAKE CLAIMS"] = 0;
@@ -670,8 +662,7 @@ async function blockTillPoolEmpty(api) {
           done_something = true;
         }
         let timestamp_extrinsic = block["block"]["extrinsics"][0];
-        let new_block_ts = parseInt(JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw));
-        block_times[i] = new_block_ts - synced_block_ts;
+        let new_block_ts = parseInt(JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw)); block_times[i] = new_block_ts - synced_block_ts;
         synced_block_ts = new_block_ts;
         synced_block = i;
       }

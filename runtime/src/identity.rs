@@ -837,25 +837,24 @@ decl_module! {
             };
 
             // Only works with a valid signer.
-            if let Some(signer) = valid_signer {
-                if let Some(pre_auth) = Self::pre_authorized_join_did( signer.clone())
-                        .iter()
-                        .find( |pre_auth_item| pre_auth_item.target_id == target_id) {
-                    // Remove pre-auth, link key to identity and update identity record.
-                    Self::remove_pre_join_identity(&signer, target_id);
-                    if let Signer::Key(key) = signer {
-                        Self::link_key_to_did( &key, pre_auth.signing_item.signer_type, target_id);
-                    }
-                    <DidRecords>::mutate( target_id, |identity| {
-                        identity.add_signing_items( &[pre_auth.signing_item.clone()]);
-                    });
-                    Ok(())
-                } else {
-                    Err( "Signer is not pre authorized by the identity")
-                }
-            } else {
-                Err( "Signer is not pre authorized by any identity")
+            let signer = valid_signer.ok_or( "Signer is not pre authorized by any identity")?;
+            let pre_auth = Self::pre_authorized_join_did( &signer)
+                        .into_iter()
+                        .find( |pre_auth_item| pre_auth_item.target_id == target_id)
+                        .ok_or( "Signer is not pre authorized by the identity")?;
+
+            // Remove pre-auth, link key to identity and update identity record.
+            Self::remove_pre_join_identity(&signer, target_id);
+            if let Signer::Key(key) = signer {
+                Self::link_key_to_did( &key, pre_auth.signing_item.signer_type, target_id);
             }
+            <DidRecords>::mutate( target_id, |identity| {
+                identity.add_signing_items( &[pre_auth.signing_item.clone()]);
+            });
+
+            Self::deposit_event( RawEvent::SignerJoinedToIdentityApproved( signer, target_id));
+
+            Ok(())
         }
 
         /// Identity's master key or target key are allowed to reject a pre authorization to join.
@@ -1046,6 +1045,9 @@ decl_event!(
 
         /// Link removed. (link_id, associated identity or key)
         LinkRemoved(u64, Signer),
+
+        /// Signer approved a previous request to join to a target identity.
+        SignerJoinedToIdentityApproved( Signer, IdentityId),
     }
 );
 
@@ -1326,6 +1328,7 @@ impl<T: Trait> Module<T> {
         sender_key: &Key,
         did: IdentityId,
     ) -> rstd::result::Result<DidRecord, &'static str> {
+        sr_primitives::print(did);
         ensure!(<DidRecords>::exists(did), "DID does not exist");
         let record = <DidRecords>::get(did);
         ensure!(
