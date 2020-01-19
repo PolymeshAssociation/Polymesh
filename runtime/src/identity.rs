@@ -41,7 +41,7 @@ use crate::{
     asset::AcceptTickerTransfer,
     balances,
     constants::did::{SECURITY_TOKEN, USER},
-    BatchDispatchInfo
+    BatchDispatchInfo,
 };
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
