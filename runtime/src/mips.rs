@@ -219,30 +219,6 @@ decl_module! {
             <ProposalDuration<T>>::put(duration);
         }
 
-        /// An emergency proposal that bypasses network voting process. Governance committee can make
-        /// a proposal that automatically becomes a referendum on which the committee can vote on.
-        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        pub fn emergency_referendum(origin, proposal: Box<T::Proposal>) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-
-            let proposal_hash = T::Hashing::hash_of(&proposal);
-
-            // Proposal must be new
-            ensure!(!<Proposals<T>>::exists(proposal_hash), "proposal from committee already exists");
-
-            let index = Self::proposal_count();
-            <ProposalCount>::mutate(|i| *i += 1);
-
-            <ReferendumMetadata<T>>::mutate(|metadata| metadata.push((index, MipsPriority::High, proposal_hash)));
-            <Referendums<T>>::insert(proposal_hash.clone(), proposal);
-
-            Self::deposit_event(RawEvent::ReferendumCreated(
-                index,
-                MipsPriority::High,
-                proposal_hash.clone()
-            ));
-        }
-
         /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which
         /// changes the network in someway. A minimum deposit is required to open a new proposal.
         ///
@@ -335,6 +311,34 @@ decl_module! {
                 .map_err(|_| "bad origin")?;
 
             Self::close_proposal(proposal_hash.clone());
+        }
+
+        /// An emergency proposal that bypasses network voting process. Governance committee can make
+        /// a proposal that automatically becomes a referendum on which the committee can vote on.
+        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        pub fn emergency_referendum(origin, proposal: Box<T::Proposal>) {
+            // Proposal must originate from the committee
+            T::CommitteeOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
+
+            let proposal_hash = T::Hashing::hash_of(&proposal);
+
+            // Proposal must be new
+            ensure!(!<Proposals<T>>::exists(proposal_hash), "proposal from committee already exists");
+
+            let index = Self::proposal_count();
+            <ProposalCount>::mutate(|i| *i += 1);
+
+            <ReferendumMetadata<T>>::mutate(|metadata| metadata.push((index, MipsPriority::High, proposal_hash)));
+            <Referendums<T>>::insert(proposal_hash.clone(), proposal);
+
+            Self::deposit_event(RawEvent::ReferendumCreated(
+                index,
+                MipsPriority::High,
+                proposal_hash.clone()
+            ));
         }
 
         /// Moves a referendum instance into dispatch queue.
@@ -777,6 +781,43 @@ mod tests {
             fast_forward_to(20);
 
             assert_eq!(MIPS::referendums(&hash), Some(proposal));
+
+            assert_err!(
+                MIPS::enact_referundum(Origin::signed(5), hash),
+                "bad origin"
+            );
+
+            assert_ok!(MIPS::enact_referundum(Origin::signed(1), hash));
+        });
+    }
+
+    #[test]
+    fn should_enact_an_emergency_referendum() {
+        with_externalities(&mut new_test_ext(), || {
+            System::set_block_number(1);
+            let proposal = make_proposal(42);
+            let hash = BlakeTwo256::hash_of(&proposal);
+
+            assert_err!(
+                MIPS::emergency_referendum(Origin::signed(6), Box::new(proposal.clone())),
+                "bad origin"
+            );
+
+            assert_ok!(MIPS::emergency_referendum(
+                Origin::signed(1),
+                Box::new(proposal.clone())
+            ));
+
+            fast_forward_to(20);
+
+            assert_eq!(MIPS::referendums(&hash), Some(proposal));
+
+            assert_eq!(MIPS::referendum_meta(), vec![(0, MipsPriority::High, hash)]);
+
+            assert_err!(
+                MIPS::enact_referundum(Origin::signed(5), hash),
+                "bad origin"
+            );
 
             assert_ok!(MIPS::enact_referundum(Origin::signed(1), hash));
         });
