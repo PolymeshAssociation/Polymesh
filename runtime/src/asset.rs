@@ -1522,7 +1522,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{exemption, identity};
+    use crate::{exemption, identity, test::{TestStorage, make_account} };
     use primitives::{IdentityId, Key};
     use rand::Rng;
 
@@ -1548,7 +1548,7 @@ mod tests {
     type BlockNumber = u64;
     type AccountId = <AnySignature as Verify>::Signer;
     type OffChainSignature = AnySignature;
-
+/*
     pub struct TestOnSessionEnding;
     impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
@@ -1712,6 +1712,7 @@ mod tests {
     type Balances = balances::Module<Test>;
     type Identity = identity::Module<Test>;
     type GeneralTM = general_tm::Module<Test>;
+*/
 
     lazy_static! {
         static ref INVESTOR_MAP_OUTER_LOCK: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
@@ -1720,15 +1721,15 @@ mod tests {
     /// Build a genesis identity instance owned by account No. 1
     fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
         let mut t = system::GenesisConfig::default()
-            .build_storage::<Test>()
+            .build_storage::<TestStorage>()
             .unwrap();
-        identity::GenesisConfig::<Test> {
+        identity::GenesisConfig::<TestStorage> {
             owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
         }
         .assimilate_storage(&mut t)
         .unwrap();
-        self::GenesisConfig::<Test> {
+        self::GenesisConfig::<TestStorage> {
             asset_creation_fee: 0,
             ticker_registration_fee: 0,
             ticker_registration_config: TickerRegistrationConfig {
@@ -1744,7 +1745,7 @@ mod tests {
 
     fn make_account(
         account_id: &AccountId,
-    ) -> StdResult<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> StdResult<(<TestStorage as system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
         Identity::register_did(signed_id.clone(), vec![])?;

@@ -1,5 +1,5 @@
 use crate::{
-    asset, balances, committee,
+    asset, balances, committee, statistics,
     constants::{currency::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
@@ -470,6 +470,9 @@ impl group::Trait<group::Instance2> for Runtime {
     type MembershipChanged = ();
 }
 
+impl statistics::Trait for Runtime {
+}
+
 construct_runtime!(
     pub enum Runtime where
     Block = Block,
@@ -505,7 +508,7 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Storage, Event<T>},        
+        Treasury: treasury::{Module, Call, Storage, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
    		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
