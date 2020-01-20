@@ -139,7 +139,7 @@ decl_module! {
             Self::approve_for(multi_sig, proposal_id, sender)
         }
 
-        #[weight = <ChargeProposal<Module<T>, T::AccountId>>::new()]
+        //#[weight = <ChargeProposal<Module<T>, T::AccountId>>::new()]
         pub fn execute(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(Self::ms_owners((multi_sig.clone(), sender.clone())), "not an owner");
@@ -198,5 +198,13 @@ impl<T: Trait> Module<T> {
         } else {
             return Err("Invalid proposal");
         }
+    }
+
+    fn charge_fee(multi_sig: T::AccountId, proposal_id: u64) -> Result {
+        let _weight = match Self::proposals((multi_sig.clone(), proposal_id)) {
+            Some(proposal) => proposal.get_dispatch_info().weight,
+            _ => 0,
+        };
+        Ok(())
     }
 }
