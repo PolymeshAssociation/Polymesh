@@ -179,10 +179,10 @@ decl_storage! {
         AuthenticationNonce get(authentication_nonce): map(Vec<u8>, IdentityId, u16) => bool;
         /// The name of the current funding round.
         /// ticker -> funding round
-        pub FundingRound get(funding_round): map Vec<u8> => Vec<u8>;
+        FundingRound get(funding_round): map Vec<u8> => Vec<u8>;
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
-        pub IssuedInFundingRound get(issued_in_funding_round): map (Vec<u8>, Vec<u8>) => T::Balance;
+        IssuedInFundingRound get(issued_in_funding_round): map (Vec<u8>, Vec<u8>) => T::Balance;
     }
 }
 
@@ -2148,20 +2148,39 @@ mod tests {
                 token.name.clone(),
                 asset_rule
             ));
-
+            let funding_round1 = b"Round One".to_vec();
+            assert_ok!(Asset::set_funding_round(
+                owner_signed.clone(),
+                owner_did,
+                token.name.clone(),
+                funding_round1.clone()
+            ));
             // Mint some tokens to investor1
+            let num_tokens1: u128 = 2_000_000;
             assert_ok!(Asset::issue(
                 owner_signed.clone(),
                 owner_did,
                 token.name.clone(),
                 investor1_did,
-                200_00_00 as u128,
+                num_tokens1,
                 vec![0x0]
             ));
-
+            assert_eq!(
+                Asset::funding_round(token.name.clone()),
+                funding_round1.clone()
+            );
+            assert_eq!(
+                Asset::issued_in_funding_round((token.name.clone(), funding_round1.clone())),
+                num_tokens1
+            );
+            // Check the expected default behaviour of the map.
+            assert_eq!(
+                Asset::issued_in_funding_round((token.name.clone(), b"No such round".to_vec())),
+                0
+            );
             assert_eq!(
                 Asset::balance_of((token.name.clone(), investor1_did)),
-                200_00_00 as u128
+                num_tokens1,
             );
 
             // Failed to add custodian because of insufficient balance
