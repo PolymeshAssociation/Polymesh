@@ -1454,10 +1454,13 @@ mod tests {
     impl identity::Trait for Runtime {
         type Event = ();
         type Proposal = IdentityProposal;
-        type AcceptTickerTransferTarget = Runtime;
+        type AcceptTransferTarget = Runtime;
     }
-    impl crate::asset::AcceptTickerTransfer for Runtime {
+    impl crate::asset::AcceptTransfer for Runtime {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
     }
