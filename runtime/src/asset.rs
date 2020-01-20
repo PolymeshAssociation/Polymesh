@@ -123,14 +123,7 @@ pub struct TickerRegistrationConfig<U> {
     pub registration_length: Option<U>,
 }
 
-/// struct to store the ticker transfer approvals
-#[derive(codec::Encode, codec::Decode, Clone, Default, PartialEq, Debug)]
-pub struct TickerTransferApproval<U> {
-    pub authorized_by: U,
-    pub next_ticker: Option<Vec<u8>>,
-    pub previous_ticker: Option<Vec<u8>>,
-}
-
+/// Enum that represents the current status of a ticker
 #[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq, Debug)]
 pub enum TickerRegistrationStatus {
     RegisteredByOther,
@@ -197,7 +190,7 @@ decl_module! {
         /// NB Ticker validity does not get carryforward when renewing ticker
         ///
         /// # Arguments
-        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `_ticker` ticker to register
         pub fn register_ticker(origin, _ticker: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
@@ -241,7 +234,7 @@ decl_module! {
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `auth_id` Authorization ID of ticker transfer authorization
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
@@ -259,12 +252,34 @@ decl_module! {
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
+        /// This function is used to accept a token ownership transfer
+        /// NB: To reject the transfer, call remove auth function in identity module.
+        ///
+        /// # Arguments
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `auth_id` Authorization ID of the token ownership transfer authorization
+        pub fn accept_token_ownership_transfer(origin, auth_id: u64) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let to_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+            Self::_accept_token_ownership_transfer(to_did, auth_id)
+        }
+
         /// Initializes a new security token
         /// makes the initiating account the owner of the security token
         /// & the balance of the owner is set to total supply
         ///
         /// # Arguments
-        /// * `origin` It consist the signing key of the caller (i.e who signed the transaction to execute this function)
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `did` DID of the creator of the token or the owner of the token
         /// * `name` Name of the token
         /// * `_ticker` Symbol of the token
@@ -1080,6 +1095,9 @@ decl_event! {
         /// emit when ticker is transferred
         /// ticker, from, to
         TickerTransferred(Vec<u8>, IdentityId, IdentityId),
+        /// emit when token ownership is transferred
+        /// ticker, from, to
+        TokenOwnershipTransferred(Vec<u8>, IdentityId, IdentityId),
         /// emit when ticker is registered
         /// ticker, current owner, approved owner
         TickerTransferApproval(Vec<u8>, IdentityId, IdentityId),
@@ -1128,13 +1146,29 @@ impl<T: Trait> AssetTrait<T::Balance> for Module<T> {
     }
 }
 
-pub trait AcceptTickerTransfer {
+/// This trait is used to call functions that accept transfer of a ticker or token ownership
+pub trait AcceptTransfer {
+    /// Accept and process a ticker transfer
+    ///
+    /// # Arguments
+    /// * `to_did` did of the receiver
+    /// * `auth_id` Authorization id of the authorization created by current ticker owner
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result;
+    /// Accept and process a token ownership transfer
+    ///
+    /// # Arguments
+    /// * `to_did` did of the receiver
+    /// * `auth_id` Authorization id of the authorization created by current token owner
+    fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> Result;
 }
 
-impl<T: Trait> AcceptTickerTransfer for Module<T> {
+impl<T: Trait> AcceptTransfer for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result {
         Self::_accept_ticker_transfer(to_did, auth_id)
+    }
+
+    fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> Result {
+        Self::_accept_token_ownership_transfer(to_did, auth_id)
     }
 }
 
@@ -1509,6 +1543,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Accept and process a ticker transfer
     pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> Result {
         ensure!(
             <identity::Authorizations<T>>::exists((Signer::from(to_did), auth_id)),
@@ -1535,6 +1570,44 @@ impl<T: Trait> Module<T> {
         <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
 
         Self::deposit_event(RawEvent::TickerTransferred(ticker, current_owner, to_did));
+
+        Ok(())
+    }
+
+    /// Accept and process a token ownership transfer
+    pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> Result {
+        ensure!(
+            <identity::Authorizations<T>>::exists((Signer::from(to_did), auth_id)),
+            AuthorizationError::Invalid.into()
+        );
+
+        let auth = <identity::Module<T>>::authorizations((Signer::from(to_did), auth_id));
+
+        let ticker = match auth.authorization_data {
+            AuthorizationData::TransferTokenOwnership(_ticker) => {
+                utils::bytes_to_upper(_ticker.as_slice())
+            }
+            _ => return Err("Not a token ownership transfer auth"),
+        };
+
+        ensure!(<Tokens<T>>::exists(&ticker), "Token does not exist");
+
+        let current_owner = Self::token_details(&ticker).owner_did;
+
+        <identity::Module<T>>::consume_auth(
+            Signer::from(current_owner),
+            Signer::from(to_did),
+            auth_id,
+        )?;
+
+        <Tokens<T>>::mutate(&ticker, |t| t.owner_did = to_did);
+        <Tickers<T>>::mutate(&ticker, |t| t.owner = to_did);
+
+        Self::deposit_event(RawEvent::TokenOwnershipTransferred(
+            ticker,
+            current_owner,
+            to_did,
+        ));
 
         Ok(())
     }
@@ -1698,7 +1771,7 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
-        type AcceptTickerTransferTarget = Module<Test>;
+        type AcceptTransferTarget = Module<Test>;
     }
     impl percentage_tm::Trait for Test {
         type Event = ();
@@ -2626,6 +2699,118 @@ mod tests {
             assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), false);
             assert_eq!(Asset::is_ticker_registry_valid(&ticker, bob_did), true);
             assert_eq!(Asset::is_ticker_available(&ticker), false);
+        })
+    }
+
+    #[test]
+    fn transfer_token_ownership() {
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let now = Utc::now();
+            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            let alice_acc = AccountId::from(AccountKeyring::Alice);
+            let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+
+            let bob_acc = AccountId::from(AccountKeyring::Bob);
+            let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
+
+            let ticker = vec![0x01, 0x01];
+
+            assert_ok!(Asset::create_token(
+                owner_signed.clone(),
+                owner_did,
+                ticker.clone(),
+                ticker.clone(),
+                1_000_000,
+                true
+            ));
+
+            Identity::add_auth(
+                Signer::from(owner_did),
+                Signer::from(alice_did),
+                AuthorizationData::TransferTokenOwnership(ticker.clone()),
+                None,
+            );
+
+            Identity::add_auth(
+                Signer::from(owner_did),
+                Signer::from(bob_did),
+                AuthorizationData::TransferTokenOwnership(ticker.clone()),
+                None,
+            );
+
+            assert_eq!(Asset::token_details(&ticker).owner_did, owner_did);
+
+            let mut auth_id = Identity::last_authorization(Signer::from(alice_did));
+
+            assert_err!(
+                Asset::accept_token_ownership_transfer(alice_signed.clone(), auth_id + 1),
+                "Authorization does not exist"
+            );
+
+            assert_ok!(Asset::accept_token_ownership_transfer(
+                alice_signed.clone(),
+                auth_id
+            ));
+            assert_eq!(Asset::token_details(&ticker).owner_did, alice_did);
+
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_err!(
+                Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+                "Illegal use of Authorization"
+            );
+
+            Identity::add_auth(
+                Signer::from(alice_did),
+                Signer::from(bob_did),
+                AuthorizationData::TransferTokenOwnership(ticker.clone()),
+                Some(now.timestamp() as u64 - 100),
+            );
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_err!(
+                Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+                "Authorization expired"
+            );
+
+            Identity::add_auth(
+                Signer::from(alice_did),
+                Signer::from(bob_did),
+                AuthorizationData::Custom(ticker.clone()),
+                Some(now.timestamp() as u64 + 100),
+            );
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_err!(
+                Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+                "Not a token ownership transfer auth"
+            );
+
+            Identity::add_auth(
+                Signer::from(alice_did),
+                Signer::from(bob_did),
+                AuthorizationData::TransferTokenOwnership(vec![0x50]),
+                Some(now.timestamp() as u64 + 100),
+            );
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_err!(
+                Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+                "Token does not exist"
+            );
+
+            Identity::add_auth(
+                Signer::from(alice_did),
+                Signer::from(bob_did),
+                AuthorizationData::TransferTokenOwnership(ticker.clone()),
+                Some(now.timestamp() as u64 + 100),
+            );
+            auth_id = Identity::last_authorization(Signer::from(bob_did));
+            assert_ok!(Asset::accept_token_ownership_transfer(
+                bob_signed.clone(),
+                auth_id
+            ));
+            assert_eq!(Asset::token_details(&ticker).owner_did, bob_did);
         })
     }
 

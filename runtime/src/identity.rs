@@ -38,7 +38,7 @@
 use rstd::{convert::TryFrom, prelude::*};
 
 use crate::{
-    asset::AcceptTickerTransfer,
+    asset::AcceptTransfer,
     balances,
     constants::did::{SECURITY_TOKEN, USER},
     BatchDispatchInfo,
@@ -167,7 +167,7 @@ pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
     /// An extrinsic call.
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
     /// Asset module
-    type AcceptTickerTransferTarget: AcceptTickerTransfer;
+    type AcceptTransferTarget: AcceptTransfer;
 }
 
 decl_storage! {
@@ -742,7 +742,10 @@ decl_module! {
             match signer {
                 Signer::Identity(did) => {
                     match auth.authorization_data {
-                        AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                        AuthorizationData::TransferTicker(_) =>
+                            T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                        AuthorizationData::TransferTokenOwnership(_) =>
+                            T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
                         _ => return Err("Unknown authorization")
                     }
                 },
@@ -780,7 +783,10 @@ decl_module! {
                             let auth = Self::authorizations((signer, auth_id));
                             // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
-                                AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(did, auth_id),
+                                AuthorizationData::TransferTicker(_) =>
+                                    T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                                AuthorizationData::TransferTokenOwnership(_) =>
+                                    T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
                                 _ => Err("Unknown authorization")
                             };
                         }
@@ -1466,6 +1472,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// It registers a did for a new asset. Only called by create_token function.
     pub fn register_asset_did(ticker: &Vec<u8>) -> Result {
         let did = Self::get_token_did(ticker)?;
         // Making sure there's no pre-existing entry for the DID
@@ -1475,12 +1482,12 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// It is a helper function that can be used to get did for any asset
     pub fn get_token_did(ticker: &Vec<u8>) -> StdResult<IdentityId, &'static str> {
         let mut buf = Vec::new();
         buf.extend_from_slice(&SECURITY_TOKEN.encode());
         buf.extend_from_slice(&ticker.encode());
-        let did = IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())?;
-        Ok(did)
+        IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
     }
 }
 
