@@ -184,6 +184,11 @@ decl_storage! {
         /// Store the nonce for off chain signature to increase the custody allowance
         /// (ticker, token holder, nonce) -> bool
         AuthenticationNonce get(authentication_nonce): map(Vec<u8>, IdentityId, u16) => bool;
+        /// The name of the current funding round.
+        pub FundingRound get(funding_round): Vec<u8>;
+        /// The total balances of tokens issued in all recorded funding rounds.
+        /// funding round -> balance
+        pub IssuedInFundingRound get(issued_in_funding_round): map Vec<u8> => T::Balance;
     }
 }
 
@@ -567,14 +572,22 @@ decl_module! {
                 // New total supply must be valid
                 token.total_supply = updated_total_supply;
             }
-
-            // After checks are ensured introduce side effects
+            let funding_round = Self::funding_round();
+            // Update investor balances and emit events with the updated total token balance issued.
             for i in 0..investor_dids.len() {
                 Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
-
                 <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i]), updated_balances[i]);
-
-                Self::deposit_event(RawEvent::Issued(ticker.clone(), investor_dids[i], values[i]));
+                let issued_in_this_round = Self::issued_in_funding_round(funding_round.clone())
+                    .checked_add(&values[i])
+                    .ok_or("current funding round total overflowed")?;
+                <IssuedInFundingRound<T>>::insert(funding_round.clone(), issued_in_this_round);
+                Self::deposit_event(RawEvent::Issued(
+                    ticker.clone(),
+                    investor_dids[i],
+                    values[i],
+                    funding_round,
+                    issued_in_this_round
+                ));
             }
             <Tokens<T>>::insert(ticker.clone(), token);
 
@@ -1036,8 +1049,8 @@ decl_event! {
         /// ticker, owner DID, spender DID, value
         Approval(Vec<u8>, IdentityId, IdentityId, Balance),
         /// emit when tokens get issued
-        /// ticker, beneficiary DID, value
-        Issued(Vec<u8>, IdentityId, Balance),
+        /// ticker, beneficiary DID, value, funding round, total issued in this funding round
+        Issued(Vec<u8>, IdentityId, Balance, Vec<u8>, Balance),
         /// emit when tokens get redeemed
         /// ticker, DID, value
         Redeemed(Vec<u8>, IdentityId, Balance),
@@ -1442,8 +1455,18 @@ impl<T: Trait> Module<T> {
 
         <BalanceOf<T>>::insert(&ticker_to_did, updated_to_balance);
         <Tokens<T>>::insert(ticker, token);
-
-        Self::deposit_event(RawEvent::Issued(ticker.clone(), to_did, value));
+        let funding_round = Self::funding_round();
+        let issued_in_this_round = Self::issued_in_funding_round(funding_round.clone())
+            .checked_add(&value)
+            .ok_or("current funding round total overflowed")?;
+        <IssuedInFundingRound<T>>::insert(funding_round.clone(), issued_in_this_round);
+        Self::deposit_event(RawEvent::Issued(
+            ticker.clone(),
+            to_did,
+            value,
+            funding_round,
+            issued_in_this_round
+        ));
 
         Ok(())
     }
