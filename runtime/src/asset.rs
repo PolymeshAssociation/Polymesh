@@ -2336,7 +2336,7 @@ mod tests {
     #[test]
     fn checkpoints_fuzz_test() {
         println!("Starting");
-        for i in 0..10 {
+        for _i in 0..10 {
             // When fuzzing in local, feel free to bump this number to add more fuzz runs.
             with_externalities(&mut identity_owned_by_alice(), || {
                 let now = Utc::now();
