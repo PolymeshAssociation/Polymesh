@@ -10,7 +10,7 @@ use sr_primitives::{
 use srml_support::{
     dispatch::{DispatchError, DispatchResult},
     impl_outer_origin, parameter_types,
-    traits::{ChangeMembers, Currency, InitializeMembers},
+    traits::Currency,
 };
 use std::convert::TryFrom;
 use substrate_primitives::{crypto::Pair as PairTrait, sr25519::Pair, Blake2Hasher, H256};
@@ -114,26 +114,14 @@ parameter_types! {
     pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
 }
 
-pub struct TestChangeMembers;
-impl ChangeMembers<IdentityId> for TestChangeMembers {
-    fn change_members_sorted(_: &[IdentityId], _: &[IdentityId], _: &[IdentityId]) {
-        unimplemented!()
-    }
-}
-impl InitializeMembers<IdentityId> for TestChangeMembers {
-    fn initialize_members(_: &[IdentityId]) {
-        unimplemented!()
-    }
-}
-
 impl group::Trait<group::Instance1> for TestStorage {
     type Event = ();
     type AddOrigin = EnsureSignedBy<One, AccountId>;
     type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
     type SwapOrigin = EnsureSignedBy<Three, AccountId>;
     type ResetOrigin = EnsureSignedBy<Four, AccountId>;
-    type MembershipInitialized = TestChangeMembers;
-    type MembershipChanged = TestChangeMembers;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
 }
 
 impl identity::Trait for TestStorage {
