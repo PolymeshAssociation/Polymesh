@@ -573,19 +573,23 @@ decl_module! {
                 token.total_supply = updated_total_supply;
             }
             let funding_round = Self::funding_round();
-            // Update investor balances and emit events with the updated total token balance issued.
+            // Update the total token balance issued in this funding round.
+            let issued_in_this_round = Self::issued_in_funding_round(funding_round.clone());
+            for v in &values {
+                issued_in_this_round
+                    .checked_add(v)
+                    .ok_or("current funding round total overflowed")?;
+            }
+            <IssuedInFundingRound<T>>::insert(funding_round.clone(), issued_in_this_round);
+            // Update investor balances and emit events quoting the updated total token balance issued.
             for i in 0..investor_dids.len() {
                 Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
                 <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i]), updated_balances[i]);
-                let issued_in_this_round = Self::issued_in_funding_round(funding_round.clone())
-                    .checked_add(&values[i])
-                    .ok_or("current funding round total overflowed")?;
-                <IssuedInFundingRound<T>>::insert(funding_round.clone(), issued_in_this_round);
                 Self::deposit_event(RawEvent::Issued(
                     ticker.clone(),
                     investor_dids[i],
-                    values[i],
-                    funding_round,
+                    values[i].clone(),
+                    funding_round.clone(),
                     issued_in_this_round
                 ));
             }
@@ -1465,7 +1469,7 @@ impl<T: Trait> Module<T> {
             to_did,
             value,
             funding_round,
-            issued_in_this_round
+            issued_in_this_round,
         ));
 
         Ok(())
