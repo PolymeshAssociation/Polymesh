@@ -6,9 +6,7 @@ use codec::{Decode, Encode};
 use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::{
     traits::{Dispatchable, Hash},
-    weights::{
-        GetDispatchInfo, WeighData, Weight,
-    },
+    weights::{ClassifyDispatch, DispatchClass, GetDispatchInfo, WeighData, Weight},
     DispatchError,
 };
 use support::{
@@ -20,8 +18,7 @@ pub trait GetCallWeightTrait<AccountId> {
     fn get_proposal_weight(multi_sig: &AccountId, proposal_id: &u64) -> Weight;
 }
 
-impl<T: Trait> GetCallWeightTrait<T::AccountId> for Module<T>
-{
+impl<T: Trait> GetCallWeightTrait<T::AccountId> for Module<T> {
     fn get_proposal_weight(multi_sig: &T::AccountId, proposal_id: &u64) -> Weight {
         if let Some(proposal) = Self::proposals(((*multi_sig).clone(), *proposal_id)) {
             proposal.get_dispatch_info().weight
@@ -31,18 +28,31 @@ impl<T: Trait> GetCallWeightTrait<T::AccountId> for Module<T>
     }
 }
 
-/// Simple index-based pass through for the weight functions.
-struct Passthrough<GetCallWeight, AccountId>(std::marker::PhantomData<(GetCallWeight, AccountId)>);
+struct ChargeProposal<GetCallWeight, AccountId>(
+    std::marker::PhantomData<(GetCallWeight, AccountId)>,
+);
 
-impl<GetCallWeight, AccountId> Passthrough<GetCallWeight, AccountId> {
-	fn new() -> Self { Self(Default::default()) }
+impl<GetCallWeight, AccountId> ChargeProposal<GetCallWeight, AccountId> {
+    fn new() -> Self {
+        Self(Default::default())
+    }
 }
 
-impl<GetCallWeight: GetCallWeightTrait<AccountId>, AccountId> WeighData<(&AccountId, &u64)> for Passthrough<GetCallWeight, AccountId> {
-	fn weigh_data(&self, (multi_sig, proposal_id): (&AccountId, &u64)) -> Weight {
+impl<GetCallWeight: GetCallWeightTrait<AccountId>, AccountId> WeighData<(&AccountId, &u64)>
+    for ChargeProposal<GetCallWeight, AccountId>
+{
+    fn weigh_data(&self, (multi_sig, proposal_id): (&AccountId, &u64)) -> Weight {
         let weight = GetCallWeight::get_proposal_weight(multi_sig, proposal_id);
-		weight + 10_000
-	}
+        weight + 10_000
+    }
+}
+
+impl<GetCallWeight: GetCallWeightTrait<AccountId>, AccountId> ClassifyDispatch<(&AccountId, &u64)>
+    for ChargeProposal<GetCallWeight, AccountId>
+{
+    fn classify_dispatch(&self, _: (&AccountId, &u64)) -> DispatchClass {
+        DispatchClass::Normal
+    }
 }
 
 pub trait Trait: system::Trait {
@@ -129,6 +139,7 @@ decl_module! {
             Self::approve_for(multi_sig, proposal_id, sender)
         }
 
+        #[weight = <ChargeProposal<Module<T>, T::AccountId>>::new()]
         pub fn execute(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(Self::ms_owners((multi_sig.clone(), sender.clone())), "not an owner");
@@ -156,7 +167,10 @@ impl<T: Trait> Module<T> {
         let multi_sig_signer_proposal = (multi_sig.clone(), signer.clone(), proposal_id);
         let multi_sig_proposal = (multi_sig.clone(), proposal_id);
         ensure!(!Self::votes(&multi_sig_signer_proposal), "Already approved");
-        ensure!(Self::proposals(&multi_sig_proposal).is_some(), "Invalid proposal");
+        ensure!(
+            Self::proposals(&multi_sig_proposal).is_some(),
+            "Invalid proposal"
+        );
         <Votes<T>>::insert(&multi_sig_signer_proposal, true);
         let approvals: u64 = Self::tx_approvals(&multi_sig_proposal) + 1u64;
         <TxApprovals<T>>::insert(&multi_sig_proposal, approvals);
