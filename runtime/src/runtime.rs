@@ -446,8 +446,8 @@ impl percentage_tm::Trait for Runtime {
 impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
-    type AcceptTickerTransferTarget = Asset;
     type IsKYCProvider = KYCServiceProviders;
+    type AcceptTransferTarget = Asset;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -506,7 +506,7 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Storage, Event<T>},        
+        Treasury: treasury::{Module, Call, Storage, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
    		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
