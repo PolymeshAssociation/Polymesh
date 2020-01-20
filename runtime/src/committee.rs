@@ -484,11 +484,14 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = TestProposal;
-        type AcceptTickerTransferTarget = Test;
+        type AcceptTransferTarget = Test;
     }
 
-    impl crate::asset::AcceptTickerTransfer for Test {
+    impl crate::asset::AcceptTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> srml_support::dispatch::Result {
+            unimplemented!()
+        }
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
     }

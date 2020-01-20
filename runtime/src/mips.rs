@@ -527,13 +527,18 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
-        type AcceptTickerTransferTarget = Test;
+        type AcceptTransferTarget = Test;
     }
-    impl crate::asset::AcceptTickerTransfer for Test {
+
+    impl crate::asset::AcceptTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result {
             unimplemented!()
         }
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result {
+            unimplemented!()
+        }
     }
+
     parameter_types! {
         pub const MinimumPeriod: u64 = 3;
     }
