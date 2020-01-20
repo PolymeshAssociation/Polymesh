@@ -20,10 +20,9 @@ pub trait GetCallWeightTrait<AccountId> {
     fn get_proposal_weight(multi_sig: &AccountId, proposal_id: &u64) -> Weight;
 }
 
-impl<T: Trait, AccountId: std::clone::Clone> GetCallWeightTrait<AccountId> for Module<T>
-where (AccountId, u64): std::borrow::Borrow<(<T as system::Trait>::AccountId, u64)>
+impl<T: Trait> GetCallWeightTrait<T::AccountId> for Module<T>
 {
-    fn get_proposal_weight(multi_sig: &AccountId, proposal_id: &u64) -> Weight {
+    fn get_proposal_weight(multi_sig: &T::AccountId, proposal_id: &u64) -> Weight {
         if let Some(proposal) = Self::proposals(((*multi_sig).clone(), *proposal_id)) {
             proposal.get_dispatch_info().weight
         } else {
