@@ -1,7 +1,7 @@
 use crate::signing_item::Signer;
 use codec::{Decode, Encode};
-use sp_std::prelude::Vec;
 use frame_support::dispatch::DispatchError;
+use sp_std::prelude::Vec;
 
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -38,7 +38,9 @@ impl From<AuthorizationError> for DispatchError {
     fn from(error: AuthorizationError) -> DispatchError {
         match error {
             AuthorizationError::Invalid => DispatchError::Other("Authorization does not exist"),
-            AuthorizationError::Unauthorized => DispatchError::Other("Illegal use of Authorization"),
+            AuthorizationError::Unauthorized => {
+                DispatchError::Other("Illegal use of Authorization")
+            }
             AuthorizationError::Expired => DispatchError::Other("Authorization expired"),
         }
     }

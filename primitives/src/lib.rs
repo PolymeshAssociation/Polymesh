@@ -83,10 +83,10 @@ pub use signing_item::{Permission, Signer, SignerType, SigningItem};
 pub mod pre_authorized_key_info;
 pub use pre_authorized_key_info::PreAuthorizedKeyInfo;
 
-/// Pub Traits
-pub mod traits;
 /// Generic authorization data types for all two step processes
 pub mod authorization;
+/// Pub Traits
+pub mod traits;
 pub use authorization::Authorization;
 pub use authorization::AuthorizationData;
 pub use authorization::AuthorizationError;
