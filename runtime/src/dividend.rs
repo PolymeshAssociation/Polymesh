@@ -75,14 +75,12 @@ decl_storage! {
     trait Store for Module<T: Trait> as dividend {
         /// Dividend records; (ticker, dividend ID) => dividend entry
         /// Note: contrary to checkpoint IDs, dividend IDs are 0-indexed.
-        Dividends get(dividends): map (Vec<u8>, u32) => Dividend<T::Balance, T::Moment>;
-
+        Dividends get(dividends): map (Ticker, u32) => Dividend<T::Balance, T::Moment>;
         /// How many dividends were created for a ticker so far; (ticker) => count
-        DividendCount get(dividend_count): map Vec<u8> => u32;
-
+        DividendCount get(dividend_count): map Ticker => u32;
         /// Payout flags, decide whether a user already was paid their dividend
         /// (DID, ticker, dividend_id) -> whether they got their payout
-        UserPayoutCompleted get(payout_completed): map (IdentityId, Vec<u8>, u32) => bool;
+        UserPayoutCompleted get(payout_completed): map (IdentityId, Ticker, u32) => bool;
     }
 }
 
@@ -97,10 +95,10 @@ decl_module! {
         pub fn new(origin,
             did: IdentityId,
             amount: T::Balance,
-            ticker: Vec<u8>,
+            ticker: Ticker,
             matures_at: T::Moment,
             expires_at: T::Moment,
-            payout_ticker: Vec<u8>,
+            payout_ticker: Ticker,
             checkpoint_id: u64
         ) -> Result {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
@@ -176,7 +174,7 @@ decl_module! {
         }
 
         /// Lets the owner cancel a dividend before start/maturity date
-        pub fn cancel(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
+        pub fn cancel(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
             let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -214,7 +212,7 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        pub fn claim(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
+        pub fn claim(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
             let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -281,7 +279,7 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
-        pub fn claim_unclaimed(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
+        pub fn claim_unclaimed(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -328,16 +326,16 @@ decl_event!(
         Balance = <T as balances::Trait>::Balance,
     {
         /// A new dividend was created (ticker, amount, dividend ID)
-        DividendCreated(Vec<u8>, Balance, u32),
+        DividendCreated(Ticker, Balance, u32),
 
         /// A dividend was canceled (ticker, dividend ID)
-        DividendCanceled(Vec<u8>, u32),
+        DividendCanceled(Ticker, u32),
 
         /// Dividend was paid to a user (who, ticker, dividend ID, share)
-        DividendPaidOutToUser(IdentityId, Vec<u8>, u32, Balance),
+        DividendPaidOutToUser(IdentityId, Ticker, u32, Balance),
 
         /// Unclaimed dividend was claimed back (ticker, dividend ID, amount)
-        DividendRemainingClaimed(Vec<u8>, u32, Balance),
+        DividendRemainingClaimed(Ticker, u32, Balance),
     }
 );
 
@@ -345,7 +343,7 @@ impl<T: Trait> Module<T> {
     /// A helper method for dividend creation. Returns dividend ID
     /// #[inline]
     fn add_dividend_entry(
-        ticker: &Vec<u8>,
+        ticker: &Ticker,
         d: Dividend<T::Balance, T::Moment>,
     ) -> core::result::Result<u32, &'static str> {
         let old_count = <DividendCount>::get(ticker);
@@ -361,11 +359,11 @@ impl<T: Trait> Module<T> {
 
     /// Retrieves a dividend checking that it exists beforehand.
     pub fn get_dividend(
-        ticker: &[u8],
+        ticker: &Ticker,
         dividend_id: u32,
     ) -> Option<Dividend<T::Balance, T::Moment>> {
         // Check that the dividend entry exists
-        let ticker_div_id = (ticker.to_vec(), dividend_id);
+        let ticker_div_id = (ticker.to_owned(), dividend_id);
         if <Dividends<T>>::exists(&ticker_div_id) {
             Some(<Dividends<T>>::get(&ticker_div_id))
         } else {
@@ -600,8 +598,9 @@ mod tests {
     impl Trait for Test {
         type Event = ();
     }
+
     impl asset::AssetTrait<<Test as balances::Trait>::Balance> for Module<Test> {
-        fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
+        fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(ticker) {
                 token.owner_did == sender_did
             } else {
@@ -610,7 +609,7 @@ mod tests {
         }
 
         fn _mint_from_sto(
-            _ticker: &[u8],
+            _ticker: &Ticker,
             _sender_did: IdentityId,
             _tokens_purchased: <Test as balances::Trait>::Balance,
         ) -> Result {
@@ -618,17 +617,17 @@ mod tests {
         }
 
         /// Get the asset `id` balance of `who`.
-        fn balance(_ticker: &[u8], _did: IdentityId) -> <Test as balances::Trait>::Balance {
+        fn balance(_ticker: &Ticker, _did: IdentityId) -> <Test as balances::Trait>::Balance {
             unimplemented!();
         }
 
         // Get the total supply of an asset `id`
-        fn total_supply(_ticker: &[u8]) -> <Test as balances::Trait>::Balance {
+        fn total_supply(_ticker: &Ticker) -> <Test as balances::Trait>::Balance {
             unimplemented!();
         }
 
         fn get_balance_at(
-            _ticker: &Vec<u8>,
+            _ticker: &Ticker,
             _did: IdentityId,
             _at: u64,
         ) -> <Test as balances::Trait>::Balance {
@@ -704,7 +703,7 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: [b'A'; 12],
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -713,7 +712,7 @@ mod tests {
 
             // A token used for payout
             let payout_token = SimpleTokenRecord {
-                ticker: vec![0x02],
+                ticker: [b'B'; 12],
                 owner_did: payout_owner_did,
                 total_supply: 200_000_000,
             };

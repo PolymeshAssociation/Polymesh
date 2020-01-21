@@ -114,7 +114,7 @@ pub struct RuleData {
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
         /// List of active rules for a ticker (Ticker -> Array of AssetRules)
-        pub ActiveRules get(active_rules): map Vec<u8> => Vec<AssetRule>;
+        pub ActiveRules get(active_rules): map Ticker => Vec<AssetRule>;
     }
 }
 
@@ -124,16 +124,16 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Adds an asset rule to active rules for a ticker
-        pub fn add_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+        pub fn add_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> Result {
+            ticker.canonize();
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
-            <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
+            <ActiveRules>::mutate(ticker, |old_asset_rules| {
                 if !old_asset_rules.contains(&asset_rule) {
                     old_asset_rules.push(asset_rule.clone());
                 }
@@ -145,15 +145,15 @@ decl_module! {
         }
 
         /// Removes a rule from active asset rules
-        pub fn remove_active_rule(origin, did: IdentityId, _ticker: Vec<u8>, asset_rule: AssetRule) -> Result {
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+        pub fn remove_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> Result {
+            ticker.canonize();
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
-            <ActiveRules>::mutate(ticker.clone(), |old_asset_rules| {
+            <ActiveRules>::mutate(ticker, |old_asset_rules| {
                 *old_asset_rules = old_asset_rules
                     .iter()
                     .cloned()
@@ -167,15 +167,15 @@ decl_module! {
         }
 
         /// Removes all active rules of a ticker
-        pub fn reset_active_rules(origin, did: IdentityId, _ticker: Vec<u8>) -> Result {
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+        pub fn reset_active_rules(origin, did: IdentityId, ticker: Ticker) -> Result {
+            ticker.canonize();
+            let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
-            <ActiveRules>::remove(ticker.clone());
+            <ActiveRules>::remove(ticker);
 
             Self::deposit_event(Event::ResetAssetRules(ticker));
 
@@ -193,9 +193,8 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
-        let upper_ticker = utils::bytes_to_upper(ticker);
-        T::Asset::is_owner(&upper_ticker, sender_did)
+    fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
+        T::Asset::is_owner(ticker, sender_did)
     }
 
     fn fetch_value(
@@ -208,7 +207,7 @@ impl<T: Trait> Module<T> {
 
     ///  Sender restriction verification
     pub fn verify_restriction(
-        ticker: &Vec<u8>,
+        ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
