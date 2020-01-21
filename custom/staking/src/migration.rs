@@ -68,7 +68,7 @@ mod inner {
             if *version < MIN_SUPPORTED_VERSION {
                 frame_support::print(
                     "Cannot migrate staking storage because version is less than\
-					minimum.",
+                     minimum.",
                 );
                 frame_support::print(*version);
                 return;
