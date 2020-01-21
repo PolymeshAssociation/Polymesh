@@ -589,7 +589,7 @@ decl_module! {
                 // New total supply must be valid
                 token.total_supply = updated_total_supply;
             }
-            let round = Self::funding_round(ticker.clone());
+            let round = Self::funding_round(&ticker);
             // Update the total token balance issued in this funding round.
             let issued_in_this_round = Self::issued_in_funding_round((ticker.clone(), round.clone()));
             for v in &values {
@@ -1058,25 +1058,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Gets the name of the current funding round.
-        ///
-        /// # Arguments
-        /// * `origin` - the signing key of the token owner DID.
-        /// * `did` - the token owner DID.
-        /// * `ticker` - the ticker of the token.
-        pub fn get_funding_round(origin, did: IdentityId, ticker: Vec<u8>) -> Result {
-            let ticker = utils::bytes_to_upper(ticker.as_slice());
-            let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer),
-                    "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "DID is not of the asset owner");
-            let name = Self::funding_round(ticker.clone());
-            Self::deposit_event(RawEvent::FundingRound(ticker, name));
-            Ok(())
-        }
-
         /// Sets the name of the current funding round.
         ///
         /// # Arguments
@@ -1540,7 +1521,7 @@ impl<T: Trait> Module<T> {
 
         <BalanceOf<T>>::insert(&ticker_to_did, updated_to_balance);
         <Tokens<T>>::insert(ticker.clone(), token);
-        let round = Self::funding_round(ticker.clone());
+        let round = Self::funding_round(ticker);
         let issued_in_this_round = Self::issued_in_funding_round((ticker.clone(), round.clone()))
             .checked_add(&value)
             .ok_or("current funding round total overflowed")?;
@@ -2166,7 +2147,7 @@ mod tests {
                 vec![0x0]
             ));
             assert_eq!(
-                Asset::funding_round(token.name.clone()),
+                Asset::funding_round(&token.name),
                 funding_round1.clone()
             );
             assert_eq!(
