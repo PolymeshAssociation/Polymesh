@@ -2146,10 +2146,7 @@ mod tests {
                 num_tokens1,
                 vec![0x0]
             ));
-            assert_eq!(
-                Asset::funding_round(&token.name),
-                funding_round1.clone()
-            );
+            assert_eq!(Asset::funding_round(&token.name), funding_round1.clone());
             assert_eq!(
                 Asset::issued_in_funding_round((token.name.clone(), funding_round1.clone())),
                 num_tokens1
