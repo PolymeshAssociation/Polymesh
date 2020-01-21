@@ -182,7 +182,7 @@ use sp_runtime::RuntimeDebug;
 use sp_std::{cmp, convert::TryFrom, fmt::Debug, mem, prelude::*, result};
 
 use crate::identity::IdentityTrait;
-use primitives::{IdentityId, Key, Permission, Signer};
+use primitives::{IdentityId, Key, Permission, Signer, traits::IdentityCurrency};
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 
@@ -604,33 +604,6 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         // assert!(!Self::total_balance(who).is_zero());
         <FreeBalance<T, I>>::insert(who, balance);
         UpdateBalanceOutcome::Updated
-    }
-
-    fn withdraw_identity_balance(
-        who: &IdentityId,
-        value: T::Balance,
-    ) -> result::Result<NegativeImbalance<T, I>, DispatchError> {
-        if let Some(new_balance) = Self::identity_balance(who).checked_sub(&value) {
-            <IdentityBalance<T, I>>::insert(who, new_balance);
-            Ok(NegativeImbalance::new(value))
-        } else {
-            Err(Error::<T, I>::Overflow)?
-        }
-    }
-
-    fn charge_fee_to_identity(who: &Key) -> Option<IdentityId> {
-        if <Module<T, I>>::charge_did(who) {
-            if let Some(did) = <T::Identity>::get_identity(&who) {
-                if <T::Identity>::is_signer_authorized_with_permissions(
-                    did,
-                    &Signer::Key(who.clone()),
-                    vec![Permission::SpendFunds],
-                ) {
-                    return Some(did);
-                }
-            }
-        }
-        return None;
     }
 
     /// Register a new account
@@ -1060,6 +1033,41 @@ where
         (imbalance, UpdateBalanceOutcome::Updated)
     }
 }
+
+
+impl<T: Trait<I>, I: Instance> IdentityCurrency<T::AccountId> for Module<T, I>
+where
+    T::Balance: MaybeSerializeDeserialize + Debug,
+{
+
+    fn withdraw_identity_balance(
+        who: &IdentityId,
+        value: Self::Balance,
+    ) -> result::Result<Self::NegativeImbalance, DispatchError> {
+        if let Some(new_balance) = Self::identity_balance(who).checked_sub(&value) {
+            <IdentityBalance<T, I>>::insert(who, new_balance);
+            Ok(NegativeImbalance::new(value))
+        } else {
+            Err(Error::<T, I>::Overflow)?
+        }
+    }
+
+    fn charge_fee_to_identity(who: &Key) -> Option<IdentityId> {
+        if <Module<T, I>>::charge_did(who) {
+            if let Some(did) = <T::Identity>::get_identity(&who) {
+                if <T::Identity>::is_signer_authorized_with_permissions(
+                    did,
+                    &Signer::Key(who.clone()),
+                    vec![Permission::SpendFunds],
+                ) {
+                    return Some(did);
+                }
+            }
+        }
+        return None;
+    }
+} 
+
 
 impl<T: Trait<I>, I: Instance> ReservableCurrency<T::AccountId> for Module<T, I>
 where

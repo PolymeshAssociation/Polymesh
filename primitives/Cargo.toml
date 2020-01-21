@@ -15,6 +15,7 @@ sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/subs
 bitvec = { version = "0.14.0", default-features = false, features = ["alloc"] }
 pallet-babe = { package = "pallet-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 hex = "0.4.0"
 

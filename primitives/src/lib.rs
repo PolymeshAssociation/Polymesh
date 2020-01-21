@@ -83,6 +83,9 @@ pub use signing_item::{Permission, Signer, SignerType, SigningItem};
 pub mod pre_authorized_key_info;
 pub use pre_authorized_key_info::PreAuthorizedKeyInfo;
 
+/// Pub Traits
+pub mod traits;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
