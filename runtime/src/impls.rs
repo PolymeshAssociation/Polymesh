@@ -258,7 +258,7 @@ mod tests {
                 let adjusted_fee = fm.saturated_multiply_accumulate(fee);
                 println!(
                     "iteration {}, new fm = {:?}. Fee at this point is: {} units / {} millicents, \
-					{} cents, {} dollars",
+                     {} cents, {} dollars",
                     iterations,
                     fm,
                     adjusted_fee,
