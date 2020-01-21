@@ -7,6 +7,7 @@ pub mod impls;
 
 pub mod asset;
 pub mod balances;
+pub mod committee;
 /// Constant values used within the runtime.
 pub mod constants;
 
@@ -17,7 +18,9 @@ mod contracts_wrapper;
 mod dividend;
 mod exemption;
 mod general_tm;
+mod group;
 mod identity;
+mod mips;
 mod percentage_tm;
 mod simple_token;
 
@@ -39,8 +42,9 @@ pub mod config {
     pub type IdentityConfig = crate::identity::GenesisConfig<crate::Runtime>;
     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
-    pub type GovernanceCommitteeConfig =
-        pallet_collective::GenesisConfig<crate::Runtime, pallet_collective::Instance1>;
+    pub type PolymeshCommitteeConfig =
+        crate::committee::GenesisConfig<crate::Runtime, crate::committee::Instance1>;
+    pub type MIPSConfig = crate::mips::GenesisConfig<crate::Runtime>;
     pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;
     pub type SudoConfig = pallet_sudo::GenesisConfig<crate::Runtime>;
@@ -51,6 +55,8 @@ pub mod config {
 
 pub mod update_did_signed_extension;
 pub use update_did_signed_extension::UpdateDid;
+pub mod batch_dispatch_info;
+pub use batch_dispatch_info::BatchDispatchInfo;
 
 pub use sp_runtime::{Perbill, Permill};
 

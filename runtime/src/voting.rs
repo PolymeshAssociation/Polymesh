@@ -347,6 +347,7 @@ mod tests {
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
     };
+    use sp_core::{Blake2Hasher, H256};
     use sp_io::{with_externalities, TestExternalities};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
@@ -354,7 +355,6 @@ mod tests {
         AnySignature, Perbill,
     };
     use std::result::Result;
-    use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
 
     use crate::{
@@ -388,7 +388,7 @@ mod tests {
     impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
-        type BlockNumber = u64;
+        type BlockNumber = BlockNumber;
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = AccountId;
@@ -510,6 +510,7 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
+        type AcceptTransferTarget = asset::Module<Test>;
     }
 
     impl asset::Trait for Test {

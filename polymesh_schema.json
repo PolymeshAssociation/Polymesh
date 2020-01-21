@@ -28,8 +28,8 @@
         "active": "bool",
         "jurisdiction": "u16"
     },
-    "LinkedKeyInfo": { 
-        "_enum": { 
+    "LinkedKeyInfo": {
+        "_enum": {
             "Unique": "IdentityId",
             "Group": "Vec<IdentityId>"
         }
@@ -43,6 +43,18 @@
             "SpendFunds"
        ]
     },
+    "Link": {
+        "link_data": "LinkData",
+        "expiry": "Option<Moment>",
+        "next_link": "u64",
+        "previous_link": "u64"
+    },
+    "LinkData": {
+       "_enum": {
+            "TickerOwned": "Vec<u8>",
+            "TokenOwned": "Vec<u8>"
+       }
+    },
     "SignerType": {
         "_enum": [
             "External",
@@ -52,19 +64,19 @@
         ]
     },
     "Signer":{
-       "_enum": { 
+       "_enum": {
             "Identity": "IdentityId",
             "Key": "Key"
-        } 
+        }
     },
     "SigningItem": {
         "signer": "Signer",
         "signer_type": "SignerType",
         "permissions": "Vec<Permission>"
     },
-    "LinkedKeyInfo": {
-        "_enum": "[u8;1]",
-        "did": "[u8;32]"
+    "SigningItemWithAuth":{
+        "signing_item": "SigningItem",
+        "auth_signature": "Signature"
     },
     "IdentityRole": {
         "_enum": [
@@ -101,6 +113,12 @@
     "ClaimValue": {
         "data_type": "DataTypes",
         "value": "Vec<u8>"
+    },
+    "ClaimRecord": {
+        "did": "IdentityId",
+        "claim_key": "Vec<u8>",
+        "expiry": "Moment",
+        "claim_value": "ClaimValue"
     },
     "DataTypes": {
         "_enum": [
@@ -164,6 +182,11 @@
         "payout_currency": "Option<Vec<u8>>",
         "checkpoint_id": "u64"
     },
+    "TargetIdAuthorization": {
+        "target_id": "IdentityId",
+        "nonce": "u64",
+        "expires_at": "Moment"
+    },
     "TickerRegistration": {
         "owner": "IdentityId",
         "expiry": "Option<Moment>"
@@ -190,6 +213,17 @@
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
     },
+    "MipsMetadata": {
+        "index": "u32",
+        "end": "u64",
+        "proposal_hash": "Hash"
+    },
+    "Votes": {
+        "index": "u32",
+        "ayes": "Vec<(IdentityId, Balance)>",
+        "nays": "Vec<(IdentityId, Balance)>"
+    },
+    "MipsIndex": "u32",
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
         "next_ticker": "Option<Vec<u8>>",
@@ -199,10 +233,24 @@
     "PermissionedValidator": {
         "compliance": "Compliance"
     },
+    "Authorization": {
+        "authorization_data": "AuthorizationData",
+        "authorized_by": "IdentityId",
+        "expiry": "Option<Moment>",
+        "next_authorization": "u64",
+        "previous_authorization": "u64"
+    },
+    "AuthorizationData": {
+        "_enum": {
+            "TransferTicker": "Vec<u8>",
+            "Custom": "Vec<u8>"
+        }
+    },
     "Compliance": {
         "_enum": [
             "Pending",
             "Active"
         ]
-    }
+    },
+    "AuthorizationNonce": "u64"
 }

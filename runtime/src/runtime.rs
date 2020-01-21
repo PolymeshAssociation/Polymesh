@@ -1,9 +1,9 @@
 use crate::{
-    asset, balances,
+    asset, balances, committee,
     constants::{currency::*, time::*},
-    contracts_wrapper, dividend, exemption, general_tm, identity,
+    contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    percentage_tm, simple_token, sto_capped,
+    mips, percentage_tm, simple_token, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -281,36 +281,40 @@ impl pallet_staking::Trait for Runtime {
     type SlashDeferDuration = SlashDeferDuration;
     /// A super-majority of the council can cancel the slash.
     type SlashCancelOrigin =
-        pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, GovernanceCollective>;
+        committee::EnsureProportionAtLeast<_3, _4, AccountId, GovernanceCommittee>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
-    type AddOrigin =
-        pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
-    type RemoveOrigin =
-        pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+    type AddOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type RemoveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
     type ComplianceOrigin =
-        pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, GovernanceCollective>;
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
 }
 
-type GovernanceCollective = pallet_collective::Instance1;
-impl pallet_collective::Trait<GovernanceCollective> for Runtime {
+type GovernanceCommittee = committee::Instance1;
+impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
+    type CommitteeOrigin =
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
     type Event = Event;
 }
 
-impl pallet_membership::Trait<pallet_membership::Instance1> for Runtime {
+impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
-    type AddOrigin =
-        pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type RemoveOrigin =
-        pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type SwapOrigin =
-        pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type ResetOrigin =
-        pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
-    type MembershipInitialized = GovernanceCommittee;
-    type MembershipChanged = GovernanceCommittee;
+    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type MembershipInitialized = PolymeshCommittee;
+    type MembershipChanged = PolymeshCommittee;
+}
+
+impl mips::Trait for Runtime {
+    type Currency = Balances;
+    type Proposal = Call;
+    type CommitteeOrigin =
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type Event = Event;
 }
 
 parameter_types! {
@@ -385,10 +389,8 @@ parameter_types! {
 
 impl pallet_treasury::Trait for Runtime {
     type Currency = Balances;
-    type ApproveOrigin =
-        pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCollective>;
-    type RejectOrigin =
-        pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCollective>;
+    type ApproveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type RejectOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type Event = Event;
     type ProposalRejection = ();
     type ProposalBond = ProposalBond;
@@ -485,6 +487,7 @@ impl percentage_tm::Trait for Runtime {
 impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
+    type AcceptTransferTarget = Asset;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -496,6 +499,16 @@ impl exemption::Trait for Runtime {
 
 impl dividend::Trait for Runtime {
     type Event = Event;
+}
+
+impl group::Trait<group::Instance2> for Runtime {
+    type Event = Event;
+    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
 }
 
 construct_runtime!(
@@ -532,9 +545,10 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
-        GovernanceMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-        GovernanceCommittee: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        Treasury: pallet_treasury::{Module, Call, Storage, Event<T>},
+        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+   		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
@@ -546,6 +560,7 @@ construct_runtime!(
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
+        KYCServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 

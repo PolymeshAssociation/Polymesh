@@ -18,24 +18,24 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::prelude::*;
-use frame_support::weights::{Weight, DispatchClass};
-use codec::{Encode, Codec, Decode};
+use codec::{Codec, Decode, Encode};
+use frame_support::weights::{DispatchClass, Weight};
 #[cfg(feature = "std")]
-use serde::{Serialize, Deserialize};
-use sp_runtime::traits::{UniqueSaturatedInto, SaturatedConversion};
+use serde::{Deserialize, Serialize};
+use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
+use sp_std::prelude::*;
 
 /// Some information related to a dispatchable that can be queried from the runtime.
 #[derive(Eq, PartialEq, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RuntimeDispatchInfo<Balance> {
-	/// Weight of this dispatch.
-	pub weight: Weight,
-	/// Class of this dispatch.
-	pub class: DispatchClass,
-	/// The partial inclusion fee of this dispatch. This does not include tip or anything else which
-	/// is dependent on the signature (aka. depends on a `SignedExtension`).
-	pub partial_fee: Balance,
+    /// Weight of this dispatch.
+    pub weight: Weight,
+    /// Class of this dispatch.
+    pub class: DispatchClass,
+    /// The partial inclusion fee of this dispatch. This does not include tip or anything else which
+    /// is dependent on the signature (aka. depends on a `SignedExtension`).
+    pub partial_fee: Balance,
 }
 
 /// A capped version of `RuntimeDispatchInfo`.
@@ -45,62 +45,60 @@ pub struct RuntimeDispatchInfo<Balance> {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct CappedDispatchInfo {
-	/// Weight of this dispatch.
-	pub weight: Weight,
-	/// Class of this dispatch.
-	pub class: DispatchClass,
-	/// The partial inclusion fee of this dispatch. This does not include tip or anything else which
-	/// is dependent on the signature (aka. depends on a `SignedExtension`).
-	pub partial_fee: u64,
+    /// Weight of this dispatch.
+    pub weight: Weight,
+    /// Class of this dispatch.
+    pub class: DispatchClass,
+    /// The partial inclusion fee of this dispatch. This does not include tip or anything else which
+    /// is dependent on the signature (aka. depends on a `SignedExtension`).
+    pub partial_fee: u64,
 }
 
 impl CappedDispatchInfo {
-	/// Create a new `CappedDispatchInfo` from `RuntimeDispatchInfo`.
-	pub fn new<Balance: UniqueSaturatedInto<u64>>(
-		dispatch: RuntimeDispatchInfo<Balance>,
-	) -> Self {
-		let RuntimeDispatchInfo {
-			weight,
-			class,
-			partial_fee,
-		} = dispatch;
+    /// Create a new `CappedDispatchInfo` from `RuntimeDispatchInfo`.
+    pub fn new<Balance: UniqueSaturatedInto<u64>>(dispatch: RuntimeDispatchInfo<Balance>) -> Self {
+        let RuntimeDispatchInfo {
+            weight,
+            class,
+            partial_fee,
+        } = dispatch;
 
-		Self {
-			weight,
-			class,
-			partial_fee: partial_fee.saturated_into(),
-		}
-	}
+        Self {
+            weight,
+            class,
+            partial_fee: partial_fee.saturated_into(),
+        }
+    }
 }
 
 sp_api::decl_runtime_apis! {
-	pub trait TransactionPaymentApi<Balance, Extrinsic> where
-		Balance: Codec,
-		Extrinsic: Codec,
-	{
-		fn query_info(uxt: Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance>;
-	}
+    pub trait TransactionPaymentApi<Balance, Extrinsic> where
+        Balance: Codec,
+        Extrinsic: Codec,
+    {
+        fn query_info(uxt: Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance>;
+    }
 }
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+    use super::*;
 
-	#[test]
-	fn should_serialize_properly_with_u64() {
-		let info = RuntimeDispatchInfo {
-			weight: 5,
-			class: DispatchClass::Normal,
-			partial_fee: 1_000_000_u64,
-		};
+    #[test]
+    fn should_serialize_properly_with_u64() {
+        let info = RuntimeDispatchInfo {
+            weight: 5,
+            class: DispatchClass::Normal,
+            partial_fee: 1_000_000_u64,
+        };
 
-		let info = CappedDispatchInfo::new(info);
-		assert_eq!(
-			serde_json::to_string(&info).unwrap(),
-			r#"{"weight":5,"class":"normal","partialFee":1000000}"#,
-		);
+        let info = CappedDispatchInfo::new(info);
+        assert_eq!(
+            serde_json::to_string(&info).unwrap(),
+            r#"{"weight":5,"class":"normal","partialFee":1000000}"#,
+        );
 
-		// should not panic
-		serde_json::to_value(&info).unwrap();
-	}
+        // should not panic
+        serde_json::to_value(&info).unwrap();
+    }
 }

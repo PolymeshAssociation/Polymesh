@@ -4,6 +4,9 @@ use core::str;
 use sp_io;
 use sp_runtime::traits::Printable;
 use sp_std::prelude::*;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
 const _POLY_DID_PREFIX: &'static str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
 const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
@@ -23,11 +26,16 @@ const UUID_LEN: usize = 32usize;
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
 #[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct IdentityId([u8; UUID_LEN]);
 
 impl Display for IdentityId {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "did:poly:{:?}", self.0)
+        write!(f, "did:poly:")?;
+        for byte in &self.0 {
+            f.write_fmt(format_args!("{:02x}", byte))?;
+        }
+        Ok(())
     }
 }
 
@@ -75,8 +83,16 @@ impl TryFrom<&[u8]> for IdentityId {
     type Error = &'static str;
 
     fn try_from(did: &[u8]) -> Result<Self, Self::Error> {
-        let did_str = str::from_utf8(did).map_err(|_| "DID is not valid UTF-8")?;
-        IdentityId::try_from(did_str)
+        if did.len() == UUID_LEN {
+            // case where a 256 bit hash is being converted
+            let mut uuid_fixed = [0; 32];
+            uuid_fixed.copy_from_slice(&did);
+            Ok(IdentityId(uuid_fixed))
+        } else {
+            // case where a string represented as u8 is being converted
+            let did_str = str::from_utf8(did).map_err(|_| "DID is not valid UTF-8")?;
+            IdentityId::try_from(did_str)
+        }
     }
 }
 

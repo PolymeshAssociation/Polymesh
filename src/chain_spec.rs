@@ -4,13 +4,16 @@ use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::{AccountId, Signature};
 use polymesh_runtime::asset::TickerRegistrationConfig;
+use polymesh_runtime::committee::ProportionMatch;
 use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::{
     config::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
-        SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
+        MIPSConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
-    runtime::GovernanceCommitteeConfig,
+    runtime::CommitteeMembershipConfig,
+    runtime::KYCServiceProvidersConfig,
+    runtime::PolymeshCommitteeConfig,
     Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use sc_service::Properties;
@@ -228,7 +231,7 @@ fn testnet_genesis(
             ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
-                registration_length: None,
+                registration_length: Some(5184000000),
             },
             fee_collector: get_from_seed::<AccountId>("Dave"),
         }),
@@ -272,16 +275,11 @@ fn testnet_genesis(
             slash_reward_fraction: Perbill::from_percent(10),
             ..Default::default()
         }),
-        pallet_membership_Instance1: Some(Default::default()),
-        pallet_collective_Instance1: Some(GovernanceCommitteeConfig {
-            members: vec![
-                get_from_seed::<AccountId>("Alice"),
-                get_from_seed::<AccountId>("Bob"),
-                get_from_seed::<AccountId>("Charlie"),
-            ],
-            phantom: Default::default(),
+        mips: Some(MIPSConfig {
+            min_proposal_deposit: 5000,
+            quorum_threshold: 100000,
+            proposal_duration: 50,
         }),
-        pallet_treasury: Some(Default::default()),
         pallet_im_online: Some(Default::default()),
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
@@ -292,6 +290,19 @@ fn testnet_genesis(
                 ..Default::default()
             },
             gas_price: 1 * MILLICENTS,
+        }),
+        group_Instance1: Some(CommitteeMembershipConfig {
+            members: vec![],
+            phantom: Default::default(),
+        }),
+        committee_Instance1: Some(PolymeshCommitteeConfig {
+            members: vec![],
+            vote_threshold: (ProportionMatch::AtLeast, 1, 2),
+            phantom: Default::default(),
+        }),
+        group_Instance2: Some(KYCServiceProvidersConfig {
+            members: vec![],
+            phantom: Default::default(),
         }),
     }
 }

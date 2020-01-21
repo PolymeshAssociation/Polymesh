@@ -15,6 +15,13 @@ const KEY_SIZE: usize = 32;
 #[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Copy, Clone, Debug)]
 pub struct Key([u8; KEY_SIZE]);
 
+impl Key {
+    /// It returns this key as a byte slice.
+    pub fn as_slice(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl TryFrom<Vec<u8>> for Key {
     type Error = &'static str;
 

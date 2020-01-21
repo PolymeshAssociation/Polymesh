@@ -43,7 +43,7 @@ impl Default for SignerType {
 
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Signer {
     Identity(IdentityId),
     Key(Key),
@@ -52,6 +52,18 @@ pub enum Signer {
 impl Default for Signer {
     fn default() -> Self {
         Signer::Identity(IdentityId::default())
+    }
+}
+
+impl From<Key> for Signer {
+    fn from(v: Key) -> Self {
+        Signer::Key(v)
+    }
+}
+
+impl From<IdentityId> for Signer {
+    fn from(v: IdentityId) -> Self {
+        Signer::Identity(v)
     }
 }
 
@@ -69,6 +81,16 @@ impl PartialEq<IdentityId> for Signer {
         match self {
             Signer::Identity(ref id) => id == other,
             _ => false,
+        }
+    }
+}
+
+impl Signer {
+    /// Checks if Signer is either a particular Identity or a particular key
+    pub fn eq_either(&self, other_identity: &IdentityId, other_key: &Key) -> bool {
+        match self {
+            Signer::Key(ref key) => key == other_key,
+            Signer::Identity(ref id) => id == other_identity,
         }
     }
 }
@@ -212,5 +234,19 @@ mod tests {
 
         assert_eq!(not_full_key.has_permission(Permission::Operator), true);
         assert_eq!(not_full_key.has_permission(Permission::Admin), false);
+    }
+
+    #[test]
+    fn signer_build_and_eq_tests() {
+        let k = "ABCDABCD".as_bytes().to_vec();
+        let key = Key::try_from(k.as_slice()).unwrap();
+        let iden = IdentityId::try_from(
+            "did:poly:f1d273950ddaf693db228084d63ef18282e00f91997ae9df4f173f09e86d0976",
+        )
+        .unwrap();
+        assert_eq!(Signer::from(key), key);
+        assert_ne!(Signer::from(key), iden);
+        assert_eq!(Signer::from(iden), iden);
+        assert_ne!(Signer::from(iden), key);
     }
 }

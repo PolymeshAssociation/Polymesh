@@ -77,7 +77,9 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
         match call {
             // Add here any function from any module which does *not* need a current identity.
             Call::Identity(identity::Call::register_did(..))
-            | Call::Identity(identity::Call::authorize_join_to_identity(..)) => {
+            | Call::Identity(identity::Call::authorize_join_to_identity(..))
+            | Call::Identity(identity::Call::accept_authorization(..))
+            | Call::Identity(identity::Call::batch_accept_authorization(..)) => {
                 Ok(ValidTransaction::default())
             }
             // Other calls should be identified
@@ -109,10 +111,11 @@ mod tests {
     use super::UpdateDid;
     use crate::{
         identity, runtime,
-        test::storage::{build_ext, make_account_with_balance, Identity, TestStorage},
+        test::storage::{build_ext, register_keyring_account_with_balance, Identity, TestStorage},
         Runtime,
     };
     use core::default::Default;
+    use frame_support::dispatch::DispatchInfo;
     use frame_support::dispatch::DispatchInfo;
     use primitives::TransactionError;
     use sp_io::with_externalities;
@@ -120,6 +123,7 @@ mod tests {
         traits::SignedExtension,
         transaction_validity::{InvalidTransaction, ValidTransaction},
     };
+    use test_client::AccountKeyring;
 
     type Call = runtime::Call;
     type IdentityCall = identity::Call<Runtime>;
@@ -133,16 +137,20 @@ mod tests {
         let update_did_se = <UpdateDid<TestStorage>>::new();
         let dispatch_info = DispatchInfo::default();
 
-        let (a_acc, b_acc, c_acc) = (1u64, 2u64, 3u64);
-        let (_alice, alice_id) = make_account_with_balance(a_acc, 10_000).unwrap();
-        let (_bob, _bob_id) = make_account_with_balance(b_acc, 5_000).unwrap();
+        let alice_signed = AccountKeyring::Alice.public();
+        let alice_id =
+            register_keyring_account_with_balance(AccountKeyring::Alice, 10_000).unwrap();
+
+        // let bob_id = register_keyring_account_with_balance( AccountKeyring::Bob, 5_000).unwrap();
+        let charlie_signed = AccountKeyring::Charlie.public();
+
         let valid_transaction_ok = Ok(ValidTransaction::default());
 
         // `Identity::register_did` does not need an DID associated and check `current_did` is
         // none.
         let register_did_call_1 = Call::Identity(IdentityCall::register_did(vec![]));
         assert_eq!(
-            update_did_se.validate(&a_acc, &register_did_call_1, dispatch_info, 0usize),
+            update_did_se.validate(&alice_signed, &register_did_call_1, dispatch_info, 0usize),
             valid_transaction_ok
         );
         assert_eq!(Identity::current_did(), None);
@@ -151,7 +159,7 @@ mod tests {
         // `post_dispatch` clears it.
         let add_signing_items_1 = Call::Identity(IdentityCall::add_signing_items(alice_id, vec![]));
         assert_eq!(
-            update_did_se.validate(&a_acc, &add_signing_items_1, dispatch_info, 0),
+            update_did_se.validate(&alice_signed, &add_signing_items_1, dispatch_info, 0),
             valid_transaction_ok
         );
         assert_eq!(Identity::current_did(), Some(alice_id));
@@ -161,7 +169,7 @@ mod tests {
         // `Identity::freeze_signing_keys` fails because `c_acc` account has not a DID.
         let freeze_call1 = Call::Identity(IdentityCall::freeze_signing_keys(alice_id));
         assert_eq!(
-            update_did_se.validate(&c_acc, &freeze_call1, dispatch_info, 0usize),
+            update_did_se.validate(&charlie_signed, &freeze_call1, dispatch_info, 0usize),
             Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
         );
     }

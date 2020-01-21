@@ -85,6 +85,16 @@ pub use pre_authorized_key_info::PreAuthorizedKeyInfo;
 
 /// Pub Traits
 pub mod traits;
+/// Generic authorization data types for all two step processes
+pub mod authorization;
+pub use authorization::Authorization;
+pub use authorization::AuthorizationData;
+pub use authorization::AuthorizationError;
+
+/// Generic links that contains information about a key/identity for example ownership of a ticker
+pub mod link;
+pub use link::Link;
+pub use link::LinkData;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
