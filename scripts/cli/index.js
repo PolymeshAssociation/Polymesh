@@ -249,7 +249,7 @@ async function main() {
 
   console.log("Claims Batch Test");
 
-  await addClaimsBatchToDid(api, claim_keys, claim_issuer_dids, 1);
+  await addClaimsBatchToDid(api, claim_keys, claim_issuer_dids, 10);
 
   console.log("Claim Batch Test Completed");
   process.exit();
@@ -431,7 +431,7 @@ async function createIdentities(api, accounts, identity_type, prepend, submitBar
   await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-    dids.push(d.raw.did);
+    dids.push(d.raw.asUnique);
   }
   return dids;
 }
@@ -620,14 +620,14 @@ async function addClaimsBatchToDid(api, accounts, claim_did, n_claims) {
     let claims = []; 
 
     // Stores the value of each claim
-    let claim_value = {data_type: 0, value: "0"};
-
+    let claim_record = {did: claim_did[0], claim_key: "test", expiry: 0, claim_value: {data_type: 0, value: "0"}};
+    
     // This fills the claims array with claim_values up to n_claims amount
-    for (let i = 0; i < n_claims.length; i++) {
-      claims.push({
-        claim_value
-      });
+    for (let i = 0; i < n_claims; i++) {
+      claims.push( claim_record );
     }
+
+    console.log("Claims length: " + claims.length);
 
     // Calls the add_claims_batch function in identity.rs
     const unsub = await api.tx.identity
