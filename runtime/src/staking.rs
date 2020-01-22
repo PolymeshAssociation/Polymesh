@@ -2472,7 +2472,7 @@ mod tests {
         claim_value: ClaimValue,
     ) -> Result<(), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
-        Identity::add_claim_issuer(signed_id, idendity_id, claim_issuer);
+        //Identity::add_claim_issuer(signed_id, idendity_id, claim_issuer);
         let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id.clone());
         let now = Utc::now();
         Identity::add_claim(
@@ -2693,10 +2693,10 @@ mod tests {
                     account_alice.clone(),
                     claim,
                 );
-                assert_eq!(
-                    Identity::is_claim_issuer(alice_did, claim_issuer_1_did),
-                    true
-                );
+                // assert_eq!(
+                //     Identity::is_claim_issuer(alice_did, claim_issuer_1_did),
+                //     true
+                // );
 
                 // add one more claim issuer
                 let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
@@ -2717,8 +2717,8 @@ mod tests {
                     account_alice.clone(),
                     claim,
                 );
-                let claim_issuers = Identity::claim_issuers(alice_did);
-                assert_eq!(claim_issuers.len(), 2);
+                // let claim_issuers = Identity::claim_issuers(alice_did);
+                // assert_eq!(claim_issuers.len(), 2);
 
                 // bond
                 assert_ok!(Staking::bond(
@@ -2787,8 +2787,8 @@ mod tests {
                     claim,
                 );
 
-                let mut claim_issuers = Identity::claim_issuers(alice_did);
-                assert_eq!(claim_issuers.len(), 1);
+                // let mut claim_issuers = Identity::claim_issuers(alice_did);
+                // assert_eq!(claim_issuers.len(), 1);
 
                 let claim = ClaimValue {
                     data_type: DataTypes::U64,
@@ -2803,8 +2803,8 @@ mod tests {
                     claim,
                 );
 
-                claim_issuers = Identity::claim_issuers(eve_did);
-                assert_eq!(claim_issuers.len(), 1);
+                // claim_issuers = Identity::claim_issuers(eve_did);
+                // assert_eq!(claim_issuers.len(), 1);
 
                 // bond
                 assert_ok!(Staking::bond(
