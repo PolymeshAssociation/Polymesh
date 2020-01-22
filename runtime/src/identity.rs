@@ -37,7 +37,12 @@
 
 use rstd::{convert::TryFrom, prelude::*};
 
-use crate::{asset::AcceptTickerTransfer, balances, constants::did::USER, BatchDispatchInfo};
+use crate::{
+    asset::AcceptTickerTransfer,
+    balances,
+    constants::did::{SECURITY_TOKEN, USER},
+    BatchDispatchInfo,
+};
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
     Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
@@ -45,9 +50,10 @@ use primitives::{
 
 use codec::Encode;
 use core::convert::From;
+use core::result::Result as StdResult;
 use sr_io::blake2_256;
 use sr_primitives::{
-    traits::{Dispatchable, Verify},
+    traits::{Dispatchable, Hash, Verify},
     weights::SimpleDispatchInfo,
     AnySignature, DispatchError,
 };
@@ -216,7 +222,7 @@ decl_storage! {
         pub Links get(links): map(Signer, u64) => Link<T::Moment>;
 
         /// Link id of the latest auth of an identity/key. Used to allow iterating over links
-        pub LastLink get(last_link): map(Signer) => u64;
+        pub LastLink get(last_link): map Signer => u64;
     }
 }
 
@@ -1328,7 +1334,6 @@ impl<T: Trait> Module<T> {
         sender_key: &Key,
         did: IdentityId,
     ) -> rstd::result::Result<DidRecord, &'static str> {
-        sr_primitives::print(did);
         ensure!(<DidRecords>::exists(did), "DID does not exist");
         let record = <DidRecords>::get(did);
         ensure!(
@@ -1461,6 +1466,23 @@ impl<T: Trait> Module<T> {
         if is_pre_auth_list_empty {
             <PreAuthorizedJoinDid>::remove(signer);
         }
+    }
+
+    pub fn register_asset_did(ticker: &Vec<u8>) -> Result {
+        let did = Self::get_token_did(ticker)?;
+        // Making sure there's no pre-existing entry for the DID
+        // This should never happen but just being defensive here
+        ensure!(!<DidRecords>::exists(did), "DID must be unique");
+        <DidRecords>::insert(did, DidRecord::default());
+        Ok(())
+    }
+
+    pub fn get_token_did(ticker: &Vec<u8>) -> StdResult<IdentityId, &'static str> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&SECURITY_TOKEN.encode());
+        buf.extend_from_slice(&ticker.encode());
+        let did = IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())?;
+        Ok(did)
     }
 }
 

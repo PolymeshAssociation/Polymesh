@@ -167,8 +167,8 @@ async function main() {
     'Complete: TPS                            ': n_accounts,
     'Submit  : DISTRIBUTE POLY                ': n_claim_accounts + (n_accounts * 2),
     'Complete: DISTRIBUTE POLY                ': n_claim_accounts + (n_accounts * 2),
-    'Submit  : CREATE ISSUER IDENTITIES       ': n_accounts,
-    'Complete: CREATE ISSUER IDENTITIES       ': n_accounts,
+    'Submit  : CREATE ISSUER IDENTITIES       ': n_accounts + 2,
+    'Complete: CREATE ISSUER IDENTITIES       ': n_accounts + 2,
     'Submit  : ADD SIGNING KEYS               ': n_accounts,
     'Complete: ADD SIGNING KEYS               ': n_accounts,
     'Submit  : SET SIGNING KEY ROLES          ': n_accounts,
@@ -215,6 +215,9 @@ async function main() {
   await blockTillPoolEmpty(api);
 
   let issuer_dids = await createIdentities(api, master_keys, init_bars[4], init_bars[5], fast);
+
+  
+
   await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7], fast);
   await authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys, init_bars[18], init_bars[19], fast);
   await addSigningKeyRoles(api, master_keys, issuer_dids, signing_keys, init_bars[8], init_bars[9], fast);
@@ -245,6 +248,12 @@ async function main() {
     console.log(`\tBlock Number: ` + block_number + "\t\tProcessed: " + block_sizes[block_number] + "\tTime (ms): " + block_times[block_number]);
   }
   console.log("DONE");
+
+  console.log("Claims Batch Test");
+
+  await addClaimsBatchToDid(api, claim_keys, claim_issuer_dids, 10);
+
+  console.log("Claim Batch Test Completed");
   process.exit();
 }
 
@@ -402,7 +411,7 @@ async function createIdentities(api, accounts, submitBar, completeBar, fast) {
               if (section == "identity" && method == "NewDid") {
                 new_did_ok = true;
                 completeBar.increment();
-                subscription.unsubscribe()
+               // subscription.unsubscribe()
               }
             });
 
@@ -420,9 +429,8 @@ async function createIdentities(api, accounts, submitBar, completeBar, fast) {
   }
   await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
-    const linkedKeyInfo = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-    const did = JSON.parse(linkedKeyInfo).Unique;
-    dids.push(did);
+    const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
+    dids.push(d.raw.asUnique);
   }
   return dids;
 }
@@ -595,7 +603,34 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
   }
 }
 
-async function addClaimsToDids(api, accounts, dids, claim_dids, n_claims, submitBar, completeBar, fast) {
+ // Takes in a number for the amount of claims to be produces
+// then creates a batch of claims based on that number. 
+async function addClaimsBatchToDid(api, accounts, claim_did, n_claims) {
+
+    // Holds the batch of claims
+    let claims = []; 
+
+    // Stores the value of each claim
+    let claim_record = {did: claim_did[0], claim_key: "test", expiry: 0, claim_value: {data_type: 0, value: "0"}};
+    
+    // This fills the claims array with claim_values up to n_claims amount
+    for (let i = 0; i < n_claims; i++) {
+      claims.push( claim_record );
+    }
+
+    console.log("Claims length: " + claims.length);
+
+    // Calls the add_claims_batch function in identity.rs
+    const unsub = await api.tx.identity
+      .addClaimsBatch(claim_did[0], claims)
+      .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
+
+
+      //unsub();
+    
+}
+
+async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, completeBar, fast) {
   //accounts should have the same length as claim_dids
   fail_type["MAKE CLAIMS"] = 0;
   for (let i = 0; i < dids.length; i++) {
@@ -643,7 +678,7 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, n_claims, submit
       });
     }
     nonces.set(accounts[i%claim_dids.length].address, nonces.get(accounts[i%claim_dids.length].address).addn(1));
-    submitBar.increment();
+   // submitBar.increment();
   }
 }
 
@@ -662,7 +697,8 @@ async function blockTillPoolEmpty(api) {
           done_something = true;
         }
         let timestamp_extrinsic = block["block"]["extrinsics"][0];
-        let new_block_ts = parseInt(JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw)); block_times[i] = new_block_ts - synced_block_ts;
+        let new_block_ts = parseInt(JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw));
+        block_times[i] = new_block_ts - synced_block_ts;
         synced_block_ts = new_block_ts;
         synced_block = i;
       }
