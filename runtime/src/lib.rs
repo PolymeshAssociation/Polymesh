@@ -57,6 +57,9 @@ pub mod config {
 pub mod update_did_signed_extension;
 pub use update_did_signed_extension::UpdateDid;
 
+pub mod batch_dispatch_info;
+pub use batch_dispatch_info::BatchDispatchInfo;
+
 pub use sr_primitives::{Perbill, Permill};
 
 #[cfg(test)]

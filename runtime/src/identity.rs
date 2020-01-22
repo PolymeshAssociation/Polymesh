@@ -16,20 +16,13 @@
 //! `MuliSign`, etc.) and/or its permission.
 //!
 //! Some operations at identity level are only allowed to its administrator account, like
-//! [set_master_key](./struct.Module.html#method.set_master_key) or
-//! [add_claim_issuer](./struct.Module.html#method.add_claim_issuer).
+//! [set_master_key](./struct.Module.html#method.set_master_key)
 //!
 //! ## Identity information
 //!
 //! Identity contains the following data:
 //!  - `master_key`. It is the administrator account of the identity.
 //!  - `signing_keys`. List of keys and their capabilities (type of key and its permissions) .
-//!
-//! ## Claim Issuers
-//!
-//! The administrator of the entity can add/remove claim issuers (see
-//! [add_claim_issuer](./struct.Module.html#method.add_claim_issuer) ). Only these claim issuers
-//! are able to add claims to that identity.
 //!
 //! ## Freeze signing keys
 //!
@@ -48,6 +41,7 @@ use crate::{
     asset::AcceptTickerTransfer,
     balances,
     constants::did::{SECURITY_TOKEN, USER},
+    BatchDispatchInfo,
 };
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
@@ -60,6 +54,7 @@ use core::result::Result as StdResult;
 use sr_io::blake2_256;
 use sr_primitives::{
     traits::{Dispatchable, Hash, Verify},
+    weights::SimpleDispatchInfo,
     AnySignature, DispatchError,
 };
 use srml_support::{
@@ -187,9 +182,6 @@ decl_storage! {
         /// DID -> bool that indicates if signing keys are frozen.
         pub IsDidFrozen get(is_did_frozen): map IdentityId => bool;
 
-        /// DID -> DID claim issuers
-        pub ClaimIssuers get(claim_issuers): map IdentityId => Vec<IdentityId>;
-
         /// It stores the current identity for current transaction.
         pub CurrentDid get(current_did): Option<IdentityId>;
 
@@ -230,7 +222,7 @@ decl_storage! {
         pub Links get(links): map(Signer, u64) => Link<T::Moment>;
 
         /// Link id of the latest auth of an identity/key. Used to allow iterating over links
-        pub LastLink get(last_link): map(Signer) => u64;
+        pub LastLink get(last_link): map Signer => u64;
     }
 }
 
@@ -388,44 +380,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        pub fn add_claim_issuer(origin, did: IdentityId, claim_issuer_did: IdentityId) -> Result {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
-
-            // Master key shouldn't be added itself as claim issuer.
-            ensure!( did != claim_issuer_did, "Master key cannot add itself as claim issuer");
-
-            <ClaimIssuers>::mutate(did, |old_claim_issuers| {
-                if !old_claim_issuers.contains(&claim_issuer_did) {
-                    old_claim_issuers.push(claim_issuer_did);
-                }
-            });
-
-            Self::deposit_event(RawEvent::NewClaimIssuer(did, claim_issuer_did));
-            Ok(())
-        }
-
-        /// Removes a claim issuer DID. Only called by master key owner.
-        fn remove_claim_issuer(origin, did: IdentityId, did_issuer: IdentityId) -> Result {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
-
-            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
-
-            <ClaimIssuers>::mutate(did, |old_claim_issuers| {
-                *old_claim_issuers = old_claim_issuers
-                    .iter()
-                    .filter(|&issuer| *issuer != did_issuer)
-                    .cloned()
-                    .collect();
-            });
-
-            Self::deposit_event(RawEvent::RemovedClaimIssuer(did, did_issuer));
-            Ok(())
-        }
-
         /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
+        #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
         pub fn add_claim(
             origin,
             did: IdentityId,
@@ -440,7 +396,6 @@ decl_module! {
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
 
             let sender_key = Key::try_from(sender.encode())?;
-            ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_signer = Signer::Key(sender_key);
@@ -474,6 +429,7 @@ decl_module! {
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
         /// `did_issuer`'s signing key.
+        #[weight = BatchDispatchInfo::new_normal(3_000, 10_000)]
         pub fn add_claims_batch(
             origin,
             did_issuer: IdentityId,
@@ -497,8 +453,6 @@ decl_module! {
                 claim_value,
             } in claims {
                 ensure!(<DidRecords>::exists(did), "DID must already exist");
-                ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key),
-                        "did_issuer must be a claim issuer or master key for DID");
                 let claim_meta_data = ClaimMetaData {
                     claim_key: claim_key.clone(),
                     claim_issuer: did_issuer.clone(),
@@ -889,25 +843,24 @@ decl_module! {
             };
 
             // Only works with a valid signer.
-            if let Some(signer) = valid_signer {
-                if let Some(pre_auth) = Self::pre_authorized_join_did( signer.clone())
-                        .iter()
-                        .find( |pre_auth_item| pre_auth_item.target_id == target_id) {
-                    // Remove pre-auth, link key to identity and update identity record.
-                    Self::remove_pre_join_identity(&signer, target_id);
-                    if let Signer::Key(key) = signer {
-                        Self::link_key_to_did( &key, pre_auth.signing_item.signer_type, target_id);
-                    }
-                    <DidRecords>::mutate( target_id, |identity| {
-                        identity.add_signing_items( &[pre_auth.signing_item.clone()]);
-                    });
-                    Ok(())
-                } else {
-                    Err( "Signer is not pre authorized by the identity")
-                }
-            } else {
-                Err( "Signer is not pre authorized by any identity")
+            let signer = valid_signer.ok_or( "Signer is not pre authorized by any identity")?;
+            let pre_auth = Self::pre_authorized_join_did( &signer)
+                        .into_iter()
+                        .find( |pre_auth_item| pre_auth_item.target_id == target_id)
+                        .ok_or( "Signer is not pre authorized by the identity")?;
+
+            // Remove pre-auth, link key to identity and update identity record.
+            Self::remove_pre_join_identity(&signer, target_id);
+            if let Signer::Key(key) = signer {
+                Self::link_key_to_did( &key, pre_auth.signing_item.signer_type, target_id);
             }
+            <DidRecords>::mutate( target_id, |identity| {
+                identity.add_signing_items( &[pre_auth.signing_item.clone()]);
+            });
+
+            Self::deposit_event( RawEvent::SignerJoinedToIdentityApproved( signer, target_id));
+
+            Ok(())
         }
 
         /// Identity's master key or target key are allowed to reject a pre authorization to join.
@@ -1098,6 +1051,9 @@ decl_event!(
 
         /// Link removed. (link_id, associated identity or key)
         LinkRemoved(u64, Signer),
+
+        /// Signer approved a previous request to join to a target identity.
+        SignerJoinedToIdentityApproved( Signer, IdentityId),
     }
 );
 
@@ -1279,10 +1235,6 @@ impl<T: Trait> Module<T> {
             ));
         }
         Ok(())
-    }
-
-    pub fn is_claim_issuer(did: IdentityId, issuer_did: IdentityId) -> bool {
-        <ClaimIssuers>::get(did).contains(&issuer_did)
     }
 
     /// It checks if `key` is a signing key of `did` identity.

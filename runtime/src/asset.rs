@@ -162,7 +162,7 @@ decl_storage! {
         TickerRegistrationFee get(ticker_registration_fee) config(): T::Balance;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
-        pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u64;
+        pub TotalCheckpoints get(total_checkpoints_of): map Vec<u8> => u64;
         /// Total supply of the token at the checkpoint
         /// (ticker, checkpointId) -> total supply at given checkpoint
         pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u64) => T::Balance;
@@ -2336,7 +2336,7 @@ mod tests {
     #[test]
     fn checkpoints_fuzz_test() {
         println!("Starting");
-        for i in 0..10 {
+        for _i in 0..10 {
             // When fuzzing in local, feel free to bump this number to add more fuzz runs.
             with_externalities(&mut identity_owned_by_alice(), || {
                 let now = Utc::now();
