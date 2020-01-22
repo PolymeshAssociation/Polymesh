@@ -590,17 +590,15 @@ decl_module! {
                 token.total_supply = updated_total_supply;
             }
             let round = Self::funding_round(&ticker);
+            let ticker_round = (ticker.clone(), round.clone());
             // Update the total token balance issued in this funding round.
-            let issued_in_this_round = Self::issued_in_funding_round((ticker.clone(), round.clone()));
+            let mut issued_in_this_round = Self::issued_in_funding_round(&ticker_round);
             for v in &values {
-                issued_in_this_round
+                issued_in_this_round = issued_in_this_round
                     .checked_add(v)
                     .ok_or("current funding round total overflowed")?;
             }
-            <IssuedInFundingRound<T>>::insert(
-                (ticker.clone(), round.clone()),
-                issued_in_this_round
-            );
+            <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
             // Update investor balances and emit events quoting the updated total token balance issued.
             for i in 0..investor_dids.len() {
                 Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
@@ -1522,10 +1520,11 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(&ticker_to_did, updated_to_balance);
         <Tokens<T>>::insert(ticker.clone(), token);
         let round = Self::funding_round(ticker);
-        let issued_in_this_round = Self::issued_in_funding_round((ticker.clone(), round.clone()))
+        let ticker_round = (ticker.clone(), round.clone());
+        let issued_in_this_round = Self::issued_in_funding_round(&ticker_round)
             .checked_add(&value)
             .ok_or("current funding round total overflowed")?;
-        <IssuedInFundingRound<T>>::insert((ticker.clone(), round.clone()), issued_in_this_round);
+        <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
         Self::deposit_event(RawEvent::Issued(
             ticker.to_vec(),
             to_did,
