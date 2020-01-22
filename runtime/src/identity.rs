@@ -40,7 +40,10 @@ use rstd::{convert::TryFrom, prelude::*};
 use crate::{
     asset::AcceptTransfer,
     balances,
-    constants::{did::{SECURITY_TOKEN, USER}, KYC_EXPIRY_CLAIM_KEY},
+    constants::{
+        did::{SECURITY_TOKEN, USER},
+        KYC_EXPIRY_CLAIM_KEY,
+    },
     group, BatchDispatchInfo,
 };
 use primitives::{
@@ -51,7 +54,6 @@ use sr_io::blake2_256;
 use sr_primitives::{
     traits::{Dispatchable, Hash, SaturatedConversion, Verify},
     weights::SimpleDispatchInfo,
-    traits::{Dispatchable, Hash, Verify},
     AnySignature, DispatchError,
 };
 
