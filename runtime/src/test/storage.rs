@@ -1,11 +1,11 @@
-use crate::{balances, identity};
+use crate::{asset, balances, exemption, general_tm, identity, percentage_tm, statistics, utils};
 use primitives::{IdentityId, Key};
 
 use codec::Encode;
 use sr_io::TestExternalities;
 use sr_primitives::{
-    testing::Header,
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    testing::{Header, UintAuthorityId},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
     AnySignature, Perbill,
 };
 use srml_support::{
@@ -26,7 +26,19 @@ impl_outer_origin! {
 // configuration traits of modules we want to use.
 #[derive(Clone, Eq, PartialEq)]
 pub struct TestStorage;
+
 type AccountId = <AnySignature as Verify>::Signer;
+type Index = u64;
+type BlockNumber = u64;
+type Hash = H256;
+type Hashing = BlakeTwo256;
+type Lookup = IdentityLookup<AccountId>;
+type OffChainSignature = AnySignature;
+type SessionIndex = u32;
+type AuthorityId = <AnySignature as Verify>::Signer;
+type WeightMultiplierUpdate = ();
+type Event = ();
+type Version = ();
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
@@ -37,22 +49,22 @@ parameter_types! {
 
 impl system::Trait for TestStorage {
     type Origin = Origin;
-    type Index = u64;
-    type BlockNumber = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
+    type Index = Index;
+    type BlockNumber = BlockNumber;
+    type Hash = Hash;
+    type Hashing = Hashing;
     type AccountId = AccountId;
-    type Lookup = IdentityLookup<Self::AccountId>;
+    type Lookup = Lookup;
     type Header = Header;
-    type Event = ();
+    type Event = Event;
 
     type Call = ();
-    type WeightMultiplierUpdate = ();
+    type WeightMultiplierUpdate = WeightMultiplierUpdate;
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type MaximumBlockLength = MaximumBlockLength;
     type AvailableBlockRatio = AvailableBlockRatio;
-    type Version = ();
+    type Version = Version;
 }
 
 parameter_types! {
@@ -67,7 +79,7 @@ impl balances::Trait for TestStorage {
     type Balance = u128;
     type OnFreeBalanceZero = ();
     type OnNewAccount = ();
-    type Event = ();
+    type Event = Event;
     type TransactionPayment = ();
     type DustRemoval = ();
     type TransferPayment = ();
@@ -107,7 +119,7 @@ impl sr_primitives::traits::Dispatchable for IdentityProposal {
 }
 
 impl identity::Trait for TestStorage {
-    type Event = ();
+    type Event = Event;
     type Proposal = IdentityProposal;
     type AcceptTickerTransferTarget = TestStorage;
 }
@@ -118,9 +130,77 @@ impl crate::asset::AcceptTickerTransfer for TestStorage {
     }
 }
 
+impl statistics::Trait for TestStorage {}
+
+impl percentage_tm::Trait for TestStorage {
+    type Event = Event;
+}
+
+impl general_tm::Trait for TestStorage {
+    type Event = Event;
+    type Asset = asset::Module<TestStorage>;
+}
+
+impl asset::Trait for TestStorage {
+    type Event = Event;
+    type Currency = balances::Module<TestStorage>;
+}
+
+impl exemption::Trait for TestStorage {
+    type Event = Event;
+    type Asset = asset::Module<TestStorage>;
+}
+
+impl utils::Trait for TestStorage {
+    type OffChainSignature = OffChainSignature;
+    fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+        v
+    }
+}
+
+pub struct TestOnSessionEnding;
+impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+    fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
+        None
+    }
+}
+
+pub struct TestSessionHandler;
+impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+    fn on_new_session<Ks: OpaqueKeys>(
+        _changed: bool,
+        _validators: &[(AuthorityId, Ks)],
+        _queued_validators: &[(AuthorityId, Ks)],
+    ) {
+    }
+
+    fn on_disabled(_validator_index: usize) {}
+
+    fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+}
+
+parameter_types! {
+    pub const Period: BlockNumber = 1;
+    pub const Offset: BlockNumber = 0;
+    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+}
+
+impl session::Trait for TestStorage {
+    type OnSessionEnding = TestOnSessionEnding;
+    type Keys = UintAuthorityId;
+    type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+    type SessionHandler = TestSessionHandler;
+    type Event = Event;
+    type ValidatorId = AuthorityId;
+    type ValidatorIdOf = ConvertInto;
+    type SelectInitialValidators = ();
+    type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
+pub type Asset = asset::Module<TestStorage>;
 
 /// Create externalities
 pub fn build_ext() -> TestExternalities<Blake2Hasher> {

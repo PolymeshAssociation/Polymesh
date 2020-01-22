@@ -1,9 +1,9 @@
 use crate::{
-    asset, balances, committee, statistics,
+    asset, balances, committee,
     constants::{currency::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
-    mips, percentage_tm, simple_token, staking, sto_capped,
+    mips, percentage_tm, simple_token, staking, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -470,8 +470,7 @@ impl group::Trait<group::Instance2> for Runtime {
     type MembershipChanged = ();
 }
 
-impl statistics::Trait for Runtime {
-}
+impl statistics::Trait for Runtime {}
 
 construct_runtime!(
     pub enum Runtime where

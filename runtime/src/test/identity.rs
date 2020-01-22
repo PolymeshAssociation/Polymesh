@@ -967,7 +967,7 @@ fn adding_authorizations() {
 #[test]
 fn removing_authorizations() {
     with_externalities(&mut build_ext(), || {
-        let alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
+        let _alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
 
