@@ -29,7 +29,7 @@
 //! - `propose` - Token holders can propose a new ballot.
 //! - `vote` - Token holders can vote on a ballot.
 //! - `kill_proposal` - close a proposal and refund all deposits
-//! - `enact_referundum` committee calls to execute a referendum
+//! - `enact_referendum` committee calls to execute a referendum
 //!
 //! ### Public Functions
 //!
@@ -343,7 +343,7 @@ decl_module! {
 
         /// Moves a referendum instance into dispatch queue.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn enact_referundum(origin, proposal_hash: T::Hash) {
+        pub fn enact_referendum(origin, proposal_hash: T::Hash) {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
@@ -788,11 +788,11 @@ mod tests {
             assert_eq!(MIPS::referendums(&hash), Some(proposal));
 
             assert_err!(
-                MIPS::enact_referundum(Origin::signed(5), hash),
+                MIPS::enact_referendum(Origin::signed(5), hash),
                 "bad origin"
             );
 
-            assert_ok!(MIPS::enact_referundum(Origin::signed(1), hash));
+            assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
         });
     }
 
@@ -820,11 +820,11 @@ mod tests {
             assert_eq!(MIPS::referendum_meta(), vec![(0, MipsPriority::High, hash)]);
 
             assert_err!(
-                MIPS::enact_referundum(Origin::signed(5), hash),
+                MIPS::enact_referendum(Origin::signed(5), hash),
                 "bad origin"
             );
 
-            assert_ok!(MIPS::enact_referundum(Origin::signed(1), hash));
+            assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
         });
     }
 
