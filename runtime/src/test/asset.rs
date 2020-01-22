@@ -3,7 +3,6 @@ use crate::{
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 
-
 /// Build a genesis identity instance owned by account No. 1
 fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
     let mut t = system::GenesisConfig::default()
@@ -29,10 +28,8 @@ fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
     sr_io::TestExternalities::new(t)
 }
 
-
-
 #[test]
-fn issuers_can_create_tokens() {
+fn issuers_can_create_and_rename_tokens() {
     with_externalities(&mut identity_owned_by_alice(), || {
         let owner_acc = AccountId::from(AccountKeyring::Dave);
         let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
@@ -42,17 +39,20 @@ fn issuers_can_create_tokens() {
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01],
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
         };
-
+        assert!(!<identity::DidRecords>::exists(
+                Identity::get_token_did(&token.name).unwrap()
+        ));
+        let ticker_name = token.name.clone();
         assert_err!(
             Asset::create_token(
                 owner_signed.clone(),
                 owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker_name.clone(),
                 1_000_000_000_000_000_000_000_000, // Total supply over the limit
                 true
             ),
@@ -64,13 +64,45 @@ fn issuers_can_create_tokens() {
                 owner_signed.clone(),
                 owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker_name.clone(),
                 token.total_supply,
                 true
         ));
 
         // A correct entry is added
         assert_eq!(Asset::token_details(token.name.clone()), token);
+        //assert!(Identity::is_existing_identity(Identity::get_token_did(&token.name).unwrap()));
+        assert!(<identity::DidRecords>::exists(
+                Identity::get_token_did(&token.name).unwrap()
+        ));
+        assert_eq!(Asset::token_details(ticker_name.clone()), token);
+
+        // Unauthorized identities cannot rename the token.
+        let eve_acc = AccountId::from(AccountKeyring::Eve);
+        let (eve_signed, _eve_did) = make_account(&eve_acc).unwrap();
+        assert_err!(
+            Asset::rename_token(
+                eve_signed,
+                ticker_name.clone(),
+                vec![0xde, 0xad, 0xbe, 0xef]
+            ),
+            "sender must be a signing key for the token owner DID"
+        );
+        // The token should remain unchanged in storage.
+        assert_eq!(Asset::token_details(ticker_name.clone()), token);
+        // Rename the token and check storage has been updated.
+        let renamed_token = SecurityToken {
+            name: vec![0x42],
+            owner_did: token.owner_did,
+            total_supply: token.total_supply,
+            divisible: token.divisible,
+        };
+        assert_ok!(Asset::rename_token(
+                owner_signed.clone(),
+                ticker_name.clone(),
+                renamed_token.name.clone()
+        ));
+        assert_eq!(Asset::token_details(ticker_name.clone()), renamed_token);
     });
 }
 
@@ -558,7 +590,7 @@ fn valid_custodian_allowance_of() {
 #[test]
 fn checkpoints_fuzz_test() {
     println!("Starting");
-    for i in 0..10 {
+    for _i in 0..10 {
         // When fuzzing in local, feel free to bump this number to add more fuzz runs.
         with_externalities(&mut identity_owned_by_alice(), || {
             let now = Utc::now();
@@ -848,6 +880,118 @@ fn transfer_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), false);
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, bob_did), true);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
+    })
+}
+
+#[test]
+fn transfer_token_ownership() {
+    with_externalities(&mut identity_owned_by_alice(), || {
+        let now = Utc::now();
+        <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+        let owner_acc = AccountId::from(AccountKeyring::Dave);
+        let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+        let alice_acc = AccountId::from(AccountKeyring::Alice);
+        let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+
+        let bob_acc = AccountId::from(AccountKeyring::Bob);
+        let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
+
+        let ticker = vec![0x01, 0x01];
+
+        assert_ok!(Asset::create_token(
+                owner_signed.clone(),
+                owner_did,
+                ticker.clone(),
+                ticker.clone(),
+                1_000_000,
+                true
+        ));
+
+        Identity::add_auth(
+            Signer::from(owner_did),
+            Signer::from(alice_did),
+            AuthorizationData::TransferTokenOwnership(ticker.clone()),
+            None,
+        );
+
+        Identity::add_auth(
+            Signer::from(owner_did),
+            Signer::from(bob_did),
+            AuthorizationData::TransferTokenOwnership(ticker.clone()),
+            None,
+        );
+
+        assert_eq!(Asset::token_details(&ticker).owner_did, owner_did);
+
+        let mut auth_id = Identity::last_authorization(Signer::from(alice_did));
+
+        assert_err!(
+            Asset::accept_token_ownership_transfer(alice_signed.clone(), auth_id + 1),
+            "Authorization does not exist"
+        );
+
+        assert_ok!(Asset::accept_token_ownership_transfer(
+                alice_signed.clone(),
+                auth_id
+        ));
+        assert_eq!(Asset::token_details(&ticker).owner_did, alice_did);
+
+        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        assert_err!(
+            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+            "Illegal use of Authorization"
+        );
+
+        Identity::add_auth(
+            Signer::from(alice_did),
+            Signer::from(bob_did),
+            AuthorizationData::TransferTokenOwnership(ticker.clone()),
+            Some(now.timestamp() as u64 - 100),
+        );
+        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        assert_err!(
+            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+            "Authorization expired"
+        );
+
+        Identity::add_auth(
+            Signer::from(alice_did),
+            Signer::from(bob_did),
+            AuthorizationData::Custom(ticker.clone()),
+            Some(now.timestamp() as u64 + 100),
+        );
+        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        assert_err!(
+            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+            "Not a token ownership transfer auth"
+        );
+
+        Identity::add_auth(
+            Signer::from(alice_did),
+            Signer::from(bob_did),
+            AuthorizationData::TransferTokenOwnership(vec![0x50]),
+            Some(now.timestamp() as u64 + 100),
+        );
+        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        assert_err!(
+            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+            "Token does not exist"
+        );
+
+        Identity::add_auth(
+            Signer::from(alice_did),
+            Signer::from(bob_did),
+            AuthorizationData::TransferTokenOwnership(ticker.clone()),
+            Some(now.timestamp() as u64 + 100),
+        );
+        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        assert_ok!(Asset::accept_token_ownership_transfer(
+                bob_signed.clone(),
+                auth_id
+        ));
+        assert_eq!(Asset::token_details(&ticker).owner_did, bob_did);
     })
 }
 
@@ -1212,4 +1356,3 @@ fn transfer_ticker() {
         *        }
         *    }
         */
-

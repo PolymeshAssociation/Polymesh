@@ -427,7 +427,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{balances, identity};
+    use crate::{balances, group, identity};
     use primitives::IdentityId;
     use sr_io::with_externalities;
     use sr_primitives::{
@@ -527,13 +527,18 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
-        type AcceptTickerTransferTarget = Test;
+        type AcceptTransferTarget = Test;
     }
-    impl crate::asset::AcceptTickerTransfer for Test {
+
+    impl crate::asset::AcceptTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result {
             unimplemented!()
         }
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result {
+            unimplemented!()
+        }
     }
+
     parameter_types! {
         pub const MinimumPeriod: u64 = 3;
     }
@@ -560,6 +565,16 @@ mod tests {
         type Proposal = Call;
         type CommitteeOrigin = EnsureSignedBy<One, u64>;
         type Event = ();
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, u64>;
+        type RemoveOrigin = EnsureSignedBy<Two, u64>;
+        type SwapOrigin = EnsureSignedBy<Three, u64>;
+        type ResetOrigin = EnsureSignedBy<Four, u64>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
     }
 
     type System = system::Module<Test>;

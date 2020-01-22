@@ -389,8 +389,9 @@ impl<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{balances, committee, identity};
+    use crate::{balances, committee, group, identity};
     use core::result::Result as StdResult;
+    use primitives::IdentityId;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
@@ -481,14 +482,35 @@ mod tests {
         }
     }
 
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
+    }
+
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = TestProposal;
-        type AcceptTickerTransferTarget = Test;
+        type AcceptTransferTarget = Test;
     }
 
-    impl crate::asset::AcceptTickerTransfer for Test {
+    impl crate::asset::AcceptTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> srml_support::dispatch::Result {
+            unimplemented!()
+        }
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
     }

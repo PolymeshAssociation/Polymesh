@@ -1,10 +1,9 @@
 use crate::{
     asset::{self, TickerRegistrationConfig},
-    balances, exemption, general_tm, identity, percentage_tm, statistics, utils,
+    balances, exemption, general_tm, group, identity, percentage_tm, statistics, utils,
 };
-use primitives::{IdentityId, Key};
-
 use codec::Encode;
+use primitives::{IdentityId, Key};
 use sr_io::TestExternalities;
 use sr_primitives::{
     testing::{Header, UintAuthorityId},
@@ -18,6 +17,7 @@ use srml_support::{
 };
 use std::convert::TryFrom;
 use substrate_primitives::{crypto::Pair as PairTrait, sr25519::Pair, Blake2Hasher, H256};
+use system::EnsureSignedBy;
 use test_client::AccountKeyring;
 
 impl_outer_origin! {
@@ -121,14 +121,35 @@ impl sr_primitives::traits::Dispatchable for IdentityProposal {
     }
 }
 
+parameter_types! {
+    pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+}
+
+impl group::Trait<group::Instance1> for TestStorage {
+    type Event = ();
+    type AddOrigin = EnsureSignedBy<One, AccountId>;
+    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
+}
+
 impl identity::Trait for TestStorage {
     type Event = Event;
     type Proposal = IdentityProposal;
-    type AcceptTickerTransferTarget = TestStorage;
+    type AcceptTransferTarget = TestStorage;
 }
 
-impl crate::asset::AcceptTickerTransfer for TestStorage {
+impl crate::asset::AcceptTransfer for TestStorage {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+        Ok(())
+    }
+    fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
         Ok(())
     }
 }
