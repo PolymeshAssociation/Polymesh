@@ -44,14 +44,14 @@ decl_event!(
     where
         Balance = <T as balances::Trait>::Balance,
     {
-        TogglePercentageRestriction(Vec<u8>, u16, bool),
+        TogglePercentageRestriction(Ticker, u16, bool),
         DoSomething(Balance),
     }
 );
 
 decl_storage! {
     trait Store for Module<T: Trait> as PercentageTM {
-        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map Vec<u8> => u16;
+        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map Ticker => u16;
     }
 }
 
@@ -101,8 +101,7 @@ impl<T: Trait> Module<T> {
         to_did_opt: Option<IdentityId>,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        ticker.canonize();
-        let max_percentage = Self::maximum_percentage_enabled_for_token(&ticker);
+        let max_percentage = Self::maximum_percentage_enabled_for_token(ticker);
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
         // TODO: Mould the integer into the module identity

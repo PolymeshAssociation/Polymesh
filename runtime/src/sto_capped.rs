@@ -80,7 +80,7 @@ decl_storage! {
         StoCount get(sto_count): map Ticker => u32;
         /// List of SimpleToken tokens which will be accepted as the fund raised type for the STO
         /// (asset_ticker, sto_id, index) -> simple_token_ticker
-        AllowedTokens get(allowed_tokens): map (Ticker, u32, u32) => Vec<u8>;
+        AllowedTokens get(allowed_tokens): map (Ticker, u32, u32) => Ticker;
         /// To track the index of the token address for the given STO
         /// (Asset_ticker, sto_id, simple_token_ticker) -> index
         TokenIndexForSTO get(token_index_for_sto): map (Ticker, u32, Ticker) => Option<u32>;
@@ -270,7 +270,7 @@ decl_module! {
             } else {
                 let new_count = token_count.checked_sub(1).ok_or("underflow new token count value")?;
                 <TokenIndexForSTO>::insert((ticker, sto_id, simple_token_ticker), new_count);
-                <AllowedTokens>::insert((ticker, sto_id, new_count), vec![]);
+                <AllowedTokens>::insert((ticker, sto_id, new_count), Ticker::default());
                 <TokensCountForSto>::insert((ticker, sto_id), new_count);
             }
 

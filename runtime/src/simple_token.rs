@@ -211,7 +211,7 @@ impl<T: Trait> Module<T> {
         to_did: IdentityId,
         amount: T::Balance,
     ) -> Result {
-        let ticker_from_did = (ticker.to_owned(), from_did.clone());
+        let ticker_from_did = (*ticker, from_did.clone());
         ensure!(
             <BalanceOf<T>>::exists(&ticker_from_did),
             "Sender doesn't own this token"
@@ -222,7 +222,7 @@ impl<T: Trait> Module<T> {
         let new_from_balance = from_balance
             .checked_sub(&amount)
             .ok_or("overflow in calculating from balance")?;
-        let ticker_to_did = (ticker.to_owned(), to_did.clone());
+        let ticker_to_did = (*ticker, to_did.clone());
         let to_balance = Self::balance_of(&ticker_to_did);
         let new_to_balance = to_balance
             .checked_add(&amount)
@@ -231,7 +231,7 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(&ticker_from_did, new_from_balance);
         <BalanceOf<T>>::insert(&ticker_to_did, new_to_balance);
 
-        Self::deposit_event(RawEvent::Transfer(ticker.to_owned(), from_did, to_did, amount));
+        Self::deposit_event(RawEvent::Transfer(*ticker, from_did, to_did, amount));
         Ok(())
     }
 }

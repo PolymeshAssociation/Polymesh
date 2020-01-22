@@ -54,7 +54,7 @@ decl_module! {
 
 decl_event!(
     pub enum Event {
-        ModifyExemptionList(Vec<u8>, u16, IdentityId, bool),
+        ModifyExemptionList(Ticker, u16, IdentityId, bool),
     }
 );
 

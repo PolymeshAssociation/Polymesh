@@ -65,7 +65,7 @@ pub struct Dividend<U, V> {
     /// An optional timestamp for payout end
     expires_at: Option<V>,
     /// The payout SimpleToken currency ticker.
-    payout_currency: Vec<u8>,
+    payout_currency: Ticker,
     /// The checkpoint
     checkpoint_id: u64,
 }
@@ -195,12 +195,15 @@ decl_module! {
             ensure!(starts_in_future, "Cancellable dividend must mature in the future");
 
             // Pay amount back to owner
-            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> Result {
-                *balance  = balance
-                    .checked_add(&entry.amount)
-                    .ok_or("Could not add amount back to asset owner account")?;
-                Ok(())
-            })?;
+            <simple_token::BalanceOf<T>>::mutate(
+                (entry.payout_currency, did),
+                |balance: &mut T::Balance| -> Result {
+                    *balance  = balance
+                        .checked_add(&entry.amount)
+                        .ok_or("Could not add amount back to asset owner account")?;
+                    Ok(())
+                }
+            )?;
 
             <Dividends<T>>::remove((ticker.clone(), dividend_id));
 
@@ -224,7 +227,7 @@ decl_module! {
             let dividend = Self::get_dividend(&ticker, dividend_id).ok_or("Dividend not found")?;
 
             let balance_at_checkpoint =
-                <asset::Module<T>>::get_balance_at(&ticker, did, dividend.checkpoint_id);
+                <asset::Module<T>>::get_balance_at(ticker, did, dividend.checkpoint_id);
 
             // Check if the owner hadn't yanked the remaining amount out
             ensure!(!dividend.remaining_claimed, "The remaining payout funds were already claimed");
@@ -260,7 +263,7 @@ decl_module! {
 
             // Perform the payout in designated tokens
             <simple_token::BalanceOf<T>>::mutate(
-                (dividend.payout_currency.clone(), did),
+                (dividend.payout_currency, did),
                 |balance| -> Result {
                     *balance = balance
                         .checked_add(&share)
@@ -299,11 +302,15 @@ decl_module! {
             }
 
             // Transfer the computed amount
-            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> Result {
-                let new_balance = balance.checked_add(&entry.amount_left).ok_or("Could not add amount back to asset owner DID")?;
-                *balance  = new_balance;
-                Ok(())
-            })?;
+            <simple_token::BalanceOf<T>>::mutate(
+                (entry.payout_currency, did),
+                |balance: &mut T::Balance| -> Result {
+                    *balance = balance
+                        .checked_add(&entry.amount_left)
+                        .ok_or("Could not add amount back to asset owner DID")?;
+                    Ok(())
+                }
+            )?;
 
             // Set amount_left, flip remaining_claimed
             <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {

@@ -3,7 +3,7 @@ use codec::{Decode, Encode};
 
 const TICKER_LEN: usize = 12;
 
-/// Ticker symbol identified with a name.
+/// Ticker symbol.
 #[derive(Decode, Encode, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ticker(pub [u8; TICKER_LEN]);
 
@@ -19,9 +19,9 @@ impl Ticker {
         let mut ticker = [0u8; TICKER_LEN];
         for (i, b) in s
             .iter()
+            .take(TICKER_LEN)
             .map(|b| b.to_ascii_uppercase())
             .enumerate()
-            .take(TICKER_LEN)
         {
             ticker[i] = b;
         }
@@ -29,7 +29,7 @@ impl Ticker {
     }
 
     /// Converts the ticker to canonical uppercase ASCII notation.
-    pub fn canonize(&mut self) {
+    pub fn canonize(mut self) {
         for i in 0..TICKER_LEN {
             self.0[i] = self.0[i].to_ascii_uppercase();
         }

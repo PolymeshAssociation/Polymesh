@@ -186,9 +186,9 @@ decl_module! {
 
 decl_event!(
     pub enum Event {
-        NewAssetRule(Vec<u8>, AssetRule),
-        RemoveAssetRule(Vec<u8>, AssetRule),
-        ResetAssetRules(Vec<u8>),
+        NewAssetRule(Ticker, AssetRule),
+        RemoveAssetRule(Ticker, AssetRule),
+        ResetAssetRules(Ticker),
     }
 );
 
