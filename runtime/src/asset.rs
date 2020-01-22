@@ -102,11 +102,11 @@ pub struct SecurityToken<U> {
 /// struct to store the signed data
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct SignData<U> {
-    custodian_did: IdentityId,
-    holder_did: IdentityId,
-    ticker: Vec<u8>,
-    value: U,
-    nonce: u16,
+    pub custodian_did: IdentityId,
+    pub holder_did: IdentityId,
+    pub ticker: Vec<u8>,
+    pub value: U,
+    pub nonce: u16,
 }
 
 /// struct to store the ticker registration details

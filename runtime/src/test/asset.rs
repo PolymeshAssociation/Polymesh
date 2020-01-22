@@ -1,7 +1,28 @@
 use crate::{
-    asset,
-    test::storage::{build_ext, register_keyring_account, TestStorage},
+    asset::{self, SecurityToken, SignData, TickerRegistrationConfig},
+    balances, general_tm, identity,
+    test::storage::{make_account, TestStorage},
 };
+use primitives::{AccountId, AuthorizationData, IdentityId, Signer};
+
+use codec::Encode;
+use sr_io::with_externalities;
+use sr_primitives::AnySignature;
+use srml_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
+use substrate_primitives::Blake2Hasher;
+use test_client::AccountKeyring;
+
+use chrono::prelude::Utc;
+use rand::Rng;
+use std::convert::TryFrom;
+
+type Identity = identity::Module<TestStorage>;
+type Balances = balances::Module<TestStorage>;
+type Asset = asset::Module<TestStorage>;
+type Timestamp = timestamp::Module<TestStorage>;
+type GeneralTM = general_tm::Module<TestStorage>;
+
+type OffChainSignature = AnySignature;
 
 /// Build a genesis identity instance owned by account No. 1
 fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
@@ -14,7 +35,7 @@ fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
     }
     .assimilate_storage(&mut t)
     .unwrap();
-    self::GenesisConfig::<TestStorage> {
+    asset::GenesisConfig::<TestStorage> {
         asset_creation_fee: 0,
         ticker_registration_fee: 0,
         ticker_registration_config: TickerRegistrationConfig {
@@ -32,7 +53,7 @@ fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
 fn issuers_can_create_and_rename_tokens() {
     with_externalities(&mut identity_owned_by_alice(), || {
         let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(owner_acc.clone()).unwrap();
         // Raise the owner's base currency balance
         Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
@@ -79,7 +100,7 @@ fn issuers_can_create_and_rename_tokens() {
 
         // Unauthorized identities cannot rename the token.
         let eve_acc = AccountId::from(AccountKeyring::Eve);
-        let (eve_signed, _eve_did) = make_account(&eve_acc).unwrap();
+        let (eve_signed, _eve_did) = make_account(eve_acc).unwrap();
         assert_err!(
             Asset::rename_token(
                 eve_signed,
@@ -113,7 +134,7 @@ fn issuers_can_create_and_rename_tokens() {
 fn non_issuers_cant_create_tokens() {
     with_externalities(&mut identity_owned_by_alice(), || {
         let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (_, owner_did) = make_account(&owner_acc).unwrap();
+        let (_, owner_did) = make_account(owner_acc).unwrap();
 
         // Expected token entry
         let _ = SecurityToken {
@@ -136,10 +157,10 @@ fn non_issuers_cant_create_tokens() {
 fn valid_transfers_pass() {
     with_externalities(&mut identity_owned_by_alice(), || {
         let now = Utc::now();
-        <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+        Timestamp::set_timestamp(now.timestamp() as u64);
 
         let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(owner_acc.clone()).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -152,7 +173,7 @@ fn valid_transfers_pass() {
         Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
         let alice_acc = AccountId::from(AccountKeyring::Alice);
-        let (_, alice_did) = make_account(&alice_acc).unwrap();
+        let (_, alice_did) = make_account(alice_acc.clone()).unwrap();
 
         Balances::make_free_balance_be(&alice_acc, 1_000_000);
 
@@ -196,10 +217,10 @@ fn valid_transfers_pass() {
 fn valid_custodian_allowance() {
     with_externalities(&mut identity_owned_by_alice(), || {
         let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(owner_acc.clone()).unwrap();
 
         let now = Utc::now();
-        <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+        Timestamp::set_timestamp(now.timestamp() as u64);
 
         // Expected token entry
         let token = SecurityToken {
@@ -212,17 +233,17 @@ fn valid_custodian_allowance() {
         Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
         let investor1_acc = AccountId::from(AccountKeyring::Bob);
-        let (investor1_signed, investor1_did) = make_account(&investor1_acc).unwrap();
+        let (investor1_signed, investor1_did) = make_account(investor1_acc.clone()).unwrap();
 
         Balances::make_free_balance_be(&investor1_acc, 1_000_000);
 
         let investor2_acc = AccountId::from(AccountKeyring::Charlie);
-        let (investor2_signed, investor2_did) = make_account(&investor2_acc).unwrap();
+        let (investor2_signed, investor2_did) = make_account(investor2_acc.clone()).unwrap();
 
         Balances::make_free_balance_be(&investor2_acc, 1_000_000);
 
         let custodian_acc = AccountId::from(AccountKeyring::Eve);
-        let (custodian_signed, custodian_did) = make_account(&custodian_acc).unwrap();
+        let (custodian_signed, custodian_did) = make_account(custodian_acc.clone()).unwrap();
 
         Balances::make_free_balance_be(&custodian_acc, 1_000_000);
 
@@ -383,10 +404,10 @@ fn valid_custodian_allowance() {
 fn valid_custodian_allowance_of() {
     with_externalities(&mut identity_owned_by_alice(), || {
         let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(owner_acc.clone()).unwrap();
 
         let now = Utc::now();
-        <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+        Timestamp::set_timestamp(now.timestamp() as u64);
 
         // Expected token entry
         let token = SecurityToken {
@@ -399,17 +420,17 @@ fn valid_custodian_allowance_of() {
         Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
         let investor1_acc = AccountId::from(AccountKeyring::Bob);
-        let (investor1_signed, investor1_did) = make_account(&investor1_acc).unwrap();
+        let (investor1_signed, investor1_did) = make_account(investor1_acc.clone()).unwrap();
 
         Balances::make_free_balance_be(&investor1_acc, 1_000_000);
 
         let investor2_acc = AccountId::from(AccountKeyring::Charlie);
-        let (investor2_signed, investor2_did) = make_account(&investor2_acc).unwrap();
+        let (investor2_signed, investor2_did) = make_account(investor2_acc.clone()).unwrap();
 
         Balances::make_free_balance_be(&investor2_acc, 1_000_000);
 
         let custodian_acc = AccountId::from(AccountKeyring::Eve);
-        let (custodian_signed, custodian_did) = make_account(&custodian_acc).unwrap();
+        let (custodian_signed, custodian_did) = make_account(custodian_acc.clone()).unwrap();
 
         Balances::make_free_balance_be(&custodian_acc, 1_000_000);
 
@@ -459,7 +480,7 @@ fn valid_custodian_allowance_of() {
         );
 
         let msg = SignData {
-            custodian_did: custodian_did,
+            custodian_did,
             holder_did: investor1_did,
             ticker: token.name.clone(),
             value: 50_00_00 as u128,
@@ -594,10 +615,10 @@ fn checkpoints_fuzz_test() {
         // When fuzzing in local, feel free to bump this number to add more fuzz runs.
         with_externalities(&mut identity_owned_by_alice(), || {
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            Timestamp::set_timestamp(now.timestamp() as u64);
 
             let owner_acc = AccountId::from(AccountKeyring::Dave);
-            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+            let (owner_signed, owner_did) = make_account(owner_acc.clone()).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -608,7 +629,7 @@ fn checkpoints_fuzz_test() {
             };
 
             let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (_, bob_did) = make_account(&bob_acc).unwrap();
+            let (_, bob_did) = make_account(bob_acc.clone()).unwrap();
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
@@ -718,10 +739,10 @@ fn checkpoints_fuzz_test() {
 fn register_ticker() {
     with_externalities(&mut identity_owned_by_alice(), || {
         let now = Utc::now();
-        <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+        Timestamp::set_timestamp(now.timestamp() as u64);
 
         let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(owner_acc.clone()).unwrap();
 
         Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
@@ -768,7 +789,7 @@ fn register_ticker() {
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker.clone()));
 
         let alice_acc = AccountId::from(AccountKeyring::Alice);
-        let (alice_signed, _) = make_account(&alice_acc).unwrap();
+        let (alice_signed, _) = make_account(alice_acc.clone()).unwrap();
 
         Balances::make_free_balance_be(&alice_acc, 1_000_000);
 
@@ -780,7 +801,7 @@ fn register_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
 
-        <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64 + 10001);
+        Timestamp::set_timestamp(now.timestamp() as u64 + 10001);
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), true);
@@ -791,16 +812,16 @@ fn register_ticker() {
 fn transfer_ticker() {
     with_externalities(&mut identity_owned_by_alice(), || {
         let now = Utc::now();
-        <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+        Timestamp::set_timestamp(now.timestamp() as u64);
 
         let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(owner_acc.clone()).unwrap();
 
         let alice_acc = AccountId::from(AccountKeyring::Alice);
-        let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+        let (alice_signed, alice_did) = make_account(alice_acc.clone()).unwrap();
 
         let bob_acc = AccountId::from(AccountKeyring::Bob);
-        let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
+        let (bob_signed, bob_did) = make_account(bob_acc.clone()).unwrap();
 
         let ticker = vec![0x01, 0x01];
 
@@ -884,16 +905,16 @@ fn transfer_ticker() {
 fn transfer_token_ownership() {
     with_externalities(&mut identity_owned_by_alice(), || {
         let now = Utc::now();
-        <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+        Timestamp::set_timestamp(now.timestamp() as u64);
 
         let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(owner_acc.clone()).unwrap();
 
         let alice_acc = AccountId::from(AccountKeyring::Alice);
-        let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+        let (alice_signed, alice_did) = make_account(alice_acc.clone()).unwrap();
 
         let bob_acc = AccountId::from(AccountKeyring::Bob);
-        let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
+        let (bob_signed, bob_did) = make_account(bob_acc.clone()).unwrap();
 
         let ticker = vec![0x01, 0x01];
 
