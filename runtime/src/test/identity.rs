@@ -7,7 +7,9 @@ use crate::{
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use codec::Encode;
-use primitives::{AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem};
+use primitives::{
+    Authorization, AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem,
+};
 use rand::Rng;
 use sr_io::with_externalities;
 use srml_support::{assert_err, assert_ok, traits::Currency};
@@ -977,6 +979,7 @@ fn removing_links() {
     });
 }
 
+#[test]
 fn changing_master_key() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -1026,18 +1029,13 @@ fn changing_master_key() {
         );
 
         // Alice accepts the authorization with the new key
-        assert_ok!(Identity::accept_authorization(
+        assert_ok!(Identity::accept_master_key(
             new_key_origin,
-            Identity::last_authorization(Signer::from(alice_did))
+            alice_did,
+            Identity::last_authorization(Signer::Key(new_key))
         ));
-        assert_eq!(
-            Identity::master_key_rotation(alice_did),
-            Some(MasterKeyRotationPrefs {
-                new_key,
-                target_accepted: true,
-                kyc_verified: true
-            })
-        );
+
+        assert_eq!(Identity::master_key_rotation(alice_did), None);
 
         // Alice's master key is now Bob's
         assert_eq!(

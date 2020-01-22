@@ -419,9 +419,57 @@ decl_module! {
 
             <MasterKeyRotation>::insert(did, rotation);
 
-            Self::add_auth(Signer::Key(master_key), Signer::Key(master_key), AuthorizationData::RotateMasterKey(new_key, did), None);
+            Self::add_auth(Signer::Key(master_key), Signer::Key(new_key), AuthorizationData::RotateMasterKey(master_key, did), None);
 
             Self::deposit_event(RawEvent::MasterKeyChangeInitiated(did, new_key));
+
+            Ok(())
+        }
+
+        /// Call this with the new master key. By invoking this method, caller accepts authorization
+        /// `auth_id` with the new master key. If a KYC service provider approved this change, master
+        /// key of the DidRecord is updated
+        ///
+        /// # Arguments
+        /// * `did` caller's DID
+        /// * `auth_id` AuthorizationID that corresponds to changing master key
+        pub fn accept_master_key(
+            origin,
+            did: IdentityId,
+            auth_id: u64
+        ) -> Result {
+            let new_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let new_signer = Signer::from(new_key);
+
+            ensure!(<Authorizations<T>>::exists((new_signer, auth_id)), "Invalid auth");
+            let auth = Self::authorizations((new_signer, auth_id));
+
+            let (current_master_key, did) = match auth.authorization_data {
+                AuthorizationData::RotateMasterKey(current_master_key, did) => (current_master_key, did),
+                _ => return Err("Invalid authorization")
+            };
+
+            ensure!(
+                <MasterKeyRotation>::exists(did),
+                "master key rotation request does not exist"
+            );
+
+            // If this call originated from the new master key, `sender_key` would be the new master key
+            if let Some(rotation) = <MasterKeyRotation>::get(did) {
+                <MasterKeyRotation>::mutate(did, |entry| {
+                    if let Some(rotation) = entry {
+                        rotation.target_accepted = true
+                    }
+                });
+
+                if rotation.kyc_verified {
+                    Self::rotate_master_key(did, rotation.new_key);
+                }
+
+                Self::consume_auth(Signer::from(current_master_key), new_signer, auth_id)?;
+
+                Self::deposit_event(RawEvent::MasterKeyAccepted(did, auth_id));
+            }
 
             Ok(())
         }
@@ -471,7 +519,7 @@ decl_module! {
 
                 // If the key has been accepted by the target, attempt key change
                 if rotation.target_accepted {
-                    Self::_change_master_key(target_did, new_key);
+                    Self::rotate_master_key(target_did, new_key);
                 }
             }
 
@@ -844,7 +892,6 @@ decl_module! {
                             T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
                         AuthorizationData::TransferTokenOwnership(_) =>
                             T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
-                        // AuthorizationData::RotateMasterKey(_, did) => Self::accept_master_key(sender_key, sender_did, did, auth_id),
                         _ => return Err("Unknown authorization")
                     }
                 },
@@ -886,7 +933,6 @@ decl_module! {
                                     T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
                                 AuthorizationData::TransferTokenOwnership(_) =>
                                     T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
-                                // AuthorizationData::RotateMasterKey(_, did) => Self::accept_master_key(sender_key, sender_did, did, auth_id),
                                 _ => Err("Unknown authorization")
                             };
                         }
@@ -1584,53 +1630,11 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Handler for accepting AuthorizationData::RotateMasterKey. When changing the master key,
-    /// caller `target_did` must have accepted authorization `auth_id` with the new master key `sender_key`.
-    fn accept_master_key(
-        sender_key: Key,
-        target_did: IdentityId,
-        from_did: IdentityId,
-        auth_id: u64,
-    ) -> Result {
-        ensure!(
-            <MasterKeyRotation>::exists(target_did),
-            "master key rotation request does not exist"
-        );
-
-        // If this call originated from the new master key, `sender_key` would be the new master key
-        if let Some(rotation) = <MasterKeyRotation>::get(from_did) {
-            ensure!(
-                sender_key == rotation.new_key,
-                "target_did must accept key rotation using the new master key"
-            );
-
-            <MasterKeyRotation>::mutate(from_did, |entry| {
-                if let Some(rotation) = entry {
-                    rotation.target_accepted = true
-                }
-            });
-
-            if rotation.kyc_verified {
-                Self::_change_master_key(from_did, rotation.new_key);
-            }
-
-            Self::consume_auth(
-                Signer::Key(sender_key.clone()),
-                Signer::from(target_did),
-                auth_id,
-            )?;
-
-            Self::deposit_event(RawEvent::MasterKeyAccepted(target_did, auth_id));
-        }
-
-        Ok(())
-    }
-
     /// Replaces the master key for a DIDRecord of an IdentityId.
     /// To call this, both of these must have happened:
     /// 1. Target DID has accepted authorization for key change
     /// 2. A KYC service provider has approved the change
-    fn _change_master_key(did: IdentityId, new_key: Key) {
+    fn rotate_master_key(did: IdentityId, new_key: Key) {
         // Update the master key
         <DidRecords>::mutate(did, |record| {
             (*record).master_key = new_key.clone();

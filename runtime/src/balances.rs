@@ -1466,7 +1466,7 @@ mod tests {
         }
     }
     impl sr_primitives::traits::IsMember<IdentityId> for Runtime {
-        fn is_member(did: &IdentityId) -> bool {
+        fn is_member(_did: &IdentityId) -> bool {
             unimplemented!()
         }
     }

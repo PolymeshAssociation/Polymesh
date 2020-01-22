@@ -123,7 +123,7 @@ impl crate::asset::AcceptTransfer for TestStorage {
 }
 
 impl sr_primitives::traits::IsMember<IdentityId> for TestStorage {
-    fn is_member(did: &IdentityId) -> bool {
+    fn is_member(_did: &IdentityId) -> bool {
         true
     }
 }
