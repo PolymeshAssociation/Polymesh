@@ -56,7 +56,7 @@
 //! - `custodian_allowance`- Returns the allowance provided to a custodian for a given ticker and token holder
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
 
-use crate::{balances, constants::*, general_tm, identity, percentage_tm, utils};
+use crate::{balances, constants::*, general_tm, identity, percentage_tm, statistics, utils};
 use codec::Encode;
 use core::result::Result as StdResult;
 use currency::*;
@@ -83,6 +83,7 @@ pub trait Trait:
     + balances::Trait
     + identity::Trait
     + session::Trait
+    + statistics::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -1341,6 +1342,14 @@ impl<T: Trait> Module<T> {
 
         // increase receiver's balance
         <BalanceOf<T>>::insert(ticker_to_did, updated_to_balance);
+
+        // Update statistic info.
+        <statistics::Module<T>>::update_transfer_stats(
+            ticker,
+            updated_from_balance,
+            updated_to_balance,
+            value,
+        );
 
         Self::deposit_event(RawEvent::Transfer(ticker.clone(), from_did, to_did, value));
         Ok(())

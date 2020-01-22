@@ -404,7 +404,7 @@ mod tests {
 
     use crate::{
         asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
-        identity, percentage_tm, simple_token::SimpleTokenRecord,
+        identity, percentage_tm, simple_token::SimpleTokenRecord, statistics,
     };
 
     type SessionIndex = u32;
@@ -524,6 +524,8 @@ mod tests {
         type Event = ();
         type Currency = balances::Module<Test>;
     }
+
+    impl statistics::Trait for Test {}
 
     #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
     pub struct IdentityProposal {

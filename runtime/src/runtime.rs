@@ -523,6 +523,7 @@ construct_runtime!(
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
         KYCServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
+        Statistic: statistics::{Module, Call, Storage },
     }
 );
 

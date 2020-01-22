@@ -299,7 +299,7 @@ mod tests {
 
     use crate::{
         asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, identity,
-        identity::DataTypes, percentage_tm,
+        identity::DataTypes, percentage_tm, statistics,
     };
 
     impl_outer_origin! {
@@ -455,6 +455,8 @@ mod tests {
         type Event = ();
         type Currency = balances::Module<Test>;
     }
+
+    impl statistics::Trait for Test {}
 
     impl percentage_tm::Trait for Test {
         type Event = ();

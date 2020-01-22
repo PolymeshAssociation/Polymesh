@@ -1,4 +1,7 @@
-use crate::{asset, balances, exemption, general_tm, identity, percentage_tm, statistics, utils};
+use crate::{
+    asset::{self, TickerRegistrationConfig},
+    balances, exemption, general_tm, identity, percentage_tm, statistics, utils,
+};
 use primitives::{IdentityId, Key};
 
 use codec::Encode;
@@ -208,9 +211,23 @@ pub fn build_ext() -> TestExternalities<Blake2Hasher> {
         .build_storage::<TestStorage>()
         .unwrap();
 
+    // Identity genesis.
     identity::GenesisConfig::<TestStorage> {
         owner: AccountKeyring::Alice.public().into(),
         did_creation_fee: 250,
+    }
+    .assimilate_storage(&mut storage)
+    .unwrap();
+
+    // Asset genesis.
+    asset::GenesisConfig::<TestStorage> {
+        asset_creation_fee: 0,
+        ticker_registration_fee: 0,
+        ticker_registration_config: TickerRegistrationConfig {
+            max_ticker_length: 12,
+            registration_length: Some(10000),
+        },
+        fee_collector: AccountKeyring::Dave.public().into(),
     }
     .assimilate_storage(&mut storage)
     .unwrap();
