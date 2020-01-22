@@ -468,7 +468,7 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = IdentityProposal;
-        type AcceptTickerTransferTarget = asset::Module<Test>;
+        type AcceptTransferTarget = asset::Module<Test>;
     }
 
     impl asset::Trait for Test {
@@ -560,12 +560,6 @@ mod tests {
             let (_claim_issuer, claim_issuer_did) =
                 make_account(&claim_issuer_acc.clone()).unwrap();
 
-            assert_ok!(Identity::add_claim_issuer(
-                token_owner_signed.clone(),
-                token_owner_did,
-                claim_issuer_did
-            ));
-
             let claim_value = ClaimValue {
                 data_type: DataTypes::VecU8,
                 value: "some_value".as_bytes().to_vec(),
@@ -645,12 +639,6 @@ mod tests {
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
             let (_claim_issuer, claim_issuer_did) =
                 make_account(&claim_issuer_acc.clone()).unwrap();
-
-            assert_ok!(Identity::add_claim_issuer(
-                token_owner_signed.clone(),
-                token_owner_did.clone(),
-                claim_issuer_did
-            ));
 
             let claim_value = ClaimValue {
                 data_type: DataTypes::U8,

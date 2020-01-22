@@ -7,6 +7,8 @@ use rstd::prelude::Vec;
 pub enum AuthorizationData {
     /// Authorization to transfer a ticker
     TransferTicker(Vec<u8>),
+    /// Authorization to transfer a token's ownership
+    TransferTokenOwnership(Vec<u8>),
     /// Any other authorization
     Custom(Vec<u8>),
     /// No authorization data
