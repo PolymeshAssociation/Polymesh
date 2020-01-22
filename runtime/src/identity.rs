@@ -40,23 +40,27 @@ use rstd::{convert::TryFrom, prelude::*};
 use crate::{
     asset::AcceptTransfer,
     balances,
-    constants::did::{SECURITY_TOKEN, USER},
-    BatchDispatchInfo,
+    constants::{
+        did::{SECURITY_TOKEN, USER},
+        KYC_EXPIRY_CLAIM_KEY,
+    },
+    group, BatchDispatchInfo,
 };
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
     Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
 };
-
-use codec::Encode;
-use core::convert::From;
-use core::result::Result as StdResult;
 use sr_io::blake2_256;
 use sr_primitives::{
-    traits::{Dispatchable, Hash, Verify},
+    traits::{Dispatchable, Hash, SaturatedConversion, Verify},
     weights::SimpleDispatchInfo,
     AnySignature, DispatchError,
 };
+
+use codec::Encode;
+use core::convert::From;
+use core::convert::TryInto;
+use core::result::Result as StdResult;
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
@@ -118,7 +122,7 @@ impl Default for DataTypes {
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or external type signing key are restricted to be linked to just one identity.
-/// Other types of signing key could be associated with more that one identity.
+/// Other types of signing key could be associated with more than one identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub enum LinkedKeyInfo {
     Unique(IdentityId),
@@ -161,7 +165,9 @@ pub struct SigningItemWithAuth {
 }
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
+pub trait Trait:
+    system::Trait + balances::Trait + timestamp::Trait + group::Trait<group::Instance1>
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     /// An extrinsic call.
@@ -992,6 +998,29 @@ decl_module! {
             <RevokeOffChainAuthorization<T>>::insert( (signer,auth), true);
             Ok(())
         }
+
+        /// Query whether given signer identity has valid KYC or not
+        ///
+        /// # Arguments
+        /// * `origin` Signer whose identity get checked
+        /// * `buffer_time` Buffer time corresponds to which kyc expiry need to check
+        pub fn is_my_identity_has_valid_kyc(origin, buffer_time: u64) ->  Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let my_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+            let (is_kyced, kyc_provider) = Self::is_identity_has_valid_kyc(my_did, buffer_time);
+            Self::deposit_event(RawEvent::MyKycStatus(my_did, is_kyced, kyc_provider));
+            Ok(())
+        }
     }
 }
 
@@ -1035,6 +1064,9 @@ decl_event!(
 
         /// DID queried
         DidQuery(Key, IdentityId),
+
+        /// To query the status of DID
+        MyKycStatus(IdentityId, bool, Option<IdentityId>),
 
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
         NewAuthorization(
@@ -1328,6 +1360,35 @@ impl<T: Trait> Module<T> {
             }
         }
         return None;
+    }
+
+    pub fn is_identity_has_valid_kyc(
+        claim_for: IdentityId,
+        buffer: u64,
+    ) -> (bool, Option<IdentityId>) {
+        let trusted_kyc_providers = <group::Module<T, group::Instance1>>::members();
+        if trusted_kyc_providers.len() > 0 {
+            for trusted_kyc_provider in trusted_kyc_providers {
+                if let Some(claim) = Self::fetch_claim_value(
+                    claim_for,
+                    KYC_EXPIRY_CLAIM_KEY.to_vec(),
+                    trusted_kyc_provider,
+                ) {
+                    if let Ok(value) = claim.value.as_slice().try_into() {
+                        //let kyc_expiry: [u8; 8] = value;
+                        if let Some(threshold) = ((<timestamp::Module<T>>::get())
+                            .saturated_into::<u64>())
+                        .checked_add(buffer)
+                        {
+                            if u64::from_be_bytes(value) > threshold {
+                                return (true, Some(trusted_kyc_provider));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return (false, None);
     }
 
     /// It checks that `sender_key` is the master key of `did` Identifier and that
