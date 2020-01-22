@@ -281,6 +281,7 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use chrono::prelude::*;
+    use primitives::IdentityId;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::{Header, UintAuthorityId},
@@ -295,11 +296,12 @@ mod tests {
     };
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
+    use system::EnsureSignedBy;
     use test_client::{self, AccountKeyring};
 
     use crate::{
-        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, identity,
-        identity::DataTypes, percentage_tm,
+        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, group,
+        identity, identity::DataTypes, percentage_tm,
     };
 
     impl_outer_origin! {
@@ -443,6 +445,24 @@ mod tests {
         fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
             Ok(())
         }
+    }
+
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
     }
 
     impl identity::Trait for Test {

@@ -427,7 +427,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{balances, identity};
+    use crate::{balances, group, identity};
     use primitives::IdentityId;
     use sr_io::with_externalities;
     use sr_primitives::{
@@ -565,6 +565,16 @@ mod tests {
         type Proposal = Call;
         type CommitteeOrigin = EnsureSignedBy<One, u64>;
         type Event = ();
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, u64>;
+        type RemoveOrigin = EnsureSignedBy<Two, u64>;
+        type SwapOrigin = EnsureSignedBy<Three, u64>;
+        type ResetOrigin = EnsureSignedBy<Four, u64>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
     }
 
     type System = system::Module<Test>;
