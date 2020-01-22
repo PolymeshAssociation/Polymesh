@@ -48,7 +48,7 @@ use crate::{
 };
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
-    Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+    Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem, Ticker,
 };
 use sr_io::blake2_256;
 use sr_primitives::{

@@ -52,7 +52,7 @@ use crate::{
 use codec::Encode;
 use core::result::Result as StdResult;
 use identity::ClaimValue;
-use primitives::{IdentityId, Key, Signer};
+use primitives::{IdentityId, Key, Signer, Ticker};
 use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -213,8 +213,7 @@ impl<T: Trait> Module<T> {
         _value: T::Balance,
     ) -> StdResult<u8, &'static str> {
         // Transfer is valid if All reciever and sender rules of any asset rule are valid.
-        let ticker = utils::bytes_to_upper(ticker.as_slice());
-        let active_rules = Self::active_rules(ticker.clone());
+        let active_rules = Self::active_rules(ticker);
         for active_rule in active_rules {
             let mut rule_broken = false;
 
@@ -741,7 +740,7 @@ mod tests {
                 asset_rule
             ));
 
-            let asset_rules = GeneralTM::active_rules(token.name.clone());
+            let asset_rules = GeneralTM::active_rules(token.name);
             assert_eq!(asset_rules.len(), 1);
 
             assert_ok!(GeneralTM::reset_active_rules(
@@ -750,7 +749,7 @@ mod tests {
                 token.name.clone()
             ));
 
-            let asset_rules_new = GeneralTM::active_rules(token.name.clone());
+            let asset_rules_new = GeneralTM::active_rules(token.name);
             assert_eq!(asset_rules_new.len(), 0);
         });
     }

@@ -33,7 +33,7 @@
 
 use crate::{asset, balances, identity, simple_token, utils};
 use codec::Encode;
-use primitives::{IdentityId, Key, Signer};
+use primitives::{IdentityId, Key, Signer, Ticker};
 use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
@@ -102,8 +102,7 @@ decl_module! {
             checkpoint_id: u64
         ) -> Result {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-            let ticker = utils::bytes_to_upper(ticker.as_slice());
-
+            ticker.canonize();
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
@@ -363,7 +362,7 @@ impl<T: Trait> Module<T> {
         dividend_id: u32,
     ) -> Option<Dividend<T::Balance, T::Moment>> {
         // Check that the dividend entry exists
-        let ticker_div_id = (ticker.to_owned(), dividend_id);
+        let ticker_div_id = (*ticker, dividend_id);
         if <Dividends<T>>::exists(&ticker_div_id) {
             Some(<Dividends<T>>::get(&ticker_div_id))
         } else {

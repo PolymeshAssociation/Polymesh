@@ -35,7 +35,7 @@ use crate::{
     balances, identity, utils,
 };
 use codec::Encode;
-use primitives::{IdentityId, Key, Signer};
+use primitives::{IdentityId, Key, Signer, Ticker};
 use rstd::{convert::TryFrom, prelude::*};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
 use system::{self, ensure_signed};
@@ -79,22 +79,22 @@ pub struct Motion {
 decl_storage! {
     trait Store for Module<T: Trait> as Voting {
         /// Mapping of ticker and ballot name -> ballot details
-        pub Ballots get(ballots): linked_map(Vec<u8>, Vec<u8>) => Ballot<T::Moment>;
+        pub Ballots get(ballots): linked_map(Ticker, Vec<u8>) => Ballot<T::Moment>;
 
         /// Helper data to make voting cheaper.
         /// (ticker, BallotName) -> NoOfChoices
-        pub TotalChoices get(total_choices): map (Vec<u8>, Vec<u8>) => u64;
+        pub TotalChoices get(total_choices): map (Ticker, Vec<u8>) => u64;
 
         /// (Ticker, BallotName, DID) -> Vector of vote weights.
         /// weight at 0 index means weight for choice 1 of motion 1.
         /// weight at 1 index means weight for choice 2 of motion 1.
         /// User must enter 0 vote weight if they don't want to vote for a choice.
-        pub Votes get(votes): map (Vec<u8>, Vec<u8>, IdentityId) => Vec<T::Balance>;
+        pub Votes get(votes): map (Ticker, Vec<u8>, IdentityId) => Vec<T::Balance>;
 
         /// (Ticker, BallotName) -> Vector of current vote weights.
         /// weight at 0 index means weight for choice 1 of motion 1.
         /// weight at 1 index means weight for choice 2 of motion 1.
-        pub Results get(results): map (Vec<u8>, Vec<u8>) => Vec<T::Balance>;
+        pub Results get(results): map (Ticker, Vec<u8>) => Vec<T::Balance>;
     }
 }
 
@@ -112,19 +112,19 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which ballot is to be created
         /// * `ballot_name` - Name of the ballot
         /// * `ballot_details` - Other details of the ballot
-        pub fn add_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> Result {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-            let upper_ticker = utils::bytes_to_upper(&ticker);
+        pub fn add_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> Result {
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            ticker.canonize();
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
+            ensure!(Self::is_owner(&ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again.
-            let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
+            let ticker_ballot_name = (ticker, ballot_name.clone());
 
             // Ensure the uniqueness of the ballot
-            ensure!(!<Ballots<T>>::exists(&upper_ticker_ballot_name), "A ballot with same name already exisits");
+            ensure!(!<Ballots<T>>::exists(&ticker_ballot_name), "A ballot with same name already exisits");
 
             let now = <timestamp::Module<T>>::get();
 
@@ -143,17 +143,17 @@ decl_module! {
             }
 
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
-                <TotalChoices>::insert(&upper_ticker_ballot_name, total_choices_u64);
+                <TotalChoices>::insert(&ticker_ballot_name, total_choices_u64);
             } else {
                 return Err("Could not decode choices")
             }
 
-            <Ballots<T>>::insert(&upper_ticker_ballot_name, ballot_details.clone());
+            <Ballots<T>>::insert(&ticker_ballot_name, ballot_details.clone());
 
             let initial_results = vec![0.into(); total_choices];
-            <Results<T>>::insert(&upper_ticker_ballot_name, initial_results);
+            <Results<T>>::insert(&ticker_ballot_name, initial_results);
 
-            Self::deposit_event(RawEvent::BallotCreated(upper_ticker, ballot_name, ballot_details));
+            Self::deposit_event(RawEvent::BallotCreated(ticker, ballot_name, ballot_details));
 
             Ok(())
         }
@@ -165,32 +165,31 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which vote is to be cast
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
-        pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> Result {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-
-            let upper_ticker = utils::bytes_to_upper(&ticker);
+        pub fn vote(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> Result {
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            ticker.canonize();
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
             // This avoids cloning the variables to make the same tupple again and again
-            let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
+            let ticker_ballot_name = (ticker, ballot_name.clone());
 
             // Ensure validity the ballot
-            ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exist");
-            let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
+            ensure!(<Ballots<T>>::exists(&ticker_ballot_name), "Ballot does not exist");
+            let ballot = <Ballots<T>>::get(&ticker_ballot_name);
             let now = <timestamp::Module<T>>::get();
             ensure!(ballot.voting_start <= now, "Voting hasn't started yet");
             ensure!(ballot.voting_end > now, "Voting ended already");
 
             // Ensure validity of checkpoint
-            ensure!(<asset::TotalCheckpoints>::exists(&upper_ticker), "No checkpoints created");
-            let count = <asset::TotalCheckpoints>::get(&upper_ticker);
+            ensure!(<asset::TotalCheckpoints>::exists(&ticker), "No checkpoints created");
+            let count = <asset::TotalCheckpoints>::get(&ticker);
             ensure!(ballot.checkpoint_id <= count, "Checkpoint has not been created yet");
 
             // Ensure vote is valid
             if let Ok(votes_len) = u64::try_from(votes.len()) {
-                ensure!(votes_len == <TotalChoices>::get(&upper_ticker_ballot_name), "Invalid vote");
+                ensure!(votes_len == <TotalChoices>::get(&ticker_ballot_name), "Invalid vote");
             } else {
                 return Err("Invalid vote")
             }
@@ -199,16 +198,16 @@ decl_module! {
             for vote in &votes {
                 total_votes += *vote;
             }
-            ensure!(total_votes <= T::Asset::get_balance_at(&upper_ticker, did, ballot.checkpoint_id), "Not enough balance");
+            ensure!(total_votes <= T::Asset::get_balance_at(&ticker, did, ballot.checkpoint_id), "Not enough balance");
 
             // This avoids cloning the variables to make the same tupple again and again
-            let upper_ticker_ballot_name_did = (upper_ticker.clone(), ballot_name.clone(), did);
+            let ticker_ballot_name_did = (ticker, ballot_name.clone(), did);
 
             // Check if user has already voted for this ballot or if they are voting for the first time
-            if <Votes<T>>::exists(&upper_ticker_ballot_name_did) {
+            if <Votes<T>>::exists(&ticker_ballot_name_did) {
                 //User wants to change their vote. We first need to subtract their existing vote
-                let previous_votes = <Votes<T>>::get(&upper_ticker_ballot_name_did);
-                <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
+                let previous_votes = <Votes<T>>::get(&ticker_ballot_name_did);
+                <Results<T>>::mutate(&ticker_ballot_name, |results| {
                     for i in 0..results.len() {
                         results[i] -= previous_votes[i];
                     }
@@ -216,16 +215,16 @@ decl_module! {
             }
 
             // Adding users' vote to the result
-            <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
+            <Results<T>>::mutate(&ticker_ballot_name, |results| {
                 for i in 0..results.len() {
                     results[i] += votes[i];
                 }
             });
 
             // Storing users' vote onchain. This is needed when user wants to their change vote
-            <Votes<T>>::insert(&upper_ticker_ballot_name_did, votes.clone());
+            <Votes<T>>::insert(&ticker_ballot_name_did, votes.clone());
 
-            Self::deposit_event(RawEvent::VoteCast(upper_ticker, ballot_name, votes));
+            Self::deposit_event(RawEvent::VoteCast(ticker, ballot_name, votes));
 
             Ok(())
         }
@@ -236,25 +235,25 @@ decl_module! {
         /// * `did` - DID of the token owner. Sender must be a signing key or master key of this DID
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
-        pub fn cancel_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>) -> Result {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-            let upper_ticker = utils::bytes_to_upper(&ticker);
+        pub fn cancel_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>) -> Result {
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            ticker.canonize();
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
+            ensure!(Self::is_owner(&ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again
-            let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
+            let ticker_ballot_name = (ticker, ballot_name.clone());
 
             // Ensure the existance of valid ballot
-            ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exisit");
-            let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
+            ensure!(<Ballots<T>>::exists(&ticker_ballot_name), "Ballot does not exisit");
+            let ballot = <Ballots<T>>::get(&ticker_ballot_name);
             let now = <timestamp::Module<T>>::get();
             ensure!(now < ballot.voting_end, "Voting already ended");
 
             // Clearing results
-            <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
+            <Results<T>>::mutate(&ticker_ballot_name, |results| {
                 for i in 0..results.len() {
                     results[i] = 0.into();
                 }
@@ -264,11 +263,11 @@ decl_module! {
             // deleting a ballot mid vote and creating a new one with same name to confuse voters
 
             // This will prevent further voting. Essentially, canceling the ballot
-            <Ballots<T>>::mutate(&upper_ticker_ballot_name, |ballot_details| {
+            <Ballots<T>>::mutate(&ticker_ballot_name, |ballot_details| {
                 ballot_details.voting_end = now;
             });
 
-            Self::deposit_event(RawEvent::BallotCancelled(upper_ticker, ballot_name));
+            Self::deposit_event(RawEvent::BallotCancelled(ticker, ballot_name));
 
             Ok(())
         }
@@ -282,20 +281,19 @@ decl_event!(
         Moment = <T as timestamp::Trait>::Moment,
     {
         /// A new ballot is created (Ticker, BallotName, BallotDetails)
-        BallotCreated(Vec<u8>, Vec<u8>, Ballot<Moment>),
+        BallotCreated(Ticker, Vec<u8>, Ballot<Moment>),
 
         /// A vote is cast (Ticker, BallotName, Vote)
-        VoteCast(Vec<u8>, Vec<u8>, Vec<Balance>),
+        VoteCast(Ticker, Vec<u8>, Vec<Balance>),
 
         /// An existing ballot is cancelled (Ticker, BallotName)
-        BallotCancelled(Vec<u8>, Vec<u8>),
+        BallotCancelled(Ticker, Vec<u8>),
     }
 );
 
 impl<T: Trait> Module<T> {
-    fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool {
-        let upper_ticker = utils::bytes_to_upper(ticker.as_slice());
-        T::Asset::is_owner(&upper_ticker, did)
+    fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
+        T::Asset::is_owner(ticker, did)
     }
 }
 

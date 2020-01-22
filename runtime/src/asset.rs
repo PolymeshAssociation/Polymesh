@@ -239,8 +239,8 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
-        /// * `_ticker` ticker to register
-        pub fn register_ticker(origin, _ticker: Vec<u8>) -> Result {
+        /// * `ticker` ticker to register
+        pub fn register_ticker(origin, ticker: Ticker) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             let signer = Signer::Key( sender_key.clone());
@@ -255,7 +255,7 @@ decl_module! {
                 }
             };
 
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            ticker.canonize();
             ensure!(<identity::Module<T>>::is_signer_authorized(to_did, &signer), "sender must be a signing key for DID");
 
             ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
@@ -350,7 +350,7 @@ decl_module! {
             ticker.canonize();
 >>>>>>> WIP on introducing a newtype for tickers
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key( Key::try_from(sender.encode())?);
+            let signer = Signer::Key(Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -447,7 +447,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer), "sender must be a signing key for the token owner DID");
             <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
-            Self::deposit_event(RawEvent::TokenRenamed(ticker.to_vec(), name));
+            Self::deposit_event(RawEvent::TokenRenamed(ticker, name));
             Ok(())
         }
 
@@ -540,13 +540,13 @@ decl_module! {
         /// * `from_did` DID from whom token is being transferred
         /// * `to_did` DID to whom token is being transferred
         /// * `value` Amount of the token for transfer
-        pub fn transfer_from(origin, did: IdentityId, _ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> Result {
-            let spender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+        pub fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> Result {
+            let spender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "sender must be a signing key for DID");
 
-            let ticker = utils::bytes_to_upper(_ticker.as_slice());
+            ticker.canonize();
             let ticker_from_did_did = (ticker.clone(), from_did, did);
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist");
             let allowance = Self::allowance(&ticker_from_did_did);
@@ -1284,16 +1284,16 @@ impl<T: Trait> AssetTrait<T::Balance> for Module<T> {
 
     /// Get the asset `id` balance of `who`.
     fn balance(ticker: &Ticker, who: IdentityId) -> T::Balance {
-        Self::balance_of((ticker.to_owned(), who));
+        Self::balance_of((*ticker, who))
     }
 
     // Get the total supply of an asset `id`
     fn total_supply(ticker: &Ticker) -> T::Balance {
-        Self::token_details(ticker).total_supply;
+        Self::token_details(ticker).total_supply
     }
 
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> T::Balance {
-        Self::get_balance_at(ticker, did, at);
+        Self::get_balance_at(*ticker, did, at)
     }
 }
 
@@ -1338,9 +1338,9 @@ impl<T: Trait> Module<T> {
 
     pub fn is_ticker_available(ticker: &Ticker) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::exists(ticker.clone()) {
+        if <Tickers<T>>::exists(ticker) {
             let now = <timestamp::Module<T>>::get();
-            if let Some(expiry) = Self::ticker_registration(ticker.to_owned()).expiry {
+            if let Some(expiry) = Self::ticker_registration(*ticker).expiry {
                 if now <= expiry {
                     return false;
                 }
@@ -1353,7 +1353,7 @@ impl<T: Trait> Module<T> {
 
     pub fn is_ticker_registry_valid(ticker: &Ticker, did: IdentityId) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::exists(ticker.clone()) {
+        if <Tickers<T>>::exists(ticker) {
             let now = <timestamp::Module<T>>::get();
             let ticker_reg = Self::ticker_registration(ticker.clone());
             if ticker_reg.owner == did {
@@ -1379,7 +1379,7 @@ impl<T: Trait> Module<T> {
     ) -> TickerRegistrationStatus {
         // Assumes uppercase ticker
         if <Tickers<T>>::exists(ticker) {
-            let ticker_reg = Self::ticker_registration(ticker.clone());
+            let ticker_reg = Self::ticker_registration(*ticker);
             if let Some(expiry) = ticker_reg.expiry {
                 let now = <timestamp::Module<T>>::get();
                 if now > expiry {
@@ -1418,7 +1418,7 @@ impl<T: Trait> Module<T> {
         <Tickers<T>>::insert(ticker, ticker_registration);
 
         Self::deposit_event(RawEvent::TickerRegistered(
-            ticker.to_owned(),
+            *ticker,
             to_did,
             expiry,
         ));
@@ -1528,7 +1528,7 @@ impl<T: Trait> Module<T> {
             Self::check_granularity(ticker, value),
             "Invalid granularity"
         );
-        let ticker_from_did = (ticker, from_did);
+        let ticker_from_did = (*ticker, from_did);
         ensure!(
             <BalanceOf<T>>::exists(&ticker_from_did),
             "Account does not own this token"
@@ -1539,8 +1539,8 @@ impl<T: Trait> Module<T> {
         let updated_from_balance = sender_balance
             .checked_sub(&value)
             .ok_or("overflow in calculating balance")?;
-        let ticker_to_did = (ticker, to_did);
-        let receiver_balance = Self::balance_of(&ticker_to_did);
+        let ticker_to_did = (*ticker, to_did);
+        let receiver_balance = Self::balance_of(ticker_to_did);
         let updated_to_balance = receiver_balance
             .checked_add(&value)
             .ok_or("overflow in calculating balance")?;
@@ -1548,12 +1548,12 @@ impl<T: Trait> Module<T> {
         Self::_update_checkpoint(ticker, from_did, sender_balance);
         Self::_update_checkpoint(ticker, to_did, receiver_balance);
         // reduce sender's balance
-        <BalanceOf<T>>::insert(ticker_from_did, updated_from_balance);
+        <BalanceOf<T>>::insert(&ticker_from_did, updated_from_balance);
 
         // increase receiver's balance
         <BalanceOf<T>>::insert(ticker_to_did, updated_to_balance);
 
-        Self::deposit_event(RawEvent::Transfer(ticker, from_did, to_did, value));
+        Self::deposit_event(RawEvent::Transfer(*ticker, from_did, to_did, value));
         Ok(())
     }
 
@@ -1565,13 +1565,13 @@ impl<T: Trait> Module<T> {
                 .ok_or("overflow in adding checkpoint")?;
             <TotalCheckpoints>::insert(ticker, checkpoint_count);
             <CheckpointTotalSupply<T>>::insert(
-                (ticker, checkpoint_count),
+                &(*ticker, checkpoint_count),
                 Self::token_details(ticker).total_supply,
             );
         } else {
             <TotalCheckpoints>::insert(ticker, 1);
             <CheckpointTotalSupply<T>>::insert(
-                (ticker, 1),
+                &(*ticker, 1),
                 Self::token_details(ticker).total_supply,
             );
         }
@@ -1581,10 +1581,10 @@ impl<T: Trait> Module<T> {
     fn _update_checkpoint(ticker: &Ticker, user_did: IdentityId, user_balance: T::Balance) {
         if <TotalCheckpoints>::exists(ticker) {
             let checkpoint_count = Self::total_checkpoints_of(ticker);
-            let ticker_user_did_checkpont = (ticker, user_did, checkpoint_count);
+            let ticker_user_did_checkpont = (*ticker, user_did, checkpoint_count);
             if !<CheckpointBalance<T>>::exists(&ticker_user_did_checkpont) {
                 <CheckpointBalance<T>>::insert(&ticker_user_did_checkpont, user_balance);
-                <UserCheckpoints>::mutate((ticker, user_did), |user_checkpoints| {
+                <UserCheckpoints>::mutate(&(*ticker, user_did), |user_checkpoints| {
                     user_checkpoints.push(checkpoint_count);
                 });
             }
@@ -1602,7 +1602,7 @@ impl<T: Trait> Module<T> {
             "Invalid granularity"
         );
         //Increase receiver balance
-        let ticker_to_did = (ticker, to_did);
+        let ticker_to_did = (*ticker, to_did);
         let current_to_balance = Self::balance_of(&ticker_to_did);
         let updated_to_balance = current_to_balance
             .checked_add(&value)
@@ -1632,13 +1632,13 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(&ticker_to_did, updated_to_balance);
         <Tokens<T>>::insert(ticker, token);
         let round = Self::funding_round(ticker);
-        let ticker_round = (ticker, round.clone());
+        let ticker_round = (*ticker, round.clone());
         let issued_in_this_round = Self::issued_in_funding_round(&ticker_round)
             .checked_add(&value)
             .ok_or("current funding round total overflowed")?;
         <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
         Self::deposit_event(RawEvent::Issued(
-            ticker,
+            *ticker,
             to_did,
             value,
             round,
@@ -1659,11 +1659,11 @@ impl<T: Trait> Module<T> {
         holder_did: IdentityId,
         value: T::Balance,
     ) -> Result {
-        let remaining_balance = Self::balance_of((ticker, holder_did))
+        let remaining_balance = Self::balance_of(&(*ticker, holder_did))
             .checked_sub(&value)
             .ok_or("underflow in balance deduction")?;
         ensure!(
-            remaining_balance >= Self::total_custody_allowance((ticker, holder_did)),
+            remaining_balance >= Self::total_custody_allowance(&(*ticker, holder_did)),
             "Insufficient balance for transfer"
         );
         Ok(())
@@ -1719,9 +1719,9 @@ impl<T: Trait> Module<T> {
         let auth = <identity::Module<T>>::authorizations((Signer::from(to_did), auth_id));
 
         let ticker = match auth.authorization_data {
-            AuthorizationData::TransferTicker(_ticker) => {
-                _ticker.canonize();
-                _ticker
+            AuthorizationData::TransferTicker(ticker) => {
+                ticker.canonize();
+                ticker
             }
             _ => return Err("Not a ticker transfer auth"),
         };
@@ -1753,9 +1753,9 @@ impl<T: Trait> Module<T> {
         let auth = <identity::Module<T>>::authorizations((Signer::from(to_did), auth_id));
 
         let ticker = match auth.authorization_data {
-            AuthorizationData::TransferTokenOwnership(_ticker) => {
-                _ticker.canonize();
-                _ticker
+            AuthorizationData::TransferTokenOwnership(ticker) => {
+                ticker.canonize();
+                ticker
             }
             _ => return Err("Not a token ownership transfer auth"),
         };
@@ -2804,11 +2804,11 @@ mod tests {
                 Asset::is_ticker_registry_valid(&token.name, owner_did),
                 true
             );
-            assert_eq!(Asset::is_ticker_available(&token.name), false);
-            let stored_token = <Module<Test>>::token_details(&token.name.clone());
+            assert_eq!(Asset::is_ticker_available(&ticker), false);
+            let stored_token = <Module<Test>>::token_details(&ticker);
             assert_eq!(stored_token.asset_type, token.asset_type);
             for (typ, val) in identifiers {
-                assert_eq!(Asset::identifiers((token.name.clone(), typ.clone())), val);
+                assert_eq!(Asset::identifiers((ticker, typ)), val);
             }
 
             assert_err!(
@@ -2827,11 +2827,11 @@ mod tests {
                 "ticker length over the limit"
             );
 
-            let ticker = vec![0x01, 0x01];
+            let ticker = Ticker::from_slice(&[0x01, 0x01]);
 
             assert_eq!(Asset::is_ticker_available(&ticker), true);
 
-            assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker.clone()));
+            assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
             let (alice_signed, _) = make_account(&alice_acc).unwrap();
@@ -2839,7 +2839,7 @@ mod tests {
             Balances::make_free_balance_be(&alice_acc, 1_000_000);
 
             assert_err!(
-                Asset::register_ticker(alice_signed.clone(), ticker.clone()),
+                Asset::register_ticker(alice_signed.clone(), ticker),
                 "ticker registered to someone else"
             );
 
@@ -2868,22 +2868,22 @@ mod tests {
             let bob_acc = AccountId::from(AccountKeyring::Bob);
             let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
 
-            let ticker = vec![0x01, 0x01];
+            let ticker = Ticker::from_slice(&[0x01, 0x01]);
 
             assert_eq!(Asset::is_ticker_available(&ticker), true);
-            assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker.clone()));
+            assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
             Identity::add_auth(
                 Signer::from(owner_did),
                 Signer::from(alice_did),
-                AuthorizationData::TransferTicker(ticker.clone()),
+                AuthorizationData::TransferTicker(ticker),
                 None,
             );
 
             Identity::add_auth(
                 Signer::from(owner_did),
                 Signer::from(bob_did),
-                AuthorizationData::TransferTicker(ticker.clone()),
+                AuthorizationData::TransferTicker(ticker),
                 None,
             );
 
@@ -2909,7 +2909,7 @@ mod tests {
             Identity::add_auth(
                 Signer::from(alice_did),
                 Signer::from(bob_did),
-                AuthorizationData::TransferTicker(ticker.clone()),
+                AuthorizationData::TransferTicker(ticker),
                 Some(now.timestamp() as u64 - 100),
             );
             auth_id = Identity::last_authorization(Signer::from(bob_did));
@@ -2921,7 +2921,7 @@ mod tests {
             Identity::add_auth(
                 Signer::from(alice_did),
                 Signer::from(bob_did),
-                AuthorizationData::Custom(ticker.clone()),
+                AuthorizationData::Custom(ticker),
                 Some(now.timestamp() as u64 + 100),
             );
             auth_id = Identity::last_authorization(Signer::from(bob_did));
@@ -2933,7 +2933,7 @@ mod tests {
             Identity::add_auth(
                 Signer::from(alice_did),
                 Signer::from(bob_did),
-                AuthorizationData::TransferTicker(ticker.clone()),
+                AuthorizationData::TransferTicker(ticker),
                 Some(now.timestamp() as u64 + 100),
             );
             auth_id = Identity::last_authorization(Signer::from(bob_did));
@@ -3217,7 +3217,7 @@ mod tests {
      *                        as u128;
      *
      *                    let token_struct = SecurityToken {
-     *                        name: ticker.to_owned().into_bytes(),
+     *                        name: *ticker.into_bytes(),
      *                        owner: owner_id,
      *                        total_supply,
      *                        divisible: true,
@@ -3281,7 +3281,7 @@ mod tests {
      *
      *                            general_tm::Module::<Test>::add_to_whitelist(
      *                                Origin::signed(owner_id),
-     *                                ticker.to_owned().into_bytes(),
+     *                                *ticker.into_bytes(),
      *                                wl_id,
      *                                investor_id,
      *                                (now + Duration::hours(expiry)).timestamp() as u64,
@@ -3334,14 +3334,14 @@ mod tests {
      *                    if succeeds {
      *                        assert_ok!(Asset::approve(
      *                            Origin::signed(sender_id),
-     *                            ticker.to_owned().into_bytes(),
+     *                            *ticker.into_bytes(),
      *                            spender_id,
      *                            amount,
      *                        ));
      *                    } else {
      *                        assert!(Asset::approve(
      *                            Origin::signed(sender_id),
-     *                            ticker.to_owned().into_bytes(),
+     *                            *ticker.into_bytes(),
      *                            spender_id,
      *                            amount,
      *                        )

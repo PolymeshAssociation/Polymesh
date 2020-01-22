@@ -2,7 +2,7 @@ use crate::{
     asset::{self, AssetTrait},
     balances, identity, utils,
 };
-use primitives::{IdentityId, Key, Signer};
+use primitives::{IdentityId, Key, Signer, Ticker};
 
 use codec::Encode;
 use rstd::{convert::TryFrom, prelude::*};
@@ -20,7 +20,7 @@ pub trait Trait: system::Trait + utils::Trait + balances::Trait + identity::Trai
 decl_storage! {
     trait Store for Module<T: Trait> as exemption {
         // Mapping -> ExemptionList[ticker][TM][DID] = true/false
-        ExemptionList get(exemption_list): map (Vec<u8>, u16, IdentityId) => bool;
+        ExemptionList get(exemption_list): map (Ticker, u16, IdentityId) => bool;
     }
 }
 
@@ -32,15 +32,15 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        fn modify_exemption_list(origin, did: IdentityId, ticker: Vec<u8>, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> Result {
-            let upper_ticker = utils::bytes_to_upper(&ticker);
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+        fn modify_exemption_list(origin, did: IdentityId, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> Result {
+            ticker.canonize();
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
-            ensure!(Self::is_owner(&upper_ticker, did), "Sender must be the token owner");
-            let ticker_asset_holder_did = (ticker.clone(), _tm, asset_holder_did.clone());
+            ensure!(Self::is_owner(&ticker, did), "Sender must be the token owner");
+            let ticker_asset_holder_did = (ticker, _tm, asset_holder_did.clone());
             let is_exempted = Self::exemption_list(&ticker_asset_holder_did);
             ensure!(is_exempted != exempted, "No change in the state");
 
@@ -59,14 +59,12 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(ticker: &[u8], sender_did: IdentityId) -> bool {
-        let upper_ticker = utils::bytes_to_upper(ticker);
-        T::Asset::is_owner(&upper_ticker, sender_did)
+    pub fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
+        T::Asset::is_owner(ticker, sender_did)
     }
 
-    pub fn is_exempted(ticker: &[u8], tm: u16, did: IdentityId) -> bool {
-        let upper_ticker = utils::bytes_to_upper(ticker);
-        Self::exemption_list((upper_ticker, tm, did))
+    pub fn is_exempted(ticker: &Ticker, tm: u16, did: IdentityId) -> bool {
+        Self::exemption_list((*ticker, tm, did))
     }
 }
 
