@@ -57,7 +57,7 @@ pub trait Trait<I = DefaultInstance>: system::Trait {
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
         /// Identities that are part of this group
-        Members get(members) config(): Vec<IdentityId>;
+        pub Members get(members) config(): Vec<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): rstd::marker::PhantomData<(T, I)>;
@@ -101,7 +101,7 @@ decl_module! {
         /// * `origin` Origin representing `AddOrigin` or root
         /// * `who` IdentityId to be added to the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn add_member(origin, who: IdentityId) {
+        pub fn add_member(origin, who: IdentityId) {
             T::AddOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)

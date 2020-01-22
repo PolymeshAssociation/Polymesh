@@ -1,7 +1,6 @@
-use crate::{balances, identity};
-use primitives::{IdentityId, Key};
-
+use crate::{balances, group, identity};
 use codec::Encode;
+use primitives::{IdentityId, Key};
 use sr_io::TestExternalities;
 use sr_primitives::{
     testing::Header,
@@ -15,6 +14,7 @@ use srml_support::{
 };
 use std::convert::TryFrom;
 use substrate_primitives::{crypto::Pair as PairTrait, sr25519::Pair, Blake2Hasher, H256};
+use system::EnsureSignedBy;
 use test_client::AccountKeyring;
 
 impl_outer_origin! {
@@ -104,6 +104,24 @@ impl sr_primitives::traits::Dispatchable for IdentityProposal {
     fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
         Ok(())
     }
+}
+
+parameter_types! {
+    pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+}
+
+impl group::Trait<group::Instance1> for TestStorage {
+    type Event = ();
+    type AddOrigin = EnsureSignedBy<One, AccountId>;
+    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
 }
 
 impl identity::Trait for TestStorage {
