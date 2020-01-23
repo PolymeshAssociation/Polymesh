@@ -469,6 +469,13 @@ mod tests {
         type Event = ();
         type Proposal = IdentityProposal;
         type AcceptTransferTarget = asset::Module<Test>;
+        type AddSignerMultisigTarget = Test;
+    }
+
+    impl crate::multi_sig::AddSignerMultisig for Test {
+        fn accept_multi_sig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
     }
 
     impl asset::Trait for Test {

@@ -504,6 +504,7 @@ mod tests {
         type Event = ();
         type Proposal = TestProposal;
         type AcceptTransferTarget = Test;
+        type AddSignerMultisigTarget = Test;
     }
 
     impl crate::asset::AcceptTransfer for Test {
@@ -511,6 +512,12 @@ mod tests {
             unimplemented!()
         }
         fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
+    }
+
+    impl crate::multi_sig::AddSignerMultisig for Test {
+        fn accept_multi_sig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
     }

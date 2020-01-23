@@ -1475,12 +1475,18 @@ mod tests {
         type Event = ();
         type Proposal = IdentityProposal;
         type AcceptTransferTarget = Runtime;
+        type AddSignerMultisigTarget = Runtime;
     }
     impl crate::asset::AcceptTransfer for Runtime {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
         fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
+    }
+    impl crate::multi_sig::AddSignerMultisig for Runtime {
+        fn accept_multi_sig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
     }

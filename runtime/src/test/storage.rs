@@ -1,6 +1,6 @@
 use crate::{balances, group, identity};
 use codec::Encode;
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 use sr_io::TestExternalities;
 use sr_primitives::{
     testing::Header,
@@ -128,6 +128,13 @@ impl identity::Trait for TestStorage {
     type Event = ();
     type Proposal = IdentityProposal;
     type AcceptTransferTarget = TestStorage;
+    type AddSignerMultisigTarget = TestStorage;
+}
+
+impl crate::multi_sig::AddSignerMultisig for TestStorage {
+    fn accept_multi_sig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
+        unimplemented!()
+    }
 }
 
 impl crate::asset::AcceptTransfer for TestStorage {

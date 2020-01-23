@@ -9,6 +9,8 @@ pub enum AuthorizationData {
     TransferTicker(Vec<u8>),
     /// Authorization to transfer a token's ownership
     TransferTokenOwnership(Vec<u8>),
+    /// Add a signer to multisig
+    AddMultisigSigner,
     /// Any other authorization
     Custom(Vec<u8>),
     /// No authorization data

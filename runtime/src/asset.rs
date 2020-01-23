@@ -1789,7 +1789,7 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = IdentityProposal;
+        type Proposal = Call<Test>;
         type AcceptTransferTarget = Module<Test>;
     }
     impl percentage_tm::Trait for Test {

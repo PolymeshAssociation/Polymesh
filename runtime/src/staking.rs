@@ -1902,6 +1902,7 @@ mod tests {
     use system::EnsureSignedBy;
 
     use chrono::prelude::*;
+    use primitives::Signer;
     use primitives::{IdentityId, Key};
     use sr_io::{with_externalities, TestExternalities};
     use sr_primitives::{
@@ -2113,7 +2114,15 @@ mod tests {
         type Event = ();
         type Proposal = IdentityProposal;
         type AcceptTransferTarget = Test;
+        type AddSignerMultisigTarget = Test;
     }
+
+    impl crate::multi_sig::AddSignerMultisig for Test {
+        fn accept_multi_sig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
+    }
+
     impl crate::asset::AcceptTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
             unimplemented!()

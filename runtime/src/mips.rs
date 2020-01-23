@@ -429,6 +429,7 @@ mod tests {
     use super::*;
     use crate::{balances, group, identity};
     use primitives::IdentityId;
+    use primitives::Signer;
     use sr_io::with_externalities;
     use sr_primitives::{
         testing::Header,
@@ -528,6 +529,13 @@ mod tests {
         type Event = ();
         type Proposal = IdentityProposal;
         type AcceptTransferTarget = Test;
+        type AddSignerMultisigTarget = Test;
+    }
+
+    impl crate::multi_sig::AddSignerMultisig for Test {
+        fn accept_multi_sig_signer(_: Signer, _: u64) -> Result {
+            unimplemented!()
+        }
     }
 
     impl crate::asset::AcceptTransfer for Test {
