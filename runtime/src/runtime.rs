@@ -3,7 +3,7 @@ use crate::{
     constants::{currency::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
-    mips, percentage_tm, simple_token, staking, sto_capped,
+    mips, multi_sig, percentage_tm, simple_token, staking, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -408,7 +408,7 @@ impl sudo::Trait for Runtime {
     type Proposal = Call;
 }
 
-impl multisig::Trait for Runtime {
+impl multi_sig::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
 }
@@ -505,14 +505,14 @@ construct_runtime!(
         // RELEASE: remove this for release build.
         Sudo: sudo,
 
-        Multisig: multisig::{Module, Call, Storage, Event<T>},
+        Multisig: multi_sig::{Module, Call, Storage, Event<T>},
 
         // Contracts
         Contracts: contracts::{Module, Call, Storage, Config<T>, Event<T>},
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Storage, Event<T>},        
+        Treasury: treasury::{Module, Call, Storage, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
    		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},

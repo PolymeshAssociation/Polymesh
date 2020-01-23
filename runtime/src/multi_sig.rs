@@ -9,11 +9,11 @@ use sr_primitives::{
     weights::{ClassifyDispatch, DispatchClass, GetDispatchInfo, WeighData, Weight},
     DispatchError,
 };
-use support::{
+use srml_support::{
     decl_event, decl_module, decl_storage, dispatch::Result, ensure, Parameter, StorageValue,
 };
 use system::ensure_signed;
-use polymesh_primitives::{
+use primitives::{
     Authorization, AuthorizationData, IdentityId, Key, Signer
 };
 
@@ -32,7 +32,7 @@ impl<T: Trait> GetCallWeightTrait<T::AccountId> for Module<T> {
 }
 
 struct ChargeProposal<GetCallWeight, AccountId>(
-    std::marker::PhantomData<(GetCallWeight, AccountId)>,
+    rstd::marker::PhantomData<(GetCallWeight, AccountId)>,
 );
 
 impl<GetCallWeight, AccountId> ChargeProposal<GetCallWeight, AccountId> {
