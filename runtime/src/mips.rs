@@ -442,20 +442,18 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use crate::{balances, identity};
+    use frame_support::{
+        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
+        parameter_types,
+    };
+    use frame_system::EnsureSignedBy;
     use primitives::IdentityId;
+    use sp_core::H256;
     use sp_runtime::{
         testing::Header,
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+        traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
-    use sr_io::with_externalities;
-    use srml_support::{
-        assert_err, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_dispatch, impl_outer_origin, parameter_types,
-    };
-    use substrate_primitives::{Blake2Hasher, H256};
-    use system::EnsureSignedBy;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -479,7 +477,7 @@ mod tests {
         pub const AvailableBlockRatio: Perbill = Perbill::one();
     }
 
-    impl system::Trait for Test {
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
@@ -489,13 +487,13 @@ mod tests {
         type AccountId = u64;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
-        type WeightMultiplierUpdate = ();
         type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -511,16 +509,12 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
-        type TransferPayment = ();
         type DustRemoval = ();
+        type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Self>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
@@ -531,9 +525,8 @@ mod tests {
     impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
-        type Error = DispatchError;
 
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
     }
@@ -585,7 +578,7 @@ mod tests {
     type Balances = balances::Module<Test>;
     type MIPS = Module<Test>;
 
-    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+    fn new_test_ext() -> sp_io::TestExternalities {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -624,7 +617,7 @@ mod tests {
 
     #[test]
     fn should_start_a_proposal() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
@@ -657,7 +650,7 @@ mod tests {
 
     #[test]
     fn should_close_a_proposal() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
@@ -690,7 +683,7 @@ mod tests {
 
     #[test]
     fn should_create_a_referendum() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
@@ -726,7 +719,7 @@ mod tests {
 
     #[test]
     fn should_enact_a_referendum() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
@@ -758,7 +751,7 @@ mod tests {
 
     #[test]
     fn should_update_mips_variables() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_eq!(MIPS::min_proposal_deposit(), 50);
             assert_ok!(MIPS::set_min_proposal_deposit(Origin::signed(1), 10));
             assert_eq!(MIPS::min_proposal_deposit(), 10);

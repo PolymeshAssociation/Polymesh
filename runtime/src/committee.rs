@@ -403,17 +403,14 @@ mod tests {
     use crate::{balances, committee, identity};
     use core::result::Result as StdResult;
     use frame_support::{
-        assert_noop, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        parameter_types, Hashable,
+        assert_noop, assert_ok, dispatch::DispatchResult, parameter_types, Hashable,
     };
     use frame_system::EnsureSignedBy;
     use frame_system::{self as system};
-    use sp_core::{Blake2Hasher, H256};
-    use sp_io::with_externalities;
+    use sp_core::H256;
     use sp_runtime::{
         testing::Header,
-        traits::{BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Verify},
+        traits::{BlakeTwo256, Block as BlockT, IdentityLookup, Verify},
         AnySignature, BuildStorage, Perbill,
     };
     use test_client::{self, AccountKeyring};
@@ -424,6 +421,7 @@ mod tests {
         pub const MaximumBlockLength: u32 = 2 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::one();
     }
+
     impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
@@ -435,12 +433,12 @@ mod tests {
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
-        type WeightMultiplierUpdate = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -456,16 +454,12 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
         type DustRemoval = ();
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Test>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     parameter_types! {
@@ -485,9 +479,8 @@ mod tests {
     impl sp_runtime::traits::Dispatchable for TestProposal {
         type Origin = Origin;
         type Trait = Test;
-        type Error = DispatchError;
 
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
     }
@@ -499,10 +492,10 @@ mod tests {
     }
 
     impl crate::asset::AcceptTransfer for Test {
-        fn accept_ticker_transfer(_: IdentityId, _: u64) -> srml_support::dispatch::Result {
+        fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
             unimplemented!()
         }
-        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }
@@ -531,19 +524,19 @@ mod tests {
     pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
     pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
 
-    srml_support::construct_runtime!(
+    frame_support::construct_runtime!(
 		pub enum Test where
 			Block = Block,
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic
 		{
-			System: system::{Module, Call, Event},
+			System: frame_system::{Module, Call, Event},
 			Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
 			DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
 		}
 	);
 
-    fn make_ext() -> sp_io::TestExternalities<Blake2Hasher> {
+    fn make_ext() -> sp_io::TestExternalities {
         GenesisConfig {
             committee_Instance1: Some(committee::GenesisConfig {
                 members: vec![
@@ -563,7 +556,7 @@ mod tests {
 
     #[test]
     fn motions_basic_environment_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
             assert_eq!(
                 Committee::members(),
@@ -578,21 +571,21 @@ mod tests {
     }
 
     fn make_proposal(value: u64) -> Call {
-        Call::System(system::Call::remark(value.encode()))
+        Call::System(frame_system::Call::remark(value.encode()))
     }
 
     fn make_account(
         account_id: &AccountId,
-    ) -> StdResult<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
-        Identity::register_did(signed_id.clone(), vec![])?;
+        Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
     #[test]
     fn propose_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -622,7 +615,7 @@ mod tests {
 
     #[test]
     fn preventing_motions_from_non_members_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -638,7 +631,7 @@ mod tests {
 
     #[test]
     fn preventing_voting_from_non_members_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -665,7 +658,7 @@ mod tests {
 
     #[test]
     fn motions_ignoring_bad_index_vote_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(3);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -692,7 +685,7 @@ mod tests {
 
     #[test]
     fn motions_revoting_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -723,7 +716,7 @@ mod tests {
             );
             assert_noop!(
                 Committee::vote(alice_signer.clone(), alice_did, hash.clone(), 0, true),
-                "duplicate vote ignored"
+                Error::<Test, Instance1>::DuplicateVote
             );
             assert_ok!(Committee::vote(
                 alice_signer.clone(),
@@ -742,14 +735,14 @@ mod tests {
             );
             assert_noop!(
                 Committee::vote(alice_signer.clone(), alice_did, hash.clone(), 0, false),
-                "duplicate vote ignored"
+                Error::<Test, Instance1>::DuplicateVote
             );
         });
     }
 
     #[test]
     fn voting_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -790,7 +783,7 @@ mod tests {
 
     #[test]
     fn changing_vote_threshold_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             assert_eq!(
                 Committee::vote_threshold(),
                 (ProportionMatch::AtLeast, 1, 1)

@@ -174,55 +174,55 @@ decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
         /// Module owner.
-        Owner get(owner) config(): T::AccountId;
+        Owner get(fn owner) config(): T::AccountId;
 
         /// DID -> identity info
-        pub DidRecords get(did_records): map IdentityId => DidRecord;
+        pub DidRecords get(fn did_records): map IdentityId => DidRecord;
 
         /// DID -> bool that indicates if signing keys are frozen.
-        pub IsDidFrozen get(is_did_frozen): map IdentityId => bool;
+        pub IsDidFrozen get(fn is_did_frozen): map IdentityId => bool;
 
         /// It stores the current identity for current transaction.
-        pub CurrentDid get(current_did): Option<IdentityId>;
+        pub CurrentDid get(fn current_did): Option<IdentityId>;
 
         /// (DID, claim_key, claim_issuer) -> Associated claims
-        pub Claims get(claims): map(IdentityId, ClaimMetaData) => Claim<T::Moment>;
+        pub Claims get(fn claims): map(IdentityId, ClaimMetaData) => Claim<T::Moment>;
 
         /// DID -> array of (claim_key and claim_issuer)
-        pub ClaimKeys get(claim_keys): map IdentityId => Vec<ClaimMetaData>;
+        pub ClaimKeys get(fn claim_keys): map IdentityId => Vec<ClaimMetaData>;
 
         // Account => DID
-        pub KeyToIdentityIds get(key_to_identity_ids): map Key => Option<LinkedKeyInfo>;
+        pub KeyToIdentityIds get(fn key_to_identity_ids): map Key => Option<LinkedKeyInfo>;
 
         /// How much does creating a DID cost
-        pub DidCreationFee get(did_creation_fee) config(): T::Balance;
+        pub DidCreationFee get(fn did_creation_fee) config(): T::Balance;
 
         /// It stores validated identities by any KYC.
-        pub KYCValidation get(has_valid_kyc): map IdentityId => bool;
+        pub KYCValidation get(fn has_valid_kyc): map IdentityId => bool;
 
         /// Nonce to ensure unique actions. starts from 1.
-        pub MultiPurposeNonce get(multi_purpose_nonce) build(|_| 1u64): u64;
+        pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
 
         /// Pre-authorize join to Identity.
-        pub PreAuthorizedJoinDid get(pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
+        pub PreAuthorizedJoinDid get(fn pre_authorized_join_did): map Signer => Vec<PreAuthorizedKeyInfo>;
 
         /// Authorization nonce per Identity. Initially is 0.
-        pub OffChainAuthorizationNonce get(offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
+        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
-        pub RevokeOffChainAuthorization get(is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
+        pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked): map (Signer, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity has
-        pub Authorizations get(authorizations): map(Signer, u64) => Authorization<T::Moment>;
+        pub Authorizations get(fn authorizations): map(Signer, u64) => Authorization<T::Moment>;
 
         /// Auth id of the latest auth of an identity. Used to allow iterating over auths
-        pub LastAuthorization get(last_authorization): map Signer => u64;
+        pub LastAuthorization get(fn last_authorization): map Signer => u64;
 
         /// All links that an identity/key has
-        pub Links get(links): map(Signer, u64) => Link<T::Moment>;
+        pub Links get(fn links): map(Signer, u64) => Link<T::Moment>;
 
         /// Link id of the latest auth of an identity/key. Used to allow iterating over links
-        pub LastLink get(last_link): map(Signer) => u64;
+        pub LastLink get(fn last_link): map Signer => u64;
     }
 }
 

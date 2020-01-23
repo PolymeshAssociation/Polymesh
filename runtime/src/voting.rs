@@ -343,17 +343,16 @@ mod tests {
     use chrono::prelude::*;
     use frame_support::traits::Currency;
     use frame_support::{
-        assert_err, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
+        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types,
     };
-    use sp_core::{Blake2Hasher, H256};
-    use sp_io::{with_externalities, TestExternalities};
+    use sp_core::{crypto::key_types, H256};
+    use sp_io::TestExternalities;
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-        AnySignature, Perbill,
+        AnySignature, KeyTypeId, Perbill,
     };
+    //use sp_externalities::{set_and_run_with_externalities};
     use std::result::Result;
     use test_client::{self, AccountKeyring};
 
@@ -396,12 +395,12 @@ mod tests {
         type Header = Header;
         type Event = ();
         type Call = ();
-        type WeightMultiplierUpdate = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -417,16 +416,12 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
         type DustRemoval = ();
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Test>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     parameter_types! {
@@ -440,6 +435,7 @@ mod tests {
     }
 
     impl utils::Trait for Test {
+        type Public = AccountId;
         type OffChainSignature = OffChainSignature;
         fn validator_id_to_account_id(
             v: <Self as pallet_session::Trait>::ValidatorId,
@@ -457,6 +453,8 @@ mod tests {
 
     pub struct TestSessionHandler;
     impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+        const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
+
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -467,6 +465,8 @@ mod tests {
         fn on_disabled(_validator_index: usize) {}
 
         fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+
+        fn on_before_session_ending() {}
     }
 
     parameter_types! {
@@ -500,9 +500,8 @@ mod tests {
     impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
-        type Error = DispatchError;
 
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
     }
@@ -544,7 +543,7 @@ mod tests {
     type Asset = asset::Module<Test>;
 
     /// Create externalities
-    fn build_ext() -> TestExternalities<Blake2Hasher> {
+    fn build_ext() -> TestExternalities {
         let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -567,14 +566,14 @@ mod tests {
     ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
-        Identity::register_did(signed_id.clone(), vec![])?;
+        Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
     #[test]
     fn add_ballot() {
-        with_externalities(&mut build_ext(), || {
+        build_ext().execute_with(|| {
             let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_acc, token_owner_did) = make_account(&_token_owner_acc).unwrap();
             let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
@@ -635,7 +634,7 @@ mod tests {
                     ballot_name.clone(),
                     ballot_details.clone()
                 ),
-                "sender must be a signing key for DID"
+                Error::<Test>::InvalidSigner
             );
 
             assert_err!(
@@ -646,7 +645,7 @@ mod tests {
                     ballot_name.clone(),
                     ballot_details.clone()
                 ),
-                "Sender must be the token owner"
+                Error::<Test>::InvalidOwner
             );
 
             let expired_ballot_details = Ballot {
@@ -664,7 +663,7 @@ mod tests {
                     ballot_name.clone(),
                     expired_ballot_details.clone()
                 ),
-                "Voting end date in past"
+                Error::<Test>::InvalidDate
             );
 
             let invalid_date_ballot_details = Ballot {
@@ -682,7 +681,7 @@ mod tests {
                     ballot_name.clone(),
                     invalid_date_ballot_details.clone()
                 ),
-                "Voting end date before voting start date"
+                Error::<Test>::InvalidDate
             );
 
             let empty_ballot_details = Ballot {
@@ -700,7 +699,7 @@ mod tests {
                     ballot_name.clone(),
                     empty_ballot_details.clone()
                 ),
-                "No motion submitted"
+                Error::<Test>::NoMotions
             );
 
             let empty_motion = Motion {
@@ -724,7 +723,7 @@ mod tests {
                     ballot_name.clone(),
                     no_choice_ballot_details.clone()
                 ),
-                "No choice submitted"
+                Error::<Test>::NoChoicesInMotions
             );
 
             // Adding ballot
@@ -744,14 +743,14 @@ mod tests {
                     ballot_name.clone(),
                     ballot_details.clone()
                 ),
-                "A ballot with same name already exisits"
+                Error::<Test>::AlreadyExists
             );
         });
     }
 
     #[test]
     fn cancel_ballot() {
-        with_externalities(&mut build_ext(), || {
+        build_ext().execute_with(|| {
             let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_acc, token_owner_did) = make_account(&_token_owner_acc).unwrap();
             let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
@@ -811,7 +810,7 @@ mod tests {
                     token.name.clone(),
                     ballot_name.clone()
                 ),
-                "Ballot does not exisit"
+                Error::<Test>::NotExists
             );
 
             assert_ok!(Voting::add_ballot(
@@ -829,7 +828,7 @@ mod tests {
                     token.name.clone(),
                     ballot_name.clone()
                 ),
-                "sender must be a signing key for DID"
+                Error::<Test>::InvalidSigner
             );
 
             assert_err!(
@@ -839,7 +838,7 @@ mod tests {
                     token.name.clone(),
                     ballot_name.clone()
                 ),
-                "Sender must be the token owner"
+                Error::<Test>::InvalidOwner
             );
 
             <pallet_timestamp::Module<Test>>::set_timestamp(now + now + now);
@@ -851,7 +850,7 @@ mod tests {
                     token.name.clone(),
                     ballot_name.clone()
                 ),
-                "Voting already ended"
+                Error::<Test>::AlreadyEnded
             );
 
             <pallet_timestamp::Module<Test>>::set_timestamp(now);
@@ -868,7 +867,7 @@ mod tests {
 
     #[test]
     fn vote() {
-        with_externalities(&mut build_ext(), || {
+        build_ext().execute_with(|| {
             let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_acc, token_owner_did) = make_account(&_token_owner_acc).unwrap();
             let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
@@ -954,7 +953,7 @@ mod tests {
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "sender must be a signing key for DID"
+                Error::<Test>::InvalidSigner
             );
 
             assert_err!(
@@ -965,7 +964,7 @@ mod tests {
                     vec![0x02],
                     votes.clone()
                 ),
-                "Ballot does not exist"
+                Error::<Test>::NotExists
             );
 
             <pallet_timestamp::Module<Test>>::set_timestamp(now - 1);
@@ -978,7 +977,7 @@ mod tests {
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "Voting hasn't started yet"
+                Error::<Test>::NotStarted
             );
 
             <pallet_timestamp::Module<Test>>::set_timestamp(now + now + 1);
@@ -991,7 +990,7 @@ mod tests {
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "Voting ended already"
+                Error::<Test>::AlreadyEnded
             );
 
             <pallet_timestamp::Module<Test>>::set_timestamp(now + 1);
@@ -1004,7 +1003,7 @@ mod tests {
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "No checkpoints created"
+                Error::<Test>::NoCheckpoints
             );
 
             assert_ok!(Asset::create_checkpoint(
@@ -1021,7 +1020,7 @@ mod tests {
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "Checkpoint has not been created yet"
+                Error::<Test>::NoCheckpoints
             );
 
             assert_ok!(Asset::create_checkpoint(
@@ -1038,7 +1037,7 @@ mod tests {
                     ballot_name.clone(),
                     vec![100, 100, 100, 100]
                 ),
-                "Invalid vote"
+                Error::<Test>::InvalidVote
             );
 
             assert_err!(
@@ -1049,7 +1048,7 @@ mod tests {
                     ballot_name.clone(),
                     vec![100, 100, 100, 100, 100, 100]
                 ),
-                "Invalid vote"
+                Error::<Test>::InvalidVote
             );
 
             assert_err!(
@@ -1060,7 +1059,7 @@ mod tests {
                     ballot_name.clone(),
                     vec![100, 100, 100, 100, 200]
                 ),
-                "Not enough balance"
+                Error::<Test>::InsufficientBalance
             );
 
             // Initial vote

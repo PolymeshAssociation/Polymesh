@@ -176,14 +176,19 @@ mod tests {
     //     type Origin = Origin;
     //     type Index = u64;
     //     type BlockNumber = u64;
+    //     type Call = ();
     //     type Hash = H256;
     //     type Hashing = BlakeTwo256;
-    //     type Digest = H256;
-    //     type AccountId = u64;
+    //     type AccountId = AccountId;
     //     type Lookup = IdentityLookup<Self::AccountId>;
     //     type Header = Header;
     //     type Event = ();
-    //     type Log = DigestItem;
+    //     type BlockHashCount = BlockHashCount;
+    //     type MaximumBlockWeight = MaximumBlockWeight;
+    //     type MaximumBlockLength = MaximumBlockLength;
+    //     type AvailableBlockRatio = AvailableBlockRatio;
+    //     type Version = ();
+    //     type ModuleToIndex = ();
     // }
 
     // impl Trait for Test {

@@ -1644,17 +1644,15 @@ mod tests {
 
     use chrono::prelude::*;
     use frame_support::{
-        assert_err, assert_noop, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
+        assert_err, assert_noop, assert_ok, dispatch::DispatchResult, impl_outer_origin,
+        parameter_types,
     };
     use lazy_static::lazy_static;
-    use sp_core::{Blake2Hasher, H256};
-    use sp_io::with_externalities;
+    use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-        AnySignature, Perbill,
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        AnySignature, KeyTypeId, Perbill,
     };
     use std::sync::{Arc, Mutex};
     use test_client::{self, AccountKeyring};
@@ -1674,6 +1672,7 @@ mod tests {
 
     pub struct TestSessionHandler;
     impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+        const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -1684,6 +1683,8 @@ mod tests {
         fn on_disabled(_validator_index: usize) {}
 
         fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+
+        fn on_before_session_ending() {}
     }
 
     impl_outer_origin! {
@@ -1705,22 +1706,21 @@ mod tests {
     }
     impl frame_system::Trait for Test {
         type Origin = Origin;
-        type Call = ();
         type Index = u64;
-        type BlockNumber = BlockNumber;
+        type BlockNumber = u64;
+        type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        //type AccountId = u64;
         type AccountId = AccountId;
-        type Lookup = IdentityLookup<AccountId>;
-        type WeightMultiplierUpdate = ();
+        type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
-        type AvailableBlockRatio = AvailableBlockRatio;
         type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -1757,16 +1757,12 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
         type DustRemoval = ();
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Test>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     impl general_tm::Trait for Test {
@@ -1782,9 +1778,8 @@ mod tests {
     impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
-        type Error = DispatchError;
 
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
     }
@@ -1814,6 +1809,7 @@ mod tests {
     }
 
     impl utils::Trait for Test {
+        type Public = AccountId;
         type OffChainSignature = OffChainSignature;
         fn validator_id_to_account_id(
             v: <Self as pallet_session::Trait>::ValidatorId,
@@ -1836,7 +1832,7 @@ mod tests {
     }
 
     /// Build a genesis identity instance owned by account No. 1
-    fn identity_owned_by_alice() -> sp_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by_alice() -> sp_io::TestExternalities {
         let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -1865,14 +1861,14 @@ mod tests {
     ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
-        Identity::register_did(signed_id.clone(), vec![])?;
+        Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
     #[test]
     fn issuers_can_create_and_rename_tokens() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
             // Raise the owner's base currency balance
@@ -1953,7 +1949,7 @@ mod tests {
     #[test]
     #[ignore]
     fn non_issuers_cant_create_tokens() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (_, owner_did) = make_account(&owner_acc).unwrap();
 
@@ -1976,7 +1972,7 @@ mod tests {
 
     #[test]
     fn valid_transfers_pass() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let now = Utc::now();
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
@@ -2036,7 +2032,7 @@ mod tests {
 
     #[test]
     fn valid_custodian_allowance() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
@@ -2223,7 +2219,7 @@ mod tests {
 
     #[test]
     fn valid_custodian_allowance_of() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let owner_acc = AccountId::from(AccountKeyring::Dave);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
@@ -2434,7 +2430,7 @@ mod tests {
         println!("Starting");
         for _i in 0..10 {
             // When fuzzing in local, feel free to bump this number to add more fuzz runs.
-            with_externalities(&mut identity_owned_by_alice(), || {
+            identity_owned_by_alice().execute_with(|| {
                 let now = Utc::now();
                 <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
@@ -2558,7 +2554,7 @@ mod tests {
 
     #[test]
     fn register_ticker() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let now = Utc::now();
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
@@ -2634,7 +2630,7 @@ mod tests {
 
     #[test]
     fn transfer_ticker() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let now = Utc::now();
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
@@ -2706,7 +2702,7 @@ mod tests {
             auth_id = Identity::last_authorization(Signer::from(bob_did));
             assert_err!(
                 Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
-                "Not a ticker transfer auth"
+                Error::<Test>::NoTickerTransferAuth
             );
 
             Identity::add_auth(
@@ -2727,7 +2723,7 @@ mod tests {
 
     #[test]
     fn transfer_token_ownership() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let now = Utc::now();
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
@@ -2807,7 +2803,7 @@ mod tests {
             auth_id = Identity::last_authorization(Signer::from(bob_did));
             assert_err!(
                 Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
-                "Not a token ownership transfer auth"
+                Error::<Test>::NotTickerOwnershipTransferAuth
             );
 
             Identity::add_auth(

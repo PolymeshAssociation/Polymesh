@@ -393,20 +393,14 @@ mod tests {
     use chrono::{prelude::*, Duration};
     use core::result::Result as StdResult;
     use frame_support::traits::Currency;
-    use frame_support::{
-        assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
-    };
+    use frame_support::{assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types};
     use lazy_static::lazy_static;
-    use sp_io::with_externalities;
-    use sp_runtime::traits::Verify;
+    use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-        AnySignature, Perbill,
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        AnySignature, KeyTypeId, Perbill,
     };
-    use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
 
     use std::{
@@ -434,6 +428,7 @@ mod tests {
 
     pub struct TestSessionHandler;
     impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+        const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -444,6 +439,8 @@ mod tests {
         fn on_disabled(_validator_index: usize) {}
 
         fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+
+        fn on_before_session_ending() {}
     }
 
     impl_outer_origin! {
@@ -461,23 +458,24 @@ mod tests {
         pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     }
+
     impl frame_system::Trait for Test {
         type Origin = Origin;
-        type Call = ();
         type Index = u64;
         type BlockNumber = u64;
+        type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = AccountId;
-        type Lookup = IdentityLookup<AccountId>;
-        type WeightMultiplierUpdate = ();
+        type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
-        type AvailableBlockRatio = AvailableBlockRatio;
         type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -516,16 +514,12 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
         type DustRemoval = ();
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Test>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     impl simple_token::Trait for Test {
@@ -545,9 +539,8 @@ mod tests {
     impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
-        type Error = DispatchError;
 
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
     }
@@ -583,6 +576,7 @@ mod tests {
     }
 
     impl utils::Trait for Test {
+        type Public = AccountId;
         type OffChainSignature = OffChainSignature;
         fn validator_id_to_account_id(
             v: <Self as pallet_session::Trait>::ValidatorId,
@@ -607,7 +601,7 @@ mod tests {
             _ticker: &[u8],
             _sender_did: IdentityId,
             _tokens_purchased: <Test as balances::Trait>::Balance,
-        ) -> Result {
+        ) -> DispatchResult {
             unimplemented!();
         }
 
@@ -653,7 +647,7 @@ mod tests {
     type Identity = identity::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by_1() -> sp_io::TestExternalities<Blake2Hasher> {
+    fn identity_owned_by_1() -> sp_io::TestExternalities {
         let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -682,14 +676,14 @@ mod tests {
     ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
-        Identity::register_did(signed_id.clone(), vec![])?;
+        Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
     #[test]
     fn correct_dividend_must_work() {
-        with_externalities(&mut identity_owned_by_1(), || {
+        identity_owned_by_1().execute_with(|| {
             let token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 

@@ -204,8 +204,7 @@ mod tests {
     use super::*;
 
     use frame_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
-    use sp_core::{Blake2Hasher, H256};
-    use sp_io::with_externalities;
+    use sp_core::H256;
     use sp_std::cell::RefCell;
 
     use frame_system::{self as system, EnsureSignedBy};
@@ -227,23 +226,24 @@ mod tests {
         pub const MaximumBlockLength: u32 = 2 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::one();
     }
-    impl system::Trait for Test {
+
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
-        type Hash = H256;
         type Call = ();
+        type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = u64;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
-        type WeightMultiplierUpdate = ();
         type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
     parameter_types! {
         pub const One: u64 = 1;
@@ -295,7 +295,7 @@ mod tests {
 
     // This function basically just builds a genesis storage key/value store according to
     // our desired mockup.
-    fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
+    fn new_test_ext() -> sp_io::TestExternalities {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn query_membership_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_eq!(
                 Group::members(),
                 vec![
@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn add_member_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::add_member(Origin::signed(5), IdentityId::from(3)),
                 "bad origin"
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn remove_member_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::remove_member(Origin::signed(5), IdentityId::from(3)),
                 "bad origin"
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn swap_member_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::swap_member(Origin::signed(5), IdentityId::from(1), IdentityId::from(5)),
                 "bad origin"
@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     fn reset_members_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::reset_members(
                     Origin::signed(1),

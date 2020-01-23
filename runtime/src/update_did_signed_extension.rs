@@ -116,9 +116,7 @@ mod tests {
     };
     use core::default::Default;
     use frame_support::dispatch::DispatchInfo;
-    use frame_support::dispatch::DispatchInfo;
     use primitives::TransactionError;
-    use sp_io::with_externalities;
     use sp_runtime::{
         traits::SignedExtension,
         transaction_validity::{InvalidTransaction, ValidTransaction},
@@ -130,7 +128,7 @@ mod tests {
 
     #[test]
     fn update_did_tests() {
-        with_externalities(&mut build_ext(), &update_did_tests_with_externalities);
+        build_ext().execute_with(&update_did_tests_with_externalities);
     }
 
     fn update_did_tests_with_externalities() {
