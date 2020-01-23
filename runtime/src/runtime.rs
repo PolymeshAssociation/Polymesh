@@ -284,9 +284,11 @@ impl pallet_staking::Trait for Runtime {
         committee::EnsureProportionAtLeast<_3, _4, AccountId, GovernanceCommittee>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
-    type AddOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
-    type RemoveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
-    type ComplianceOrigin =
+    type RequiredAddOrigin =
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type RequiredRemoveOrigin =
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type RequiredComplianceOrigin =
         committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
 }
 

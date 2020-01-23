@@ -1638,7 +1638,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{exemption, identity};
+    use crate::{exemption, group, identity};
     use primitives::{IdentityId, Key};
     use rand::Rng;
 
@@ -1647,6 +1647,7 @@ mod tests {
         assert_err, assert_noop, assert_ok, dispatch::DispatchResult, impl_outer_origin,
         parameter_types,
     };
+    use frame_system::EnsureSignedBy;
     use lazy_static::lazy_static;
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
@@ -1768,6 +1769,24 @@ mod tests {
     impl general_tm::Trait for Test {
         type Event = ();
         type Asset = Module<Test>;
+    }
+
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
     }
 
     #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]

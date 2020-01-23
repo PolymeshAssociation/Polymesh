@@ -1,11 +1,10 @@
-use crate::{balances, identity};
-use primitives::{IdentityId, Key};
-
+use crate::{balances, group, identity};
 use codec::Encode;
 use frame_support::{
     dispatch::DispatchResult, impl_outer_origin, parameter_types, traits::Currency,
 };
-use frame_system::{self as system};
+use frame_system::{self as system, EnsureSignedBy};
+use primitives::{IdentityId, Key};
 use sp_core::{crypto::Pair as PairTrait, sr25519::Pair, H256};
 use sp_io::TestExternalities;
 use sp_runtime::{
@@ -96,6 +95,24 @@ impl sp_runtime::traits::Dispatchable for IdentityProposal {
     fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
         Ok(())
     }
+}
+
+parameter_types! {
+    pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+}
+
+impl group::Trait<group::Instance1> for TestStorage {
+    type Event = ();
+    type AddOrigin = EnsureSignedBy<One, AccountId>;
+    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
 }
 
 impl identity::Trait for TestStorage {

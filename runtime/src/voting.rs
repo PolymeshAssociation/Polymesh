@@ -345,6 +345,7 @@ mod tests {
     use frame_support::{
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types,
     };
+    use frame_system::EnsureSignedBy;
     use sp_core::{crypto::key_types, H256};
     use sp_io::TestExternalities;
     use sp_runtime::{
@@ -352,13 +353,12 @@ mod tests {
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
         AnySignature, KeyTypeId, Perbill,
     };
-    //use sp_externalities::{set_and_run_with_externalities};
     use std::result::Result;
     use test_client::{self, AccountKeyring};
 
     use crate::{
         asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
-        identity, percentage_tm,
+        group, identity, percentage_tm,
     };
 
     impl_outer_origin! {
@@ -504,6 +504,24 @@ mod tests {
         fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
+    }
+
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
     }
 
     impl identity::Trait for Test {

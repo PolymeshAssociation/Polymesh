@@ -395,6 +395,7 @@ mod tests {
     use frame_support::traits::Currency;
     use frame_support::{assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types};
     use lazy_static::lazy_static;
+    use primitives::IdentityId;
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
@@ -407,10 +408,11 @@ mod tests {
         collections::HashMap,
         sync::{Arc, Mutex},
     };
+    use system::EnsureSignedBy;
 
     use crate::{
         asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
-        identity, percentage_tm, simple_token::SimpleTokenRecord,
+        group, identity, percentage_tm, simple_token::SimpleTokenRecord,
     };
 
     type SessionIndex = u32;
@@ -520,6 +522,24 @@ mod tests {
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
         type Identity = crate::identity::Module<Test>;
+    }
+
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
     }
 
     impl simple_token::Trait for Test {
