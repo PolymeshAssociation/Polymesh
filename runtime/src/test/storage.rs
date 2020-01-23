@@ -7,11 +7,7 @@ use sr_primitives::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
     AnySignature, Perbill,
 };
-use srml_support::{
-    dispatch::{DispatchError, DispatchResult},
-    impl_outer_origin, parameter_types,
-    traits::Currency,
-};
+use srml_support::{impl_outer_dispatch, impl_outer_origin, parameter_types, traits::Currency};
 use std::convert::TryFrom;
 use substrate_primitives::{crypto::Pair as PairTrait, sr25519::Pair, Blake2Hasher, H256};
 use system::EnsureSignedBy;
@@ -19,6 +15,12 @@ use test_client::AccountKeyring;
 
 impl_outer_origin! {
     pub enum Origin for TestStorage {}
+}
+
+impl_outer_dispatch! {
+    pub enum Call for TestStorage where origin: Origin {
+        identity::Identity,
+    }
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -91,21 +93,6 @@ impl timestamp::Trait for TestStorage {
     type MinimumPeriod = MinimumPeriod;
 }
 
-#[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-pub struct IdentityProposal {
-    pub dummy: u8,
-}
-
-impl sr_primitives::traits::Dispatchable for IdentityProposal {
-    type Origin = Origin;
-    type Trait = TestStorage;
-    type Error = DispatchError;
-
-    fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
-        Ok(())
-    }
-}
-
 parameter_types! {
     pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
     pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -126,7 +113,7 @@ impl group::Trait<group::Instance1> for TestStorage {
 
 impl identity::Trait for TestStorage {
     type Event = ();
-    type Proposal = IdentityProposal;
+    type Proposal = Call;
     type AcceptTransferTarget = TestStorage;
     type AddSignerMultisigTarget = TestStorage;
 }

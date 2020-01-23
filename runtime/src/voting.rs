@@ -311,11 +311,7 @@ mod tests {
         AnySignature, Perbill,
     };
     use srml_support::traits::Currency;
-    use srml_support::{
-        assert_err, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
-    };
+    use srml_support::{assert_err, assert_ok, impl_outer_origin, parameter_types};
     use std::result::Result;
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
@@ -454,21 +450,6 @@ mod tests {
         type FullIdentificationOf = ();
     }
 
-    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-    pub struct IdentityProposal {
-        pub dummy: u8,
-    }
-
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
-        type Origin = Origin;
-        type Trait = Test;
-        type Error = DispatchError;
-
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
-            Ok(())
-        }
-    }
-
     parameter_types! {
         pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
         pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -489,7 +470,7 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = IdentityProposal;
+        type Proposal = Call<Test>;
         type AcceptTransferTarget = asset::Module<Test>;
         type AddSignerMultisigTarget = Test;
     }

@@ -398,11 +398,7 @@ mod tests {
         traits::{BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Verify},
         AnySignature, BuildStorage, Perbill,
     };
-    use srml_support::{
-        assert_noop, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        parameter_types, Hashable,
-    };
+    use srml_support::{assert_noop, assert_ok, parameter_types, Hashable};
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
     use system::{self};
@@ -467,20 +463,6 @@ mod tests {
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
     }
-    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-    pub struct TestProposal {
-        pub dummy: u8,
-    }
-
-    impl sr_primitives::traits::Dispatchable for TestProposal {
-        type Origin = Origin;
-        type Trait = Test;
-        type Error = DispatchError;
-
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
-            Ok(())
-        }
-    }
 
     parameter_types! {
         pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -502,7 +484,7 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = TestProposal;
+        type Proposal = Call;
         type AcceptTransferTarget = Test;
         type AddSignerMultisigTarget = Test;
     }

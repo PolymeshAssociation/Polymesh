@@ -1629,11 +1629,7 @@ mod tests {
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         AnySignature, Perbill,
     };
-    use srml_support::{
-        assert_err, assert_noop, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
-    };
+    use srml_support::{assert_err, assert_noop, assert_ok, impl_outer_origin, parameter_types};
     use std::sync::{Arc, Mutex};
     use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
@@ -1772,26 +1768,19 @@ mod tests {
         type MembershipChanged = ();
     }
 
-    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-    pub struct IdentityProposal {
-        pub dummy: u8,
-    }
-
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
-        type Origin = Origin;
-        type Trait = Test;
-        type Error = DispatchError;
-
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
-            Ok(())
-        }
-    }
-
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = Call<Test>;
         type AcceptTransferTarget = Module<Test>;
+        type AddSignerMultisigTarget = Test;
     }
+
+    impl crate::multi_sig::AddSignerMultisig for Test {
+        fn accept_multi_sig_signer(_: Signer, _: u64) -> Result {
+            unimplemented!()
+        }
+    }
+
     impl percentage_tm::Trait for Test {
         type Event = ();
     }
