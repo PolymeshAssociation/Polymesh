@@ -564,13 +564,13 @@ mod tests {
                 divisible: true,
                 asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
                 true,
                 AssetType::default(),
@@ -580,7 +580,7 @@ mod tests {
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
             ));
 
             let now = Utc::now().timestamp() as u64;
@@ -610,7 +610,7 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     ballot_details.clone()
                 ),
@@ -621,7 +621,7 @@ mod tests {
                 Voting::add_ballot(
                     tokenholder_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     ballot_details.clone()
                 ),
@@ -639,7 +639,7 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     expired_ballot_details.clone()
                 ),
@@ -657,7 +657,7 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     invalid_date_ballot_details.clone()
                 ),
@@ -675,7 +675,7 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     empty_ballot_details.clone()
                 ),
@@ -699,7 +699,7 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     no_choice_ballot_details.clone()
                 ),
@@ -710,7 +710,7 @@ mod tests {
             assert_ok!(Voting::add_ballot(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 ballot_details.clone()
             ));
@@ -719,7 +719,7 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     ballot_details.clone()
                 ),
@@ -744,13 +744,13 @@ mod tests {
                 divisible: true,
                 asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
                 true,
                 AssetType::default(),
@@ -760,7 +760,7 @@ mod tests {
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
             ));
 
             let now = Utc::now().timestamp() as u64;
@@ -790,7 +790,7 @@ mod tests {
                 Voting::cancel_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone()
                 ),
                 "Ballot does not exisit"
@@ -799,7 +799,7 @@ mod tests {
             assert_ok!(Voting::add_ballot(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 ballot_details.clone()
             ));
@@ -808,7 +808,7 @@ mod tests {
                 Voting::cancel_ballot(
                     token_owner_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone()
                 ),
                 "sender must be a signing key for DID"
@@ -818,7 +818,7 @@ mod tests {
                 Voting::cancel_ballot(
                     tokenholder_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone()
                 ),
                 "Sender must be the token owner"
@@ -830,7 +830,7 @@ mod tests {
                 Voting::cancel_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone()
                 ),
                 "Voting already ended"
@@ -842,7 +842,7 @@ mod tests {
             assert_ok!(Voting::cancel_ballot(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone()
             ));
         });
@@ -864,13 +864,13 @@ mod tests {
                 divisible: true,
                 asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
                 true,
                 AssetType::default(),
@@ -886,14 +886,14 @@ mod tests {
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 asset_rule
             ));
 
             assert_ok!(Asset::transfer(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 tokenholder_did,
                 500
             ));
@@ -924,7 +924,7 @@ mod tests {
             assert_ok!(Voting::add_ballot(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 ballot_details.clone()
             ));
@@ -935,7 +935,7 @@ mod tests {
                 Voting::vote(
                     token_owner_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
@@ -946,7 +946,7 @@ mod tests {
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     vec![0x02],
                     votes.clone()
                 ),
@@ -959,7 +959,7 @@ mod tests {
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
@@ -972,7 +972,7 @@ mod tests {
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
@@ -985,7 +985,7 @@ mod tests {
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
@@ -995,14 +995,14 @@ mod tests {
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
             ));
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
@@ -1012,14 +1012,14 @@ mod tests {
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
             ));
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     vec![100, 100, 100, 100]
                 ),
@@ -1030,7 +1030,7 @@ mod tests {
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     vec![100, 100, 100, 100, 100, 100]
                 ),
@@ -1041,7 +1041,7 @@ mod tests {
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     vec![100, 100, 100, 100, 200]
                 ),
@@ -1052,12 +1052,12 @@ mod tests {
             assert_ok!(Voting::vote(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 votes.clone()
             ));
 
-            let mut result = Voting::results((token.name.clone(), ballot_name.clone()));
+            let mut result = Voting::results((ticker, ballot_name.clone()));
             assert_eq!(result.len(), 5, "Invalid result len");
             assert_eq!(result, [100, 100, 100, 100, 100], "Invalid result");
 
@@ -1065,12 +1065,12 @@ mod tests {
             assert_ok!(Voting::vote(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 vec![500, 0, 0, 0, 0]
             ));
 
-            result = Voting::results((token.name.clone(), ballot_name.clone()));
+            result = Voting::results((ticker, ballot_name.clone()));
             assert_eq!(result.len(), 5, "Invalid result len");
             assert_eq!(result, [500, 0, 0, 0, 0], "Invalid result");
 
@@ -1078,12 +1078,12 @@ mod tests {
             assert_ok!(Voting::vote(
                 tokenholder_acc.clone(),
                 tokenholder_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 vec![0, 500, 0, 0, 0]
             ));
 
-            result = Voting::results((token.name.clone(), ballot_name.clone()));
+            result = Voting::results((ticker, ballot_name.clone()));
             assert_eq!(result.len(), 5, "Invalid result len");
             assert_eq!(result, [500, 500, 0, 0, 0], "Invalid result");
         })

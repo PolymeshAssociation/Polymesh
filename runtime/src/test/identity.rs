@@ -7,7 +7,9 @@ use crate::{
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use codec::Encode;
-use primitives::{AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem};
+use primitives::{
+    AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem, Ticker,
+};
 use rand::Rng;
 use sr_io::with_externalities;
 use srml_support::{assert_err, assert_ok, traits::Currency};

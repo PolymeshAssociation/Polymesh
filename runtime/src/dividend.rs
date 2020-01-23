@@ -645,7 +645,7 @@ mod tests {
         static ref TOKEN_MAP: Arc<
             Mutex<
             HashMap<
-            Vec<u8>,
+            Ticker,
             SecurityToken<
                 <Test as balances::Trait>::Balance,
                 >,
@@ -709,16 +709,16 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: [b'A'; 12],
+                name: [b'A'; 12].to_vec(),
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             // A token used for payout
             let payout_token = SimpleTokenRecord {
-                ticker: [b'B'; 12],
+                ticker: Ticker::from_slice(&[b'B'; 12]),
                 owner_did: payout_owner_did,
                 total_supply: 200_000_000,
             };
@@ -726,13 +726,12 @@ mod tests {
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             Balances::make_free_balance_be(&payout_owner_acc, 1_000_000);
-
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
@@ -761,7 +760,7 @@ mod tests {
             let outer = TOKEN_MAP_OUTER_LOCK.lock().unwrap();
             *TOKEN_MAP.lock().unwrap() = {
                 let mut map = HashMap::new();
-                map.insert(token.name.clone(), token.clone());
+                map.insert(ticker, token.clone());
                 map
             };
 
@@ -776,7 +775,7 @@ mod tests {
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 asset_rule
             ));
 
@@ -784,7 +783,7 @@ mod tests {
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 investor_did,
                 amount_invested
             ));
@@ -793,7 +792,7 @@ mod tests {
             assert_ok!(Asset::create_checkpoint(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone()
+                ticker
             ));
 
             // Checkpoints are 1-indexed
@@ -823,7 +822,7 @@ mod tests {
                 token_owner_signed.clone(),
                 token_owner_did,
                 dividend.amount,
-                token.name.clone(),
+                ticker,
                 dividend.matures_at.clone().unwrap(),
                 dividend.expires_at.clone().unwrap(),
                 dividend.payout_currency.clone(),
@@ -832,7 +831,7 @@ mod tests {
 
             // Compare created dividend with the expected structure
             assert_eq!(
-                DividendModule::get_dividend(&token.name, 0),
+                DividendModule::get_dividend(&ticker, 0),
                 Some(dividend.clone())
             );
 
@@ -840,7 +839,7 @@ mod tests {
             assert_ok!(DividendModule::claim(
                 investor_signed.clone(),
                 investor_did,
-                token.name.clone(),
+                ticker,
                 0,
             ));
 
@@ -853,7 +852,7 @@ mod tests {
 
             // Check if amount_left was adjusted correctly
             let current_entry =
-                DividendModule::get_dividend(&token.name, 0).expect("Could not retrieve dividend");
+                DividendModule::get_dividend(&ticker, 0).expect("Could not retrieve dividend");
             assert_eq!(current_entry.amount_left, current_entry.amount - share);
         });
     }

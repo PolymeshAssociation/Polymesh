@@ -4,7 +4,7 @@ use codec::{Decode, Encode};
 const TICKER_LEN: usize = 12;
 
 /// Ticker symbol.
-#[derive(Decode, Encode, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ticker(pub [u8; TICKER_LEN]);
 
 impl Default for Ticker {
@@ -38,7 +38,7 @@ impl Ticker {
     /// Computes the effective length of the ticker, that is, the length of the minimal prefix after
     /// which only zeros appear.
     pub fn len(&self) -> usize {
-        for i in TICKER_LEN - 1..0 {
+        for i in (0..TICKER_LEN).rev() {
             if self.0[i] != 0 {
                 return i + 1;
             }

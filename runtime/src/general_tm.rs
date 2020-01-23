@@ -540,7 +540,7 @@ mod tests {
                 divisible: true,
                 asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             // Share issuance is successful
@@ -548,7 +548,7 @@ mod tests {
                 token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
@@ -594,7 +594,7 @@ mod tests {
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 asset_rule
             ));
 
@@ -602,7 +602,7 @@ mod tests {
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 token_owner_did,
                 token.total_supply
             ));
@@ -623,7 +623,7 @@ mod tests {
                 divisible: true,
                 asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             // Share issuance is successful
@@ -631,7 +631,7 @@ mod tests {
                 token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
@@ -684,7 +684,7 @@ mod tests {
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 asset_rule
             ));
 
@@ -692,7 +692,7 @@ mod tests {
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 token_owner_did.clone(),
                 token.total_supply
             ));
@@ -713,7 +713,7 @@ mod tests {
                 divisible: true,
                 asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             // Share issuance is successful
@@ -721,7 +721,7 @@ mod tests {
                 token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
@@ -736,20 +736,20 @@ mod tests {
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 asset_rule
             ));
 
-            let asset_rules = GeneralTM::active_rules(token.name);
+            let asset_rules = GeneralTM::active_rules(ticker);
             assert_eq!(asset_rules.len(), 1);
 
             assert_ok!(GeneralTM::reset_active_rules(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone()
+                ticker
             ));
 
-            let asset_rules_new = GeneralTM::active_rules(token.name);
+            let asset_rules_new = GeneralTM::active_rules(ticker);
             assert_eq!(asset_rules_new.len(), 0);
         });
     }
