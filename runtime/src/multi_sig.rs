@@ -31,7 +31,6 @@
 //! - `remove_multi_sig_signer` - Removes a signer from the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
 
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::identity;
