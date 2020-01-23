@@ -55,12 +55,6 @@
         "next_link": "u64",
         "previous_link": "u64"
     },
-    "LinkData": {
-       "_enum": {
-            "TickerOwned": "Vec<u8>",
-            "TokenOwned": "Vec<u8>"
-       }
-    },
     "SignerType": {
         "_enum": [
             "External",

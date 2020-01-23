@@ -219,17 +219,13 @@ async function main() {
   
 
   await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7], fast);
-  await authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys, init_bars[18], init_bars[19], fast);
+  await authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys, init_bars[16], init_bars[17], fast);
   await addSigningKeyRoles(api, master_keys, issuer_dids, signing_keys, init_bars[8], init_bars[9], fast);
   await issueTokenPerDid(api, master_keys, issuer_dids, prepend, init_bars[10], init_bars[11], fast);
   let claim_issuer_dids = await createIdentities(api, claim_keys, init_bars[12], init_bars[13], fast);
-  console.log(`Create Claim Keys`);
-  // Need to wait until identites have been added as claim issuers
-  await blockTillPoolEmpty(api);
-  console.log(`Empty pool`);
 
-  await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids, n_claims, init_bars[16], init_bars[17], fast);
-  console.log(`AddClaimsToDid`);
+  await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids, init_bars[14], init_bars[15], fast);
+
   // All transactions subitted, wait for queue to empty
   await blockTillPoolEmpty(api);
   await new Promise(resolve => setTimeout(resolve, 3000));
@@ -678,7 +674,7 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, compl
       });
     }
     nonces.set(accounts[i%claim_dids.length].address, nonces.get(accounts[i%claim_dids.length].address).addn(1));
-   // submitBar.increment();
+    submitBar.increment();
   }
 }
 
