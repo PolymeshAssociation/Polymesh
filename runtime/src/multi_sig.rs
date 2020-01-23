@@ -92,16 +92,9 @@ decl_module! {
             let new_nonce: u64 = nonce + 1u64;
             <MultiSigNonce>::put(new_nonce);
 
-            let mut buf = Vec::new();
-            buf.extend_from_slice(&b"MULTI_SIG".encode());
-            buf.extend_from_slice(&nonce.encode());
-            buf.extend_from_slice(&sender.encode());
-            let h: T::Hash = T::Hashing::hash(&buf[..]);
-            let wallet_id;
-            match T::AccountId::decode(&mut &h.encode()[..]) {
-                Ok(v) => wallet_id = v,
-                Err(_) => return Err("Error in decoding multisig address"),
-            };
+            let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, sender.clone()).encode());
+            let wallet_id = T::AccountId::decode(&mut &h.encode()[..])
+                .map_err( |_| "Error in decoding multisig address")?;
 
             for signer in signers.clone() {
                 <identity::Module<T>>::add_auth(
@@ -330,10 +323,8 @@ impl<T: Trait> Module<T> {
 
         let wallet_id;
         if let Signer::Key(multi_sig_key) = auth.authorized_by {
-            match T::AccountId::decode(&mut &multi_sig_key.encode()[..]) {
-                Ok(v) => wallet_id = v,
-                Err(_) => return Err("Error in decoding multisig address"),
-            };
+            wallet_id = T::AccountId::decode(&mut &multi_sig_key.as_slice()[..])
+                .map_err(|_| "Error in decoding multisig address")?;
         } else {
             return Err("Error in decoding multisig address");
         }
