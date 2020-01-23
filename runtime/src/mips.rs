@@ -80,7 +80,8 @@ pub struct Votes<AccountId, Balance> {
     nays: Vec<(AccountId, Balance)>,
 }
 
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum MipsPriority {
     /// A proposal made by the committee for e.g.,
     High,
@@ -92,6 +93,18 @@ impl Default for MipsPriority {
     fn default() -> Self {
         MipsPriority::Normal
     }
+}
+
+/// Properties of a referendum
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct ReferendumInfo<Hash: Parameter> {
+    /// The proposal's unique index.
+    index: MipsIndex,
+    /// Priority.
+    priority: MipsPriority,
+    /// The proposal being voted on.
+    proposal_hash: Hash,
 }
 
 /// The module's configuration trait.
@@ -141,7 +154,7 @@ decl_storage! {
         pub Voting get(voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
-        pub ReferendumMetadata get(referendum_meta): Vec<(MipsIndex, MipsPriority, T::Hash)>;
+        pub ReferendumMetadata get(referendum_meta): Vec<ReferendumInfo<T::Hash>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
@@ -157,11 +170,13 @@ decl_event!(
         <T as system::Trait>::AccountId,
     {
         /// A Mesh Improvement Proposal was made with a `Balance` stake
-        Proposed(AccountId, Balance, Hash),
+        Proposed(AccountId, Balance, MipsIndex, Hash),
         /// `AccountId` voted `bool` on the proposal referenced by `Hash`
-        Voted(AccountId, Hash, bool),
+        Voted(AccountId, MipsIndex, Hash, bool),
         /// Proposal referenced by `Hash` has been closed
-        ProposalClosed(Hash),
+        ProposalClosed(MipsIndex, Hash),
+        /// Proposal referenced by `Hash` has been closed
+        ProposalFastTracked(MipsIndex, Hash),
         /// Referendum created for proposal referenced by `Hash`
         ReferendumCreated(MipsIndex, MipsPriority, Hash),
         /// Proposal referenced by `Hash` was dispatched with the result `bool`
@@ -259,7 +274,7 @@ decl_module! {
             };
             <Voting<T>>::insert(proposal_hash, vote);
 
-            Self::deposit_event(RawEvent::Proposed(proposer, deposit, proposal_hash));
+            Self::deposit_event(RawEvent::Proposed(proposer, deposit, index, proposal_hash));
             Ok(())
         }
 
@@ -295,7 +310,7 @@ decl_module! {
 
                 <Voting<T>>::remove(&proposal_hash);
                 <Voting<T>>::insert(&proposal_hash, voting);
-                Self::deposit_event(RawEvent::Voted(proposer, proposal_hash, aye_or_nay));
+                Self::deposit_event(RawEvent::Voted(proposer, index, proposal_hash, aye_or_nay));
             } else {
                 return Err("duplicate vote ignored")
             }
@@ -304,13 +319,39 @@ decl_module! {
         /// An emergency stop measure to kill a proposal. Governance committee can kill
         /// a proposal at any time.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn kill_proposal(origin, proposal_hash: T::Hash) {
+        pub fn kill_proposal(origin, index: MipsIndex, proposal_hash: T::Hash) {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            Self::close_proposal(proposal_hash.clone());
+            Self::close_proposal(index, proposal_hash);
+        }
+
+        /// An emergency stop measure to kill a proposal. Governance committee can kill
+        /// a proposal at any time.
+        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        pub fn fast_track_proposal(origin, index: MipsIndex, proposal_hash: T::Hash) {
+            T::CommitteeOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| "bad origin")?;
+
+            if let Some(proposal) = <Proposals<T>>::get(&proposal_hash) {
+                Self::create_referendum(
+                    index,
+                    MipsPriority::High,
+                    proposal_hash,
+                    proposal,
+                );
+
+                Self::deposit_event(RawEvent::ProposalFastTracked(
+                    index,
+                    proposal_hash,
+                ));
+
+                Self::close_proposal(index, proposal_hash.clone());
+            }
         }
 
         /// An emergency proposal that bypasses network voting process. Governance committee can make
@@ -331,14 +372,12 @@ decl_module! {
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
 
-            <ReferendumMetadata<T>>::mutate(|metadata| metadata.push((index, MipsPriority::High, proposal_hash)));
-            <Referendums<T>>::insert(proposal_hash.clone(), proposal);
-
-            Self::deposit_event(RawEvent::ReferendumCreated(
+            Self::create_referendum(
                 index,
                 MipsPriority::High,
-                proposal_hash.clone()
-            ));
+                proposal_hash.clone(),
+                *proposal
+            );
         }
 
         /// Moves a referendum instance into dispatch queue.
@@ -388,7 +427,7 @@ impl<T: Trait> Module<T> {
             Self::tally_votes(index, hash.clone());
 
             // And close proposals
-            Self::close_proposal(hash);
+            Self::close_proposal(index, hash);
         }
 
         Ok(())
@@ -411,7 +450,12 @@ impl<T: Trait> Module<T> {
             // 2. Ayes staked are more than the minimum quorum threshold
             if aye_stake > nay_stake && aye_stake >= Self::quorum_threshold() {
                 if let Some(proposal) = <Proposals<T>>::get(&proposal_hash) {
-                    Self::create_referendum(index, proposal_hash.clone(), proposal);
+                    Self::create_referendum(
+                        index,
+                        MipsPriority::Normal,
+                        proposal_hash.clone(),
+                        proposal,
+                    );
                 }
             }
         }
@@ -419,22 +463,31 @@ impl<T: Trait> Module<T> {
 
     /// Create a referendum object from a proposal.
     /// Committee votes on this referendum instance
-    fn create_referendum(index: MipsIndex, proposal_hash: T::Hash, proposal: T::Proposal) {
-        <ReferendumMetadata<T>>::mutate(|metadata| {
-            metadata.push((index, MipsPriority::Normal, proposal_hash))
-        });
+    fn create_referendum(
+        index: MipsIndex,
+        priority: MipsPriority,
+        proposal_hash: T::Hash,
+        proposal: T::Proposal,
+    ) {
+        let ri = ReferendumInfo {
+            index,
+            priority,
+            proposal_hash,
+        };
+
+        <ReferendumMetadata<T>>::mutate(|metadata| metadata.push(ri));
         <Referendums<T>>::insert(proposal_hash.clone(), proposal);
 
         Self::deposit_event(RawEvent::ReferendumCreated(
             index,
-            MipsPriority::Normal,
+            priority.clone(),
             proposal_hash.clone(),
         ));
     }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
     /// All deposits are unlocked and returned to respective stakers.
-    fn close_proposal(proposal_hash: T::Hash) {
+    fn close_proposal(index: MipsIndex, proposal_hash: T::Hash) {
         if <Voting<T>>::get(proposal_hash).is_some() {
             if <Deposits<T>>::exists(&proposal_hash) {
                 let deposits: Vec<(T::AccountId, BalanceOf<T>)> =
@@ -452,7 +505,7 @@ impl<T: Trait> Module<T> {
                     metadata.retain(|m| m.proposal_hash != hash)
                 });
 
-                Self::deposit_event(RawEvent::ProposalClosed(hash));
+                Self::deposit_event(RawEvent::ProposalClosed(index, hash));
             }
         }
     }
@@ -695,6 +748,7 @@ mod tests {
         with_externalities(&mut new_test_ext(), || {
             System::set_block_number(1);
             let proposal = make_proposal(42);
+            let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
 
             // Account 6 starts a proposal with min deposit
@@ -709,13 +763,13 @@ mod tests {
             assert_eq!(
                 MIPS::voting(&hash),
                 Some(Votes {
-                    index: 0,
+                    index,
                     ayes: vec![(6, 50)],
                     nays: vec![],
                 })
             );
 
-            assert_ok!(MIPS::kill_proposal(Origin::signed(1), hash));
+            assert_ok!(MIPS::kill_proposal(Origin::signed(1), index, hash));
 
             assert_eq!(Balances::free_balance(&6), 60);
 
@@ -801,6 +855,7 @@ mod tests {
         with_externalities(&mut new_test_ext(), || {
             System::set_block_number(1);
             let proposal = make_proposal(42);
+            let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
 
             assert_err!(
@@ -817,7 +872,14 @@ mod tests {
 
             assert_eq!(MIPS::referendums(&hash), Some(proposal));
 
-            assert_eq!(MIPS::referendum_meta(), vec![(0, MipsPriority::High, hash)]);
+            assert_eq!(
+                MIPS::referendum_meta(),
+                vec![ReferendumInfo {
+                    index,
+                    priority: MipsPriority::High,
+                    proposal_hash: hash
+                }]
+            );
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
