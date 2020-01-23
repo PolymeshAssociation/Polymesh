@@ -1,4 +1,36 @@
 //! # Multisig Module
+//!
+//! The Multisig module provides functionality for n of m multisigs.
+//!
+//! ## Overview
+//!
+//! The multisig module provides functions for:
+//!
+//! - Creating a new multisig
+//! - Proposing a multisig transaction
+//! - Approving a multisig transaction
+//! - Adding new signers to the multisig
+//! - Removing existing signers from multisig
+//!
+//! ### Terminology
+//!
+//! - **Multisig:** It is a special type of account that can do tranaction only if at least n of its m signers approve.
+//! - **Proposal:** It is a general transaction that the multisig can do,
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `create_multi_sig` - Creates a new multisig.
+//! - `create_proposal` - Creates a proposal for a multisig transaction.
+//! - `approve_as_identity` - Approves a proposal as an Identity.
+//! - `approve_as_key` - Approves a proposal as a Signing key.
+//! - `accept_multi_sig_signer_as_identity` - Accept being added as a signer of a multisig.
+//! - `accept_multi_sig_signer_as_key` - Accept being added as a signer of a multisig.
+//! - `add_multi_sig_signer` - Adds a signer to the multisig.
+//! - `remove_multi_sig_signer` - Removes a signer from the multisig.
+//! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
+
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -31,8 +63,8 @@ decl_storage! {
         /// Number of transactions proposed in a multisig. Used as tx id. starts from 0
         pub MultiSigTxDone get(ms_tx_done): map T::AccountId => u64;
 
-        /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<proposal>
-        /// Deleted after proposal is processed
+        /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<proposal>.
+        /// It is deleted after proposal is processed
         pub Proposals get(proposals): map (T::AccountId, u64) => Option<T::Proposal>;
 
         /// Number of votes in favor of a tx. Mapping from (multisig, tx id) => no. of approvals.
@@ -43,10 +75,14 @@ decl_storage! {
 }
 
 decl_module! {
-    // Simple declaration of the `Module` type. Lets the macro know what it's working on.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
+        /// Creates a multisig
+        ///
+        /// # Arguments
+        /// * `signers` - Signers of the multisig (They need to accept authorization before they are actually added).
+        /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
         pub fn create_multi_sig(origin, signers: Vec<Signer>, sigs_required: u64) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(signers.len() > 0, "No signers provided");
@@ -84,6 +120,12 @@ decl_module! {
             Ok(())
         }
 
+        /// Creates a multisig proposal
+        ///
+        /// # Arguments
+        /// * `multi_sig` - Multisig address.
+        /// * `proposal` - Proposal to be voted on.
+        /// If this is 1 of m multisig, the proposal will be immediately executed.
         pub fn create_proposal(origin, multi_sig: T::AccountId, proposal: Box<T::Proposal>) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::from(Key::try_from(sender.encode())?);
@@ -96,6 +138,12 @@ decl_module! {
             Self::approve_for(multi_sig, proposal_id, sender_signer)
         }
 
+        /// Approves a multisig proposal using caller's identity
+        ///
+        /// # Arguments
+        /// * `multi_sig` - Multisig address.
+        /// * `proposal_id` - Proposal id to approve.
+        /// If enough voted are reached, the proposal will be immediately executed.
         pub fn approve_as_identity(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
@@ -114,6 +162,12 @@ decl_module! {
             Self::approve_for(multi_sig, proposal_id, signer)
         }
 
+        /// Approves a multisig proposal using caller's signing key (AccountId)
+        ///
+        /// # Arguments
+        /// * `multi_sig` - Multisig address.
+        /// * `proposal_id` - Proposal id to approve.
+        /// If enough voted are reached, the proposal will be immediately executed.
         pub fn approve_as_key(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let signer = Signer::from(Key::try_from(sender.encode())?);
@@ -121,6 +175,11 @@ decl_module! {
             Self::approve_for(multi_sig, proposal_id, signer)
         }
 
+        /// Accept a multisig signer authorization given to signer's identity
+        ///
+        /// # Arguments
+        /// * `multi_sig` - Multisig address.
+        /// * `proposal_id` - Auth id of the authorization.
         pub fn accept_multi_sig_signer_as_identity(origin, auth_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
@@ -138,12 +197,22 @@ decl_module! {
             Self::_accept_multi_sig_signer(signer, auth_id)
         }
 
+        /// Accept a multisig signer authorization given to signer's key (AccountId)
+        ///
+        /// # Arguments
+        /// * `multi_sig` - Multisig address.
+        /// * `proposal_id` - Auth id of the authorization.
         pub fn accept_multi_sig_signer_as_key(origin, auth_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let signer = Signer::from(Key::try_from(sender.encode())?);
             Self::_accept_multi_sig_signer(signer, auth_id)
         }
 
+        /// Add a signer to the multisig. This must be called by the multisig itself.
+        ///
+        /// # Arguments
+        /// * `multi_sig` - Multisig address.
+        /// * `signer` - Signer to add.
         pub fn add_multi_sig_signer(origin, signer: Signer) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::from(Key::try_from(sender.encode())?);
@@ -158,11 +227,29 @@ decl_module! {
             Ok(())
         }
 
+        /// Remove a signer from the multisig. This must be called by the multisig itself.
+        ///
+        /// # Arguments
+        /// * `multi_sig` - Multisig address.
+        /// * `signer` - Signer to remove.
         pub fn remove_multi_sig_signer(origin, signer: Signer) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(!<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
             <MultiSigSigners<T>>::insert((sender.clone(), signer), false);
             Self::deposit_event(RawEvent::MultiSigSignerRemoved(sender, signer));
+            Ok(())
+        }
+
+        /// Change number of sigs required by a multisig. This must be called by the multisig itself.
+        ///
+        /// # Arguments
+        /// * `multi_sig` - Multisig address.
+        /// * `sigs_required` - New number os sigs required.
+        pub fn change_sigs_required(origin, sigs_required: u64) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(!<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
+            <MultiSigSignsRequired<T>>::insert(&sender, &sigs_required);
+            Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(sender, sigs_required));
             Ok(())
         }
     }
@@ -179,16 +266,19 @@ decl_event!(
         ProposalAdded(AccountId, u64),
         /// Emitted when a proposal is executed. (Multisig, proposalid, result)
         ProposalExecuted(AccountId, u64, bool),
-        /// Signer added (Authorization accepted)
+        /// Signer added (Authorization accepted) (Multisig, signer_added)
         MultiSigSignerAdded(AccountId, Signer),
-        /// Multi Sig Signer Authorized to be added
+        /// Multi Sig Signer Authorized to be added (Multisig, signer_authorized)
         MultiSigSignerAuthorized(AccountId, Signer),
-        /// Multi Sig Signer removed
+        /// Multi Sig Signer removed (Multisig, signer_removed)
         MultiSigSignerRemoved(AccountId, Signer),
+        /// Change in signatures required by a multisig (Multisig, new_sigs_required)
+        MultiSigSignaturesRequiredChanged(AccountId, u64),
     }
 );
 
 impl<T: Trait> Module<T> {
+    /// Approves a multisig transaction and executes the proposal if enough sigs have been received
     fn approve_for(multi_sig: T::AccountId, proposal_id: u64, signer: Signer) -> Result {
         let multi_sig_signer_proposal = (multi_sig.clone(), signer, proposal_id);
         let multi_sig_proposal = (multi_sig.clone(), proposal_id);
@@ -219,12 +309,13 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Charges appropriate fee for the proposal
     fn charge_fee(_multi_sig: T::AccountId, _weight: Weight) -> Result {
         // TODO use this weight to charge appropriate fee
         Ok(())
     }
 
-    /// Accept and process a ticker transfer
+    /// Accept and process addition of a signer to a multisig
     pub fn _accept_multi_sig_signer(signer: Signer, auth_id: u64) -> Result {
         ensure!(
             <identity::Authorizations<T>>::exists((signer, auth_id)),

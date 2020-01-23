@@ -155,7 +155,7 @@ decl_storage! {
         TickerRegistrationFee get(ticker_registration_fee) config(): T::Balance;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
-        pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u64;
+        pub TotalCheckpoints get(total_checkpoints_of): map Vec<u8> => u64;
         /// Total supply of the token at the checkpoint
         /// (ticker, checkpointId) -> total supply at given checkpoint
         pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u64) => T::Balance;

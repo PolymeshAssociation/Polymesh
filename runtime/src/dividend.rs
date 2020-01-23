@@ -78,7 +78,7 @@ decl_storage! {
         Dividends get(dividends): map (Vec<u8>, u32) => Dividend<T::Balance, T::Moment>;
 
         /// How many dividends were created for a ticker so far; (ticker) => count
-        DividendCount get(dividend_count): map (Vec<u8>) => u32;
+        DividendCount get(dividend_count): map Vec<u8> => u32;
 
         /// Payout flags, decide whether a user already was paid their dividend
         /// (DID, ticker, dividend_id) -> whether they got their payout
