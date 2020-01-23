@@ -3,6 +3,7 @@ jobs:
   lint:
     docker:
       - image: maxsam4/rust
+    resource_class: medium+
     environment:
       VERBOSE: "1"
     steps:
