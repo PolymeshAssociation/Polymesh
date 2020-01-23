@@ -381,6 +381,7 @@ mod tests {
     use chrono::{prelude::*, Duration};
     use core::result::Result as StdResult;
     use lazy_static::lazy_static;
+    use primitives::IdentityId;
     use sr_io::with_externalities;
     use sr_primitives::traits::Verify;
     use sr_primitives::{
@@ -394,17 +395,17 @@ mod tests {
         dispatch::{DispatchError, DispatchResult},
         impl_outer_origin, parameter_types,
     };
-    use substrate_primitives::{Blake2Hasher, H256};
-    use test_client::{self, AccountKeyring};
-
     use std::{
         collections::HashMap,
         sync::{Arc, Mutex},
     };
+    use substrate_primitives::{Blake2Hasher, H256};
+    use system::EnsureSignedBy;
+    use test_client::{self, AccountKeyring};
 
     use crate::{
         asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
-        identity, percentage_tm, simple_token::SimpleTokenRecord,
+        group, identity, percentage_tm, simple_token::SimpleTokenRecord,
     };
 
     type SessionIndex = u32;
@@ -514,6 +515,24 @@ mod tests {
         type TransactionByteFee = TransactionByteFee;
         type WeightToFee = ConvertInto;
         type Identity = identity::Module<Test>;
+    }
+
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
     }
 
     impl simple_token::Trait for Test {

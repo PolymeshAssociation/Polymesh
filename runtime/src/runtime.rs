@@ -254,9 +254,11 @@ impl staking::Trait for Runtime {
     type SessionInterface = Self;
     type Time = Timestamp;
     type RewardCurve = RewardCurve;
-    type AddOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
-    type RemoveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
-    type ComplianceOrigin =
+    type RequiredAddOrigin =
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type RequiredRemoveOrigin =
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type RequiredComplianceOrigin =
         committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
 }
 
