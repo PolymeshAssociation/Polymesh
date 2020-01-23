@@ -59,6 +59,15 @@ type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::Ac
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
+pub struct MIP<Proposal> {
+    /// The proposal's unique index.
+    index: MipsIndex,
+    /// The proposal being voted on.
+    proposal: Proposal,
+}
+
+/// Represents a proposal metadata
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
 pub struct MipsMetadata<BlockNumber: Parameter, Hash: Parameter> {
     /// The proposal's unique index.
     index: MipsIndex,
@@ -147,7 +156,7 @@ decl_storage! {
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
-        pub Proposals get(proposals): map T::Hash => Option<T::Proposal>;
+        pub Proposals get(proposals): map T::Hash => Option<MIP<T::Proposal>>;
 
         /// Votes on a given proposal, if it is ongoing.
         /// proposal hash -> voting info
@@ -265,7 +274,11 @@ decl_module! {
 
             <Deposits<T>>::insert(proposal_hash, vec![(proposer.clone(), deposit)]);
 
-            <Proposals<T>>::insert(proposal_hash, *proposal);
+            let mip = MIP {
+                index,
+                proposal: *proposal
+            };
+            <Proposals<T>>::insert(proposal_hash, mip);
 
             let vote = Votes {
                 index,
@@ -325,6 +338,9 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
+            let mip = Self::proposals(&proposal_hash).ok_or("proposal does not exist")?;
+            ensure!(mip.index == index, "mismatched proposal index");
+
             Self::close_proposal(index, proposal_hash);
         }
 
@@ -337,21 +353,22 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            if let Some(proposal) = <Proposals<T>>::get(&proposal_hash) {
-                Self::create_referendum(
-                    index,
-                    MipsPriority::High,
-                    proposal_hash,
-                    proposal,
-                );
+            let mip = Self::proposals(&proposal_hash).ok_or("proposal does not exist")?;
+            ensure!(mip.index == index, "mismatched proposal index");
 
-                Self::deposit_event(RawEvent::ProposalFastTracked(
-                    index,
-                    proposal_hash,
-                ));
+            Self::create_referendum(
+                index,
+                MipsPriority::High,
+                proposal_hash,
+                mip.proposal,
+            );
 
-                Self::close_proposal(index, proposal_hash.clone());
-            }
+            Self::deposit_event(RawEvent::ProposalFastTracked(
+                index,
+                proposal_hash,
+            ));
+
+            Self::close_proposal(index, proposal_hash.clone());
         }
 
         /// An emergency proposal that bypasses network voting process. Governance committee can make
@@ -449,12 +466,12 @@ impl<T: Trait> Module<T> {
             // 1. Ayes staked must be more than nays staked (simple majority)
             // 2. Ayes staked are more than the minimum quorum threshold
             if aye_stake > nay_stake && aye_stake >= Self::quorum_threshold() {
-                if let Some(proposal) = <Proposals<T>>::get(&proposal_hash) {
+                if let Some(mip) = <Proposals<T>>::get(&proposal_hash) {
                     Self::create_referendum(
                         index,
                         MipsPriority::Normal,
                         proposal_hash.clone(),
-                        proposal,
+                        mip.proposal,
                     );
                 }
             }
@@ -846,6 +863,37 @@ mod tests {
                     nays: vec![]
                 })
             );
+
+            fast_forward_to(20);
+
+            assert_eq!(MIPS::referendums(&hash), Some(proposal));
+
+            assert_err!(
+                MIPS::enact_referendum(Origin::signed(5), hash),
+                "bad origin"
+            );
+
+            assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
+        });
+    }
+
+    #[test]
+    fn should_fast_track_a_proposal() {
+        with_externalities(&mut new_test_ext(), || {
+            System::set_block_number(1);
+            let proposal = make_proposal(42);
+            let index = 0;
+            let hash = BlakeTwo256::hash_of(&proposal);
+
+            assert_ok!(MIPS::propose(
+                Origin::signed(6),
+                Box::new(proposal.clone()),
+                50
+            ));
+
+            assert_ok!(MIPS::vote(Origin::signed(5), hash, index, true, 50));
+
+            assert_ok!(MIPS::fast_track_proposal(Origin::signed(1), index, hash));
 
             fast_forward_to(20);
 
