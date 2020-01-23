@@ -57,7 +57,7 @@ pub trait Trait<I = DefaultInstance>: system::Trait {
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
         /// Identities that are part of this group
-        Members get(members) config(): Vec<IdentityId>;
+        pub Members get(members) config(): Vec<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): rstd::marker::PhantomData<(T, I)>;
@@ -101,7 +101,7 @@ decl_module! {
         /// * `origin` Origin representing `AddOrigin` or root
         /// * `who` IdentityId to be added to the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn add_member(origin, who: IdentityId) {
+        pub fn add_member(origin, who: IdentityId) {
             T::AddOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
@@ -202,9 +202,9 @@ decl_module! {
 mod tests {
     use super::*;
 
+    use rstd::cell::RefCell;
     use sr_io::with_externalities;
     use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
-    use std::cell::RefCell;
     use substrate_primitives::{Blake2Hasher, H256};
 
     use sr_primitives::{

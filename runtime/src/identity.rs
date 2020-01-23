@@ -16,20 +16,13 @@
 //! `MuliSign`, etc.) and/or its permission.
 //!
 //! Some operations at identity level are only allowed to its administrator account, like
-//! [set_master_key](./struct.Module.html#method.set_master_key) or
-//! [add_claim_issuer](./struct.Module.html#method.add_claim_issuer).
+//! [set_master_key](./struct.Module.html#method.set_master_key)
 //!
 //! ## Identity information
 //!
 //! Identity contains the following data:
 //!  - `master_key`. It is the administrator account of the identity.
 //!  - `signing_keys`. List of keys and their capabilities (type of key and its permissions) .
-//!
-//! ## Claim Issuers
-//!
-//! The administrator of the entity can add/remove claim issuers (see
-//! [add_claim_issuer](./struct.Module.html#method.add_claim_issuer) ). Only these claim issuers
-//! are able to add claims to that identity.
 //!
 //! ## Freeze signing keys
 //!
@@ -44,19 +37,30 @@
 
 use rstd::{convert::TryFrom, prelude::*};
 
-use crate::{asset::AcceptTickerTransfer, balances, constants::did::USER};
+use crate::{
+    asset::AcceptTransfer,
+    balances,
+    constants::{
+        did::{SECURITY_TOKEN, USER},
+        KYC_EXPIRY_CLAIM_KEY,
+    },
+    group, BatchDispatchInfo,
+};
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
-    Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+    Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+};
+use sr_io::blake2_256;
+use sr_primitives::{
+    traits::{Dispatchable, Hash, SaturatedConversion, Verify},
+    weights::SimpleDispatchInfo,
+    AnySignature, DispatchError,
 };
 
 use codec::Encode;
 use core::convert::From;
-use sr_io::blake2_256;
-use sr_primitives::{
-    traits::{Dispatchable, Verify},
-    AnySignature, DispatchError,
-};
+use core::convert::TryInto;
+use core::result::Result as StdResult;
 use srml_support::{
     decl_event, decl_module, decl_storage,
     dispatch::Result,
@@ -118,7 +122,7 @@ impl Default for DataTypes {
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or external type signing key are restricted to be linked to just one identity.
-/// Other types of signing key could be associated with more that one identity.
+/// Other types of signing key could be associated with more than one identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub enum LinkedKeyInfo {
     Unique(IdentityId),
@@ -161,13 +165,15 @@ pub struct SigningItemWithAuth {
 }
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + timestamp::Trait {
+pub trait Trait:
+    system::Trait + balances::Trait + timestamp::Trait + group::Trait<group::Instance1>
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     /// An extrinsic call.
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
     /// Asset module
-    type AcceptTickerTransferTarget: AcceptTickerTransfer;
+    type AcceptTransferTarget: AcceptTransfer;
 }
 
 decl_storage! {
@@ -181,9 +187,6 @@ decl_storage! {
 
         /// DID -> bool that indicates if signing keys are frozen.
         pub IsDidFrozen get(is_did_frozen): map IdentityId => bool;
-
-        /// DID -> DID claim issuers
-        pub ClaimIssuers get(claim_issuers): map IdentityId => Vec<IdentityId>;
 
         /// It stores the current identity for current transaction.
         pub CurrentDid get(current_did): Option<IdentityId>;
@@ -220,6 +223,12 @@ decl_storage! {
 
         /// Auth id of the latest auth of an identity. Used to allow iterating over auths
         pub LastAuthorization get(last_authorization): map Signer => u64;
+
+        /// All links that an identity/key has
+        pub Links get(links): map(Signer, u64) => Link<T::Moment>;
+
+        /// Link id of the latest auth of an identity/key. Used to allow iterating over links
+        pub LastLink get(last_link): map(Signer) => u64;
     }
 }
 
@@ -377,44 +386,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Appends a claim issuer DID to a DID. Only called by master key owner.
-        pub fn add_claim_issuer(origin, did: IdentityId, claim_issuer_did: IdentityId) -> Result {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
-
-            // Master key shouldn't be added itself as claim issuer.
-            ensure!( did != claim_issuer_did, "Master key cannot add itself as claim issuer");
-
-            <ClaimIssuers>::mutate(did, |old_claim_issuers| {
-                if !old_claim_issuers.contains(&claim_issuer_did) {
-                    old_claim_issuers.push(claim_issuer_did);
-                }
-            });
-
-            Self::deposit_event(RawEvent::NewClaimIssuer(did, claim_issuer_did));
-            Ok(())
-        }
-
-        /// Removes a claim issuer DID. Only called by master key owner.
-        fn remove_claim_issuer(origin, did: IdentityId, did_issuer: IdentityId) -> Result {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            let _grant_checked = Self::grant_check_only_master_key( &sender_key, did)?;
-
-            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
-
-            <ClaimIssuers>::mutate(did, |old_claim_issuers| {
-                *old_claim_issuers = old_claim_issuers
-                    .iter()
-                    .filter(|&issuer| *issuer != did_issuer)
-                    .cloned()
-                    .collect();
-            });
-
-            Self::deposit_event(RawEvent::RemovedClaimIssuer(did, did_issuer));
-            Ok(())
-        }
-
         /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
+        #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
         pub fn add_claim(
             origin,
             did: IdentityId,
@@ -429,7 +402,6 @@ decl_module! {
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
 
             let sender_key = Key::try_from(sender.encode())?;
-            ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key), "did_issuer must be a claim issuer or master key for DID");
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_signer = Signer::Key(sender_key);
@@ -463,6 +435,7 @@ decl_module! {
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
         /// `did_issuer`'s signing key.
+        #[weight = BatchDispatchInfo::new_normal(3_000, 10_000)]
         pub fn add_claims_batch(
             origin,
             did_issuer: IdentityId,
@@ -486,8 +459,6 @@ decl_module! {
                 claim_value,
             } in claims {
                 ensure!(<DidRecords>::exists(did), "DID must already exist");
-                ensure!(Self::is_claim_issuer(did, did_issuer) || Self::is_master_key(did, &sender_key),
-                        "did_issuer must be a claim issuer or master key for DID");
                 let claim_meta_data = ClaimMetaData {
                     claim_key: claim_key.clone(),
                     claim_issuer: did_issuer.clone(),
@@ -760,29 +731,35 @@ decl_module! {
             auth_id: u64
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let sender_did =  match Self::current_did() {
-                Some(x) => x,
+            let signer = match Self::current_did() {
+                Some(x) => Signer::from(x),
                 None => {
                     if let Some(did) = Self::get_identity(&sender_key) {
-                        did
+                        Signer::from(did)
                     } else {
-                        return Err("did not found");
+                        Signer::from(sender_key)
                     }
                 }
             };
 
-            let auth;
-            if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
-                auth = Self::authorizations((Signer::from(sender_did), auth_id));
-            } else {
-                ensure!(<Authorizations<T>>::exists((Signer::from(sender_key), auth_id)), "Invalid auth");
-                auth = Self::authorizations((Signer::from(sender_key), auth_id));
-            }
+            ensure!(<Authorizations<T>>::exists((signer, auth_id)), "Invalid auth");
+            let auth = Self::authorizations((signer, auth_id));
 
-
-            match auth.authorization_data {
-                AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
-                _ => return Err("Unknown authorization")
+            match signer {
+                Signer::Identity(did) => {
+                    match auth.authorization_data {
+                        AuthorizationData::TransferTicker(_) =>
+                            T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                        AuthorizationData::TransferTokenOwnership(_) =>
+                            T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                        _ => return Err("Unknown authorization")
+                    }
+                },
+                Signer::Key(_key) => {
+                    match auth.authorization_data {
+                        _ => return Err("Unknown authorization")
+                    }
+                }
             }
         }
 
@@ -792,33 +769,49 @@ decl_module! {
             auth_ids: Vec<u64>
         ) -> Result {
             let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let sender_did =  match Self::current_did() {
-                Some(x) => x,
+            let signer = match Self::current_did() {
+                Some(x) => Signer::from(x),
                 None => {
                     if let Some(did) = Self::get_identity(&sender_key) {
-                        did
+                        Signer::from(did)
                     } else {
-                        return Err("did not found");
+                        Signer::from(sender_key)
                     }
                 }
             };
 
-            for auth_id in auth_ids {
-                // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
-                // It will just skip that particular authorization.
-                let auth;
-                if <Authorizations<T>>::exists((Signer::from(sender_did), auth_id)) {
-                    auth = Self::authorizations((Signer::from(sender_did), auth_id));
-                } else if <Authorizations<T>>::exists((Signer::from(sender_key), auth_id)) {
-                    auth = Self::authorizations((Signer::from(sender_key), auth_id));
-                } else {
-                    continue
+            match signer {
+                Signer::Identity(did) => {
+                    for auth_id in auth_ids {
+                        // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
+                        // It will just skip that particular authorization.
+                        if <Authorizations<T>>::exists((signer, auth_id)) {
+                            let auth = Self::authorizations((signer, auth_id));
+                            // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
+                            let _result = match auth.authorization_data {
+                                AuthorizationData::TransferTicker(_) =>
+                                    T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                                AuthorizationData::TransferTokenOwnership(_) =>
+                                    T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                                _ => Err("Unknown authorization")
+                            };
+                        }
+                    }
+                },
+                Signer::Key(_key) => {
+                    for auth_id in auth_ids {
+                        // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
+                        // It will just skip that particular authorization.
+                        if <Authorizations<T>>::exists((signer, auth_id)) {
+                            let _auth = Self::authorizations((signer, auth_id));
+                            // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
+                            // TODO: Add cases where signing key is authorized
+                            // let _result = match auth.authorization_data {
+                            //     _ => Err("Unknown authorization")
+                            // };
+                        }
+                    }
                 }
-                // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
-                let _result = match auth.authorization_data {
-                    AuthorizationData::TransferTicker(_) => T::AcceptTickerTransferTarget::accept_ticker_transfer(sender_did, auth_id),
-                    _ => Err("Unknown authorization data")
-                };
             }
 
             Ok(())
@@ -1005,6 +998,29 @@ decl_module! {
             <RevokeOffChainAuthorization<T>>::insert( (signer,auth), true);
             Ok(())
         }
+
+        /// Query whether given signer identity has valid KYC or not
+        ///
+        /// # Arguments
+        /// * `origin` Signer whose identity get checked
+        /// * `buffer_time` Buffer time corresponds to which kyc expiry need to check
+        pub fn is_my_identity_has_valid_kyc(origin, buffer_time: u64) ->  Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let my_did =  match Self::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = Self::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+            let (is_kyced, kyc_provider) = Self::is_identity_has_valid_kyc(my_did, buffer_time);
+            Self::deposit_event(RawEvent::MyKycStatus(my_did, is_kyced, kyc_provider));
+            Ok(())
+        }
     }
 }
 
@@ -1049,6 +1065,9 @@ decl_event!(
         /// DID queried
         DidQuery(Key, IdentityId),
 
+        /// To query the status of DID
+        MyKycStatus(IdentityId, bool, Option<IdentityId>),
+
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
         NewAuthorization(
             u64,
@@ -1060,6 +1079,17 @@ decl_event!(
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
         AuthorizationRemoved(u64, Signer),
+
+        /// New link added (link_id, associated identity or key, link_data, expiry)
+        NewLink(
+            u64,
+            Signer,
+            LinkData,
+            Option<Moment>
+        ),
+
+        /// Link removed. (link_id, associated identity or key)
+        LinkRemoved(u64, Signer),
     }
 );
 
@@ -1152,6 +1182,60 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Adds a link to a key or an identity
+    /// NB: Please do all the required checks before calling this function.
+    pub fn add_link(target: Signer, link_data: LinkData, expiry: Option<T::Moment>) {
+        let new_nonce = Self::multi_purpose_nonce() + 1u64;
+        <MultiPurposeNonce>::put(&new_nonce);
+
+        let last_link = Self::last_link(&target);
+
+        if last_link > 0 {
+            // 0 means no previous link. 0 is the default value.
+            // Changing the last link to point to new link as next link.
+            <Links<T>>::mutate((target, last_link), |last_link| {
+                last_link.next_link = new_nonce
+            });
+        }
+
+        let link = Link {
+            link_data: link_data.clone(),
+            expiry: expiry,
+            next_link: 0,
+            previous_link: last_link,
+        };
+
+        <LastLink>::insert(&target, new_nonce);
+        <Links<T>>::insert((target, new_nonce), link);
+
+        Self::deposit_event(RawEvent::NewLink(new_nonce, target, link_data, expiry));
+    }
+
+    /// Remove a link (if it exists) from a key or identity
+    /// NB: Please do all the required checks before calling this function.
+    pub fn remove_link(target: Signer, link_id: u64) {
+        if <Links<T>>::exists((target, link_id)) {
+            let link = Self::links((target, link_id));
+            if link.next_link != 0 {
+                // update next link's previous link to point to previous link of this link
+                <Links<T>>::mutate((target, link.next_link), |next_link| {
+                    next_link.previous_link = link.previous_link
+                });
+            } else {
+                // this was the last link. update last link to be previous link.
+                <LastLink>::insert(&target, link.previous_link);
+            }
+            if link.previous_link != 0 {
+                // update previous link's next link to point to next link of this link
+                <Links<T>>::mutate((target, link.previous_link), |prev_link| {
+                    prev_link.next_link = link.next_link
+                });
+            }
+            <Links<T>>::remove((target, link_id));
+            Self::deposit_event(RawEvent::LinkRemoved(link_id, target));
+        }
+    }
+
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
     fn update_signing_item_permissions(
@@ -1187,10 +1271,6 @@ impl<T: Trait> Module<T> {
             ));
         }
         Ok(())
-    }
-
-    pub fn is_claim_issuer(did: IdentityId, issuer_did: IdentityId) -> bool {
-        <ClaimIssuers>::get(did).contains(&issuer_did)
     }
 
     /// It checks if `key` is a signing key of `did` identity.
@@ -1280,6 +1360,35 @@ impl<T: Trait> Module<T> {
             }
         }
         return None;
+    }
+
+    pub fn is_identity_has_valid_kyc(
+        claim_for: IdentityId,
+        buffer: u64,
+    ) -> (bool, Option<IdentityId>) {
+        let trusted_kyc_providers = <group::Module<T, group::Instance1>>::members();
+        if trusted_kyc_providers.len() > 0 {
+            for trusted_kyc_provider in trusted_kyc_providers {
+                if let Some(claim) = Self::fetch_claim_value(
+                    claim_for,
+                    KYC_EXPIRY_CLAIM_KEY.to_vec(),
+                    trusted_kyc_provider,
+                ) {
+                    if let Ok(value) = claim.value.as_slice().try_into() {
+                        //let kyc_expiry: [u8; 8] = value;
+                        if let Some(threshold) = ((<timestamp::Module<T>>::get())
+                            .saturated_into::<u64>())
+                        .checked_add(buffer)
+                        {
+                            if u64::from_be_bytes(value) > threshold {
+                                return (true, Some(trusted_kyc_provider));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return (false, None);
     }
 
     /// It checks that `sender_key` is the master key of `did` Identifier and that
@@ -1422,6 +1531,24 @@ impl<T: Trait> Module<T> {
         if is_pre_auth_list_empty {
             <PreAuthorizedJoinDid>::remove(signer);
         }
+    }
+
+    /// It registers a did for a new asset. Only called by create_token function.
+    pub fn register_asset_did(ticker: &Vec<u8>) -> Result {
+        let did = Self::get_token_did(ticker)?;
+        // Making sure there's no pre-existing entry for the DID
+        // This should never happen but just being defensive here
+        ensure!(!<DidRecords>::exists(did), "DID must be unique");
+        <DidRecords>::insert(did, DidRecord::default());
+        Ok(())
+    }
+
+    /// It is a helper function that can be used to get did for any asset
+    pub fn get_token_did(ticker: &Vec<u8>) -> StdResult<IdentityId, &'static str> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&SECURITY_TOKEN.encode());
+        buf.extend_from_slice(&ticker.encode());
+        IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
     }
 }
 
