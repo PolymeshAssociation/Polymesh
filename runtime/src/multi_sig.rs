@@ -8,52 +8,11 @@ use primitives::{AuthorizationData, AuthorizationError, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::{
     traits::{Dispatchable, Hash},
-    weights::{ClassifyDispatch, DispatchClass, GetDispatchInfo, WeighData, Weight},
+    weights::{GetDispatchInfo, Weight},
     DispatchError,
 };
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure, StorageValue};
 use system::ensure_signed;
-
-pub trait GetCallWeightTrait<AccountId> {
-    fn get_proposal_weight(multi_sig: &AccountId, proposal_id: &u64) -> Weight;
-}
-
-impl<T: Trait> GetCallWeightTrait<T::AccountId> for Module<T> {
-    fn get_proposal_weight(multi_sig: &T::AccountId, proposal_id: &u64) -> Weight {
-        if let Some(proposal) = Self::proposals(((*multi_sig).clone(), *proposal_id)) {
-            proposal.get_dispatch_info().weight
-        } else {
-            0
-        }
-    }
-}
-
-struct ChargeProposal<GetCallWeight, AccountId>(
-    rstd::marker::PhantomData<(GetCallWeight, AccountId)>,
-);
-
-impl<GetCallWeight, AccountId> ChargeProposal<GetCallWeight, AccountId> {
-    fn new() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl<GetCallWeight: GetCallWeightTrait<AccountId>, AccountId> WeighData<(&AccountId, &u64)>
-    for ChargeProposal<GetCallWeight, AccountId>
-{
-    fn weigh_data(&self, (multi_sig, proposal_id): (&AccountId, &u64)) -> Weight {
-        let weight = GetCallWeight::get_proposal_weight(multi_sig, proposal_id);
-        weight + 10_000
-    }
-}
-
-impl<GetCallWeight: GetCallWeightTrait<AccountId>, AccountId> ClassifyDispatch<(&AccountId, &u64)>
-    for ChargeProposal<GetCallWeight, AccountId>
-{
-    fn classify_dispatch(&self, _: (&AccountId, &u64)) -> DispatchClass {
-        DispatchClass::Normal
-    }
-}
 
 pub trait Trait: system::Trait + identity::Trait {
     /// The overarching event type.
@@ -116,7 +75,6 @@ decl_module! {
                     AuthorizationData::AddMultisigSigner,
                     None
                 );
-                //<MultiSigSigners<T>>::insert((wallet_id.clone(), signer), true);
             }
 
             <MultiSigSignsRequired<T>>::insert(&wallet_id, &sigs_required);
@@ -138,7 +96,6 @@ decl_module! {
             Self::approve_for(multi_sig, proposal_id, sender_signer)
         }
 
-        //#[weight = <ChargeProposal<Module<T>, T::AccountId>>::new()]
         pub fn approve_as_identity(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
