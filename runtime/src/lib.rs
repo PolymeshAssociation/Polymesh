@@ -17,9 +17,9 @@ mod general_tm;
 mod group;
 mod identity;
 mod mips;
+mod multi_sig;
 mod percentage_tm;
 mod simple_token;
-mod multi_sig;
 
 pub mod committee;
 pub mod staking;

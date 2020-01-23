@@ -412,7 +412,6 @@ impl sudo::Trait for Runtime {
 
 impl multi_sig::Trait for Runtime {
     type Event = Event;
-    type Proposal = Call;
 }
 
 impl asset::Trait for Runtime {
@@ -454,6 +453,7 @@ impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AcceptTransferTarget = Asset;
+    type AddSignerMultisigTarget = Multisig;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
