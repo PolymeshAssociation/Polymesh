@@ -1104,15 +1104,15 @@ decl_module! {
         /// * `did` - the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
-        pub fn set_funding_round(origin, did: IdentityId, ticker: Vec<u8>, name: Vec<u8>) -> Result {
-            let ticker = utils::bytes_to_upper(ticker.as_slice());
+        pub fn set_funding_round(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key(Key::try_from(sender.encode())?);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer),
                     "sender must be a signing key for DID");
+            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "DID is not of the asset owner");
-            <FundingRound>::insert(ticker.clone(), name.clone());
+            <FundingRound>::insert(ticker, name.clone());
             Self::deposit_event(RawEvent::FundingRound(ticker, name));
             Ok(())
         }
@@ -2237,7 +2237,7 @@ mod tests {
             assert_ok!(Asset::set_funding_round(
                 owner_signed.clone(),
                 owner_did,
-                token.name.clone(),
+                ticker,
                 funding_round1.clone()
             ));
             // Mint some tokens to investor1
@@ -2250,14 +2250,14 @@ mod tests {
                 num_tokens1,
                 vec![0x0]
             ));
-            assert_eq!(Asset::funding_round(&token.name), funding_round1.clone());
+            assert_eq!(Asset::funding_round(&ticker), funding_round1.clone());
             assert_eq!(
-                Asset::issued_in_funding_round((token.name.clone(), funding_round1.clone())),
+                Asset::issued_in_funding_round((ticker, funding_round1.clone())),
                 num_tokens1
             );
             // Check the expected default behaviour of the map.
             assert_eq!(
-                Asset::issued_in_funding_round((token.name.clone(), b"No such round".to_vec())),
+                Asset::issued_in_funding_round((ticker, b"No such round".to_vec())),
                 0
             );
             assert_eq!(Asset::balance_of((ticker, investor1_did)), num_tokens1,);
