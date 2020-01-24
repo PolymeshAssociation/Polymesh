@@ -555,6 +555,7 @@ decl_module! {
                 Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
 
                 <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i]), updated_balances[i]);
+                <statistics::Module<T>>::update_transfer_stats( &ticker, None, Some(updated_balances[i]), values[i]);
 
                 Self::deposit_event(RawEvent::Issued(ticker.clone(), investor_dids[i], values[i]));
             }
@@ -607,6 +608,8 @@ decl_module! {
 
             <BalanceOf<T>>::insert((upper_ticker.clone(), did), updated_burner_balance);
             <Tokens<T>>::insert(&upper_ticker, token);
+            <statistics::Module<T>>::update_transfer_stats( &upper_ticker, Some(updated_burner_balance), None, value);
+
 
             Self::deposit_event(RawEvent::Redeemed(upper_ticker, did, value));
 
@@ -665,6 +668,7 @@ decl_module! {
             <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
             <BalanceOf<T>>::insert(&ticker_did, updated_burner_balance);
             <Tokens<T>>::insert(&upper_ticker, token);
+            <statistics::Module<T>>::update_transfer_stats( &upper_ticker, Some(updated_burner_balance), None, value);
 
             Self::deposit_event(RawEvent::Redeemed(upper_ticker.clone(), did, value));
             Self::deposit_event(RawEvent::Approval(upper_ticker, from_did, did, value));
@@ -714,6 +718,7 @@ decl_module! {
 
             <BalanceOf<T>>::insert(&ticker_token_holder_did, updated_burner_balance);
             <Tokens<T>>::insert(&ticker, token);
+            <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
 
             Self::deposit_event(RawEvent::ControllerRedemption(ticker, did, token_holder_did, value, data, operator_data));
 
@@ -1346,8 +1351,8 @@ impl<T: Trait> Module<T> {
         // Update statistic info.
         <statistics::Module<T>>::update_transfer_stats(
             ticker,
-            updated_from_balance,
-            updated_to_balance,
+            Some(updated_from_balance),
+            Some(updated_to_balance),
             value,
         );
 
@@ -1429,6 +1434,12 @@ impl<T: Trait> Module<T> {
 
         <BalanceOf<T>>::insert(&ticker_to_did, updated_to_balance);
         <Tokens<T>>::insert(ticker, token);
+        <statistics::Module<T>>::update_transfer_stats(
+            &ticker,
+            None,
+            Some(updated_to_balance),
+            value,
+        );
 
         Self::deposit_event(RawEvent::Issued(ticker.clone(), to_did, value));
 

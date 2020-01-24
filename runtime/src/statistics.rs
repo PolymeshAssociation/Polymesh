@@ -26,8 +26,8 @@ impl<T: Trait> Module<T> {
     ///
     pub fn update_transfer_stats(
         ticker: &Vec<u8>,
-        updated_from_balance: T::Balance,
-        updated_to_balance: T::Balance,
+        updated_from_balance: Option<T::Balance>,
+        updated_to_balance: Option<T::Balance>,
         amount: T::Balance,
     ) {
         // 1. Investor count per asset.
@@ -35,11 +35,16 @@ impl<T: Trait> Module<T> {
             let counter = Self::investor_count_per_asset(ticker);
             let mut new_counter = counter;
 
-            if updated_from_balance == 0u128.into() {
-                new_counter = new_counter.checked_sub(1).unwrap_or(new_counter);
+            if let Some(from_balance) = updated_from_balance {
+                if from_balance == 0u128.into() {
+                    new_counter = new_counter.checked_sub(1).unwrap_or(new_counter);
+                }
             }
-            if updated_to_balance == amount {
-                new_counter = new_counter.checked_add(1).unwrap_or(new_counter);
+
+            if let Some(to_balance) = updated_to_balance {
+                if to_balance == amount {
+                    new_counter = new_counter.checked_add(1).unwrap_or(new_counter);
+                }
             }
 
             // Only updates extrinsics if counter has been changed.
