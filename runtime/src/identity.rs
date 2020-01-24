@@ -401,11 +401,8 @@ decl_module! {
             let mut rotate_auth = None;
             let mut attest_auth = None;
 
-            sr_primitives::print("before loop");
-
             let mut prev_auth = Some(last_auth);
             while let Some(auth_id) = prev_auth {
-                sr_primitives::print(auth_id);
                 if auth_id == 0 {
                     prev_auth = None;
                 } else {
@@ -413,36 +410,32 @@ decl_module! {
 
                     match auth.authorization_data {
                         AuthorizationData::RotateMasterKey(_) => {
-                            sr_primitives::print("RotateMasterKey");
                             rotate_auth = Some((auth.authorized_by, auth_id));
                         },
                         AuthorizationData::AttestMasterKeyRotation(_) => {
-                            sr_primitives::print("AttestMasterKeyRotation");
+                            // Attestor must be a KYC service provider
+                            if let Signer::Identity(ref kyc_did) = signer {
+                                ensure!(T::IsKYCProvider::is_member(kyc_did),
+                                "Attestation was not by a KYC service provider");
+                            }
                             attest_auth = Some((auth.authorized_by, auth_id));
-                            // let Some(kyc_did) = Self::get_identity(&sender_key)
-
-                            // Caller must be a KYC service provider
-                            // ensure!(T::IsKYCProvider::is_member(&kyc_did), "caller is not a member of KYC service providers group");
                         },
                         _ => ()
                     };
 
                     // When both authorizations are present, rotate the key
                     if let (Some((owner, owner_auth_id)), Some((kyc_signer, kyc_auth_id))) = (rotate_auth, attest_auth) {
-                        sr_primitives::print("in if");
                         // remove owner's authorization
                         Self::consume_auth(owner, signer, owner_auth_id)?;
-                        sr_primitives::print("after consume 1");
 
                         // remove KYC service provider's authorization
                         Self::consume_auth(kyc_signer, signer, kyc_auth_id)?;
-                        sr_primitives::print("after consume 2");
 
                         // Replace master key of the owner that initiated key rotation
                         Self::rotate_master_key(owner, sender_key)?;
-                        sr_primitives::print("rotate called");
                     }
 
+                    // Otherwise, look for more authorizations
                     prev_auth = Some(auth.previous_authorization);
                 }
             }
@@ -1607,13 +1600,11 @@ impl<T: Trait> Module<T> {
     fn rotate_master_key(signer: Signer, new_key: Key) -> Result {
         match signer {
             Signer::Identity(ref id) if <DidRecords>::exists(id) => {
-                sr_primitives::print("found id");
                 // Update the master key
                 <DidRecords>::mutate(id, |record| {
                     (*record).master_key = new_key.clone();
                 });
 
-                sr_primitives::print("changed");
                 Self::deposit_event(RawEvent::MasterKeyChanged(*id, new_key));
                 Ok(())
             }
