@@ -10,9 +10,6 @@ use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
-type Balances = balances::Module<TestStorage>;
-type System = system::Module<TestStorage>;
-type Timestamp = timestamp::Module<TestStorage>;
 type MultiSig = multi_sig::Module<TestStorage>;
 
 type Origin = <TestStorage as system::Trait>::Origin;
@@ -23,7 +20,6 @@ fn create_multi_sig() {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
-        let bob = Origin::signed(AccountKeyring::Bob.public());
 
         let musig_address = MultiSig::get_next_multi_sig_address(AccountKeyring::Alice.public());
 
