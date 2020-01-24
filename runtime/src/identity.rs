@@ -391,53 +391,45 @@ decl_module! {
         /// Call this with the new master key. By invoking this method, caller accepts authorization
         /// with the new master key. If a KYC service provider approved this change, master key of
         /// the DID is updated
-        pub fn accept_master_key(origin) -> Result {
+        ///
+        /// # Arguments
+        /// * `owner_auth_id` Authorization from the owner who initiated the change
+        /// * `kyc_auth_id` Authorization from a KYC service provider
+        pub fn accept_master_key(origin, owner_auth_id: u64, kyc_auth_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             let signer = Signer::from(sender_key);
 
-            let last_auth = Self::last_authorization(&signer);
-
             let mut rotate_auth = None;
             let mut attest_auth = None;
 
-            let mut prev_auth = Some(last_auth);
-            while let Some(auth_id) = prev_auth {
-                if auth_id == 0 {
-                    prev_auth = None;
-                } else {
-                    let auth = Self::authorizations((signer, auth_id));
+            // Accept authorization from the owner
+            let owner_auth = Self::authorizations((signer, owner_auth_id));
+            if let AuthorizationData::RotateMasterKey(_) = owner_auth.authorization_data {
+                rotate_auth = Some((owner_auth.authorized_by, owner_auth_id));
+            }
 
-                    match auth.authorization_data {
-                        AuthorizationData::RotateMasterKey(_) => {
-                            rotate_auth = Some((auth.authorized_by, auth_id));
-                        },
-                        AuthorizationData::AttestMasterKeyRotation(_) => {
-                            // Attestor must be a KYC service provider
-                            if let Signer::Identity(ref kyc_did) = signer {
-                                ensure!(T::IsKYCProvider::is_member(kyc_did),
-                                "Attestation was not by a KYC service provider");
-                            }
-                            attest_auth = Some((auth.authorized_by, auth_id));
-                        },
-                        _ => ()
-                    };
-
-                    // When both authorizations are present, rotate the key
-                    if let (Some((owner, owner_auth_id)), Some((kyc_signer, kyc_auth_id))) = (rotate_auth, attest_auth) {
-                        // remove owner's authorization
-                        Self::consume_auth(owner, signer, owner_auth_id)?;
-
-                        // remove KYC service provider's authorization
-                        Self::consume_auth(kyc_signer, signer, kyc_auth_id)?;
-
-                        // Replace master key of the owner that initiated key rotation
-                        Self::rotate_master_key(owner, sender_key)?;
-                    }
-
-                    // Otherwise, look for more authorizations
-                    prev_auth = Some(auth.previous_authorization);
+            // Aceept authorization from KYC service provider
+            let kyc_auth = Self::authorizations((signer, kyc_auth_id));
+            if let AuthorizationData::AttestMasterKeyRotation(_) = kyc_auth.authorization_data {
+                // Attestor must be a KYC service provider
+                if let Signer::Identity(ref kyc_did) = signer {
+                    ensure!(T::IsKYCProvider::is_member(kyc_did),
+                    "Attestation was not by a KYC service provider");
                 }
+                attest_auth = Some((kyc_auth.authorized_by, kyc_auth_id));
+            }
+
+            // When both authorizations are present, rotate the key
+            if let (Some((owner, owner_auth_id)), Some((kyc_signer, kyc_auth_id))) = (rotate_auth, attest_auth) {
+                // remove owner's authorization
+                Self::consume_auth(owner, signer, owner_auth_id)?;
+
+                // remove KYC service provider's authorization
+                Self::consume_auth(kyc_signer, signer, kyc_auth_id)?;
+
+                // Replace master key of the owner that initiated key rotation
+                Self::rotate_master_key(owner, sender_key)?;
             }
 
             Ok(())

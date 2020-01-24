@@ -1004,6 +1004,8 @@ fn changing_master_key() {
             None,
         ));
 
+        let owner_auth_id = Identity::last_authorization(Signer::Key(new_key));
+
         // Charlie a KYC provider approves the change
         assert_ok!(Identity::add_authorization(
             kyc.clone(),
@@ -1012,8 +1014,14 @@ fn changing_master_key() {
             None,
         ));
 
+        let kyc_auth_id = Identity::last_authorization(Signer::Key(new_key));
+
         // Alice accepts the authorization with the new key
-        assert_ok!(Identity::accept_master_key(new_key_origin));
+        assert_ok!(Identity::accept_master_key(
+            new_key_origin,
+            owner_auth_id,
+            kyc_auth_id
+        ));
 
         // Alice's master key is now Bob's
         assert_eq!(
