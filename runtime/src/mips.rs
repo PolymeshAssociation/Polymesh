@@ -393,7 +393,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+                .map_err(|_| Error::<T>::BadOrigin)?;
 
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
@@ -877,7 +877,7 @@ mod tests {
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
-                Error::<T>::BadOrigin
+                Error::<Test>::BadOrigin
             );
 
             assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
@@ -908,7 +908,7 @@ mod tests {
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
-                Error::<T>::BadOrigin
+                Error::<Test>::BadOrigin
             );
 
             assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
@@ -925,7 +925,7 @@ mod tests {
 
             assert_err!(
                 MIPS::emergency_referendum(Origin::signed(6), Box::new(proposal.clone())),
-                Error::<T>::BadOrigin
+                Error::<Test>::BadOrigin
             );
 
             assert_ok!(MIPS::emergency_referendum(
@@ -948,7 +948,7 @@ mod tests {
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
-                Error::<T>::BadOrigin
+                Error::<Test>::BadOrigin
             );
 
             assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
