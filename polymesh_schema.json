@@ -1,6 +1,7 @@
 {
     "Balance": "u128",
     "IdentityId":"[u8;32]",
+    "Ticker": "[u8; 12]",
     "AssetType": {
         "_enum": {
             "Equity": "",
