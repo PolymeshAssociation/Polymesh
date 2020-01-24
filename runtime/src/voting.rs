@@ -321,10 +321,8 @@ mod tests {
     use system::EnsureSignedBy;
     use test_client::{self, AccountKeyring};
 
-    use crate::{
-        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
-        group, identity, percentage_tm,
-    };
+    use crate::asset::{AssetType, SecurityToken, TickerRegistrationConfig};
+    use crate::{balances, exemption, general_tm, group, identity, percentage_tm};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -566,6 +564,7 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
 
             // Share issuance is successful
@@ -575,7 +574,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                vec![],
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -743,6 +744,7 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
 
             // Share issuance is successful
@@ -752,7 +754,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                vec![],
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -860,6 +864,7 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
 
             // Share issuance is successful
@@ -869,7 +874,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                vec![],
             ));
 
             let asset_rule = general_tm::AssetRule {

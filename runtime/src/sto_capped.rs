@@ -77,7 +77,7 @@ decl_storage! {
         StosByToken get(stos_by_token): map (Vec<u8>, u32) => STO<T::Balance,T::Moment>;
         /// It returns the sto count corresponds to its ticker
         /// ticker -> sto count
-        StoCount get(sto_count): map (Vec<u8>) => u32;
+        StoCount get(sto_count): map Vec<u8> => u32;
         /// List of SimpleToken tokens which will be accepted as the fund raised type for the STO
         /// (asset_ticker, sto_id, index) -> simple_token_ticker
         AllowedTokens get(allowed_tokens): map(Vec<u8>, u32, u32) => Vec<u8>;

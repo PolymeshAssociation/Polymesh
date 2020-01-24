@@ -89,6 +89,36 @@ pub trait Trait:
     type Currency: Currency<Self::AccountId>;
 }
 
+/// The type of an asset represented by a token.
+#[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq)]
+pub enum AssetType {
+    Equity,
+    Debt,
+    Commodity,
+    StructuredProduct,
+    Custom(Vec<u8>),
+}
+
+impl Default for AssetType {
+    fn default() -> Self {
+        AssetType::Custom(b"undefined".to_vec())
+    }
+}
+
+/// The type of an identifier associated with a token.
+#[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum IdentifierType {
+    Isin,
+    Cusip,
+    Custom(Vec<u8>),
+}
+
+impl Default for IdentifierType {
+    fn default() -> Self {
+        IdentifierType::Custom(b"undefined".to_vec())
+    }
+}
+
 /// struct to store the token details
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U> {
@@ -96,6 +126,7 @@ pub struct SecurityToken<U> {
     pub total_supply: U,
     pub owner_did: IdentityId,
     pub divisible: bool,
+    pub asset_type: AssetType,
 }
 
 /// struct to store the signed data
@@ -147,6 +178,9 @@ decl_storage! {
         /// Used to store the securityToken balance corresponds to ticker and Identity
         /// (ticker, DID) -> balance
         pub BalanceOf get(balance_of): map (Vec<u8>, IdentityId) => T::Balance;
+        /// A map of asset identifiers whose keys are pairs of a ticker name and an `IdentifierType`
+        /// and whose values are byte vectors.
+        pub Identifiers get(identifiers): map (Vec<u8>, IdentifierType) => Vec<u8>;
         /// (ticker, sender (DID), spender(DID)) -> allowance amount
         Allowance get(allowance): map (Vec<u8>, IdentityId, IdentityId) => T::Balance;
         /// cost in base currency to create a token
@@ -155,7 +189,7 @@ decl_storage! {
         TickerRegistrationFee get(ticker_registration_fee) config(): T::Balance;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
-        pub TotalCheckpoints get(total_checkpoints_of): map (Vec<u8>) => u64;
+        pub TotalCheckpoints get(total_checkpoints_of): map Vec<u8> => u64;
         /// Total supply of the token at the checkpoint
         /// (ticker, checkpointId) -> total supply at given checkpoint
         pub CheckpointTotalSupply get(total_supply_at): map (Vec<u8>, u64) => T::Balance;
@@ -291,7 +325,16 @@ decl_module! {
         /// * `_ticker` Symbol of the token
         /// * `total_supply` Total supply of the token
         /// * `divisible` boolean to identify the divisibility status of the token.
-        pub fn create_token(origin, did: IdentityId, name: Vec<u8>, _ticker: Vec<u8>, total_supply: T::Balance, divisible: bool) -> Result {
+        pub fn create_token(
+            origin,
+            did: IdentityId,
+            name: Vec<u8>,
+            _ticker: Vec<u8>,
+            total_supply: T::Balance,
+            divisible: bool,
+            asset_type: AssetType,
+            identifiers: Vec<(IdentifierType, Vec<u8>)>
+        ) -> Result {
             let ticker = utils::bytes_to_upper(_ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
@@ -351,12 +394,22 @@ decl_module! {
                 name,
                 total_supply,
                 owner_did: did,
-                divisible: divisible
+                divisible,
+                asset_type: asset_type.clone(),
             };
-
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert((ticker.clone(), did), total_supply);
-            Self::deposit_event(RawEvent::IssuedToken(ticker, total_supply, did, divisible));
+            Self::deposit_event(RawEvent::IssuedToken(
+                ticker.clone(),
+                total_supply,
+                did,
+                divisible,
+                asset_type,
+            ));
+            for (typ, val) in &identifiers {
+                <Identifiers>::insert((ticker.clone(), typ.clone()), val.clone());
+            }
+            Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
 
             Ok(())
         }
@@ -1075,6 +1128,33 @@ decl_module! {
             Self::deposit_event(RawEvent::FundingRound(ticker, name));
             Ok(())
         }
+
+        /// Updates the asset identifiers. Can only be called by the token owner.
+        ///
+        /// # Arguments
+        /// * `origin` - the signing key of the token owner
+        /// * `did` - the DID of the token owner
+        /// * `ticker` - the ticker of the token
+        /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
+        ///    of `IdentifierType` and `Vec<u8>` value.
+        pub fn update_identifiers(
+            origin,
+            did: IdentityId,
+            ticker: Vec<u8>,
+            identifiers: Vec<(IdentifierType, Vec<u8>)>
+        ) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer),
+                    "sender must be a signing key for DID");
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            for (typ, val) in &identifiers {
+                <Identifiers>::insert((ticker.clone(), typ.clone()), val.clone());
+            }
+            Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
+            Ok(())
+        }
     }
 }
 
@@ -1103,8 +1183,11 @@ decl_event! {
         /// ticker, controller DID, token holder DID, value, data, operator data
         ControllerRedemption(Vec<u8>, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
         /// Event for creation of the asset
-        /// ticker, total supply, owner DID, divisibility
-        IssuedToken(Vec<u8>, Balance, IdentityId, bool),
+        /// ticker, total supply, owner DID, divisibility, asset type
+        IssuedToken(Vec<u8>, Balance, IdentityId, bool, AssetType),
+        /// Event emitted when a token identifiers are updated.
+        /// ticker, a vector of (identifier type, identifier value)
+        IdentifiersUpdated(Vec<u8>, Vec<(IdentifierType, Vec<u8>)>),
         /// Event for change in divisibility
         /// ticker, divisibility
         DivisibilityChanged(Vec<u8>, bool),
@@ -1934,10 +2017,12 @@ mod tests {
                 owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
             assert!(!<identity::DidRecords>::exists(
                 Identity::get_token_did(&token.name).unwrap()
             ));
+            let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
             let ticker_name = token.name.clone();
             assert_err!(
                 Asset::create_token(
@@ -1946,7 +2031,9 @@ mod tests {
                     token.name.clone(),
                     ticker_name.clone(),
                     1_000_000_000_000_000_000_000_000, // Total supply over the limit
-                    true
+                    true,
+                    token.asset_type.clone(),
+                    identifiers.clone(),
                 ),
                 "Total supply above the limit"
             );
@@ -1958,7 +2045,9 @@ mod tests {
                 token.name.clone(),
                 ticker_name.clone(),
                 token.total_supply,
-                true
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
             ));
 
             // A correct entry is added
@@ -1988,6 +2077,7 @@ mod tests {
                 owner_did: token.owner_did,
                 total_supply: token.total_supply,
                 divisible: token.divisible,
+                asset_type: token.asset_type.clone(),
             };
             assert_ok!(Asset::rename_token(
                 owner_signed.clone(),
@@ -1995,6 +2085,12 @@ mod tests {
                 renamed_token.name.clone()
             ));
             assert_eq!(Asset::token_details(ticker_name.clone()), renamed_token);
+            for (typ, val) in identifiers {
+                assert_eq!(
+                    Asset::identifiers((ticker_name.clone(), typ.clone())),
+                    val.clone()
+                );
+            }
         });
     }
 
@@ -2013,6 +2109,7 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
 
             let wrong_acc = AccountId::from(AccountKeyring::Bob);
@@ -2039,6 +2136,7 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -2055,7 +2153,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                token.asset_type.clone(),
+                vec![],
             ));
 
             // A correct entry is added
@@ -2099,6 +2199,7 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -2125,7 +2226,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                token.asset_type.clone(),
+                vec![],
             ));
 
             assert_eq!(
@@ -2302,6 +2405,7 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
 
             Balances::make_free_balance_be(&owner_acc, 1_000_000);
@@ -2328,7 +2432,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                token.asset_type.clone(),
+                vec![],
             ));
 
             assert_eq!(
@@ -2498,7 +2604,7 @@ mod tests {
     #[test]
     fn checkpoints_fuzz_test() {
         println!("Starting");
-        for _i in 0..10 {
+        for _ in 0..10 {
             // When fuzzing in local, feel free to bump this number to add more fuzz runs.
             with_externalities(&mut identity_owned_by_alice(), || {
                 let now = Utc::now();
@@ -2513,6 +2619,7 @@ mod tests {
                     owner_did: owner_did,
                     total_supply: 1_000_000,
                     divisible: true,
+                    asset_type: AssetType::default(),
                 };
 
                 let bob_acc = AccountId::from(AccountKeyring::Bob);
@@ -2525,7 +2632,9 @@ mod tests {
                     token.name.clone(),
                     token.name.clone(),
                     token.total_supply,
-                    true
+                    true,
+                    token.asset_type.clone(),
+                    vec![],
                 ));
 
                 let asset_rule = general_tm::AssetRule {
@@ -2638,8 +2747,9 @@ mod tests {
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
-
+            let identifiers = vec![(IdentifierType::Custom(b"check".to_vec()), b"me".to_vec())];
             // Issuance is successful
             assert_ok!(Asset::create_token(
                 owner_signed.clone(),
@@ -2647,7 +2757,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
             ));
 
             assert_eq!(
@@ -2655,6 +2767,11 @@ mod tests {
                 true
             );
             assert_eq!(Asset::is_ticker_available(&token.name), false);
+            let stored_token = <Module<Test>>::token_details(&token.name.clone());
+            assert_eq!(stored_token.asset_type, token.asset_type);
+            for (typ, val) in identifiers {
+                assert_eq!(Asset::identifiers((token.name.clone(), typ.clone())), val);
+            }
 
             assert_err!(
                 Asset::register_ticker(owner_signed.clone(), vec![0x01]),
@@ -2814,7 +2931,9 @@ mod tests {
                 ticker.clone(),
                 ticker.clone(),
                 1_000_000,
-                true
+                true,
+                AssetType::default(),
+                vec![],
             ));
 
             Identity::add_auth(
@@ -2901,6 +3020,60 @@ mod tests {
             ));
             assert_eq!(Asset::token_details(&ticker).owner_did, bob_did);
         })
+    }
+
+    #[test]
+    fn update_identifiers() {
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+            // Raise the owner's base currency balance
+            Balances::make_free_balance_be(&owner_acc, 1_000_000);
+            // Expected token entry
+            let token = SecurityToken {
+                name: b"TEST".to_vec(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+            };
+            assert!(!<identity::DidRecords>::exists(
+                Identity::get_token_did(&token.name).unwrap()
+            ));
+            let identifier_value1 = b"ABC123";
+            let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+            let ticker = token.name.clone();
+            assert_ok!(Asset::create_token(
+                owner_signed.clone(),
+                owner_did,
+                token.name.clone(),
+                ticker.clone(),
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
+            ));
+            // A correct entry was added
+            assert_eq!(Asset::token_details(ticker.clone()), token);
+            assert_eq!(
+                Asset::identifiers((ticker.clone(), IdentifierType::Cusip)),
+                identifier_value1.to_vec()
+            );
+            let identifier_value2 = b"XYZ555";
+            let updated_identifiers = vec![
+                (IdentifierType::Cusip, Default::default()),
+                (IdentifierType::Isin, identifier_value2.to_vec()),
+            ];
+            assert_ok!(Asset::update_identifiers(
+                owner_signed.clone(),
+                owner_did,
+                ticker.clone(),
+                updated_identifiers.clone(),
+            ));
+            for (typ, val) in updated_identifiers {
+                assert_eq!(Asset::identifiers((ticker.clone(), typ)), val);
+            }
+        });
     }
 
     /*

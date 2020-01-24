@@ -228,7 +228,7 @@ decl_storage! {
         pub Links get(links): map(Signer, u64) => Link<T::Moment>;
 
         /// Link id of the latest auth of an identity/key. Used to allow iterating over links
-        pub LastLink get(last_link): map(Signer) => u64;
+        pub LastLink get(last_link): map Signer => u64;
     }
 }
 
