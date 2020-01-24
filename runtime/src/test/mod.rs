@@ -1,6 +1,6 @@
 pub mod storage;
 pub use storage::TestStorage;
 
-mod asset;
-mod identity;
-mod statistics;
+mod asset_test;
+mod identity_test;
+mod statistics_test;
