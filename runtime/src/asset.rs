@@ -406,14 +406,10 @@ decl_module! {
                 divisible,
                 asset_type,
             ));
-            for (typ, val) in identifiers {
+            for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker.clone(), typ.clone()), val.clone());
-                Self::deposit_event(RawEvent::IdentifierRegistered(
-                    ticker.clone(),
-                    typ,
-                    val
-                ));
             }
+            Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
 
             Ok(())
         }
@@ -1132,6 +1128,33 @@ decl_module! {
             Self::deposit_event(RawEvent::FundingRound(ticker, name));
             Ok(())
         }
+
+        /// Updates the asset identifiers. Can only be called by the token owner.
+        ///
+        /// # Arguments
+        /// * `origin` - the signing key of the token owner
+        /// * `did` - the DID of the token owner
+        /// * `ticker` - the ticker of the token
+        /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
+        ///    of `IdentifierType` and `Vec<u8>` value.
+        pub fn update_identifiers(
+            origin,
+            did: IdentityId,
+            ticker: Vec<u8>,
+            identifiers: Vec<(IdentifierType, Vec<u8>)>
+        ) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer),
+                    "sender must be a signing key for DID");
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            for (typ, val) in &identifiers {
+                <Identifiers>::insert((ticker.clone(), typ.clone()), val.clone());
+            }
+            Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
+            Ok(())
+        }
     }
 }
 
@@ -1162,9 +1185,9 @@ decl_event! {
         /// Event for creation of the asset
         /// ticker, total supply, owner DID, divisibility, asset type
         IssuedToken(Vec<u8>, Balance, IdentityId, bool, AssetType),
-        /// Event emitted when a token identifier is registered.
-        /// ticker, identifier type, identifier values
-        IdentifierRegistered(Vec<u8>, IdentifierType, Vec<u8>),
+        /// Event emitted when a token identifiers are updated.
+        /// ticker, a vector of (identifier type, identifier value)
+        IdentifiersUpdated(Vec<u8>, Vec<(IdentifierType, Vec<u8>)>),
         /// Event for change in divisibility
         /// ticker, divisibility
         DivisibilityChanged(Vec<u8>, bool),
@@ -2997,6 +3020,59 @@ mod tests {
             ));
             assert_eq!(Asset::token_details(&ticker).owner_did, bob_did);
         })
+
+    }
+
+    #[test]
+    fn update_identifiers() {
+        with_externalities(&mut identity_owned_by_alice(), || {
+            let owner_acc = AccountId::from(AccountKeyring::Dave);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+            // Raise the owner's base currency balance
+            Balances::make_free_balance_be(&owner_acc, 1_000_000);
+            // Expected token entry
+            let token = SecurityToken {
+                name: b"TEST".to_vec(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+            };
+            assert!(!<identity::DidRecords>::exists(
+                Identity::get_token_did(&token.name).unwrap()
+            ));
+            let identifier_value1 = b"ABC123";
+            let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+            let ticker = token.name.clone();
+            assert_ok!(Asset::create_token(
+                owner_signed.clone(),
+                owner_did,
+                token.name.clone(),
+                ticker.clone(),
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
+            ));
+            // A correct entry was added
+            assert_eq!(Asset::token_details(ticker.clone()), token);
+            assert_eq!(Asset::identifiers((ticker.clone(), IdentifierType::Cusip)),
+                       identifier_value1.to_vec());
+            let identifier_value2 = b"XYZ555";
+            let updated_identifiers = vec![
+                (IdentifierType::Cusip, Default::default()),
+                (IdentifierType::Isin, identifier_value2.to_vec())
+            ];
+            assert_ok!(Asset::update_identifiers(
+                owner_signed.clone(),
+                owner_did,
+                ticker.clone(),
+                updated_identifiers.clone(),
+            ));
+            for (typ, val) in updated_identifiers {
+                assert_eq!(Asset::identifiers((ticker.clone(), typ)), val);
+            }
+        });
     }
 
     /*
