@@ -48,7 +48,7 @@ use crate::{
 };
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
-    Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+    Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem, Ticker,
 };
 use sr_io::blake2_256;
 use sr_primitives::{
@@ -230,7 +230,7 @@ decl_storage! {
         pub Links get(links): map(Signer, u64) => Link<T::Moment>;
 
         /// Link id of the latest auth of an identity/key. Used to allow iterating over links
-        pub LastLink get(last_link): map(Signer) => u64;
+        pub LastLink get(last_link): map Signer => u64;
     }
 }
 
@@ -395,41 +395,45 @@ decl_module! {
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
         /// * `kyc_auth_id` Authorization from a KYC service provider
-        pub fn accept_master_key(origin, owner_auth_id: u64, kyc_auth_id: u64) -> Result {
+        pub fn accept_master_key(origin, rotation_auth_id: u64, kyc_auth_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             let signer = Signer::from(sender_key);
 
-            let mut rotate_auth = None;
-            let mut attest_auth = None;
+            // When both authorizations are present...
+            ensure!(<Authorizations<T>>::exists((signer, rotation_auth_id)), "Invalid authorization from owner");
+            ensure!(<Authorizations<T>>::exists((signer, kyc_auth_id)), "Invalid authorization from KYC service provider");
 
             // Accept authorization from the owner
-            let owner_auth = Self::authorizations((signer, owner_auth_id));
-            if let AuthorizationData::RotateMasterKey(_) = owner_auth.authorization_data {
-                rotate_auth = Some((owner_auth.authorized_by, owner_auth_id));
-            }
-
-            // Aceept authorization from KYC service provider
-            let kyc_auth = Self::authorizations((signer, kyc_auth_id));
-            if let AuthorizationData::AttestMasterKeyRotation(_) = kyc_auth.authorization_data {
-                // Attestor must be a KYC service provider
-                if let Signer::Identity(ref kyc_did) = signer {
-                    ensure!(T::IsKYCProvider::is_member(kyc_did),
-                    "Attestation was not by a KYC service provider");
+            let rotation_auth = Self::authorizations((signer, rotation_auth_id));
+            if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
+                // Ensure the request was made by the owner of master key
+                if let Signer::Key(ref key) = rotation_auth.authorized_by {
+                    let master_key = <DidRecords>::get(rotation_for_did).master_key;
+                    ensure!(*key == master_key, "Authorization to change key was not from the owner of master key");
                 }
-                attest_auth = Some((kyc_auth.authorized_by, kyc_auth_id));
-            }
 
-            // When both authorizations are present, rotate the key
-            if let (Some((owner, owner_auth_id)), Some((kyc_signer, kyc_auth_id))) = (rotate_auth, attest_auth) {
-                // remove owner's authorization
-                Self::consume_auth(owner, signer, owner_auth_id)?;
+                // Aceept authorization from KYC service provider
+                let kyc_auth = Self::authorizations((signer, kyc_auth_id));
+                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
+                    // Attestor must be a KYC service provider
+                    if let Signer::Identity(ref kyc_did) = kyc_auth.authorized_by {
+                        ensure!(T::IsKYCProvider::is_member(kyc_did),
+                        "Attestation was not by a KYC service provider");
+                    }
 
-                // remove KYC service provider's authorization
-                Self::consume_auth(kyc_signer, signer, kyc_auth_id)?;
+                    // Make sure authorizations are for the same DID
+                    ensure!(rotation_for_did == attestation_for_did, "Authorizations are not for the same DID");
 
-                // Replace master key of the owner that initiated key rotation
-                Self::rotate_master_key(owner, sender_key)?;
+                    // remove owner's authorization
+                    Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
+
+                    // remove KYC service provider's authorization
+                    Self::consume_auth(kyc_auth.authorized_by, signer, kyc_auth_id)?;
+
+                    // Replace master key of the owner that initiated key rotation
+                    Self::rotate_master_key(rotation_auth.authorized_by, sender_key)?;
+                }
             }
 
             Ok(())
@@ -1605,7 +1609,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// It registers a did for a new asset. Only called by create_token function.
-    pub fn register_asset_did(ticker: &Vec<u8>) -> Result {
+    pub fn register_asset_did(ticker: &Ticker) -> Result {
         let did = Self::get_token_did(ticker)?;
         // Making sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
@@ -1615,7 +1619,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// It is a helper function that can be used to get did for any asset
-    pub fn get_token_did(ticker: &Vec<u8>) -> StdResult<IdentityId, &'static str> {
+    pub fn get_token_did(ticker: &Ticker) -> StdResult<IdentityId, &'static str> {
         let mut buf = Vec::new();
         buf.extend_from_slice(&SECURITY_TOKEN.encode());
         buf.extend_from_slice(&ticker.encode());

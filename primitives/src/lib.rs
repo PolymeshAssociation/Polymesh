@@ -104,3 +104,6 @@ pub enum TransactionError {
     /// KYC is required
     RequiredKYC = 2,
 }
+
+pub mod ticker;
+pub use ticker::Ticker;
