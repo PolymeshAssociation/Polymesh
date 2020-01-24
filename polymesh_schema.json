@@ -224,6 +224,12 @@
         "nays": "Vec<(IdentityId, Balance)>"
     },
     "MipsIndex": "u32",
+    "MipsPriority": {
+        "_enum": [
+            "High",
+            "Normal"
+        ]
+    },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
         "next_ticker": "Option<Vec<u8>>",
