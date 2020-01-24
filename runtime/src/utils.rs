@@ -13,21 +13,6 @@ pub trait Trait: system::Trait + balances::Trait + session::Trait {
     fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId;
 }
 
-// Other utility functions
-#[inline]
-/// Convert all letter characters of a slice to their upper case counterparts.
-/// # TODO
-/// This functions is always called on `ticker`, maybe we could create a type for `ticker` to
-/// ensure that type is UPPER case, and **avoid vector clone** (using `collect`).
-pub fn bytes_to_upper(v: &[u8]) -> Vec<u8> {
-    v.iter()
-        .map(|chr| match chr {
-            97..=122 => chr - 32,
-            other => *other,
-        })
-        .collect()
-}
-
 pub fn is_rule_broken(
     rule_data: Vec<u8>,
     identity_data: Vec<u8>,
