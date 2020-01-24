@@ -4,6 +4,10 @@ use codec::{Decode, Encode};
 const TICKER_LEN: usize = 12;
 
 /// Ticker symbol.
+///
+/// This type stores fixed-length case-sensitive byte strings. Any value of this type that is
+/// received by a Substrate module call method has to be converted to canonical uppercase
+/// representation using [`Ticker::canonize`].
 #[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ticker(pub [u8; TICKER_LEN]);
 

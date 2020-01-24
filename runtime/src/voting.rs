@@ -114,10 +114,10 @@ decl_module! {
         /// * `ballot_details` - Other details of the ballot
         pub fn add_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> Result {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
-            ticker.canonize();
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again.
@@ -167,11 +167,10 @@ decl_module! {
         /// * `votes` - The actual vote to be cast
         pub fn vote(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> Result {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
-            ticker.canonize();
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             // This avoids cloning the variables to make the same tupple again and again
             let ticker_ballot_name = (ticker, ballot_name.clone());
 
@@ -237,10 +236,10 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         pub fn cancel_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>) -> Result {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
-            ticker.canonize();
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did),"Sender must be the token owner");
 
             // This avoids cloning the variables to make the same tupple again and again

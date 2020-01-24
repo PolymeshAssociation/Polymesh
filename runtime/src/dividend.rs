@@ -102,15 +102,14 @@ decl_module! {
             checkpoint_id: u64
         ) -> Result {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-            ticker.canonize();
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
             // Check if sender has enough funds in payout currency
-            let balance = <simple_token::BalanceOf<T>>::get((payout_ticker.clone(), did));
+            let balance = <simple_token::BalanceOf<T>>::get((payout_ticker, did));
             ensure!(balance >= amount, "Insufficient funds for payout");
 
             // Unpack the checkpoint ID, use the latest or create a new one, in that order
@@ -151,7 +150,7 @@ decl_module! {
 
             // Subtract the amount
             let new_balance = balance.checked_sub(&amount).ok_or("Underflow calculating new owner balance")?;
-            <simple_token::BalanceOf<T>>::insert((payout_ticker.clone(), did), new_balance);
+            <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
 
             // Insert dividend entry into storage
             let new_dividend = Dividend {
@@ -178,7 +177,7 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -205,7 +204,7 @@ decl_module! {
                 }
             )?;
 
-            <Dividends<T>>::remove((ticker.clone(), dividend_id));
+            <Dividends<T>>::remove((ticker, dividend_id));
 
             Self::deposit_event(RawEvent::DividendCanceled(ticker, dividend_id));
 
@@ -215,13 +214,13 @@ decl_module! {
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
         pub fn claim(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
-            let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             // Check if sender wasn't already paid their share
-            ensure!(!<UserPayoutCompleted>::get((did, ticker.clone(), dividend_id)), "User was already paid their share");
+            ensure!(!<UserPayoutCompleted>::get((did, ticker, dividend_id)), "User was already paid their share");
 
             // Look dividend entry up
             let dividend = Self::get_dividend(&ticker, dividend_id).ok_or("Dividend not found")?;
@@ -245,7 +244,7 @@ decl_module! {
 
             // Compute the share
             ensure!(<asset::Tokens<T>>::exists(&ticker), "Dividend token entry not found");
-            let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker.clone(), dividend.checkpoint_id));
+            let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker, dividend.checkpoint_id));
 
             let balance_amount_product = balance_at_checkpoint
                 .checked_mul(&dividend.amount)
@@ -256,7 +255,7 @@ decl_module! {
                 .ok_or("balance_amount_product division failed")?;
 
             // Adjust the paid_out amount
-            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
+            <Dividends<T>>::mutate((ticker, dividend_id), |entry| -> Result {
                 entry.amount_left = entry.amount_left.checked_sub(&share).ok_or("Could not increase paid_out")?;
                 Ok(())
             })?;
@@ -273,7 +272,7 @@ decl_module! {
             )?;
 
             // Create payout entry
-            <UserPayoutCompleted>::insert((did, ticker.clone(), dividend_id), true);
+            <UserPayoutCompleted>::insert((did, ticker, dividend_id), true);
 
             // Dispatch event
             Self::deposit_event(RawEvent::DividendPaidOutToUser(did, ticker, dividend_id, share));
@@ -286,7 +285,7 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -313,7 +312,7 @@ decl_module! {
             )?;
 
             // Set amount_left, flip remaining_claimed
-            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
+            <Dividends<T>>::mutate((ticker, dividend_id), |entry| -> Result {
                 entry.amount_left = 0.into();
                 entry.remaining_claimed = true;
                 Ok(())
@@ -357,8 +356,8 @@ impl<T: Trait> Module<T> {
             .checked_add(1)
             .ok_or("Could not add 1 to dividend count")?;
 
-        <Dividends<T>>::insert((ticker.clone(), old_count), d);
-        <DividendCount>::insert(ticker, new_count);
+        <Dividends<T>>::insert((*ticker, old_count), d);
+        <DividendCount>::insert(*ticker, new_count);
 
         Ok(old_count)
     }
@@ -742,7 +741,7 @@ mod tests {
             assert_ok!(SimpleToken::create_token(
                 payout_owner_signed.clone(),
                 payout_owner_did,
-                payout_token.ticker.clone(),
+                payout_token.ticker,
                 payout_token.total_supply
             ));
 
@@ -804,7 +803,7 @@ mod tests {
                 remaining_claimed: false,
                 matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
                 expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
-                payout_currency: payout_token.ticker.clone(),
+                payout_currency: payout_token.ticker,
                 checkpoint_id,
             };
 
@@ -812,7 +811,7 @@ mod tests {
             assert_ok!(SimpleToken::transfer(
                 payout_owner_signed.clone(),
                 payout_owner_did,
-                payout_token.ticker.clone(),
+                payout_token.ticker,
                 token_owner_did,
                 dividend.amount
             ));
@@ -846,7 +845,7 @@ mod tests {
             // Check if the correct amount was added to investor balance
             let share = dividend.amount * amount_invested / token.total_supply;
             assert_eq!(
-                SimpleToken::balance_of((payout_token.ticker.clone(), investor_did)),
+                SimpleToken::balance_of((payout_token.ticker, investor_did)),
                 share
             );
 

@@ -76,12 +76,11 @@ decl_module! {
 
         /// Create a new token and mint a balance to the issuing identity
         pub fn create_token(origin, did: IdentityId, ticker: Ticker, total_supply: T::Balance) -> Result {
-            ticker.canonize();
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
             ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
@@ -93,14 +92,14 @@ decl_module! {
             // })?;
 
             let new_token = SimpleTokenRecord {
-                ticker: ticker.clone(),
+                ticker: ticker,
                 total_supply: total_supply.clone(),
                 owner_did: did.clone(),
             };
 
             <Tokens<T>>::insert(&ticker, new_token);
             // Let the owner distribute the whole supply of the token
-            <BalanceOf<T>>::insert((ticker.clone(), did.clone()), total_supply);
+            <BalanceOf<T>>::insert((ticker, did.clone()), total_supply);
 
             sr_primitives::print("Initialized a new token");
 
@@ -111,15 +110,15 @@ decl_module! {
 
         /// Approve another identity to transfer tokens on behalf of the caller
         fn approve(origin, did: IdentityId, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> Result {
-            ticker.canonize();
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
-            let ticker_did = (ticker.clone(), did.clone());
+            ticker.canonize();
+            let ticker_did = (ticker, did.clone());
             ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
-            let ticker_did_spender_did = (ticker.clone(), did, spender_did);
+            let ticker_did_spender_did = (ticker, did, spender_did);
             let allowance = Self::allowance(&ticker_did_spender_did);
             let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
             <Allowance<T>>::insert(&ticker_did_spender_did, updated_allowance);
@@ -142,13 +141,12 @@ decl_module! {
 
         /// Transfer tokens to another identity using the approval mechanic
         fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> Result {
-            ticker.canonize();
             let spender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "spender must be a signing key for DID");
-
-            let ticker_from_did_did = (ticker.clone(), from_did, did);
+            ticker.canonize();
+            let ticker_from_did_did = (ticker, from_did, did);
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist.");
             let allowance = Self::allowance(&ticker_from_did_did);
             ensure!(allowance >= amount, "Not enough allowance.");
@@ -158,7 +156,7 @@ decl_module! {
 
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&amount).ok_or("overflow in calculating allowance")?;
-            <Allowance<T>>::insert((ticker.clone(), from_did.clone(), did.clone()), updated_allowance);
+            <Allowance<T>>::insert((ticker, from_did.clone(), did.clone()), updated_allowance);
 
             Self::deposit_event(RawEvent::Approval(ticker, from_did, did, updated_allowance));
 

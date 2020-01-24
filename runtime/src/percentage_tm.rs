@@ -62,12 +62,11 @@ decl_module! {
 
         /// Set a maximum percentage that can be owned by a single investor
         fn toggle_maximum_percentage_restriction(origin, did: IdentityId, ticker: Ticker, max_percentage: u16) -> Result  {
-            ticker.canonize();
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did),"Sender DID must be the token owner");
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
 
