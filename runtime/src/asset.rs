@@ -177,6 +177,12 @@ decl_storage! {
         /// Store the nonce for off chain signature to increase the custody allowance
         /// (ticker, token holder, nonce) -> bool
         AuthenticationNonce get(authentication_nonce): map(Vec<u8>, IdentityId, u16) => bool;
+        /// The name of the current funding round.
+        /// ticker -> funding round
+        FundingRound get(funding_round): map Vec<u8> => Vec<u8>;
+        /// The total balances of tokens issued in all recorded funding rounds.
+        /// (ticker, funding round) -> balance
+        IssuedInFundingRound get(issued_in_funding_round): map (Vec<u8>, Vec<u8>) => T::Balance;
     }
 }
 
@@ -539,6 +545,7 @@ decl_module! {
         /// * `investor_dids` Array of the DID of the token holders to whom new tokens get issued.
         /// * `values` Array of the Amount of tokens that get issued
         pub fn batch_issue(origin, did: IdentityId, ticker: Vec<u8>, investor_dids: Vec<IdentityId>, values: Vec<T::Balance>) -> Result {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
 
@@ -582,14 +589,27 @@ decl_module! {
                 // New total supply must be valid
                 token.total_supply = updated_total_supply;
             }
-
-            // After checks are ensured introduce side effects
+            let round = Self::funding_round(&ticker);
+            let ticker_round = (ticker.clone(), round.clone());
+            // Update the total token balance issued in this funding round.
+            let mut issued_in_this_round = Self::issued_in_funding_round(&ticker_round);
+            for v in &values {
+                issued_in_this_round = issued_in_this_round
+                    .checked_add(v)
+                    .ok_or("current funding round total overflowed")?;
+            }
+            <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
+            // Update investor balances and emit events quoting the updated total token balance issued.
             for i in 0..investor_dids.len() {
                 Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
-
                 <BalanceOf<T>>::insert((ticker.clone(), investor_dids[i]), updated_balances[i]);
-
-                Self::deposit_event(RawEvent::Issued(ticker.clone(), investor_dids[i], values[i]));
+                Self::deposit_event(RawEvent::Issued(
+                    ticker.clone(),
+                    investor_dids[i],
+                    values[i].clone(),
+                    round.clone(),
+                    issued_in_this_round
+                ));
             }
             <Tokens<T>>::insert(ticker.clone(), token);
 
@@ -1035,6 +1055,26 @@ decl_module! {
             Self::deposit_event(RawEvent::CustodyTransfer(ticker.clone(), custodian_did, holder_did, receiver_did, value));
             Ok(())
         }
+
+        /// Sets the name of the current funding round.
+        ///
+        /// # Arguments
+        /// * `origin` - the signing key of the token owner DID.
+        /// * `did` - the token owner DID.
+        /// * `ticker` - the ticker of the token.
+        /// * `name` - the desired name of the current funding round.
+        pub fn set_funding_round(origin, did: IdentityId, ticker: Vec<u8>, name: Vec<u8>) -> Result {
+            let ticker = utils::bytes_to_upper(ticker.as_slice());
+            let sender = ensure_signed(origin)?;
+            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer),
+                    "sender must be a signing key for DID");
+            ensure!(Self::is_owner(&ticker, did), "DID is not of the asset owner");
+            <FundingRound>::insert(ticker.clone(), name.clone());
+            Self::deposit_event(RawEvent::FundingRound(ticker, name));
+            Ok(())
+        }
     }
 }
 
@@ -1051,8 +1091,8 @@ decl_event! {
         /// ticker, owner DID, spender DID, value
         Approval(Vec<u8>, IdentityId, IdentityId, Balance),
         /// emit when tokens get issued
-        /// ticker, beneficiary DID, value
-        Issued(Vec<u8>, IdentityId, Balance),
+        /// ticker, beneficiary DID, value, funding round, total issued in this funding round
+        Issued(Vec<u8>, IdentityId, Balance, Vec<u8>, Balance),
         /// emit when tokens get redeemed
         /// ticker, DID, value
         Redeemed(Vec<u8>, IdentityId, Balance),
@@ -1107,6 +1147,9 @@ decl_event! {
         /// An event emitted when a token is renamed.
         /// Parameters: ticker name, new token name.
         TokenRenamed(Vec<u8>, Vec<u8>),
+        /// An event carrying the name of the current funding round of a ticker.
+        /// Parameters: ticker name, funding round name.
+        FundingRound(Vec<u8>, Vec<u8>),
     }
 }
 
@@ -1475,9 +1518,20 @@ impl<T: Trait> Module<T> {
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
 
         <BalanceOf<T>>::insert(&ticker_to_did, updated_to_balance);
-        <Tokens<T>>::insert(ticker, token);
-
-        Self::deposit_event(RawEvent::Issued(ticker.clone(), to_did, value));
+        <Tokens<T>>::insert(ticker.clone(), token);
+        let round = Self::funding_round(ticker);
+        let ticker_round = (ticker.clone(), round.clone());
+        let issued_in_this_round = Self::issued_in_funding_round(&ticker_round)
+            .checked_add(&value)
+            .ok_or("current funding round total overflowed")?;
+        <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
+        Self::deposit_event(RawEvent::Issued(
+            ticker.to_vec(),
+            to_did,
+            value,
+            round,
+            issued_in_this_round,
+        ));
 
         Ok(())
     }
@@ -2093,20 +2147,36 @@ mod tests {
                 token.name.clone(),
                 asset_rule
             ));
-
+            let funding_round1 = b"Round One".to_vec();
+            assert_ok!(Asset::set_funding_round(
+                owner_signed.clone(),
+                owner_did,
+                token.name.clone(),
+                funding_round1.clone()
+            ));
             // Mint some tokens to investor1
+            let num_tokens1: u128 = 2_000_000;
             assert_ok!(Asset::issue(
                 owner_signed.clone(),
                 owner_did,
                 token.name.clone(),
                 investor1_did,
-                200_00_00 as u128,
+                num_tokens1,
                 vec![0x0]
             ));
-
+            assert_eq!(Asset::funding_round(&token.name), funding_round1.clone());
+            assert_eq!(
+                Asset::issued_in_funding_round((token.name.clone(), funding_round1.clone())),
+                num_tokens1
+            );
+            // Check the expected default behaviour of the map.
+            assert_eq!(
+                Asset::issued_in_funding_round((token.name.clone(), b"No such round".to_vec())),
+                0
+            );
             assert_eq!(
                 Asset::balance_of((token.name.clone(), investor1_did)),
-                200_00_00 as u128
+                num_tokens1,
             );
 
             // Failed to add custodian because of insufficient balance
