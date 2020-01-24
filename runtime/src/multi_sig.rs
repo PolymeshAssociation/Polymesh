@@ -92,7 +92,7 @@ decl_module! {
             let new_nonce: u64 = nonce + 1u64;
             <MultiSigNonce>::put(new_nonce);
 
-            let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, sender.clone()).encode());
+            let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", new_nonce, sender.clone()).encode());
             let wallet_id = T::AccountId::decode(&mut &h.encode()[..])
                 .map_err( |_| "Error in decoding multisig address")?;
 
@@ -330,7 +330,7 @@ impl<T: Trait> Module<T> {
         }
 
         ensure!(
-            !<MultiSigSignsRequired<T>>::exists(&wallet_id),
+            <MultiSigSignsRequired<T>>::exists(&wallet_id),
             "Multi sig does not exist"
         );
 
@@ -342,6 +342,13 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::MultiSigSignerAdded(wallet_id, signer));
 
         Ok(())
+    }
+
+    pub fn get_next_multi_sig_address(sender: T::AccountId) -> T::AccountId {
+        let nonce: u64 = Self::ms_nonce();
+        let new_nonce: u64 = nonce + 1u64;
+        let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", new_nonce, sender.clone()).encode());
+        T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{balances, group, identity};
+use crate::{balances, group, identity, multi_sig};
 use codec::Encode;
 use primitives::{IdentityId, Key, Signer};
 use sr_io::TestExternalities;
@@ -91,6 +91,10 @@ impl timestamp::Trait for TestStorage {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+}
+
+impl multi_sig::Trait for TestStorage {
+    type Event = ();
 }
 
 parameter_types! {
