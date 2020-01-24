@@ -253,67 +253,7 @@ decl_module! {
         /// - External signing keys can be linked to just one identity.
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> Result {
             let sender = ensure_signed(origin)?;
-            // Adding extrensic count to did nonce for some unpredictability
-            // NB: this does not guarantee randomness
-            let new_nonce = Self::multi_purpose_nonce() + u64::from(<system::Module<T>>::extrinsic_count()) + 7u64;
-            // Even if this transaction fails, nonce should be increased for added unpredictability of dids
-            <MultiPurposeNonce>::put(&new_nonce);
-
-            let master_key = Key::try_from( sender.encode())?;
-
-            // 1 Check constraints.
-            // 1.1. Master key is not linked to any identity.
-            ensure!( Self::can_key_be_linked_to_did( &master_key, SignerType::External),
-                "Master key already belong to one DID");
-            // 1.2. Master key is not part of signing keys.
-            ensure!( signing_items.iter().find( |sk| **sk == master_key).is_none(),
-                "Signing keys contains the master key");
-
-            let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
-
-            let did = IdentityId::from(
-                blake2_256(
-                    &(USER, block_hash, new_nonce).encode()
-                )
-            );
-
-            // 1.3. Make sure there's no pre-existing entry for the DID
-            // This should never happen but just being defensive here
-            ensure!(!<DidRecords>::exists(did), "DID must be unique");
-            // 1.4. Signing keys can be linked to the new identity.
-            for s_item in &signing_items {
-                if let Signer::Key(ref key) = s_item.signer {
-                    if !Self::can_key_be_linked_to_did( key, s_item.signer_type){
-                        return Err("One signing key can only belong to one DID");
-                    }
-                }
-            }
-
-            // 2. Apply changes to our extrinsics.
-            // TODO: Subtract the fee
-            let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
-                &sender,
-                Self::did_creation_fee(),
-                WithdrawReason::Fee,
-                ExistenceRequirement::KeepAlive
-                )?;
-
-            // 2.1. Link  master key and add pre-authorized signing keys
-            Self::link_key_to_did( &master_key, SignerType::External, did);
-            signing_items.iter().for_each( |s_item| Self::add_pre_join_identity( s_item, did));
-
-            // 2.2. Create a new identity record.
-            let record = DidRecord {
-                master_key,
-                ..Default::default()
-            };
-            <DidRecords>::insert(did, record);
-
-            // TODO KYC is valid by default.
-            KYCValidation::insert(did, true);
-
-            Self::deposit_event(RawEvent::NewDid(did, sender, signing_items));
-            Ok(())
+            Self::_register_did(sender, signing_items)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -1560,6 +1500,73 @@ impl<T: Trait> Module<T> {
         buf.extend_from_slice(&SECURITY_TOKEN.encode());
         buf.extend_from_slice(&ticker.encode());
         IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
+    }
+
+    pub fn _register_did(sender: T::AccountId, signing_items: Vec<SigningItem>) -> Result {
+        // Adding extrensic count to did nonce for some unpredictability
+        // NB: this does not guarantee randomness
+        let new_nonce =
+            Self::multi_purpose_nonce() + u64::from(<system::Module<T>>::extrinsic_count()) + 7u64;
+        // Even if this transaction fails, nonce should be increased for added unpredictability of dids
+        <MultiPurposeNonce>::put(&new_nonce);
+
+        let master_key = Key::try_from(sender.encode())?;
+
+        // 1 Check constraints.
+        // 1.1. Master key is not linked to any identity.
+        ensure!(
+            Self::can_key_be_linked_to_did(&master_key, SignerType::External),
+            "Master key already belong to one DID"
+        );
+        // 1.2. Master key is not part of signing keys.
+        ensure!(
+            signing_items.iter().find(|sk| **sk == master_key).is_none(),
+            "Signing keys contains the master key"
+        );
+
+        let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
+
+        let did = IdentityId::from(blake2_256(&(USER, block_hash, new_nonce).encode()));
+
+        // 1.3. Make sure there's no pre-existing entry for the DID
+        // This should never happen but just being defensive here
+        ensure!(!<DidRecords>::exists(did), "DID must be unique");
+        // 1.4. Signing keys can be linked to the new identity.
+        for s_item in &signing_items {
+            if let Signer::Key(ref key) = s_item.signer {
+                if !Self::can_key_be_linked_to_did(key, s_item.signer_type) {
+                    return Err("One signing key can only belong to one DID");
+                }
+            }
+        }
+
+        // 2. Apply changes to our extrinsics.
+        // TODO: Subtract the fee
+        let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
+            &sender,
+            Self::did_creation_fee(),
+            WithdrawReason::Fee,
+            ExistenceRequirement::KeepAlive,
+        )?;
+
+        // 2.1. Link  master key and add pre-authorized signing keys
+        Self::link_key_to_did(&master_key, SignerType::External, did);
+        signing_items
+            .iter()
+            .for_each(|s_item| Self::add_pre_join_identity(s_item, did));
+
+        // 2.2. Create a new identity record.
+        let record = DidRecord {
+            master_key,
+            ..Default::default()
+        };
+        <DidRecords>::insert(did, record);
+
+        // TODO KYC is valid by default.
+        KYCValidation::insert(did, true);
+
+        Self::deposit_event(RawEvent::NewDid(did, sender, signing_items));
+        Ok(())
     }
 }
 

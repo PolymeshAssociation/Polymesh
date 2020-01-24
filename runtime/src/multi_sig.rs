@@ -96,6 +96,8 @@ decl_module! {
             let wallet_id = T::AccountId::decode(&mut &h.encode()[..])
                 .map_err( |_| "Error in decoding multisig address")?;
 
+            <identity::Module<T>>::_register_did(wallet_id.clone(), vec![])?;
+
             for signer in signers.clone() {
                 <identity::Module<T>>::add_auth(
                     Signer::from(Key::try_from(wallet_id.encode())?),
@@ -317,6 +319,13 @@ impl<T: Trait> Module<T> {
             <TxApprovals<T>>::insert(&multi_sig_proposal, approvals);
             let approvals_needed = Self::ms_signs_required(multi_sig.clone());
             if approvals >= approvals_needed {
+                let who_key = Key::try_from(multi_sig.clone().encode())?;
+                match <identity::Module<T>>::get_identity(&who_key) {
+                    Some(id) => {
+                        <identity::CurrentDid>::put(id);
+                    }
+                    _ => return Err("Multisig identity missing"),
+                };
                 let res =
                     match proposal.dispatch(system::RawOrigin::Signed(multi_sig.clone()).into()) {
                         Ok(_) => true,
