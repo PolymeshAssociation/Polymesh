@@ -1,32 +1,10 @@
 {
-    "Balance": "u128",
-    "IdentityId":"[u8;32]",
+    "IdentityId":"H256",
     "SecurityToken": {
         "name": "Vec<u8>",
         "total_supply": "Balance",
         "owner_did": "IdentityId",
         "divisible": "bool"
-    },
-    "Restriction": {
-        "name": "Vec<u8>",
-        "token_id": "u32",
-        "can_transfer": "bool"
-    },
-    "Whitelist": {
-        "investor_did": "IdentityId",
-        "canSendAfter": "Moment",
-        "canReceiveAfter": "Moment"
-    },
-    "Issuer": {
-        "did": "IdentityId",
-        "access_level": "u16",
-        "active": "bool"
-    },
-    "Investor": {
-        "did": "IdentityId",
-        "access_level": "u16",
-        "active": "bool",
-        "jurisdiction": "u16"
     },
     "LinkedKeyInfo": {
         "_enum": {
@@ -172,8 +150,6 @@
         "owner_did": "IdentityId"
     },
     "FeeOf": "Balance",
-    "TSMoment": "u64",
-    "Moment": "u64",
     "Dividend": {
         "amount": "Balance",
         "active": "bool",
@@ -249,7 +225,10 @@
     "AuthorizationData": {
         "_enum": {
             "TransferTicker": "Vec<u8>",
-            "Custom": "Vec<u8>"
+            "TransferTokenOwnership": "Vec<u8>",
+            "AddMultisigSigner": "",
+            "Custom": "Vec<u8>",
+            "NoData": ""
         }
     },
     "Compliance": {
