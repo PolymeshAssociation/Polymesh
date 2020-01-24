@@ -399,9 +399,10 @@ mod tests {
     use system::EnsureSignedBy;
     use test_client::{self, AccountKeyring};
 
+    use crate::asset::{AssetType, SecurityToken, TickerRegistrationConfig};
     use crate::{
-        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
-        group, identity, percentage_tm, simple_token::SimpleTokenRecord,
+        balances, exemption, general_tm, group, identity, percentage_tm,
+        simple_token::SimpleTokenRecord,
     };
 
     type SessionIndex = u32;
@@ -695,6 +696,7 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
 
             // A token used for payout
@@ -715,7 +717,9 @@ mod tests {
                 token.name.clone(),
                 token.name.clone(),
                 token.total_supply,
-                true
+                true,
+                token.asset_type.clone(),
+                vec![],
             ));
 
             // Issuance for payout token is successful
