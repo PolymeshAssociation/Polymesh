@@ -64,7 +64,7 @@ fn create_multi_sig() {
 fn join_multi_sig() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
@@ -113,7 +113,7 @@ fn join_multi_sig() {
 fn change_multi_sig_sigs_required() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
@@ -171,7 +171,7 @@ fn change_multi_sig_sigs_required() {
 fn remove_multi_sig_signer() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
@@ -231,7 +231,7 @@ fn remove_multi_sig_signer() {
 fn add_multi_sig_signer() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
