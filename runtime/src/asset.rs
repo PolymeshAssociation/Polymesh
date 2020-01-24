@@ -3020,7 +3020,6 @@ mod tests {
             ));
             assert_eq!(Asset::token_details(&ticker).owner_did, bob_did);
         })
-
     }
 
     #[test]
@@ -3056,12 +3055,14 @@ mod tests {
             ));
             // A correct entry was added
             assert_eq!(Asset::token_details(ticker.clone()), token);
-            assert_eq!(Asset::identifiers((ticker.clone(), IdentifierType::Cusip)),
-                       identifier_value1.to_vec());
+            assert_eq!(
+                Asset::identifiers((ticker.clone(), IdentifierType::Cusip)),
+                identifier_value1.to_vec()
+            );
             let identifier_value2 = b"XYZ555";
             let updated_identifiers = vec![
                 (IdentifierType::Cusip, Default::default()),
-                (IdentifierType::Isin, identifier_value2.to_vec())
+                (IdentifierType::Isin, identifier_value2.to_vec()),
             ];
             assert_ok!(Asset::update_identifiers(
                 owner_signed.clone(),
