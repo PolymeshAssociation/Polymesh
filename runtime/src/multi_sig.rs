@@ -118,16 +118,33 @@ decl_module! {
         /// * `multi_sig` - Multisig address.
         /// * `proposal` - Proposal to be voted on.
         /// If this is 1 of m multisig, the proposal will be immediately executed.
-        pub fn create_proposal(origin, multi_sig: T::AccountId, proposal: Box<T::Proposal>) -> Result {
+        pub fn create_proposal_as_identity(origin, multi_sig: T::AccountId, proposal: Box<T::Proposal>) -> Result {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let signer_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err("did not found");
+                    }
+                }
+            };
+            let sender_signer = Signer::from(signer_did);
+            Self::create_proposal(multi_sig, proposal, sender_signer)
+        }
+
+        /// Creates a multisig proposal
+        ///
+        /// # Arguments
+        /// * `multi_sig` - Multisig address.
+        /// * `proposal` - Proposal to be voted on.
+        /// If this is 1 of m multisig, the proposal will be immediately executed.
+        pub fn create_proposal_as_key(origin, multi_sig: T::AccountId, proposal: Box<T::Proposal>) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::from(Key::try_from(sender.encode())?);
-            ensure!(Self::ms_signers((multi_sig.clone(), sender_signer)), "not an signer");
-            let proposal_id = Self::ms_tx_done(multi_sig.clone());
-            <Proposals<T>>::insert((multi_sig.clone(), proposal_id), proposal);
-            let next_proposal_id: u64 = proposal_id + 1u64;
-            <MultiSigTxDone<T>>::insert(multi_sig.clone(), next_proposal_id);
-            Self::deposit_event(RawEvent::ProposalAdded(multi_sig.clone(), proposal_id));
-            Self::approve_for(multi_sig, proposal_id, sender_signer)
+            Self::create_proposal(multi_sig, proposal, sender_signer)
         }
 
         /// Approves a multisig proposal using caller's identity
@@ -208,7 +225,7 @@ decl_module! {
         pub fn add_multi_sig_signer(origin, signer: Signer) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::from(Key::try_from(sender.encode())?);
-            ensure!(!<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
+            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
             <identity::Module<T>>::add_auth(
                 sender_signer,
                 signer,
@@ -226,7 +243,7 @@ decl_module! {
         /// * `signer` - Signer to remove.
         pub fn remove_multi_sig_signer(origin, signer: Signer) -> Result {
             let sender = ensure_signed(origin)?;
-            ensure!(!<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
+            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
             <MultiSigSigners<T>>::insert((sender.clone(), signer), false);
             Self::deposit_event(RawEvent::MultiSigSignerRemoved(sender, signer));
             Ok(())
@@ -239,7 +256,7 @@ decl_module! {
         /// * `sigs_required` - New number os sigs required.
         pub fn change_sigs_required(origin, sigs_required: u64) -> Result {
             let sender = ensure_signed(origin)?;
-            ensure!(!<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
+            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
             <MultiSigSignsRequired<T>>::insert(&sender, &sigs_required);
             Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(sender, sigs_required));
             Ok(())
@@ -270,6 +287,24 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
+    /// Creates a new proposal
+    pub fn create_proposal(
+        multi_sig: T::AccountId,
+        proposal: Box<T::Proposal>,
+        sender_signer: Signer,
+    ) -> Result {
+        ensure!(
+            Self::ms_signers((multi_sig.clone(), sender_signer)),
+            "not an signer"
+        );
+        let proposal_id = Self::ms_tx_done(multi_sig.clone());
+        <Proposals<T>>::insert((multi_sig.clone(), proposal_id), proposal);
+        let next_proposal_id: u64 = proposal_id + 1u64;
+        <MultiSigTxDone<T>>::insert(multi_sig.clone(), next_proposal_id);
+        Self::deposit_event(RawEvent::ProposalAdded(multi_sig.clone(), proposal_id));
+        Self::approve_for(multi_sig, proposal_id, sender_signer)
+    }
+
     /// Approves a multisig transaction and executes the proposal if enough sigs have been received
     fn approve_for(multi_sig: T::AccountId, proposal_id: u64, signer: Signer) -> Result {
         let multi_sig_signer_proposal = (multi_sig.clone(), signer, proposal_id);

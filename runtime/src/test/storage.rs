@@ -20,6 +20,7 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
+        multi_sig::MultiSig,
     }
 }
 
@@ -140,6 +141,7 @@ impl crate::asset::AcceptTransfer for TestStorage {
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
+pub type MultiSig = multi_sig::Module<TestStorage>;
 
 /// Create externalities
 pub fn build_ext() -> TestExternalities<Blake2Hasher> {
