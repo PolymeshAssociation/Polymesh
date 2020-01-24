@@ -180,7 +180,7 @@ pub fn make_account_with_balance(
 }
 
 pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'static str> {
-    register_keyring_account_with_balance(acc, 10_000)
+    register_keyring_account_with_balance(acc, 10_000_000)
 }
 
 pub fn register_keyring_account_with_balance(

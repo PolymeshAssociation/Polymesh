@@ -253,6 +253,13 @@ decl_module! {
         /// - External signing keys can be linked to just one identity.
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> Result {
             let sender = ensure_signed(origin)?;
+            // TODO: Subtract proper fee.
+            let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
+                &sender,
+                Self::did_creation_fee(),
+                WithdrawReason::Fee,
+                ExistenceRequirement::KeepAlive,
+            )?;
             Self::_register_did(sender, signing_items)
         }
 
@@ -1541,14 +1548,6 @@ impl<T: Trait> Module<T> {
         }
 
         // 2. Apply changes to our extrinsics.
-        // TODO: Subtract the fee
-        let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
-            &sender,
-            Self::did_creation_fee(),
-            WithdrawReason::Fee,
-            ExistenceRequirement::KeepAlive,
-        )?;
-
         // 2.1. Link  master key and add pre-authorized signing keys
         Self::link_key_to_did(&master_key, SignerType::External, did);
         signing_items
