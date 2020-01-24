@@ -164,17 +164,6 @@ pub struct SigningItemWithAuth {
     pub auth_signature: H512,
 }
 
-///
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-pub struct MasterKeyRotationPrefs {
-    /// Key to be replaced with
-    pub new_key: Key,
-    /// Target identity which is authorized to make an operation.
-    pub target_accepted: bool,
-    /// KYC provider approved this change
-    pub kyc_verified: bool,
-}
-
 /// The module's configuration trait.
 pub trait Trait:
     system::Trait + balances::Trait + timestamp::Trait + group::Trait<group::Instance1>
@@ -197,9 +186,6 @@ decl_storage! {
 
         /// DID -> identity info
         pub DidRecords get(did_records): map IdentityId => DidRecord;
-
-        /// DID -> state of master key rotation
-        pub MasterKeyRotation get(master_key_rotation): map IdentityId => Option<MasterKeyRotationPrefs>;
 
         /// DID -> bool that indicates if signing keys are frozen.
         pub IsDidFrozen get(is_did_frozen): map IdentityId => bool;
@@ -402,130 +388,62 @@ decl_module! {
             Ok(())
         }
 
-        /// Initiates master key rotation for a DID.
-        ///
-        /// # Failure
-        /// Only called by master key owner.
-        ///
-        /// # Arguments
-        /// * `did` caller's DID
-        /// * `new_key` master key replacing current key
-        pub fn change_master_key(origin, did: IdentityId, new_key: Key, expiry: Option<T::Moment>) -> Result {
-            let sender = ensure_signed(origin)?;
-            let master_key = Key::try_from(sender.encode())?;
-            let _grants_checked = Self::grant_check_only_master_key(&master_key, did)?;
-
-            ensure!(!<MasterKeyRotation>::exists(did), "a key rotation process already in progress");
-
-            let rotation = MasterKeyRotationPrefs {
-                new_key,
-                target_accepted: false,
-                kyc_verified: false
-            };
-
-            <MasterKeyRotation>::insert(did, rotation);
-
-            Self::add_auth(Signer::Key(master_key), Signer::Key(new_key), AuthorizationData::RotateMasterKey(master_key, did), expiry);
-
-            Self::deposit_event(RawEvent::MasterKeyChangeInitiated(did, new_key));
-
-            Ok(())
-        }
-
         /// Call this with the new master key. By invoking this method, caller accepts authorization
-        /// `auth_id` with the new master key. If a KYC service provider approved this change, master
-        /// key of the DidRecord is updated
-        ///
-        /// # Arguments
-        /// * `did` caller's DID
-        /// * `auth_id` AuthorizationID that corresponds to changing master key
-        pub fn accept_master_key(
-            origin,
-            did: IdentityId,
-            auth_id: u64
-        ) -> Result {
-            let new_key = Key::try_from(ensure_signed(origin)?.encode())?;
-            let new_signer = Signer::from(new_key);
-
-            ensure!(<Authorizations<T>>::exists((new_signer, auth_id)), "Invalid auth");
-            let auth = Self::authorizations((new_signer, auth_id));
-
-            let (current_master_key, did) = match auth.authorization_data {
-                AuthorizationData::RotateMasterKey(current_master_key, did) => (current_master_key, did),
-                _ => return Err("Invalid authorization")
-            };
-
-            ensure!(
-                <MasterKeyRotation>::exists(did),
-                "master key rotation request does not exist"
-            );
-
-            // If this call originated from the new master key, `sender_key` would be the new master key
-            if let Some(rotation) = <MasterKeyRotation>::get(did) {
-                <MasterKeyRotation>::mutate(did, |entry| {
-                    if let Some(rotation) = entry {
-                        rotation.target_accepted = true
-                    }
-                });
-
-                if rotation.kyc_verified {
-                    Self::rotate_master_key(did, rotation.new_key);
-                }
-
-                Self::consume_auth(Signer::from(current_master_key), new_signer, auth_id)?;
-
-                Self::deposit_event(RawEvent::MasterKeyAccepted(did, auth_id));
-            }
-
-            Ok(())
-        }
-
-        /// A KYC provider calls this method to sign off on replacing master key of `target_did`.
-        /// Caller provides the new master key given by `new_key`.
-        ///
-        /// # Arguments
-        /// * `target_did` DID who requested master key change
-        /// * `new_key` master key replacing current key
-        pub fn kyc_accept_master_key(origin, target_did: IdentityId, new_key: Key) -> Result {
+        /// with the new master key. If a KYC service provider approved this change, master key of
+        /// the DID is updated
+        pub fn accept_master_key(origin) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
+            let signer = Signer::from(sender_key);
 
-            let kyc_did =  match Self::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = Self::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err("did not found");
+            let last_auth = Self::last_authorization(&signer);
+
+            let mut rotate_auth = None;
+            let mut attest_auth = None;
+
+            sr_primitives::print("before loop");
+
+            let mut prev_auth = Some(last_auth);
+            while let Some(auth_id) = prev_auth {
+                sr_primitives::print(auth_id);
+                if auth_id == 0 {
+                    prev_auth = None;
+                } else {
+                    let auth = Self::authorizations((signer, auth_id));
+
+                    match auth.authorization_data {
+                        AuthorizationData::RotateMasterKey(_) => {
+                            sr_primitives::print("RotateMasterKey");
+                            rotate_auth = Some((auth.authorized_by, auth_id));
+                        },
+                        AuthorizationData::AttestMasterKeyRotation(_) => {
+                            sr_primitives::print("AttestMasterKeyRotation");
+                            attest_auth = Some((auth.authorized_by, auth_id));
+                            // let Some(kyc_did) = Self::get_identity(&sender_key)
+
+                            // Caller must be a KYC service provider
+                            // ensure!(T::IsKYCProvider::is_member(&kyc_did), "caller is not a member of KYC service providers group");
+                        },
+                        _ => ()
+                    };
+
+                    // When both authorizations are present, rotate the key
+                    if let (Some((owner, owner_auth_id)), Some((kyc_signer, kyc_auth_id))) = (rotate_auth, attest_auth) {
+                        sr_primitives::print("in if");
+                        // remove owner's authorization
+                        Self::consume_auth(owner, signer, owner_auth_id)?;
+                        sr_primitives::print("after consume 1");
+
+                        // remove KYC service provider's authorization
+                        Self::consume_auth(kyc_signer, signer, kyc_auth_id)?;
+                        sr_primitives::print("after consume 2");
+
+                        // Replace master key of the owner that initiated key rotation
+                        Self::rotate_master_key(owner, sender_key)?;
+                        sr_primitives::print("rotate called");
                     }
-                }
-            };
 
-            // Caller must be a KYC service provider
-            ensure!(
-                T::IsKYCProvider::is_member(&kyc_did),
-                "caller is not a member of KYC service providers group"
-            );
-
-            // DID that's changing the master key
-            ensure!(
-                <MasterKeyRotation>::exists(target_did),
-                "master key rotation request does not exist"
-            );
-
-            // If this call originated from the new master key, `sender_key` would be the new master key
-            if let Some(rotation) = <MasterKeyRotation>::get(target_did) {
-                <MasterKeyRotation>::mutate(target_did, |entry| {
-                    if let Some(rotation) = entry {
-                        rotation.kyc_verified = true
-                    }
-                });
-
-                Self::deposit_event(RawEvent::MasterKeyChangeApproved(target_did, new_key, kyc_did));
-
-                // If the key has been accepted by the target, attempt key change
-                if rotation.target_accepted {
-                    Self::rotate_master_key(target_did, new_key);
+                    prev_auth = Some(auth.previous_authorization);
                 }
             }
 
@@ -1226,15 +1144,6 @@ decl_event!(
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
         AuthorizationRemoved(u64, Signer),
         
-        /// MasterKey change process initiated (Requestor DID, Key)
-        MasterKeyChangeInitiated(IdentityId, Key),
-        
-        /// MasterKey authorization accepted (Requestor DID, auth_id)
-        MasterKeyAccepted(IdentityId, u64),
-
-        /// MasterKey change approved by KYC provider (Requestor DID, New MasterKey, KYC IdentityId)
-        MasterKeyChangeApproved(IdentityId, Key, IdentityId),
-        
         /// MasterKey changed (Requestor DID, New MasterKey)
         MasterKeyChanged(IdentityId, Key),
 
@@ -1695,16 +1604,21 @@ impl<T: Trait> Module<T> {
     /// To call this, both of these must have happened:
     /// 1. Target DID has accepted authorization for key change
     /// 2. A KYC service provider has approved the change
-    fn rotate_master_key(did: IdentityId, new_key: Key) {
-        // Update the master key
-        <DidRecords>::mutate(did, |record| {
-            (*record).master_key = new_key.clone();
-        });
+    fn rotate_master_key(signer: Signer, new_key: Key) -> Result {
+        match signer {
+            Signer::Identity(ref id) if <DidRecords>::exists(id) => {
+                sr_primitives::print("found id");
+                // Update the master key
+                <DidRecords>::mutate(id, |record| {
+                    (*record).master_key = new_key.clone();
+                });
 
-        // Remove key rotation info from storage
-        <MasterKeyRotation>::remove(did);
-
-        Self::deposit_event(RawEvent::MasterKeyChanged(did, new_key));
+                sr_primitives::print("changed");
+                Self::deposit_event(RawEvent::MasterKeyChanged(*id, new_key));
+                Ok(())
+            }
+            _ => Err("Could not change master key. Signer DID not found."),
+        }
     }
 
     /// It registers a did for a new asset. Only called by create_token function.

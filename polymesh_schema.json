@@ -242,7 +242,10 @@
     },
     "AuthorizationData": {
         "_enum": {
+            "AttestMasterKeyRotation": "Vec<u8>",
+            "RotateMasterKey": "Vec<u8>",
             "TransferTicker": "Vec<u8>",
+            "TransferTokenOwnership": "Vec<u8>",
             "Custom": "Vec<u8>"
         }
     },

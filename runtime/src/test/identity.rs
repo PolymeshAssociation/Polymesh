@@ -1,15 +1,13 @@
 use crate::{
     balances,
     identity::{
-        self, Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, MasterKeyRotationPrefs,
-        SigningItemWithAuth, TargetIdAuthorization,
+        self, Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, SigningItemWithAuth,
+        TargetIdAuthorization,
     },
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use codec::Encode;
-use primitives::{
-    Authorization, AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem,
-};
+use primitives::{AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem};
 use rand::Rng;
 use sr_io::with_externalities;
 use srml_support::{assert_err, assert_ok, traits::Currency};
@@ -990,7 +988,7 @@ fn changing_master_key() {
         let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
 
         let kyc_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+        let kyc = Origin::signed(AccountKeyring::Charlie.public());
 
         // Master key matches Alice's key
         assert_eq!(
@@ -999,43 +997,23 @@ fn changing_master_key() {
         );
 
         // Alice triggers change of master key
-        assert_ok!(Identity::change_master_key(
+        assert_ok!(Identity::add_authorization(
             alice.clone(),
-            alice_did,
-            new_key
+            Signer::Key(new_key),
+            AuthorizationData::RotateMasterKey(vec![0x0]),
+            None,
         ));
-        assert_eq!(
-            Identity::master_key_rotation(alice_did),
-            Some(MasterKeyRotationPrefs {
-                new_key,
-                target_accepted: false,
-                kyc_verified: false
-            })
-        );
 
         // Charlie a KYC provider approves the change
-        assert_ok!(Identity::kyc_accept_master_key(
-            charlie.clone(),
-            alice_did,
-            new_key
+        assert_ok!(Identity::add_authorization(
+            kyc.clone(),
+            Signer::Key(new_key),
+            AuthorizationData::AttestMasterKeyRotation(vec![0x0]),
+            None,
         ));
-        assert_eq!(
-            Identity::master_key_rotation(alice_did),
-            Some(MasterKeyRotationPrefs {
-                new_key,
-                target_accepted: false,
-                kyc_verified: true
-            })
-        );
 
         // Alice accepts the authorization with the new key
-        assert_ok!(Identity::accept_master_key(
-            new_key_origin,
-            alice_did,
-            Identity::last_authorization(Signer::Key(new_key))
-        ));
-
-        assert_eq!(Identity::master_key_rotation(alice_did), None);
+        assert_ok!(Identity::accept_master_key(new_key_origin));
 
         // Alice's master key is now Bob's
         assert_eq!(

@@ -1,5 +1,3 @@
-use crate::identity_id::IdentityId;
-use crate::key::Key;
 use crate::signing_item::Signer;
 use codec::{Decode, Encode};
 use rstd::prelude::Vec;
@@ -7,12 +5,14 @@ use rstd::prelude::Vec;
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationData {
+    /// KYC provider's attestation to change master key
+    AttestMasterKeyRotation(Vec<u8>),
+    /// Authorization to change master key
+    RotateMasterKey(Vec<u8>),
     /// Authorization to transfer a ticker
     TransferTicker(Vec<u8>),
     /// Authorization to transfer a token's ownership
     TransferTokenOwnership(Vec<u8>),
-    /// Authorization to change master key
-    RotateMasterKey(Key, IdentityId),
     /// Any other authorization
     Custom(Vec<u8>),
     /// No authorization data
