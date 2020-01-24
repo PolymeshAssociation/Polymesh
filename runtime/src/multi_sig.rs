@@ -154,7 +154,7 @@ decl_module! {
         /// # Arguments
         /// * `multi_sig` - Multisig address.
         /// * `proposal_id` - Proposal id to approve.
-        /// If enough voted are reached, the proposal will be immediately executed.
+        /// If quorum is reached, the proposal will be immediately executed.
         pub fn approve_as_identity(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
@@ -178,7 +178,7 @@ decl_module! {
         /// # Arguments
         /// * `multi_sig` - Multisig address.
         /// * `proposal_id` - Proposal id to approve.
-        /// If enough voted are reached, the proposal will be immediately executed.
+        /// If quorum is reached, the proposal will be immediately executed.
         pub fn approve_as_key(origin, multi_sig: T::AccountId, proposal_id: u64) -> Result {
             let sender = ensure_signed(origin)?;
             let signer = Signer::from(Key::try_from(sender.encode())?);

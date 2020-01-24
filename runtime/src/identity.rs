@@ -764,7 +764,7 @@ decl_module! {
                             //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::AddMultisigSigner =>
-                                T::AddSignerMultisigTarget::accept_multi_sig_signer(Signer::from(key), auth_id),
+                                    T::AddSignerMultisigTarget::accept_multi_sig_signer(Signer::from(key), auth_id),
                                 _ => Err("Unknown authorization")
                             };
                         }
