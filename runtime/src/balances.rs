@@ -1331,6 +1331,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use primitives::IdentityId;
     use sr_io::{self, with_externalities};
     use sr_primitives::{
         testing::Header,
@@ -1346,9 +1347,10 @@ mod tests {
     };
     use std::{cell::RefCell, result::Result};
     use substrate_primitives::{Blake2Hasher, H256};
+    use system::EnsureSignedBy;
     use test_client::AccountKeyring;
 
-    use crate::identity;
+    use crate::{group, identity};
 
     impl_outer_origin! {
         pub enum Origin for Runtime {}
@@ -1451,13 +1453,34 @@ mod tests {
         }
     }
 
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    }
+
+    impl group::Trait<group::Instance1> for Runtime {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
+    }
+
     impl identity::Trait for Runtime {
         type Event = ();
         type Proposal = IdentityProposal;
-        type AcceptTickerTransferTarget = Runtime;
+        type AcceptTransferTarget = Runtime;
     }
-    impl crate::asset::AcceptTickerTransfer for Runtime {
+    impl crate::asset::AcceptTransfer for Runtime {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+            unimplemented!()
+        }
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
     }
