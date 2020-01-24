@@ -1,4 +1,5 @@
 use crate::signing_item::Signer;
+use crate::Ticker;
 use codec::{Decode, Encode};
 use rstd::prelude::Vec;
 
@@ -6,11 +7,11 @@ use rstd::prelude::Vec;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationData {
     /// Authorization to transfer a ticker
-    TransferTicker(Vec<u8>),
+    TransferTicker(Ticker),
     /// Authorization to transfer a token's ownership
-    TransferTokenOwnership(Vec<u8>),
+    TransferTokenOwnership(Ticker),
     /// Any other authorization
-    Custom(Vec<u8>),
+    Custom(Ticker),
     /// No authorization data
     NoData,
 }

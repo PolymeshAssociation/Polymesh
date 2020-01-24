@@ -33,7 +33,7 @@
 
 use crate::{asset, balances, identity, simple_token, utils};
 use codec::Encode;
-use primitives::{IdentityId, Key, Signer};
+use primitives::{IdentityId, Key, Signer, Ticker};
 use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
@@ -65,7 +65,7 @@ pub struct Dividend<U, V> {
     /// An optional timestamp for payout end
     expires_at: Option<V>,
     /// The payout SimpleToken currency ticker.
-    payout_currency: Vec<u8>,
+    payout_currency: Ticker,
     /// The checkpoint
     checkpoint_id: u64,
 }
@@ -75,14 +75,12 @@ decl_storage! {
     trait Store for Module<T: Trait> as dividend {
         /// Dividend records; (ticker, dividend ID) => dividend entry
         /// Note: contrary to checkpoint IDs, dividend IDs are 0-indexed.
-        Dividends get(dividends): map (Vec<u8>, u32) => Dividend<T::Balance, T::Moment>;
-
+        Dividends get(dividends): map (Ticker, u32) => Dividend<T::Balance, T::Moment>;
         /// How many dividends were created for a ticker so far; (ticker) => count
-        DividendCount get(dividend_count): map Vec<u8> => u32;
-
+        DividendCount get(dividend_count): map Ticker => u32;
         /// Payout flags, decide whether a user already was paid their dividend
         /// (DID, ticker, dividend_id) -> whether they got their payout
-        UserPayoutCompleted get(payout_completed): map (IdentityId, Vec<u8>, u32) => bool;
+        UserPayoutCompleted get(payout_completed): map (IdentityId, Ticker, u32) => bool;
     }
 }
 
@@ -97,23 +95,21 @@ decl_module! {
         pub fn new(origin,
             did: IdentityId,
             amount: T::Balance,
-            ticker: Vec<u8>,
+            ticker: Ticker,
             matures_at: T::Moment,
             expires_at: T::Moment,
-            payout_ticker: Vec<u8>,
+            payout_ticker: Ticker,
             checkpoint_id: u64
         ) -> Result {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-            let ticker = utils::bytes_to_upper(ticker.as_slice());
-
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
             // Check if sender has enough funds in payout currency
-            let balance = <simple_token::BalanceOf<T>>::get((payout_ticker.clone(), did));
+            let balance = <simple_token::BalanceOf<T>>::get((payout_ticker, did));
             ensure!(balance >= amount, "Insufficient funds for payout");
 
             // Unpack the checkpoint ID, use the latest or create a new one, in that order
@@ -154,7 +150,7 @@ decl_module! {
 
             // Subtract the amount
             let new_balance = balance.checked_sub(&amount).ok_or("Underflow calculating new owner balance")?;
-            <simple_token::BalanceOf<T>>::insert((payout_ticker.clone(), did), new_balance);
+            <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
 
             // Insert dividend entry into storage
             let new_dividend = Dividend {
@@ -176,12 +172,12 @@ decl_module! {
         }
 
         /// Lets the owner cancel a dividend before start/maturity date
-        pub fn cancel(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
+        pub fn cancel(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
             let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -198,14 +194,17 @@ decl_module! {
             ensure!(starts_in_future, "Cancellable dividend must mature in the future");
 
             // Pay amount back to owner
-            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> Result {
-                *balance  = balance
-                    .checked_add(&entry.amount)
-                    .ok_or("Could not add amount back to asset owner account")?;
-                Ok(())
-            })?;
+            <simple_token::BalanceOf<T>>::mutate(
+                (entry.payout_currency, did),
+                |balance: &mut T::Balance| -> Result {
+                    *balance  = balance
+                        .checked_add(&entry.amount)
+                        .ok_or("Could not add amount back to asset owner account")?;
+                    Ok(())
+                }
+            )?;
 
-            <Dividends<T>>::remove((ticker.clone(), dividend_id));
+            <Dividends<T>>::remove((ticker, dividend_id));
 
             Self::deposit_event(RawEvent::DividendCanceled(ticker, dividend_id));
 
@@ -214,20 +213,20 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        pub fn claim(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
-            let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
+        pub fn claim(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             // Check if sender wasn't already paid their share
-            ensure!(!<UserPayoutCompleted>::get((did, ticker.clone(), dividend_id)), "User was already paid their share");
+            ensure!(!<UserPayoutCompleted>::get((did, ticker, dividend_id)), "User was already paid their share");
 
             // Look dividend entry up
             let dividend = Self::get_dividend(&ticker, dividend_id).ok_or("Dividend not found")?;
 
             let balance_at_checkpoint =
-                <asset::Module<T>>::get_balance_at(&ticker, did, dividend.checkpoint_id);
+                <asset::Module<T>>::get_balance_at(ticker, did, dividend.checkpoint_id);
 
             // Check if the owner hadn't yanked the remaining amount out
             ensure!(!dividend.remaining_claimed, "The remaining payout funds were already claimed");
@@ -245,7 +244,7 @@ decl_module! {
 
             // Compute the share
             ensure!(<asset::Tokens<T>>::exists(&ticker), "Dividend token entry not found");
-            let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker.clone(), dividend.checkpoint_id));
+            let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker, dividend.checkpoint_id));
 
             let balance_amount_product = balance_at_checkpoint
                 .checked_mul(&dividend.amount)
@@ -256,14 +255,14 @@ decl_module! {
                 .ok_or("balance_amount_product division failed")?;
 
             // Adjust the paid_out amount
-            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
+            <Dividends<T>>::mutate((ticker, dividend_id), |entry| -> Result {
                 entry.amount_left = entry.amount_left.checked_sub(&share).ok_or("Could not increase paid_out")?;
                 Ok(())
             })?;
 
             // Perform the payout in designated tokens
             <simple_token::BalanceOf<T>>::mutate(
-                (dividend.payout_currency.clone(), did),
+                (dividend.payout_currency, did),
                 |balance| -> Result {
                     *balance = balance
                         .checked_add(&share)
@@ -273,7 +272,7 @@ decl_module! {
             )?;
 
             // Create payout entry
-            <UserPayoutCompleted>::insert((did, ticker.clone(), dividend_id), true);
+            <UserPayoutCompleted>::insert((did, ticker, dividend_id), true);
 
             // Dispatch event
             Self::deposit_event(RawEvent::DividendPaidOutToUser(did, ticker, dividend_id, share));
@@ -281,12 +280,12 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
-        pub fn claim_unclaimed(origin, did: IdentityId, ticker: Vec<u8>, dividend_id: u32) -> Result {
+        pub fn claim_unclaimed(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -302,14 +301,18 @@ decl_module! {
             }
 
             // Transfer the computed amount
-            <simple_token::BalanceOf<T>>::mutate((entry.payout_currency.clone(), did), |balance: &mut T::Balance| -> Result {
-                let new_balance = balance.checked_add(&entry.amount_left).ok_or("Could not add amount back to asset owner DID")?;
-                *balance  = new_balance;
-                Ok(())
-            })?;
+            <simple_token::BalanceOf<T>>::mutate(
+                (entry.payout_currency, did),
+                |balance: &mut T::Balance| -> Result {
+                    *balance = balance
+                        .checked_add(&entry.amount_left)
+                        .ok_or("Could not add amount back to asset owner DID")?;
+                    Ok(())
+                }
+            )?;
 
             // Set amount_left, flip remaining_claimed
-            <Dividends<T>>::mutate((ticker.clone(), dividend_id), |entry| -> Result {
+            <Dividends<T>>::mutate((ticker, dividend_id), |entry| -> Result {
                 entry.amount_left = 0.into();
                 entry.remaining_claimed = true;
                 Ok(())
@@ -328,16 +331,16 @@ decl_event!(
         Balance = <T as balances::Trait>::Balance,
     {
         /// A new dividend was created (ticker, amount, dividend ID)
-        DividendCreated(Vec<u8>, Balance, u32),
+        DividendCreated(Ticker, Balance, u32),
 
         /// A dividend was canceled (ticker, dividend ID)
-        DividendCanceled(Vec<u8>, u32),
+        DividendCanceled(Ticker, u32),
 
         /// Dividend was paid to a user (who, ticker, dividend ID, share)
-        DividendPaidOutToUser(IdentityId, Vec<u8>, u32, Balance),
+        DividendPaidOutToUser(IdentityId, Ticker, u32, Balance),
 
         /// Unclaimed dividend was claimed back (ticker, dividend ID, amount)
-        DividendRemainingClaimed(Vec<u8>, u32, Balance),
+        DividendRemainingClaimed(Ticker, u32, Balance),
     }
 );
 
@@ -345,7 +348,7 @@ impl<T: Trait> Module<T> {
     /// A helper method for dividend creation. Returns dividend ID
     /// #[inline]
     fn add_dividend_entry(
-        ticker: &Vec<u8>,
+        ticker: &Ticker,
         d: Dividend<T::Balance, T::Moment>,
     ) -> core::result::Result<u32, &'static str> {
         let old_count = <DividendCount>::get(ticker);
@@ -353,19 +356,19 @@ impl<T: Trait> Module<T> {
             .checked_add(1)
             .ok_or("Could not add 1 to dividend count")?;
 
-        <Dividends<T>>::insert((ticker.clone(), old_count), d);
-        <DividendCount>::insert(ticker, new_count);
+        <Dividends<T>>::insert((*ticker, old_count), d);
+        <DividendCount>::insert(*ticker, new_count);
 
         Ok(old_count)
     }
 
     /// Retrieves a dividend checking that it exists beforehand.
     pub fn get_dividend(
-        ticker: &[u8],
+        ticker: &Ticker,
         dividend_id: u32,
     ) -> Option<Dividend<T::Balance, T::Moment>> {
         // Check that the dividend entry exists
-        let ticker_div_id = (ticker.to_vec(), dividend_id);
+        let ticker_div_id = (*ticker, dividend_id);
         if <Dividends<T>>::exists(&ticker_div_id) {
             Some(<Dividends<T>>::get(&ticker_div_id))
         } else {
@@ -600,8 +603,9 @@ mod tests {
     impl Trait for Test {
         type Event = ();
     }
+
     impl asset::AssetTrait<<Test as balances::Trait>::Balance> for Module<Test> {
-        fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
+        fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(ticker) {
                 token.owner_did == sender_did
             } else {
@@ -610,7 +614,7 @@ mod tests {
         }
 
         fn _mint_from_sto(
-            _ticker: &[u8],
+            _ticker: &Ticker,
             _sender_did: IdentityId,
             _tokens_purchased: <Test as balances::Trait>::Balance,
         ) -> Result {
@@ -618,17 +622,17 @@ mod tests {
         }
 
         /// Get the asset `id` balance of `who`.
-        fn balance(_ticker: &[u8], _did: IdentityId) -> <Test as balances::Trait>::Balance {
+        fn balance(_ticker: &Ticker, _did: IdentityId) -> <Test as balances::Trait>::Balance {
             unimplemented!();
         }
 
         // Get the total supply of an asset `id`
-        fn total_supply(_ticker: &[u8]) -> <Test as balances::Trait>::Balance {
+        fn total_supply(_ticker: &Ticker) -> <Test as balances::Trait>::Balance {
             unimplemented!();
         }
 
         fn get_balance_at(
-            _ticker: &Vec<u8>,
+            _ticker: &Ticker,
             _did: IdentityId,
             _at: u64,
         ) -> <Test as balances::Trait>::Balance {
@@ -640,7 +644,7 @@ mod tests {
         static ref TOKEN_MAP: Arc<
             Mutex<
             HashMap<
-            Vec<u8>,
+            Ticker,
             SecurityToken<
                 <Test as balances::Trait>::Balance,
                 >,
@@ -704,16 +708,16 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: [b'A'; 12].to_vec(),
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             // A token used for payout
             let payout_token = SimpleTokenRecord {
-                ticker: vec![0x02],
+                ticker: Ticker::from_slice(&[b'B'; 12]),
                 owner_did: payout_owner_did,
                 total_supply: 200_000_000,
             };
@@ -721,13 +725,12 @@ mod tests {
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             Balances::make_free_balance_be(&payout_owner_acc, 1_000_000);
-
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_signed.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
@@ -738,7 +741,7 @@ mod tests {
             assert_ok!(SimpleToken::create_token(
                 payout_owner_signed.clone(),
                 payout_owner_did,
-                payout_token.ticker.clone(),
+                payout_token.ticker,
                 payout_token.total_supply
             ));
 
@@ -756,7 +759,7 @@ mod tests {
             let outer = TOKEN_MAP_OUTER_LOCK.lock().unwrap();
             *TOKEN_MAP.lock().unwrap() = {
                 let mut map = HashMap::new();
-                map.insert(token.name.clone(), token.clone());
+                map.insert(ticker, token.clone());
                 map
             };
 
@@ -771,7 +774,7 @@ mod tests {
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 asset_rule
             ));
 
@@ -779,7 +782,7 @@ mod tests {
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 investor_did,
                 amount_invested
             ));
@@ -788,7 +791,7 @@ mod tests {
             assert_ok!(Asset::create_checkpoint(
                 token_owner_signed.clone(),
                 token_owner_did,
-                token.name.clone()
+                ticker
             ));
 
             // Checkpoints are 1-indexed
@@ -800,7 +803,7 @@ mod tests {
                 remaining_claimed: false,
                 matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
                 expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
-                payout_currency: payout_token.ticker.clone(),
+                payout_currency: payout_token.ticker,
                 checkpoint_id,
             };
 
@@ -808,7 +811,7 @@ mod tests {
             assert_ok!(SimpleToken::transfer(
                 payout_owner_signed.clone(),
                 payout_owner_did,
-                payout_token.ticker.clone(),
+                payout_token.ticker,
                 token_owner_did,
                 dividend.amount
             ));
@@ -818,7 +821,7 @@ mod tests {
                 token_owner_signed.clone(),
                 token_owner_did,
                 dividend.amount,
-                token.name.clone(),
+                ticker,
                 dividend.matures_at.clone().unwrap(),
                 dividend.expires_at.clone().unwrap(),
                 dividend.payout_currency.clone(),
@@ -827,7 +830,7 @@ mod tests {
 
             // Compare created dividend with the expected structure
             assert_eq!(
-                DividendModule::get_dividend(&token.name, 0),
+                DividendModule::get_dividend(&ticker, 0),
                 Some(dividend.clone())
             );
 
@@ -835,20 +838,20 @@ mod tests {
             assert_ok!(DividendModule::claim(
                 investor_signed.clone(),
                 investor_did,
-                token.name.clone(),
+                ticker,
                 0,
             ));
 
             // Check if the correct amount was added to investor balance
             let share = dividend.amount * amount_invested / token.total_supply;
             assert_eq!(
-                SimpleToken::balance_of((payout_token.ticker.clone(), investor_did)),
+                SimpleToken::balance_of((payout_token.ticker, investor_did)),
                 share
             );
 
             // Check if amount_left was adjusted correctly
             let current_entry =
-                DividendModule::get_dividend(&token.name, 0).expect("Could not retrieve dividend");
+                DividendModule::get_dividend(&ticker, 0).expect("Could not retrieve dividend");
             assert_eq!(current_entry.amount_left, current_entry.amount - share);
         });
     }

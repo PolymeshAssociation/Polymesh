@@ -1,6 +1,7 @@
 {
     "Balance": "u128",
     "IdentityId":"[u8;32]",
+    "Ticker": "[u8; 12]",
     "AssetType": {
         "_enum": {
             "Equity": "",
@@ -68,8 +69,8 @@
     },
     "LinkData": {
        "_enum": {
-            "TickerOwned": "Vec<u8>",
-            "TokenOwned": "Vec<u8>"
+            "TickerOwned": "Ticker",
+            "TokenOwned": "Ticker"
        }
     },
     "SignerType": {
@@ -184,7 +185,7 @@
         "last_purchase_date": "Moment"
     },
     "SimpleTokenRecord": {
-        "ticker": "Vec<u8>",
+        "ticker": "Ticker",
         "total_supply": "Balance",
         "owner_did": "IdentityId"
     },
@@ -209,13 +210,13 @@
         "expiry": "Option<Moment>"
     },
     "TickerRegistrationConfig": {
-        "max_ticker_length": "u32",
+        "max_ticker_length": "u8",
         "registration_length": "Option<Moment>"
     },
     "SignData": {
         "custodian_did": "IdentityId",
         "holder_did": "IdentityId",
-        "ticker": "Vec<u8>",
+        "ticker": "Ticker",
         "value": "Balance",
         "nonce": "u16"
     },
@@ -249,8 +250,8 @@
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
-        "next_ticker": "Option<Vec<u8>>",
-        "previous_ticker": "Option<Vec<u8>>"
+        "next_ticker": "Option<Ticker>",
+        "previous_ticker": "Option<Ticker>"
     },
     "OffChainSignature": "H512",
     "PermissionedValidator": {
@@ -265,7 +266,7 @@
     },
     "AuthorizationData": {
         "_enum": {
-            "TransferTicker": "Vec<u8>",
+            "TransferTicker": "Ticker",
             "Custom": "Vec<u8>"
         }
     },
