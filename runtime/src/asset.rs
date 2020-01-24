@@ -3000,12 +3000,12 @@ mod tests {
                 divisible: true,
                 asset_type: AssetType::default(),
             };
+            let ticker = Ticker::from_slice(token.name.as_slice());
             assert!(!<identity::DidRecords>::exists(
-                Identity::get_token_did(&token.name).unwrap()
+                Identity::get_token_did(&ticker).unwrap()
             ));
             let identifier_value1 = b"ABC123";
             let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
-            let ticker = token.name.clone();
             assert_ok!(Asset::create_token(
                 owner_signed.clone(),
                 owner_did,
