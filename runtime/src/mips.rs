@@ -877,7 +877,7 @@ mod tests {
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
-                "bad origin"
+                Error::<T>::BadOrigin
             );
 
             assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
@@ -908,7 +908,7 @@ mod tests {
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
-                "bad origin"
+                Error::<T>::BadOrigin
             );
 
             assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
@@ -925,7 +925,7 @@ mod tests {
 
             assert_err!(
                 MIPS::emergency_referendum(Origin::signed(6), Box::new(proposal.clone())),
-                "bad origin"
+                Error::<T>::BadOrigin
             );
 
             assert_ok!(MIPS::emergency_referendum(
@@ -948,7 +948,7 @@ mod tests {
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
-                "bad origin"
+                Error::<T>::BadOrigin
             );
 
             assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
