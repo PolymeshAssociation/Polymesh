@@ -137,38 +137,38 @@ pub trait Trait: frame_system::Trait {
 decl_storage! {
     trait Store for Module<T: Trait> as MIPS {
         /// The minimum amount to be used as a deposit for a public referendum proposal.
-        pub MinimumProposalDeposit get(min_proposal_deposit) config(): BalanceOf<T>;
+        pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): BalanceOf<T>;
 
         /// Minimum stake a proposal must gather in order to be considered by the committee.
-        pub QuorumThreshold get(quorum_threshold) config(): BalanceOf<T>;
+        pub QuorumThreshold get(fn quorum_threshold) config(): BalanceOf<T>;
 
         /// How long (in blocks) a ballot runs
-        pub ProposalDuration get(proposal_duration) config(): T::BlockNumber;
+        pub ProposalDuration get(fn proposal_duration) config(): T::BlockNumber;
 
         /// Proposals so far. Index can be used to keep track of MIPs off-chain.
-        pub ProposalCount get(proposal_count): u32;
+        pub ProposalCount get(fn proposal_count): u32;
 
         /// The hashes of the active proposals.
-        pub ProposalMetadata get(proposal_meta): Vec<MipsMetadata<T::BlockNumber, T::Hash>>;
+        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
         /// proposal hash -> (deposit, proposer)
-        pub Deposits get(deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
+        pub Deposits get(fn deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
-        pub Proposals get(proposals): map T::Hash => Option<MIP<T::Proposal>>;
+        pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
 
         /// Votes on a given proposal, if it is ongoing.
         /// proposal hash -> voting info
-        pub Voting get(voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
+        pub Voting get(fn voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
-        pub ReferendumMetadata get(referendum_meta): Vec<ReferendumInfo<T::Hash>>;
+        pub ReferendumMetadata get(fn referendum_meta): Vec<ReferendumInfo<T::Hash>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
-        pub Referendums get(referendums): map T::Hash => Option<T::Proposal>;
+        pub Referendums get(fn referendums): map T::Hash => Option<T::Proposal>;
     }
 }
 

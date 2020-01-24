@@ -48,7 +48,7 @@ use crate::{
 };
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
-    Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+    Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem, Ticker,
 };
 
 use codec::Encode;
@@ -1560,7 +1560,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// It registers a did for a new asset. Only called by create_token function.
-    pub fn register_asset_did(ticker: &Vec<u8>) -> DispatchResult {
+    pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
         let did = Self::get_token_did(ticker)?;
         // Making sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
@@ -1570,7 +1570,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// It is a helper function that can be used to get did for any asset
-    pub fn get_token_did(ticker: &Vec<u8>) -> StdResult<IdentityId, &'static str> {
+    pub fn get_token_did(ticker: &Ticker) -> StdResult<IdentityId, &'static str> {
         let mut buf = Vec::new();
         buf.extend_from_slice(&SECURITY_TOKEN.encode());
         buf.extend_from_slice(&ticker.encode());

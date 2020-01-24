@@ -96,6 +96,9 @@ pub mod link;
 pub use link::Link;
 pub use link::LinkData;
 
+pub mod ticker;
+pub use ticker::Ticker;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
