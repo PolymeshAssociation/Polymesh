@@ -51,11 +51,11 @@ use crate::{
 };
 use codec::Encode;
 use core::result::Result as StdResult;
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::{self as system, ensure_signed};
 use identity::ClaimValue;
 use primitives::{IdentityId, Key, Signer, Ticker};
-use rstd::{convert::TryFrom, prelude::*};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
-use system::{self, ensure_signed};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// Type of operators that a rule can have
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -76,10 +76,10 @@ impl Default for Operators {
 
 /// The module's configuration trait.
 pub trait Trait:
-    timestamp::Trait + system::Trait + balances::Trait + utils::Trait + identity::Trait
+    pallet_timestamp::Trait + frame_system::Trait + balances::Trait + utils::Trait + identity::Trait
 {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Asset module
     type Asset: asset::AssetTrait<Self::Balance>;
@@ -114,7 +114,7 @@ pub struct RuleData {
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
         /// List of active rules for a ticker (Ticker -> Array of AssetRules)
-        pub ActiveRules get(active_rules): map Ticker => Vec<AssetRule>;
+        pub ActiveRules get(fn active_rules): map Ticker => Vec<AssetRule>;
     }
 }
 
@@ -124,7 +124,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Adds an asset rule to active rules for a ticker
-        pub fn add_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> Result {
+        pub fn add_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -144,7 +144,7 @@ decl_module! {
         }
 
         /// Removes a rule from active asset rules
-        pub fn remove_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> Result {
+        pub fn remove_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
             let sender = Signer::Key(Key::try_from( ensure_signed(origin)?.encode())?);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -165,7 +165,7 @@ decl_module! {
         }
 
         /// Removes all active rules of a ticker
-        pub fn reset_active_rules(origin, did: IdentityId, ticker: Ticker) -> Result {
+        pub fn reset_active_rules(origin, did: IdentityId, ticker: Ticker) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -266,7 +266,7 @@ impl<T: Trait> Module<T> {
             }
         }
 
-        sr_primitives::print("Identity TM restrictions not satisfied");
+        sp_runtime::print("Identity TM restrictions not satisfied");
         Ok(ERC1400_TRANSFER_FAILURE)
     }
 }
@@ -276,22 +276,17 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use chrono::prelude::*;
+    use frame_support::traits::Currency;
+    use frame_support::{assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types};
+    use frame_system::EnsureSignedBy;
     use primitives::IdentityId;
-    use sr_io::with_externalities;
-    use sr_primitives::{
+    use sp_core::{crypto::key_types, H256};
+    use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-        AnySignature, Perbill,
+        AnySignature, KeyTypeId, Perbill,
     };
-    use srml_support::traits::Currency;
-    use srml_support::{
-        assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
-    };
-    use std::result::Result;
-    use substrate_primitives::{Blake2Hasher, H256};
-    use system::EnsureSignedBy;
+    use sp_std::result::Result;
     use test_client::{self, AccountKeyring};
 
     use crate::asset::{AssetType, SecurityToken, TickerRegistrationConfig};
@@ -314,23 +309,23 @@ mod tests {
         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     }
 
-    impl system::Trait for Test {
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
-        type BlockNumber = BlockNumber;
+        type BlockNumber = u64;
+        type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = AccountId;
-        type Lookup = IdentityLookup<AccountId>;
+        type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
-        type Call = ();
-        type WeightMultiplierUpdate = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -346,16 +341,12 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
         type DustRemoval = ();
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Test>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     parameter_types! {
@@ -368,28 +359,32 @@ mod tests {
     type AccountId = <AnySignature as Verify>::Signer;
     type OffChainSignature = AnySignature;
 
-    impl timestamp::Trait for Test {
+    impl pallet_timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
     }
 
     impl utils::Trait for Test {
+        type Public = AccountId;
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(
+            v: <Self as pallet_session::Trait>::ValidatorId,
+        ) -> Self::AccountId {
             v
         }
     }
 
     pub struct TestOnSessionEnding;
-    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+    impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
             None
         }
     }
 
     pub struct TestSessionHandler;
-    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+    impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+        const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -400,6 +395,8 @@ mod tests {
         fn on_disabled(_validator_index: usize) {}
 
         fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+
+        fn on_before_session_ending() {}
     }
 
     parameter_types! {
@@ -408,10 +405,10 @@ mod tests {
         pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
     }
 
-    impl session::Trait for Test {
+    impl pallet_session::Trait for Test {
         type OnSessionEnding = TestOnSessionEnding;
         type Keys = UintAuthorityId;
-        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
         type SessionHandler = TestSessionHandler;
         type Event = ();
         type ValidatorId = AuthorityId;
@@ -420,7 +417,7 @@ mod tests {
         type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     }
 
-    impl session::historical::Trait for Test {
+    impl pallet_session::historical::Trait for Test {
         type FullIdentification = ();
         type FullIdentificationOf = ();
     }
@@ -430,12 +427,11 @@ mod tests {
         pub dummy: u8,
     }
 
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+    impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
-        type Error = DispatchError;
 
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
     }
@@ -489,8 +485,8 @@ mod tests {
     type Asset = asset::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by_alice() -> sr_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
+    fn identity_owned_by_alice() -> sp_io::TestExternalities {
+        let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         identity::GenesisConfig::<Test> {
@@ -510,22 +506,22 @@ mod tests {
         }
         .assimilate_storage(&mut t)
         .unwrap();
-        sr_io::TestExternalities::new(t)
+        sp_io::TestExternalities::new(t)
     }
 
     fn make_account(
         account_id: &AccountId,
-    ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
-        Identity::register_did(signed_id.clone(), vec![])?;
+        Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
     #[test]
     fn should_add_and_verify_assetrule() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 
@@ -571,7 +567,7 @@ mod tests {
             ));
 
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = RuleData {
                 key: "some_key".as_bytes().to_vec(),
@@ -608,7 +604,7 @@ mod tests {
 
     #[test]
     fn should_add_and_verify_complex_assetrule() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 
@@ -654,7 +650,7 @@ mod tests {
             ));
 
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = RuleData {
                 key: "some_key".as_bytes().to_vec(),
@@ -698,7 +694,7 @@ mod tests {
 
     #[test]
     fn should_reset_assetrules() {
-        with_externalities(&mut identity_owned_by_alice(), || {
+        identity_owned_by_alice().execute_with(|| {
             let token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 

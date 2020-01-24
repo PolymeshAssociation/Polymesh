@@ -33,22 +33,24 @@
 
 use crate::{asset, balances, identity, simple_token, utils};
 use codec::Encode;
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
+use frame_system::{self as system, ensure_signed};
 use primitives::{IdentityId, Key, Signer, Ticker};
-use rstd::{convert::TryFrom, prelude::*};
-use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
-use system::ensure_signed;
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
     asset::Trait
     + balances::Trait
     + simple_token::Trait
-    + system::Trait
+    + frame_system::Trait
     + utils::Trait
-    + timestamp::Trait
+    + pallet_timestamp::Trait
 {
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 /// Details about the dividend
@@ -75,12 +77,12 @@ decl_storage! {
     trait Store for Module<T: Trait> as dividend {
         /// Dividend records; (ticker, dividend ID) => dividend entry
         /// Note: contrary to checkpoint IDs, dividend IDs are 0-indexed.
-        Dividends get(dividends): map (Ticker, u32) => Dividend<T::Balance, T::Moment>;
+        Dividends get(fn dividends): map (Ticker, u32) => Dividend<T::Balance, T::Moment>;
         /// How many dividends were created for a ticker so far; (ticker) => count
-        DividendCount get(dividend_count): map Ticker => u32;
+        DividendCount get(fn dividend_count): map Ticker => u32;
         /// Payout flags, decide whether a user already was paid their dividend
         /// (DID, ticker, dividend_id) -> whether they got their payout
-        UserPayoutCompleted get(payout_completed): map (IdentityId, Ticker, u32) => bool;
+        UserPayoutCompleted get(fn payout_completed): map (IdentityId, Ticker, u32) => bool;
     }
 }
 
@@ -88,6 +90,9 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+
+        type Error = Error<T>;
+
         // Initializing events
         fn deposit_event() = default;
 
@@ -100,7 +105,7 @@ decl_module! {
             expires_at: T::Moment,
             payout_ticker: Ticker,
             checkpoint_id: u64
-        ) -> Result {
+        ) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -128,7 +133,7 @@ decl_module! {
             ensure!(<asset::Module<T>>::total_checkpoints_of(&ticker) >= checkpoint_id,
             "Checkpoint for dividend does not exist");
 
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             let zero_ts = now - now; // A 0 timestamp
 
             // Check maturity/expiration dates
@@ -172,7 +177,7 @@ decl_module! {
         }
 
         /// Lets the owner cancel a dividend before start/maturity date
-        pub fn cancel(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
+        pub fn cancel(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -183,7 +188,7 @@ decl_module! {
 
             // Check that the dividend has not started yet
             let entry: Dividend<_, _> = Self::get_dividend(&ticker, dividend_id).ok_or("Dividend not found")?;
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             let starts_in_future = if let Some(ref start) = entry.matures_at {
                 (*start) > now
@@ -196,7 +201,7 @@ decl_module! {
             // Pay amount back to owner
             <simple_token::BalanceOf<T>>::mutate(
                 (entry.payout_currency, did),
-                |balance: &mut T::Balance| -> Result {
+                |balance: &mut T::Balance| -> DispatchResult {
                     *balance  = balance
                         .checked_add(&entry.amount)
                         .ok_or("Could not add amount back to asset owner account")?;
@@ -213,7 +218,7 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        pub fn claim(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
+        pub fn claim(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -231,7 +236,7 @@ decl_module! {
             // Check if the owner hadn't yanked the remaining amount out
             ensure!(!dividend.remaining_claimed, "The remaining payout funds were already claimed");
 
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             // Check if the current time is within maturity/expiration bounds
             if let Some(start) = dividend.matures_at.as_ref() {
@@ -255,7 +260,7 @@ decl_module! {
                 .ok_or("balance_amount_product division failed")?;
 
             // Adjust the paid_out amount
-            <Dividends<T>>::mutate((ticker, dividend_id), |entry| -> Result {
+            <Dividends<T>>::mutate((ticker, dividend_id), |entry| -> DispatchResult {
                 entry.amount_left = entry.amount_left.checked_sub(&share).ok_or("Could not increase paid_out")?;
                 Ok(())
             })?;
@@ -263,7 +268,7 @@ decl_module! {
             // Perform the payout in designated tokens
             <simple_token::BalanceOf<T>>::mutate(
                 (dividend.payout_currency, did),
-                |balance| -> Result {
+                |balance| -> DispatchResult {
                     *balance = balance
                         .checked_add(&share)
                         .ok_or("Could not add share to sender balance")?;
@@ -280,7 +285,7 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
-        pub fn claim_unclaimed(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> Result {
+        pub fn claim_unclaimed(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -292,18 +297,18 @@ decl_module! {
             let entry = Self::get_dividend(&ticker, dividend_id).ok_or("Could not retrieve dividend")?;
 
             // Check that the expiry date had passed
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             if let Some(ref end) = entry.expires_at {
                 ensure!(*end < now, "Dividend not finished for returning unclaimed payout");
             } else {
-                return Err("Claiming unclaimed payouts requires an end date");
+                return Err(Error::<T>::NotEnded.into());
             }
 
             // Transfer the computed amount
             <simple_token::BalanceOf<T>>::mutate(
                 (entry.payout_currency, did),
-                |balance: &mut T::Balance| -> Result {
+                |balance: &mut T::Balance| -> DispatchResult {
                     *balance = balance
                         .checked_add(&entry.amount_left)
                         .ok_or("Could not add amount back to asset owner DID")?;
@@ -312,7 +317,7 @@ decl_module! {
             )?;
 
             // Set amount_left, flip remaining_claimed
-            <Dividends<T>>::mutate((ticker, dividend_id), |entry| -> Result {
+            <Dividends<T>>::mutate((ticker, dividend_id), |entry| -> DispatchResult {
                 entry.amount_left = 0.into();
                 entry.remaining_claimed = true;
                 Ok(())
@@ -343,6 +348,13 @@ decl_event!(
         DividendRemainingClaimed(Ticker, u32, Balance),
     }
 );
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// Claiming unclaimed payouts requires an end date
+        NotEnded,
+    }
+}
 
 impl<T: Trait> Module<T> {
     /// A helper method for dividend creation. Returns dividend ID
@@ -383,28 +395,23 @@ mod tests {
     use super::*;
     use chrono::{prelude::*, Duration};
     use core::result::Result as StdResult;
+    use frame_support::traits::Currency;
+    use frame_support::{assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types};
     use lazy_static::lazy_static;
     use primitives::IdentityId;
-    use sr_io::with_externalities;
-    use sr_primitives::traits::Verify;
-    use sr_primitives::{
+    use sp_core::{crypto::key_types, H256};
+    use sp_runtime::{
         testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-        AnySignature, Perbill,
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        AnySignature, KeyTypeId, Perbill,
     };
-    use srml_support::traits::Currency;
-    use srml_support::{
-        assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
-    };
+    use test_client::{self, AccountKeyring};
+
     use std::{
         collections::HashMap,
         sync::{Arc, Mutex},
     };
-    use substrate_primitives::{Blake2Hasher, H256};
     use system::EnsureSignedBy;
-    use test_client::{self, AccountKeyring};
 
     use crate::asset::{AssetType, SecurityToken, TickerRegistrationConfig};
     use crate::{
@@ -419,14 +426,15 @@ mod tests {
     type AccountId = <AnySignature as Verify>::Signer;
 
     pub struct TestOnSessionEnding;
-    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+    impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
             None
         }
     }
 
     pub struct TestSessionHandler;
-    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+    impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+        const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -437,6 +445,8 @@ mod tests {
         fn on_disabled(_validator_index: usize) {}
 
         fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+
+        fn on_before_session_ending() {}
     }
 
     impl_outer_origin! {
@@ -454,23 +464,24 @@ mod tests {
         pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     }
-    impl system::Trait for Test {
+
+    impl frame_system::Trait for Test {
         type Origin = Origin;
-        type Call = ();
         type Index = u64;
         type BlockNumber = u64;
+        type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = AccountId;
-        type Lookup = IdentityLookup<AccountId>;
-        type WeightMultiplierUpdate = ();
+        type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
-        type AvailableBlockRatio = AvailableBlockRatio;
         type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -487,10 +498,10 @@ mod tests {
         pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
     }
 
-    impl session::Trait for Test {
+    impl pallet_session::Trait for Test {
         type OnSessionEnding = TestOnSessionEnding;
         type Keys = UintAuthorityId;
-        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
         type SessionHandler = TestSessionHandler;
         type Event = ();
         type ValidatorId = AuthorityId;
@@ -499,7 +510,7 @@ mod tests {
         type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     }
 
-    impl session::historical::Trait for Test {
+    impl pallet_session::historical::Trait for Test {
         type FullIdentification = ();
         type FullIdentificationOf = ();
     }
@@ -509,16 +520,12 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
         type DustRemoval = ();
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Test>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     parameter_types! {
@@ -553,12 +560,11 @@ mod tests {
         pub dummy: u8,
     }
 
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+    impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
-        type Error = DispatchError;
 
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
     }
@@ -587,15 +593,18 @@ mod tests {
         pub const MinimumPeriod: u64 = 3;
     }
 
-    impl timestamp::Trait for Test {
+    impl pallet_timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
     }
 
     impl utils::Trait for Test {
+        type Public = AccountId;
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(
+            v: <Self as pallet_session::Trait>::ValidatorId,
+        ) -> Self::AccountId {
             v
         }
     }
@@ -617,7 +626,7 @@ mod tests {
             _ticker: &Ticker,
             _sender_did: IdentityId,
             _tokens_purchased: <Test as balances::Trait>::Balance,
-        ) -> Result {
+        ) -> DispatchResult {
             unimplemented!();
         }
 
@@ -663,8 +672,8 @@ mod tests {
     type Identity = identity::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by_1() -> sr_io::TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
+    fn identity_owned_by_1() -> sp_io::TestExternalities {
+        let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         identity::GenesisConfig::<Test> {
@@ -684,22 +693,22 @@ mod tests {
         }
         .assimilate_storage(&mut t)
         .unwrap();
-        sr_io::TestExternalities::new(t)
+        sp_io::TestExternalities::new(t)
     }
 
     fn make_account(
         account_id: &AccountId,
-    ) -> StdResult<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
-        Identity::register_did(signed_id.clone(), vec![])?;
+        Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
     #[test]
     fn correct_dividend_must_work() {
-        with_externalities(&mut identity_owned_by_1(), || {
+        identity_owned_by_1().execute_with(|| {
             let token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 
@@ -753,7 +762,7 @@ mod tests {
             let amount_invested = 50_000;
 
             let now = Utc::now();
-            <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             // We need a lock to exist till assertions are done
             let outer = TOKEN_MAP_OUTER_LOCK.lock().unwrap();

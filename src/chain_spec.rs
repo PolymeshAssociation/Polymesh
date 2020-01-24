@@ -1,13 +1,11 @@
 pub use polymesh_runtime;
 
-use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use polymesh_primitives::AccountId;
+use polymesh_primitives::{AccountId, Signature};
 use polymesh_runtime::asset::TickerRegistrationConfig;
 use polymesh_runtime::committee::ProportionMatch;
 use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
-use polymesh_runtime::staking::Forcing;
 use polymesh_runtime::{
     config::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
@@ -18,12 +16,17 @@ use polymesh_runtime::{
     runtime::PolymeshCommitteeConfig,
     Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
-use primitives::{Pair, Public};
+use sc_service::Properties;
 use serde_json::json;
-use substrate_service::Properties;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_babe::AuthorityId as BabeId;
+use sp_core::{sr25519, Pair, Public};
+use sp_runtime::traits::{IdentifyAccount, Verify};
+
+type AccountPublic = <Signature as Verify>::Signer;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
+pub type ChainSpec = sc_service::ChainSpec<GenesisConfig>;
 
 /// The chain specification option. This is expected to come in from the CLI and
 /// is little more than one of a number of alternatives which can easily be converted
@@ -45,16 +48,32 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
         .public()
 }
 
+/// Helper function to generate an account ID from seed
+pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+where
+    AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+{
+    AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+}
+
 /// Helper function to generate stash, controller and session key from seed
 pub fn get_authority_keys_from_seed(
     seed: &str,
-) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId) {
+) -> (
+    AccountId,
+    AccountId,
+    GrandpaId,
+    BabeId,
+    ImOnlineId,
+    AuthorityDiscoveryId,
+) {
     (
-        get_from_seed::<AccountId>(&format!("{}//stash", seed)),
-        get_from_seed::<AccountId>(seed),
+        get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+        get_account_id_from_seed::<sr25519::Public>(seed),
         get_from_seed::<GrandpaId>(seed),
         get_from_seed::<BabeId>(seed),
         get_from_seed::<ImOnlineId>(seed),
+        get_from_seed::<AuthorityDiscoveryId>(seed),
     )
 }
 
@@ -68,12 +87,12 @@ impl Alternative {
                 || {
                     testnet_genesis(
                         vec![get_authority_keys_from_seed("Alice")],
-                        get_from_seed::<AccountId>("Alice"),
+                        get_from_seed::<sr25519::Public>("Alice"),
                         vec![
-                            get_from_seed::<AccountId>("Alice"),
-                            get_from_seed::<AccountId>("Bob"),
-                            get_from_seed::<AccountId>("Alice//stash"),
-                            get_from_seed::<AccountId>("Bob//stash"),
+                            get_from_seed::<sr25519::Public>("Alice"),
+                            get_from_seed::<sr25519::Public>("Bob"),
+                            get_from_seed::<sr25519::Public>("Alice//stash"),
+                            get_from_seed::<sr25519::Public>("Bob//stash"),
                         ],
                         true,
                     )
@@ -81,8 +100,8 @@ impl Alternative {
                 vec![],
                 None,
                 None,
-                None,
                 Some(polymath_props()),
+                None,
             ),
             Alternative::LocalTestnet => ChainSpec::from_genesis(
                 "Local Testnet",
@@ -95,20 +114,20 @@ impl Alternative {
                             get_authority_keys_from_seed("Charlie"),
                             get_authority_keys_from_seed("Dave"),
                         ],
-                        get_from_seed::<AccountId>("Alice"),
+                        get_account_id_from_seed::<sr25519::Public>("Alice"),
                         vec![
-                            get_from_seed::<AccountId>("Alice"),
-                            get_from_seed::<AccountId>("Bob"),
-                            get_from_seed::<AccountId>("Charlie"),
-                            get_from_seed::<AccountId>("Dave"),
-                            get_from_seed::<AccountId>("Eve"),
-                            get_from_seed::<AccountId>("Ferdie"),
-                            get_from_seed::<AccountId>("Alice//stash"),
-                            get_from_seed::<AccountId>("Bob//stash"),
-                            get_from_seed::<AccountId>("Charlie//stash"),
-                            get_from_seed::<AccountId>("Dave//stash"),
-                            get_from_seed::<AccountId>("Eve//stash"),
-                            get_from_seed::<AccountId>("Ferdie//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Alice"),
+                            get_account_id_from_seed::<sr25519::Public>("Bob"),
+                            get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                            get_account_id_from_seed::<sr25519::Public>("Dave"),
+                            get_account_id_from_seed::<sr25519::Public>("Eve"),
+                            get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                         ],
                         true,
                     )
@@ -116,8 +135,8 @@ impl Alternative {
                 vec![],
                 None,
                 None,
-                None,
                 Some(polymath_props()),
+                None,
             ),
             Alternative::StatsTestnet => ChainSpec::from_genesis(
                 "Stats Testnet",
@@ -129,20 +148,20 @@ impl Alternative {
                             get_authority_keys_from_seed("Bob"),
                             get_authority_keys_from_seed("Charlie"),
                         ],
-                        get_from_seed::<AccountId>("Alice"),
+                        get_account_id_from_seed::<sr25519::Public>("Alice"),
                         vec![
-                            get_from_seed::<AccountId>("Alice"),
-                            get_from_seed::<AccountId>("Bob"),
-                            get_from_seed::<AccountId>("Charlie"),
-                            get_from_seed::<AccountId>("Dave"),
-                            get_from_seed::<AccountId>("Eve"),
-                            get_from_seed::<AccountId>("Ferdie"),
-                            get_from_seed::<AccountId>("Alice//stash"),
-                            get_from_seed::<AccountId>("Bob//stash"),
-                            get_from_seed::<AccountId>("Charlie//stash"),
-                            get_from_seed::<AccountId>("Dave//stash"),
-                            get_from_seed::<AccountId>("Eve//stash"),
-                            get_from_seed::<AccountId>("Ferdie//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Alice"),
+                            get_account_id_from_seed::<sr25519::Public>("Bob"),
+                            get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                            get_account_id_from_seed::<sr25519::Public>("Dave"),
+                            get_account_id_from_seed::<sr25519::Public>("Eve"),
+                            get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                         ],
                         true,
                     )
@@ -150,8 +169,8 @@ impl Alternative {
                 vec![],
                 None,
                 None,
-                None,
                 Some(polymath_props()),
+                None,
             ),
         })
     }
@@ -173,16 +192,29 @@ fn polymath_props() -> Properties {
         .clone()
 }
 
-fn session_keys(grandpa: GrandpaId, babe: BabeId, im_online: ImOnlineId) -> SessionKeys {
+fn session_keys(
+    grandpa: GrandpaId,
+    babe: BabeId,
+    im_online: ImOnlineId,
+    authority_discovery: AuthorityDiscoveryId,
+) -> SessionKeys {
     SessionKeys {
         babe,
         grandpa,
         im_online,
+        authority_discovery,
     }
 }
 
 fn testnet_genesis(
-    initial_authorities: Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId)>,
+    initial_authorities: Vec<(
+        AccountId,
+        AccountId,
+        GrandpaId,
+        BabeId,
+        ImOnlineId,
+        AuthorityDiscoveryId,
+    )>,
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
@@ -190,7 +222,7 @@ fn testnet_genesis(
     const STASH: u128 = 100 * POLY;
     let _desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
     GenesisConfig {
-        system: Some(SystemConfig {
+        frame_system: Some(SystemConfig {
             code: WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
@@ -216,22 +248,22 @@ fn testnet_genesis(
                 .collect(),
             vesting: vec![],
         }),
-        indices: Some(IndicesConfig {
+        pallet_indices: Some(IndicesConfig {
             ids: endowed_accounts.clone(),
         }),
-        sudo: Some(SudoConfig { key: root_key }),
-        session: Some(SessionConfig {
+        pallet_sudo: Some(SudoConfig { key: root_key }),
+        pallet_session: Some(SessionConfig {
             keys: initial_authorities
                 .iter()
                 .map(|x| {
                     (
                         x.0.clone(),
-                        session_keys(x.2.clone(), x.3.clone(), x.4.clone()),
+                        session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
                     )
                 })
                 .collect::<Vec<_>>(),
         }),
-        staking: Some(StakingConfig {
+        pallet_staking: Some(StakingConfig {
             current_era: 0,
             minimum_validator_count: 1,
             validator_count: 2,
@@ -240,7 +272,6 @@ fn testnet_genesis(
                 .map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-            force_era: Forcing::NotForcing,
             slash_reward_fraction: Perbill::from_percent(10),
             ..Default::default()
         }),
@@ -249,11 +280,11 @@ fn testnet_genesis(
             quorum_threshold: 100000,
             proposal_duration: 50,
         }),
-        im_online: Some(Default::default()),
-        authority_discovery: Some(Default::default()),
-        babe: Some(Default::default()),
-        grandpa: Some(Default::default()),
-        contracts: Some(ContractsConfig {
+        pallet_im_online: Some(Default::default()),
+        pallet_authority_discovery: Some(Default::default()),
+        pallet_babe: Some(Default::default()),
+        pallet_grandpa: Some(Default::default()),
+        pallet_contracts: Some(ContractsConfig {
             current_schedule: contracts::Schedule {
                 enable_println, // this should only be enabled on development chains
                 ..Default::default()

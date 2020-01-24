@@ -35,17 +35,17 @@ use crate::{balances, identity, utils};
 use primitives::{IdentityId, Key, Signer, Ticker};
 
 use codec::Encode;
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 
 use crate::constants::currency::MAX_SUPPLY;
-use sr_primitives::traits::{CheckedAdd, CheckedSub};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
-use system::ensure_signed;
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::{self as system, ensure_signed};
+use sp_runtime::traits::{CheckedAdd, CheckedSub};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trait {
+pub trait Trait: frame_system::Trait + balances::Trait + utils::Trait + identity::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 /// Struct to store the details of each simple token
@@ -59,13 +59,13 @@ pub struct SimpleTokenRecord<U> {
 decl_storage! {
     trait Store for Module<T: Trait> as SimpleToken {
         /// Mapping from (ticker, owner DID, spender DID) to allowance amount
-        Allowance get(allowance): map (Ticker, IdentityId, IdentityId) => T::Balance;
+        Allowance get(fn allowance): map (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Mapping from (ticker, owner DID) to their balance
-        pub BalanceOf get(balance_of): map (Ticker, IdentityId) => T::Balance;
+        pub BalanceOf get(fn balance_of): map (Ticker, IdentityId) => T::Balance;
         /// The cost to create a new simple token
-        CreationFee get(creation_fee) config(): T::Balance;
+        CreationFee get(fn creation_fee) config(): T::Balance;
         /// The details associated with each simple token
-        Tokens get(tokens): map Ticker => SimpleTokenRecord<T::Balance>;
+        Tokens get(fn tokens): map Ticker => SimpleTokenRecord<T::Balance>;
     }
 }
 
@@ -75,7 +75,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Create a new token and mint a balance to the issuing identity
-        pub fn create_token(origin, did: IdentityId, ticker: Ticker, total_supply: T::Balance) -> Result {
+        pub fn create_token(origin, did: IdentityId, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -101,7 +101,7 @@ decl_module! {
             // Let the owner distribute the whole supply of the token
             <BalanceOf<T>>::insert((ticker, did.clone()), total_supply);
 
-            sr_primitives::print("Initialized a new token");
+            sp_runtime::print("Initialized a new token");
 
             Self::deposit_event(RawEvent::TokenCreated(ticker, did, total_supply));
 
@@ -109,7 +109,7 @@ decl_module! {
         }
 
         /// Approve another identity to transfer tokens on behalf of the caller
-        fn approve(origin, did: IdentityId, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> Result {
+        fn approve(origin, did: IdentityId, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
             ticker.canonize();
             let ticker_did = (ticker, did.clone());
@@ -129,7 +129,7 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity
-        pub fn transfer(origin, did: IdentityId, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> Result {
+        pub fn transfer(origin, did: IdentityId, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
             ticker.canonize();
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
@@ -140,7 +140,7 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity using the approval mechanic
-        fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> Result {
+        fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
             let spender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
@@ -181,7 +181,12 @@ decl_event!(
 
 pub trait SimpleTokenTrait<V> {
     /// Tranfers tokens between two identities
-    fn transfer(sender_did: IdentityId, ticker: &Ticker, to_did: IdentityId, amount: V) -> Result;
+    fn transfer(
+        sender_did: IdentityId,
+        ticker: &Ticker,
+        to_did: IdentityId,
+        amount: V,
+    ) -> DispatchResult;
     /// Returns the balance associated with an identity and ticker
     fn balance_of(ticker: Ticker, owner_did: IdentityId) -> V;
 }
@@ -193,7 +198,7 @@ impl<T: Trait> SimpleTokenTrait<T::Balance> for Module<T> {
         ticker: &Ticker,
         to_did: IdentityId,
         amount: T::Balance,
-    ) -> Result {
+    ) -> DispatchResult {
         Self::_transfer(ticker, sender_did, to_did, amount)
     }
     /// Returns the balance associated with an identity and ticker
@@ -208,7 +213,7 @@ impl<T: Trait> Module<T> {
         from_did: IdentityId,
         to_did: IdentityId,
         amount: T::Balance,
-    ) -> Result {
+    ) -> DispatchResult {
         let ticker_from_did = (*ticker, from_did.clone());
         ensure!(
             <BalanceOf<T>>::exists(&ticker_from_did),
@@ -241,13 +246,13 @@ mod tests {
      *    use super::*;
      *
      *    use substrate_primitives::{Blake2Hasher, H256};
-     *    use sr_io::with_externalities;
-     *    use sr_primitives::{
+     *    use sp_io::with_externalities;
+     *    use sp_runtime::{
      *        testing::{Digest, DigestItem, Header},
      *        traits::{BlakeTwo256, IdentityLookup},
      *        BuildStorage,
      *    };
-     *    use srml_support::{assert_ok, impl_outer_origin};
+     *    use frame_support::{assert_ok, impl_outer_origin};
      *
      *    impl_outer_origin! {
      *        pub enum Origin for Test {}
@@ -258,7 +263,7 @@ mod tests {
      *    // configuration traits of modules we want to use.
      *    #[derive(Clone, Eq, PartialEq)]
      *    pub struct Test;
-     *    impl system::Trait for Test {
+     *    impl frame_system::Trait for Test {
      *        type Origin = Origin;
      *        type Index = u64;
      *        type BlockNumber = u64;
@@ -278,8 +283,8 @@ mod tests {
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
-     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::default()
+     *    fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
+     *        frame_system::GenesisConfig::default()
      *            .build_storage()
      *            .unwrap()
      *            .0

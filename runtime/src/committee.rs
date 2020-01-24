@@ -21,20 +21,21 @@
 //!
 use crate::identity;
 use primitives::{IdentityId, Key, Signer};
-use rstd::{convert::TryFrom, prelude::*};
-use sr_primitives::traits::{EnsureOrigin, Hash};
-use sr_primitives::weights::SimpleDispatchInfo;
+use sp_runtime::traits::{EnsureOrigin, Hash};
 #[cfg(feature = "std")]
-use sr_primitives::{Deserialize, Serialize};
-use srml_support::{
+use sp_runtime::{Deserialize, Serialize};
+use sp_std::{convert::TryFrom, prelude::*};
+
+use frame_support::{
     codec::{Decode, Encode},
-    decl_event, decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{Dispatchable, Parameter},
     ensure,
     traits::{ChangeMembers, InitializeMembers},
+    weights::SimpleDispatchInfo,
 };
-use substrate_primitives::u32_trait::Value as U32;
-use system::{self, ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed};
+use sp_core::u32_trait::Value as U32;
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
@@ -42,7 +43,7 @@ pub type ProposalIndex = u32;
 /// The number of committee members
 pub type MemberCount = u32;
 
-pub trait Trait<I = DefaultInstance>: system::Trait + identity::Trait {
+pub trait Trait<I = DefaultInstance>: frame_system::Trait + identity::Trait {
     /// The outer origin type.
     type Origin: From<RawOrigin<Self::AccountId, I>>;
 
@@ -50,10 +51,10 @@ pub trait Trait<I = DefaultInstance>: system::Trait + identity::Trait {
     type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin>;
 
     /// Required origin for changing behaviour of this module.
-    type CommitteeOrigin: EnsureOrigin<<Self as system::Trait>::Origin>;
+    type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
     /// The outer event type.
-    type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Debug)]
@@ -75,7 +76,7 @@ pub enum RawOrigin<AccountId, I> {
     /// It has been condoned by M of N members of this committee.
     Members(MemberCount, MemberCount),
     /// Dummy to manage the fact we have instancing.
-    _Phantom(rstd::marker::PhantomData<(AccountId, I)>),
+    _Phantom(sp_std::marker::PhantomData<(AccountId, I)>),
 }
 
 /// Origin for the committee module.
@@ -95,26 +96,26 @@ pub struct Votes<IdentityId> {
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Committee {
         /// The hashes of the active proposals.
-        pub Proposals get(proposals): Vec<T::Hash>;
+        pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
-        pub ProposalOf get(proposal_of): map T::Hash => Option<<T as Trait<I>>::Proposal>;
+        pub ProposalOf get(fn proposal_of): map T::Hash => Option<<T as Trait<I>>::Proposal>;
         /// Votes on a given proposal, if it is ongoing.
-        pub Voting get(voting): map T::Hash => Option<Votes<IdentityId>>;
+        pub Voting get(fn voting): map T::Hash => Option<Votes<IdentityId>>;
         /// Proposals so far.
-        pub ProposalCount get(proposal_count): u32;
+        pub ProposalCount get(fn proposal_count): u32;
         /// The current members of the committee.
-        pub Members get(members) config(): Vec<IdentityId>;
+        pub Members get(fn members) config(): Vec<IdentityId>;
         /// Vote threshold for an approval.
-        pub VoteThreshold get(vote_threshold) config(): (ProportionMatch, u32, u32);
+        pub VoteThreshold get(fn vote_threshold) config(): (ProportionMatch, u32, u32);
     }
     add_extra_genesis {
-        config(phantom): rstd::marker::PhantomData<(T, I)>;
+        config(phantom): sp_std::marker::PhantomData<(T, I)>;
     }
 }
 
 decl_event!(
 	pub enum Event<T, I=DefaultInstance> where
-		<T as system::Trait>::Hash,
+		<T as frame_system::Trait>::Hash,
 	{
 		/// A motion (given hash) has been proposed (by given account) with a threshold (given
 		/// `MemberCount`).
@@ -133,8 +134,18 @@ decl_event!(
 	}
 );
 
+decl_error!(
+    pub enum Error for Module<T: Trait<I>, I: Instance> {
+        /// Duplicate vote ignored
+        DuplicateVote,
+    }
+);
+
 decl_module! {
-    pub struct Module<T: Trait<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as system::Trait>::Origin {
+    pub struct Module<T: Trait<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as frame_system::Trait>::Origin {
+
+        type Error = Error<T, I>;
+
         fn deposit_event() = default;
 
         /// Change the vote threshold the determines the winning proposal. For e.g., for a simple
@@ -230,7 +241,7 @@ decl_module! {
                 if position_yes.is_none() {
                     voting.ayes.push(did.clone());
                 } else {
-                    return Err("duplicate vote ignored")
+                    return Err(Error::<T, I>::DuplicateVote.into())
                 }
                 if let Some(pos) = position_no {
                     voting.nays.swap_remove(pos);
@@ -239,7 +250,7 @@ decl_module! {
                 if position_no.is_none() {
                     voting.nays.push(did.clone());
                 } else {
-                    return Err("duplicate vote ignored")
+                    return Err(Error::<T, I>::DuplicateVote.into())
                 }
                 if let Some(pos) = position_yes {
                     voting.ayes.swap_remove(pos);
@@ -330,7 +341,7 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
                 }
             });
         }
-        <Members<I>>::put_ref(new);
+        <Members<I>>::put(new);
     }
 }
 
@@ -341,13 +352,13 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
                 <Members<I>>::get().is_empty(),
                 "Members are already initialized!"
             );
-            <Members<I>>::put_ref(members);
+            <Members<I>>::put(members);
         }
     }
 }
 
 pub struct EnsureProportionMoreThan<N: U32, D: U32, AccountId, I = DefaultInstance>(
-    rstd::marker::PhantomData<(N, D, AccountId, I)>,
+    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
 );
 impl<
         O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
@@ -367,7 +378,7 @@ impl<
 }
 
 pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
-    rstd::marker::PhantomData<(N, D, AccountId, I)>,
+    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
 );
 impl<
         O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
@@ -391,21 +402,18 @@ mod tests {
     use super::*;
     use crate::{balances, committee, group, identity};
     use core::result::Result as StdResult;
+    use frame_support::{
+        assert_noop, assert_ok, dispatch::DispatchResult, parameter_types, Hashable,
+    };
+    use frame_system::EnsureSignedBy;
+    use frame_system::{self as system};
     use primitives::IdentityId;
-    use sr_io::with_externalities;
-    use sr_primitives::{
+    use sp_core::H256;
+    use sp_runtime::{
         testing::Header,
-        traits::{BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Verify},
+        traits::{BlakeTwo256, Block as BlockT, IdentityLookup, Verify},
         AnySignature, BuildStorage, Perbill,
     };
-    use srml_support::{
-        assert_noop, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        parameter_types, Hashable,
-    };
-    use substrate_primitives::{Blake2Hasher, H256};
-    use system::EnsureSignedBy;
-    use system::{self};
     use test_client::{self, AccountKeyring};
 
     parameter_types! {
@@ -414,7 +422,8 @@ mod tests {
         pub const MaximumBlockLength: u32 = 2 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::one();
     }
-    impl system::Trait for Test {
+
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
@@ -425,12 +434,12 @@ mod tests {
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
-        type WeightMultiplierUpdate = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -446,23 +455,19 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
         type DustRemoval = ();
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Test>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     parameter_types! {
         pub const MinimumPeriod: u64 = 3;
     }
 
-    impl timestamp::Trait for Test {
+    impl pallet_timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
@@ -472,12 +477,11 @@ mod tests {
         pub dummy: u8,
     }
 
-    impl sr_primitives::traits::Dispatchable for TestProposal {
+    impl sp_runtime::traits::Dispatchable for TestProposal {
         type Origin = Origin;
         type Trait = Test;
-        type Error = DispatchError;
 
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
     }
@@ -507,10 +511,10 @@ mod tests {
     }
 
     impl crate::asset::AcceptTransfer for Test {
-        fn accept_ticker_transfer(_: IdentityId, _: u64) -> srml_support::dispatch::Result {
+        fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
             unimplemented!()
         }
-        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }
@@ -536,22 +540,22 @@ mod tests {
         type Event = ();
     }
 
-    pub type Block = sr_primitives::generic::Block<Header, UncheckedExtrinsic>;
-    pub type UncheckedExtrinsic = sr_primitives::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
+    pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
+    pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
 
-    srml_support::construct_runtime!(
+    frame_support::construct_runtime!(
 		pub enum Test where
 			Block = Block,
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic
 		{
-			System: system::{Module, Call, Event},
+			System: frame_system::{Module, Call, Event},
 			Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
 			DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
 		}
 	);
 
-    fn make_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+    fn make_ext() -> sp_io::TestExternalities {
         GenesisConfig {
             committee_Instance1: Some(committee::GenesisConfig {
                 members: vec![
@@ -571,7 +575,7 @@ mod tests {
 
     #[test]
     fn motions_basic_environment_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
             assert_eq!(
                 Committee::members(),
@@ -586,21 +590,21 @@ mod tests {
     }
 
     fn make_proposal(value: u64) -> Call {
-        Call::System(system::Call::remark(value.encode()))
+        Call::System(frame_system::Call::remark(value.encode()))
     }
 
     fn make_account(
         account_id: &AccountId,
-    ) -> StdResult<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
-        Identity::register_did(signed_id.clone(), vec![])?;
+        Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
     #[test]
     fn propose_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -630,7 +634,7 @@ mod tests {
 
     #[test]
     fn preventing_motions_from_non_members_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -646,7 +650,7 @@ mod tests {
 
     #[test]
     fn preventing_voting_from_non_members_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -673,7 +677,7 @@ mod tests {
 
     #[test]
     fn motions_ignoring_bad_index_vote_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(3);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -700,7 +704,7 @@ mod tests {
 
     #[test]
     fn motions_revoting_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -731,7 +735,7 @@ mod tests {
             );
             assert_noop!(
                 Committee::vote(alice_signer.clone(), alice_did, hash.clone(), 0, true),
-                "duplicate vote ignored"
+                Error::<Test, Instance1>::DuplicateVote
             );
             assert_ok!(Committee::vote(
                 alice_signer.clone(),
@@ -750,14 +754,14 @@ mod tests {
             );
             assert_noop!(
                 Committee::vote(alice_signer.clone(), alice_did, hash.clone(), 0, false),
-                "duplicate vote ignored"
+                Error::<Test, Instance1>::DuplicateVote
             );
         });
     }
 
     #[test]
     fn voting_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
@@ -798,7 +802,7 @@ mod tests {
 
     #[test]
     fn changing_vote_threshold_works() {
-        with_externalities(&mut make_ext(), || {
+        make_ext().execute_with(|| {
             assert_eq!(
                 Committee::vote_threshold(),
                 (ProportionMatch::AtLeast, 1, 1)
