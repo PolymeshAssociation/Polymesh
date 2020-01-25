@@ -88,8 +88,7 @@ decl_module! {
             ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
                 "Sigs required out of bounds"
             );
-            let nonce: u64 = Self::ms_nonce();
-            let new_nonce: u64 = nonce + 1u64;
+            let new_nonce = Self::ms_nonce().checked_add(1).ok_or("overflow in calculating nonce")?;
             <MultiSigNonce>::put(new_nonce);
 
             let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", new_nonce, sender.clone()).encode());
@@ -301,6 +300,7 @@ impl<T: Trait> Module<T> {
         );
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal);
+        // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
         Self::deposit_event(RawEvent::ProposalAdded(multisig.clone(), proposal_id));
@@ -315,6 +315,7 @@ impl<T: Trait> Module<T> {
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
             Self::charge_fee(multisig.clone(), proposal.get_dispatch_info().weight)?;
             <Votes<T>>::insert(&multisig_signer_proposal, true);
+            // Since approvals are always only incremented by 1, they can not overflow.
             let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
             <TxApprovals<T>>::insert(&multisig_proposal, approvals);
             let approvals_needed = Self::ms_signs_required(multisig.clone());
@@ -389,8 +390,9 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn get_next_multisig_address(sender: T::AccountId) -> T::AccountId {
-        let nonce: u64 = Self::ms_nonce();
-        let new_nonce: u64 = nonce + 1u64;
+        // Nonce is always only incremented by small numbers and hence can never overflow 64 bits.
+        // Also, this is just a helper function that does not modify state.
+        let new_nonce = Self::ms_nonce() + 1;
         let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", new_nonce, sender.clone()).encode());
         T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
     }
