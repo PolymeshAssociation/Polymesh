@@ -1455,7 +1455,7 @@ mod tests {
         type Event = ();
         type Proposal = Call<Runtime>;
         type AcceptTransferTarget = Runtime;
-        type AddSignerMultisigTarget = Runtime;
+        type AddSignerMultiSigTarget = Runtime;
     }
     impl crate::asset::AcceptTransfer for Runtime {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
@@ -1465,8 +1465,8 @@ mod tests {
             unimplemented!()
         }
     }
-    impl crate::multi_sig::AddSignerMultisig for Runtime {
-        fn accept_multi_sig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
+    impl crate::multisig::AddSignerMultiSig for Runtime {
+        fn accept_multisig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
     }

@@ -30,7 +30,7 @@ pub enum Permission {
 pub enum SignerType {
     External,
     Identity,
-    Multisig,
+    MultiSig,
     Relayer,
     Custom(u8),
 }

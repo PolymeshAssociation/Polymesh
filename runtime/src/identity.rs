@@ -45,7 +45,7 @@ use crate::{
         KYC_EXPIRY_CLAIM_KEY,
     },
     group,
-    multi_sig::AddSignerMultisig,
+    multisig::AddSignerMultiSig,
     BatchDispatchInfo,
 };
 use primitives::{
@@ -176,8 +176,8 @@ pub trait Trait:
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
     /// Asset module
     type AcceptTransferTarget: AcceptTransfer;
-    /// Multisig module
-    type AddSignerMultisigTarget: AddSignerMultisig;
+    /// MultiSig module
+    type AddSignerMultiSigTarget: AddSignerMultiSig;
 }
 
 decl_storage! {
@@ -703,15 +703,15 @@ decl_module! {
                             T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
                         AuthorizationData::TransferTokenOwnership(_) =>
                             T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
-                        AuthorizationData::AddMultisigSigner =>
-                            T::AddSignerMultisigTarget::accept_multi_sig_signer(Signer::from(did), auth_id),
+                        AuthorizationData::AddMultiSigSigner =>
+                            T::AddSignerMultiSigTarget::accept_multisig_signer(Signer::from(did), auth_id),
                         _ => return Err("Unknown authorization")
                     }
                 },
                 Signer::Key(key) => {
                     match auth.authorization_data {
-                        AuthorizationData::AddMultisigSigner =>
-                            T::AddSignerMultisigTarget::accept_multi_sig_signer(Signer::from(key), auth_id),
+                        AuthorizationData::AddMultiSigSigner =>
+                            T::AddSignerMultiSigTarget::accept_multisig_signer(Signer::from(key), auth_id),
                         _ => return Err("Unknown authorization")
                     }
                 }
@@ -748,8 +748,8 @@ decl_module! {
                                     T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
                                 AuthorizationData::TransferTokenOwnership(_) =>
                                     T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
-                                AuthorizationData::AddMultisigSigner =>
-                                    T::AddSignerMultisigTarget::accept_multi_sig_signer(Signer::from(did), auth_id),
+                                AuthorizationData::AddMultiSigSigner =>
+                                    T::AddSignerMultiSigTarget::accept_multisig_signer(Signer::from(did), auth_id),
                                 _ => Err("Unknown authorization")
                             };
                         }
@@ -763,8 +763,8 @@ decl_module! {
                             let auth = Self::authorizations((signer, auth_id));
                             //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
-                                AuthorizationData::AddMultisigSigner =>
-                                    T::AddSignerMultisigTarget::accept_multi_sig_signer(Signer::from(key), auth_id),
+                                AuthorizationData::AddMultiSigSigner =>
+                                    T::AddSignerMultiSigTarget::accept_multisig_signer(Signer::from(key), auth_id),
                                 _ => Err("Unknown authorization")
                             };
                         }

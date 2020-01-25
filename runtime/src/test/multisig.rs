@@ -1,5 +1,5 @@
 use crate::{
-    balances, identity, multi_sig,
+    balances, identity, multisig,
     test::storage::{build_ext, register_keyring_account, Call, TestStorage},
 };
 use codec::Encode;
@@ -10,20 +10,20 @@ use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
-type MultiSig = multi_sig::Module<TestStorage>;
+type MultiSig = multisig::Module<TestStorage>;
 
 type Origin = <TestStorage as system::Trait>::Origin;
 
 #[test]
-fn create_multi_sig() {
+fn create_multisig() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
 
-        let musig_address = MultiSig::get_next_multi_sig_address(AccountKeyring::Alice.public());
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
-        assert_ok!(MultiSig::create_multi_sig(
+        assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signer::from(alice_did), Signer::from(bob_did)],
             1,
@@ -32,12 +32,12 @@ fn create_multi_sig() {
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
 
         assert_err!(
-            MultiSig::create_multi_sig(alice.clone(), vec![], 10,),
+            MultiSig::create_multisig(alice.clone(), vec![], 10,),
             "No signers provided"
         );
 
         assert_err!(
-            MultiSig::create_multi_sig(
+            MultiSig::create_multisig(
                 alice.clone(),
                 vec![Signer::from(alice_did), Signer::from(bob_did)],
                 0,
@@ -46,7 +46,7 @@ fn create_multi_sig() {
         );
 
         assert_err!(
-            MultiSig::create_multi_sig(
+            MultiSig::create_multisig(
                 alice.clone(),
                 vec![Signer::from(alice_did), Signer::from(bob_did)],
                 10,
@@ -57,7 +57,7 @@ fn create_multi_sig() {
 }
 
 #[test]
-fn join_multi_sig() {
+fn join_multisig() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -66,9 +66,9 @@ fn join_multi_sig() {
         let bob_signer =
             Signer::from(Key::try_from(AccountKeyring::Bob.public().encode()).unwrap());
 
-        let musig_address = MultiSig::get_next_multi_sig_address(AccountKeyring::Alice.public());
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
-        assert_ok!(MultiSig::create_multi_sig(
+        assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signer::from(alice_did), bob_signer],
             1,
@@ -84,12 +84,12 @@ fn join_multi_sig() {
             false
         );
 
-        assert_ok!(MultiSig::accept_multi_sig_signer_as_identity(
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             Identity::last_authorization(Signer::from(alice_did))
         ));
 
-        assert_ok!(MultiSig::accept_multi_sig_signer_as_key(
+        assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             Identity::last_authorization(bob_signer)
         ));
@@ -106,7 +106,7 @@ fn join_multi_sig() {
 }
 
 #[test]
-fn change_multi_sig_sigs_required() {
+fn change_multisig_sigs_required() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -115,20 +115,20 @@ fn change_multi_sig_sigs_required() {
         let bob_signer =
             Signer::from(Key::try_from(AccountKeyring::Bob.public().encode()).unwrap());
 
-        let musig_address = MultiSig::get_next_multi_sig_address(AccountKeyring::Alice.public());
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
-        assert_ok!(MultiSig::create_multi_sig(
+        assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signer::from(alice_did), bob_signer],
             2,
         ));
 
-        assert_ok!(MultiSig::accept_multi_sig_signer_as_identity(
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             Identity::last_authorization(Signer::from(alice_did))
         ));
 
-        assert_ok!(MultiSig::accept_multi_sig_signer_as_key(
+        assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             Identity::last_authorization(bob_signer)
         ));
@@ -143,7 +143,7 @@ fn change_multi_sig_sigs_required() {
             true
         );
 
-        let call = Box::new(Call::MultiSig(multi_sig::Call::change_sigs_required(1)));
+        let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(1)));
 
         assert_ok!(MultiSig::create_proposal_as_key(
             bob.clone(),
@@ -164,7 +164,7 @@ fn change_multi_sig_sigs_required() {
 }
 
 #[test]
-fn remove_multi_sig_signer() {
+fn remove_multisig_signer() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -173,20 +173,20 @@ fn remove_multi_sig_signer() {
         let bob_signer =
             Signer::from(Key::try_from(AccountKeyring::Bob.public().encode()).unwrap());
 
-        let musig_address = MultiSig::get_next_multi_sig_address(AccountKeyring::Alice.public());
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
-        assert_ok!(MultiSig::create_multi_sig(
+        assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signer::from(alice_did), bob_signer],
             1,
         ));
 
-        assert_ok!(MultiSig::accept_multi_sig_signer_as_identity(
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             Identity::last_authorization(Signer::from(alice_did))
         ));
 
-        assert_ok!(MultiSig::accept_multi_sig_signer_as_key(
+        assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             Identity::last_authorization(bob_signer)
         ));
@@ -201,7 +201,7 @@ fn remove_multi_sig_signer() {
             true
         );
 
-        let call = Box::new(Call::MultiSig(multi_sig::Call::remove_multi_sig_signer(
+        let call = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer(
             bob_signer,
         )));
 
@@ -224,7 +224,7 @@ fn remove_multi_sig_signer() {
 }
 
 #[test]
-fn add_multi_sig_signer() {
+fn add_multisig_signer() {
     with_externalities(&mut build_ext(), || {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -233,15 +233,15 @@ fn add_multi_sig_signer() {
         let bob_signer =
             Signer::from(Key::try_from(AccountKeyring::Bob.public().encode()).unwrap());
 
-        let musig_address = MultiSig::get_next_multi_sig_address(AccountKeyring::Alice.public());
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
-        assert_ok!(MultiSig::create_multi_sig(
+        assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signer::from(alice_did)],
             1,
         ));
 
-        assert_ok!(MultiSig::accept_multi_sig_signer_as_identity(
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             Identity::last_authorization(Signer::from(alice_did))
         ));
@@ -255,7 +255,7 @@ fn add_multi_sig_signer() {
             false
         );
 
-        let call = Box::new(Call::MultiSig(multi_sig::Call::add_multi_sig_signer(
+        let call = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer(
             bob_signer,
         )));
 
@@ -275,7 +275,7 @@ fn add_multi_sig_signer() {
             false
         );
 
-        assert_ok!(MultiSig::accept_multi_sig_signer_as_key(
+        assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             Identity::last_authorization(bob_signer)
         ));

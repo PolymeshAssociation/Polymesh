@@ -9,7 +9,7 @@ pub enum AuthorizationData {
     /// Authorization to transfer a ticker
     TransferTicker(Ticker),
     /// Add a signer to multisig
-    AddMultisigSigner,
+    AddMultiSigSigner,
     /// Authorization to transfer a token's ownership
     TransferTokenOwnership(Ticker),
     /// Any other authorization

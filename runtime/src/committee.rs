@@ -486,7 +486,7 @@ mod tests {
         type Event = ();
         type Proposal = Call;
         type AcceptTransferTarget = Test;
-        type AddSignerMultisigTarget = Test;
+        type AddSignerMultiSigTarget = Test;
     }
 
     impl crate::asset::AcceptTransfer for Test {
@@ -498,8 +498,8 @@ mod tests {
         }
     }
 
-    impl crate::multi_sig::AddSignerMultisig for Test {
-        fn accept_multi_sig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
+    impl crate::multisig::AddSignerMultiSig for Test {
+        fn accept_multisig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
             unimplemented!()
         }
     }

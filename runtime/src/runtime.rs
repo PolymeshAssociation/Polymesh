@@ -3,7 +3,7 @@ use crate::{
     constants::{currency::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{CurrencyToVoteHandler, ToAuthor, WeightMultiplierUpdateHandler, WeightToFee},
-    mips, multi_sig, percentage_tm, simple_token, staking, sto_capped,
+    mips, multisig, percentage_tm, simple_token, staking, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -410,7 +410,7 @@ impl sudo::Trait for Runtime {
     type Proposal = Call;
 }
 
-impl multi_sig::Trait for Runtime {
+impl multisig::Trait for Runtime {
     type Event = Event;
 }
 
@@ -453,7 +453,7 @@ impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AcceptTransferTarget = Asset;
-    type AddSignerMultisigTarget = Multisig;
+    type AddSignerMultiSigTarget = MultiSig;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -507,7 +507,7 @@ construct_runtime!(
         // RELEASE: remove this for release build.
         Sudo: sudo,
 
-        Multisig: multi_sig::{Module, Call, Storage, Event<T>},
+        MultiSig: multisig::{Module, Call, Storage, Event<T>},
 
         // Contracts
         Contracts: contracts::{Module, Call, Storage, Config<T>, Event<T>},

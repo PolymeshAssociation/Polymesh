@@ -1,4 +1,4 @@
-use crate::{balances, group, identity, multi_sig};
+use crate::{balances, group, identity, multisig};
 use codec::Encode;
 use primitives::{IdentityId, Key, Signer};
 use sr_io::TestExternalities;
@@ -20,7 +20,7 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
-        multi_sig::MultiSig,
+        multisig::MultiSig,
     }
 }
 
@@ -94,7 +94,7 @@ impl timestamp::Trait for TestStorage {
     type MinimumPeriod = MinimumPeriod;
 }
 
-impl multi_sig::Trait for TestStorage {
+impl multisig::Trait for TestStorage {
     type Event = ();
 }
 
@@ -120,11 +120,11 @@ impl identity::Trait for TestStorage {
     type Event = ();
     type Proposal = Call;
     type AcceptTransferTarget = TestStorage;
-    type AddSignerMultisigTarget = TestStorage;
+    type AddSignerMultiSigTarget = TestStorage;
 }
 
-impl crate::multi_sig::AddSignerMultisig for TestStorage {
-    fn accept_multi_sig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
+impl crate::multisig::AddSignerMultiSig for TestStorage {
+    fn accept_multisig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
         unimplemented!()
     }
 }
@@ -141,7 +141,7 @@ impl crate::asset::AcceptTransfer for TestStorage {
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
-pub type MultiSig = multi_sig::Module<TestStorage>;
+pub type MultiSig = multisig::Module<TestStorage>;
 
 /// Create externalities
 pub fn build_ext() -> TestExternalities<Blake2Hasher> {
