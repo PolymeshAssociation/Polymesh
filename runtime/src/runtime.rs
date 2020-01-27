@@ -13,7 +13,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_elections::VoteIndex;
-use primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce, Signature};
+use primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, Moment, Signature};
 use sp_api::impl_runtime_apis;
 use sp_block_builder;
 use sp_core::u32_trait::{_1, _2, _3, _4};
@@ -25,7 +25,7 @@ use sp_runtime::{
 };
 use sp_runtime::{
     traits::{BlakeTwo256, Block as BlockT, NumberFor, OpaqueKeys, StaticLookup, Verify},
-    AnySignature,
+    MultiSignature,
 };
 use sp_std::prelude::*;
 use sp_transaction_pool;
@@ -61,7 +61,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: create_runtime_str!("polymath-polymesh"),
     authoring_version: 1,
     spec_version: 1002,
-    impl_version: 0,
+    impl_version: 1002,
     apis: RUNTIME_API_VERSIONS,
 };
 
@@ -92,7 +92,7 @@ impl frame_system::Trait for Runtime {
     /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = Indices;
     /// The index type for storing how many extrinsics an account has signed.
-    type Index = Nonce;
+    type Index = Index;
     /// The index type for blocks.
     type BlockNumber = BlockNumber;
     /// The type for hashing blocks and tries.
@@ -458,8 +458,8 @@ impl asset::Trait for Runtime {
 }
 
 impl utils::Trait for Runtime {
-    type Public = <AnySignature as Verify>::Signer;
-    type OffChainSignature = AnySignature;
+    type Public = <MultiSignature as Verify>::Signer;
+    type OffChainSignature = MultiSignature;
     fn validator_id_to_account_id(
         v: <Self as pallet_session::Trait>::ValidatorId,
     ) -> Self::AccountId {
@@ -597,7 +597,7 @@ pub type SignedExtra = (
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Nonce, Call>;
+pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = pallet_executive::Executive<
     Runtime,
@@ -692,9 +692,9 @@ impl_runtime_apis! {
         }
     }
 
-    impl sp_session::SessionKeys<Block> for Runtime {
-        fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-            SessionKeys::generate(seed)
+    impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
+        fn account_nonce(account: AccountId) -> Index {
+            System::account_nonce(account)
         }
     }
 
@@ -745,6 +745,12 @@ impl_runtime_apis! {
     > for Runtime {
         fn query_info(uxt: UncheckedExtrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
             TransactionPayment::query_info(uxt, len)
+        }
+    }
+
+    impl sp_session::SessionKeys<Block> for Runtime {
+        fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
+            SessionKeys::generate(seed)
         }
     }
 }

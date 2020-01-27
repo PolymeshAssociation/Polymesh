@@ -101,7 +101,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     }
 
     /// It clears the `Identity::current_did` after transaction.
-    fn post_dispatch(_pre: Self::Pre, _info: DispatchInfo, _len: usize) {
+    fn post_dispatch(_pre: Self::Pre, _info: Self::DispatchInfo, _len: usize) {
         Identity::set_current_did(None);
     }
 }

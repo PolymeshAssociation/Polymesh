@@ -60,7 +60,7 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", default
 sp-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../custom/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../custom/transaction-payment/rpc/runtime-api", default-features = false }
-
+frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
@@ -116,4 +116,5 @@ std = [
 	"pallet-treasury/std",
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
+	"frame-system-rpc-runtime-api/std"
 ]
