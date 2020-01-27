@@ -400,7 +400,7 @@ impl<T: Trait> Module<T> {
         sender: T::AccountId,
         nonce: u64,
     ) -> StdResult<T::AccountId, Error> {
-        let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, sender.clone()).encode());
+        let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, sender).encode());
         T::AccountId::decode(&mut &h.encode()[..])
     }
 }
