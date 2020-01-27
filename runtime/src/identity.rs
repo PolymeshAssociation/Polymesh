@@ -57,12 +57,7 @@ use codec::Encode;
 use core::convert::From;
 use core::convert::TryInto;
 use core::result::Result as StdResult;
-// use sr_io::blake2_256;
-// use sr_primitives::{
-//     traits::{Dispatchable, Hash, Verify},
-//     weights::SimpleDispatchInfo,
-//     AnySignature, DispatchError,
-// };
+
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
