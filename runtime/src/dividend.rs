@@ -416,7 +416,7 @@ mod tests {
     use crate::asset::{AssetType, SecurityToken, TickerRegistrationConfig};
     use crate::{
         balances, exemption, general_tm, group, identity, percentage_tm,
-        simple_token::SimpleTokenRecord,
+        simple_token::SimpleTokenRecord, statistics,
     };
 
     type SessionIndex = u32;
@@ -554,6 +554,8 @@ mod tests {
         type Event = ();
         type Currency = balances::Module<Test>;
     }
+
+    impl statistics::Trait for Test {}
 
     impl identity::Trait for Test {
         type Event = ();

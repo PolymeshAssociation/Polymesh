@@ -1,6 +1,5 @@
 use crate::Ticker;
 use codec::{Decode, Encode};
-use sp_std::prelude::Vec;
 
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]

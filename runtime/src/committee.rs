@@ -406,7 +406,6 @@ mod tests {
         assert_noop, assert_ok, dispatch::DispatchResult, parameter_types, Hashable,
     };
     use frame_system::EnsureSignedBy;
-    use frame_system::{self as system};
     use primitives::IdentityId;
     use sp_core::H256;
     use sp_runtime::{

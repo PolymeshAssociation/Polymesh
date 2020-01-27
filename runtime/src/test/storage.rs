@@ -1,4 +1,7 @@
-use crate::{balances, group, identity, multisig};
+use crate::{
+    asset::{self, TickerRegistrationConfig},
+    balances, exemption, general_tm, group, identity, multisig, percentage_tm, statistics, utils,
+};
 use codec::Encode;
 use frame_support::{
     dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin, parameter_types,
@@ -6,12 +9,16 @@ use frame_support::{
 };
 use frame_system::{self as system, EnsureSignedBy};
 use primitives::{IdentityId, Key, Signer};
-use sp_core::{crypto::Pair as PairTrait, sr25519::Pair, H256};
+use sp_core::{
+    crypto::{key_types, Pair as PairTrait},
+    sr25519::Pair,
+    H256,
+};
 use sp_io::TestExternalities;
 use sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup, Verify},
-    AnySignature, Perbill,
+    testing::{Header, UintAuthorityId},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+    AnySignature, KeyTypeId, Perbill,
 };
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
@@ -32,7 +39,18 @@ impl_outer_dispatch! {
 // configuration traits of modules we want to use.
 #[derive(Clone, Eq, PartialEq)]
 pub struct TestStorage;
+
 type AccountId = <AnySignature as Verify>::Signer;
+type Index = u64;
+type BlockNumber = u64;
+type Hash = H256;
+type Hashing = BlakeTwo256;
+type Lookup = IdentityLookup<AccountId>;
+type OffChainSignature = AnySignature;
+type SessionIndex = u32;
+type AuthorityId = <AnySignature as Verify>::Signer;
+type Event = ();
+type Version = ();
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
@@ -43,20 +61,21 @@ parameter_types! {
 
 impl frame_system::Trait for TestStorage {
     type Origin = Origin;
-    type Index = u64;
-    type BlockNumber = u64;
-    type Call = ();
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
+    type Index = Index;
+    type BlockNumber = BlockNumber;
+    type Hash = Hash;
+    type Hashing = Hashing;
     type AccountId = AccountId;
-    type Lookup = IdentityLookup<Self::AccountId>;
+    type Lookup = Lookup;
     type Header = Header;
-    type Event = ();
+    type Event = Event;
+
+    type Call = ();
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type MaximumBlockLength = MaximumBlockLength;
     type AvailableBlockRatio = AvailableBlockRatio;
-    type Version = ();
+    type Version = Version;
     type ModuleToIndex = ();
 }
 
@@ -72,7 +91,7 @@ impl balances::Trait for TestStorage {
     type Balance = u128;
     type OnFreeBalanceZero = ();
     type OnNewAccount = ();
-    type Event = ();
+    type Event = Event;
     type DustRemoval = ();
     type TransferPayment = ();
     type ExistentialDeposit = ExistentialDeposit;
@@ -114,7 +133,7 @@ impl group::Trait<group::Instance2> for TestStorage {
 }
 
 impl identity::Trait for TestStorage {
-    type Event = ();
+    type Event = Event;
     type Proposal = Call;
     type AcceptTransferTarget = TestStorage;
     type AddSignerMultiSigTarget = TestStorage;
@@ -142,9 +161,82 @@ impl crate::asset::AcceptTransfer for TestStorage {
     }
 }
 
+impl statistics::Trait for TestStorage {}
+
+impl percentage_tm::Trait for TestStorage {
+    type Event = Event;
+}
+
+impl general_tm::Trait for TestStorage {
+    type Event = Event;
+    type Asset = asset::Module<TestStorage>;
+}
+
+impl asset::Trait for TestStorage {
+    type Event = Event;
+    type Currency = balances::Module<TestStorage>;
+}
+
+impl exemption::Trait for TestStorage {
+    type Event = Event;
+    type Asset = asset::Module<TestStorage>;
+}
+
+impl utils::Trait for TestStorage {
+    type Public = AccountId;
+    type OffChainSignature = OffChainSignature;
+    fn validator_id_to_account_id(
+        v: <Self as pallet_session::Trait>::ValidatorId,
+    ) -> Self::AccountId {
+        v
+    }
+}
+
+pub struct TestOnSessionEnding;
+impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+    fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
+        None
+    }
+}
+
+pub struct TestSessionHandler;
+impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+    const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
+
+    fn on_new_session<Ks: OpaqueKeys>(
+        _changed: bool,
+        _validators: &[(AuthorityId, Ks)],
+        _queued_validators: &[(AuthorityId, Ks)],
+    ) {
+    }
+
+    fn on_disabled(_validator_index: usize) {}
+
+    fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+}
+
+parameter_types! {
+    pub const Period: BlockNumber = 1;
+    pub const Offset: BlockNumber = 0;
+    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+}
+
+impl pallet_session::Trait for TestStorage {
+    type OnSessionEnding = TestOnSessionEnding;
+    type Keys = UintAuthorityId;
+    type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+    type SessionHandler = TestSessionHandler;
+    type Event = Event;
+    type ValidatorId = AuthorityId;
+    type ValidatorIdOf = ConvertInto;
+    type SelectInitialValidators = ();
+    type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
+pub type Asset = asset::Module<TestStorage>;
 pub type MultiSig = multisig::Module<TestStorage>;
 
 /// Create externalities
@@ -153,9 +245,23 @@ pub fn build_ext() -> TestExternalities {
         .build_storage::<TestStorage>()
         .unwrap();
 
+    // Identity genesis.
     identity::GenesisConfig::<TestStorage> {
         owner: AccountKeyring::Alice.public().into(),
         did_creation_fee: 250,
+    }
+    .assimilate_storage(&mut storage)
+    .unwrap();
+
+    // Asset genesis.
+    asset::GenesisConfig::<TestStorage> {
+        asset_creation_fee: 0,
+        ticker_registration_fee: 0,
+        ticker_registration_config: TickerRegistrationConfig {
+            max_ticker_length: 8,
+            registration_length: Some(10000),
+        },
+        fee_collector: AccountKeyring::Dave.public().into(),
     }
     .assimilate_storage(&mut storage)
     .unwrap();
@@ -166,7 +272,7 @@ pub fn build_ext() -> TestExternalities {
 pub fn make_account(
     id: AccountId,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
-    make_account_with_balance(id, 1_000)
+    make_account_with_balance(id, 1_000_000)
 }
 
 /// It creates an Account and registers its DID.
@@ -177,7 +283,7 @@ pub fn make_account_with_balance(
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
-    Identity::register_did(signed_id.clone(), vec![]);
+    Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
     let did = Identity::get_identity(&Key::try_from(id.encode())?).unwrap();
 
     Ok((signed_id, did))
@@ -194,7 +300,8 @@ pub fn register_keyring_account_with_balance(
     Balances::make_free_balance_be(&acc.public(), balance);
 
     let acc_pub = acc.public();
-    Identity::register_did(Origin::signed(acc_pub.clone()), vec![]);
+    Identity::register_did(Origin::signed(acc_pub.clone()), vec![])
+        .map_err(|_| "Register DID failed")?;
 
     let acc_key = Key::from(acc_pub.0);
     let did =

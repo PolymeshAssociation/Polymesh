@@ -354,8 +354,10 @@ mod tests {
     use std::result::Result;
     use test_client::{self, AccountKeyring};
 
-    use crate::asset::{AssetType, SecurityToken, TickerRegistrationConfig};
-    use crate::{balances, exemption, general_tm, group, identity, percentage_tm};
+    use crate::{
+        asset::{AssetType, SecurityToken, TickerRegistrationConfig},
+        balances, exemption, general_tm, group, identity, percentage_tm, statistics,
+    };
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -530,6 +532,8 @@ mod tests {
         type Event = ();
         type Currency = balances::Module<Test>;
     }
+
+    impl statistics::Trait for Test {}
 
     impl percentage_tm::Trait for Test {
         type Event = ();

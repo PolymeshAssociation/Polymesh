@@ -30,6 +30,12 @@
             "Group": "Vec<IdentityId>"
         }
     },
+    "LinkData": {
+        "_enum": {
+            "TickerOwned": "Vec<u8>",
+            "TokenOwned": "Vec<u8>"
+        }
+    },
     "Key": "[u8;32]",
     "Permission": {
         "_enum": [
