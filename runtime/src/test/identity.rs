@@ -271,7 +271,7 @@ fn add_signing_keys_with_specific_type_with_externalities() {
     };
     let dave_signing_key = SigningItem {
         signer: Signer::Key(dave_key),
-        signer_type: SignerType::Multisig,
+        signer_type: SignerType::MultiSig,
         permissions: vec![],
     };
 
@@ -465,7 +465,7 @@ fn enforce_uniqueness_keys_in_identity() {
     let dave_key = Key::from(AccountKeyring::Dave.public().0);
     let dave_sk = SigningItem {
         signer: Signer::Key(dave_key),
-        signer_type: SignerType::Multisig,
+        signer_type: SignerType::MultiSig,
         permissions: vec![Permission::Operator],
     };
     assert_ok!(Identity::add_signing_items(
@@ -483,7 +483,7 @@ fn enforce_uniqueness_keys_in_identity() {
     let bob_key = Key::from(AccountKeyring::Bob.public().0);
     let bob_sk_as_mutisig = SigningItem {
         signer: Signer::Key(bob_key),
-        signer_type: SignerType::Multisig,
+        signer_type: SignerType::MultiSig,
         permissions: vec![Permission::Operator],
     };
     assert_err!(
