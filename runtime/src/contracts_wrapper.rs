@@ -17,19 +17,20 @@ use crate::identity;
 use primitives::{IdentityId, Key, Signer};
 
 use codec::Encode;
-use contracts::{CodeHash, Gas, Schedule};
-use rstd::{convert::TryFrom, prelude::*};
-use sr_primitives::traits::StaticLookup;
-use srml_support::traits::Currency;
-use srml_support::{decl_module, decl_storage, dispatch::Result, ensure};
-use system::ensure_signed;
+use frame_support::traits::Currency;
+use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::ensure_signed;
+use pallet_contracts::{CodeHash, Gas, Schedule};
+use sp_runtime::traits::StaticLookup;
+use sp_std::{convert::TryFrom, prelude::*};
 
-// pub type CodeHash<T> = <T as system::Trait>::Hash;
+// pub type CodeHash<T> = <T as frame_system::Trait>::Hash;
 
-pub type BalanceOf<T> =
-    <<T as contracts::Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as pallet_contracts::Trait>::Currency as Currency<
+    <T as frame_system::Trait>::AccountId,
+>>::Balance;
 
-pub trait Trait: contracts::Trait + identity::Trait {}
+pub trait Trait: pallet_contracts::Trait + identity::Trait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
@@ -43,8 +44,8 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
         // Simply forwards to the `update_schedule` function in the Contract module.
-        pub fn update_schedule(origin, schedule: Schedule) -> Result {
-            <contracts::Module<T>>::update_schedule(origin, schedule)
+        pub fn update_schedule(origin, schedule: Schedule) -> DispatchResult {
+            <pallet_contracts::Module<T>>::update_schedule(origin, schedule)
         }
 
         // Simply forwards to the `put_code` function in the Contract module.
@@ -53,7 +54,7 @@ decl_module! {
             did: IdentityId,
             #[compact] gas_limit: Gas,
             code: Vec<u8>
-        ) -> Result {
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key( Key::try_from(sender.encode())?);
 
@@ -61,10 +62,8 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
 
             // Call underlying function
-            let new_origin = system::RawOrigin::Signed(sender).into();
-            let result:Result = <contracts::Module<T>>::put_code(new_origin, gas_limit, code);
-
-            result
+            let new_origin = frame_system::RawOrigin::Signed(sender).into();
+            <pallet_contracts::Module<T>>::put_code(new_origin, gas_limit, code)
         }
 
         // Simply forwards to the `call` function in the Contract module.
@@ -74,8 +73,8 @@ decl_module! {
             #[compact] value: BalanceOf<T>,
             #[compact] gas_limit: Gas,
             data: Vec<u8>
-        ) -> Result {
-            <contracts::Module<T>>::call(origin, dest, value, gas_limit, data)
+        ) -> DispatchResult {
+            <pallet_contracts::Module<T>>::call(origin, dest, value, gas_limit, data)
         }
 
         // Simply forwards to the `instantiate` function in the Contract module.
@@ -85,8 +84,8 @@ decl_module! {
             #[compact] gas_limit: Gas,
             code_hash: CodeHash<T>,
             data: Vec<u8>
-        ) -> Result {
-            <contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
+        ) -> DispatchResult {
+            <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
         }
     }
 }

@@ -1,21 +1,21 @@
 use crate::{
-    asset::{self, SecurityToken},
+    asset::{self, IdentifierType, SecurityToken},
     general_tm, statistics,
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
+use primitives::Ticker;
 
-use sr_io::with_externalities;
-use srml_support::assert_ok;
+use frame_support::assert_ok;
 use test_client::AccountKeyring;
 
-type Origin = <TestStorage as system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
 type Statistic = statistics::Module<TestStorage>;
 type GeneralTM = general_tm::Module<TestStorage>;
 
 #[test]
 fn investor_count_per_asset() {
-    with_externalities(&mut build_ext(), investor_count_per_asset_with_ext);
+    build_ext().execute_with(|| investor_count_per_asset_with_ext);
 }
 
 fn investor_count_per_asset_with_ext() {
@@ -31,15 +31,20 @@ fn investor_count_per_asset_with_ext() {
         owner_did: alice_did,
         total_supply: 1_000_000,
         divisible: true,
+        ..Default::default()
     };
 
+    let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
+    let ticker = Ticker::from_slice(token.name.as_slice());
     assert_ok!(Asset::create_token(
         alice_signed.clone(),
         alice_did,
         token.name.clone(),
-        token.name.clone(),
+        ticker,
         1_000_000, // Total supply over the limit
-        true
+        true,
+        token.asset_type.clone(),
+        identifiers.clone()
     ));
 
     // NOTE: TM needs at least one asset rule.
@@ -47,10 +52,12 @@ fn investor_count_per_asset_with_ext() {
         sender_rules: vec![],
         receiver_rules: vec![],
     };
+
+    let ticker = Ticker::from_slice(token.name.as_slice());
     assert_ok!(GeneralTM::add_active_rule(
         alice_signed.clone(),
         alice_did,
-        token.name.clone(),
+        ticker,
         asset_rule
     ));
 
@@ -58,29 +65,29 @@ fn investor_count_per_asset_with_ext() {
     assert_ok!(Asset::transfer(
         alice_signed.clone(),
         alice_did,
-        token.name.clone(),
+        ticker,
         bob_did,
         500
     ));
-    assert_eq!(Statistic::investor_count_per_asset(&token.name), 1);
+    assert_eq!(Statistic::investor_count_per_asset(&ticker), 1);
 
     // Alice sends some tokens to Charlie. Token has now two investors.
     assert_ok!(Asset::transfer(
         alice_signed,
         alice_did,
-        token.name.clone(),
+        ticker,
         charlie_did,
         5000
     ));
-    assert_eq!(Statistic::investor_count_per_asset(&token.name), 2);
+    assert_eq!(Statistic::investor_count_per_asset(&ticker), 2);
 
     // Bob sends all his tokens to Charlie, so now we have one investor again.
     assert_ok!(Asset::transfer(
         bob_signed,
         bob_did,
-        token.name.clone(),
+        ticker,
         charlie_did,
         500
     ));
-    assert_eq!(Statistic::investor_count_per_asset(&token.name), 1);
+    assert_eq!(Statistic::investor_count_per_asset(&ticker), 1);
 }

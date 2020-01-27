@@ -1,16 +1,17 @@
 use crate::signing_item::Signer;
+use crate::Ticker;
 use codec::{Decode, Encode};
-use rstd::prelude::Vec;
+use frame_support::dispatch::DispatchError;
 
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationData {
     /// Authorization to transfer a ticker
-    TransferTicker(Vec<u8>),
+    TransferTicker(Ticker),
     /// Authorization to transfer a token's ownership
-    TransferTokenOwnership(Vec<u8>),
+    TransferTokenOwnership(Ticker),
     /// Any other authorization
-    Custom(Vec<u8>),
+    Custom(Ticker),
     /// No authorization data
     NoData,
 }
@@ -33,15 +34,27 @@ pub enum AuthorizationError {
     Expired,
 }
 
-impl From<AuthorizationError> for &'static str {
-    fn from(error: AuthorizationError) -> &'static str {
+impl From<AuthorizationError> for DispatchError {
+    fn from(error: AuthorizationError) -> DispatchError {
         match error {
-            AuthorizationError::Invalid => "Authorization does not exist",
-            AuthorizationError::Unauthorized => "Illegal use of Authorization",
-            AuthorizationError::Expired => "Authorization expired",
+            AuthorizationError::Invalid => DispatchError::Other("Authorization does not exist"),
+            AuthorizationError::Unauthorized => {
+                DispatchError::Other("Illegal use of Authorization")
+            }
+            AuthorizationError::Expired => DispatchError::Other("Authorization expired"),
         }
     }
 }
+
+// impl From<AuthorizationError> for &'static str {
+//     fn from(error: AuthorizationError) -> &'static str {
+//         match error {
+//             AuthorizationError::Invalid => "Authorization does not exist",
+//             AuthorizationError::Unauthorized => "Illegal use of Authorization",
+//             AuthorizationError::Expired => "Authorization expired",
+//         }
+//     }
+// }
 
 /// Authorization struct
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]

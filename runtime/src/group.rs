@@ -20,18 +20,19 @@
 //! - `swap_member` - Replace one identity with the other.
 //! - `reset_members` - Re-initialize group members.
 //!
-use primitives::IdentityId;
-use rstd::prelude::*;
-use sr_primitives::{traits::EnsureOrigin, weights::SimpleDispatchInfo};
-use srml_support::{
+use frame_support::{
     decl_event, decl_module, decl_storage,
     traits::{ChangeMembers, InitializeMembers},
+    weights::SimpleDispatchInfo,
 };
-use system::ensure_root;
+use frame_system::{self as system, ensure_root};
+use primitives::IdentityId;
+use sp_runtime::traits::EnsureOrigin;
+use sp_std::prelude::*;
 
-pub trait Trait<I = DefaultInstance>: system::Trait {
+pub trait Trait<I = DefaultInstance>: frame_system::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Required origin for adding a member (though can always be Root).
     type AddOrigin: EnsureOrigin<Self::Origin>;
@@ -57,10 +58,10 @@ pub trait Trait<I = DefaultInstance>: system::Trait {
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
         /// Identities that are part of this group
-        pub Members get(members) config(): Vec<IdentityId>;
+        pub Members get(fn members) config(): Vec<IdentityId>;
     }
     add_extra_genesis {
-        config(phantom): rstd::marker::PhantomData<(T, I)>;
+        config(phantom): sp_std::marker::PhantomData<(T, I)>;
         build(|config: &Self| {
             let mut members = config.members.clone();
             members.sort();
@@ -72,7 +73,7 @@ decl_storage! {
 
 decl_event!(
 	pub enum Event<T, I=DefaultInstance> where
-		<T as system::Trait>::AccountId,
+		<T as frame_system::Trait>::AccountId,
 		<T as Trait<I>>::Event,
 	{
 		/// The given member was added; see the transaction for who.
@@ -84,7 +85,7 @@ decl_event!(
 		/// The membership was reset; see the transaction for who the new set is.
 		MembersReset(Vec<IdentityId>),
 		/// Phantom member, never used.
-		Dummy(rstd::marker::PhantomData<(AccountId, Event)>),
+		Dummy(sp_std::marker::PhantomData<(AccountId, Event)>),
 	}
 );
 
@@ -202,17 +203,16 @@ decl_module! {
 mod tests {
     use super::*;
 
-    use rstd::cell::RefCell;
-    use sr_io::with_externalities;
-    use srml_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
-    use substrate_primitives::{Blake2Hasher, H256};
+    use frame_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use sp_core::H256;
+    use sp_std::cell::RefCell;
 
-    use sr_primitives::{
+    use frame_system::{self as system, EnsureSignedBy};
+    use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
-    use system::EnsureSignedBy;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -226,23 +226,24 @@ mod tests {
         pub const MaximumBlockLength: u32 = 2 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::one();
     }
-    impl system::Trait for Test {
+
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
-        type Hash = H256;
         type Call = ();
+        type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = u64;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
-        type WeightMultiplierUpdate = ();
         type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
     parameter_types! {
         pub const One: u64 = 1;
@@ -294,7 +295,7 @@ mod tests {
 
     // This function basically just builds a genesis storage key/value store according to
     // our desired mockup.
-    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+    fn new_test_ext() -> sp_io::TestExternalities {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -315,7 +316,7 @@ mod tests {
 
     #[test]
     fn query_membership_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_eq!(
                 Group::members(),
                 vec![
@@ -337,7 +338,7 @@ mod tests {
 
     #[test]
     fn add_member_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::add_member(Origin::signed(5), IdentityId::from(3)),
                 "bad origin"
@@ -362,7 +363,7 @@ mod tests {
 
     #[test]
     fn remove_member_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::remove_member(Origin::signed(5), IdentityId::from(3)),
                 "bad origin"
@@ -382,7 +383,7 @@ mod tests {
 
     #[test]
     fn swap_member_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::swap_member(Origin::signed(5), IdentityId::from(1), IdentityId::from(5)),
                 "bad origin"
@@ -427,7 +428,7 @@ mod tests {
 
     #[test]
     fn reset_members_works() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::reset_members(
                     Origin::signed(1),

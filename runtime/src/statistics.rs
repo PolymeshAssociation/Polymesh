@@ -1,16 +1,15 @@
 use crate::balances;
+use primitives::Ticker;
 
-use rstd::vec::Vec;
-use srml_support::{decl_module, decl_storage};
+use frame_support::{decl_module, decl_storage};
 
-type AssetId = Vec<u8>;
 type Counter = u64;
 
 pub trait Trait: balances::Trait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as statistics {
-        pub InvestorCountPerAsset get(investor_count_per_asset): map AssetId => Counter ;
+        pub InvestorCountPerAsset get(fn investor_count_per_asset): map Ticker => Counter ;
     }
 }
 
@@ -25,7 +24,7 @@ impl<T: Trait> Module<T> {
     ///     - *Investor count per asset*.
     ///
     pub fn update_transfer_stats(
-        ticker: &Vec<u8>,
+        ticker: &Ticker,
         updated_from_balance: Option<T::Balance>,
         updated_to_balance: Option<T::Balance>,
         amount: T::Balance,

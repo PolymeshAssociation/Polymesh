@@ -3,21 +3,23 @@ use crate::{
     balances, exemption, general_tm, group, identity, percentage_tm, statistics, utils,
 };
 use codec::Encode;
+use frame_support::{
+    dispatch::DispatchResult, impl_outer_origin, parameter_types, traits::Currency,
+};
+use frame_system::{self as system, EnsureSignedBy};
 use primitives::{IdentityId, Key};
-use sr_io::TestExternalities;
-use sr_primitives::{
+use sp_core::{
+    crypto::{key_types, Pair as PairTrait},
+    sr25519::Pair,
+    H256,
+};
+use sp_io::TestExternalities;
+use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-    AnySignature, Perbill,
-};
-use srml_support::{
-    dispatch::{DispatchError, DispatchResult},
-    impl_outer_origin, parameter_types,
-    traits::Currency,
+    AnySignature, KeyTypeId, Perbill,
 };
 use std::convert::TryFrom;
-use substrate_primitives::{crypto::Pair as PairTrait, sr25519::Pair, Blake2Hasher, H256};
-use system::EnsureSignedBy;
 use test_client::AccountKeyring;
 
 impl_outer_origin! {
@@ -39,7 +41,6 @@ type Lookup = IdentityLookup<AccountId>;
 type OffChainSignature = AnySignature;
 type SessionIndex = u32;
 type AuthorityId = <AnySignature as Verify>::Signer;
-type WeightMultiplierUpdate = ();
 type Event = ();
 type Version = ();
 
@@ -50,7 +51,7 @@ parameter_types! {
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 
-impl system::Trait for TestStorage {
+impl frame_system::Trait for TestStorage {
     type Origin = Origin;
     type Index = Index;
     type BlockNumber = BlockNumber;
@@ -62,12 +63,12 @@ impl system::Trait for TestStorage {
     type Event = Event;
 
     type Call = ();
-    type WeightMultiplierUpdate = WeightMultiplierUpdate;
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type MaximumBlockLength = MaximumBlockLength;
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = Version;
+    type ModuleToIndex = ();
 }
 
 parameter_types! {
@@ -83,16 +84,11 @@ impl balances::Trait for TestStorage {
     type OnFreeBalanceZero = ();
     type OnNewAccount = ();
     type Event = Event;
-    type TransactionPayment = ();
     type DustRemoval = ();
     type TransferPayment = ();
-
     type ExistentialDeposit = ExistentialDeposit;
     type TransferFee = TransferFee;
     type CreationFee = CreationFee;
-    type TransactionBaseFee = TransactionBaseFee;
-    type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = ConvertInto;
     type Identity = crate::identity::Module<TestStorage>;
 }
 
@@ -100,7 +96,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 3;
 }
 
-impl timestamp::Trait for TestStorage {
+impl pallet_timestamp::Trait for TestStorage {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
@@ -111,12 +107,11 @@ pub struct IdentityProposal {
     pub dummy: u8,
 }
 
-impl sr_primitives::traits::Dispatchable for IdentityProposal {
+impl sp_runtime::traits::Dispatchable for IdentityProposal {
     type Origin = Origin;
     type Trait = TestStorage;
-    type Error = DispatchError;
 
-    fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+    fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
         Ok(())
     }
 }
@@ -146,10 +141,10 @@ impl identity::Trait for TestStorage {
 }
 
 impl crate::asset::AcceptTransfer for TestStorage {
-    fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+    fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
-    fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+    fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
 }
@@ -176,21 +171,26 @@ impl exemption::Trait for TestStorage {
 }
 
 impl utils::Trait for TestStorage {
+    type Public = AccountId;
     type OffChainSignature = OffChainSignature;
-    fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+    fn validator_id_to_account_id(
+        v: <Self as pallet_session::Trait>::ValidatorId,
+    ) -> Self::AccountId {
         v
     }
 }
 
 pub struct TestOnSessionEnding;
-impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
     fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
         None
     }
 }
 
 pub struct TestSessionHandler;
-impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+    const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
+
     fn on_new_session<Ks: OpaqueKeys>(
         _changed: bool,
         _validators: &[(AuthorityId, Ks)],
@@ -209,10 +209,10 @@ parameter_types! {
     pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
 }
 
-impl session::Trait for TestStorage {
+impl pallet_session::Trait for TestStorage {
     type OnSessionEnding = TestOnSessionEnding;
     type Keys = UintAuthorityId;
-    type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+    type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
     type SessionHandler = TestSessionHandler;
     type Event = Event;
     type ValidatorId = AuthorityId;
@@ -227,8 +227,8 @@ pub type Balances = balances::Module<TestStorage>;
 pub type Asset = asset::Module<TestStorage>;
 
 /// Create externalities
-pub fn build_ext() -> TestExternalities<Blake2Hasher> {
-    let mut storage = system::GenesisConfig::default()
+pub fn build_ext() -> TestExternalities {
+    let mut storage = frame_system::GenesisConfig::default()
         .build_storage::<TestStorage>()
         .unwrap();
 
@@ -245,7 +245,7 @@ pub fn build_ext() -> TestExternalities<Blake2Hasher> {
         asset_creation_fee: 0,
         ticker_registration_fee: 0,
         ticker_registration_config: TickerRegistrationConfig {
-            max_ticker_length: 12,
+            max_ticker_length: 8,
             registration_length: Some(10000),
         },
         fee_collector: AccountKeyring::Dave.public().into(),
@@ -253,12 +253,12 @@ pub fn build_ext() -> TestExternalities<Blake2Hasher> {
     .assimilate_storage(&mut storage)
     .unwrap();
 
-    sr_io::TestExternalities::new(storage)
+    sp_io::TestExternalities::new(storage)
 }
 
 pub fn make_account(
     id: AccountId,
-) -> Result<(<TestStorage as system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     make_account_with_balance(id, 1_000)
 }
 
@@ -266,11 +266,11 @@ pub fn make_account(
 pub fn make_account_with_balance(
     id: AccountId,
     balance: <TestStorage as balances::Trait>::Balance,
-) -> Result<(<TestStorage as system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
-    Identity::register_did(signed_id.clone(), vec![])?;
+    Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
     let did = Identity::get_identity(&Key::try_from(id.encode())?).unwrap();
 
     Ok((signed_id, did))
@@ -287,7 +287,8 @@ pub fn register_keyring_account_with_balance(
     Balances::make_free_balance_be(&acc.public(), balance);
 
     let acc_pub = acc.public();
-    Identity::register_did(Origin::signed(acc_pub.clone()), vec![])?;
+    Identity::register_did(Origin::signed(acc_pub.clone()), vec![])
+        .map_err(|_| "Register DID failed")?;
 
     let acc_key = Key::from(acc_pub.0);
     let did =

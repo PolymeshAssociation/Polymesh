@@ -36,26 +36,27 @@
 //! - `end_block` - Returns details of the token
 
 use codec::{Decode, Encode};
-use rstd::prelude::*;
-use sr_primitives::{
-    traits::{Dispatchable, EnsureOrigin, Hash, Zero},
-    weights::SimpleDispatchInfo,
-    DispatchError,
-};
-use srml_support::{
-    decl_event, decl_module, decl_storage,
-    dispatch::Result,
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::DispatchResult,
     ensure,
     traits::{Currency, LockableCurrency, ReservableCurrency},
+    weights::SimpleDispatchInfo,
     Parameter,
 };
-use system::{ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed};
+use sp_runtime::{
+    traits::{Dispatchable, EnsureOrigin, Hash, Zero},
+    DispatchError,
+};
+use sp_std::prelude::*;
 
 /// Mesh Improvement Proposal index. Used offchain.
 pub type MipsIndex = u32;
 
 /// Balance
-type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
@@ -117,7 +118,7 @@ pub struct ReferendumInfo<Hash: Parameter> {
 }
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: frame_system::Trait {
     /// Currency type for this module.
     type Currency: ReservableCurrency<Self::AccountId>
         + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
@@ -136,38 +137,38 @@ pub trait Trait: system::Trait {
 decl_storage! {
     trait Store for Module<T: Trait> as MIPS {
         /// The minimum amount to be used as a deposit for a public referendum proposal.
-        pub MinimumProposalDeposit get(min_proposal_deposit) config(): BalanceOf<T>;
+        pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): BalanceOf<T>;
 
         /// Minimum stake a proposal must gather in order to be considered by the committee.
-        pub QuorumThreshold get(quorum_threshold) config(): BalanceOf<T>;
+        pub QuorumThreshold get(fn quorum_threshold) config(): BalanceOf<T>;
 
         /// How long (in blocks) a ballot runs
-        pub ProposalDuration get(proposal_duration) config(): T::BlockNumber;
+        pub ProposalDuration get(fn proposal_duration) config(): T::BlockNumber;
 
         /// Proposals so far. Index can be used to keep track of MIPs off-chain.
-        pub ProposalCount get(proposal_count): u32;
+        pub ProposalCount get(fn proposal_count): u32;
 
         /// The hashes of the active proposals.
-        pub ProposalMetadata get(proposal_meta): Vec<MipsMetadata<T::BlockNumber, T::Hash>>;
+        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
         /// proposal hash -> (deposit, proposer)
-        pub Deposits get(deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
+        pub Deposits get(fn deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
-        pub Proposals get(proposals): map T::Hash => Option<MIP<T::Proposal>>;
+        pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
 
         /// Votes on a given proposal, if it is ongoing.
         /// proposal hash -> voting info
-        pub Voting get(voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
+        pub Voting get(fn voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
-        pub ReferendumMetadata get(referendum_meta): Vec<ReferendumInfo<T::Hash>>;
+        pub ReferendumMetadata get(fn referendum_meta): Vec<ReferendumInfo<T::Hash>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
-        pub Referendums get(referendums): map T::Hash => Option<T::Proposal>;
+        pub Referendums get(fn referendums): map T::Hash => Option<T::Proposal>;
     }
 }
 
@@ -175,8 +176,8 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = BalanceOf<T>,
-        <T as system::Trait>::Hash,
-        <T as system::Trait>::AccountId,
+        <T as frame_system::Trait>::Hash,
+        <T as frame_system::Trait>::AccountId,
     {
         /// A Mesh Improvement Proposal was made with a `Balance` stake
         Proposed(AccountId, Balance, MipsIndex, Hash),
@@ -193,10 +194,23 @@ decl_event!(
     }
 );
 
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// Incorrect origin
+        BadOrigin,
+        /// Proposer can't afford to lock minimum deposit
+        InsufficientDeposit,
+        /// when voter vote gain
+        DuplicateVote,
+    }
+}
+
 // The module's dispatchable functions.
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+
+        type Error = Error<T>;
 
         fn deposit_event() = default;
 
@@ -210,7 +224,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+                .map_err(|_| Error::<T>::BadOrigin)?;
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -225,7 +239,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+                .map_err(|_| Error::<T>::BadOrigin)?;
             <QuorumThreshold<T>>::put(threshold);
         }
 
@@ -239,7 +253,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+                .map_err(|_| Error::<T>::BadOrigin)?;
             <ProposalDuration<T>>::put(duration);
         }
 
@@ -250,7 +264,7 @@ decl_module! {
         /// * `proposal` a dispatchable call
         /// * `deposit` minimum deposit value
         #[weight = SimpleDispatchInfo::FixedNormal(5_000_000)]
-        pub fn propose(origin, proposal: Box<T::Proposal>, deposit: BalanceOf<T>) -> Result {
+        pub fn propose(origin, proposal: Box<T::Proposal>, deposit: BalanceOf<T>) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
@@ -260,7 +274,7 @@ decl_module! {
             ensure!(!<Proposals<T>>::exists(proposal_hash), "duplicate proposals are not allowed");
 
             // Reserve the minimum deposit
-            T::Currency::reserve(&proposer, deposit).map_err(|_| "proposer can't afford to lock minimum deposit")?;
+            T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
@@ -317,7 +331,7 @@ decl_module! {
                 }
 
                 // Reserve the deposit
-                T::Currency::reserve(&proposer, deposit).map_err(|_| "voter can't afford to lock deposit they intend to stake")?;
+                T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
                 <Deposits<T>>::mutate(proposal_hash, |deposits| deposits.push((proposer.clone(), deposit)));
 
@@ -325,7 +339,7 @@ decl_module! {
                 <Voting<T>>::insert(&proposal_hash, voting);
                 Self::deposit_event(RawEvent::Voted(proposer, index, proposal_hash, aye_or_nay));
             } else {
-                return Err("duplicate vote ignored")
+                return Err(Error::<T>::DuplicateVote.into())
             }
         }
 
@@ -336,7 +350,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+                .map_err(|_| Error::<T>::BadOrigin)?;
 
             let mip = Self::proposals(&proposal_hash).ok_or("proposal does not exist")?;
             ensure!(mip.index == index, "mismatched proposal index");
@@ -379,7 +393,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+                .map_err(|_| Error::<T>::BadOrigin)?;
 
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
@@ -403,7 +417,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+                .map_err(|_| Error::<T>::BadOrigin)?;
 
             Self::prepare_to_dispatch(proposal_hash);
         }
@@ -412,7 +426,7 @@ decl_module! {
         /// proceed to ratification process.
         fn on_initialize(n: T::BlockNumber) {
             if let Err(e) = Self::end_block(n) {
-                sr_primitives::print(e);
+                sp_runtime::print(e);
             }
         }
 
@@ -435,8 +449,8 @@ impl<T: Trait> Module<T> {
     /// 1. Find all proposals that need to end as of this block and close voting
     /// 2. Tally votes
     /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
-    fn end_block(block_number: T::BlockNumber) -> Result {
-        sr_primitives::print("end_block");
+    fn end_block(block_number: T::BlockNumber) -> DispatchResult {
+        sp_runtime::print("end_block");
 
         // Find all matured proposals...
         for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
@@ -533,7 +547,7 @@ impl<T: Trait> Module<T> {
                 Ok(_) => true,
                 Err(e) => {
                     let e: DispatchError = e.into();
-                    sr_primitives::print(e);
+                    sp_runtime::print(e);
                     false
                 }
             };
@@ -547,20 +561,18 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use crate::{balances, group, identity};
+    use frame_support::{
+        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
+        parameter_types,
+    };
+    use frame_system::EnsureSignedBy;
     use primitives::IdentityId;
-    use sr_io::with_externalities;
-    use sr_primitives::{
+    use sp_core::H256;
+    use sp_runtime::{
         testing::Header,
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+        traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
-    use srml_support::{
-        assert_err, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_dispatch, impl_outer_origin, parameter_types,
-    };
-    use substrate_primitives::{Blake2Hasher, H256};
-    use system::EnsureSignedBy;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -584,7 +596,7 @@ mod tests {
         pub const AvailableBlockRatio: Perbill = Perbill::one();
     }
 
-    impl system::Trait for Test {
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
@@ -594,13 +606,13 @@ mod tests {
         type AccountId = u64;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
-        type WeightMultiplierUpdate = ();
         type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -616,16 +628,12 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
-        type TransferPayment = ();
         type DustRemoval = ();
+        type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Self>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
@@ -633,12 +641,11 @@ mod tests {
         pub dummy: u8,
     }
 
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
+    impl sp_runtime::traits::Dispatchable for IdentityProposal {
         type Origin = Origin;
         type Trait = Test;
-        type Error = DispatchError;
 
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
+        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
             Ok(())
         }
     }
@@ -650,10 +657,10 @@ mod tests {
     }
 
     impl crate::asset::AcceptTransfer for Test {
-        fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result {
+        fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
             unimplemented!()
         }
-        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result {
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }
@@ -662,7 +669,7 @@ mod tests {
         pub const MinimumPeriod: u64 = 3;
     }
 
-    impl timestamp::Trait for Test {
+    impl pallet_timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
@@ -700,7 +707,7 @@ mod tests {
     type Balances = balances::Module<Test>;
     type MIPS = Module<Test>;
 
-    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
+    fn new_test_ext() -> sp_io::TestExternalities {
         let mut t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -739,7 +746,7 @@ mod tests {
 
     #[test]
     fn should_start_a_proposal() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
@@ -772,7 +779,7 @@ mod tests {
 
     #[test]
     fn should_close_a_proposal() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let index = 0;
@@ -806,7 +813,7 @@ mod tests {
 
     #[test]
     fn should_create_a_referendum() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
@@ -842,7 +849,7 @@ mod tests {
 
     #[test]
     fn should_enact_a_referendum() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
@@ -870,7 +877,7 @@ mod tests {
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
-                "bad origin"
+                Error::<Test>::BadOrigin
             );
 
             assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
@@ -879,7 +886,7 @@ mod tests {
 
     #[test]
     fn should_fast_track_a_proposal() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let index = 0;
@@ -901,7 +908,7 @@ mod tests {
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
-                "bad origin"
+                Error::<Test>::BadOrigin
             );
 
             assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
@@ -910,7 +917,7 @@ mod tests {
 
     #[test]
     fn should_enact_an_emergency_referendum() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let index = 0;
@@ -918,7 +925,7 @@ mod tests {
 
             assert_err!(
                 MIPS::emergency_referendum(Origin::signed(6), Box::new(proposal.clone())),
-                "bad origin"
+                Error::<Test>::BadOrigin
             );
 
             assert_ok!(MIPS::emergency_referendum(
@@ -941,7 +948,7 @@ mod tests {
 
             assert_err!(
                 MIPS::enact_referendum(Origin::signed(5), hash),
-                "bad origin"
+                Error::<Test>::BadOrigin
             );
 
             assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
@@ -950,7 +957,7 @@ mod tests {
 
     #[test]
     fn should_update_mips_variables() {
-        with_externalities(&mut new_test_ext(), || {
+        new_test_ext().execute_with(|| {
             assert_eq!(MIPS::min_proposal_deposit(), 50);
             assert_ok!(MIPS::set_min_proposal_deposit(Origin::signed(1), 10));
             assert_eq!(MIPS::min_proposal_deposit(), 10);

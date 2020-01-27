@@ -2,30 +2,18 @@ use crate::balances;
 use crate::general_tm::Operators;
 use crate::identity::DataTypes;
 use codec::{Decode, Encode};
-use rstd::prelude::*;
-use session;
-use sr_primitives::traits::{Member, Verify};
-use system;
+use frame_system;
+use pallet_session;
+use sp_runtime::traits::{IdentifyAccount, Member, Verify};
+use sp_std::prelude::*;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + session::Trait {
-    type OffChainSignature: Verify<Signer = Self::AccountId> + Member + Decode + Encode;
-    fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId;
-}
-
-// Other utility functions
-#[inline]
-/// Convert all letter characters of a slice to their upper case counterparts.
-/// # TODO
-/// This functions is always called on `ticker`, maybe we could create a type for `ticker` to
-/// ensure that type is UPPER case, and **avoid vector clone** (using `collect`).
-pub fn bytes_to_upper(v: &[u8]) -> Vec<u8> {
-    v.iter()
-        .map(|chr| match chr {
-            97..=122 => chr - 32,
-            other => *other,
-        })
-        .collect()
+pub trait Trait: frame_system::Trait + balances::Trait + pallet_session::Trait {
+    type Public: IdentifyAccount<AccountId = Self::AccountId>;
+    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
+    fn validator_id_to_account_id(
+        v: <Self as pallet_session::Trait>::ValidatorId,
+    ) -> Self::AccountId;
 }
 
 pub fn is_rule_broken(
