@@ -44,7 +44,9 @@ use crate::{
         did::{SECURITY_TOKEN, USER},
         KYC_EXPIRY_CLAIM_KEY,
     },
-    group, BatchDispatchInfo,
+    group,
+    multisig::AddSignerMultiSig,
+    BatchDispatchInfo,
 };
 use primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
@@ -60,7 +62,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
-    weights::SimpleDispatchInfo,
+    weights::{GetDispatchInfo, SimpleDispatchInfo},
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
@@ -171,9 +173,11 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
-    type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
+    type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
     /// Asset module
     type AcceptTransferTarget: AcceptTransfer;
+    /// MultiSig module
+    type AddSignerMultiSigTarget: AddSignerMultiSig;
 }
 
 decl_storage! {
@@ -252,67 +256,14 @@ decl_module! {
         /// - External signing keys can be linked to just one identity.
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            // Adding extrensic count to did nonce for some unpredictability
-            // NB: this does not guarantee randomness
-            let new_nonce = Self::multi_purpose_nonce() + u64::from(<frame_system::Module<T>>::extrinsic_count()) + 7u64;
-            // Even if this transaction fails, nonce should be increased for added unpredictability of dids
-            <MultiPurposeNonce>::put(&new_nonce);
-
-            let master_key = Key::try_from( sender.encode())?;
-
-            // 1 Check constraints.
-            // 1.1. Master key is not linked to any identity.
-            ensure!( Self::can_key_be_linked_to_did( &master_key, SignerType::External),
-                "Master key already belong to one DID");
-            // 1.2. Master key is not part of signing keys.
-            ensure!( signing_items.iter().find( |sk| **sk == master_key).is_none(),
-                "Signing keys contains the master key");
-
-            let block_hash = <frame_system::Module<T>>::block_hash(<frame_system::Module<T>>::block_number());
-
-            let did = IdentityId::from(
-                blake2_256(
-                    &(USER, block_hash, new_nonce).encode()
-                )
-            );
-
-            // 1.3. Make sure there's no pre-existing entry for the DID
-            // This should never happen but just being defensive here
-            ensure!(!<DidRecords>::exists(did), "DID must be unique");
-            // 1.4. Signing keys can be linked to the new identity.
-            for s_item in &signing_items {
-                if let Signer::Key(ref key) = s_item.signer {
-                    if !Self::can_key_be_linked_to_did( key, s_item.signer_type){
-                        return Err(Error::<T>::AlreadyLinked.into());
-                    }
-                }
-            }
-
-            // 2. Apply changes to our extrinsics.
-            // TODO: Subtract the fee
+            // TODO: Subtract proper fee.
             let _imbalance = <balances::Module<T> as Currency<_>>::withdraw(
                 &sender,
                 Self::did_creation_fee(),
                 WithdrawReason::Fee.into(),
-                ExistenceRequirement::KeepAlive
-                )?;
-
-            // 2.1. Link  master key and add pre-authorized signing keys
-            Self::link_key_to_did( &master_key, SignerType::External, did);
-            signing_items.iter().for_each( |s_item| Self::add_pre_join_identity( s_item, did));
-
-            // 2.2. Create a new identity record.
-            let record = DidRecord {
-                master_key,
-                ..Default::default()
-            };
-            <DidRecords>::insert(did, record);
-
-            // TODO KYC is valid by default.
-            KYCValidation::insert(did, true);
-
-            Self::deposit_event(RawEvent::NewDid(did, sender, signing_items));
-            Ok(())
+                ExistenceRequirement::KeepAlive,
+            )?;
+            Self::_register_did(sender, signing_items)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -755,11 +706,15 @@ decl_module! {
                             T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
                         AuthorizationData::TransferTokenOwnership(_) =>
                             T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                        AuthorizationData::AddMultiSigSigner =>
+                            T::AddSignerMultiSigTarget::accept_multisig_signer(Signer::from(did), auth_id),
                         _ => return Err(Error::<T>::UnknownAuthorization.into())
                     }
                 },
-                Signer::Key(_key) => {
+                Signer::Key(key) => {
                     match auth.authorization_data {
+                        AuthorizationData::AddMultiSigSigner =>
+                            T::AddSignerMultiSigTarget::accept_multisig_signer(Signer::from(key), auth_id),
                         _ => return Err(Error::<T>::UnknownAuthorization.into())
                     }
                 }
@@ -796,22 +751,25 @@ decl_module! {
                                     T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
                                 AuthorizationData::TransferTokenOwnership(_) =>
                                     T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                                AuthorizationData::AddMultiSigSigner =>
+                                    T::AddSignerMultiSigTarget::accept_multisig_signer(Signer::from(did), auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
                             };
                         }
                     }
                 },
-                Signer::Key(_key) => {
+                Signer::Key(key) => {
                     for auth_id in auth_ids {
                         // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                         // It will just skip that particular authorization.
                         if <Authorizations<T>>::exists((signer, auth_id)) {
-                            let _auth = Self::authorizations((signer, auth_id));
-                            // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
-                            // TODO: Add cases where signing key is authorized
-                            // let _result = match auth.authorization_data {
-                            //     _ => Err("Unknown authorization")
-                            // };
+                            let auth = Self::authorizations((signer, auth_id));
+                            //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
+                            let _result = match auth.authorization_data {
+                                AuthorizationData::AddMultiSigSigner =>
+                                    T::AddSignerMultiSigTarget::accept_multisig_signer(Signer::from(key), auth_id),
+                                _ => Err(Error::<T>::UnknownAuthorization.into())
+                            };
                         }
                     }
                 }
@@ -1575,6 +1533,65 @@ impl<T: Trait> Module<T> {
         buf.extend_from_slice(&SECURITY_TOKEN.encode());
         buf.extend_from_slice(&ticker.encode());
         IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
+    }
+
+    pub fn _register_did(sender: T::AccountId, signing_items: Vec<SigningItem>) -> DispatchResult {
+        // Adding extrensic count to did nonce for some unpredictability
+        // NB: this does not guarantee randomness
+        let new_nonce =
+            Self::multi_purpose_nonce() + u64::from(<system::Module<T>>::extrinsic_count()) + 7u64;
+        // Even if this transaction fails, nonce should be increased for added unpredictability of dids
+        <MultiPurposeNonce>::put(&new_nonce);
+
+        let master_key = Key::try_from(sender.encode())?;
+
+        // 1 Check constraints.
+        // 1.1. Master key is not linked to any identity.
+        ensure!(
+            Self::can_key_be_linked_to_did(&master_key, SignerType::External),
+            "Master key already belong to one DID"
+        );
+        // 1.2. Master key is not part of signing keys.
+        ensure!(
+            signing_items.iter().find(|sk| **sk == master_key).is_none(),
+            "Signing keys contains the master key"
+        );
+
+        let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
+
+        let did = IdentityId::from(blake2_256(&(USER, block_hash, new_nonce).encode()));
+
+        // 1.3. Make sure there's no pre-existing entry for the DID
+        // This should never happen but just being defensive here
+        ensure!(!<DidRecords>::exists(did), "DID must be unique");
+        // 1.4. Signing keys can be linked to the new identity.
+        for s_item in &signing_items {
+            if let Signer::Key(ref key) = s_item.signer {
+                if !Self::can_key_be_linked_to_did(key, s_item.signer_type) {
+                    return Err(Error::<T>::AlreadyLinked.into());
+                }
+            }
+        }
+
+        // 2. Apply changes to our extrinsics.
+        // 2.1. Link  master key and add pre-authorized signing keys
+        Self::link_key_to_did(&master_key, SignerType::External, did);
+        signing_items
+            .iter()
+            .for_each(|s_item| Self::add_pre_join_identity(s_item, did));
+
+        // 2.2. Create a new identity record.
+        let record = DidRecord {
+            master_key,
+            ..Default::default()
+        };
+        <DidRecords>::insert(did, record);
+
+        // TODO KYC is valid by default.
+        KYCValidation::insert(did, true);
+
+        Self::deposit_event(RawEvent::NewDid(did, sender, signing_items));
+        Ok(())
     }
 }
 

@@ -1917,25 +1917,19 @@ mod tests {
         type MembershipChanged = ();
     }
 
-    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-    pub struct IdentityProposal {
-        pub dummy: u8,
+    impl identity::Trait for Test {
+        type Event = ();
+        type Proposal = Call<Test>;
+        type AcceptTransferTarget = Module<Test>;
+        type AddSignerMultiSigTarget = Test;
     }
 
-    impl sp_runtime::traits::Dispatchable for IdentityProposal {
-        type Origin = Origin;
-        type Trait = Test;
-
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
-            Ok(())
+    impl crate::multisig::AddSignerMultiSig for Test {
+        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+            unimplemented!()
         }
     }
 
-    impl identity::Trait for Test {
-        type Event = ();
-        type Proposal = IdentityProposal;
-        type AcceptTransferTarget = Module<Test>;
-    }
     impl percentage_tm::Trait for Test {
         type Event = ();
     }

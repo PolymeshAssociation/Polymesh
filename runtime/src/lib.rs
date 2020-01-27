@@ -21,6 +21,7 @@ mod general_tm;
 mod group;
 mod identity;
 mod mips;
+mod multisig;
 mod percentage_tm;
 mod simple_token;
 

@@ -1,10 +1,11 @@
-use crate::{balances, group, identity};
+use crate::{balances, group, identity, multisig};
 use codec::Encode;
 use frame_support::{
-    dispatch::DispatchResult, impl_outer_origin, parameter_types, traits::Currency,
+    dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin, parameter_types,
+    traits::Currency,
 };
 use frame_system::{self as system, EnsureSignedBy};
-use primitives::{IdentityId, Key};
+use primitives::{IdentityId, Key, Signer};
 use sp_core::{crypto::Pair as PairTrait, sr25519::Pair, H256};
 use sp_io::TestExternalities;
 use sp_runtime::{
@@ -17,6 +18,13 @@ use test_client::AccountKeyring;
 
 impl_outer_origin! {
     pub enum Origin for TestStorage {}
+}
+
+impl_outer_dispatch! {
+    pub enum Call for TestStorage where origin: Origin {
+        identity::Identity,
+        multisig::MultiSig,
+    }
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -83,18 +91,8 @@ impl pallet_timestamp::Trait for TestStorage {
     type MinimumPeriod = MinimumPeriod;
 }
 
-#[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-pub struct IdentityProposal {
-    pub dummy: u8,
-}
-
-impl sp_runtime::traits::Dispatchable for IdentityProposal {
-    type Origin = Origin;
-    type Trait = TestStorage;
-
-    fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
-        Ok(())
-    }
+impl multisig::Trait for TestStorage {
+    type Event = ();
 }
 
 parameter_types! {
@@ -117,8 +115,15 @@ impl group::Trait<group::Instance1> for TestStorage {
 
 impl identity::Trait for TestStorage {
     type Event = ();
-    type Proposal = IdentityProposal;
+    type Proposal = Call;
     type AcceptTransferTarget = TestStorage;
+    type AddSignerMultiSigTarget = TestStorage;
+}
+
+impl crate::multisig::AddSignerMultiSig for TestStorage {
+    fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+        unimplemented!()
+    }
 }
 
 impl crate::asset::AcceptTransfer for TestStorage {
@@ -133,6 +138,7 @@ impl crate::asset::AcceptTransfer for TestStorage {
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
+pub type MultiSig = multisig::Module<TestStorage>;
 
 /// Create externalities
 pub fn build_ext() -> TestExternalities {
@@ -171,7 +177,7 @@ pub fn make_account_with_balance(
 }
 
 pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'static str> {
-    register_keyring_account_with_balance(acc, 10_000)
+    register_keyring_account_with_balance(acc, 10_000_000)
 }
 
 pub fn register_keyring_account_with_balance(

@@ -3,7 +3,7 @@ use crate::{
     constants::{currency::*, fee::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    mips, percentage_tm, simple_token, sto_capped,
+    mips, multisig, percentage_tm, simple_token, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -448,6 +448,10 @@ impl pallet_sudo::Trait for Runtime {
     type Proposal = Call;
 }
 
+impl multisig::Trait for Runtime {
+    type Event = Event;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
@@ -490,6 +494,7 @@ impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AcceptTransferTarget = Asset;
+    type AddSignerMultiSigTarget = MultiSig;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -541,6 +546,8 @@ construct_runtime!(
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo,
+
+        MultiSig: multisig::{Module, Call, Storage, Event<T>},
 
         // Contracts
         Contracts: pallet_contracts,

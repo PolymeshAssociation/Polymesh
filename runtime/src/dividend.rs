@@ -555,24 +555,17 @@ mod tests {
         type Currency = balances::Module<Test>;
     }
 
-    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-    pub struct IdentityProposal {
-        pub dummy: u8,
-    }
-
-    impl sp_runtime::traits::Dispatchable for IdentityProposal {
-        type Origin = Origin;
-        type Trait = Test;
-
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
-            Ok(())
-        }
-    }
-
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = IdentityProposal;
+        type Proposal = Call<Test>;
         type AcceptTransferTarget = asset::Module<Test>;
+        type AddSignerMultiSigTarget = Test;
+    }
+
+    impl crate::multisig::AddSignerMultiSig for Test {
+        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+            unimplemented!()
+        }
     }
 
     impl exemption::Trait for Test {

@@ -1359,20 +1359,6 @@ mod tests {
         type ModuleToIndex = ();
     }
 
-    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-    pub struct IdentityProposal {
-        pub dummy: u8,
-    }
-
-    impl sp_runtime::traits::Dispatchable for IdentityProposal {
-        type Origin = Origin;
-        type Trait = Runtime;
-
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
-            Ok(())
-        }
-    }
-
     parameter_types! {
         pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
         pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -1393,14 +1379,20 @@ mod tests {
 
     impl identity::Trait for Runtime {
         type Event = ();
-        type Proposal = IdentityProposal;
+        type Proposal = Call<Runtime>;
         type AcceptTransferTarget = Runtime;
+        type AddSignerMultiSigTarget = Runtime;
     }
     impl crate::asset::AcceptTransfer for Runtime {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
             unimplemented!()
         }
         fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
+            unimplemented!()
+        }
+    }
+    impl crate::multisig::AddSignerMultiSig for Runtime {
+        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }
