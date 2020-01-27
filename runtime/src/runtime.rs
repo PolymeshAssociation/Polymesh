@@ -13,7 +13,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_elections::VoteIndex;
-use primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Moment, Index, Signature};
+use primitives::{AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, Moment, Signature};
 use sp_api::impl_runtime_apis;
 use sp_block_builder;
 use sp_core::u32_trait::{_1, _2, _3, _4};
@@ -686,10 +686,10 @@ impl_runtime_apis! {
     }
 
     impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-		fn account_nonce(account: AccountId) -> Index {
-			System::account_nonce(account)
-		}
-	}
+        fn account_nonce(account: AccountId) -> Index {
+            System::account_nonce(account)
+        }
+    }
 
     impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance> for Runtime {
         fn call(
