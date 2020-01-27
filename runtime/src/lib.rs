@@ -60,9 +60,6 @@ pub use update_did_signed_extension::UpdateDid;
 pub mod batch_dispatch_info;
 pub use batch_dispatch_info::BatchDispatchInfo;
 
-pub mod batch_dispatch_info;
-pub use batch_dispatch_info::BatchDispatchInfo;
-
 pub use sp_runtime::{Perbill, Permill};
 
 #[cfg(test)]
