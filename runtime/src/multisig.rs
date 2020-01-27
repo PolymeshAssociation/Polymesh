@@ -34,7 +34,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::identity;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, Error};
+use core::result::Result as StdResult;
 use primitives::{AuthorizationData, AuthorizationError, Key, Signer};
 use rstd::{convert::TryFrom, prelude::*};
 use sr_primitives::{
@@ -91,9 +92,8 @@ decl_module! {
             let new_nonce = Self::ms_nonce().checked_add(1).ok_or("overflow in calculating nonce")?;
             <MultiSigNonce>::put(new_nonce);
 
-            let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", new_nonce, sender.clone()).encode());
-            let wallet_id = T::AccountId::decode(&mut &h.encode()[..])
-                .map_err( |_| "Error in decoding multisig address")?;
+            let wallet_id = Self::get_multisig_address(sender.clone(), new_nonce)
+                .map_err(|_| "Error in decoding multisig address")?;
 
             <identity::Module<T>>::_register_did(wallet_id.clone(), vec![])?;
 
@@ -393,8 +393,15 @@ impl<T: Trait> Module<T> {
         // Nonce is always only incremented by small numbers and hence can never overflow 64 bits.
         // Also, this is just a helper function that does not modify state.
         let new_nonce = Self::ms_nonce() + 1;
-        let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", new_nonce, sender.clone()).encode());
-        T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
+        Self::get_multisig_address(sender, new_nonce).unwrap_or_default()
+    }
+
+    pub fn get_multisig_address(
+        sender: T::AccountId,
+        nonce: u64,
+    ) -> StdResult<T::AccountId, Error> {
+        let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, sender.clone()).encode());
+        T::AccountId::decode(&mut &h.encode()[..])
     }
 }
 
