@@ -232,7 +232,7 @@ where
             // This is enforced to curb front running.
             return InvalidTransaction::Custom(TransactionError::ZeroTip as u8).into();
         }
-        let fee = Self::compute_fee(len as u32, info, Zero::zero());
+        let fee = Self::compute_fee(len as u32, info, 0u32.into());
         let encoded_transactor =
             Key::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
         let imbalance;

@@ -87,12 +87,12 @@ impl Alternative {
                 || {
                     testnet_genesis(
                         vec![get_authority_keys_from_seed("Alice")],
-                        get_from_seed::<sr25519::Public>("Alice"),
+                        get_account_id_from_seed::<sr25519::Public>("Alice"),
                         vec![
-                            get_from_seed::<sr25519::Public>("Alice"),
-                            get_from_seed::<sr25519::Public>("Bob"),
-                            get_from_seed::<sr25519::Public>("Alice//stash"),
-                            get_from_seed::<sr25519::Public>("Bob//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Alice"),
+                            get_account_id_from_seed::<sr25519::Public>("Bob"),
+                            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
                         ],
                         true,
                     )
@@ -233,10 +233,10 @@ fn testnet_genesis(
                 max_ticker_length: 12,
                 registration_length: Some(5184000000),
             },
-            fee_collector: get_from_seed::<AccountId>("Dave"),
+            fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
         identity: Some(IdentityConfig {
-            owner: get_from_seed::<AccountId>("Dave"),
+            owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             did_creation_fee: 250,
         }),
         simple_token: Some(SimpleTokenConfig { creation_fee: 1000 }),
