@@ -1,4 +1,4 @@
-use crate::{ identity_id::IdentityId,  key::Key };
+use crate::{identity_id::IdentityId, key::Key};
 
 use frame_support::{dispatch::DispatchError, traits::Currency};
 use sp_std::result;
