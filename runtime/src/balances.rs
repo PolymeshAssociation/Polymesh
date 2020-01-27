@@ -1392,11 +1392,11 @@ mod tests {
         }
     }
     impl crate::multisig::AddSignerMultiSig for Runtime {
-        fn accept_multisig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
+        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }
-    impl timestamp::Trait for Runtime {
+    impl pallet_timestamp::Trait for Runtime {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;

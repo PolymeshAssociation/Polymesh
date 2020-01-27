@@ -121,7 +121,7 @@ impl identity::Trait for TestStorage {
 }
 
 impl crate::multisig::AddSignerMultiSig for TestStorage {
-    fn accept_multisig_signer(_: Signer, _: u64) -> Result<(), &'static str> {
+    fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
         unimplemented!()
     }
 }

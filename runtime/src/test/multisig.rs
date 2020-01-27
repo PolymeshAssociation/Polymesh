@@ -1,22 +1,21 @@
 use crate::{
-    balances, identity, multisig,
+    identity, multisig,
     test::storage::{build_ext, register_keyring_account, Call, TestStorage},
 };
 use codec::Encode;
+use frame_support::{assert_err, assert_ok};
 use primitives::{Key, Signer};
-use sr_io::with_externalities;
-use srml_support::{assert_err, assert_ok};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 
-type Origin = <TestStorage as system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn create_multisig() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -58,7 +57,7 @@ fn create_multisig() {
 
 #[test]
 fn join_multisig() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -107,7 +106,7 @@ fn join_multisig() {
 
 #[test]
 fn change_multisig_sigs_required() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -165,7 +164,7 @@ fn change_multisig_sigs_required() {
 
 #[test]
 fn remove_multisig_signer() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -225,7 +224,7 @@ fn remove_multisig_signer() {
 
 #[test]
 fn add_multisig_signer() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());

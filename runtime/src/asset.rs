@@ -1925,7 +1925,7 @@ mod tests {
     }
 
     impl crate::multisig::AddSignerMultiSig for Test {
-        fn accept_multisig_signer(_: Signer, _: u64) -> Result {
+        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }
