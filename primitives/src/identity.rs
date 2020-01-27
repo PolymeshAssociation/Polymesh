@@ -1,5 +1,5 @@
 use codec::{Decode, Encode};
-use rstd::prelude::Vec;
+use sp_std::prelude::Vec;
 
 use crate::{IdentityRole, Key, Signer, SigningItem};
 
