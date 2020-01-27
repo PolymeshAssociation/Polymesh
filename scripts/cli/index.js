@@ -571,12 +571,12 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
     const ticker = `token${prepend}${i}`;
     if (fast) {
       const unsub = await api.tx.asset
-      .createToken(dids[i], ticker, ticker, 1000000, true)
+      .createToken(dids[i], ticker, ticker, 1000000, true, 0, [])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.asset
-      .createToken(dids[i], ticker, ticker, 1000000, true)
+      .createToken(dids[i], ticker, ticker, 1000000, true, 0, [])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
