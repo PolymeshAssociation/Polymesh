@@ -57,6 +57,7 @@ use codec::Encode;
 use core::convert::From;
 use core::convert::TryInto;
 use core::result::Result as StdResult;
+
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -828,6 +829,7 @@ decl_module! {
                     <DidRecords>::mutate( target_id, |identity| {
                         identity.add_signing_items( &[pre_auth.signing_item.clone()]);
                     });
+                    Self::deposit_event( RawEvent::SignerJoinedToIdentityApproved( signer, target_id));
                     Ok(())
                 } else {
                     Err(Error::<T>::Unauthorized.into())
@@ -1051,6 +1053,9 @@ decl_event!(
 
         /// Link removed. (link_id, associated identity or key)
         LinkRemoved(u64, Signer),
+
+        /// Signer approved a previous request to join to a target identity.
+        SignerJoinedToIdentityApproved( Signer, IdentityId),
     }
 );
 
