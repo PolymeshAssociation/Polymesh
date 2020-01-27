@@ -390,7 +390,7 @@ decl_module! {
 
         /// Call this with the new master key. By invoking this method, caller accepts authorization
         /// with the new master key. If a KYC service provider approved this change, master key of
-        /// the DID is updated
+        /// the DID is updated.
         ///
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
@@ -408,18 +408,35 @@ decl_module! {
             let rotation_auth = Self::authorizations((signer, rotation_auth_id));
             if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
                 // Ensure the request was made by the owner of master key
-                if let Signer::Key(ref key) = rotation_auth.authorized_by {
+                let signer_master_key = match rotation_auth.authorized_by {
+                    Signer::Key(ref key) =>  Some(*key),
+                    Signer::Identity(ref id) if <DidRecords>::exists(id) => {
+                        let master_key = <DidRecords>::get(id).master_key;
+                        Some(master_key)
+                    },
+                    _ => None
+                };
+
+                if let Some(key) = signer_master_key {
                     let master_key = <DidRecords>::get(rotation_for_did).master_key;
-                    ensure!(*key == master_key, "Authorization to change key was not from the owner of master key");
+                    ensure!(key == master_key, "Authorization to change key was not from the owner of master key");
+                } else {
+                    return Err("Master key of owner could not be deduced");
                 }
 
                 // Aceept authorization from KYC service provider
                 let kyc_auth = Self::authorizations((signer, kyc_auth_id));
                 if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
                     // Attestor must be a KYC service provider
-                    if let Signer::Identity(ref kyc_did) = kyc_auth.authorized_by {
-                        ensure!(T::IsKYCProvider::is_member(kyc_did),
-                        "Attestation was not by a KYC service provider");
+                    let kyc_provider_did = match kyc_auth.authorized_by {
+                        Signer::Key(ref key) =>  Self::get_identity(key),
+                        Signer::Identity(id)  => Some(id),
+                    };
+
+                    if let Some(id) = kyc_provider_did {
+                        ensure!(T::IsKYCProvider::is_member(&id), "Attestation was not by a KYC service provider");
+                    } else {
+                        return Err("KYC service provider's could not be deduced");
                     }
 
                     // Make sure authorizations are for the same DID
@@ -432,7 +449,11 @@ decl_module! {
                     Self::consume_auth(kyc_auth.authorized_by, signer, kyc_auth_id)?;
 
                     // Replace master key of the owner that initiated key rotation
-                    Self::rotate_master_key(rotation_auth.authorized_by, sender_key)?;
+                    <DidRecords>::mutate(rotation_for_did, |record| {
+                        (*record).master_key = sender_key.clone();
+                    });
+
+                    Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
                 }
             }
 
@@ -1586,25 +1607,6 @@ impl<T: Trait> Module<T> {
 
         if is_pre_auth_list_empty {
             <PreAuthorizedJoinDid>::remove(signer);
-        }
-    }
-
-    /// Replaces the master key for a DIDRecord of an IdentityId.
-    /// To call this, both of these must have happened:
-    /// 1. Target DID has accepted authorization for key change
-    /// 2. A KYC service provider has approved the change
-    fn rotate_master_key(signer: Signer, new_key: Key) -> Result {
-        match signer {
-            Signer::Identity(ref id) if <DidRecords>::exists(id) => {
-                // Update the master key
-                <DidRecords>::mutate(id, |record| {
-                    (*record).master_key = new_key.clone();
-                });
-
-                Self::deposit_event(RawEvent::MasterKeyChanged(*id, new_key));
-                Ok(())
-            }
-            _ => Err("Could not change master key. Signer DID not found."),
         }
     }
 
