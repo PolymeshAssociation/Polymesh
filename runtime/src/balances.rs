@@ -1367,7 +1367,7 @@ mod tests {
         pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
     }
 
-    impl group::Trait<group::Instance1> for Runtime {
+    impl group::Trait<group::Instance2> for Runtime {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, AccountId>;
         type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
@@ -1382,7 +1382,15 @@ mod tests {
         type Proposal = Call<Runtime>;
         type AcceptTransferTarget = Runtime;
         type AddSignerMultiSigTarget = Runtime;
+        type KYCServiceProviders = Runtime;
     }
+
+    impl crate::group::GroupTrait for Runtime {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
+    }
+
     impl crate::asset::AcceptTransfer for Runtime {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
             unimplemented!()

@@ -66,6 +66,7 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
+use group::GroupTrait;
 use sp_core::{
     sr25519::{Public, Signature},
     H512,
@@ -167,9 +168,7 @@ pub struct SigningItemWithAuth {
 }
 
 /// The module's configuration trait.
-pub trait Trait:
-    frame_system::Trait + balances::Trait + pallet_timestamp::Trait + group::Trait<group::Instance1>
-{
+pub trait Trait: frame_system::Trait + balances::Trait + pallet_timestamp::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
@@ -178,6 +177,8 @@ pub trait Trait:
     type AcceptTransferTarget: AcceptTransfer;
     /// MultiSig module
     type AddSignerMultiSigTarget: AddSignerMultiSig;
+    /// Group module
+    type KYCServiceProviders: GroupTrait;
 }
 
 decl_storage! {
@@ -979,7 +980,8 @@ decl_module! {
                 }
             };
             let (is_kyced, kyc_provider) = Self::is_identity_has_valid_kyc(my_did, buffer_time);
-            Self::deposit_event(RawEvent::MyKycStatus(my_did, is_kyced, kyc_provider));
+            let trusted_members = T::KYCServiceProviders::get_members();
+            Self::deposit_event(RawEvent::MyKycStatus(my_did, is_kyced, kyc_provider, trusted_members));
             Ok(())
         }
     }
@@ -1020,6 +1022,10 @@ decl_event!(
         /// DID, claim issuer DID, claim
         RevokedClaim(IdentityId, ClaimMetaData),
 
+        LogA(u64),
+
+        LogB(ClaimValue),
+
         /// DID
         NewIssuer(IdentityId),
 
@@ -1027,7 +1033,7 @@ decl_event!(
         DidQuery(Key, IdentityId),
 
         /// To query the status of DID
-        MyKycStatus(IdentityId, bool, Option<IdentityId>),
+        MyKycStatus(IdentityId, bool, Option<IdentityId>, Vec<IdentityId>),
 
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
         NewAuthorization(
@@ -1346,7 +1352,7 @@ impl<T: Trait> Module<T> {
         claim_for: IdentityId,
         buffer: u64,
     ) -> (bool, Option<IdentityId>) {
-        let trusted_kyc_providers = <group::Module<T, group::Instance1>>::members();
+        let trusted_kyc_providers = T::KYCServiceProviders::get_members();
         if trusted_kyc_providers.len() > 0 {
             for trusted_kyc_provider in trusted_kyc_providers {
                 if let Some(claim) = Self::fetch_claim_value(
@@ -1355,7 +1361,6 @@ impl<T: Trait> Module<T> {
                     trusted_kyc_provider,
                 ) {
                     if let Ok(value) = claim.value.as_slice().try_into() {
-                        //let kyc_expiry: [u8; 8] = value;
                         if let Some(threshold) = ((<pallet_timestamp::Module<T>>::get())
                             .saturated_into::<u64>())
                         .checked_add(buffer)

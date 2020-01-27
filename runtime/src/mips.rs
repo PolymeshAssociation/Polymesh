@@ -641,6 +641,13 @@ mod tests {
         type Proposal = Call;
         type AcceptTransferTarget = Test;
         type AddSignerMultiSigTarget = Test;
+        type KYCServiceProviders = Test;
+    }
+
+    impl crate::group::GroupTrait for Test {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
     }
 
     impl crate::multisig::AddSignerMultiSig for Test {
@@ -686,7 +693,7 @@ mod tests {
         type Event = ();
     }
 
-    impl group::Trait<group::Instance1> for Test {
+    impl group::Trait<group::Instance2> for Test {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, u64>;
         type RemoveOrigin = EnsureSignedBy<Two, u64>;
