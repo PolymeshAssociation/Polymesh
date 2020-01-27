@@ -1,9 +1,6 @@
-use crate::identity_id;
-use crate::key;
-use crate::AccountId;
+use crate::{identity_id::IdentityId, key::Key};
+
 use frame_support::{dispatch::DispatchError, traits::Currency};
-use identity_id::IdentityId;
-use key::Key;
 use sp_std::result;
 
 pub trait IdentityCurrency<AccountId>: Currency<AccountId> {
