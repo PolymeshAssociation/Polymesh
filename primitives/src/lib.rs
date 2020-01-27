@@ -5,7 +5,7 @@
 
 use sp_runtime::{generic, MultiSignature};
 
-pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, Verify, IdentifyAccount};
+pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Verify};
 
 pub use codec::Compact;
 
