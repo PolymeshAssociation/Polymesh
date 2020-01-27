@@ -17,7 +17,6 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 //! Auxillary struct/enums
 
-use crate::constants::fee::TARGET_BLOCK_FULLNESS;
 use crate::{Authorship, Balances, MaximumBlockWeight, NegativeImbalance, System};
 use frame_support::{
     traits::{Currency, Get, OnUnbalanced},

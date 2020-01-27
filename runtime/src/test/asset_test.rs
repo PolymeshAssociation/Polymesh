@@ -3,7 +3,7 @@ use crate::{
     balances, general_tm, identity,
     test::storage::{build_ext, make_account, TestStorage},
 };
-use primitives::{AccountId, AuthorizationData, IdentityId, Signer, Ticker};
+use primitives::{AuthorizationData, IdentityId, Signer, Ticker};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
@@ -26,10 +26,7 @@ type OffChainSignature = AnySignature;
 #[test]
 fn issuers_can_create_and_rename_tokens() {
     build_ext().execute_with(|| {
-        let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(owner_acc.clone()).unwrap();
-        // Raise the owner's base currency balance
-        Balances::make_free_balance_be(&owner_acc, 1_000_000);
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -79,8 +76,7 @@ fn issuers_can_create_and_rename_tokens() {
         assert_eq!(Asset::token_details(ticker), token);
 
         // Unauthorized identities cannot rename the token.
-        let eve_acc = AccountId::from(AccountKeyring::Eve);
-        let (eve_signed, _eve_did) = make_account(eve_acc.clone()).unwrap();
+        let (eve_signed, _eve_did) = make_account(AccountKeyring::Eve.public()).unwrap();
         assert_err!(
             Asset::rename_token(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef]),
             "sender must be a signing key for the token owner DID"
@@ -113,8 +109,7 @@ fn issuers_can_create_and_rename_tokens() {
 #[ignore]
 fn non_issuers_cant_create_tokens() {
     build_ext().execute_with(|| {
-        let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (_, owner_did) = make_account(owner_acc).unwrap();
+        let (_, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         // Expected token entry
         let _ = SecurityToken {
@@ -125,9 +120,7 @@ fn non_issuers_cant_create_tokens() {
             asset_type: AssetType::default(),
         };
 
-        let wrong_acc = AccountId::from(AccountKeyring::Bob);
-
-        Balances::make_free_balance_be(&wrong_acc, 1_000_000);
+        Balances::make_free_balance_be(&AccountKeyring::Bob.public(), 1_000_000);
 
         let wrong_did = IdentityId::try_from("did:poly:wrong");
         assert!(wrong_did.is_err());
@@ -140,8 +133,7 @@ fn valid_transfers_pass() {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -152,12 +144,8 @@ fn valid_transfers_pass() {
             asset_type: AssetType::default(),
         };
         let ticker = Ticker::from_slice(token.name.as_slice());
-        Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
-        let alice_acc = AccountId::from(AccountKeyring::Alice);
-        let (_, alice_did) = make_account(alice_acc).unwrap();
-
-        Balances::make_free_balance_be(&alice_acc, 1_000_000);
+        let (_, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_token(
@@ -200,8 +188,7 @@ fn valid_transfers_pass() {
 #[test]
 fn valid_custodian_allowance() {
     build_ext().execute_with(|| {
-        let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
@@ -215,22 +202,11 @@ fn valid_custodian_allowance() {
             asset_type: AssetType::default(),
         };
         let ticker = Ticker::from_slice(token.name.as_slice());
-        Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
-        let investor1_acc = AccountId::from(AccountKeyring::Bob);
-        let (investor1_signed, investor1_did) = make_account(investor1_acc).unwrap();
-
-        Balances::make_free_balance_be(&investor1_acc, 1_000_000);
-
-        let investor2_acc = AccountId::from(AccountKeyring::Charlie);
-        let (investor2_signed, investor2_did) = make_account(investor2_acc).unwrap();
-
-        Balances::make_free_balance_be(&investor2_acc, 1_000_000);
-
-        let custodian_acc = AccountId::from(AccountKeyring::Eve);
-        let (custodian_signed, custodian_did) = make_account(custodian_acc).unwrap();
-
-        Balances::make_free_balance_be(&custodian_acc, 1_000_000);
+        let (investor1_signed, investor1_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let (investor2_signed, investor2_did) =
+            make_account(AccountKeyring::Charlie.public()).unwrap();
+        let (custodian_signed, custodian_did) = make_account(AccountKeyring::Eve.public()).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_token(
@@ -403,8 +379,7 @@ fn valid_custodian_allowance() {
 #[test]
 fn valid_custodian_allowance_of() {
     build_ext().execute_with(|| {
-        let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(owner_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
@@ -418,22 +393,11 @@ fn valid_custodian_allowance_of() {
             asset_type: AssetType::default(),
         };
         let ticker = Ticker::from_slice(token.name.as_slice());
-        Balances::make_free_balance_be(&owner_acc, 1_000_000);
 
-        let investor1_acc = AccountId::from(AccountKeyring::Bob);
-        let (investor1_signed, investor1_did) = make_account(investor1_acc).unwrap();
-
-        Balances::make_free_balance_be(&investor1_acc, 1_000_000);
-
-        let investor2_acc = AccountId::from(AccountKeyring::Charlie);
-        let (investor2_signed, investor2_did) = make_account(investor2_acc).unwrap();
-
-        Balances::make_free_balance_be(&investor2_acc, 1_000_000);
-
-        let custodian_acc = AccountId::from(AccountKeyring::Eve);
-        let (custodian_signed, custodian_did) = make_account(custodian_acc).unwrap();
-
-        Balances::make_free_balance_be(&custodian_acc, 1_000_000);
+        let (investor1_signed, investor1_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let (investor2_signed, investor2_did) =
+            make_account(AccountKeyring::Charlie.public()).unwrap();
+        let (custodian_signed, custodian_did) = make_account(AccountKeyring::Eve.public()).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_token(
@@ -497,7 +461,7 @@ fn valid_custodian_allowance_of() {
             investor2_signed.clone(),
             ticker,
             investor1_did,
-            investor1_acc.clone(),
+            AccountKeyring::Bob.public(),
             custodian_did,
             investor2_did,
             50_00_00 as u128,
@@ -521,7 +485,7 @@ fn valid_custodian_allowance_of() {
                 investor2_signed.clone(),
                 ticker,
                 investor1_did,
-                investor1_acc.clone(),
+                AccountKeyring::Bob.public(),
                 custodian_did,
                 investor2_did,
                 50_00_00 as u128,
@@ -537,7 +501,7 @@ fn valid_custodian_allowance_of() {
                 investor2_signed.clone(),
                 ticker,
                 investor1_did,
-                investor1_acc.clone(),
+                AccountKeyring::Bob.public(),
                 custodian_did,
                 investor2_did,
                 50_00_00 as u128,
@@ -620,8 +584,7 @@ fn checkpoints_fuzz_test() {
             let now = Utc::now();
             Timestamp::set_timestamp(now.timestamp() as u64);
 
-            let owner_acc = AccountId::from(AccountKeyring::Dave);
-            let (owner_signed, owner_did) = make_account(owner_acc).unwrap();
+            let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -632,8 +595,7 @@ fn checkpoints_fuzz_test() {
                 asset_type: AssetType::default(),
             };
             let ticker = Ticker::from_slice(token.name.as_slice());
-            let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (_, bob_did) = make_account(bob_acc).unwrap();
+            let (_, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
@@ -735,10 +697,7 @@ fn register_ticker() {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(owner_acc).unwrap();
-
-        Balances::make_free_balance_be(&owner_acc, 1_000_000);
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let token = SecurityToken {
             name: vec![0x01],
@@ -788,10 +747,7 @@ fn register_ticker() {
 
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
-        let alice_acc = AccountId::from(AccountKeyring::Alice);
-        let (alice_signed, _) = make_account(alice_acc).unwrap();
-
-        Balances::make_free_balance_be(&alice_acc, 1_000_000);
+        let (alice_signed, _) = make_account(AccountKeyring::Alice.public()).unwrap();
 
         assert_err!(
             Asset::register_ticker(alice_signed.clone(), ticker),
@@ -814,14 +770,9 @@ fn transfer_ticker() {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(owner_acc).unwrap();
-
-        let alice_acc = AccountId::from(AccountKeyring::Alice);
-        let (alice_signed, alice_did) = make_account(alice_acc).unwrap();
-
-        let bob_acc = AccountId::from(AccountKeyring::Bob);
-        let (bob_signed, bob_did) = make_account(bob_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
         let ticker = Ticker::from_slice(&[0x01, 0x01]);
 
@@ -907,14 +858,9 @@ fn transfer_token_ownership() {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(owner_acc).unwrap();
-
-        let alice_acc = AccountId::from(AccountKeyring::Alice);
-        let (alice_signed, alice_did) = make_account(alice_acc).unwrap();
-
-        let bob_acc = AccountId::from(AccountKeyring::Bob);
-        let (bob_signed, bob_did) = make_account(bob_acc).unwrap();
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
         let token_name = vec![0x01, 0x01];
         let ticker = Ticker::from_slice(token_name.as_slice());
@@ -1018,10 +964,8 @@ fn transfer_token_ownership() {
 #[test]
 fn update_identifiers() {
     build_ext().execute_with(|| {
-        let owner_acc = AccountId::from(AccountKeyring::Dave);
-        let (owner_signed, owner_did) = make_account(owner_acc).unwrap();
-        // Raise the owner's base currency balance
-        Balances::make_free_balance_be(&owner_acc, 1_000_000);
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+
         // Expected token entry
         let token = SecurityToken {
             name: b"TEST".to_vec(),

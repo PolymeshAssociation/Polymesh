@@ -471,19 +471,6 @@ mod tests {
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
     }
-    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-    pub struct TestProposal {
-        pub dummy: u8,
-    }
-
-    impl sp_runtime::traits::Dispatchable for TestProposal {
-        type Origin = Origin;
-        type Trait = Test;
-
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
-            Ok(())
-        }
-    }
 
     parameter_types! {
         pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -505,8 +492,9 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = TestProposal;
+        type Proposal = Call;
         type AcceptTransferTarget = Test;
+        type AddSignerMultiSigTarget = Test;
     }
 
     impl crate::asset::AcceptTransfer for Test {
@@ -514,6 +502,12 @@ mod tests {
             unimplemented!()
         }
         fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
+            unimplemented!()
+        }
+    }
+
+    impl crate::multisig::AddSignerMultiSig for Test {
+        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }

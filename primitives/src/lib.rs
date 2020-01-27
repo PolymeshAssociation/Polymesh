@@ -3,9 +3,9 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_runtime::{generic, AnySignature};
+use sp_runtime::{generic, MultiSignature};
 
-pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, Verify};
+pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Verify};
 
 pub use codec::Compact;
 
@@ -18,10 +18,10 @@ pub type Moment = u64;
 
 /// Alias to 512-bit hash when used in the context of a signature on the relay chain.
 /// Equipped with logic for possibly "unsigned" messages.
-pub type Signature = AnySignature;
+pub type Signature = MultiSignature;
 
 /// Alias to an sr25519 or ed25519 key.
-pub type AccountId = <Signature as Verify>::Signer;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// The type for looking up accounts. We don't expect more than 4 billion of them.
 pub type AccountIndex = u32;
@@ -33,7 +33,7 @@ pub type ChainId = u32;
 pub type Hash = sp_core::H256;
 
 /// Index of a transaction in the relay chain. 32-bit should be plenty.
-pub type Nonce = u32;
+pub type Index = u32;
 
 /// The balance of an account.
 /// 128-bits (or 38 significant decimal figures) will allow for 10m currency (10^7) at a resolution

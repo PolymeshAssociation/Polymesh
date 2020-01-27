@@ -566,7 +566,7 @@ mod tests {
         parameter_types,
     };
     use frame_system::EnsureSignedBy;
-    use primitives::IdentityId;
+    use primitives::{IdentityId, Signer};
     use sp_core::H256;
     use sp_runtime::{
         testing::Header,
@@ -636,24 +636,17 @@ mod tests {
         type Identity = crate::identity::Module<Test>;
     }
 
-    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-    pub struct IdentityProposal {
-        pub dummy: u8,
-    }
-
-    impl sp_runtime::traits::Dispatchable for IdentityProposal {
-        type Origin = Origin;
-        type Trait = Test;
-
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult {
-            Ok(())
-        }
-    }
-
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = IdentityProposal;
+        type Proposal = Call;
         type AcceptTransferTarget = Test;
+        type AddSignerMultiSigTarget = Test;
+    }
+
+    impl crate::multisig::AddSignerMultiSig for Test {
+        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+            unimplemented!()
+        }
     }
 
     impl crate::asset::AcceptTransfer for Test {
