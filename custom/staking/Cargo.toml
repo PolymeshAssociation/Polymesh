@@ -1,0 +1,51 @@
+[package]
+name = "pallet-staking"
+version = "2.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0.101", optional = true }
+safe-mix = { version = "1.0.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+sp-keyring = { package = "sp-keyring", git = "https://github.com/paritytech/substrate", optional = true, default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421"}
+sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-phragmen = { package = "sp-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-staking = { package = "sp-staking", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-session = { package = "pallet-session", features = ["historical"], git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-authorship = { package = "pallet-authorship", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+pallet-babe = { package = "pallet-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+
+[dev-dependencies]
+sp-core = { package ="sp-core", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-balances = { package ="pallet-balances", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-timestamp = { package ="pallet-timestamp", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve" }
+substrate-test-utils = { package ="substrate-test-utils", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+
+[features]
+equalize = []
+migrate = []
+default = ["std", "equalize"]
+std = [
+	"serde",
+	"safe-mix/std",
+	"sp-keyring",
+	"codec/std",
+	"sp-std/std",
+	"sp-phragmen/std",
+	"sp-io/std",
+	"frame-support/std",
+	"sp-runtime/std",
+	"sp-staking/std",
+	"pallet-session/std",
+	"frame-system/std",
+	"pallet-authorship/std",
+	"primitives/std",
+	"pallet-babe/std",
+]

@@ -1,13 +1,14 @@
+use crate::Ticker;
 use codec::{Decode, Encode};
-use rstd::prelude::Vec;
+use sp_std::prelude::Vec;
 
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum LinkData {
     /// Represents a ticker ownership
-    TickerOwned(Vec<u8>),
+    TickerOwned(Ticker),
     /// Represents a token ownership
-    TokenOwned(Vec<u8>),
+    TokenOwned(Ticker),
     /// No linked data.
     NoData,
 }

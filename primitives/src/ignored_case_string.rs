@@ -1,5 +1,5 @@
 use codec::{Decode, Encode};
-use rstd::prelude::Vec;
+use sp_std::prelude::Vec;
 
 /// A string container where `PartialEq` uses ignore case sensitive.
 #[derive(Encode, Decode, Default, Clone, Debug)]

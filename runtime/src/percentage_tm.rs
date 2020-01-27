@@ -24,19 +24,19 @@
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
 use crate::{asset::AssetTrait, balances, constants::*, exemption, identity, utils};
-use primitives::{IdentityId, Key, Signer};
+use primitives::{IdentityId, Key, Signer, Ticker};
 
 use codec::Encode;
 use core::result::Result as StdResult;
-use rstd::{convert::TryFrom, prelude::*};
-use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
-use system::{self, ensure_signed};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::{self as system, ensure_signed};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + utils::Trait + exemption::Trait {
+pub trait Trait: frame_system::Trait + utils::Trait + exemption::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 decl_event!(
@@ -44,14 +44,14 @@ decl_event!(
     where
         Balance = <T as balances::Trait>::Balance,
     {
-        TogglePercentageRestriction(Vec<u8>, u16, bool),
+        TogglePercentageRestriction(Ticker, u16, bool),
         DoSomething(Balance),
     }
 );
 
 decl_storage! {
     trait Store for Module<T: Trait> as PercentageTM {
-        MaximumPercentageEnabledForToken get(maximum_percentage_enabled_for_token): map Vec<u8> => u16;
+        MaximumPercentageEnabledForToken get(fn maximum_percentage_enabled_for_token): map Ticker => u16;
     }
 }
 
@@ -61,27 +61,25 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Set a maximum percentage that can be owned by a single investor
-        fn toggle_maximum_percentage_restriction(origin, did: IdentityId, _ticker: Vec<u8>, max_percentage: u16) -> Result  {
-            let upper_ticker = utils::bytes_to_upper(_ticker.as_slice());
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-
+        fn toggle_maximum_percentage_restriction(origin, did: IdentityId, ticker: Ticker, max_percentage: u16) -> DispatchResult  {
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
-            ensure!(Self::is_owner(&upper_ticker, did),"Sender DID must be the token owner");
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, did),"Sender DID must be the token owner");
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
 
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
             //SATYAM: TODO: Add the decimal restriction
-            <MaximumPercentageEnabledForToken>::insert(&upper_ticker, max_percentage);
+            <MaximumPercentageEnabledForToken>::insert(&ticker, max_percentage);
             // Emit an event with values (Ticker of asset, max percentage, restriction enabled or not)
-            Self::deposit_event(RawEvent::TogglePercentageRestriction(upper_ticker, max_percentage, max_percentage != 0));
+            Self::deposit_event(RawEvent::TogglePercentageRestriction(ticker, max_percentage, max_percentage != 0));
 
             if max_percentage != 0 {
-                sr_primitives::print("Maximum percentage restriction enabled!");
+                sp_runtime::print("Maximum percentage restriction enabled!");
             } else {
-                sr_primitives::print("Maximum percentage restriction disabled!");
+                sp_runtime::print("Maximum percentage restriction disabled!");
             }
 
             Ok(())
@@ -91,30 +89,28 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    pub fn is_owner(ticker: &Vec<u8>, sender_did: IdentityId) -> bool {
-        let upper_ticker = utils::bytes_to_upper(ticker);
-        T::Asset::is_owner(&upper_ticker, sender_did)
+    pub fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
+        T::Asset::is_owner(ticker, sender_did)
     }
 
     /// Transfer restriction verification logic
     pub fn verify_restriction(
-        ticker: &[u8],
+        ticker: &Ticker,
         _from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        let upper_ticker = utils::bytes_to_upper(ticker);
-        let max_percentage = Self::maximum_percentage_enabled_for_token(&upper_ticker);
+        let max_percentage = Self::maximum_percentage_enabled_for_token(ticker);
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
         // TODO: Mould the integer into the module identity
         if let Some(to_did) = to_did_opt.clone() {
-            let is_exempted = <exemption::Module<T>>::is_exempted(&upper_ticker, 2, to_did);
+            let is_exempted = <exemption::Module<T>>::is_exempted(&ticker, 2, to_did);
             if max_percentage != 0 && !is_exempted {
-                let new_balance = (T::Asset::balance(&upper_ticker, to_did))
+                let new_balance = (T::Asset::balance(&ticker, to_did))
                     .checked_add(&value)
                     .ok_or("Balance of to will get overflow")?;
-                let total_supply = T::Asset::total_supply(&upper_ticker);
+                let total_supply = T::Asset::total_supply(&ticker);
 
                 let percentage_balance = (new_balance
                     .checked_mul(&((10 as u128).pow(18)).into())
@@ -127,7 +123,7 @@ impl<T: Trait> Module<T> {
                     .ok_or("unsafe percentage multiplication")?;
 
                 if percentage_balance > allowed_token_amount.into() {
-                    sr_primitives::print(
+                    sp_runtime::print(
                         "It is failing because it is not validating the PercentageTM restrictions",
                     );
                     return Ok(APP_FUNDS_LIMIT_REACHED);
@@ -135,7 +131,7 @@ impl<T: Trait> Module<T> {
             }
             Ok(ERC1400_TRANSFER_SUCCESS)
         } else {
-            sr_primitives::print("to account is not active");
+            sp_runtime::print("to account is not active");
             Ok(ERC1400_INVALID_RECEIVER)
         }
     }
@@ -149,13 +145,13 @@ mod tests {
     // use crate::asset::SecurityToken;
     // use lazy_static::lazy_static;
     // use substrate_primitives::{Blake2Hasher, H256};
-    // use sr_io::with_externalities;
-    // use sr_primitives::{
+    // use sp_io::with_externalities;
+    // use sp_runtime::{
     //     testing::{Digest, DigestItem, Header},
     //     traits::{BlakeTwo256, IdentityLookup},
     //     BuildStorage,
     // };
-    // use srml_support::{assert_noop, assert_ok, impl_outer_origin};
+    // use frame_support::{assert_noop, assert_ok, impl_outer_origin};
 
     // use std::{
     //     collections::HashMap,
@@ -172,18 +168,23 @@ mod tests {
     // #[derive(Clone, Eq, PartialEq)]
     // pub struct Test;
 
-    // impl system::Trait for Test {
+    // impl frame_system::Trait for Test {
     //     type Origin = Origin;
     //     type Index = u64;
     //     type BlockNumber = u64;
+    //     type Call = ();
     //     type Hash = H256;
     //     type Hashing = BlakeTwo256;
-    //     type Digest = H256;
-    //     type AccountId = u64;
+    //     type AccountId = AccountId;
     //     type Lookup = IdentityLookup<Self::AccountId>;
     //     type Header = Header;
     //     type Event = ();
-    //     type Log = DigestItem;
+    //     type BlockHashCount = BlockHashCount;
+    //     type MaximumBlockWeight = MaximumBlockWeight;
+    //     type MaximumBlockLength = MaximumBlockLength;
+    //     type AvailableBlockRatio = AvailableBlockRatio;
+    //     type Version = ();
+    //     type ModuleToIndex = ();
     // }
 
     // impl Trait for Test {
@@ -198,13 +199,13 @@ mod tests {
     //     type Balance = u128;
     // }
 
-    // impl timestamp::Trait for Test {
+    // impl pallet_timestamp::Trait for Test {
     //     type Moment = u64;
     //     type OnTimestampSet = ();
     // }
 
-    // impl asset::HasOwner<<Test as system::Trait>::AccountId> for Module<Test> {
-    //     fn is_owner(_ticker: Vec<u8>, sender: <Test as system::Trait>::AccountId) -> bool {
+    // impl asset::HasOwner<<Test as frame_system::Trait>::AccountId> for Module<Test> {
+    //     fn is_owner(_ticker: Vec<u8>, sender: <Test as frame_system::Trait>::AccountId) -> bool {
     //         if let Some(token) = TOKEN_MAP.lock().unwrap().get(&_ticker) {
     //             token.owner == sender
     //         } else {
@@ -219,8 +220,8 @@ mod tests {
     // }
     // // This function basically just builds a genesis storage key/value store according to
     // // our desired mockup.
-    // fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-    //     system::GenesisConfig::default()
+    // fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
+    //     frame_system::GenesisConfig::default()
     //         .build_storage()
     //         .unwrap()
     //         .0
@@ -235,7 +236,7 @@ mod tests {
     //                 Vec<u8>,
     //                 SecurityToken<
     //                     <Test as balances::Trait>::Balance,
-    //                     <Test as system::Trait>::AccountId,
+    //                     <Test as frame_system::Trait>::AccountId,
     //                 >,
     //             >,
     //         >,

@@ -1,5 +1,5 @@
 use codec::{Decode, Encode};
-use rstd::{
+use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     prelude::Vec,
     vec,
@@ -30,7 +30,7 @@ pub enum Permission {
 pub enum SignerType {
     External,
     Identity,
-    Multisig,
+    MultiSig,
     Relayer,
     Custom(u8),
 }

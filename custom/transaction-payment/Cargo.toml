@@ -1,0 +1,31 @@
+[package]
+name = "pallet-transaction-payment"
+version = "2.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-transaction-payment-rpc-runtime-api = { version = "2.0.0", default-features = false, path = "./rpc/runtime-api" }
+primitives = {package = "polymesh-primitives", default-features = false, path = "../../primitives"}
+
+[dev-dependencies]
+sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-balances = { version = "2.0.0", path = "../../runtime/balances" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"sp-std/std",
+	"sp-runtime/std",
+	"frame-support/std",
+	"frame-system/std",
+	"primitives/std",
+	"pallet-transaction-payment-rpc-runtime-api/std"
+]

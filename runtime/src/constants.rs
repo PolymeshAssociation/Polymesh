@@ -34,7 +34,7 @@ pub mod time {
 
 /// Fee-related.
 pub mod fee {
-    pub use sr_primitives::Perbill;
+    pub use sp_runtime::Perbill;
 
     /// The block saturation level. Fees will be updates based on this value.
     pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
@@ -69,3 +69,5 @@ pub const APP_TX_VOLUME_LIMIT_REACHED: u8 = 0xa5;
 pub const APP_BLACKLISTED_TX: u8 = 0xa6;
 pub const APP_FUNDS_LOCKED: u8 = 0xa7;
 pub const APP_INVALID_GRANULARITY: u8 = 0xa8;
+
+pub const KYC_EXPIRY_CLAIM_KEY: [u8; 18] = *b"KYCExpiryTimestamp";

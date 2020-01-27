@@ -1,24 +1,30 @@
-use crate::{balances, identity};
-use primitives::{IdentityId, Key};
-
+use crate::{balances, group, identity, multisig};
 use codec::Encode;
-use sr_io::TestExternalities;
-use sr_primitives::{
-    testing::Header,
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
-    AnySignature, Perbill,
-};
-use srml_support::{
-    dispatch::{DispatchError, DispatchResult},
-    impl_outer_origin, parameter_types,
+use frame_support::{
+    dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin, parameter_types,
     traits::Currency,
 };
+use frame_system::{self as system, EnsureSignedBy};
+use primitives::{IdentityId, Key, Signer};
+use sp_core::{crypto::Pair as PairTrait, sr25519::Pair, H256};
+use sp_io::TestExternalities;
+use sp_runtime::{
+    testing::Header,
+    traits::{BlakeTwo256, IdentityLookup, Verify},
+    AnySignature, Perbill,
+};
 use std::convert::TryFrom;
-use substrate_primitives::{crypto::Pair as PairTrait, sr25519::Pair, Blake2Hasher, H256};
 use test_client::AccountKeyring;
 
 impl_outer_origin! {
     pub enum Origin for TestStorage {}
+}
+
+impl_outer_dispatch! {
+    pub enum Call for TestStorage where origin: Origin {
+        identity::Identity,
+        multisig::MultiSig,
+    }
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -35,24 +41,23 @@ parameter_types! {
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 
-impl system::Trait for TestStorage {
+impl frame_system::Trait for TestStorage {
     type Origin = Origin;
     type Index = u64;
     type BlockNumber = u64;
+    type Call = ();
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type Event = ();
-
-    type Call = ();
-    type WeightMultiplierUpdate = ();
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type MaximumBlockLength = MaximumBlockLength;
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
+    type ModuleToIndex = ();
 }
 
 parameter_types! {
@@ -68,16 +73,11 @@ impl balances::Trait for TestStorage {
     type OnFreeBalanceZero = ();
     type OnNewAccount = ();
     type Event = ();
-    type TransactionPayment = ();
     type DustRemoval = ();
     type TransferPayment = ();
-
     type ExistentialDeposit = ExistentialDeposit;
     type TransferFee = TransferFee;
     type CreationFee = CreationFee;
-    type TransactionBaseFee = TransactionBaseFee;
-    type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = ConvertInto;
     type Identity = crate::identity::Module<TestStorage>;
 }
 
@@ -85,35 +85,52 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 3;
 }
 
-impl timestamp::Trait for TestStorage {
+impl pallet_timestamp::Trait for TestStorage {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
 }
 
-#[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-pub struct IdentityProposal {
-    pub dummy: u8,
+impl multisig::Trait for TestStorage {
+    type Event = ();
 }
 
-impl sr_primitives::traits::Dispatchable for IdentityProposal {
-    type Origin = Origin;
-    type Trait = TestStorage;
-    type Error = DispatchError;
+parameter_types! {
+    pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+    pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+}
 
-    fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
-        Ok(())
-    }
+impl group::Trait<group::Instance1> for TestStorage {
+    type Event = ();
+    type AddOrigin = EnsureSignedBy<One, AccountId>;
+    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
 }
 
 impl identity::Trait for TestStorage {
     type Event = ();
-    type Proposal = IdentityProposal;
-    type AcceptTickerTransferTarget = TestStorage;
+    type Proposal = Call;
+    type AcceptTransferTarget = TestStorage;
+    type AddSignerMultiSigTarget = TestStorage;
 }
 
-impl crate::asset::AcceptTickerTransfer for TestStorage {
-    fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
+impl crate::multisig::AddSignerMultiSig for TestStorage {
+    fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+        unimplemented!()
+    }
+}
+
+impl crate::asset::AcceptTransfer for TestStorage {
+    fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        Ok(())
+    }
+    fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
 }
@@ -121,10 +138,11 @@ impl crate::asset::AcceptTickerTransfer for TestStorage {
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
+pub type MultiSig = multisig::Module<TestStorage>;
 
 /// Create externalities
-pub fn build_ext() -> TestExternalities<Blake2Hasher> {
-    let mut storage = system::GenesisConfig::default()
+pub fn build_ext() -> TestExternalities {
+    let mut storage = frame_system::GenesisConfig::default()
         .build_storage::<TestStorage>()
         .unwrap();
 
@@ -135,12 +153,12 @@ pub fn build_ext() -> TestExternalities<Blake2Hasher> {
     .assimilate_storage(&mut storage)
     .unwrap();
 
-    sr_io::TestExternalities::new(storage)
+    sp_io::TestExternalities::new(storage)
 }
 
 pub fn make_account(
     id: AccountId,
-) -> Result<(<TestStorage as system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     make_account_with_balance(id, 1_000)
 }
 
@@ -148,18 +166,18 @@ pub fn make_account(
 pub fn make_account_with_balance(
     id: AccountId,
     balance: <TestStorage as balances::Trait>::Balance,
-) -> Result<(<TestStorage as system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
-    Identity::register_did(signed_id.clone(), vec![])?;
+    Identity::register_did(signed_id.clone(), vec![]);
     let did = Identity::get_identity(&Key::try_from(id.encode())?).unwrap();
 
     Ok((signed_id, did))
 }
 
 pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'static str> {
-    register_keyring_account_with_balance(acc, 10_000)
+    register_keyring_account_with_balance(acc, 10_000_000)
 }
 
 pub fn register_keyring_account_with_balance(
@@ -169,7 +187,7 @@ pub fn register_keyring_account_with_balance(
     Balances::make_free_balance_be(&acc.public(), balance);
 
     let acc_pub = acc.public();
-    Identity::register_did(Origin::signed(acc_pub.clone()), vec![])?;
+    Identity::register_did(Origin::signed(acc_pub.clone()), vec![]);
 
     let acc_key = Key::from(acc_pub.0);
     let did =
