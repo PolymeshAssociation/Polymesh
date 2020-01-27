@@ -1013,6 +1013,97 @@ fn update_identifiers() {
     });
 }
 
+#[test]
+fn freeze_unfreeze_token() {
+    build_ext().execute_with(|| {
+        let now = Utc::now();
+        <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+        let alice_acc = AccountId::from(AccountKeyring::Alice);
+        let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
+        let bob_acc = AccountId::from(AccountKeyring::Bob);
+        let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
+        let token_name = b"COOL";
+        let ticker = Ticker::from_slice(token_name);
+        assert_ok!(Asset::create_token(
+            alice_signed.clone(),
+            alice_did,
+            token_name.to_vec(),
+            ticker,
+            1_000_000,
+            true,
+            AssetType::default(),
+            vec![],
+        ));
+        // Allow all transfers.
+        let asset_rule = general_tm::AssetRule {
+            sender_rules: vec![],
+            receiver_rules: vec![],
+        };
+        assert_ok!(GeneralTM::add_active_rule(
+            alice_signed.clone(),
+            alice_did,
+            ticker,
+            asset_rule
+        ));
+        assert_err!(
+            Asset::freeze_token(bob_signed.clone(), ticker),
+            "sender must be a signing key for the token owner DID"
+        );
+        assert_err!(
+            Asset::unfreeze_token(alice_signed.clone(), ticker),
+            "token must be frozen"
+        );
+        assert_ok!(Asset::freeze_token(alice_signed.clone(), ticker));
+        assert_err!(
+            Asset::freeze_token(alice_signed.clone(), ticker),
+            "token must not already be frozen"
+        );
+        // Attempt to transfer token ownership.
+        Identity::add_auth(
+            Signer::from(alice_did),
+            Signer::from(bob_did),
+            AuthorizationData::TransferTokenOwnership(ticker),
+            None,
+        );
+        let auth_id = Identity::last_authorization(Signer::from(bob_did));
+        assert_err!(
+            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+            "token is frozen"
+        );
+        assert_err!(
+            Asset::transfer(alice_signed.clone(), alice_did, ticker, bob_did, 1),
+            "token is frozen"
+        );
+        // Attempt to mint tokens.
+        assert_err!(
+            Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
+            "token is frozen"
+        );
+        assert_err!(
+            Asset::batch_issue(alice_signed.clone(), alice_did, ticker, vec![], vec![]),
+            "token is frozen"
+        );
+        assert_ok!(Asset::unfreeze_token(alice_signed.clone(), ticker));
+        assert_err!(
+            Asset::unfreeze_token(alice_signed.clone(), ticker),
+            "token must be frozen"
+        );
+        // Transfer some balance.
+        assert_ok!(Asset::transfer(
+            alice_signed.clone(),
+            alice_did,
+            ticker,
+            bob_did,
+            1
+        ));
+        // Finish the token ownership transfer.
+        assert_ok!(Asset::accept_token_ownership_transfer(
+            bob_signed.clone(),
+            auth_id
+        ));
+    });
+}
+
 /*
  *    #[test]
  *    /// This test loads up a YAML of testcases and checks each of them
