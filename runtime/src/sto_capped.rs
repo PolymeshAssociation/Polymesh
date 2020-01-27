@@ -36,18 +36,18 @@ use crate::{
 use primitives::{IdentityId, Key, Signer, Ticker};
 
 use codec::Encode;
-use rstd::{convert::TryFrom, prelude::*};
-use sr_primitives::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use srml_support::traits::Currency;
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
-use system::{self, ensure_signed};
+use frame_support::traits::Currency;
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::{self as system, ensure_signed};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
-    timestamp::Trait + system::Trait + utils::Trait + balances::Trait + general_tm::Trait
+    pallet_timestamp::Trait + frame_system::Trait + utils::Trait + balances::Trait + general_tm::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type SimpleTokenTrait: simple_token::SimpleTokenTrait<Self::Balance>;
 }
 
@@ -74,25 +74,25 @@ decl_storage! {
     trait Store for Module<T: Trait> as STOCapped {
         /// Tokens can have multiple whitelists that (for now) check entries individually within each other
         /// (ticker, sto_id) -> STO
-        StosByToken get(stos_by_token): map (Ticker, u32) => STO<T::Balance,T::Moment>;
+        StosByToken get(fn stos_by_token): map (Ticker, u32) => STO<T::Balance,T::Moment>;
         /// It returns the sto count corresponds to its ticker
         /// ticker -> sto count
-        StoCount get(sto_count): map Ticker => u32;
+        StoCount get(fn sto_count): map Ticker => u32;
         /// List of SimpleToken tokens which will be accepted as the fund raised type for the STO
         /// (asset_ticker, sto_id, index) -> simple_token_ticker
-        AllowedTokens get(allowed_tokens): map (Ticker, u32, u32) => Ticker;
+        AllowedTokens get(fn allowed_tokens): map (Ticker, u32, u32) => Ticker;
         /// To track the index of the token address for the given STO
         /// (Asset_ticker, sto_id, simple_token_ticker) -> index
-        TokenIndexForSTO get(token_index_for_sto): map (Ticker, u32, Ticker) => Option<u32>;
+        TokenIndexForSTO get(fn token_index_for_sto): map (Ticker, u32, Ticker) => Option<u32>;
         /// To track the no of different tokens allowed as fund raised type for the given STO
         /// (asset_ticker, sto_id) -> count
-        TokensCountForSto get(tokens_count_for_sto): map (Ticker, u32) => u32;
+        TokensCountForSto get(fn tokens_count_for_sto): map (Ticker, u32) => u32;
         /// To track the investment data of the investor corresponds to ticker
         /// (asset_ticker, sto_id, DID) -> Investment structure
-        InvestmentData get(investment_data): map (Ticker, u32, IdentityId) => Investment<T::Balance, T::Moment>;
+        InvestmentData get(fn investment_data): map (Ticker, u32, IdentityId) => Investment<T::Balance, T::Moment>;
         /// To track the investment amount of the investor corresponds to ticker using SimpleToken
         /// (asset_ticker, simple_token_ticker, sto_id, accountId) -> Invested balance
-        SimpleTokenSpent get(simple_token_token_spent): map (Ticker, Ticker, u32, IdentityId) => T::Balance;
+        SimpleTokenSpent get(fn simple_token_token_spent): map (Ticker, Ticker, u32, IdentityId) => T::Balance;
     }
 }
 
@@ -125,7 +125,7 @@ decl_module! {
             start_date: T::Moment,
             end_date: T::Moment,
             simple_token_ticker: Ticker
-        ) -> Result {
+        ) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -164,7 +164,7 @@ decl_module! {
 
                 Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, simple_token_ticker, sto_count, true));
             }
-            sr_primitives::print("Capped STO launched!!!");
+            sp_runtime::print("Capped STO launched!!!");
 
             Ok(())
         }
@@ -177,7 +177,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
-        pub fn buy_tokens(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance ) -> Result {
+        pub fn buy_tokens(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
 
@@ -239,14 +239,14 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in.
         /// * `simple_token_ticker` Ticker of the stable coin
         /// * `modify_status` Boolean to know whether the provided simple token ticker will be used or not.
-        pub fn modify_allowed_tokens(origin, did: IdentityId, ticker: Ticker, sto_id: u32, simple_token_ticker: Ticker, modify_status: bool) -> Result {
+        pub fn modify_allowed_tokens(origin, did: IdentityId, ticker: Ticker, sto_id: u32, simple_token_ticker: Ticker, modify_status: bool) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             /// Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
             let selected_sto = Self::stos_by_token((ticker, sto_id));
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             // Right now we are only allowing the issuer to change the configuration only before the STO start not after the start
             // or STO should be in non-active stage
             ensure!(now < selected_sto.start_date || !selected_sto.active, "STO is already started");
@@ -289,7 +289,7 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
         /// * `simple_token_ticker` Ticker of the simple token
-        pub fn buy_tokens_by_simple_token(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> Result {
+        pub fn buy_tokens_by_simple_token(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -344,7 +344,7 @@ decl_module! {
         /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to paused
-        pub fn pause_sto(origin, did: IdentityId, ticker: Ticker, sto_id: u32) -> Result {
+        pub fn pause_sto(origin, did: IdentityId, ticker: Ticker, sto_id: u32) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -371,7 +371,7 @@ decl_module! {
         /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to un paused
-        pub fn unpause_sto(origin, did: IdentityId, ticker: Ticker, sto_id: u32) -> Result {
+        pub fn unpause_sto(origin, did: IdentityId, ticker: Ticker, sto_id: u32) -> DispatchResult {
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -414,12 +414,12 @@ impl<T: Trait> Module<T> {
         _ticker: &Ticker,
         _did: IdentityId,
         selected_sto: STO<T::Balance, T::Moment>,
-    ) -> Result {
+    ) -> DispatchResult {
         // TODO: Validate that buyer is whitelisted for primary issuance.
         // Check whether the sto is unpaused or not
         ensure!(selected_sto.active, "sto is paused");
         // Check whether the sto is already ended
-        let now = <timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Module<T>>::get();
         ensure!(
             now >= selected_sto.start_date && now <= selected_sto.end_date,
             "STO has not started or already ended"
@@ -460,7 +460,7 @@ impl<T: Trait> Module<T> {
         simple_token_ticker: Ticker,
         simple_token_investment: T::Balance,
         selected_sto: STO<T::Balance, T::Moment>,
-    ) -> Result {
+    ) -> DispatchResult {
         // Store Investment DATA
         let mut investor_holder = Self::investment_data((ticker, sto_id, did));
         if investor_holder.investor_did == IdentityId::default() {
@@ -470,7 +470,7 @@ impl<T: Trait> Module<T> {
             .tokens_purchased
             .checked_add(&new_tokens_minted)
             .ok_or("overflow while updating the invested amount")?;
-        investor_holder.last_purchase_date = <timestamp::Module<T>>::get();
+        investor_holder.last_purchase_date = <pallet_timestamp::Module<T>>::get();
 
         if simple_token_ticker != Ticker::default() {
             <SimpleTokenSpent<T>>::insert(
@@ -493,7 +493,7 @@ impl<T: Trait> Module<T> {
             investment_amount,
             new_tokens_minted,
         ));
-        sr_primitives::print("Invested in STO");
+        sp_runtime::print("Invested in STO");
         Ok(())
     }
 }
@@ -505,13 +505,13 @@ mod tests {
      *    use super::*;
      *
      *    use substrate_primitives::{Blake2Hasher, H256};
-     *    use sr_io::with_externalities;
-     *    use sr_primitives::{
+     *    use sp_io::with_externalities;
+     *    use sp_runtime::{
      *        testing::{Digest, DigestItem, Header},
      *        traits::{BlakeTwo256, IdentityLookup},
      *        BuildStorage,
      *    };
-     *    use srml_support::{assert_ok, impl_outer_origin};
+     *    use frame_support::{assert_ok, impl_outer_origin};
      *
      *    impl_outer_origin! {
      *        pub enum Origin for Test {}
@@ -522,7 +522,7 @@ mod tests {
      *    // configuration traits of modules we want to use.
      *    #[derive(Clone, Eq, PartialEq)]
      *    pub struct Test;
-     *    impl system::Trait for Test {
+     *    impl frame_system::Trait for Test {
      *        type Origin = Origin;
      *        type Index = u64;
      *        type BlockNumber = u64;
@@ -542,8 +542,8 @@ mod tests {
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
-     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::default()
+     *    fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
+     *        frame_system::GenesisConfig::default()
      *            .build_storage()
      *            .unwrap()
      *            .0

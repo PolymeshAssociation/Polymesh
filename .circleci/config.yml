@@ -27,7 +27,7 @@ jobs:
           working_directory: .
       - run:
           name: Build release
-          command: cargo build --release
+          command: cargo build -j 1 --release
           working_directory: .
       - save_cache:
           key: build-cache-{{ checksum "./Cargo.lock" }}

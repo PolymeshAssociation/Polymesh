@@ -1,7 +1,7 @@
 use crate::{identity, identity::LinkedKeyInfo, runtime, Runtime};
 use primitives::{IdentityId, Key, TransactionError};
 
-use sr_primitives::{
+use sp_runtime::{
     traits::SignedExtension,
     transaction_validity::{
         InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -10,8 +10,8 @@ use sr_primitives::{
 
 use codec::{Decode, Encode};
 use core::convert::TryFrom;
-use rstd::marker::PhantomData;
-use srml_support::dispatch::DispatchInfo;
+use frame_support::dispatch::DispatchInfo;
+use sp_std::marker::PhantomData;
 
 type Identity = identity::Module<Runtime>;
 type Call = runtime::Call;
@@ -19,9 +19,9 @@ type Call = runtime::Call;
 /// This signed extension double-checks and updates the current identifier extracted from
 /// the caller account in each transaction.
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
-pub struct UpdateDid<T: system::Trait + Send + Sync>(PhantomData<T>);
+pub struct UpdateDid<T: frame_system::Trait + Send + Sync>(PhantomData<T>);
 
-impl<T: system::Trait + Send + Sync> UpdateDid<T> {
+impl<T: frame_system::Trait + Send + Sync> UpdateDid<T> {
     pub fn new() -> Self {
         UpdateDid(PhantomData)
     }
@@ -39,20 +39,25 @@ impl<T: system::Trait + Send + Sync> UpdateDid<T> {
     }
 }
 
-#[cfg(feature = "std")]
-impl<T: system::Trait + Send + Sync> rstd::fmt::Debug for UpdateDid<T> {
-    fn fmt(&self, f: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
+impl<T: frame_system::Trait + Send + Sync> sp_std::fmt::Debug for UpdateDid<T> {
+    #[cfg(feature = "std")]
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
         write!(f, "UpdateDid")
+    }
+    #[cfg(not(feature = "std"))]
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        Ok(())
     }
 }
 
-impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
+impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     type AccountId = T::AccountId;
     type Call = runtime::Call;
     type AdditionalSigned = ();
+    type DispatchInfo = DispatchInfo;
     type Pre = ();
 
-    fn additional_signed(&self) -> rstd::result::Result<(), TransactionValidityError> {
+    fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
         Ok(())
     }
 
@@ -88,7 +93,7 @@ impl<T: system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
                         Err(InvalidTransaction::Custom(TransactionError::RequiredKYC as u8).into())
                     }
                 } else {
-                    sr_primitives::print("ERROR: This transaction requires an Identity");
+                    sp_runtime::print("ERROR: This transaction requires an Identity");
                     Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
                 }
             }
@@ -110,13 +115,12 @@ mod tests {
         Runtime,
     };
     use core::default::Default;
+    use frame_support::dispatch::DispatchInfo;
     use primitives::TransactionError;
-    use sr_io::with_externalities;
-    use sr_primitives::{
+    use sp_runtime::{
         traits::SignedExtension,
         transaction_validity::{InvalidTransaction, ValidTransaction},
     };
-    use srml_support::dispatch::DispatchInfo;
     use test_client::AccountKeyring;
 
     type Call = runtime::Call;
@@ -124,7 +128,7 @@ mod tests {
 
     #[test]
     fn update_did_tests() {
-        with_externalities(&mut build_ext(), &update_did_tests_with_externalities);
+        build_ext().execute_with(&update_did_tests_with_externalities);
     }
 
     fn update_did_tests_with_externalities() {
