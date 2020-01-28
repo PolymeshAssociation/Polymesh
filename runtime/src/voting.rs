@@ -498,7 +498,7 @@ mod tests {
         pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
     }
 
-    impl group::Trait<group::Instance1> for Test {
+    impl group::Trait<group::Instance2> for Test {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, AccountId>;
         type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
@@ -513,6 +513,13 @@ mod tests {
         type Proposal = Call<Test>;
         type AcceptTransferTarget = asset::Module<Test>;
         type AddSignerMultiSigTarget = Test;
+        type KYCServiceProviders = Test;
+    }
+
+    impl crate::group::GroupTrait for Test {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
     }
 
     impl crate::multisig::AddSignerMultiSig for Test {
