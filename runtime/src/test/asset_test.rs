@@ -1034,6 +1034,7 @@ fn adding_documents() {
 
         let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
         let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker_did = Identity::get_token_did(&ticker).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_token(
@@ -1067,21 +1068,15 @@ fn adding_documents() {
             documents
         ));
 
-        let last_id = Asset::last_document_id(ticker);
+        let last_id = Identity::last_link(Signer::from(ticker_did));
+        let last_doc = Identity::links((Signer::from(ticker_did), last_id));
 
         assert_eq!(
-            Asset::ticker_document_by_id((ticker, last_id)),
-            Link {
-                link_data: LinkData::Document(
-                    b"B".to_vec(),
-                    b"www.b.com".to_vec(),
-                    b"0x2".to_vec()
-                ),
-                expiry: None,
-                next_link: 0,
-                previous_link: 2,
-            }
+            last_doc.link_data,
+            LinkData::Document(b"B".to_vec(), b"www.b.com".to_vec(), b"0x2".to_vec())
         );
+        assert_eq!(last_doc.next_link, 0);
+        assert_eq!(last_doc.expiry, None);
     });
 }
 
