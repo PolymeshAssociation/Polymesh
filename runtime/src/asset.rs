@@ -549,7 +549,6 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
             ticker.canonize();
             ensure!(<BalanceOf<T>>::exists((ticker, did)), "Account does not own this token");
-            ensure!(!Self::frozen(&ticker), "token is frozen");
             let allowance = Self::allowance((ticker, did, spender_did));
             let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
             <Allowance<T>>::insert((ticker, did, spender_did), updated_allowance);
@@ -649,7 +648,6 @@ decl_module! {
             ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
             ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
-            ensure!(!Self::frozen(&ticker), "token is frozen");
 
             // A helper vec for calculated new investor balances
             let mut updated_balances = Vec::with_capacity(investor_dids.len());

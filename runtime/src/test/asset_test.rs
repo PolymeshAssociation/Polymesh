@@ -3,7 +3,7 @@ use crate::{
     balances, general_tm, identity,
     test::storage::{build_ext, make_account, TestStorage},
 };
-use primitives::{AuthorizationData, IdentityId, Signer, Ticker};
+use primitives::{AccountId, AuthorizationData, IdentityId, Signer, Ticker};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
@@ -1017,11 +1017,9 @@ fn update_identifiers() {
 fn freeze_unfreeze_token() {
     build_ext().execute_with(|| {
         let now = Utc::now();
-        <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
-        let alice_acc = AccountId::from(AccountKeyring::Alice);
-        let (alice_signed, alice_did) = make_account(&alice_acc).unwrap();
-        let bob_acc = AccountId::from(AccountKeyring::Bob);
-        let (bob_signed, bob_did) = make_account(&bob_acc).unwrap();
+        Timestamp::set_timestamp(now.timestamp() as u64);
+        let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
         let token_name = b"COOL";
         let ticker = Ticker::from_slice(token_name);
         assert_ok!(Asset::create_token(
@@ -1079,8 +1077,23 @@ fn freeze_unfreeze_token() {
             Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
             "token is frozen"
         );
+        // `batch_issue` succeeds vacuously on the empty vector of recipients.
+        assert_ok!(Asset::batch_issue(
+            alice_signed.clone(),
+            alice_did,
+            ticker,
+            vec![],
+            vec![]
+        ));
+        // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
-            Asset::batch_issue(alice_signed.clone(), alice_did, ticker, vec![], vec![]),
+            Asset::batch_issue(
+                alice_signed.clone(),
+                alice_did,
+                ticker,
+                vec![bob_did],
+                vec![1]
+            ),
             "token is frozen"
         );
         assert_ok!(Asset::unfreeze_token(alice_signed.clone(), ticker));
