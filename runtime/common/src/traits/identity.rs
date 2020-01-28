@@ -1,7 +1,7 @@
-use crate::traits::CommonTrait;
+use crate::traits::{ CommonTrait, AcceptTransfer, AddSignerMultiSig, group };
 use polymesh_primitives::{IdentityId, Key, Permission, Signer, SigningItem};
 
-use frame_support::{decl_event, Parameter};
+use frame_support::{decl_event, Parameter, weights::GetDispatchInfo};
 use frame_system;
 use sp_core::H512;
 use sp_runtime::traits::Dispatchable;
@@ -138,11 +138,16 @@ decl_event!(
 );
 
 /// The module's configuration trait.
-pub trait Trait: CommonTrait + pallet_timestamp::Trait {
+pub trait Trait: CommonTrait + pallet_timestamp::Trait + group::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
-    type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
+    type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
+    /// Asset module
+    type AcceptTransferTarget: AcceptTransfer;
+    /// MultiSig module
+    type AddSignerMultiSigTarget: AddSignerMultiSig;
+
 }
 
 pub trait IdentityTrait<T> {
