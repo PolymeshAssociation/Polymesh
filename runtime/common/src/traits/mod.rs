@@ -41,5 +41,6 @@ pub trait CommonTrait: frame_system::Trait {
     // pub type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 }
 
+pub mod group;
 pub mod balances;
 pub mod identity;
