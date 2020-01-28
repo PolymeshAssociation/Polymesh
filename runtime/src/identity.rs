@@ -1023,10 +1023,6 @@ decl_event!(
         /// DID, claim issuer DID, claim
         RevokedClaim(IdentityId, ClaimMetaData),
 
-        LogA(u64),
-
-        LogB(ClaimValue),
-
         /// DID
         NewIssuer(IdentityId),
 
