@@ -1379,7 +1379,6 @@ mod tests {
 
     impl identity::Trait for Runtime {
         type Event = ();
-        type IsKYCProvider = Runtime;
         type Proposal = Call<Runtime>;
         type AcceptTransferTarget = Runtime;
         type AddSignerMultiSigTarget = Runtime;
@@ -1388,6 +1387,9 @@ mod tests {
 
     impl crate::group::GroupTrait for Runtime {
         fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
+        fn is_member(_did: &IdentityId) -> bool {
             unimplemented!()
         }
     }
@@ -1402,11 +1404,6 @@ mod tests {
     }
     impl crate::multisig::AddSignerMultiSig for Runtime {
         fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-    }
-    impl sp_runtime::traits::IsMember<IdentityId> for Runtime {
-        fn is_member(_did: &IdentityId) -> bool {
             unimplemented!()
         }
     }

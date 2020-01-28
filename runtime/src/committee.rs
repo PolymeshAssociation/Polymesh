@@ -492,7 +492,6 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
-        type IsKYCProvider = Test;
         type Proposal = Call;
         type AcceptTransferTarget = Test;
         type AddSignerMultiSigTarget = Test;
@@ -501,6 +500,9 @@ mod tests {
 
     impl crate::group::GroupTrait for Test {
         fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
+        fn is_member(_did: &IdentityId) -> bool {
             unimplemented!()
         }
     }
@@ -519,11 +521,7 @@ mod tests {
             unimplemented!()
         }
     }
-    impl sp_runtime::traits::IsMember<IdentityId> for Test {
-        fn is_member(_did: &IdentityId) -> bool {
-            unimplemented!()
-        }
-    }
+
     type Identity = identity::Module<Test>;
     type AccountId = <AnySignature as Verify>::Signer;
 

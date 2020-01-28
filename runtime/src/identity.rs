@@ -74,7 +74,7 @@ use sp_core::{
 };
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-    traits::{Dispatchable, Hash, IsMember, SaturatedConversion, Verify},
+    traits::{Dispatchable, Hash, SaturatedConversion, Verify},
     AnySignature,
 };
 
@@ -176,8 +176,6 @@ pub trait Trait: frame_system::Trait + balances::Trait + pallet_timestamp::Trait
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
     /// Asset module
     type AcceptTransferTarget: AcceptTransfer;
-    /// Reference to KYCServiceProviders group
-    type IsKYCProvider: IsMember<IdentityId>;
     /// MultiSig module
     type AddSignerMultiSigTarget: AddSignerMultiSig;
     /// Group module
@@ -382,7 +380,7 @@ decl_module! {
                     };
 
                     if let Some(id) = kyc_provider_did {
-                        ensure!(T::IsKYCProvider::is_member(&id), "Attestation was not by a KYC service provider");
+                        ensure!(T::KYCServiceProviders::is_member(&id), "Attestation was not by a KYC service provider");
                     } else {
                         return Err(Error::<T>::NoDIDFound.into());
                     }

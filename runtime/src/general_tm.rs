@@ -444,12 +444,6 @@ mod tests {
         type MembershipChanged = ();
     }
 
-    impl sp_runtime::traits::IsMember<IdentityId> for Test {
-        fn is_member(_did: &IdentityId) -> bool {
-            unimplemented!()
-        }
-    }
-
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = Call<Test>;
@@ -460,6 +454,9 @@ mod tests {
 
     impl crate::group::GroupTrait for Test {
         fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
+        fn is_member(_did: &IdentityId) -> bool {
             unimplemented!()
         }
     }

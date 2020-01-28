@@ -493,7 +493,6 @@ impl percentage_tm::Trait for Runtime {
 impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
-    type IsKYCProvider = KYCServiceProviders;
     type AcceptTransferTarget = Asset;
     type AddSignerMultiSigTarget = MultiSig;
     type KYCServiceProviders = KYCServiceProviders;

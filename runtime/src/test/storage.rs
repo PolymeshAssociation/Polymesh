@@ -135,7 +135,6 @@ impl group::Trait<group::Instance2> for TestStorage {
 impl identity::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
-    type IsKYCProvider = TestStorage;
     type AcceptTransferTarget = TestStorage;
     type AddSignerMultiSigTarget = TestStorage;
     type KYCServiceProviders = TestStorage;
@@ -144,6 +143,10 @@ impl identity::Trait for TestStorage {
 impl crate::group::GroupTrait for TestStorage {
     fn get_members() -> Vec<IdentityId> {
         unimplemented!()
+    }
+
+    fn is_member(_did: &IdentityId) -> bool {
+        true
     }
 }
 
@@ -162,11 +165,6 @@ impl crate::asset::AcceptTransfer for TestStorage {
     }
 }
 
-impl sp_runtime::traits::IsMember<IdentityId> for TestStorage {
-    fn is_member(_did: &IdentityId) -> bool {
-        true
-    }
-}
 impl statistics::Trait for TestStorage {}
 
 impl percentage_tm::Trait for TestStorage {
