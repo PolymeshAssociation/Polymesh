@@ -363,21 +363,13 @@ decl_module! {
             let rotation_auth = Self::authorizations((signer, rotation_auth_id));
             if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
                 // Ensure the request was made by the owner of master key
-                let signer_master_key = match rotation_auth.authorized_by {
-                    Signer::Key(ref key) =>  Some(*key),
-                    Signer::Identity(ref id) if <DidRecords>::exists(id) => {
-                        let master_key = <DidRecords>::get(id).master_key;
-                        Some(master_key)
+                match rotation_auth.authorized_by {
+                    Signer::Key(key) =>  {
+                        let master_key = <DidRecords>::get(rotation_for_did).master_key;
+                        ensure!(key == master_key, "Authorization to change key was not from the owner of master key");
                     },
-                    _ => None
+                    _ => return Err(Error::<T>::UnknownAuthorization.into());
                 };
-
-                if let Some(key) = signer_master_key {
-                    let master_key = <DidRecords>::get(rotation_for_did).master_key;
-                    ensure!(key == master_key, "Authorization to change key was not from the owner of master key");
-                } else {
-                    return Err(Error::<T>::UnknownAuthorization.into());
-                }
 
                 // Aceept authorization from KYC service provider
                 let kyc_auth = Self::authorizations((signer, kyc_auth_id));
