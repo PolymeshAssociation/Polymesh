@@ -261,5 +261,10 @@
             "Active"
         ]
     },
-    "AuthorizationNonce": "u64"
+    "AuthorizationNonce": "u64",
+    "Document": {
+        "name": "Vec<u8>",
+        "uri": "Vec<u8>",
+        "hash": "Vec<u8>"
+    }
 }
