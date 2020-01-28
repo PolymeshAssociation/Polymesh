@@ -6,10 +6,9 @@ edition = "2018"
 
 [dependencies]
 serde = { version = "1.0", optional = true, features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-bitvec = { version = "0.14.0", default-features = false, features = ["alloc"] }
+codec = { package = "parity-scale-codec", version = "^1.1.2", default-features = false, features = ["derive"] }
+bitvec = { version = "^0.17.2", default-features = false, features = ["alloc"] }
 hex = "0.4.0"
-syn = "^1.0.8"
 
 sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-application-crypto = { package = "sp-application-crypto", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
