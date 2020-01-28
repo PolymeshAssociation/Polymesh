@@ -368,7 +368,7 @@ decl_module! {
                         let master_key = <DidRecords>::get(rotation_for_did).master_key;
                         ensure!(key == master_key, "Authorization to change key was not from the owner of master key");
                     },
-                    _ => return Err(Error::<T>::UnknownAuthorization.into());
+                    _ => return Err(Error::<T>::UnknownAuthorization.into())
                 };
 
                 // Aceept authorization from KYC service provider
