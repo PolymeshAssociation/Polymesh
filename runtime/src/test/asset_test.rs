@@ -1077,14 +1077,11 @@ fn freeze_unfreeze_token() {
             Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
             "token is frozen"
         );
-        // `batch_issue` succeeds vacuously on the empty vector of recipients.
-        assert_ok!(Asset::batch_issue(
-            alice_signed.clone(),
-            alice_did,
-            ticker,
-            vec![],
-            vec![]
-        ));
+        // `batch_issue` fails with the empty vector of investors with a different error message.
+        assert_err!(
+            Asset::batch_issue(alice_signed.clone(), alice_did, ticker, vec![], vec![]),
+            "list of investors is empty"
+        );
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
             Asset::batch_issue(
@@ -1095,6 +1092,11 @@ fn freeze_unfreeze_token() {
                 vec![1]
             ),
             "token is frozen"
+        );
+        // `batch_issue` fails with the empty vector of investors with a different error message.
+        assert_err!(
+            Asset::batch_issue(alice_signed.clone(), alice_did, ticker, vec![], vec![]),
+            "list of investors is empty"
         );
         assert_ok!(Asset::unfreeze_token(alice_signed.clone(), ticker));
         assert_err!(

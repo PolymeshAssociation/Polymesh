@@ -645,6 +645,7 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
+            ensure!(investor_dids.len() > 0, "list of investors is empty");
             ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
             ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
