@@ -1,12 +1,11 @@
 use self::imbalances::NegativeImbalance;
 use crate::traits::{identity::IdentityTrait, CommonTrait};
 
-use runtime_primitives::{traits::Convert, weights::Weight};
-use srml_support::{
+use frame_support::{
     decl_event,
-    traits::{Get, OnFreeBalanceZero, OnUnbalanced}
+    traits::{Get, OnFreeBalanceZero, OnUnbalanced},
 };
-use system::{self, OnNewAccount};
+use frame_system::{self as system, OnNewAccount};
 
 /// Tag a type as an instance of a module.
 ///
@@ -66,12 +65,11 @@ pub trait Subtrait<I: Instance = DefaultInstance>: CommonTrait {
     type TransactionByteFee: Get<Self::Balance>;
 
     /// Convert a weight value into a deductible fee based on the currency type.
-    type WeightToFee: Convert<Weight, Self::Balance>;
+    // type WeightToFee: Convert<Weight, Self::Balance>;
 
     /// Used to charge fee to identity rather than user directly
     type Identity: IdentityTrait<Self::Balance>;
 }
-
 
 decl_event!(
     pub enum Event<T, I: Instance = DefaultInstance> where
@@ -86,7 +84,6 @@ decl_event!(
         Transfer(AccountId, AccountId, Balance, Balance),
     }
 );
-
 
 pub trait Trait<I: Instance = DefaultInstance>: Subtrait<I> {
     /// Handler for the unbalanced reduction when taking transaction fees.
@@ -108,9 +105,9 @@ pub trait Trait<I: Instance = DefaultInstance>: Subtrait<I> {
 pub mod imbalances {
     use crate::traits::CommonTrait;
 
-    use rstd::{mem, result};
-    use runtime_primitives::traits::{Saturating, Zero};
-    use srml_support::traits::Imbalance;
+    use frame_support::traits::{Imbalance, TryDrop};
+    use sp_runtime::traits::{Saturating, Zero};
+    use sp_std::{mem, result};
 
     /// Opaque, move-only struct with private fields that serves as a token denoting that
     /// funds have been created without any equal and opposite accounting.
@@ -124,15 +121,9 @@ pub mod imbalances {
         }
     }
 
-    /// Opaque, move-only struct with private fields that serves as a token denoting that
-    /// funds have been destroyed without any equal and opposite accounting.
-    #[must_use]
-    pub struct NegativeImbalance<T: CommonTrait>(T::Balance);
-
-    impl<T: CommonTrait> NegativeImbalance<T> {
-        /// Create a new negative imbalance from a balance.
-        pub fn new(amount: T::Balance) -> Self {
-            NegativeImbalance(amount)
+    impl<T: CommonTrait> TryDrop for PositiveImbalance<T> {
+        fn try_drop(self) -> result::Result<(), Self> {
+            self.drop_zero()
         }
     }
 
@@ -177,7 +168,25 @@ pub mod imbalances {
             }
         }
         fn peek(&self) -> T::Balance {
-            self.0
+            self.0.clone()
+        }
+    }
+
+    /// Opaque, move-only struct with private fields that serves as a token denoting that
+    /// funds have been destroyed without any equal and opposite accounting.
+    #[must_use]
+    pub struct NegativeImbalance<T: CommonTrait>(T::Balance);
+
+    impl<T: CommonTrait> NegativeImbalance<T> {
+        /// Create a new negative imbalance from a balance.
+        pub fn new(amount: T::Balance) -> Self {
+            NegativeImbalance(amount)
+        }
+    }
+
+    impl<T: CommonTrait> TryDrop for NegativeImbalance<T> {
+        fn try_drop(self) -> result::Result<(), Self> {
+            self.drop_zero()
         }
     }
 
@@ -222,26 +231,7 @@ pub mod imbalances {
             }
         }
         fn peek(&self) -> T::Balance {
-            self.0
+            self.0.clone()
         }
     }
-
-    /*
-    impl<T: CommonTrait> Drop for PositiveImbalance<T> {
-        /// Basic drop handler will just square up the total issuance.
-        fn drop(&mut self) {
-            <super::TotalIssuance<super::ElevatedTrait<T, I>, I>>::mutate(|v| {
-                *v = v.saturating_add(self.0)
-            });
-        }
-    }
-
-    impl<T: Subtrait<I>, I: Instance> Drop for NegativeImbalance<T, I> {
-        /// Basic drop handler will just square up the total issuance.
-        fn drop(&mut self) {
-            <super::TotalIssuance<super::ElevatedTrait<T, I>, I>>::mutate(|v| {
-                *v = v.saturating_sub(self.0)
-            });
-        }
-    }*/
 }

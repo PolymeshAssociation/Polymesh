@@ -1,10 +1,10 @@
 use crate::traits::CommonTrait;
 use polymesh_primitives::{IdentityId, Key, Permission, Signer, SigningItem};
 
-use primitives::H512;
-use runtime_primitives::traits::Dispatchable;
-use srml_support::{decl_event, Parameter};
-use system;
+use frame_support::{decl_event, Parameter};
+use frame_system;
+use sp_core::H512;
+use sp_runtime::traits::Dispatchable;
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
@@ -89,8 +89,8 @@ pub struct SigningItemWithAuth {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
-        Moment = <T as timestamp::Trait>::Moment,
+        AccountId = <T as frame_system::Trait>::AccountId,
+        Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// DID, master key account ID, signing keys
         NewDid(IdentityId, AccountId, Vec<SigningItem>),
@@ -128,9 +128,9 @@ decl_event!(
 );
 
 /// The module's configuration trait.
-pub trait Trait: CommonTrait + timestamp::Trait {
+pub trait Trait: CommonTrait + pallet_timestamp::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
 }

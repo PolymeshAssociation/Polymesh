@@ -1,8 +1,10 @@
 use codec::{Codec, Decode, Encode};
-use runtime_primitives::traits::{CheckedSub, MaybeSerializeDebug, Member, SimpleArithmetic};
-use srml_support::{
+use frame_support::{
     traits::{LockIdentifier, WithdrawReasons},
     Parameter,
+};
+use sp_runtime::traits::{
+    CheckedSub, MaybeSerializeDeserialize, Member, Saturating, SimpleArithmetic,
 };
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
@@ -14,7 +16,7 @@ pub struct BalanceLock<Balance, BlockNumber> {
     pub reasons: WithdrawReasons,
 }
 
-pub trait CommonTrait: system::Trait {
+pub trait CommonTrait: frame_system::Trait {
     /// The balance of an account.
     type Balance: Parameter
         + Member
@@ -23,7 +25,8 @@ pub trait CommonTrait: system::Trait {
         + Codec
         + Default
         + Copy
-        + MaybeSerializeDebug
+        + MaybeSerializeDeserialize
+        + Saturating
         + From<u128>
         + From<Self::BlockNumber>;
 

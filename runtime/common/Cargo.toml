@@ -6,48 +6,52 @@ edition = "2018"
 
 [dependencies]
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
-
-serde = { version = "1.0", optional = true, features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-hex = "0.4.0"
+codec = { package = "parity-scale-codec", version = "^1.1.0", default-features = false, features = ["derive"] }
 
 # Substrate
-primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-application-crypto = { package = "substrate-application-crypto", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-substrate-client = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-sr-version = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-bitvec = { version = "0.14.0", default-features = false, features = ["alloc"] }
-babe = { package = "srml-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-srml-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-sr-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-timestamp = { package = "srml-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-system = { package = "srml-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
-ed25519-dalek = { git = "https://github.com/dalek-cryptography/ed25519-dalek.git", tag ="1.0.0-pre.2" }
+pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+# primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# application-crypto = { package = "substrate-application-crypto", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+#substrate-client = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# sr-version = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# runtime_primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# babe = { package = "srml-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# srml-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# sr-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# timestamp = { package = "srml-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# system = { package = "srml-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
 
-[patch.crates-io]
-ed25519-dalek = { git = "https://github.com/dalek-cryptography/ed25519-dalek.git", tag ="1.0.0-pre.2" }
+# ed25519-dalek = { git = "https://github.com/dalek-cryptography/ed25519-dalek.git", tag ="1.0.0-pre.2" }
+
+# [patch.crates-io]
+# ed25519-dalek = { git = "https://github.com/dalek-cryptography/ed25519-dalek.git", tag ="1.0.0-pre.2" }
 
 
 [dev-dependencies]
-substrate-serializer = { git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-pretty_assertions = "0.5.1"
+test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+# substrate-serializer = { git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
+# pretty_assertions = "0.5.1"
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"primitives/std",
-	"substrate-client/std",
-	"rstd/std",
-	"sr-version/std",
-	"runtime_primitives/std",
-	"serde",
-	"bitvec/std",
-	"srml-support/std",
-	"babe/std",
-	"sr-io/std",
-	"timestamp/std",
+	"sp-core/std",
+	"sp-std/std",
+	"sp-io/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-timestamp/std",
 ]
