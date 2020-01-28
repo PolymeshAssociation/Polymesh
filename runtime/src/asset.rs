@@ -68,7 +68,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_session;
-use primitives::{AuthorizationData, AuthorizationError, IdentityId, Key, Signer, Ticker};
+use primitives::{AuthorizationData, AuthorizationError, IdentityId, Key, Signer, Ticker, SmartExtension, SmartExtensionTypes};
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -218,6 +218,9 @@ decl_storage! {
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
         IssuedInFundingRound get(fn issued_in_funding_round): map (Ticker, Vec<u8>) => T::Balance;
+        /// List of Smart extension added for the given tokens
+        /// ticker -> List of SmartExtension
+        pub Extensions get(fn extension): map Ticker => Vec<SmartExtension<T::AccountId>>; 
     }
 }
 
@@ -1154,6 +1157,48 @@ decl_module! {
             Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
             Ok(())
         }
+
+        /// Whitelisting the Smart-Extension address for a given ticker
+        ///
+        /// # Arguments
+        /// * `origin` - Signer who owns to ticker/asset
+        /// * `ticker` - ticker for whom extension get added
+        /// * `extension_details` - Details of the smart extension
+        pub fn add_extension(origin, ticker: Ticker, extension_id: T::AccountId, extension_name: Vec<u8>, extension_type: SmartExtensionTypes) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let my_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err(Error::<T>::DIDNotFound.into());
+                    }
+                }
+            };
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
+
+            let extension_details = SmartExtension {
+                extension_type: extension_type.clone(),
+                extension_name: extension_name.clone(),
+                extension_id: Some(extension_id.clone()),
+                is_archive: false,
+            };
+
+            // Verify the details of smart extension & store it
+            <Extensions<T>>::mutate(&ticker, |extensions| {
+                if !extensions.contains(&extension_details) {
+                    extensions.push(extension_details);
+                }
+            });
+            Self::deposit_event(RawEvent::ExtensionAdded(ticker, extension_id, extension_name, extension_type));
+            Ok(())
+        }
+
+
+        //pub fn archive_extension(origin, )
     }
 }
 
@@ -1162,6 +1207,7 @@ decl_event! {
         where
         Balance = <T as balances::Trait>::Balance,
         Moment = <T as pallet_timestamp::Trait>::Moment,
+        AccountId = <T as frame_system::Trait>::AccountId,
     {
         /// event for transfer of tokens
         /// ticker, from DID, to DID, value
@@ -1232,6 +1278,9 @@ decl_event! {
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: ticker, funding round name.
         FundingRound(Ticker, Vec<u8>),
+        /// Emitted when extension is added successfully
+        /// ticker, extension AccountId, extension name, type of smart Extension
+        ExtensionAdded(Ticker, AccountId, Vec<u8>, SmartExtensionTypes),
     }
 }
 
@@ -1243,6 +1292,8 @@ decl_error! {
         NoTickerTransferAuth,
         /// Not a token ownership transfer auth
         NotTickerOwnershipTransferAuth,
+        /// Not authorized
+        UnAuthorized,
     }
 }
 

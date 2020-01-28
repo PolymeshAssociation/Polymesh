@@ -99,6 +99,10 @@ pub use link::LinkData;
 pub mod ticker;
 pub use ticker::Ticker;
 
+pub mod smart_extension;
+pub use smart_extension::SmartExtensionTypes;
+pub use smart_extension::SmartExtension;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
