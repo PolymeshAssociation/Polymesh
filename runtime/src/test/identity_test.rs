@@ -987,7 +987,7 @@ fn changing_master_key() {
         );
 
         // Alice triggers change of master key
-        assert_ok!(Identity::add_authorization(
+        assert_ok!(Identity::add_authorization_as_key(
             alice.clone(),
             Signer::Key(new_key),
             AuthorizationData::RotateMasterKey(alice_did),
