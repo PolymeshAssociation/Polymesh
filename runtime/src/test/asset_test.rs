@@ -1,7 +1,7 @@
 use crate::{
-    asset::{self, AssetType, IdentifierType, SecurityToken, SignData},
+    asset::{self, AssetType, Document, IdentifierType, SecurityToken, SignData},
     balances, general_tm, identity,
-    test::storage::{build_ext, make_account, TestStorage},
+    test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use primitives::{AuthorizationData, IdentityId, Signer, Ticker};
 
@@ -1009,6 +1009,64 @@ fn update_identifiers() {
         ));
         for (typ, val) in updated_identifiers {
             assert_eq!(Asset::identifiers((ticker, typ)), val);
+        }
+    });
+}
+
+fn adding_documents() {
+    build_ext().execute_with(|| {
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+
+        let ticker50 = Ticker::from_slice(&[0x50]);
+        let ticker51 = Ticker::from_slice(&[0x51]);
+
+        let documents = vec![
+            Document {
+                name: b"A".to_vec(),
+                uri: b"www.a.com".to_vec(),
+                hash: b"0x1".to_vec(),
+            },
+            Document {
+                name: b"B".to_vec(),
+                uri: b"www.b.com".to_vec(),
+                hash: b"0x2".to_vec(),
+            },
+        ];
+
+        assert_ok!(Asset::add_documents(
+            owner_signed.clone(),
+            owner_did,
+            token.name.clone(),
+            ticker,
+            token.total_supply,
+            true,
+            token.asset_type.clone(),
+            identifiers.clone(),
+        ));
+
+        for i in 1..(link_ids_bob.len() - 1) {
+            let link = Identity::links((bob_did, link_ids_bob[i]));
+            assert_eq!(link.previous_link, link_ids_bob[i - 1]);
+            assert_eq!(link.next_link, link_ids_bob[i + 1]);
+            match i {
+                1 => {
+                    assert_eq!(link.expiry, None);
+                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+                }
+                2 => {
+                    assert_eq!(link.expiry, None);
+                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker51));
+                }
+                3 => {
+                    assert_eq!(link.expiry, Some(100));
+                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+                }
+                4 => {
+                    assert_eq!(link.expiry, Some(100));
+                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+                }
+                _ => {}
+            }
         }
     });
 }
