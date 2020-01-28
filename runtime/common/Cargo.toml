@@ -7,6 +7,8 @@ edition = "2018"
 [dependencies]
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 codec = { package = "parity-scale-codec", version = "^1.1.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0", optional = true, features = ["derive"] }
+serde_derive = { version = "1.0.104", optional = true }
 
 # Substrate
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
@@ -39,12 +41,13 @@ pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/par
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-# substrate-serializer = { git = "https://github.com/paritytech/substrate", rev = "7d7e74fb77b6bee2ce9d6ebafcae09caff2d0e50" }
-# pretty_assertions = "0.5.1"
+sp-serializer = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pretty_assertions = "^0.5.1"
 
 [features]
 default = ["std"]
 std = [
+	"serde",
 	"codec/std",
 	"sp-core/std",
 	"sp-std/std",
