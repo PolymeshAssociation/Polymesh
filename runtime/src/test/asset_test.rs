@@ -1,9 +1,9 @@
 use crate::{
     asset::{self, AssetType, Document, IdentifierType, SecurityToken, SignData},
     balances, general_tm, identity,
-    test::storage::{build_ext, register_keyring_account, TestStorage},
+    test::storage::{build_ext, make_account, TestStorage},
 };
-use primitives::{AuthorizationData, IdentityId, Signer, Ticker};
+use primitives::{AuthorizationData, IdentityId, Link, LinkData, Signer, Ticker};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
@@ -1013,12 +1013,39 @@ fn update_identifiers() {
     });
 }
 
+#[test]
 fn adding_documents() {
     build_ext().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
-        let ticker50 = Ticker::from_slice(&[0x50]);
-        let ticker51 = Ticker::from_slice(&[0x51]);
+        let token = SecurityToken {
+            name: vec![0x01],
+            owner_did,
+            total_supply: 1_000_000,
+            divisible: true,
+            asset_type: AssetType::default(),
+        };
+
+        let ticker = Ticker::from_slice(token.name.as_slice());
+
+        assert!(!<identity::DidRecords>::exists(
+            Identity::get_token_did(&ticker).unwrap()
+        ));
+
+        let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
+        let ticker = Ticker::from_slice(token.name.as_slice());
+
+        // Issuance is successful
+        assert_ok!(Asset::create_token(
+            owner_signed.clone(),
+            owner_did,
+            token.name.clone(),
+            ticker,
+            token.total_supply,
+            true,
+            token.asset_type.clone(),
+            identifiers.clone(),
+        ));
 
         let documents = vec![
             Document {
@@ -1036,38 +1063,25 @@ fn adding_documents() {
         assert_ok!(Asset::add_documents(
             owner_signed.clone(),
             owner_did,
-            token.name.clone(),
             ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            identifiers.clone(),
+            documents
         ));
 
-        for i in 1..(link_ids_bob.len() - 1) {
-            let link = Identity::links((bob_did, link_ids_bob[i]));
-            assert_eq!(link.previous_link, link_ids_bob[i - 1]);
-            assert_eq!(link.next_link, link_ids_bob[i + 1]);
-            match i {
-                1 => {
-                    assert_eq!(link.expiry, None);
-                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-                }
-                2 => {
-                    assert_eq!(link.expiry, None);
-                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker51));
-                }
-                3 => {
-                    assert_eq!(link.expiry, Some(100));
-                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-                }
-                4 => {
-                    assert_eq!(link.expiry, Some(100));
-                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-                }
-                _ => {}
+        let last_id = Asset::last_document_id(ticker);
+
+        assert_eq!(
+            Asset::ticker_document_by_id((ticker, last_id)),
+            Link {
+                link_data: LinkData::Document(
+                    b"B".to_vec(),
+                    b"www.b.com".to_vec(),
+                    b"0x2".to_vec()
+                ),
+                expiry: None,
+                next_link: 0,
+                previous_link: 2,
             }
-        }
+        );
     });
 }
 
