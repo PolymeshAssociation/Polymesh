@@ -342,6 +342,74 @@ decl_module! {
             Ok(())
         }
 
+        /// Call this with the new master key. By invoking this method, caller accepts authorization
+        /// with the new master key. If a KYC service provider approved this change, master key of
+        /// the DID is updated.
+        ///
+        /// # Arguments
+        /// * `owner_auth_id` Authorization from the owner who initiated the change
+        /// * `kyc_auth_id` Authorization from a KYC service provider
+        pub fn accept_master_key(origin, rotation_auth_id: u64, kyc_auth_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let signer = Signer::from(sender_key);
+
+            // When both authorizations are present...
+            ensure!(<Authorizations<T>>::exists((signer, rotation_auth_id)), "Invalid authorization from owner");
+            ensure!(<Authorizations<T>>::exists((signer, kyc_auth_id)), "Invalid authorization from KYC service provider");
+
+            // Accept authorization from the owner
+            let rotation_auth = Self::authorizations((signer, rotation_auth_id));
+            if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
+                // Ensure the request was made by the owner of master key
+                match rotation_auth.authorized_by {
+                    Signer::Key(key) =>  {
+                        let master_key = <DidRecords>::get(rotation_for_did).master_key;
+                        ensure!(key == master_key, "Authorization to change key was not from the owner of master key");
+                    },
+                    _ => return Err(Error::<T>::UnknownAuthorization.into())
+                };
+
+                // Aceept authorization from KYC service provider
+                let kyc_auth = Self::authorizations((signer, kyc_auth_id));
+                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
+                    // Attestor must be a KYC service provider
+                    let kyc_provider_did = match kyc_auth.authorized_by {
+                        Signer::Key(ref key) =>  Self::get_identity(key),
+                        Signer::Identity(id)  => Some(id),
+                    };
+
+                    if let Some(id) = kyc_provider_did {
+                        ensure!(T::KYCServiceProviders::is_member(&id), "Attestation was not by a KYC service provider");
+                    } else {
+                        return Err(Error::<T>::NoDIDFound.into());
+                    }
+
+                    // Make sure authorizations are for the same DID
+                    ensure!(rotation_for_did == attestation_for_did, "Authorizations are not for the same DID");
+
+                    // remove owner's authorization
+                    Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
+
+                    // remove KYC service provider's authorization
+                    Self::consume_auth(kyc_auth.authorized_by, signer, kyc_auth_id)?;
+
+                    // Replace master key of the owner that initiated key rotation
+                    <DidRecords>::mutate(rotation_for_did, |record| {
+                        (*record).master_key = sender_key.clone();
+                    });
+
+                    Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
+                } else {
+                    return Err(Error::<T>::UnknownAuthorization.into());
+                }
+            } else {
+                return Err(Error::<T>::UnknownAuthorization.into());
+            }
+
+            Ok(())
+        }
+
         /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
         #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
         pub fn add_claim(
@@ -1043,6 +1111,9 @@ decl_event!(
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
         AuthorizationRemoved(u64, Signer),
+        
+        /// MasterKey changed (Requestor DID, New MasterKey)
+        MasterKeyChanged(IdentityId, Key),
 
         /// New link added (link_id, associated identity or key, link_data, expiry)
         NewLink(

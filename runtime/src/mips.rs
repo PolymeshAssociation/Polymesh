@@ -450,8 +450,6 @@ impl<T: Trait> Module<T> {
     /// 2. Tally votes
     /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
     fn end_block(block_number: T::BlockNumber) -> DispatchResult {
-        sp_runtime::print("end_block");
-
         // Find all matured proposals...
         for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
             // Tally votes and create referendums
@@ -646,6 +644,9 @@ mod tests {
 
     impl crate::group::GroupTrait for Test {
         fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
+        fn is_member(_did: &IdentityId) -> bool {
             unimplemented!()
         }
     }

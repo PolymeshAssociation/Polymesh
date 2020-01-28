@@ -248,6 +248,8 @@
     },
     "AuthorizationData": {
         "_enum": {
+            "AttestMasterKeyRotation": "IdentityId",
+            "RotateMasterKey": "IdentityId",
             "TransferTicker": "Ticker",
             "AddMultiSigSigner": "",
             "TransferTokenOwnership": "Ticker",
@@ -261,5 +263,11 @@
             "Active"
         ]
     },
-    "AuthorizationNonce": "u64"
+    "AuthorizationNonce": "u64",
+    "ProportionMatch": {
+        "_enum": [
+            "AtLeast",
+            "MoreThan"
+        ]
+    }
 }

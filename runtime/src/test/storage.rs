@@ -144,6 +144,10 @@ impl crate::group::GroupTrait for TestStorage {
     fn get_members() -> Vec<IdentityId> {
         unimplemented!()
     }
+
+    fn is_member(_did: &IdentityId) -> bool {
+        true
+    }
 }
 
 impl crate::multisig::AddSignerMultiSig for TestStorage {
