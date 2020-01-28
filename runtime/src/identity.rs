@@ -401,7 +401,11 @@ decl_module! {
                     });
 
                     Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
+                } else {
+                    return Err(Error::<T>::UnknownAuthorization.into());
                 }
+            } else {
+                return Err(Error::<T>::UnknownAuthorization.into());
             }
 
             Ok(())
