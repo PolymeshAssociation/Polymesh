@@ -25,6 +25,16 @@ pub struct ClaimValue {
     pub value: Vec<u8>,
 }
 
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+/// A structure for passing claims to `add_claims_batch`. The type argument is required to be
+/// `timestamp::Trait::Moment`.
+pub struct ClaimRecord<U> {
+    pub did: IdentityId,
+    pub claim_key: Vec<u8>,
+    pub expiry: U,
+    pub claim_value: ClaimValue,
+}
+
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum DataTypes {
     U8,
