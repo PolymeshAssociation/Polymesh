@@ -496,6 +496,7 @@ impl identity::Trait for Runtime {
     type IsKYCProvider = KYCServiceProviders;
     type AcceptTransferTarget = Asset;
     type AddSignerMultiSigTarget = MultiSig;
+    type KYCServiceProviders = KYCServiceProviders;
 }
 
 impl contracts_wrapper::Trait for Runtime {}

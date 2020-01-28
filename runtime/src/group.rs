@@ -205,6 +205,16 @@ impl<T: Trait<I>, I: Instance> IsMember<IdentityId> for Module<T, I> {
     }
 }
 
+pub trait GroupTrait {
+    fn get_members() -> Vec<IdentityId>;
+}
+
+impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
+    fn get_members() -> Vec<IdentityId> {
+        return Self::members();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

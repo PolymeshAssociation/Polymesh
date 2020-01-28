@@ -122,7 +122,7 @@ parameter_types! {
     pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
 }
 
-impl group::Trait<group::Instance1> for TestStorage {
+impl group::Trait<group::Instance2> for TestStorage {
     type Event = ();
     type AddOrigin = EnsureSignedBy<One, AccountId>;
     type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
@@ -138,6 +138,13 @@ impl identity::Trait for TestStorage {
     type IsKYCProvider = TestStorage;
     type AcceptTransferTarget = TestStorage;
     type AddSignerMultiSigTarget = TestStorage;
+    type KYCServiceProviders = TestStorage;
+}
+
+impl crate::group::GroupTrait for TestStorage {
+    fn get_members() -> Vec<IdentityId> {
+        unimplemented!()
+    }
 }
 
 impl crate::multisig::AddSignerMultiSig for TestStorage {
