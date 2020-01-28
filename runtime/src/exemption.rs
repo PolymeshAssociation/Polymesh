@@ -5,14 +5,14 @@ use crate::{
 use primitives::{IdentityId, Key, Signer, Ticker};
 
 use codec::Encode;
-use rstd::{convert::TryFrom, prelude::*};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
-use system::ensure_signed;
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::{self as system, ensure_signed};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + utils::Trait + balances::Trait + identity::Trait {
+pub trait Trait: frame_system::Trait + utils::Trait + balances::Trait + identity::Trait {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::Balance>;
 }
 
@@ -20,7 +20,7 @@ pub trait Trait: system::Trait + utils::Trait + balances::Trait + identity::Trai
 decl_storage! {
     trait Store for Module<T: Trait> as exemption {
         // Mapping -> ExemptionList[ticker][TM][DID] = true/false
-        ExemptionList get(exemption_list): map (Ticker, u16, IdentityId) => bool;
+        ExemptionList get(fn exemption_list): map (Ticker, u16, IdentityId) => bool;
     }
 }
 
@@ -32,7 +32,7 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        fn modify_exemption_list(origin, did: IdentityId, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> Result {
+        fn modify_exemption_list(origin, did: IdentityId, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
             ticker.canonize();
             let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
@@ -74,13 +74,13 @@ mod tests {
     // use super::*;
 
     // use substrate_primitives::{Blake2Hasher, H256};
-    // use sr_io::with_externalities;
-    // use sr_primitives::{
+    // use sp_io::with_externalities;
+    // use sp_runtime::{
     //     testing::{Digest, DigestItem, Header},
     //     traits::{BlakeTwo256, IdentityLookup},
     //     BuildStorage,
     // };
-    // use srml_support::{assert_ok, impl_outer_origin};
+    // use frame_support::{assert_ok, impl_outer_origin};
 
     // impl_outer_origin! {
     //     pub enum Origin for Test {}
@@ -91,7 +91,7 @@ mod tests {
     // // configuration traits of modules we want to use.
     // #[derive(Clone, Eq, PartialEq)]
     // pub struct Test;
-    // impl system::Trait for Test {
+    // impl frame_system::Trait for Test {
     //     type Origin = Origin;
     //     type Index = u64;
     //     type BlockNumber = u64;
@@ -111,8 +111,8 @@ mod tests {
 
     // // This function basically just builds a genesis storage key/value store according to
     // // our desired mockup.
-    // fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-    //     system::GenesisConfig::default()
+    // fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
+    //     frame_system::GenesisConfig::default()
     //         .build_storage()
     //         .unwrap()
     //         .0

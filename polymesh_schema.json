@@ -1,6 +1,5 @@
 {
-    "Balance": "u128",
-    "IdentityId":"[u8;32]",
+    "IdentityId":"H256",
     "Ticker": "[u8; 12]",
     "AssetType": {
         "_enum": {
@@ -25,31 +24,16 @@
         "divisible": "bool",
         "asset_type": "AssetType"
     },
-    "Restriction": {
-        "name": "Vec<u8>",
-        "token_id": "u32",
-        "can_transfer": "bool"
-    },
-    "Whitelist": {
-        "investor_did": "IdentityId",
-        "canSendAfter": "Moment",
-        "canReceiveAfter": "Moment"
-    },
-    "Issuer": {
-        "did": "IdentityId",
-        "access_level": "u16",
-        "active": "bool"
-    },
-    "Investor": {
-        "did": "IdentityId",
-        "access_level": "u16",
-        "active": "bool",
-        "jurisdiction": "u16"
-    },
     "LinkedKeyInfo": {
         "_enum": {
             "Unique": "IdentityId",
             "Group": "Vec<IdentityId>"
+        }
+    },
+    "LinkData": {
+        "_enum": {
+            "TickerOwned": "Vec<u8>",
+            "TokenOwned": "Vec<u8>"
         }
     },
     "Key": "[u8;32]",
@@ -77,7 +61,7 @@
         "_enum": [
             "External",
             "Identity",
-            "Multisig",
+            "MultiSig",
             "Relayer"
         ]
     },
@@ -190,8 +174,6 @@
         "owner_did": "IdentityId"
     },
     "FeeOf": "Balance",
-    "TSMoment": "u64",
-    "Moment": "u64",
     "Dividend": {
         "amount": "Balance",
         "active": "bool",
@@ -266,11 +248,13 @@
     },
     "AuthorizationData": {
         "_enum": {
-            "AttestMasterKeyRotation": "Vec<u8>",
-            "RotateMasterKey": "Vec<u8>",
+            "AttestMasterKeyRotation": "IdentityId",
+            "RotateMasterKey": "IdentityId",
             "TransferTicker": "Ticker",
-            "TransferTokenOwnership": "Vec<u8>",
-            "Custom": "Vec<u8>"
+            "AddMultiSigSigner": "",
+            "TransferTokenOwnership": "Ticker",
+            "Custom": "Vec<u8>",
+            "NoData": ""
         }
     },
     "Compliance": {

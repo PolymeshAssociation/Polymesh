@@ -1,31 +1,30 @@
 use crate::{
     balances,
     identity::{
-        self, Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, SigningItemWithAuth,
+        self, Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, Error, SigningItemWithAuth,
         TargetIdAuthorization,
     },
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
 use codec::Encode;
+use frame_support::{assert_err, assert_ok, traits::Currency};
 use primitives::{
     AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem, Ticker,
 };
 use rand::Rng;
-use sr_io::with_externalities;
-use srml_support::{assert_err, assert_ok, traits::Currency};
-use substrate_primitives::H512;
+use sp_core::H512;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type System = system::Module<TestStorage>;
-type Timestamp = timestamp::Module<TestStorage>;
+type System = frame_system::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Module<TestStorage>;
 
-type Origin = <TestStorage as system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn add_claims_batch() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let issuer = AccountKeyring::Bob.public();
@@ -111,7 +110,7 @@ fn add_claims_batch() {
 /// TODO Add `Signer::Identity(..)` test.
 #[test]
 fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let owner_signer = Signer::Key(Key::from(AccountKeyring::Alice.public().0));
 
@@ -152,7 +151,7 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
 
 #[test]
 fn revoking_claims() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let issuer = Origin::signed(AccountKeyring::Bob.public());
@@ -194,10 +193,7 @@ fn revoking_claims() {
 
 #[test]
 fn only_master_key_can_add_signing_key_permissions() {
-    with_externalities(
-        &mut build_ext(),
-        &only_master_key_can_add_signing_key_permissions_with_externalities,
-    );
+    build_ext().execute_with(&only_master_key_can_add_signing_key_permissions_with_externalities);
 }
 
 fn only_master_key_can_add_signing_key_permissions_with_externalities() {
@@ -258,10 +254,7 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
 
 #[test]
 fn add_signing_keys_with_specific_type() {
-    with_externalities(
-        &mut build_ext(),
-        &add_signing_keys_with_specific_type_with_externalities,
-    );
+    build_ext().execute_with(&add_signing_keys_with_specific_type_with_externalities);
 }
 
 /// It tests that signing key can be added using non-default key type
@@ -278,7 +271,7 @@ fn add_signing_keys_with_specific_type_with_externalities() {
     };
     let dave_signing_key = SigningItem {
         signer: Signer::Key(dave_key),
-        signer_type: SignerType::Multisig,
+        signer_type: SignerType::MultiSig,
         permissions: vec![],
     };
 
@@ -303,7 +296,7 @@ fn add_signing_keys_with_specific_type_with_externalities() {
 /// It verifies that frozen keys are recovered after `unfreeze` call.
 #[test]
 fn freeze_signing_keys_test() {
-    with_externalities(&mut build_ext(), &freeze_signing_keys_with_externalities);
+    build_ext().execute_with(&freeze_signing_keys_with_externalities);
 }
 
 fn freeze_signing_keys_with_externalities() {
@@ -391,10 +384,7 @@ fn freeze_signing_keys_with_externalities() {
 /// It double-checks that frozen keys are removed too.
 #[test]
 fn remove_frozen_signing_keys_test() {
-    with_externalities(
-        &mut build_ext(),
-        &remove_frozen_signing_keys_with_externalities,
-    );
+    build_ext().execute_with(&remove_frozen_signing_keys_with_externalities);
 }
 
 fn remove_frozen_signing_keys_with_externalities() {
@@ -442,11 +432,10 @@ fn remove_frozen_signing_keys_with_externalities() {
 
 #[test]
 fn enforce_uniqueness_keys_in_identity_tests() {
-    with_externalities(&mut build_ext(), &enforce_uniqueness_keys_in_identity);
+    build_ext().execute_with(&enforce_uniqueness_keys_in_identity);
 }
 
 fn enforce_uniqueness_keys_in_identity() {
-    let unique_error = "One signing key can only belong to one DID";
     // Register identities
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -468,14 +457,14 @@ fn enforce_uniqueness_keys_in_identity() {
 
     assert_err!(
         Identity::add_signing_items(bob.clone(), bob_id, vec![charlie_sk]),
-        unique_error
+        Error::<TestStorage>::AlreadyLinked
     );
 
     // Check non-external signed key non-uniqueness.
     let dave_key = Key::from(AccountKeyring::Dave.public().0);
     let dave_sk = SigningItem {
         signer: Signer::Key(dave_key),
-        signer_type: SignerType::Multisig,
+        signer_type: SignerType::MultiSig,
         permissions: vec![Permission::Operator],
     };
     assert_ok!(Identity::add_signing_items(
@@ -493,27 +482,24 @@ fn enforce_uniqueness_keys_in_identity() {
     let bob_key = Key::from(AccountKeyring::Bob.public().0);
     let bob_sk_as_mutisig = SigningItem {
         signer: Signer::Key(bob_key),
-        signer_type: SignerType::Multisig,
+        signer_type: SignerType::MultiSig,
         permissions: vec![Permission::Operator],
     };
     assert_err!(
         Identity::add_signing_items(alice.clone(), alice_id, vec![bob_sk_as_mutisig]),
-        unique_error
+        Error::<TestStorage>::AlreadyLinked
     );
 
     let bob_sk = SigningItem::new(Signer::Key(bob_key), vec![Permission::Admin]);
     assert_err!(
         Identity::add_signing_items(alice.clone(), alice_id, vec![bob_sk]),
-        unique_error
+        Error::<TestStorage>::AlreadyLinked
     );
 }
 
 #[test]
 fn add_remove_signing_identities() {
-    with_externalities(
-        &mut build_ext(),
-        &add_remove_signing_identities_with_externalities,
-    );
+    build_ext().execute_with(&add_remove_signing_identities_with_externalities);
 }
 
 fn add_remove_signing_identities_with_externalities() {
@@ -560,7 +546,7 @@ fn add_remove_signing_identities_with_externalities() {
 
 #[test]
 fn two_step_join_id() {
-    with_externalities(&mut build_ext(), &two_step_join_id_with_ext);
+    build_ext().execute_with(&two_step_join_id_with_ext);
 }
 
 fn two_step_join_id_with_ext() {
@@ -608,7 +594,7 @@ fn two_step_join_id_with_ext() {
 
     assert_err!(
         Identity::authorize_join_to_identity(charlie, bob_id),
-        "Key is already linked to an identity"
+        Error::<TestStorage>::AlreadyLinked
     );
     assert_eq!(Identity::is_signer_authorized(bob_id, &c_sk.signer), false);
 
@@ -629,7 +615,7 @@ fn two_step_join_id_with_ext() {
     // Check remove pre-authorization from master and itself.
     assert_err!(
         Identity::unauthorized_join_to_identity(alice.clone(), e_sk.signer.clone(), bob_id),
-        "Account cannot remove this authorization"
+        Error::<TestStorage>::Unauthorized
     );
     assert_ok!(Identity::unauthorized_join_to_identity(
         alice,
@@ -647,7 +633,7 @@ fn two_step_join_id_with_ext() {
 
 #[test]
 fn one_step_join_id() {
-    with_externalities(&mut build_ext(), &one_step_join_id_with_ext);
+    build_ext().execute_with(&one_step_join_id_with_ext);
 }
 
 fn one_step_join_id_with_ext() {
@@ -774,7 +760,7 @@ fn one_step_join_id_with_ext() {
 
 #[test]
 fn adding_authorizations() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
@@ -858,7 +844,7 @@ fn adding_authorizations() {
 
 #[test]
 fn removing_authorizations() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let _alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
@@ -907,7 +893,7 @@ fn removing_authorizations() {
 
 #[test]
 fn adding_links() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
         let ticker51 = Ticker::from_slice(&[0x51]);
@@ -951,7 +937,7 @@ fn adding_links() {
 
 #[test]
 fn removing_links() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
         let mut link_ids_bob = Vec::new();
@@ -983,7 +969,7 @@ fn removing_links() {
 
 #[test]
 fn changing_master_key() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
 

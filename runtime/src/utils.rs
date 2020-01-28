@@ -2,15 +2,18 @@ use crate::balances;
 use crate::general_tm::Operators;
 use crate::identity::DataTypes;
 use codec::{Decode, Encode};
-use rstd::prelude::*;
-use session;
-use sr_primitives::traits::{Member, Verify};
-use system;
+use frame_system;
+use pallet_session;
+use sp_runtime::traits::{IdentifyAccount, Member, Verify};
+use sp_std::prelude::*;
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + session::Trait {
-    type OffChainSignature: Verify<Signer = Self::AccountId> + Member + Decode + Encode;
-    fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId;
+pub trait Trait: frame_system::Trait + balances::Trait + pallet_session::Trait {
+    type Public: IdentifyAccount<AccountId = Self::AccountId>;
+    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
+    fn validator_id_to_account_id(
+        v: <Self as pallet_session::Trait>::ValidatorId,
+    ) -> Self::AccountId;
 }
 
 pub fn is_rule_broken(

@@ -1,7 +1,7 @@
 use primitives::IdentityId;
 
-use rstd::{cmp::max, vec::Vec};
-use sr_primitives::weights::{ClassifyDispatch, DispatchClass, WeighData, Weight};
+use frame_support::weights::{ClassifyDispatch, DispatchClass, PaysFee, WeighData, Weight};
+use sp_std::{cmp::max, vec::Vec};
 
 /// It supports fee calculation when a transaction is made in batch mode (for a group of items).
 /// The total fee is maximum between:
@@ -35,6 +35,12 @@ impl BatchDispatchInfo {
 impl<T> ClassifyDispatch<T> for BatchDispatchInfo {
     fn classify_dispatch(&self, _: T) -> DispatchClass {
         self.dispatch_type
+    }
+}
+
+impl PaysFee for BatchDispatchInfo {
+    fn pays_fee(&self) -> bool {
+        true
     }
 }
 
