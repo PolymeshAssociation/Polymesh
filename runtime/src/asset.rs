@@ -68,7 +68,9 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_session;
-use primitives::{AuthorizationData, AuthorizationError, IdentityId, Key, Signer, Ticker};
+use primitives::{
+    AuthorizationData, AuthorizationError, IdentityId, Key, Link, LinkData, Signer, Ticker,
+};
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -163,6 +165,17 @@ pub enum TickerRegistrationStatus {
     RegisteredByDid,
 }
 
+/// Represents a document associated with an asset
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct Document {
+    /// Document name
+    name: Vec<u8>,
+    /// Document URI
+    uri: Vec<u8>,
+    /// Document hash
+    hash: Vec<u8>,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// The DID of the fee collector
@@ -200,9 +213,19 @@ decl_storage! {
         /// Last checkpoint updated for a DID's balance
         /// (ticker, DID) -> List of checkpoints where user balance changed
         UserCheckpoints get(fn user_checkpoints): map (Ticker, IdentityId) => Vec<u64>;
+
         /// The documents attached to the tokens
         /// (ticker, document name) -> (URI, document hash)
-        Documents get(fn documents): map (Ticker, Vec<u8>) => (Vec<u8>, Vec<u8>, T::Moment);
+        /// TODO: Remove this. Deprecated in favor of Link/LinkData
+        //Documents get(documents): map (Vec<u8>, Vec<u8>) => (Vec<u8>, Vec<u8>, T::Moment);
+
+        /// Nonce to ensure unique document ids. starts from 1.
+        pub DocumentNonce get(document_nonce) build(|_| 1u64): u64;
+        /// The documents attached to the tokens
+        /// (ticker, document id/nonce) -> Link
+        pub Documents get(fn documents): map(Ticker, u64) => Link<T::Moment>;
+        /// Document id of the latest document attached to a ticker. Docs are attached as a linked list.
+        pub LastDocumentId get(fn last_document_id): map Ticker => u64;
         /// Allowance provided to the custodian
         /// (ticker, token holder, custodian) -> balance
         pub CustodianAllowance get(fn custodian_allowance): map(Ticker, IdentityId, IdentityId) => T::Balance;
@@ -930,18 +953,39 @@ decl_module! {
             Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
 
+        /// Used to set the details of the document, Only be called by the token owner
+        ///
+        /// # Arguments
+        /// * `origin` Signing key of the token owner
+        /// * `did` DID of the token owner
+        /// * `ticker` Ticker of the token
+        /// * `documents` Documents to be attached to `ticker`
+        pub fn add_documents(origin, did: IdentityId, ticker: Ticker, documents: Vec<Document>) {
+            let sender = ensure_signed(origin)?;
+            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+
+            for doc in documents.iter() {
+                Self::add_document(ticker, doc.clone());
+            }
+        }
+
         /// Used to get the documents details attach with the token
         ///
         /// # Arguments
         /// * `_origin` Caller signing key
         /// * `ticker` Ticker of the token
         /// * `name` Name of the document
-        pub fn get_document(_origin, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
-            ticker.canonize();
-            let record = <Documents<T>>::get((ticker, name.clone()));
-            Self::deposit_event(RawEvent::GetDocument(ticker, name, record.0, record.1, record.2));
-            Ok(())
-        }
+//        pub fn get_document(_origin, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
+//            ticker.canonize();
+//            let record = <Documents<T>>::get((ticker, name.clone()));
+//            Self::deposit_event(RawEvent::GetDocument(ticker, name, record.0, record.1, record.2));
+//            Ok(())
+//        }
 
         /// Used to set the details of the document, Only be called by the token owner
         ///
@@ -952,18 +996,18 @@ decl_module! {
         /// * `name` Name of the document
         /// * `uri` Off chain URL of the document
         /// * `document_hash` Hash of the document to proof the incorruptibility of the document
-        pub fn set_document(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>, uri: Vec<u8>, document_hash: Vec<u8>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ticker.canonize();
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
-
-            <Documents<T>>::insert((ticker, name), (uri, document_hash, <pallet_timestamp::Module<T>>::get()));
-            Ok(())
-        }
+//        pub fn set_document(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>, uri: Vec<u8>, document_hash: Vec<u8>) -> DispatchResult {
+//            let sender = ensure_signed(origin)?;
+//            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+//
+//            // Check that sender is allowed to act on behalf of `did`
+//            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
+//            ticker.canonize();
+//            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+//
+//            <Documents<T>>::insert((ticker, name), (uri, document_hash, <pallet_timestamp::Module<T>>::get()));
+//            Ok(())
+//        }
 
         /// Used to remove the document details for the given token, Only be called by the token owner
         ///
@@ -972,18 +1016,18 @@ decl_module! {
         /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `name` Name of the document
-        pub fn remove_document(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ticker.canonize();
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
-
-            <Documents<T>>::remove((ticker, name));
-            Ok(())
-        }
+//        pub fn remove_document(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
+//            let sender = ensure_signed(origin)?;
+//            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+//
+//            // Check that sender is allowed to act on behalf of `did`
+//            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
+//            ticker.canonize();
+//            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+//
+//            <Documents<T>>::remove((ticker, name));
+//            Ok(())
+//        }
 
         /// ERC-2258 Implementation
 
@@ -1773,5 +1817,31 @@ impl<T: Trait> Module<T> {
         ));
 
         Ok(())
+    }
+
+    /// Adds a new document
+    fn add_document(ticker: Ticker, doc: Document) {
+        let new_nonce = Self::document_nonce() + 1u64;
+        <DocumentNonce>::put(&new_nonce);
+
+        let last_id = Self::last_document_id(&ticker);
+
+        if last_id > 0 {
+            // 0 means no previous link. 0 is the default value.
+            // Changing the last link to point to new link as next link.
+            <Documents<T>>::mutate((ticker.clone(), last_id), |last_doc| {
+                last_doc.next_link = new_nonce
+            });
+        }
+
+        let link = Link {
+            link_data: LinkData::Document(doc.name, doc.uri, doc.hash),
+            expiry: None,
+            next_link: 0,
+            previous_link: last_id,
+        };
+
+        <LastDocumentId>::insert(ticker.clone(), new_nonce);
+        <Documents<T>>::insert((ticker.clone(), new_nonce), link);
     }
 }
