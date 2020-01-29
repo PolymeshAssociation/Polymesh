@@ -226,7 +226,7 @@
     },
     "MIP": {
         "index": "MipsIndex",
-        "proposal":""
+        "proposal":"Call"
     },
     "ReferendumInfo": {
         "index": "MipsIndex",
@@ -262,6 +262,12 @@
         "_enum": [
             "Pending",
             "Active"
+        ]
+    },
+    "ProportionMatch": {
+        "_enum": [ 
+        "AtLeast",
+        "MoreThan"
         ]
     },
     "AuthorizationNonce": "u64",
