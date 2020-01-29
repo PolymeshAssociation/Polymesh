@@ -1014,7 +1014,7 @@ fn update_identifiers() {
 }
 
 #[test]
-fn adding_documents() {
+fn adding_removing_documents() {
     build_ext().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
@@ -1077,6 +1077,17 @@ fn adding_documents() {
         );
         assert_eq!(last_doc.next_link, 0);
         assert_eq!(last_doc.expiry, None);
+
+        let doc_ids = vec![last_id, last_doc.previous_link];
+
+        assert_ok!(Asset::remove_documents(
+            owner_signed.clone(),
+            owner_did,
+            ticker,
+            doc_ids
+        ));
+
+        assert_eq!(Identity::last_link(Signer::from(ticker_did)), 0);
     });
 }
 

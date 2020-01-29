@@ -30,12 +30,6 @@
             "Group": "Vec<IdentityId>"
         }
     },
-    "LinkData": {
-        "_enum": {
-            "TickerOwned": "Vec<u8>",
-            "TokenOwned": "Vec<u8>"
-        }
-    },
     "Key": "[u8;32]",
     "Permission": {
         "_enum": [
@@ -248,6 +242,8 @@
     },
     "AuthorizationData": {
         "_enum": {
+            "AttestMasterKeyRotation": "IdentityId",
+            "RotateMasterKey": "IdentityId",
             "TransferTicker": "Ticker",
             "AddMultiSigSigner": "",
             "TransferTokenOwnership": "Ticker",
@@ -266,5 +262,11 @@
         "name": "Vec<u8>",
         "uri": "Vec<u8>",
         "hash": "Vec<u8>"
+    },
+    "ProportionMatch": {
+        "_enum": [
+            "AtLeast",
+            "MoreThan"
+        ]
     }
 }
