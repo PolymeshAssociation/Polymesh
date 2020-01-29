@@ -224,6 +224,15 @@
             "Normal"
         ]
     },
+    "MIP": {
+        "index": "MipsIndex",
+        "proposal":"Call"
+    },
+    "ReferendumInfo": {
+        "index": "MipsIndex",
+        "priority": "MipsPriority",
+        "proposal_hash": "Hash"
+    },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
         "next_ticker": "Option<Ticker>",
@@ -257,16 +266,17 @@
             "Active"
         ]
     },
+    "ProportionMatch": {
+        "_enum": [ 
+            "AtLeast",
+            "MoreThan"
+        ]
+    },
     "AuthorizationNonce": "u64",
+    "Counter": "u64",
     "Document": {
         "name": "Vec<u8>",
         "uri": "Vec<u8>",
         "hash": "Vec<u8>"
-    },
-    "ProportionMatch": {
-        "_enum": [
-            "AtLeast",
-            "MoreThan"
-        ]
     }
 }
