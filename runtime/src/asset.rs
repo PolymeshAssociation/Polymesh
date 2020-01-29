@@ -219,8 +219,11 @@ decl_storage! {
         /// (ticker, funding round) -> balance
         IssuedInFundingRound get(fn issued_in_funding_round): map (Ticker, Vec<u8>) => T::Balance;
         /// List of Smart extension added for the given tokens
-        /// ticker -> List of SmartExtension
-        pub Extensions get(fn extension): map Ticker => Vec<SmartExtension<T::AccountId>>; 
+        /// ticker, AccountId (SE address) -> SmartExtension detail
+        pub ExtensionDetails get(fn extension_details): map (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
+        /// List of Smart extension added for the given tokens and for the given type
+        /// ticker, type of SE -> address/AccountId of SE
+        pub Extensions get(fn extensions): map (Ticker, SmartExtensionTypes) => Vec<T::AccountId>;
     }
 }
 
@@ -1183,22 +1186,92 @@ decl_module! {
             let extension_details = SmartExtension {
                 extension_type: extension_type.clone(),
                 extension_name: extension_name.clone(),
-                extension_id: Some(extension_id.clone()),
+                extension_id: extension_id.clone(),
                 is_archive: false,
             };
 
             // Verify the details of smart extension & store it
-            <Extensions<T>>::mutate(&ticker, |extensions| {
-                if !extensions.contains(&extension_details) {
-                    extensions.push(extension_details);
-                }
-            });
+            if !<ExtensionDetails<T>>::exists((ticker, &extension_id)) {
+                <ExtensionDetails<T>>::insert((ticker, &extension_id), extension_details);
+                <Extensions<T>>::mutate((ticker, &extension_type), |ids| {
+                    ids.push(extension_id.clone())
+                });
+            }
             Self::deposit_event(RawEvent::ExtensionAdded(ticker, extension_id, extension_name, extension_type));
             Ok(())
         }
 
+        /// Archived the extension. Extension will not be used to verify the compliance or any smart logic it posses
+        ///
+        /// # Arguments
+        /// * `origin` - Signer who owns the ticker/asset.
+        /// * `ticker` - Ticker symbol of the asset.
+        /// * `extension_id` - AccountId of the extension that need to be archived
+        pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let my_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err(Error::<T>::DIDNotFound.into());
+                    }
+                }
+            };
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
+            ensure!(!<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
+            // Mutate the extension details
+            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| -> DispatchResult {
+                if !details.is_archive {
+                    details.is_archive = true;
+                    Ok(())
+                }
+                else {
+                    return Err(Error::<T>::AlreadyArchived.into())
+                }
+            });
+            Self::deposit_event(RawEvent::ExtensionArchived(ticker, extension_id));
+            Ok(())
+        }
 
-        //pub fn archive_extension(origin, )
+        /// Archived the extension. Extension will not be used to verify the compliance or any smart logic it posses
+        ///
+        /// # Arguments
+        /// * `origin` - Signer who owns the ticker/asset.
+        /// * `ticker` - Ticker symbol of the asset.
+        /// * `extension_id` - AccountId of the extension that need to be un-archived
+        pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let my_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err(Error::<T>::DIDNotFound.into());
+                    }
+                }
+            };
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
+            ensure!(!<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
+            // Mutate the extension details
+            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| -> DispatchResult {
+                if details.is_archive {
+                    details.is_archive = false;
+                    Ok(())
+                }
+                else {
+                    return Err(Error::<T>::AlreadyUnArchived.into())
+                }
+            });
+            Self::deposit_event(RawEvent::ExtensionUnArchived(ticker, extension_id));
+            Ok(())
+        }
     }
 }
 
@@ -1281,6 +1354,12 @@ decl_event! {
         /// Emitted when extension is added successfully
         /// ticker, extension AccountId, extension name, type of smart Extension
         ExtensionAdded(Ticker, AccountId, Vec<u8>, SmartExtensionTypes),
+        /// Emitted when extension get archived
+        /// ticker, AccountId
+        ExtensionArchived(Ticker, AccountId),
+        /// Emitted when extension get archived
+        /// ticker, AccountId
+        ExtensionUnArchived(Ticker, AccountId),
     }
 }
 
@@ -1294,6 +1373,10 @@ decl_error! {
         NotTickerOwnershipTransferAuth,
         /// Not authorized
         UnAuthorized,
+        /// when extension already archived
+        AlreadyArchived,
+        /// when extension already un archived
+        AlreadyUnArchived
     }
 }
 

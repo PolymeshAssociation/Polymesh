@@ -261,5 +261,18 @@
             "Active"
         ]
     },
-    "AuthorizationNonce": "u64"
+    "AuthorizationNonce": "u64",
+    "SmartExtensionTypes": {
+        "_enum": {
+            "TransferManager": "",
+            "Offerings": "",
+            "Custom": "Vec<u8>"
+        }
+    },
+    "SmartExtension": {
+        "extension_type": "SmartExtensionTypes",
+        "extension_name": "Vec<u8>",
+        "extension_id": "IdentityId",
+        "is_archive": "bool"
+    }
 }

@@ -22,7 +22,7 @@ pub struct SmartExtension<U> {
     /// Name of extension
     pub extension_name: Vec<u8>,
     /// AccountId of the smart extension
-    pub extension_id: Option<U>,
+    pub extension_id: U,
     /// Status of the smart extension
     pub is_archive: bool,
 }
