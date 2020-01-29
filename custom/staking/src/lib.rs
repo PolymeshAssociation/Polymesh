@@ -270,7 +270,8 @@ use sp_phragmen::{ExtendedBalance, PhragmenStakedAssignment};
 use sp_runtime::{
     curve::PiecewiseLinear,
     traits::{
-        Bounded, CheckedSub, Convert, EnsureOrigin, One, SaturatedConversion, Saturating,
+        Bounded, CheckedSub, Convert, EnsureOrigin, Hash,
+        One, SaturatedConversion, Saturating,
         SimpleArithmetic, StaticLookup, Zero,
     },
     Perbill, RuntimeDebug,
@@ -786,6 +787,12 @@ decl_storage! {
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
             linked_map T::AccountId => Option<PermissionedValidator>;
+
+        /// AccountId of the block rewards reserve
+        BlockRewardsReserve get(block_reward_reserve) build(|_| {
+            let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
+            T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
+        }): T::AccountId;
     }
     add_extra_genesis {
         config(stakers):
@@ -817,7 +824,6 @@ decl_storage! {
                     }, _ => Ok(())
                 };
             }
-
             StorageVersion::put(migration::CURRENT_VERSION);
         });
     }
