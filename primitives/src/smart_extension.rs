@@ -6,7 +6,7 @@ use sp_std::prelude::Vec;
 pub enum SmartExtensionTypes {
     TransferManager,
     Offerings,
-    Custom(Vec<u8>)
+    Custom(Vec<u8>),
 }
 
 impl Default for SmartExtensionTypes {

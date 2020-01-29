@@ -100,8 +100,8 @@ pub mod ticker;
 pub use ticker::Ticker;
 
 pub mod smart_extension;
-pub use smart_extension::SmartExtensionTypes;
 pub use smart_extension::SmartExtension;
+pub use smart_extension::SmartExtensionTypes;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

@@ -248,6 +248,8 @@
     },
     "AuthorizationData": {
         "_enum": {
+            "AttestMasterKeyRotation": "IdentityId",
+            "RotateMasterKey": "IdentityId",
             "TransferTicker": "Ticker",
             "AddMultiSigSigner": "",
             "TransferTokenOwnership": "Ticker",
@@ -274,5 +276,11 @@
         "extension_name": "Vec<u8>",
         "extension_id": "IdentityId",
         "is_archive": "bool"
+    },
+    "ProportionMatch": {
+        "_enum": [
+            "AtLeast",
+            "MoreThan"
+        ]
     }
 }

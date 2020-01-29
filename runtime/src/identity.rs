@@ -67,6 +67,7 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
+use group::GroupTrait;
 use sp_core::{
     sr25519::{Public, Signature},
     H512,
@@ -168,9 +169,7 @@ pub struct SigningItemWithAuth {
 }
 
 /// The module's configuration trait.
-pub trait Trait:
-    frame_system::Trait + balances::Trait + pallet_timestamp::Trait + group::Trait<group::Instance1>
-{
+pub trait Trait: frame_system::Trait + balances::Trait + pallet_timestamp::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
@@ -179,6 +178,8 @@ pub trait Trait:
     type AcceptTransferTarget: AcceptTransfer;
     /// MultiSig module
     type AddSignerMultiSigTarget: AddSignerMultiSig;
+    /// Group module
+    type KYCServiceProviders: GroupTrait;
 }
 
 decl_storage! {
@@ -338,6 +339,74 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::NewMasterKey(did, sender, new_key));
+            Ok(())
+        }
+
+        /// Call this with the new master key. By invoking this method, caller accepts authorization
+        /// with the new master key. If a KYC service provider approved this change, master key of
+        /// the DID is updated.
+        ///
+        /// # Arguments
+        /// * `owner_auth_id` Authorization from the owner who initiated the change
+        /// * `kyc_auth_id` Authorization from a KYC service provider
+        pub fn accept_master_key(origin, rotation_auth_id: u64, kyc_auth_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = Key::try_from(sender.encode())?;
+            let signer = Signer::from(sender_key);
+
+            // When both authorizations are present...
+            ensure!(<Authorizations<T>>::exists((signer, rotation_auth_id)), "Invalid authorization from owner");
+            ensure!(<Authorizations<T>>::exists((signer, kyc_auth_id)), "Invalid authorization from KYC service provider");
+
+            // Accept authorization from the owner
+            let rotation_auth = Self::authorizations((signer, rotation_auth_id));
+            if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
+                // Ensure the request was made by the owner of master key
+                match rotation_auth.authorized_by {
+                    Signer::Key(key) =>  {
+                        let master_key = <DidRecords>::get(rotation_for_did).master_key;
+                        ensure!(key == master_key, "Authorization to change key was not from the owner of master key");
+                    },
+                    _ => return Err(Error::<T>::UnknownAuthorization.into())
+                };
+
+                // Aceept authorization from KYC service provider
+                let kyc_auth = Self::authorizations((signer, kyc_auth_id));
+                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
+                    // Attestor must be a KYC service provider
+                    let kyc_provider_did = match kyc_auth.authorized_by {
+                        Signer::Key(ref key) =>  Self::get_identity(key),
+                        Signer::Identity(id)  => Some(id),
+                    };
+
+                    if let Some(id) = kyc_provider_did {
+                        ensure!(T::KYCServiceProviders::is_member(&id), "Attestation was not by a KYC service provider");
+                    } else {
+                        return Err(Error::<T>::NoDIDFound.into());
+                    }
+
+                    // Make sure authorizations are for the same DID
+                    ensure!(rotation_for_did == attestation_for_did, "Authorizations are not for the same DID");
+
+                    // remove owner's authorization
+                    Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
+
+                    // remove KYC service provider's authorization
+                    Self::consume_auth(kyc_auth.authorized_by, signer, kyc_auth_id)?;
+
+                    // Replace master key of the owner that initiated key rotation
+                    <DidRecords>::mutate(rotation_for_did, |record| {
+                        (*record).master_key = sender_key.clone();
+                    });
+
+                    Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
+                } else {
+                    return Err(Error::<T>::UnknownAuthorization.into());
+                }
+            } else {
+                return Err(Error::<T>::UnknownAuthorization.into());
+            }
+
             Ok(())
         }
 
@@ -1042,6 +1111,9 @@ decl_event!(
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
         AuthorizationRemoved(u64, Signer),
+        
+        /// MasterKey changed (Requestor DID, New MasterKey)
+        MasterKeyChanged(IdentityId, Key),
 
         /// New link added (link_id, associated identity or key, link_data, expiry)
         NewLink(
@@ -1351,7 +1423,7 @@ impl<T: Trait> Module<T> {
         claim_for: IdentityId,
         buffer: u64,
     ) -> (bool, Option<IdentityId>) {
-        let trusted_kyc_providers = <group::Module<T, group::Instance1>>::members();
+        let trusted_kyc_providers = T::KYCServiceProviders::get_members();
         if trusted_kyc_providers.len() > 0 {
             for trusted_kyc_provider in trusted_kyc_providers {
                 if let Some(claim) = Self::fetch_claim_value(
@@ -1360,7 +1432,6 @@ impl<T: Trait> Module<T> {
                     trusted_kyc_provider,
                 ) {
                     if let Ok(value) = claim.value.as_slice().try_into() {
-                        //let kyc_expiry: [u8; 8] = value;
                         if let Some(threshold) = ((<pallet_timestamp::Module<T>>::get())
                             .saturated_into::<u64>())
                         .checked_add(buffer)

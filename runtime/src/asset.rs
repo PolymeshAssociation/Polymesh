@@ -68,7 +68,10 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_session;
-use primitives::{AuthorizationData, AuthorizationError, IdentityId, Key, Signer, Ticker, SmartExtension, SmartExtensionTypes};
+use primitives::{
+    AuthorizationData, AuthorizationError, IdentityId, Key, Signer, SmartExtension,
+    SmartExtensionTypes, Ticker,
+};
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};

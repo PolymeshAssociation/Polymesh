@@ -190,7 +190,6 @@ decl_module! {
         /// Accept a multisig signer authorization given to signer's identity
         ///
         /// # Arguments
-        /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Auth id of the authorization.
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -212,7 +211,6 @@ decl_module! {
         /// Accept a multisig signer authorization given to signer's key (AccountId)
         ///
         /// # Arguments
-        /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Auth id of the authorization.
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -223,7 +221,6 @@ decl_module! {
         /// Add a signer to the multisig. This must be called by the multisig itself.
         ///
         /// # Arguments
-        /// * `multisig` - MultiSig address.
         /// * `signer` - Signer to add.
         pub fn add_multisig_signer(origin, signer: Signer) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -242,7 +239,6 @@ decl_module! {
         /// Remove a signer from the multisig. This must be called by the multisig itself.
         ///
         /// # Arguments
-        /// * `multisig` - MultiSig address.
         /// * `signer` - Signer to remove.
         pub fn remove_multisig_signer(origin, signer: Signer) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -255,8 +251,7 @@ decl_module! {
         /// Change number of sigs required by a multisig. This must be called by the multisig itself.
         ///
         /// # Arguments
-        /// * `multisig` - MultiSig address.
-        /// * `sigs_required` - New number os sigs required.
+        /// * `sigs_required` - New number of sigs required.
         pub fn change_sigs_required(origin, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
