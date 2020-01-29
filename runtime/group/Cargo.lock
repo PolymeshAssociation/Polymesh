@@ -69,6 +69,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ansi_term"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
+dependencies = [
+ "winapi 0.3.8",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -524,6 +533,12 @@ dependencies = [
  "quote 1.0.2",
  "syn 1.0.14",
 ]
+
+[[package]]
+name = "difference"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "524cbf6897b527295dff137cec09ecf3a05f4fddffd7dfcd1585403449e74198"
 
 [[package]]
 name = "digest"
@@ -2214,6 +2229,7 @@ dependencies = [
  "hex",
  "pallet-babe",
  "parity-scale-codec",
+ "serde",
  "sp-application-crypto",
  "sp-core",
  "sp-io",
@@ -2231,6 +2247,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
+ "serde",
  "sp-api",
  "sp-core",
  "sp-io",
@@ -2245,17 +2262,19 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "pretty_assertions",
  "serde",
  "serde_derive",
  "sp-api",
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-serializer",
  "sp-std",
+ "sp-version",
  "substrate-test-runtime-client",
 ]
 
@@ -2264,6 +2283,16 @@ name = "ppv-lite86"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74490b50b9fbe561ac330df47c08f3f33073d2d00c150f719147d7c54522fa1b"
+
+[[package]]
+name = "pretty_assertions"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a029430f0d744bc3d15dd474d591bed2402b645d024583082b9f63bb936dac6"
+dependencies = [
+ "ansi_term",
+ "difference",
+]
 
 [[package]]
 name = "primitive-types"

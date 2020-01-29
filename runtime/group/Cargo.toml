@@ -5,41 +5,39 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
-polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common" }
+polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives" }
 
-codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.101", optional = true, features = ["derive"] }
+serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true }
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-
+sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-version = { package = "sp-version", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
-pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pretty_assertions = "^0.5.1"
 
 
 [features]
 default = ["std"]
 std = [ 
-	"sp-std/std",
-	"sp-core/std",
-	"sp-api/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"pallet-timestamp/std",
-	"frame-support/std",
-	"frame-system/std",
-	"codec/std",
 	"serde_derive",
 	"serde/std",
+	"codec/std",
+	"sp-std/std",
+	"sp-io/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"frame-system/std",
+	"frame-support/std",
 ]
