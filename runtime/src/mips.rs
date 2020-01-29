@@ -450,8 +450,6 @@ impl<T: Trait> Module<T> {
     /// 2. Tally votes
     /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
     fn end_block(block_number: T::BlockNumber) -> DispatchResult {
-        sp_runtime::print("end_block");
-
         // Find all matured proposals...
         for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
             // Tally votes and create referendums
@@ -641,6 +639,16 @@ mod tests {
         type Proposal = Call;
         type AcceptTransferTarget = Test;
         type AddSignerMultiSigTarget = Test;
+        type KYCServiceProviders = Test;
+    }
+
+    impl crate::group::GroupTrait for Test {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
+        fn is_member(_did: &IdentityId) -> bool {
+            unimplemented!()
+        }
     }
 
     impl crate::multisig::AddSignerMultiSig for Test {
@@ -686,7 +694,7 @@ mod tests {
         type Event = ();
     }
 
-    impl group::Trait<group::Instance1> for Test {
+    impl group::Trait<group::Instance2> for Test {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, u64>;
         type RemoveOrigin = EnsureSignedBy<Two, u64>;
