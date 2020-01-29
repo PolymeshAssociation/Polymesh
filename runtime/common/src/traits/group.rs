@@ -1,10 +1,10 @@
 use polymesh_primitives::IdentityId;
 
-use sp_runtime::traits::EnsureOrigin;
 use frame_support::{
     decl_event,
-    traits::{ChangeMembers, InitializeMembers}
+    traits::{ChangeMembers, InitializeMembers},
 };
+use sp_runtime::traits::EnsureOrigin;
 
 decl_event!(
 	pub enum Event<T> where

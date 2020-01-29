@@ -1,7 +1,9 @@
-use crate::traits::{ CommonTrait, AcceptTransfer, AddSignerMultiSig, group };
-use polymesh_primitives::{ AuthorizationData, LinkData, IdentityId, Key, Permission, Signer, SigningItem};
+use crate::traits::{balances, group, multisig::AddSignerMultiSig, CommonTrait};
+use polymesh_primitives::{
+    AuthorizationData, IdentityId, Key, LinkData, Permission, Signer, SigningItem,
+};
 
-use frame_support::{decl_event, Parameter, weights::GetDispatchInfo};
+use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
 use frame_system;
 use sp_core::H512;
 use sp_runtime::traits::Dispatchable;
@@ -139,47 +141,33 @@ decl_event!(
         MyKycStatus(IdentityId, bool, Option<IdentityId>),
 
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
-        NewAuthorization(
-            u64,
-            Signer,
-            Signer,
-            AuthorizationData,
-            Option<Moment>
-        ),
+        NewAuthorization(u64, Signer, Signer, AuthorizationData, Option<Moment>),
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
         AuthorizationRemoved(u64, Signer),
 
         /// New link added (link_id, associated identity or key, link_data, expiry)
-        NewLink(
-            u64,
-            Signer,
-            LinkData,
-            Option<Moment>
-        ),
+        NewLink(u64, Signer, LinkData, Option<Moment>),
 
         /// Link removed. (link_id, associated identity or key)
         LinkRemoved(u64, Signer),
 
         /// Signer approved a previous request to join to a target identity.
-        SignerJoinedToIdentityApproved( Signer, IdentityId),
+        SignerJoinedToIdentityApproved(Signer, IdentityId),
     }
 );
 
 /// The module's configuration trait.
-pub trait Trait: CommonTrait + pallet_timestamp::Trait + group::Trait {
+pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait + group::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
-    /// Asset module
-    type AcceptTransferTarget: AcceptTransfer;
     /// MultiSig module
     type AddSignerMultiSigTarget: AddSignerMultiSig;
-
 }
 
-pub trait IdentityTrait<T> {
+pub trait IdentityTrait {
     fn get_identity(key: &Key) -> Option<IdentityId>;
     fn is_signer_authorized(did: IdentityId, signer: &Signer) -> bool;
     fn is_signer_authorized_with_permissions(

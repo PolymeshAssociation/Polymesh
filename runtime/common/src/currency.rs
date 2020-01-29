@@ -24,7 +24,7 @@ macro_rules! impl_currency {
         // impl<T: Trait, I: Instance> Currency<T::AccountId> for Module<T, I>
         impl<T: Trait> Currency<T::AccountId> for Module<T>
         where
-            T::Balance: MaybeSerializeDebug,
+            T::Balance: MaybeSerializeDeserialize + Debug,
             Module<T>: CurrencyModule<T>,
         {
             type Balance = T::Balance;
@@ -83,37 +83,35 @@ macro_rules! impl_currency {
             fn ensure_can_withdraw(
                 who: &T::AccountId,
                 _amount: T::Balance,
-                reason: WithdrawReason,
+                reasons: WithdrawReasons,
                 new_balance: T::Balance,
-            ) -> srml_support::dispatch::Result {
-                match reason {
-                    WithdrawReason::Reserve | WithdrawReason::Transfer
-                        if Self::currency_vesting_balance(who) > new_balance =>
-                    {
-                        return Err("vesting balance too high to send value")
-                    }
-                    _ => {}
+            ) -> DispatchResult {
+                if reasons.intersects(WithdrawReason::Reserve | WithdrawReason::Transfer)
+                    && Self::vesting_balance(who) > new_balance
+                {
+                    Err(Error::<T>::VestingBalance)?
                 }
-                let locks = Self::currency_locks(who);
+                let locks = Self::locks(who);
                 if locks.is_empty() {
                     return Ok(());
                 }
 
-                let now = <system::Module<T>>::block_number();
+                let now = <frame_system::Module<T>>::block_number();
                 if locks.into_iter().all(|l| {
-                    now >= l.until || new_balance >= l.amount || !l.reasons.contains(reason)
+                    now >= l.until || new_balance >= l.amount || !l.reasons.intersects(reasons)
                 }) {
                     Ok(())
                 } else {
-                    Err("account liquidity restrictions prevent withdrawal")
+                    Err(Error::<T>::LiquidityRestrictions.into())
                 }
             }
 
             fn transfer(
-                transactor: &T::AccountId,
-                dest: &T::AccountId,
-                value: Self::Balance,
-            ) -> srml_support::dispatch::Result {
+                _transactor: &T::AccountId,
+                _dest: &T::AccountId,
+                _value: Self::Balance,
+                _existence_requirement: ExistenceRequirement,
+            ) -> DispatchResult {
                 /*
                 let from_balance = Self::free_balance(transactor);
                 let to_balance = Self::free_balance(dest);
@@ -123,43 +121,38 @@ macro_rules! impl_currency {
                 } else {
                     T::TransferFee::get()
                 };
-                let liability = match value.checked_add(&fee) {
-                    Some(l) => l,
-                    None => return Err("got overflow after adding a fee to value"),
-                };
-
-                let new_from_balance = match from_balance.checked_sub(&liability) {
-                    None => return Err("balance too low to send value"),
-                    Some(b) => b,
-                };
+                let liability = value.checked_add(&fee).ok_or(Error::<T, I>::Overflow)?;
+                let new_from_balance = from_balance
+                    .checked_sub(&liability)
+                    .ok_or(Error::<T, I>::InsufficientBalance)?;
 
                 Self::ensure_can_withdraw(
                     transactor,
                     value,
-                    WithdrawReason::Transfer,
+                    WithdrawReason::Transfer.into(),
                     new_from_balance,
                 )?;
 
                 // NOTE: total stake being stored in the same type means that this could never overflow
                 // but better to be safe than sorry.
-                let new_to_balance = match to_balance.checked_add(&value) {
-                    Some(b) => b,
-                    None => return Err("destination balance too high to receive value"),
-                };
+                let new_to_balance = to_balance
+                    .checked_add(&value)
+                    .ok_or(Error::<T, I>::Overflow)?;
 
                 if transactor != dest {
                     Self::set_free_balance(transactor, new_from_balance);
-                    // if !<FreeBalance<T, I>>::exists(dest) {
-                    if ! T::free_balance_exists(dest) {
+                    if !<FreeBalance<T, I>>::exists(dest) {
                         Self::new_account(dest, new_to_balance);
                     }
+
                     Self::set_free_balance(dest, new_to_balance);
                     T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
+
                     Self::deposit_event(RawEvent::Transfer(
-                        transactor.clone(),
-                        dest.clone(),
-                        value,
-                        fee,
+                            transactor.clone(),
+                            dest.clone(),
+                            value,
+                            fee,
                     ));
                 }*/
 
@@ -169,15 +162,15 @@ macro_rules! impl_currency {
             fn withdraw(
                 who: &T::AccountId,
                 value: Self::Balance,
-                reason: WithdrawReason,
+                reasons: WithdrawReasons,
                 _liveness: ExistenceRequirement,
-            ) -> rstd::result::Result<Self::NegativeImbalance, &'static str> {
+            ) -> result::Result<Self::NegativeImbalance, DispatchError> {
                 if let Some(new_balance) = Self::free_balance(who).checked_sub(&value) {
-                    Self::ensure_can_withdraw(who, value, reason, new_balance)?;
+                    Self::ensure_can_withdraw(who, value, reasons, new_balance)?;
                     Self::set_free_balance(who, new_balance);
                     Ok(NegativeImbalance::new(value))
                 } else {
-                    Err("too few free funds in account")
+                    Err(Error::<T>::InsufficientBalance)?
                 }
             }
 
@@ -186,7 +179,7 @@ macro_rules! impl_currency {
                 value: Self::Balance,
             ) -> (Self::NegativeImbalance, Self::Balance) {
                 let free_balance = Self::free_balance(who);
-                let free_slash = rstd::cmp::min(free_balance, value);
+                let free_slash = sp_std::cmp::min(free_balance, value);
                 Self::set_free_balance(who, free_balance - free_slash);
                 let remaining_slash = value - free_slash;
                 // NOTE: `slash()` prefers free balance, but assumes that reserve balance can be drawn
@@ -195,7 +188,7 @@ macro_rules! impl_currency {
                 // or `can_slash` wasn't used appropriately.
                 if !remaining_slash.is_zero() {
                     let reserved_balance = Self::currency_reserved_balance(who);
-                    let reserved_slash = rstd::cmp::min(reserved_balance, remaining_slash);
+                    let reserved_slash = sp_std::cmp::min(reserved_balance, remaining_slash);
                     Self::set_reserved_balance(who, reserved_balance - reserved_slash);
                     (
                         NegativeImbalance::new(free_slash + reserved_slash),
@@ -209,7 +202,7 @@ macro_rules! impl_currency {
             fn deposit_into_existing(
                 who: &T::AccountId,
                 value: Self::Balance,
-            ) -> rstd::result::Result<Self::PositiveImbalance, &'static str> {
+            ) -> sp_std::result::Result<Self::PositiveImbalance, &'static str> {
                 if Self::total_balance(who).is_zero() {
                     return Err("beneficiary account must pre-exist");
                 }

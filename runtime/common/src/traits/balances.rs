@@ -55,20 +55,8 @@ pub trait Subtrait<I: Instance = DefaultInstance>: CommonTrait {
     /// The fee required to make a transfer.
     type TransferFee: Get<Self::Balance>;
 
-    /// The fee required to create an account.
-    type CreationFee: Get<Self::Balance>;
-
-    /// The fee to be paid for making a transaction; the base.
-    type TransactionBaseFee: Get<Self::Balance>;
-
-    /// The fee to be paid for making a transaction; the per-byte portion.
-    type TransactionByteFee: Get<Self::Balance>;
-
-    /// Convert a weight value into a deductible fee based on the currency type.
-    // type WeightToFee: Convert<Weight, Self::Balance>;
-
     /// Used to charge fee to identity rather than user directly
-    type Identity: IdentityTrait<Self::Balance>;
+    type Identity: IdentityTrait;
 }
 
 decl_event!(
@@ -85,19 +73,44 @@ decl_event!(
     }
 );
 
-pub trait Trait<I: Instance = DefaultInstance>: Subtrait<I> {
-    /// Handler for the unbalanced reduction when taking transaction fees.
-    type TransactionPayment: OnUnbalanced<NegativeImbalance<Self>>;
+pub trait Trait: CommonTrait {
+    /// has been reduced to zero.
+    ///
+    /// Gives a chance to clean up resources associated with the given account.
+    type OnFreeBalanceZero: OnFreeBalanceZero<Self::AccountId>;
+
+    /// Handler for when a new account is created.
+    type OnNewAccount: OnNewAccount<Self::AccountId>;
 
     /// Handler for the unbalanced reduction when taking fees associated with balance
     /// transfer (which may also include account creation).
     type TransferPayment: OnUnbalanced<NegativeImbalance<Self>>;
 
+    /// This type is no longer needed but kept for compatibility reasons.
+    /// The minimum amount required to keep an account open.
+    type ExistentialDeposit: Get<Self::Balance>;
+
+    /// The fee required to make a transfer.
+    type TransferFee: Get<Self::Balance>;
+
+    /// Used to charge fee to identity rather than user directly
+    type Identity: IdentityTrait;
+
     /// Handler for the unbalanced reduction when removing a dust account.
     type DustRemoval: OnUnbalanced<NegativeImbalance<Self>>;
 
     // / The overarching event type.
-    type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
+    // type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    //type Event;
+}
+
+impl<T: Trait, I: Instance> Subtrait<I> for T {
+    type OnFreeBalanceZero = T::OnFreeBalanceZero;
+    type OnNewAccount = T::OnNewAccount;
+    type ExistentialDeposit = T::ExistentialDeposit;
+    type TransferFee = T::TransferFee;
+    type Identity = T::Identity;
 }
 
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy

@@ -1,67 +1,108 @@
 use crate::{
     balances,
-    identity::{self, ClaimValue, DataTypes, SigningItemWithAuth, TargetIdAuthorization},
+    identity::{
+        self, Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, Error, SigningItemWithAuth,
+        TargetIdAuthorization,
+    },
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
-use primitives::{Key, Permission, Signer, SignerType, SigningItem};
-
 use codec::Encode;
-use sr_io::with_externalities;
-use srml_support::{assert_err, assert_ok, traits::Currency};
-use substrate_primitives::H512;
+use frame_support::{assert_err, assert_ok, traits::Currency};
+use primitives::{
+    AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem, Ticker,
+};
+use rand::Rng;
+use sp_core::H512;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type System = system::Module<TestStorage>;
-type Timestamp = timestamp::Module<TestStorage>;
+type System = frame_system::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Module<TestStorage>;
 
-type Origin = <TestStorage as system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
-fn only_claim_issuers_can_add_claims() {
-    with_externalities(&mut build_ext(), || {
-        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+fn add_claims_batch() {
+    build_ext().execute_with(|| {
+        let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let issuer = AccountKeyring::Bob.public();
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = AccountKeyring::Charlie.public();
-
-        let claim_value = ClaimValue {
-            data_type: DataTypes::VecU8,
-            value: "some_value".as_bytes().to_vec(),
-        };
-
-        assert_ok!(Identity::add_claim(
+        let claim_key = "key".as_bytes();
+        let claim_records = vec![
+            ClaimRecord {
+                did: claim_issuer_did.clone(),
+                claim_key: claim_key.to_vec(),
+                expiry: 100u64,
+                claim_value: ClaimValue {
+                    data_type: DataTypes::VecU8,
+                    value: "value 1".as_bytes().to_vec(),
+                },
+            },
+            ClaimRecord {
+                did: claim_issuer_did.clone(),
+                claim_key: claim_key.to_vec(),
+                expiry: 200u64,
+                claim_value: ClaimValue {
+                    data_type: DataTypes::VecU8,
+                    value: "value 2".as_bytes().to_vec(),
+                },
+            },
+        ];
+        assert_ok!(Identity::add_claims_batch(
             Origin::signed(claim_issuer.clone()),
             claim_issuer_did.clone(),
-            "some_key".as_bytes().to_vec(),
-            claim_issuer_did.clone(),
-            100u64,
-            claim_value.clone()
+            claim_records,
         ));
-
-        assert_err!(
-            Identity::add_claim(
-                Origin::signed(claim_issuer.clone()),
-                owner_did,
-                "some_key".as_bytes().to_vec(),
-                issuer_did.clone(),
-                100u64,
-                claim_value.clone()
-            ),
-            "did_issuer must be a claim issuer or master key for DID"
+        // Check that the last claim value was stored with `claim_key`.
+        let Claim {
+            issuance_date: _issuance_date,
+            expiry,
+            claim_value,
+        } = Identity::claims((
+            claim_issuer_did.clone(),
+            ClaimMetaData {
+                claim_key: claim_key.to_vec(),
+                claim_issuer: claim_issuer_did.clone(),
+            },
+        ));
+        assert_eq!(expiry, 200u64);
+        assert_eq!(
+            claim_value,
+            ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "value 2".as_bytes().to_vec(),
+            }
         );
+        let claim_records_err2 = vec![ClaimRecord {
+            did: issuer_did.clone(),
+            claim_key: claim_key.to_vec(),
+            expiry: 400u64,
+            claim_value: ClaimValue {
+                data_type: DataTypes::VecU8,
+                value: "value 4".as_bytes().to_vec(),
+            },
+        }];
         assert_err!(
-            Identity::add_claim(
+            Identity::add_claims_batch(
                 Origin::signed(issuer),
-                issuer_did,
-                "some_key".as_bytes().to_vec(),
                 claim_issuer_did,
-                100u64,
-                claim_value
+                claim_records_err2,
             ),
             "Sender must hold a claim issuer\'s signing key"
+        );
+        // Check that no claim has been stored.
+        assert_eq!(
+            Identity::claims((
+                issuer_did.clone(),
+                ClaimMetaData {
+                    claim_key: claim_key.to_vec(),
+                    claim_issuer: claim_issuer_did.clone(),
+                },
+            )),
+            Claim::default(),
         );
     });
 }
@@ -69,7 +110,7 @@ fn only_claim_issuers_can_add_claims() {
 /// TODO Add `Signer::Identity(..)` test.
 #[test]
 fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let owner_signer = Signer::Key(Key::from(AccountKeyring::Alice.public().0));
 
@@ -110,19 +151,12 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
 
 #[test]
 fn revoking_claims() {
-    with_externalities(&mut build_ext(), || {
+    build_ext().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let owner = Origin::signed(AccountKeyring::Alice.public());
         let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
-
-        assert_ok!(Identity::add_claim_issuer(
-            owner.clone(),
-            owner_did,
-            claim_issuer_did
-        ));
 
         let claim_value = ClaimValue {
             data_type: DataTypes::VecU8,
@@ -159,10 +193,7 @@ fn revoking_claims() {
 
 #[test]
 fn only_master_key_can_add_signing_key_permissions() {
-    with_externalities(
-        &mut build_ext(),
-        &only_master_key_can_add_signing_key_permissions_with_externalities,
-    );
+    build_ext().execute_with(&only_master_key_can_add_signing_key_permissions_with_externalities);
 }
 
 fn only_master_key_can_add_signing_key_permissions_with_externalities() {
@@ -223,10 +254,7 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
 
 #[test]
 fn add_signing_keys_with_specific_type() {
-    with_externalities(
-        &mut build_ext(),
-        &add_signing_keys_with_specific_type_with_externalities,
-    );
+    build_ext().execute_with(&add_signing_keys_with_specific_type_with_externalities);
 }
 
 /// It tests that signing key can be added using non-default key type
@@ -243,7 +271,7 @@ fn add_signing_keys_with_specific_type_with_externalities() {
     };
     let dave_signing_key = SigningItem {
         signer: Signer::Key(dave_key),
-        signer_type: SignerType::Multisig,
+        signer_type: SignerType::MultiSig,
         permissions: vec![],
     };
 
@@ -268,7 +296,7 @@ fn add_signing_keys_with_specific_type_with_externalities() {
 /// It verifies that frozen keys are recovered after `unfreeze` call.
 #[test]
 fn freeze_signing_keys_test() {
-    with_externalities(&mut build_ext(), &freeze_signing_keys_with_externalities);
+    build_ext().execute_with(&freeze_signing_keys_with_externalities);
 }
 
 fn freeze_signing_keys_with_externalities() {
@@ -356,10 +384,7 @@ fn freeze_signing_keys_with_externalities() {
 /// It double-checks that frozen keys are removed too.
 #[test]
 fn remove_frozen_signing_keys_test() {
-    with_externalities(
-        &mut build_ext(),
-        &remove_frozen_signing_keys_with_externalities,
-    );
+    build_ext().execute_with(&remove_frozen_signing_keys_with_externalities);
 }
 
 fn remove_frozen_signing_keys_with_externalities() {
@@ -406,40 +431,11 @@ fn remove_frozen_signing_keys_with_externalities() {
 }
 
 #[test]
-fn add_claim_issuer_tests() {
-    with_externalities(&mut build_ext(), &add_claim_issuer_tests_with_externalities);
-}
-
-fn add_claim_issuer_tests_with_externalities() {
-    // Register identities
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let charlie = Origin::signed(AccountKeyring::Charlie.public());
-
-    // Check `add_claim_issuer` constraints.
-    assert_ok!(Identity::add_claim_issuer(
-        alice.clone(),
-        alice_did,
-        bob_did
-    ));
-    assert_err!(
-        Identity::add_claim_issuer(charlie, alice_did, bob_did),
-        "Only master key of an identity is able to execute this operation"
-    );
-    assert_err!(
-        Identity::add_claim_issuer(alice, alice_did, alice_did),
-        "Master key cannot add itself as claim issuer"
-    );
-}
-
-#[test]
 fn enforce_uniqueness_keys_in_identity_tests() {
-    with_externalities(&mut build_ext(), &enforce_uniqueness_keys_in_identity);
+    build_ext().execute_with(&enforce_uniqueness_keys_in_identity);
 }
 
 fn enforce_uniqueness_keys_in_identity() {
-    let unique_error = "One signing key can only belong to one DID";
     // Register identities
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -461,14 +457,14 @@ fn enforce_uniqueness_keys_in_identity() {
 
     assert_err!(
         Identity::add_signing_items(bob.clone(), bob_id, vec![charlie_sk]),
-        unique_error
+        Error::<TestStorage>::AlreadyLinked
     );
 
     // Check non-external signed key non-uniqueness.
     let dave_key = Key::from(AccountKeyring::Dave.public().0);
     let dave_sk = SigningItem {
         signer: Signer::Key(dave_key),
-        signer_type: SignerType::Multisig,
+        signer_type: SignerType::MultiSig,
         permissions: vec![Permission::Operator],
     };
     assert_ok!(Identity::add_signing_items(
@@ -486,27 +482,24 @@ fn enforce_uniqueness_keys_in_identity() {
     let bob_key = Key::from(AccountKeyring::Bob.public().0);
     let bob_sk_as_mutisig = SigningItem {
         signer: Signer::Key(bob_key),
-        signer_type: SignerType::Multisig,
+        signer_type: SignerType::MultiSig,
         permissions: vec![Permission::Operator],
     };
     assert_err!(
         Identity::add_signing_items(alice.clone(), alice_id, vec![bob_sk_as_mutisig]),
-        unique_error
+        Error::<TestStorage>::AlreadyLinked
     );
 
     let bob_sk = SigningItem::new(Signer::Key(bob_key), vec![Permission::Admin]);
     assert_err!(
         Identity::add_signing_items(alice.clone(), alice_id, vec![bob_sk]),
-        unique_error
+        Error::<TestStorage>::AlreadyLinked
     );
 }
 
 #[test]
 fn add_remove_signing_identities() {
-    with_externalities(
-        &mut build_ext(),
-        &add_remove_signing_identities_with_externalities,
-    );
+    build_ext().execute_with(&add_remove_signing_identities_with_externalities);
 }
 
 fn add_remove_signing_identities_with_externalities() {
@@ -553,7 +546,7 @@ fn add_remove_signing_identities_with_externalities() {
 
 #[test]
 fn two_step_join_id() {
-    with_externalities(&mut build_ext(), &two_step_join_id_with_ext);
+    build_ext().execute_with(&two_step_join_id_with_ext);
 }
 
 fn two_step_join_id_with_ext() {
@@ -601,7 +594,7 @@ fn two_step_join_id_with_ext() {
 
     assert_err!(
         Identity::authorize_join_to_identity(charlie, bob_id),
-        "Key is already linked to an identity"
+        Error::<TestStorage>::AlreadyLinked
     );
     assert_eq!(Identity::is_signer_authorized(bob_id, &c_sk.signer), false);
 
@@ -622,7 +615,7 @@ fn two_step_join_id_with_ext() {
     // Check remove pre-authorization from master and itself.
     assert_err!(
         Identity::unauthorized_join_to_identity(alice.clone(), e_sk.signer.clone(), bob_id),
-        "Account cannot remove this authorization"
+        Error::<TestStorage>::Unauthorized
     );
     assert_ok!(Identity::unauthorized_join_to_identity(
         alice,
@@ -640,7 +633,7 @@ fn two_step_join_id_with_ext() {
 
 #[test]
 fn one_step_join_id() {
-    with_externalities(&mut build_ext(), &one_step_join_id_with_ext);
+    build_ext().execute_with(&one_step_join_id_with_ext);
 }
 
 fn one_step_join_id_with_ext() {
@@ -664,7 +657,7 @@ fn one_step_join_id_with_ext() {
         AccountKeyring::Charlie,
         AccountKeyring::Dave,
     ]
-    .into_iter()
+    .iter()
     .map(|acc| H512::from(acc.sign(&auth_encoded)))
     .collect::<Vec<_>>();
 
@@ -763,4 +756,213 @@ fn one_step_join_id_with_ext() {
         ),
         "Offchain authorization has expired"
     );
+}
+
+#[test]
+fn adding_authorizations() {
+    build_ext().execute_with(|| {
+        let alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+        let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
+        let charlie_did = Signer::from(register_keyring_account(AccountKeyring::Charlie).unwrap());
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+        let ticker50 = Ticker::from_slice(&[0x50]);
+        let ticker51 = Ticker::from_slice(&[0x51]);
+        let mut auth_ids_bob = Vec::new();
+        auth_ids_bob.push(0); // signifies that there are no more auths left
+        assert_ok!(Identity::add_authorization(
+            alice.clone(),
+            bob_did,
+            AuthorizationData::TransferTicker(ticker50),
+            None,
+        ));
+        auth_ids_bob.push(Identity::last_authorization(bob_did));
+        assert_ok!(Identity::add_authorization(
+            alice.clone(),
+            bob_did,
+            AuthorizationData::TransferTicker(ticker51),
+            None,
+        ));
+        auth_ids_bob.push(Identity::last_authorization(bob_did));
+        assert_ok!(Identity::add_authorization(
+            alice,
+            bob_did,
+            AuthorizationData::TransferTicker(ticker50),
+            Some(100),
+        ));
+        auth_ids_bob.push(Identity::last_authorization(bob_did));
+        assert_ok!(Identity::add_authorization(
+            charlie,
+            bob_did,
+            AuthorizationData::TransferTicker(ticker50),
+            Some(100),
+        ));
+        auth_ids_bob.push(Identity::last_authorization(bob_did));
+        auth_ids_bob.push(0); // signifies that there are no more auths left
+        for i in 1..(auth_ids_bob.len() - 1) {
+            let auth = Identity::authorizations((bob_did, auth_ids_bob[i]));
+            assert_eq!(auth.previous_authorization, auth_ids_bob[i - 1]);
+            assert_eq!(auth.next_authorization, auth_ids_bob[i + 1]);
+            match i {
+                1 => {
+                    assert_eq!(auth.authorized_by, alice_did);
+                    assert_eq!(auth.expiry, None);
+                    assert_eq!(
+                        auth.authorization_data,
+                        AuthorizationData::TransferTicker(ticker50)
+                    );
+                }
+                2 => {
+                    assert_eq!(auth.authorized_by, alice_did);
+                    assert_eq!(auth.expiry, None);
+                    assert_eq!(
+                        auth.authorization_data,
+                        AuthorizationData::TransferTicker(ticker51)
+                    );
+                }
+                3 => {
+                    assert_eq!(auth.authorized_by, alice_did);
+                    assert_eq!(auth.expiry, Some(100));
+                    assert_eq!(
+                        auth.authorization_data,
+                        AuthorizationData::TransferTicker(ticker50)
+                    );
+                }
+                4 => {
+                    assert_eq!(auth.authorized_by, charlie_did);
+                    assert_eq!(auth.expiry, Some(100));
+                    assert_eq!(
+                        auth.authorization_data,
+                        AuthorizationData::TransferTicker(ticker50)
+                    );
+                }
+                _ => {}
+            }
+        }
+    });
+}
+
+#[test]
+fn removing_authorizations() {
+    build_ext().execute_with(|| {
+        let _alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+        let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
+        let ticker50 = Ticker::from_slice(&[0x50]);
+        let mut auth_ids_bob = Vec::new();
+        auth_ids_bob.push(0); // signifies that there are no more auths left
+        for _ in 0..10 {
+            assert_ok!(Identity::add_authorization(
+                alice.clone(),
+                bob_did,
+                AuthorizationData::TransferTicker(ticker50),
+                None,
+            ));
+            auth_ids_bob.push(Identity::last_authorization(bob_did));
+        }
+        auth_ids_bob.push(0); // signifies that there are no more auths left
+        let mut rng = rand::thread_rng();
+        for _ in 0..10 {
+            let auth_to_remove = rng.gen_range(1, auth_ids_bob.len() - 1);
+            let auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
+            assert_eq!(
+                auth.authorization_data,
+                AuthorizationData::TransferTicker(ticker50)
+            );
+            assert_eq!(
+                auth.previous_authorization,
+                auth_ids_bob[auth_to_remove - 1]
+            );
+            assert_eq!(auth.next_authorization, auth_ids_bob[auth_to_remove + 1]);
+            assert_ok!(Identity::remove_authorization(
+                alice.clone(),
+                bob_did,
+                auth_ids_bob[auth_to_remove]
+            ));
+            let removed_auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
+            assert_eq!(removed_auth.authorization_data, AuthorizationData::NoData);
+            auth_ids_bob.remove(auth_to_remove);
+            for i in 1..(auth_ids_bob.len() - 1) {
+                let auth = Identity::authorizations((bob_did, auth_ids_bob[i]));
+                assert_eq!(auth.previous_authorization, auth_ids_bob[i - 1]);
+                assert_eq!(auth.next_authorization, auth_ids_bob[i + 1]);
+            }
+        }
+    });
+}
+
+#[test]
+fn adding_links() {
+    build_ext().execute_with(|| {
+        let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
+        let ticker50 = Ticker::from_slice(&[0x50]);
+        let ticker51 = Ticker::from_slice(&[0x51]);
+        let mut link_ids_bob = Vec::new();
+        link_ids_bob.push(0); // signifies that there are no more links left
+        Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
+        link_ids_bob.push(Identity::last_link(bob_did));
+        Identity::add_link(bob_did, LinkData::TickerOwned(ticker51), None);
+        link_ids_bob.push(Identity::last_link(bob_did));
+        Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
+        link_ids_bob.push(Identity::last_link(bob_did));
+        Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
+        link_ids_bob.push(Identity::last_link(bob_did));
+        link_ids_bob.push(0); // signifies that there are no more links left
+        for i in 1..(link_ids_bob.len() - 1) {
+            let link = Identity::links((bob_did, link_ids_bob[i]));
+            assert_eq!(link.previous_link, link_ids_bob[i - 1]);
+            assert_eq!(link.next_link, link_ids_bob[i + 1]);
+            match i {
+                1 => {
+                    assert_eq!(link.expiry, None);
+                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+                }
+                2 => {
+                    assert_eq!(link.expiry, None);
+                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker51));
+                }
+                3 => {
+                    assert_eq!(link.expiry, Some(100));
+                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+                }
+                4 => {
+                    assert_eq!(link.expiry, Some(100));
+                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+                }
+                _ => {}
+            }
+        }
+    });
+}
+
+#[test]
+fn removing_links() {
+    build_ext().execute_with(|| {
+        let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
+        let ticker50 = Ticker::from_slice(&[0x50]);
+        let mut link_ids_bob = Vec::new();
+        link_ids_bob.push(0); // signifies that there are no more links left
+        for _ in 0..10 {
+            Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
+            link_ids_bob.push(Identity::last_link(bob_did));
+        }
+        link_ids_bob.push(0); // signifies that there are no more links left
+        let mut rng = rand::thread_rng();
+        for _ in 0..10 {
+            let link_to_remove = rng.gen_range(1, link_ids_bob.len() - 1);
+            let link = Identity::links((bob_did, link_ids_bob[link_to_remove]));
+            assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+            assert_eq!(link.previous_link, link_ids_bob[link_to_remove - 1]);
+            assert_eq!(link.next_link, link_ids_bob[link_to_remove + 1]);
+            Identity::remove_link(bob_did, link_ids_bob[link_to_remove]);
+            let removed_link = Identity::links((bob_did, link_ids_bob[link_to_remove]));
+            assert_eq!(removed_link.link_data, LinkData::NoData);
+            link_ids_bob.remove(link_to_remove);
+            for i in 1..(link_ids_bob.len() - 1) {
+                let link = Identity::links((bob_did, link_ids_bob[i]));
+                assert_eq!(link.previous_link, link_ids_bob[i - 1]);
+                assert_eq!(link.next_link, link_ids_bob[i + 1]);
+            }
+        }
+    });
 }
