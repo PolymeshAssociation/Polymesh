@@ -268,8 +268,8 @@
     },
     "ProportionMatch": {
         "_enum": [ 
-        "AtLeast",
-        "MoreThan"
+            "AtLeast",
+            "MoreThan"
         ]
     },
     "AuthorizationNonce": "u64",
