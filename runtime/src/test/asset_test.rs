@@ -1069,22 +1069,17 @@ fn freeze_unfreeze_asset() {
             Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
             "asset is frozen"
         );
-        assert_ok!(
-            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id)
-        );
+        assert_ok!(Asset::accept_token_ownership_transfer(
+            bob_signed.clone(),
+            auth_id
+        ));
         assert_err!(
             Asset::transfer(alice_signed.clone(), alice_did, ticker, bob_did, 1),
             "asset is frozen"
         );
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
-            Asset::batch_issue(
-                bob_signed.clone(),
-                bob_did,
-                ticker,
-                vec![bob_did],
-                vec![1]
-            ),
+            Asset::batch_issue(bob_signed.clone(), bob_did, ticker, vec![bob_did], vec![1]),
             "asset is frozen"
         );
         // `batch_issue` fails with the empty vector of investors with a different error message.
