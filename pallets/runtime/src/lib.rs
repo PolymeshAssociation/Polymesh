@@ -13,6 +13,7 @@ pub mod committee;
 #[cfg(feature = "std")]
 pub use pallet_staking::{Commission, StakerStatus};
 
+mod bridge;
 mod contracts_wrapper;
 mod dividend;
 mod exemption;
