@@ -3,7 +3,7 @@ use crate::{
     balances, general_tm, identity,
     test::storage::{build_ext, make_account, TestStorage},
 };
-use primitives::{AccountId, AuthorizationData, IdentityId, Signer, Ticker};
+use primitives::{AuthorizationData, IdentityId, Signer, Ticker};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
@@ -1014,7 +1014,7 @@ fn update_identifiers() {
 }
 
 #[test]
-fn freeze_unfreeze_token() {
+fn freeze_unfreeze_asset() {
     build_ext().execute_with(|| {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
@@ -1044,17 +1044,17 @@ fn freeze_unfreeze_token() {
             asset_rule
         ));
         assert_err!(
-            Asset::freeze_token(bob_signed.clone(), ticker),
+            Asset::freeze(bob_signed.clone(), ticker),
             "sender must be a signing key for the token owner DID"
         );
         assert_err!(
-            Asset::unfreeze_token(alice_signed.clone(), ticker),
-            "token must be frozen"
+            Asset::unfreeze(alice_signed.clone(), ticker),
+            "asset must be frozen"
         );
-        assert_ok!(Asset::freeze_token(alice_signed.clone(), ticker));
+        assert_ok!(Asset::freeze(alice_signed.clone(), ticker));
         assert_err!(
-            Asset::freeze_token(alice_signed.clone(), ticker),
-            "token must not already be frozen"
+            Asset::freeze(alice_signed.clone(), ticker),
+            "asset must not already be frozen"
         );
         // Attempt to transfer token ownership.
         Identity::add_auth(
@@ -1064,39 +1064,38 @@ fn freeze_unfreeze_token() {
             None,
         );
         let auth_id = Identity::last_authorization(Signer::from(bob_did));
-        assert_err!(
-            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
-            "token is frozen"
-        );
-        assert_err!(
-            Asset::transfer(alice_signed.clone(), alice_did, ticker, bob_did, 1),
-            "token is frozen"
-        );
         // Attempt to mint tokens.
         assert_err!(
             Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
-            "token is frozen"
+            "asset is frozen"
+        );
+        assert_ok!(
+            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id)
+        );
+        assert_err!(
+            Asset::transfer(alice_signed.clone(), alice_did, ticker, bob_did, 1),
+            "asset is frozen"
         );
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
             Asset::batch_issue(
-                alice_signed.clone(),
-                alice_did,
+                bob_signed.clone(),
+                bob_did,
                 ticker,
                 vec![bob_did],
                 vec![1]
             ),
-            "token is frozen"
+            "asset is frozen"
         );
         // `batch_issue` fails with the empty vector of investors with a different error message.
         assert_err!(
-            Asset::batch_issue(alice_signed.clone(), alice_did, ticker, vec![], vec![]),
+            Asset::batch_issue(bob_signed.clone(), bob_did, ticker, vec![], vec![]),
             "list of investors is empty"
         );
-        assert_ok!(Asset::unfreeze_token(alice_signed.clone(), ticker));
+        assert_ok!(Asset::unfreeze(bob_signed.clone(), ticker));
         assert_err!(
-            Asset::unfreeze_token(alice_signed.clone(), ticker),
-            "token must be frozen"
+            Asset::unfreeze(bob_signed.clone(), ticker),
+            "asset must be frozen"
         );
         // Transfer some balance.
         assert_ok!(Asset::transfer(
@@ -1105,11 +1104,6 @@ fn freeze_unfreeze_token() {
             ticker,
             bob_did,
             1
-        ));
-        // Finish the token ownership transfer.
-        assert_ok!(Asset::accept_token_ownership_transfer(
-            bob_signed.clone(),
-            auth_id
         ));
     });
 }

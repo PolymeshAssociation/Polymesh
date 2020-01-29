@@ -218,7 +218,7 @@ decl_storage! {
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
         IssuedInFundingRound get(fn issued_in_funding_round): map (Ticker, Vec<u8>) => T::Balance;
-        /// The set of frozen tokens implemented as a membership map.
+        /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
         pub Frozen get(fn frozen): map Ticker => bool;
     }
@@ -424,12 +424,12 @@ decl_module! {
             Ok(())
         }
 
-        /// Freezes all transfers and minting of a given token.
+        /// Freezes transfers and minting of a given token.
         ///
         /// # Arguments
         /// * `origin` - the signing key of the sender
         /// * `ticker` - the ticker of the token
-        pub fn freeze_token(origin, ticker: Ticker) -> DispatchResult {
+        pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key(Key::try_from(sender.encode())?);
             ticker.canonize();
@@ -438,18 +438,18 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer),
                     "sender must be a signing key for the token owner DID");
-            ensure!(!Self::frozen(&ticker), "token must not already be frozen");
+            ensure!(!Self::frozen(&ticker), "asset must not already be frozen");
             <Frozen>::insert(&ticker, true);
-            Self::deposit_event(RawEvent::TokenFrozen(ticker));
+            Self::deposit_event(RawEvent::Frozen(ticker));
             Ok(())
         }
 
-        /// Unfreezes all transfers and minting of a given token.
+        /// Unfreezes transfers and minting of a given token.
         ///
         /// # Arguments
         /// * `origin` - the signing key of the sender
         /// * `ticker` - the ticker of the frozen token
-        pub fn unfreeze_token(origin, ticker: Ticker) -> DispatchResult {
+        pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signer::Key(Key::try_from(sender.encode())?);
             ticker.canonize();
@@ -458,9 +458,9 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer),
                     "sender must be a signing key for the token owner DID");
-            ensure!(Self::frozen(&ticker), "token must be frozen");
+            ensure!(Self::frozen(&ticker), "asset must be frozen");
             <Frozen>::insert(&ticker, false);
-            Self::deposit_event(RawEvent::TokenUnfrozen(ticker));
+            Self::deposit_event(RawEvent::Unfrozen(ticker));
             Ok(())
         }
 
@@ -1269,12 +1269,12 @@ decl_event! {
         /// ticker transfer approval withdrawal
         /// ticker, approved did
         TickerTransferApprovalWithdrawal(Ticker, IdentityId),
-        /// An event emitted when a token is frozen.
+        /// An event emitted when an asset is frozen.
         /// Parameter: ticker.
-        TokenFrozen(Ticker),
-        /// An event emitted when a token is unfrozen.
+        Frozen(Ticker),
+        /// An event emitted when an asset is unfrozen.
         /// Parameter: ticker.
-        TokenUnfrozen(Ticker),
+        Unfrozen(Ticker),
         /// An event emitted when a token is renamed.
         /// Parameters: ticker, new token name.
         TokenRenamed(Ticker, Vec<u8>),
@@ -1540,7 +1540,7 @@ impl<T: Trait> Module<T> {
         to_did: Option<IdentityId>,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        ensure!(!Self::frozen(ticker), "token is frozen");
+        ensure!(!Self::frozen(ticker), "asset is frozen");
         let general_status_code =
             <general_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
@@ -1644,7 +1644,7 @@ impl<T: Trait> Module<T> {
             Self::check_granularity(ticker, value),
             "Invalid granularity"
         );
-        ensure!(!Self::frozen(&ticker), "token is frozen");
+        ensure!(!Self::frozen(&ticker), "asset is frozen");
         //Increase receiver balance
         let ticker_to_did = (*ticker, to_did);
         let current_to_balance = Self::balance_of(&ticker_to_did);
@@ -1771,7 +1771,6 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
-        ensure!(!Self::frozen(&ticker), "token is frozen");
         let current_owner = Self::ticker_registration(&ticker).owner;
 
         <identity::Module<T>>::consume_auth(
@@ -1805,7 +1804,6 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(<Tokens<T>>::exists(&ticker), "Token does not exist");
-        ensure!(!Self::frozen(&ticker), "token is frozen");
         let current_owner = Self::token_details(&ticker).owner_did;
 
         <identity::Module<T>>::consume_auth(
