@@ -30,12 +30,6 @@
             "Group": "Vec<IdentityId>"
         }
     },
-    "LinkData": {
-        "_enum": {
-            "TickerOwned": "Vec<u8>",
-            "TokenOwned": "Vec<u8>"
-        }
-    },
     "Key": "[u8;32]",
     "Permission": {
         "_enum": [
@@ -230,6 +224,15 @@
             "Normal"
         ]
     },
+    "MIP": {
+        "index": "MipsIndex",
+        "proposal":"Call"
+    },
+    "ReferendumInfo": {
+        "index": "MipsIndex",
+        "priority": "MipsPriority",
+        "proposal_hash": "Hash"
+    },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
         "next_ticker": "Option<Ticker>",
@@ -263,11 +266,12 @@
             "Active"
         ]
     },
-    "AuthorizationNonce": "u64",
     "ProportionMatch": {
-        "_enum": [
+        "_enum": [ 
             "AtLeast",
             "MoreThan"
         ]
-    }
+    },
+    "AuthorizationNonce": "u64",
+    "Counter": "u64"
 }
