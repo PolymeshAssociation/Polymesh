@@ -171,11 +171,11 @@ use frame_support::weights::SimpleDispatchInfo;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    Parameter, StorageValue,
+    Parameter, StorageMap, StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 use sp_runtime::traits::{
-    Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Member, Saturating,
+    Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize, Member, Saturating,
     SimpleArithmetic, StaticLookup, Zero,
 };
 use sp_runtime::RuntimeDebug;
@@ -417,6 +417,14 @@ decl_storage! {
 
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map Key => bool;
+
+        /// AccountId of the block rewards reserve
+        pub BlockRewardsReserve get(block_reward_reserve) build(|_| {
+            let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
+            T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
+        }): T::AccountId;
+
+        pub PendingRewards get(pending_rewards): T::Balance;
     }
     add_extra_genesis {
         config(balances): Vec<(T::AccountId, T::Balance)>;
@@ -619,8 +627,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 // of the inner member.
 mod imbalances {
     use super::{
-        result, DefaultInstance, Imbalance, Instance, Saturating, StorageValue, Subtrait, Trait,
-        TryDrop, Zero,
+        result, DefaultInstance, Imbalance, Instance, Saturating, StorageMap, StorageValue,
+        Subtrait, Trait, TryDrop, Zero,
     };
     use sp_std::mem;
 
@@ -753,6 +761,13 @@ mod imbalances {
     impl<T: Subtrait<I>, I: Instance> Drop for PositiveImbalance<T, I> {
         /// Basic drop handler will just square up the total issuance.
         fn drop(&mut self) {
+            let brr = <super::BlockRewardsReserve<super::ElevatedTrait<T, I>, I>>::get();
+            let brr_balance = <super::FreeBalance<super::ElevatedTrait<T, I>, I>>::get(&brr);
+            if brr_balance > Zero::zero() {
+                let new_brr_balance = brr_balance.saturating_sub(self.0);
+                self.0 = self.0 - (brr_balance - new_brr_balance);
+                <super::FreeBalance<super::ElevatedTrait<T, I>, I>>::insert(&brr, new_brr_balance);
+            }
             <super::TotalIssuance<super::ElevatedTrait<T, I>, I>>::mutate(|v| {
                 *v = v.saturating_add(self.0)
             });
@@ -863,8 +878,18 @@ where
     }
 
     fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
+        let brr = <BlockRewardsReserve<T, I>>::get();
+        let brr_balance = <FreeBalance<T, I>>::get(&brr);
+        let amount_to_mint;
+        if brr_balance > Zero::zero() {
+            let new_brr_balance = brr_balance.saturating_sub(amount);
+            amount_to_mint = amount - (brr_balance - new_brr_balance);
+            <FreeBalance<T, I>>::insert(&brr, new_brr_balance);
+        } else {
+            amount_to_mint = amount;
+        }
         <TotalIssuance<T, I>>::mutate(|issued| {
-            *issued = issued.checked_add(&amount).unwrap_or_else(|| {
+            *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
                 amount = Self::Balance::max_value() - *issued;
                 Self::Balance::max_value()
             })
