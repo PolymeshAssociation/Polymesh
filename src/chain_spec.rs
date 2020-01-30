@@ -111,8 +111,6 @@ impl Alternative {
                         vec![
                             get_authority_keys_from_seed("Alice"),
                             get_authority_keys_from_seed("Bob"),
-                            get_authority_keys_from_seed("Charlie"),
-                            get_authority_keys_from_seed("Dave"),
                         ],
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
                         vec![
@@ -120,14 +118,9 @@ impl Alternative {
                             get_account_id_from_seed::<sr25519::Public>("Bob"),
                             get_account_id_from_seed::<sr25519::Public>("Charlie"),
                             get_account_id_from_seed::<sr25519::Public>("Dave"),
-                            get_account_id_from_seed::<sr25519::Public>("Eve"),
-                            get_account_id_from_seed::<sr25519::Public>("Ferdie"),
                             get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
                             get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
                             get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                            get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                            get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                            get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                         ],
                         true,
                     )
@@ -219,7 +212,7 @@ fn testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GenesisConfig {
-    const STASH: u128 = 100 * POLY;
+    const STASH: u128 = 100_000_000 * POLY;
     let _desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
     GenesisConfig {
         frame_system: Some(SystemConfig {
@@ -244,7 +237,7 @@ fn testnet_genesis(
             balances: endowed_accounts
                 .iter()
                 .cloned()
-                .map(|k| (k, 1 << 60))
+                .map(|k| (k, 1 << 55))
                 .collect(),
             vesting: vec![],
         }),
