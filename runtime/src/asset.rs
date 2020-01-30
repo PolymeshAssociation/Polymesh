@@ -1170,7 +1170,7 @@ decl_module! {
         /// * `origin` - Signer who owns to ticker/asset
         /// * `ticker` - ticker for whom extension get added
         /// * `extension_details` - Details of the smart extension
-        pub fn add_extension(origin, ticker: Ticker, extension_id: T::AccountId, extension_name: Vec<u8>, extension_type: SmartExtensionTypes) -> DispatchResult {
+        pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = Key::try_from(sender.encode())?;
             let my_did =  match <identity::Module<T>>::current_did() {
@@ -1186,23 +1186,13 @@ decl_module! {
             ticker.canonize();
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
 
-            let extension_details = SmartExtension {
-                extension_type: extension_type.clone(),
-                extension_name: extension_name.clone(),
-                extension_id: extension_id.clone(),
-                is_archive: false,
-            };
-
             // Verify the details of smart extension & store it
-            if !<ExtensionDetails<T>>::exists((ticker, &extension_id)) {
-                <ExtensionDetails<T>>::insert((ticker, &extension_id), extension_details);
-                <Extensions<T>>::mutate((ticker, &extension_type), |ids| {
-                    ids.push(extension_id.clone())
-                });
-            } else {
-                return Err(Error::<T>::ExtensionAlreadyPresent.into());
-            }
-            Self::deposit_event(RawEvent::ExtensionAdded(ticker, extension_id, extension_name, extension_type));
+            ensure!(!<ExtensionDetails<T>>::exists((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
+            <ExtensionDetails<T>>::insert((ticker, &extension_details.extension_id), extension_details.clone());
+            <Extensions<T>>::mutate((ticker, &extension_details.extension_type), |ids| {
+                ids.push(extension_details.extension_id.clone())
+            });
+            Self::deposit_event(RawEvent::ExtensionAdded(ticker, extension_details.extension_id, extension_details.extension_name, extension_details.extension_type));
             Ok(())
         }
 
@@ -1229,11 +1219,8 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
             ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
             // Mutate the extension details
-            if !(<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive {
-                <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = true; });
-            } else {
-                return Err(Error::<T>::AlreadyArchived.into());
-            }
+            ensure!(!(<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyArchived);
+            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = true; });
             Self::deposit_event(RawEvent::ExtensionArchived(ticker, extension_id));
             Ok(())
         }
@@ -1261,11 +1248,8 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
             ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
             // Mutate the extension details
-            if (<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive {
-                <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = false; });
-            } else {
-                return Err(Error::<T>::AlreadyUnArchived.into());
-            }
+            ensure!((<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyUnArchived);
+            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = false; });
             Self::deposit_event(RawEvent::ExtensionUnArchived(ticker, extension_id));
             Ok(())
         }

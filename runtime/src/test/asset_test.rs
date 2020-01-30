@@ -1051,12 +1051,18 @@ fn add_extension_successfully() {
         // Add smart extension
         let extension_name = b"PTM";
         let extension_id = AccountKeyring::Bob.public();
+
+        let extension_details = SmartExtension {
+            extension_type: SmartExtensionTypes::TransferManager,
+            extension_name: extension_name.to_vec(),
+            extension_id: extension_id.clone(),
+            is_archive: false,
+        };
+
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_id,
-            extension_name.to_vec(),
-            SmartExtensionTypes::TransferManager
+            extension_details,
         ));
 
         // verify the data within the runtime
@@ -1123,12 +1129,18 @@ fn add_same_extension_should_fail() {
         // Add smart extension
         let extension_name = b"PTM";
         let extension_id = AccountKeyring::Bob.public();
+
+        let extension_details = SmartExtension {
+            extension_type: SmartExtensionTypes::TransferManager,
+            extension_name: extension_name.to_vec(),
+            extension_id: extension_id.clone(),
+            is_archive: false,
+        };
+
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_id,
-            extension_name.to_vec(),
-            SmartExtensionTypes::TransferManager
+            extension_details.clone()
         ));
 
         // verify the data within the runtime
@@ -1158,13 +1170,7 @@ fn add_same_extension_should_fail() {
         );
 
         assert_err!(
-            Asset::add_extension(
-                owner_signed.clone(),
-                ticker,
-                extension_id,
-                extension_name.to_vec(),
-                SmartExtensionTypes::TransferManager
-            ),
+            Asset::add_extension(owner_signed.clone(), ticker, extension_details),
             AssetError::ExtensionAlreadyPresent
         );
     });
@@ -1205,12 +1211,18 @@ fn should_successfully_archive_extension() {
         // Add smart extension
         let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
+
+        let extension_details = SmartExtension {
+            extension_type: SmartExtensionTypes::Offerings,
+            extension_name: extension_name.to_vec(),
+            extension_id: extension_id.clone(),
+            is_archive: false,
+        };
+
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_id,
-            extension_name.to_vec(),
-            SmartExtensionTypes::Offerings
+            extension_details
         ));
 
         // verify the data within the runtime
@@ -1287,12 +1299,18 @@ fn should_fail_to_archive_an_already_archived_extension() {
         // Add smart extension
         let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
+
+        let extension_details = SmartExtension {
+            extension_type: SmartExtensionTypes::Offerings,
+            extension_name: extension_name.to_vec(),
+            extension_id: extension_id.clone(),
+            is_archive: false,
+        };
+
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_id,
-            extension_name.to_vec(),
-            SmartExtensionTypes::Offerings
+            extension_details
         ));
 
         // verify the data within the runtime
@@ -1417,12 +1435,18 @@ fn should_successfuly_unarchive_an_extension() {
         // Add smart extension
         let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
+
+        let extension_details = SmartExtension {
+            extension_type: SmartExtensionTypes::Offerings,
+            extension_name: extension_name.to_vec(),
+            extension_id: extension_id.clone(),
+            is_archive: false,
+        };
+
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_id,
-            extension_name.to_vec(),
-            SmartExtensionTypes::Offerings
+            extension_details
         ));
 
         // verify the data within the runtime
@@ -1509,12 +1533,18 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         // Add smart extension
         let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
+
+        let extension_details = SmartExtension {
+            extension_type: SmartExtensionTypes::Offerings,
+            extension_name: extension_name.to_vec(),
+            extension_id: extension_id.clone(),
+            is_archive: false,
+        };
+
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_id,
-            extension_name.to_vec(),
-            SmartExtensionTypes::Offerings
+            extension_details,
         ));
 
         // verify the data within the runtime
