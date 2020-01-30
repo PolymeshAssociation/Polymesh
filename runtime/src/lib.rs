@@ -5,6 +5,8 @@
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 
+pub mod statistics;
+
 pub mod asset;
 pub mod balances;
 pub mod committee;

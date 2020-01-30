@@ -436,7 +436,6 @@ fn enforce_uniqueness_keys_in_identity_tests() {
 }
 
 fn enforce_uniqueness_keys_in_identity() {
-    let unique_error = "One signing key can only belong to one DID";
     // Register identities
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());

@@ -3,7 +3,7 @@ use crate::{
     constants::{currency::*, fee::*, time::*},
     contracts_wrapper, dividend, exemption, general_tm, group, identity,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    mips, multisig, percentage_tm, simple_token, sto_capped,
+    mips, multisig, percentage_tm, simple_token, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -518,6 +518,8 @@ impl group::Trait<group::Instance2> for Runtime {
     type MembershipChanged = ();
 }
 
+impl statistics::Trait for Runtime {}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -570,6 +572,7 @@ construct_runtime!(
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
         KYCServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
+        Statistic: statistics::{Module, Call, Storage },
     }
 );
 

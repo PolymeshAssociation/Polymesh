@@ -266,7 +266,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::{historical::OnSessionEnding, SelectInitialValidators};
-use primitives::Key;
 use sp_phragmen::{ExtendedBalance, PhragmenStakedAssignment};
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -282,7 +281,7 @@ use sp_staking::{
     offence::{Offence, OffenceDetails, OnOffenceHandler, ReportOffence},
     SessionIndex,
 };
-use sp_std::{convert::TryFrom, prelude::*, result};
+use sp_std::{prelude::*, result};
 
 //use crate::identity;
 use pallet_babe;
