@@ -92,7 +92,6 @@ impl Alternative {
                             get_account_id_from_seed::<sr25519::Public>("Alice"),
                             get_account_id_from_seed::<sr25519::Public>("Bob"),
                             get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
                         ],
                         true,
                     )
@@ -212,7 +211,7 @@ fn testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GenesisConfig {
-    const STASH: u128 = 100_000_000 * POLY;
+    const STASH: u128 = 30_000_000_000 * POLY; //30G Poly
     let _desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
     GenesisConfig {
         frame_system: Some(SystemConfig {

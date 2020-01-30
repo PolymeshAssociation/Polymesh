@@ -423,8 +423,6 @@ decl_storage! {
             let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
             T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
         }): T::AccountId;
-
-        pub PendingRewards get(pending_rewards): T::Balance;
     }
     add_extra_genesis {
         config(balances): Vec<(T::AccountId, T::Balance)>;
