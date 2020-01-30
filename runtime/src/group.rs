@@ -27,7 +27,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root};
 use primitives::IdentityId;
-use sp_runtime::traits::{EnsureOrigin, IsMember};
+use sp_runtime::traits::EnsureOrigin;
 use sp_std::prelude::*;
 
 pub trait Trait<I = DefaultInstance>: frame_system::Trait {
@@ -200,9 +200,10 @@ decl_module! {
 }
 
 pub trait GroupTrait {
+    /// Retrieve all members of this group
     fn get_members() -> Vec<IdentityId>;
 
-    /// Is the given `MemberId` a valid member?
+    /// Is the given `IdentityId` a valid member?
     fn is_member(member_id: &IdentityId) -> bool;
 }
 

@@ -660,6 +660,9 @@ pub trait Trait: frame_system::Trait + pallet_babe::Trait {
 
     /// Required origin for changing compliance status (can always be Root).
     type RequiredComplianceOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Required origin for changing validator commission.
+    type RequiredCommissionOrigin: EnsureOrigin<Self::Origin>;
 }
 
 /// Mode of era-forcing.
@@ -786,6 +789,12 @@ decl_storage! {
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
             linked_map T::AccountId => Option<PermissionedValidator>;
+
+        /// Committee can determine whether a global commision rate should be in effect.
+        pub UseGlobalCommission get(fn use_global_commission) config(): bool;
+
+        /// Commision rate to be used by all validators.
+        pub GlobalCommission get(fn global_commission) config(): Perbill;
     }
     add_extra_genesis {
         config(stakers):
@@ -1314,6 +1323,37 @@ decl_module! {
             Self::deposit_event(RawEvent::InvalidatedNominators(caller, expired_nominators));
         }
 
+        /// Should use individual commision or a single commission for all validators? Only Governance
+        /// committee is allowed to change this value.
+        ///
+        /// # Arguments
+        /// * `bool` true if a single comission rate should be used for all validators
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn enforce_global_comission(origin, decision: bool) {
+            T::RequiredCommissionOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| Error::<T>::NotAuthorised)?;
+
+            <UseGlobalCommission>::put(decision);
+        }
+
+        /// Changes commission rate which applies to all validators. Only Governance
+        /// committee is allowed to change this value.
+        ///
+        /// # Arguments
+        /// * `commission` the new commission to be used for reward calculations
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_global_comission(origin, commission: Perbill) {
+            T::RequiredCommissionOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| Error::<T>::NotAuthorised)?;
+
+            <GlobalCommission>::put(commission);
+        }
+
+
         // ----- Root calls.
 
         /// Force there to be no new eras indefinitely.
@@ -1469,7 +1509,12 @@ impl<T: Trait> Module<T> {
     /// nominators' balance, pro-rata based on their exposure, after having removed the validator's
     /// pre-payout cut.
     fn reward_validator(stash: &T::AccountId, reward: BalanceOf<T>) -> PositiveImbalanceOf<T> {
-        let off_the_table = Self::validators(stash).commission * reward;
+        let commission = if Self::use_global_commission() {
+            Self::global_commission()
+        } else {
+            Self::validators(stash).commission
+        };
+        let off_the_table = commission * reward;
         let reward = reward.saturating_sub(off_the_table);
         let mut imbalance = <PositiveImbalanceOf<T>>::zero();
         let validator_cut = if reward.is_zero() {
