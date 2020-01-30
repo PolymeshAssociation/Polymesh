@@ -1644,7 +1644,6 @@ impl<T: Trait> Module<T> {
             Self::check_granularity(ticker, value),
             "Invalid granularity"
         );
-        ensure!(!Self::frozen(&ticker), "asset is frozen");
         //Increase receiver balance
         let ticker_to_did = (*ticker, to_did);
         let current_to_balance = Self::balance_of(&ticker_to_did);
