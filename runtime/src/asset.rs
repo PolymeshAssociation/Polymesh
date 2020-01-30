@@ -73,6 +73,7 @@ use primitives::{
     SmartExtensionTypes, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
+use pallet_contracts::Gas;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -87,6 +88,7 @@ pub trait Trait:
     + identity::Trait
     + pallet_session::Trait
     + statistics::Trait
+    + pallet_contracts::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -1375,7 +1377,9 @@ decl_error! {
         /// when extension already unarchived
         AlreadyUnArchived,
         /// when extension is already added
-        ExtensionAlreadyPresent
+        ExtensionAlreadyPresent,
+        /// when smart extension failed to execute result
+        IncorrectResult
     }
 }
 
@@ -1906,5 +1910,17 @@ impl<T: Trait> Module<T> {
         ));
 
         Ok(())
+    }
+
+    pub fn call_extension(to: T::AccountId, dest: T::AccountId, value: T::Balance, gas_limit: Gas, data: Vec<u8>) -> DispatchResult {
+        let exec_result = <pallet_contracts::Module<T>>::bare_call(to, dest.clone(), Currency::from(value), gas_limit, data);
+        match exec_result {
+            Ok(encoded_value) => {
+                return Ok((encoded_value));
+            },
+            Err(_) => { 
+                return Err(Error::<T>::IncorrectResult);
+            },
+		}	
     }
 }
