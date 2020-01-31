@@ -70,7 +70,7 @@ use frame_system::{self as system, ensure_signed};
 use pallet_session;
 use primitives::{
     AuthorizationData, AuthorizationError, IdentityId, Key, Signer, SmartExtension,
-    SmartExtensionTypes, Ticker,
+    SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]
@@ -226,7 +226,7 @@ decl_storage! {
         pub ExtensionDetails get(fn extension_details): map (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
         /// List of Smart extension added for the given tokens and for the given type
         /// ticker, type of SE -> address/AccountId of SE
-        pub Extensions get(fn extensions): map (Ticker, SmartExtensionTypes) => Vec<T::AccountId>;
+        pub Extensions get(fn extensions): map (Ticker, SmartExtensionType) => Vec<T::AccountId>;
     }
 }
 
@@ -1334,7 +1334,7 @@ decl_event! {
         FundingRound(Ticker, Vec<u8>),
         /// Emitted when extension is added successfully
         /// ticker, extension AccountId, extension name, type of smart Extension
-        ExtensionAdded(Ticker, AccountId, Vec<u8>, SmartExtensionTypes),
+        ExtensionAdded(Ticker, AccountId, Vec<u8>, SmartExtensionType),
         /// Emitted when extension get archived
         /// ticker, AccountId
         ExtensionArchived(Ticker, AccountId),

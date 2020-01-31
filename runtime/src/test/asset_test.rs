@@ -4,7 +4,7 @@ use crate::{
     test::storage::{build_ext, make_account, TestStorage},
 };
 use primitives::{
-    AuthorizationData, IdentityId, Signer, SmartExtension, SmartExtensionTypes, Ticker,
+    AuthorizationData, IdentityId, Signer, SmartExtension, SmartExtensionType, Ticker,
 };
 
 use codec::Encode;
@@ -1053,7 +1053,7 @@ fn add_extension_successfully() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::TransferManager,
+            extension_type: SmartExtensionType::TransferManager,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1068,7 +1068,7 @@ fn add_extension_successfully() {
         // verify the data within the runtime
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::TransferManager
+            SmartExtensionType::TransferManager
         );
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_name,
@@ -1083,11 +1083,11 @@ fn add_extension_successfully() {
             false
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::TransferManager))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::TransferManager)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
             extension_id
         );
     });
@@ -1131,7 +1131,7 @@ fn add_same_extension_should_fail() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::TransferManager,
+            extension_type: SmartExtensionType::TransferManager,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1146,7 +1146,7 @@ fn add_same_extension_should_fail() {
         // verify the data within the runtime
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::TransferManager
+            SmartExtensionType::TransferManager
         );
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_name,
@@ -1161,11 +1161,11 @@ fn add_same_extension_should_fail() {
             false
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::TransferManager))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::TransferManager)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
             extension_id
         );
 
@@ -1213,7 +1213,7 @@ fn should_successfully_archive_extension() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::Offerings,
+            extension_type: SmartExtensionType::Offerings,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1228,7 +1228,7 @@ fn should_successfully_archive_extension() {
         // verify the data within the runtime
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::Offerings
+            SmartExtensionType::Offerings
         );
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_name,
@@ -1243,11 +1243,11 @@ fn should_successfully_archive_extension() {
             false
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
             extension_id
         );
 
@@ -1301,7 +1301,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::Offerings,
+            extension_type: SmartExtensionType::Offerings,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1316,7 +1316,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
         // verify the data within the runtime
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::Offerings
+            SmartExtensionType::Offerings
         );
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_name,
@@ -1331,11 +1331,11 @@ fn should_fail_to_archive_an_already_archived_extension() {
             false
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
             extension_id
         );
 
@@ -1437,7 +1437,7 @@ fn should_successfuly_unarchive_an_extension() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::Offerings,
+            extension_type: SmartExtensionType::Offerings,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1452,7 +1452,7 @@ fn should_successfuly_unarchive_an_extension() {
         // verify the data within the runtime
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::Offerings
+            SmartExtensionType::Offerings
         );
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_name,
@@ -1467,11 +1467,11 @@ fn should_successfuly_unarchive_an_extension() {
             false
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
             extension_id
         );
 
@@ -1535,7 +1535,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::Offerings,
+            extension_type: SmartExtensionType::Offerings,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1550,7 +1550,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         // verify the data within the runtime
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::Offerings
+            SmartExtensionType::Offerings
         );
         assert_eq!(
             (Asset::extension_details((ticker, extension_id))).extension_name,
@@ -1565,11 +1565,11 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             false
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
             extension_id
         );
 
