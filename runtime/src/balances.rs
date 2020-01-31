@@ -182,7 +182,7 @@ use sp_runtime::RuntimeDebug;
 use sp_std::{cmp, convert::TryFrom, fmt::Debug, mem, prelude::*, result};
 
 use crate::identity::IdentityTrait;
-use primitives::{traits::IdentityCurrency, IdentityId, Key, Permission, Signer};
+use primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signer};
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 
@@ -416,7 +416,7 @@ decl_storage! {
         pub IdentityBalance get(identity_balance): map IdentityId => T::Balance;
 
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
-        pub ChargeDid get(charge_did): map Key => bool;
+        pub ChargeDid get(charge_did): map AccountKey => bool;
     }
     add_extra_genesis {
         config(balances): Vec<(T::AccountId, T::Balance)>;
@@ -502,7 +502,7 @@ decl_module! {
             #[compact] value: T::Balance
         ) {
             let transactor = ensure_signed(origin)?;
-            let encoded_transactor = Key::try_from(transactor.encode())?;
+            let encoded_transactor = AccountKey::try_from(transactor.encode())?;
             if !<T::Identity>::is_master_key(did, &encoded_transactor) { return Err (Error::<T, I>::UnAuthorized)?}
             // Not managing imbalances because they will cancel out.
             // withdraw function will create negative imbalance and
@@ -516,7 +516,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn change_charge_did_flag(origin, charge_did: bool) {
             let transactor = ensure_signed(origin)?;
-            let encoded_transactor = Key::try_from(transactor.encode())?;
+            let encoded_transactor = AccountKey::try_from(transactor.encode())?;
             <ChargeDid>::insert(encoded_transactor, charge_did);
         }
 
@@ -1050,12 +1050,12 @@ where
         }
     }
 
-    fn charge_fee_to_identity(who: &Key) -> Option<IdentityId> {
+    fn charge_fee_to_identity(who: &AccountKey) -> Option<IdentityId> {
         if <Module<T, I>>::charge_did(who) {
             if let Some(did) = <T::Identity>::get_identity(&who) {
                 if <T::Identity>::is_signer_authorized_with_permissions(
                     did,
-                    &Signer::Key(who.clone()),
+                    &Signer::AccountKey(who.clone()),
                     vec![Permission::SpendFunds],
                 ) {
                     return Some(did);
@@ -1585,7 +1585,7 @@ mod tests {
     ) -> Result<(<Runtime as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Identity::register_did(signed_id.clone(), vec![]);
-        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
+        let did = Identity::get_identity(&AccountKey::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
