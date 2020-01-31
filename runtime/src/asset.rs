@@ -227,6 +227,9 @@ decl_storage! {
         /// List of Smart extension added for the given tokens and for the given type
         /// ticker, type of SE -> address/AccountId of SE
         pub Extensions get(fn extensions): map (Ticker, SmartExtensionType) => Vec<T::AccountId>;
+        /// The set of frozen assets implemented as a membership map.
+        /// ticker -> bool
+        pub Frozen get(fn frozen): map Ticker => bool;
     }
 }
 
@@ -430,6 +433,46 @@ decl_module! {
             Ok(())
         }
 
+        /// Freezes transfers and minting of a given token.
+        ///
+        /// # Arguments
+        /// * `origin` - the signing key of the sender
+        /// * `ticker` - the ticker of the token
+        pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            ticker.canonize();
+            ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
+            let token = <Tokens<T>>::get(&ticker);
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer),
+                    "sender must be a signing key for the token owner DID");
+            ensure!(!Self::frozen(&ticker), "asset must not already be frozen");
+            <Frozen>::insert(&ticker, true);
+            Self::deposit_event(RawEvent::Frozen(ticker));
+            Ok(())
+        }
+
+        /// Unfreezes transfers and minting of a given token.
+        ///
+        /// # Arguments
+        /// * `origin` - the signing key of the sender
+        /// * `ticker` - the ticker of the frozen token
+        pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            ticker.canonize();
+            ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
+            let token = <Tokens<T>>::get(&ticker);
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer),
+                    "sender must be a signing key for the token owner DID");
+            ensure!(Self::frozen(&ticker), "asset must be frozen");
+            <Frozen>::insert(&ticker, false);
+            Self::deposit_event(RawEvent::Unfrozen(ticker));
+            Ok(())
+        }
+
         /// Renames a given token.
         ///
         /// # Arguments
@@ -515,7 +558,6 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
             ticker.canonize();
             ensure!(<BalanceOf<T>>::exists((ticker, did)), "Account does not own this token");
-
             let allowance = Self::allowance((ticker, did, spender_did));
             let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
             <Allowance<T>>::insert((ticker, did, spender_did), updated_allowance);
@@ -612,6 +654,7 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
+            ensure!(investor_dids.len() > 0, "list of investors is empty");
             ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
             ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
@@ -1326,6 +1369,12 @@ decl_event! {
         /// ticker transfer approval withdrawal
         /// ticker, approved did
         TickerTransferApprovalWithdrawal(Ticker, IdentityId),
+        /// An event emitted when an asset is frozen.
+        /// Parameter: ticker.
+        Frozen(Ticker),
+        /// An event emitted when an asset is unfrozen.
+        /// Parameter: ticker.
+        Unfrozen(Ticker),
         /// An event emitted when a token is renamed.
         /// Parameters: ticker, new token name.
         TokenRenamed(Ticker, Vec<u8>),
@@ -1608,6 +1657,7 @@ impl<T: Trait> Module<T> {
         to_did: Option<IdentityId>,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
+        ensure!(!Self::frozen(ticker), "asset is frozen");
         let general_status_code =
             <general_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
@@ -1837,7 +1887,6 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
-
         let current_owner = Self::ticker_registration(&ticker).owner;
 
         <identity::Module<T>>::consume_auth(
@@ -1871,7 +1920,6 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(<Tokens<T>>::exists(&ticker), "Token does not exist");
-
         let current_owner = Self::token_details(&ticker).owner_did;
 
         <identity::Module<T>>::consume_auth(
