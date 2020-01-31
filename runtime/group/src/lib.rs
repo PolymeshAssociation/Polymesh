@@ -21,18 +21,19 @@
 //! - `reset_members` - Re-initialize group members.
 
 use polymesh_primitives::IdentityId;
-use polymesh_runtime_common::group::{ RawEvent, Trait};
+use polymesh_runtime_common::group::{RawEvent, Trait};
 
 use frame_support::{
     decl_module, decl_storage,
     traits::{ChangeMembers, InitializeMembers},
-    weights::SimpleDispatchInfo, StorageValue
+    weights::SimpleDispatchInfo,
+    StorageValue,
 };
 use frame_system::{self as system, ensure_root};
 use sp_runtime::traits::EnsureOrigin;
 use sp_std::prelude::*;
 
-
+pub type Event<T> = polymesh_runtime_common::group::Event<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as Group {
