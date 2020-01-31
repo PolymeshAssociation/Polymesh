@@ -273,7 +273,7 @@ fn testnet_genesis(
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: Perbill::from_percent(10),
-            use_global_commission: false,
+            use_individual_commissions: false,
             global_commission: Perbill::from_rational_approximation(1u64, 4u64),
             ..Default::default()
         }),

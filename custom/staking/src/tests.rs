@@ -1253,6 +1253,63 @@ fn validator_payment_prefs_work() {
 }
 
 #[test]
+fn validator_global_payment_prefs_work() {
+    // Test that validator preferences are correctly honored
+    // Note: unstake threshold is being directly tested in slashing tests.
+    // This test will focus on validator payment.
+    ExtBuilder::default().build().execute_with(|| {
+        // Initial config
+        let stash_initial_balance = Balances::total_balance(&11);
+
+        // check the balance of a validator accounts.
+        assert_eq!(Balances::total_balance(&10), 1);
+        // check the balance of a validator's stash accounts.
+        assert_eq!(Balances::total_balance(&11), stash_initial_balance);
+        // and the nominator (to-be)
+        let _ = Balances::make_free_balance_be(&2, 500);
+
+        // add a dummy nominator.
+        <Stakers<Test>>::insert(
+            &11,
+            Exposure {
+                own: 500, // equal division indicates that the reward will be equally divided among validator and nominator.
+                total: 1000,
+                others: vec![IndividualExposure { who: 2, value: 500 }],
+            },
+        );
+        <Payee<Test>>::insert(&2, RewardDestination::Stash);
+        <Validators<Test>>::insert(
+            &11,
+            ValidatorPrefs {
+                commission: Perbill::from_percent(50),
+            },
+        );
+
+        // Compute total payout now for whole duration as other parameter won't change
+        let total_payout_0 = current_total_payout_for_duration(3000);
+        assert!(total_payout_0 > 100); // Test is meaningfull if reward something
+        <Module<Test>>::reward_by_ids(vec![(11, 1)]);
+
+        start_era(1);
+
+        // whats left to be shared is the sum of 3 rounds minus the validator's cut.
+        let shared_cut = total_payout_0 / 2;
+        // Validator's payee is Staked account, 11, reward will be paid here.
+        assert_eq!(
+            Balances::total_balance(&11),
+            stash_initial_balance + shared_cut / 2 + shared_cut
+        );
+        // Controller account will not get any reward.
+        assert_eq!(Balances::total_balance(&10), 1);
+        // Rest of the reward will be shared and paid to the nominator in stake.
+        assert_eq!(Balances::total_balance(&2), 500 + shared_cut / 2);
+
+        check_exposure_all();
+        check_nominator_all();
+    });
+}
+
+#[test]
 fn bond_extra_works() {
     // Tests that extra `free_balance` in the stash can be added to stake
     // NOTE: this tests only verifies `StakingLedger` for correct updates

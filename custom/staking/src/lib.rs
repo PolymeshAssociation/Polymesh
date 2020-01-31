@@ -791,7 +791,7 @@ decl_storage! {
             linked_map T::AccountId => Option<PermissionedValidator>;
 
         /// Committee can determine whether a global commision rate should be in effect.
-        pub UseGlobalCommission get(fn use_global_commission) config(): bool;
+        pub UseIndividualCommissions get(fn use_individual_commissions) config(): bool;
 
         /// Commision rate to be used by all validators.
         pub GlobalCommission get(fn global_commission) config(): Perbill;
@@ -851,6 +851,8 @@ decl_event!(
         /// Remove the nominators from the valid nominators when there KYC expired
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(AccountId, Vec<AccountId>),
+		/// When changes to commision are made and global commission is in effect
+		GlobalCommissionInEffect(Perbill),
 	}
 );
 
@@ -883,6 +885,8 @@ decl_error! {
         NotAuthorised,
         /// Permissioned validator not exists
         NotExists,
+        /// Individual commissions already enabled
+        IndividualCommissionsEnabled,
     }
 }
 
@@ -1323,19 +1327,19 @@ decl_module! {
             Self::deposit_event(RawEvent::InvalidatedNominators(caller, expired_nominators));
         }
 
-        /// Should use individual commision or a single commission for all validators? Only Governance
-        /// committee is allowed to change this value.
-        ///
-        /// # Arguments
-        /// * `bool` true if a single comission rate should be used for all validators
+        /// Enables individual commisions. This can be set only once. Once individual commission
+        /// rates are enabled, there's no going back.  Only Governance committee is allowed to
+        /// change this value.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn enforce_global_comission(origin, decision: bool) {
+        fn enable_individual_commissions(origin) {
             T::RequiredCommissionOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
-            <UseGlobalCommission>::put(decision);
+            // Ensure individual commissions are not already enabled
+            ensure!(!Self::use_individual_commissions(), Error::<T>::IndividualCommissionsEnabled);
+            <UseIndividualCommissions>::put(true);
         }
 
         /// Changes commission rate which applies to all validators. Only Governance
@@ -1350,7 +1354,10 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
+            // Ensure individual commissions are not already enabled
+            ensure!(!Self::use_individual_commissions(), Error::<T>::IndividualCommissionsEnabled);
             <GlobalCommission>::put(commission);
+            Self::deposit_event(RawEvent::GlobalCommissionInEffect(commission));
         }
 
 
@@ -1509,10 +1516,10 @@ impl<T: Trait> Module<T> {
     /// nominators' balance, pro-rata based on their exposure, after having removed the validator's
     /// pre-payout cut.
     fn reward_validator(stash: &T::AccountId, reward: BalanceOf<T>) -> PositiveImbalanceOf<T> {
-        let commission = if Self::use_global_commission() {
-            Self::global_commission()
-        } else {
+        let commission = if Self::use_individual_commissions() {
             Self::validators(stash).commission
+        } else {
+            Self::global_commission()
         };
         let off_the_table = commission * reward;
         let reward = reward.saturating_sub(off_the_table);
