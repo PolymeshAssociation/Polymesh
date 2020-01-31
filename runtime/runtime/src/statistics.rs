@@ -1,11 +1,11 @@
-use crate::balances;
-use primitives::Ticker;
+use polymesh_primitives::Ticker;
+use polymesh_runtime_common::balances::Trait as BalancesTrait;
 
 use frame_support::{decl_module, decl_storage};
 
 type Counter = u64;
 
-pub trait Trait: balances::Trait {}
+pub trait Trait: BalancesTrait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as statistics {

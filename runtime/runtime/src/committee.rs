@@ -19,12 +19,14 @@
 //! - `propose` - Members can propose a new dispatchable
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
 //!
-use crate::identity;
-use primitives::{IdentityId, Key, Signer};
+use polymesh_primitives::{IdentityId, Key, Signer};
+use polymesh_runtime_common::identity::Trait as IdentityTrait;
+use polymesh_runtime_identity as identity;
+
 use sp_runtime::traits::{EnsureOrigin, Hash};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
 use frame_support::{
     codec::{Decode, Encode},
@@ -43,7 +45,7 @@ pub type ProposalIndex = u32;
 /// The number of committee members
 pub type MemberCount = u32;
 
-pub trait Trait<I = DefaultInstance>: frame_system::Trait + identity::Trait {
+pub trait Trait<I = DefaultInstance>: frame_system::Trait + IdentityTrait {
     /// The outer origin type.
     type Origin: From<RawOrigin<Self::AccountId, I>>;
 

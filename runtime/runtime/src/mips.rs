@@ -49,7 +49,7 @@ use sp_runtime::{
     traits::{Dispatchable, EnsureOrigin, Hash, Zero},
     DispatchError,
 };
-use sp_std::prelude::*;
+use sp_std::{prelude::*, vec};
 
 /// Mesh Improvement Proposal index. Used offchain.
 pub type MipsIndex = u32;

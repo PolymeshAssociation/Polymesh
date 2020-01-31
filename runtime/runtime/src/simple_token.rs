@@ -31,27 +31,33 @@
 //!
 //! - `balance_of` - Returns the simple token balance associated with an identity
 
-use crate::{balances, identity, utils};
-use primitives::{IdentityId, Key, Signer};
+use crate::utils;
+
+use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
+use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::{
+    balances::Trait as BalancesTrait, constants::currency::MAX_SUPPLY,
+    identity::Trait as IdentityTrait, CommonTrait,
+};
+use polymesh_runtime_identity as identity;
 
 use codec::Encode;
-use rstd::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 
-use crate::constants::currency::MAX_SUPPLY;
-use sr_primitives::traits::{CheckedAdd, CheckedSub};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
-use system::ensure_signed;
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::{self as system, ensure_signed};
+use sp_runtime::traits::{CheckedAdd, CheckedSub};
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait + balances::Trait + utils::Trait + identity::Trait {
+pub trait Trait: frame_system::Trait + BalancesTrait + utils::Trait + IdentityTrait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 /// Struct to store the details of each simple token
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
 pub struct SimpleTokenRecord<U> {
-    pub ticker: Vec<u8>,
+    pub ticker: Ticker,
     pub total_supply: U,
     pub owner_did: IdentityId,
 }
@@ -59,13 +65,13 @@ pub struct SimpleTokenRecord<U> {
 decl_storage! {
     trait Store for Module<T: Trait> as SimpleToken {
         /// Mapping from (ticker, owner DID, spender DID) to allowance amount
-        Allowance get(allowance): map (Vec<u8>, IdentityId, IdentityId) => T::Balance;
+        Allowance get(fn allowance): map (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Mapping from (ticker, owner DID) to their balance
-        pub BalanceOf get(balance_of): map (Vec<u8>, IdentityId) => T::Balance;
+        pub BalanceOf get(fn balance_of): map (Ticker, IdentityId) => T::Balance;
         /// The cost to create a new simple token
-        CreationFee get(creation_fee) config(): T::Balance;
+        CreationFee get(fn creation_fee) config(): T::Balance;
         /// The details associated with each simple token
-        Tokens get(tokens): map Vec<u8> => SimpleTokenRecord<T::Balance>;
+        Tokens get(fn tokens): map Ticker => SimpleTokenRecord<T::Balance>;
     }
 }
 
@@ -75,12 +81,12 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Create a new token and mint a balance to the issuing identity
-        pub fn create_token(origin, did: IdentityId, ticker: Vec<u8>, total_supply: T::Balance) -> Result {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+        pub fn create_token(origin, did: IdentityId, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-
+            ticker.canonize();
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
             ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
@@ -92,16 +98,16 @@ decl_module! {
             // })?;
 
             let new_token = SimpleTokenRecord {
-                ticker: ticker.clone(),
+                ticker: ticker,
                 total_supply: total_supply.clone(),
                 owner_did: did.clone(),
             };
 
             <Tokens<T>>::insert(&ticker, new_token);
             // Let the owner distribute the whole supply of the token
-            <BalanceOf<T>>::insert((ticker.clone(), did.clone()), total_supply);
+            <BalanceOf<T>>::insert((ticker, did.clone()), total_supply);
 
-            sr_primitives::print("Initialized a new token");
+            sp_runtime::print("Initialized a new token");
 
             Self::deposit_event(RawEvent::TokenCreated(ticker, did, total_supply));
 
@@ -109,15 +115,16 @@ decl_module! {
         }
 
         /// Approve another identity to transfer tokens on behalf of the caller
-        fn approve(origin, did: IdentityId, ticker: Vec<u8>, spender_did: IdentityId, value: T::Balance) -> Result {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-            let ticker_did = (ticker.clone(), did.clone());
+        fn approve(origin, did: IdentityId, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            ticker.canonize();
+            let ticker_did = (ticker, did.clone());
             ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
-            let ticker_did_spender_did = (ticker.clone(), did, spender_did);
+            let ticker_did_spender_did = (ticker, did, spender_did);
             let allowance = Self::allowance(&ticker_did_spender_did);
             let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
             <Allowance<T>>::insert(&ticker_did_spender_did, updated_allowance);
@@ -128,8 +135,9 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity
-        pub fn transfer(origin, did: IdentityId, ticker: Vec<u8>, to_did: IdentityId, amount: T::Balance) -> Result {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+        pub fn transfer(origin, did: IdentityId, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
+            ticker.canonize();
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -138,13 +146,13 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity using the approval mechanic
-        fn transfer_from(origin, did: IdentityId, ticker: Vec<u8>, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> Result {
-            let spender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+        fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
+            let spender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "spender must be a signing key for DID");
-
-            let ticker_from_did_did = (ticker.clone(), from_did, did);
+            ticker.canonize();
+            let ticker_from_did_did = (ticker, from_did, did);
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist.");
             let allowance = Self::allowance(&ticker_from_did_did);
             ensure!(allowance >= amount, "Not enough allowance.");
@@ -154,7 +162,7 @@ decl_module! {
 
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&amount).ok_or("overflow in calculating allowance")?;
-            <Allowance<T>>::insert((ticker.clone(), from_did.clone(), did.clone()), updated_allowance);
+            <Allowance<T>>::insert((ticker, from_did.clone(), did.clone()), updated_allowance);
 
             Self::deposit_event(RawEvent::Approval(ticker, from_did, did, updated_allowance));
 
@@ -166,48 +174,53 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        Balance = <T as balances::Trait>::Balance,
+        Balance = <T as CommonTrait>::Balance,
     {
         /// ticker, from DID, spender DID, amount
-        Approval(Vec<u8>, IdentityId, IdentityId, Balance),
+        Approval(Ticker, IdentityId, IdentityId, Balance),
         /// ticker, owner DID, supply
-        TokenCreated(Vec<u8>, IdentityId, Balance),
+        TokenCreated(Ticker, IdentityId, Balance),
         /// ticker, from DID, to DID, amount
-        Transfer(Vec<u8>, IdentityId, IdentityId, Balance),
+        Transfer(Ticker, IdentityId, IdentityId, Balance),
     }
 );
 
 pub trait SimpleTokenTrait<V> {
     /// Tranfers tokens between two identities
-    fn transfer(sender_did: IdentityId, ticker: &Vec<u8>, to_did: IdentityId, amount: V) -> Result;
+    fn transfer(
+        sender_did: IdentityId,
+        ticker: &Ticker,
+        to_did: IdentityId,
+        amount: V,
+    ) -> DispatchResult;
     /// Returns the balance associated with an identity and ticker
-    fn balance_of(ticker: Vec<u8>, owner_did: IdentityId) -> V;
+    fn balance_of(ticker: Ticker, owner_did: IdentityId) -> V;
 }
 
 impl<T: Trait> SimpleTokenTrait<T::Balance> for Module<T> {
     /// Tranfers tokens between two identities
     fn transfer(
         sender_did: IdentityId,
-        ticker: &Vec<u8>,
+        ticker: &Ticker,
         to_did: IdentityId,
         amount: T::Balance,
-    ) -> Result {
+    ) -> DispatchResult {
         Self::_transfer(ticker, sender_did, to_did, amount)
     }
     /// Returns the balance associated with an identity and ticker
-    fn balance_of(ticker: Vec<u8>, owner_did: IdentityId) -> T::Balance {
+    fn balance_of(ticker: Ticker, owner_did: IdentityId) -> T::Balance {
         Self::balance_of((ticker, owner_did))
     }
 }
 
 impl<T: Trait> Module<T> {
     fn _transfer(
-        ticker: &Vec<u8>,
+        ticker: &Ticker,
         from_did: IdentityId,
         to_did: IdentityId,
         amount: T::Balance,
-    ) -> Result {
-        let ticker_from_did = (ticker.clone(), from_did.clone());
+    ) -> DispatchResult {
+        let ticker_from_did = (*ticker, from_did.clone());
         ensure!(
             <BalanceOf<T>>::exists(&ticker_from_did),
             "Sender doesn't own this token"
@@ -218,7 +231,7 @@ impl<T: Trait> Module<T> {
         let new_from_balance = from_balance
             .checked_sub(&amount)
             .ok_or("overflow in calculating from balance")?;
-        let ticker_to_did = (ticker.clone(), to_did.clone());
+        let ticker_to_did = (*ticker, to_did.clone());
         let to_balance = Self::balance_of(&ticker_to_did);
         let new_to_balance = to_balance
             .checked_add(&amount)
@@ -227,7 +240,7 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(&ticker_from_did, new_from_balance);
         <BalanceOf<T>>::insert(&ticker_to_did, new_to_balance);
 
-        Self::deposit_event(RawEvent::Transfer(ticker.clone(), from_did, to_did, amount));
+        Self::deposit_event(RawEvent::Transfer(*ticker, from_did, to_did, amount));
         Ok(())
     }
 }
@@ -239,13 +252,13 @@ mod tests {
      *    use super::*;
      *
      *    use substrate_primitives::{Blake2Hasher, H256};
-     *    use sr_io::with_externalities;
-     *    use sr_primitives::{
+     *    use sp_io::with_externalities;
+     *    use sp_runtime::{
      *        testing::{Digest, DigestItem, Header},
      *        traits::{BlakeTwo256, IdentityLookup},
      *        BuildStorage,
      *    };
-     *    use srml_support::{assert_ok, impl_outer_origin};
+     *    use frame_support::{assert_ok, impl_outer_origin};
      *
      *    impl_outer_origin! {
      *        pub enum Origin for Test {}
@@ -256,7 +269,7 @@ mod tests {
      *    // configuration traits of modules we want to use.
      *    #[derive(Clone, Eq, PartialEq)]
      *    pub struct Test;
-     *    impl system::Trait for Test {
+     *    impl frame_system::Trait for Test {
      *        type Origin = Origin;
      *        type Index = u64;
      *        type BlockNumber = u64;
@@ -276,8 +289,8 @@ mod tests {
      *
      *    // This function basically just builds a genesis storage key/value store according to
      *    // our desired mockup.
-     *    fn new_test_ext() -> sr_io::TestExternalities<Blake2Hasher> {
-     *        system::GenesisConfig::default()
+     *    fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
+     *        frame_system::GenesisConfig::default()
      *            .build_storage()
      *            .unwrap()
      *            .0

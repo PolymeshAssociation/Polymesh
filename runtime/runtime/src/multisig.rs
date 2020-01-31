@@ -33,7 +33,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::identity;
+use polymesh_primitives::{AuthorizationData, AuthorizationError, Key, Signer};
+use polymesh_runtime_common::{identity::Trait as IdentityTrait, multisig::AddSignerMultiSig};
+use polymesh_runtime_identity as identity;
+
 use codec::{Decode, Encode, Error as CodecError};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -43,11 +46,10 @@ use frame_support::{
     StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
-use primitives::{AuthorizationData, AuthorizationError, Key, Signer};
 use sp_runtime::traits::{Dispatchable, Hash};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
-pub trait Trait: frame_system::Trait + identity::Trait {
+pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -412,16 +414,6 @@ impl<T: Trait> Module<T> {
         let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, sender).encode());
         T::AccountId::decode(&mut &h.encode()[..])
     }
-}
-
-/// This trait is used to add a signer to a multisig
-pub trait AddSignerMultiSig {
-    /// Accept and add a multisig signer
-    ///
-    /// # Arguments
-    /// * `signer` did/key of the signer
-    /// * `auth_id` Authorization id of the authorization created by the multisig
-    fn accept_multisig_signer(signer: Signer, auth_id: u64) -> DispatchResult;
 }
 
 impl<T: Trait> AddSignerMultiSig for Module<T> {

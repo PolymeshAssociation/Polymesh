@@ -32,17 +32,28 @@
 
 use crate::{
     asset::{self, AssetTrait},
-    balances, identity, utils,
+    utils,
 };
+
+use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
+use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::{
+    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait,
+};
+use polymesh_runtime_identity as identity;
+
 use codec::Encode;
-use primitives::{IdentityId, Key, Signer};
-use rstd::{convert::TryFrom, prelude::*};
-use srml_support::{decl_event, decl_module, decl_storage, dispatch::Result, ensure};
-use system::{self, ensure_signed};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
+use frame_system::{self as system, ensure_signed};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// The module's configuration trait.
-pub trait Trait: timestamp::Trait + system::Trait + utils::Trait + identity::Trait {
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+pub trait Trait:
+    pallet_timestamp::Trait + frame_system::Trait + utils::Trait + IdentityTrait
+{
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::Balance>;
 }
 
@@ -79,28 +90,30 @@ pub struct Motion {
 decl_storage! {
     trait Store for Module<T: Trait> as Voting {
         /// Mapping of ticker and ballot name -> ballot details
-        pub Ballots get(ballots): linked_map(Vec<u8>, Vec<u8>) => Ballot<T::Moment>;
+        pub Ballots get(fn ballots): linked_map(Ticker, Vec<u8>) => Ballot<T::Moment>;
 
         /// Helper data to make voting cheaper.
         /// (ticker, BallotName) -> NoOfChoices
-        pub TotalChoices get(total_choices): map (Vec<u8>, Vec<u8>) => u64;
+        pub TotalChoices get(fn total_choices): map (Ticker, Vec<u8>) => u64;
 
         /// (Ticker, BallotName, DID) -> Vector of vote weights.
         /// weight at 0 index means weight for choice 1 of motion 1.
         /// weight at 1 index means weight for choice 2 of motion 1.
         /// User must enter 0 vote weight if they don't want to vote for a choice.
-        pub Votes get(votes): map (Vec<u8>, Vec<u8>, IdentityId) => Vec<T::Balance>;
+        pub Votes get(fn votes): map (Ticker, Vec<u8>, IdentityId) => Vec<T::Balance>;
 
         /// (Ticker, BallotName) -> Vector of current vote weights.
         /// weight at 0 index means weight for choice 1 of motion 1.
         /// weight at 1 index means weight for choice 2 of motion 1.
-        pub Results get(results): map (Vec<u8>, Vec<u8>) => Vec<T::Balance>;
+        pub Results get(fn results): map (Ticker, Vec<u8>) => Vec<T::Balance>;
     }
 }
 
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Define Error type
+        type Error = Error<T>;
 
         // Initializing events
         fn deposit_event() = default;
@@ -112,25 +125,25 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which ballot is to be created
         /// * `ballot_name` - Name of the ballot
         /// * `ballot_details` - Other details of the ballot
-        pub fn add_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> Result {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-            let upper_ticker = utils::bytes_to_upper(&ticker);
+        pub fn add_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> DispatchResult {
+            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::InvalidOwner);
 
             // This avoids cloning the variables to make the same tupple again and again.
-            let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
+            let ticker_ballot_name = (ticker, ballot_name.clone());
 
             // Ensure the uniqueness of the ballot
-            ensure!(!<Ballots<T>>::exists(&upper_ticker_ballot_name), "A ballot with same name already exisits");
+            ensure!(!<Ballots<T>>::exists(&ticker_ballot_name), Error::<T>::AlreadyExists);
 
-            let now = <timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
-            ensure!(now < ballot_details.voting_end, "Voting end date in past");
-            ensure!(ballot_details.voting_end > ballot_details.voting_start, "Voting end date before voting start date");
-            ensure!(ballot_details.motions.len() > 0, "No motion submitted");
+            ensure!(now < ballot_details.voting_end, Error::<T>::InvalidDate);
+            ensure!(ballot_details.voting_end > ballot_details.voting_start, Error::<T>::InvalidDate);
+            ensure!(ballot_details.motions.len() > 0, Error::<T>::NoMotions);
 
             // NB: Checkpoint ID is not verified here to allow creating ballots that will become active in future.
             // Voting will only be allowed on checkpoints that exist.
@@ -138,22 +151,22 @@ decl_module! {
             let mut total_choices:usize = 0usize;
 
             for motion in &ballot_details.motions {
-                ensure!(motion.choices.len() > 0, "No choice submitted");
+                ensure!(motion.choices.len() > 0, Error::<T>::NoChoicesInMotions);
                 total_choices += motion.choices.len();
             }
 
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
-                <TotalChoices>::insert(&upper_ticker_ballot_name, total_choices_u64);
+                <TotalChoices>::insert(&ticker_ballot_name, total_choices_u64);
             } else {
-                return Err("Could not decode choices")
+                return Err(Error::<T>::InvalidChoicesType.into());
             }
 
-            <Ballots<T>>::insert(&upper_ticker_ballot_name, ballot_details.clone());
+            <Ballots<T>>::insert(&ticker_ballot_name, ballot_details.clone());
 
-            let initial_results = vec![0.into(); total_choices];
-            <Results<T>>::insert(&upper_ticker_ballot_name, initial_results);
+            let initial_results = vec![T::Balance::from(0); total_choices];
+            <Results<T>>::insert(&ticker_ballot_name, initial_results);
 
-            Self::deposit_event(RawEvent::BallotCreated(upper_ticker, ballot_name, ballot_details));
+            Self::deposit_event(RawEvent::BallotCreated(ticker, ballot_name, ballot_details));
 
             Ok(())
         }
@@ -165,50 +178,49 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which vote is to be cast
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
-        pub fn vote(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> Result {
+        pub fn vote(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
 
-            let upper_ticker = utils::bytes_to_upper(&ticker);
-
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
+            ticker.canonize();
 
             // This avoids cloning the variables to make the same tupple again and again
-            let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
+            let ticker_ballot_name = (ticker, ballot_name.clone());
 
             // Ensure validity the ballot
-            ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exist");
-            let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
-            let now = <timestamp::Module<T>>::get();
-            ensure!(ballot.voting_start <= now, "Voting hasn't started yet");
-            ensure!(ballot.voting_end > now, "Voting ended already");
+            ensure!(<Ballots<T>>::exists(&ticker_ballot_name), Error::<T>::NotExists);
+            let ballot = <Ballots<T>>::get(&ticker_ballot_name);
+            let now = <pallet_timestamp::Module<T>>::get();
+            ensure!(ballot.voting_start <= now, Error::<T>::NotStarted);
+            ensure!(ballot.voting_end > now, Error::<T>::AlreadyEnded);
 
             // Ensure validity of checkpoint
-            ensure!(<asset::TotalCheckpoints>::exists(&upper_ticker), "No checkpoints created");
-            let count = <asset::TotalCheckpoints>::get(&upper_ticker);
-            ensure!(ballot.checkpoint_id <= count, "Checkpoint has not been created yet");
+            ensure!(<asset::TotalCheckpoints>::exists(&ticker), Error::<T>::NoCheckpoints);
+            let count = <asset::TotalCheckpoints>::get(&ticker);
+            ensure!(ballot.checkpoint_id <= count, Error::<T>::NoCheckpoints);
 
             // Ensure vote is valid
             if let Ok(votes_len) = u64::try_from(votes.len()) {
-                ensure!(votes_len == <TotalChoices>::get(&upper_ticker_ballot_name), "Invalid vote");
+                ensure!(votes_len == <TotalChoices>::get(&ticker_ballot_name), Error::<T>::InvalidVote);
             } else {
-                return Err("Invalid vote")
+                return Err(Error::<T>::InvalidVote.into())
             }
 
             let mut total_votes: T::Balance = 0.into();
             for vote in &votes {
                 total_votes += *vote;
             }
-            ensure!(total_votes <= T::Asset::get_balance_at(&upper_ticker, did, ballot.checkpoint_id), "Not enough balance");
+            ensure!(total_votes <= T::Asset::get_balance_at(&ticker, did, ballot.checkpoint_id), Error::<T>::InsufficientBalance);
 
             // This avoids cloning the variables to make the same tupple again and again
-            let upper_ticker_ballot_name_did = (upper_ticker.clone(), ballot_name.clone(), did);
+            let ticker_ballot_name_did = (ticker, ballot_name.clone(), did);
 
             // Check if user has already voted for this ballot or if they are voting for the first time
-            if <Votes<T>>::exists(&upper_ticker_ballot_name_did) {
+            if <Votes<T>>::exists(&ticker_ballot_name_did) {
                 //User wants to change their vote. We first need to subtract their existing vote
-                let previous_votes = <Votes<T>>::get(&upper_ticker_ballot_name_did);
-                <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
+                let previous_votes = <Votes<T>>::get(&ticker_ballot_name_did);
+                <Results<T>>::mutate(&ticker_ballot_name, |results| {
                     for i in 0..results.len() {
                         results[i] -= previous_votes[i];
                     }
@@ -216,16 +228,16 @@ decl_module! {
             }
 
             // Adding users' vote to the result
-            <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
+            <Results<T>>::mutate(&ticker_ballot_name, |results| {
                 for i in 0..results.len() {
                     results[i] += votes[i];
                 }
             });
 
             // Storing users' vote onchain. This is needed when user wants to their change vote
-            <Votes<T>>::insert(&upper_ticker_ballot_name_did, votes.clone());
+            <Votes<T>>::insert(&ticker_ballot_name_did, votes.clone());
 
-            Self::deposit_event(RawEvent::VoteCast(upper_ticker, ballot_name, votes));
+            Self::deposit_event(RawEvent::VoteCast(ticker, ballot_name, votes));
 
             Ok(())
         }
@@ -236,25 +248,25 @@ decl_module! {
         /// * `did` - DID of the token owner. Sender must be a signing key or master key of this DID
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
-        pub fn cancel_ballot(origin, did: IdentityId, ticker: Vec<u8>, ballot_name: Vec<u8>) -> Result {
+        pub fn cancel_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>) -> DispatchResult {
             let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
-            let upper_ticker = utils::bytes_to_upper(&ticker);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&upper_ticker, did),"Sender must be the token owner");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::InvalidOwner);
 
             // This avoids cloning the variables to make the same tupple again and again
-            let upper_ticker_ballot_name = (upper_ticker.clone(), ballot_name.clone());
+            let ticker_ballot_name = (ticker, ballot_name.clone());
 
             // Ensure the existance of valid ballot
-            ensure!(<Ballots<T>>::exists(&upper_ticker_ballot_name), "Ballot does not exisit");
-            let ballot = <Ballots<T>>::get(&upper_ticker_ballot_name);
-            let now = <timestamp::Module<T>>::get();
-            ensure!(now < ballot.voting_end, "Voting already ended");
+            ensure!(<Ballots<T>>::exists(&ticker_ballot_name), Error::<T>::NotExists);
+            let ballot = <Ballots<T>>::get(&ticker_ballot_name);
+            let now = <pallet_timestamp::Module<T>>::get();
+            ensure!(now < ballot.voting_end, Error::<T>::AlreadyEnded);
 
             // Clearing results
-            <Results<T>>::mutate(&upper_ticker_ballot_name, |results| {
+            <Results<T>>::mutate(&ticker_ballot_name, |results| {
                 for i in 0..results.len() {
                     results[i] = 0.into();
                 }
@@ -264,11 +276,11 @@ decl_module! {
             // deleting a ballot mid vote and creating a new one with same name to confuse voters
 
             // This will prevent further voting. Essentially, canceling the ballot
-            <Ballots<T>>::mutate(&upper_ticker_ballot_name, |ballot_details| {
+            <Ballots<T>>::mutate(&ticker_ballot_name, |ballot_details| {
                 ballot_details.voting_end = now;
             });
 
-            Self::deposit_event(RawEvent::BallotCancelled(upper_ticker, ballot_name));
+            Self::deposit_event(RawEvent::BallotCancelled(ticker, ballot_name));
 
             Ok(())
         }
@@ -278,24 +290,54 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        Balance = <T as balances::Trait>::Balance,
-        Moment = <T as timestamp::Trait>::Moment,
+        Balance = <T as CommonTrait>::Balance,
+        Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// A new ballot is created (Ticker, BallotName, BallotDetails)
-        BallotCreated(Vec<u8>, Vec<u8>, Ballot<Moment>),
+        BallotCreated(Ticker, Vec<u8>, Ballot<Moment>),
 
         /// A vote is cast (Ticker, BallotName, Vote)
-        VoteCast(Vec<u8>, Vec<u8>, Vec<Balance>),
+        VoteCast(Ticker, Vec<u8>, Vec<Balance>),
 
         /// An existing ballot is cancelled (Ticker, BallotName)
-        BallotCancelled(Vec<u8>, Vec<u8>),
+        BallotCancelled(Ticker, Vec<u8>),
     }
 );
 
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// sender must be a signing key for DID
+        InvalidSigner,
+        /// Sender must be the token owner
+        InvalidOwner,
+        /// A ballot with same name already exisits
+        AlreadyExists,
+        /// Voting end date in past / Voting end date before voting start date
+        InvalidDate,
+        /// No motion submitted
+        NoMotions,
+        /// No choice submitted
+        NoChoicesInMotions,
+        /// Could not decode choices
+        InvalidChoicesType,
+        /// Ballot does not exist
+        NotExists,
+        /// Voting hasn't started yet
+        NotStarted,
+        /// Voting ended already
+        AlreadyEnded,
+        /// No checkpoints created
+        NoCheckpoints,
+        /// Invalid vote
+        InvalidVote,
+        /// Not enough balance
+        InsufficientBalance,
+    }
+}
+
 impl<T: Trait> Module<T> {
-    fn is_owner(ticker: &Vec<u8>, did: IdentityId) -> bool {
-        let upper_ticker = utils::bytes_to_upper(ticker.as_slice());
-        T::Asset::is_owner(&upper_ticker, did)
+    fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
+        T::Asset::is_owner(ticker, did)
     }
 }
 
@@ -304,25 +346,24 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use chrono::prelude::*;
-    use sr_io::{with_externalities, TestExternalities};
-    use sr_primitives::{
+    use frame_support::traits::Currency;
+    use frame_support::{
+        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types,
+    };
+    use frame_system::EnsureSignedBy;
+    use sp_core::{crypto::key_types, H256};
+    use sp_io::TestExternalities;
+    use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-        AnySignature, Perbill,
-    };
-    use srml_support::traits::Currency;
-    use srml_support::{
-        assert_err, assert_ok,
-        dispatch::{DispatchError, DispatchResult},
-        impl_outer_origin, parameter_types,
+        AnySignature, KeyTypeId, Perbill,
     };
     use std::result::Result;
-    use substrate_primitives::{Blake2Hasher, H256};
     use test_client::{self, AccountKeyring};
 
     use crate::{
-        asset::SecurityToken, asset::TickerRegistrationConfig, balances, exemption, general_tm,
-        identity, percentage_tm,
+        asset::{AssetType, SecurityToken, TickerRegistrationConfig},
+        balances, exemption, general_tm, group, identity, percentage_tm, statistics,
     };
 
     impl_outer_origin! {
@@ -348,7 +389,7 @@ mod tests {
     type AccountId = <AnySignature as Verify>::Signer;
     type OffChainSignature = AnySignature;
 
-    impl system::Trait for Test {
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = BlockNumber;
@@ -359,12 +400,12 @@ mod tests {
         type Header = Header;
         type Event = ();
         type Call = ();
-        type WeightMultiplierUpdate = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
+        type ModuleToIndex = ();
     }
 
     parameter_types! {
@@ -380,44 +421,45 @@ mod tests {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
-        type TransactionPayment = ();
         type DustRemoval = ();
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type CreationFee = CreationFee;
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = ConvertInto;
-        type Identity = identity::Module<Test>;
+        type Identity = crate::identity::Module<Test>;
     }
 
     parameter_types! {
         pub const MinimumPeriod: u64 = 3;
     }
 
-    impl timestamp::Trait for Test {
+    impl pallet_timestamp::Trait for Test {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
     }
 
     impl utils::Trait for Test {
+        type Public = AccountId;
         type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(v: <Self as session::Trait>::ValidatorId) -> Self::AccountId {
+        fn validator_id_to_account_id(
+            v: <Self as pallet_session::Trait>::ValidatorId,
+        ) -> Self::AccountId {
             v
         }
     }
 
     pub struct TestOnSessionEnding;
-    impl session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+    impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
             None
         }
     }
 
     pub struct TestSessionHandler;
-    impl session::SessionHandler<AuthorityId> for TestSessionHandler {
+    impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+        const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
+
         fn on_new_session<Ks: OpaqueKeys>(
             _changed: bool,
             _validators: &[(AuthorityId, Ks)],
@@ -428,6 +470,8 @@ mod tests {
         fn on_disabled(_validator_index: usize) {}
 
         fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+
+        fn on_before_session_ending() {}
     }
 
     parameter_types! {
@@ -436,10 +480,10 @@ mod tests {
         pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
     }
 
-    impl session::Trait for Test {
+    impl pallet_session::Trait for Test {
         type OnSessionEnding = TestOnSessionEnding;
         type Keys = UintAuthorityId;
-        type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+        type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
         type SessionHandler = TestSessionHandler;
         type Event = ();
         type ValidatorId = AuthorityId;
@@ -448,35 +492,48 @@ mod tests {
         type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     }
 
-    impl session::historical::Trait for Test {
+    impl pallet_session::historical::Trait for Test {
         type FullIdentification = ();
         type FullIdentificationOf = ();
     }
 
-    #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-    pub struct IdentityProposal {
-        pub dummy: u8,
+    parameter_types! {
+        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
+        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
     }
 
-    impl sr_primitives::traits::Dispatchable for IdentityProposal {
-        type Origin = Origin;
-        type Trait = Test;
-        type Error = DispatchError;
-
-        fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
-            Ok(())
-        }
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
     }
 
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = IdentityProposal;
+        type Proposal = Call<Test>;
+        type AcceptTransferTarget = asset::Module<Test>;
+        type AddSignerMultiSigTarget = Test;
+    }
+
+    impl crate::multisig::AddSignerMultiSig for Test {
+        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+            unimplemented!()
+        }
     }
 
     impl asset::Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
     }
+
+    impl statistics::Trait for Test {}
 
     impl percentage_tm::Trait for Test {
         type Event = ();
@@ -504,8 +561,8 @@ mod tests {
     type Asset = asset::Module<Test>;
 
     /// Create externalities
-    fn build_ext() -> TestExternalities<Blake2Hasher> {
-        let mut t = system::GenesisConfig::default()
+    fn build_ext() -> TestExternalities {
+        let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         asset::GenesisConfig::<Test> {
@@ -519,22 +576,22 @@ mod tests {
         }
         .assimilate_storage(&mut t)
         .unwrap();
-        sr_io::TestExternalities::new(t)
+        sp_io::TestExternalities::new(t)
     }
 
     fn make_account(
         account_id: &AccountId,
-    ) -> Result<(<Test as system::Trait>::Origin, IdentityId), &'static str> {
+    ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
-        Identity::register_did(signed_id.clone(), vec![])?;
+        Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
     #[test]
     fn add_ballot() {
-        with_externalities(&mut build_ext(), || {
+        build_ext().execute_with(|| {
             let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_acc, token_owner_did) = make_account(&_token_owner_acc).unwrap();
             let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
@@ -546,26 +603,29 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                vec![],
             ));
 
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
             ));
 
             let now = Utc::now().timestamp() as u64;
-            <timestamp::Module<Test>>::set_timestamp(now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
                 title: vec![0x01],
@@ -591,22 +651,22 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     ballot_details.clone()
                 ),
-                "sender must be a signing key for DID"
+                Error::<Test>::InvalidSigner
             );
 
             assert_err!(
                 Voting::add_ballot(
                     tokenholder_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     ballot_details.clone()
                 ),
-                "Sender must be the token owner"
+                Error::<Test>::InvalidOwner
             );
 
             let expired_ballot_details = Ballot {
@@ -620,11 +680,11 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     expired_ballot_details.clone()
                 ),
-                "Voting end date in past"
+                Error::<Test>::InvalidDate
             );
 
             let invalid_date_ballot_details = Ballot {
@@ -638,11 +698,11 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     invalid_date_ballot_details.clone()
                 ),
-                "Voting end date before voting start date"
+                Error::<Test>::InvalidDate
             );
 
             let empty_ballot_details = Ballot {
@@ -656,11 +716,11 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     empty_ballot_details.clone()
                 ),
-                "No motion submitted"
+                Error::<Test>::NoMotions
             );
 
             let empty_motion = Motion {
@@ -680,18 +740,18 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     no_choice_ballot_details.clone()
                 ),
-                "No choice submitted"
+                Error::<Test>::NoChoicesInMotions
             );
 
             // Adding ballot
             assert_ok!(Voting::add_ballot(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 ballot_details.clone()
             ));
@@ -700,18 +760,18 @@ mod tests {
                 Voting::add_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     ballot_details.clone()
                 ),
-                "A ballot with same name already exisits"
+                Error::<Test>::AlreadyExists
             );
         });
     }
 
     #[test]
     fn cancel_ballot() {
-        with_externalities(&mut build_ext(), || {
+        build_ext().execute_with(|| {
             let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_acc, token_owner_did) = make_account(&_token_owner_acc).unwrap();
             let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
@@ -723,26 +783,29 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                vec![],
             ));
 
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
             ));
 
             let now = Utc::now().timestamp() as u64;
-            <timestamp::Module<Test>>::set_timestamp(now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
                 title: vec![0x01],
@@ -768,16 +831,16 @@ mod tests {
                 Voting::cancel_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone()
                 ),
-                "Ballot does not exisit"
+                Error::<Test>::NotExists
             );
 
             assert_ok!(Voting::add_ballot(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 ballot_details.clone()
             ));
@@ -786,41 +849,41 @@ mod tests {
                 Voting::cancel_ballot(
                     token_owner_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone()
                 ),
-                "sender must be a signing key for DID"
+                Error::<Test>::InvalidSigner
             );
 
             assert_err!(
                 Voting::cancel_ballot(
                     tokenholder_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone()
                 ),
-                "Sender must be the token owner"
+                Error::<Test>::InvalidOwner
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now + now + now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now + now + now);
 
             assert_err!(
                 Voting::cancel_ballot(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone()
                 ),
-                "Voting already ended"
+                Error::<Test>::AlreadyEnded
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             // Cancelling ballot
             assert_ok!(Voting::cancel_ballot(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone()
             ));
         });
@@ -828,7 +891,7 @@ mod tests {
 
     #[test]
     fn vote() {
-        with_externalities(&mut build_ext(), || {
+        build_ext().execute_with(|| {
             let _token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_acc, token_owner_did) = make_account(&_token_owner_acc).unwrap();
             let _tokenholder_acc = AccountId::from(AccountKeyring::Bob);
@@ -840,16 +903,19 @@ mod tests {
                 owner_did: token_owner_did,
                 total_supply: 1000,
                 divisible: true,
+                asset_type: AssetType::default(),
             };
-
+            let ticker = Ticker::from_slice(token.name.as_slice());
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
                 token_owner_did,
                 token.name.clone(),
-                token.name.clone(),
+                ticker,
                 token.total_supply,
-                true
+                true,
+                AssetType::default(),
+                vec![],
             ));
 
             let asset_rule = general_tm::AssetRule {
@@ -861,20 +927,20 @@ mod tests {
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 asset_rule
             ));
 
             assert_ok!(Asset::transfer(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 tokenholder_did,
                 500
             ));
 
             let now = Utc::now().timestamp() as u64;
-            <timestamp::Module<Test>>::set_timestamp(now);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
                 title: vec![0x01],
@@ -899,7 +965,7 @@ mod tests {
             assert_ok!(Voting::add_ballot(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 ballot_details.clone()
             ));
@@ -910,129 +976,129 @@ mod tests {
                 Voting::vote(
                     token_owner_acc.clone(),
                     tokenholder_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "sender must be a signing key for DID"
+                Error::<Test>::InvalidSigner
             );
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     vec![0x02],
                     votes.clone()
                 ),
-                "Ballot does not exist"
+                Error::<Test>::NotExists
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now - 1);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now - 1);
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "Voting hasn't started yet"
+                Error::<Test>::NotStarted
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now + now + 1);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now + now + 1);
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "Voting ended already"
+                Error::<Test>::AlreadyEnded
             );
 
-            <timestamp::Module<Test>>::set_timestamp(now + 1);
+            <pallet_timestamp::Module<Test>>::set_timestamp(now + 1);
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "No checkpoints created"
+                Error::<Test>::NoCheckpoints
             );
 
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
             ));
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     votes.clone()
                 ),
-                "Checkpoint has not been created yet"
+                Error::<Test>::NoCheckpoints
             );
 
             assert_ok!(Asset::create_checkpoint(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
             ));
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     vec![100, 100, 100, 100]
                 ),
-                "Invalid vote"
+                Error::<Test>::InvalidVote
             );
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     vec![100, 100, 100, 100, 100, 100]
                 ),
-                "Invalid vote"
+                Error::<Test>::InvalidVote
             );
 
             assert_err!(
                 Voting::vote(
                     token_owner_acc.clone(),
                     token_owner_did,
-                    token.name.clone(),
+                    ticker,
                     ballot_name.clone(),
                     vec![100, 100, 100, 100, 200]
                 ),
-                "Not enough balance"
+                Error::<Test>::InsufficientBalance
             );
 
             // Initial vote
             assert_ok!(Voting::vote(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 votes.clone()
             ));
 
-            let mut result = Voting::results((token.name.clone(), ballot_name.clone()));
+            let mut result = Voting::results((ticker, ballot_name.clone()));
             assert_eq!(result.len(), 5, "Invalid result len");
             assert_eq!(result, [100, 100, 100, 100, 100], "Invalid result");
 
@@ -1040,12 +1106,12 @@ mod tests {
             assert_ok!(Voting::vote(
                 token_owner_acc.clone(),
                 token_owner_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 vec![500, 0, 0, 0, 0]
             ));
 
-            result = Voting::results((token.name.clone(), ballot_name.clone()));
+            result = Voting::results((ticker, ballot_name.clone()));
             assert_eq!(result.len(), 5, "Invalid result len");
             assert_eq!(result, [500, 0, 0, 0, 0], "Invalid result");
 
@@ -1053,12 +1119,12 @@ mod tests {
             assert_ok!(Voting::vote(
                 tokenholder_acc.clone(),
                 tokenholder_did,
-                token.name.clone(),
+                ticker,
                 ballot_name.clone(),
                 vec![0, 500, 0, 0, 0]
             ));
 
-            result = Voting::results((token.name.clone(), ballot_name.clone()));
+            result = Voting::results((ticker, ballot_name.clone()));
             assert_eq!(result.len(), 5, "Invalid result len");
             assert_eq!(result, [500, 500, 0, 0, 0], "Invalid result");
         })
