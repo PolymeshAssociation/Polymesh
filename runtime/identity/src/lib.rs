@@ -84,6 +84,9 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 
+pub type Event<T> = polymesh_runtime_common::traits::identity::Event<T>;
+// pub type Trait = polymesh_runtime_common::traits::identity::Trait;
+
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
