@@ -28,7 +28,7 @@ mod sto_capped;
 mod utils;
 mod voting;
 pub use runtime::{
-    api, Asset, Authorship, AvailableBlockRatio, Balances, Contracts, MaximumBlockWeight,
+    api, Asset, Authorship, AvailableBlockRatio, Balances, Bridge, Contracts, MaximumBlockWeight,
     NegativeImbalance, Runtime, RuntimeApi, SessionKeys, System, TargetBlockFullness,
     TransactionPayment,
 };
