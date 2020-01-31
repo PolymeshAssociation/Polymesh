@@ -84,7 +84,7 @@ pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::Accoun
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 /// Info for keeping track of a motion being voted on.
-pub struct Votes<IdentityId> {
+pub struct PolymeshVotes<IdentityId> {
     /// The proposal's unique index.
     index: ProposalIndex,
     /// The current set of commmittee members that approved it.
@@ -99,8 +99,8 @@ decl_storage! {
         pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
         pub ProposalOf get(fn proposal_of): map T::Hash => Option<<T as Trait<I>>::Proposal>;
-        /// Votes on a given proposal, if it is ongoing.
-        pub Voting get(fn voting): map T::Hash => Option<Votes<IdentityId>>;
+        /// PolymeshVotes on a given proposal, if it is ongoing.
+        pub Voting get(fn voting): map T::Hash => Option<PolymeshVotes<IdentityId>>;
         /// Proposals so far.
         pub ProposalCount get(fn proposal_count): u32;
         /// The current members of the committee.
@@ -207,7 +207,7 @@ decl_module! {
             <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
             <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
 
-            let votes = Votes { index, ayes: vec![did.clone()], nays: vec![] };
+            let votes = PolymeshVotes { index, ayes: vec![did.clone()], nays: vec![] };
             <Voting<T, I>>::insert(proposal_hash, votes);
 
             Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
@@ -626,7 +626,7 @@ mod tests {
             assert_eq!(Committee::proposal_of(&hash), Some(proposal));
             assert_eq!(
                 Committee::voting(&hash),
-                Some(Votes {
+                Some(PolymeshVotes {
                     index: 0,
                     ayes: vec![alice_did],
                     nays: vec![]
@@ -730,7 +730,7 @@ mod tests {
             ));
             assert_eq!(
                 Committee::voting(&hash),
-                Some(Votes {
+                Some(PolymeshVotes {
                     index: 0,
                     ayes: vec![alice_did],
                     nays: vec![]
@@ -749,7 +749,7 @@ mod tests {
             ));
             assert_eq!(
                 Committee::voting(&hash),
-                Some(Votes {
+                Some(PolymeshVotes {
                     index: 0,
                     ayes: vec![],
                     nays: vec![alice_did]
@@ -794,7 +794,7 @@ mod tests {
             ));
             assert_eq!(
                 Committee::voting(&hash),
-                Some(Votes {
+                Some(PolymeshVotes {
                     index: 0,
                     ayes: vec![charlie_did],
                     nays: vec![bob_did]

@@ -71,7 +71,7 @@ pub struct Investment<V, W> {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as STOCapped {
+    trait Store for Module<T: Trait> as StoCapped {
         /// Tokens can have multiple whitelists that (for now) check entries individually within each other
         /// (ticker, sto_id) -> STO
         StosByToken get(fn stos_by_token): map (Ticker, u32) => STO<T::Balance,T::Moment>;
