@@ -14,13 +14,29 @@ mod PercentageTransferManager {
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
     #[ink(storage)]
-    struct PercentageTransferManager {
+    struct PercentageTransferManagerStorage {
         /// Maximum allowed percentage of the tokens hold by an investor
         /// %age is based on the total supply of the asset.
         max_allowed_percentage: storage::Value<u128>,
     }
 
-    impl PercentageTransferManager {
+    /// Copy of the custom type defined in `/runtime/src/template.rs`.
+    ///
+    /// # Requirements
+    /// In order to decode a value of that type from the runtime storage:
+    ///   - The type must match exactly the custom type defined in the runtime
+    ///   - It must implement `Decode`, usually by deriving it as below
+    ///   - It should implement `Metadata` for use with `generate-metadata` (required for the UI).
+    #[derive(scale::Decode, scale::Encode)]
+    #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
+    pub enum RestrictionResult {
+        VALID,
+        INVALID,
+        NA,
+        FORCE_VALID
+    }
+
+    impl PercentageTransferManagerStorage {
         /// Constructor that initializes the `u128` value to the given `max_allowed_percentage`.
         #[ink(constructor)]
         fn new(&mut self, max_percentage: u128) {
@@ -39,12 +55,12 @@ mod PercentageTransferManager {
             balance_from: Balance,
             balance_to: Balance,
             total_supply: Balance
-        ) -> u16 {
+        ) -> RestrictionResult {
             
             if (balance_to + value * 100) / total_supply > *self.max_allowed_percentage.get() {
-                return 0;
+                return RestrictionResult::NA;
             } else {
-                return 1;
+                return RestrictionResult::INVALID;
             }
         }
 

@@ -74,6 +74,8 @@ use primitives::{
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 use pallet_contracts::Gas;
+use pallet_contracts::ExecReturnValue;
+
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -166,6 +168,21 @@ pub enum TickerRegistrationStatus {
     RegisteredByOther,
     Available,
     RegisteredByDid,
+}
+
+/// The type of an identifier associated with a token.
+#[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RestrictionResult {
+    VALID,
+    INVALID,
+    NA,
+    FORCE_VALID
+}
+
+impl Default for RestrictionResult {
+    fn default() -> Self {
+        RestrictionResult::NA
+    }
 }
 
 decl_storage! {
@@ -1896,14 +1913,46 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn call_extension(to: T::AccountId, dest: T::AccountId, value: T::Balance, gas_limit: Gas, data: Vec<u8>) -> DispatchResult {
-        let exec_result = <pallet_contracts::Module<T>>::bare_call(to, dest.clone(), Currency::from(value), gas_limit, data);
+    pub fn verify_transfer(ticker: Ticker, from: T::AccountId, to: T::AccountId, value: T::Balance, dest: T::AccountId) -> RestrictionResult {
+        let selector: Vec<u8> = b"verify_transfer".to_vec();
+        let encoded_from = T::AccountId::encode(&from);
+        let encoded_to = T::AccountId::encode(&to);
+        let encoded_value = T::Balance::encode(&value);
+        let balance_from = T::Balance::encode(&<BalanceOf<T>>::get((ticker, &from)));
+        let balance_to = T::Balance::encode(&<BalanceOf<T>>::get((ticker, &to)));
+        let total_supply = T::Balance::encode(&<Tokens<T>>::get((&ticker)).total_supply);
+
+        // encode parameters
+        let encoded_data = [
+            &selector[..], &encoded_from[..], &encoded_to[..], &encoded_value[..], &balance_from[..], &balance_to[..], &total_supply[..]
+        ].concat();
+        let is_allowed = Self::call_extension(from, dest, 0.into(), 500000, encoded_data);
+        if is_allowed.is_success() {
+            return RestrictionResult::decode(&mut &is_allowed.data[..]);
+        } else {
+            return RestrictionResult::INVALID;
+        }
+    }
+
+
+    /// A helper function that is used to call the smart extension function.
+    ///
+    /// # Arguments
+    /// * `from` - Caller of the extension
+    /// * `dest` - Address/AccountId of the smart extension whom get called
+    /// * `value` - Amount of native currency that need to transfer to the extension
+    /// * `gas_limit` - Maximum amount of gas passed to successfully execute the function
+    /// * `data` - Encoded data that contains function selector and function arguments values.
+    pub fn call_extension(from: T::AccountId, dest: T::AccountId, value: T::Balance, gas_limit: Gas, data: Vec<u8>) -> ExecReturnValue {
+        // TODO: Fix the value conversion into Currency
+        let exec_result = <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into() , gas_limit, data);
         match exec_result {
             Ok(encoded_value) => {
-                return Ok((encoded_value));
+                return encoded_value;
             },
-            Err(_) => { 
-                return Err(Error::<T>::IncorrectResult);
+            Err(err) => {
+                let reason: &'static str = err.reason.into();
+                return ExecReturnValue {status: 1, data: reason.as_bytes().to_vec()};
             },
 		}	
     }
