@@ -1,9 +1,9 @@
 use crate::{
-    asset::{self, AssetType, Document, IdentifierType, SecurityToken, SignData},
+    asset::{self, AssetType, IdentifierType, SecurityToken, SignData},
     balances, general_tm, identity,
     test::storage::{build_ext, make_account, TestStorage},
 };
-use primitives::{AuthorizationData, IdentityId, Link, LinkData, Signer, Ticker};
+use primitives::{AuthorizationData, Document, IdentityId, LinkData, Signer, Ticker};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
@@ -1073,7 +1073,11 @@ fn adding_removing_documents() {
 
         assert_eq!(
             last_doc.link_data,
-            LinkData::Document(b"B".to_vec(), b"www.b.com".to_vec(), b"0x2".to_vec())
+            LinkData::Document(Document {
+                name: b"B".to_vec(),
+                uri: b"www.b.com".to_vec(),
+                hash: b"0x2".to_vec()
+            })
         );
         assert_eq!(last_doc.next_link, 0);
         assert_eq!(last_doc.expiry, None);

@@ -69,7 +69,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use pallet_session;
 use primitives::{
-    AuthorizationData, AuthorizationError, IdentityId, Key, LinkData, Signer, Ticker,
+    AuthorizationData, AuthorizationError, Document, IdentityId, Key, LinkData, Signer, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]
@@ -163,17 +163,6 @@ pub enum TickerRegistrationStatus {
     RegisteredByOther,
     Available,
     RegisteredByDid,
-}
-
-/// Represents a document associated with an asset
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-pub struct Document {
-    /// Document name
-    pub name: Vec<u8>,
-    /// Document URI
-    pub uri: Vec<u8>,
-    /// Document hash
-    pub hash: Vec<u8>,
 }
 
 decl_storage! {
@@ -957,8 +946,9 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
+            let signer = Signer::from(ticker_did);
             documents.into_iter().for_each(|doc| {
-                <identity::Module<T>>::add_link(Signer::from(ticker_did), LinkData::Document(doc.name, doc.uri, doc.hash), None)
+                <identity::Module<T>>::add_link(signer, LinkData::Document(doc), None)
             });
 
             Ok(())
@@ -981,8 +971,9 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
+            let signer = Signer::from(ticker_did);
             doc_ids.into_iter().for_each(|doc_id| {
-                <identity::Module<T>>::remove_link(Signer::from(ticker_did), doc_id)
+                <identity::Module<T>>::remove_link(signer, doc_id)
             });
 
             Ok(())
@@ -1006,8 +997,8 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
-
-            <identity::Module<T>>::update_link(Signer::from(ticker_did), doc_id, LinkData::Document(doc.name, doc.uri, doc.hash));
+            let signer = Signer::from(ticker_did);
+            <identity::Module<T>>::update_link(signer, doc_id, LinkData::Document(doc));
 
             Ok(())
         }

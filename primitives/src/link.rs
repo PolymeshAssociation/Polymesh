@@ -1,3 +1,4 @@
+use crate::Document;
 use crate::Ticker;
 use codec::{Decode, Encode};
 use sp_std::prelude::Vec;
@@ -6,7 +7,7 @@ use sp_std::prelude::Vec;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum LinkData {
     /// Represents a document (name, URI, hash)
-    Document(Vec<u8>, Vec<u8>, Vec<u8>),
+    Document(Document),
     /// Represents a ticker ownership
     TickerOwned(Ticker),
     /// Represents a token ownership
