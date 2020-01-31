@@ -60,7 +60,7 @@ pub trait Subtrait<I: Instance = DefaultInstance>: CommonTrait {
 }
 
 decl_event!(
-    pub enum Event<T, I: Instance = DefaultInstance> where
+    pub enum Event<T> where
     <T as system::Trait>::AccountId,
     <T as CommonTrait>::Balance
     {

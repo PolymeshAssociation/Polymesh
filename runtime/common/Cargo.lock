@@ -198,9 +198,9 @@ checksum = "a993f74b4c99c1908d156b8d2e0fb6277736b0ecbd833982fd1241d39b2766a6"
 
 [[package]]
 name = "bitvec"
-version = "0.17.2"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fe4300c1d7a9ea6f3e3f39c10b39862bb79e1175c0572b6b49539a30e5562f5"
+checksum = "3f62134ef3d3f415729bdded77da1e0803af4409e7a7554ee486081c0cffbf82"
 dependencies = [
  "either",
  "radium",
@@ -2223,7 +2223,7 @@ checksum = "05da548ad6865900e60eaba7f589cc0783590a92e940c26953ff81ddbab2d677"
 name = "polymesh-primitives"
 version = "0.6.0"
 dependencies = [
- "bitvec 0.17.2",
+ "bitvec 0.16.2",
  "frame-support",
  "frame-system",
  "hex",
