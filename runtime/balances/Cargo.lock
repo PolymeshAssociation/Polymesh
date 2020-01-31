@@ -169,7 +169,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "bitvec"
-version = "0.17.2"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2041,7 +2041,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "polymesh-primitives"
 version = "0.6.0"
 dependencies = [
- "bitvec 0.17.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitvec 0.16.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "frame-support 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
  "frame-system 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
  "hex 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4091,7 +4091,7 @@ dependencies = [
 "checksum bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 "checksum bitmask 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5da9b3d9f6f585199287a473f4f8dfab6566cf827d15c00c219f53c645687ead"
 "checksum bitvec 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)" = "a993f74b4c99c1908d156b8d2e0fb6277736b0ecbd833982fd1241d39b2766a6"
-"checksum bitvec 0.17.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1fe4300c1d7a9ea6f3e3f39c10b39862bb79e1175c0572b6b49539a30e5562f5"
+"checksum bitvec 0.16.2 (registry+https://github.com/rust-lang/crates.io-index)" = "3f62134ef3d3f415729bdded77da1e0803af4409e7a7554ee486081c0cffbf82"
 "checksum blake2 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "94cb07b0da6a73955f8fb85d24c466778e70cda767a568229b104f0264089330"
 "checksum blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)" = "5d6d530bdd2d52966a6d03b7a964add7ae1a288d25214066fd4b600f0f796400"
 "checksum block-buffer 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c0940dc441f31689269e10ac70eb1002a3a1d3ad1390e030043662eb7fe4688b"

@@ -164,23 +164,25 @@ use polymesh_primitives::{traits::IdentityCurrency, IdentityId, Key, Permission,
 use polymesh_runtime_common::traits::{
     balances::{
         imbalances::{NegativeImbalance, PositiveImbalance},
-        RawEvent, Trait,
+        Instance, RawEvent, Subtrait, Trait,
     },
     identity::IdentityTrait,
 };
 
 use codec::{Decode, Encode};
-use frame_support::traits::{
-    Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, OnUnbalanced, SignedImbalance,
-    UpdateBalanceOutcome, VestingCurrency, WithdrawReason, WithdrawReasons,
-};
-use frame_support::weights::SimpleDispatchInfo;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
+    traits::{
+        Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
+        OnUnbalanced, ReservableCurrency, SignedImbalance, UpdateBalanceOutcome, VestingCurrency,
+        WithdrawReason, WithdrawReasons,
+    },
+    weights::SimpleDispatchInfo,
     StorageValue,
 };
-use frame_system::{self as system, ensure_root, ensure_signed, OnNewAccount};
+
+use frame_system::{self as system, ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 use sp_runtime::{
     traits::{
         Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating, SimpleArithmetic,
@@ -188,7 +190,7 @@ use sp_runtime::{
     },
     RuntimeDebug,
 };
-use sp_std::{cmp, convert::TryFrom, fmt::Debug, mem, prelude::*, result};
+use sp_std::{cmp, convert::TryFrom, fmt::Debug, mem, prelude::*, result, vec};
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
@@ -212,6 +214,8 @@ decl_error! {
         UnAuthorized,
     }
 }
+
+pub type Event<T> = polymesh_runtime_common::balances::Event<T>;
 
 /// Struct to encode the vesting schedule of an individual account.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug)]
@@ -506,8 +510,8 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::NewAccount(who.clone(), balance));
     }
 }
-/*
 
+/*
 // TODO: #2052
 // Somewhat ugly hack in order to gain access to module's `increase_total_issuance_by`
 // using only the Subtrait (which defines only the types that are not dependent
@@ -532,7 +536,7 @@ impl<T: Subtrait<I>, I: Instance> PartialEq for ElevatedTrait<T, I> {
     }
 }
 impl<T: Subtrait<I>, I: Instance> Eq for ElevatedTrait<T, I> {}
-impl<T: Subtrait<I>, I: Instance> system::Trait for ElevatedTrait<T, I> {
+impl<T: Subtrait<I>, I: Instance> frame_system::Trait for ElevatedTrait<T, I> {
     type Origin = T::Origin;
     type Call = T::Call;
     type Index = T::Index;
@@ -542,27 +546,27 @@ impl<T: Subtrait<I>, I: Instance> system::Trait for ElevatedTrait<T, I> {
     type AccountId = T::AccountId;
     type Lookup = T::Lookup;
     type Header = T::Header;
-    // type WeightMultiplierUpdate = T::WeightMultiplierUpdate;
     type Event = ();
     type BlockHashCount = T::BlockHashCount;
     type MaximumBlockWeight = T::MaximumBlockWeight;
     type MaximumBlockLength = T::MaximumBlockLength;
     type AvailableBlockRatio = T::AvailableBlockRatio;
     type Version = T::Version;
+    type ModuleToIndex = T::ModuleToIndex;
 }
-impl<T: Subtrait<I>, I: Instance> Trait<I> for ElevatedTrait<T, I> {
-    // type Balance = T::Balance;
+impl<T: Subtrait<I>, I: Instance> Trait for ElevatedTrait<T, I> {
     type OnFreeBalanceZero = T::OnFreeBalanceZero;
     type OnNewAccount = T::OnNewAccount;
     type Event = ();
-    // type TransferPayment = ();
+    type TransferPayment = ();
     type DustRemoval = ();
     type ExistentialDeposit = T::ExistentialDeposit;
     type TransferFee = T::TransferFee;
-    // type CreationFee = T::CreationFee;
     type Identity = T::Identity;
 }
-*/
+impl<T: Subtrait<I>, I: Instance> CommonTrait for ElevatedTrait<T,I> {
+    // TODO
+}*/
 
 impl<T: Trait> Currency<T::AccountId> for Module<T>
 where
@@ -804,31 +808,30 @@ where
     }
 }
 
-/*
-
-impl<T: Trait<I>, I: Instance> ReservableCurrency<T::AccountId> for Module<T, I>
+impl<T: Trait> ReservableCurrency<T::AccountId> for Module<T>
 where
-    T::Balance: MaybeSerializeDeserialize,
+    T::Balance: MaybeSerializeDeserialize + Debug,
 {
     fn can_reserve(who: &T::AccountId, value: Self::Balance) -> bool {
         Self::free_balance(who)
             .checked_sub(&value)
             .map_or(false, |new_balance| {
-                Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve, new_balance).is_ok()
+                Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve.into(), new_balance)
+                    .is_ok()
             })
     }
 
     fn reserved_balance(who: &T::AccountId) -> Self::Balance {
-        <ReservedBalance<T, I>>::get(who)
+        <ReservedBalance<T>>::get(who)
     }
 
-    fn reserve(who: &T::AccountId, value: Self::Balance) -> result::Result<(), &'static str> {
+    fn reserve(who: &T::AccountId, value: Self::Balance) -> result::Result<(), DispatchError> {
         let b = Self::free_balance(who);
         if b < value {
-            return Err("not enough free funds");
+            Err(Error::<T>::InsufficientBalance)?
         }
         let new_balance = b - value;
-        Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve, new_balance)?;
+        Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve.into(), new_balance)?;
         Self::set_reserved_balance(who, Self::reserved_balance(who) + value);
         Self::set_free_balance(who, new_balance);
         Ok(())
@@ -857,9 +860,9 @@ where
         slashed: &T::AccountId,
         beneficiary: &T::AccountId,
         value: Self::Balance,
-    ) -> result::Result<Self::Balance, &'static str> {
+    ) -> result::Result<Self::Balance, DispatchError> {
         if Self::total_balance(beneficiary).is_zero() {
-            return Err("beneficiary account must pre-exist");
+            Err(Error::<T>::DeadAccount)?
         }
         let b = Self::reserved_balance(slashed);
         let slash = cmp::min(b, value);
@@ -869,9 +872,9 @@ where
     }
 }
 
-impl<T: Trait<I>, I: Instance> LockableCurrency<T::AccountId> for Module<T, I>
+impl<T: Trait> LockableCurrency<T::AccountId> for Module<T>
 where
-    T::Balance: MaybeSerializeDeserialize,
+    T::Balance: MaybeSerializeDeserialize + Debug,
 {
     type Moment = T::BlockNumber;
 
@@ -882,7 +885,7 @@ where
         until: T::BlockNumber,
         reasons: WithdrawReasons,
     ) {
-        let now = <system::Module<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
         let mut new_lock = Some(BalanceLock {
             id,
             amount,
@@ -904,7 +907,7 @@ where
         if let Some(lock) = new_lock {
             locks.push(lock)
         }
-        <Locks<T, I>>::insert(who, locks);
+        <Locks<T>>::insert(who, locks);
     }
 
     fn extend_lock(
@@ -914,7 +917,7 @@ where
         until: T::BlockNumber,
         reasons: WithdrawReasons,
     ) {
-        let now = <system::Module<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
         let mut new_lock = Some(BalanceLock {
             id,
             amount,
@@ -941,11 +944,11 @@ where
         if let Some(lock) = new_lock {
             locks.push(lock)
         }
-        <Locks<T, I>>::insert(who, locks);
+        <Locks<T>>::insert(who, locks);
     }
 
     fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
-        let now = <system::Module<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
         let locks = Self::locks(who)
             .into_iter()
             .filter_map(|l| {
@@ -956,10 +959,9 @@ where
                 }
             })
             .collect::<Vec<_>>();
-        <Locks<T, I>>::insert(who, locks);
+        <Locks<T>>::insert(who, locks);
     }
 }
-*/
 
 impl<T: Trait> VestingCurrency<T::AccountId> for Module<T>
 where
@@ -1004,15 +1006,14 @@ where
     }
 }
 
-/*
-impl<T: Trait<I>, I: Instance> IsDeadAccount<T::AccountId> for Module<T, I>
+impl<T: Trait> IsDeadAccount<T::AccountId> for Module<T>
 where
-    T::Balance: MaybeSerializeDeserialize,
+    T::Balance: MaybeSerializeDeserialize + Debug,
 {
     fn is_dead_account(who: &T::AccountId) -> bool {
         Self::total_balance(who).is_zero()
     }
-}*/
+}
 
 /*
 #[cfg(test)]
