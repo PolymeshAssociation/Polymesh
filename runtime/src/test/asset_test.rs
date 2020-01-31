@@ -1062,25 +1062,13 @@ fn add_extension_successfully() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details,
+            extension_details.clone(),
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionType::TransferManager
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
             (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
@@ -1145,20 +1133,8 @@ fn add_same_extension_should_fail() {
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionType::TransferManager
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
+            Asset::extension_details((ticker, extension_id)),
+            extension_details.clone()
         );
         assert_eq!(
             (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
@@ -1222,25 +1198,13 @@ fn should_successfully_archive_extension() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details
+            extension_details.clone()
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionType::Offerings
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
             (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
@@ -1310,25 +1274,13 @@ fn should_fail_to_archive_an_already_archived_extension() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details
+            extension_details.clone()
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionType::Offerings
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
             (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
@@ -1446,25 +1398,13 @@ fn should_successfuly_unarchive_an_extension() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details
+            extension_details.clone()
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionType::Offerings
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
             (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
@@ -1544,25 +1484,13 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details,
+            extension_details.clone(),
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionType::Offerings
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
             (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
