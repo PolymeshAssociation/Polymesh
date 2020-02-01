@@ -660,6 +660,9 @@ pub trait Trait: frame_system::Trait + pallet_babe::Trait {
 
     /// Required origin for changing compliance status (can always be Root).
     type RequiredComplianceOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Required origin for changing validator commission.
+    type RequiredCommissionOrigin: EnsureOrigin<Self::Origin>;
 }
 
 /// Mode of era-forcing.
@@ -807,6 +810,16 @@ decl_storage! {
                         <Module<T>>::validate(
                             T::Origin::from(Some(controller.clone()).into()),
                             Default::default(),
+                        ).ok();
+                        <Module<T>>::add_potential_validator(
+                            // TODO: change origin to committee
+                            frame_system::RawOrigin::Root.into(),
+                            stash.clone()
+                        ).ok();
+                        <Module<T>>::compliance_passed(
+                            // TODO: change origin to committee
+                            frame_system::RawOrigin::Root.into(),
+                            stash.clone()
                         )
                     },
                     StakerStatus::Nominator(votes) => {
@@ -1069,7 +1082,6 @@ decl_module! {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
-            ensure!(Self::is_controller_eligible(&controller), Error::<T>::NotCompliant);
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
         }
@@ -1631,8 +1643,17 @@ impl<T: Trait> Module<T> {
     /// Assumes storage is coherent with the declaration.
     fn select_validators() -> (BalanceOf<T>, Option<Vec<T::AccountId>>) {
         let mut all_nominators: Vec<(T::AccountId, Vec<T::AccountId>)> = Vec::new();
-        let all_validator_candidates_iter = <Validators<T>>::enumerate();
-        let all_validators = all_validator_candidates_iter
+        let all_validator_candidates = <Validators<T>>::enumerate()
+            .filter(|(who, _prefs)| {
+                if let Some(validator) = Self::permissioned_validators(who) {
+                    validator.compliance == Compliance::Active
+                } else {
+                    false
+                }
+            })
+            .collect::<Vec<(T::AccountId, ValidatorPrefs)>>();
+        let all_validators = all_validator_candidates
+            .into_iter()
             .map(|(who, _pref)| {
                 let self_vote = (who.clone(), vec![who.clone()]);
                 all_nominators.push(self_vote);
@@ -1833,24 +1854,6 @@ impl<T: Trait> Module<T> {
                 }
             }
         });
-    }
-
-    /// Does the given account id have compliance status `Active`
-    fn is_controller_eligible(account_id: &T::AccountId) -> bool {
-        if let Some(validator) = Self::permissioned_validators(account_id) {
-            validator.compliance == Compliance::Active
-        } else {
-            false
-        }
-    }
-
-    /// Checks KYC compliance status of a controller associated with the stash
-    fn is_stash_eligible(stash: &T::AccountId) -> bool {
-        if let Some(controller) = <Bonded<T>>::take(stash) {
-            Self::is_controller_eligible(&controller)
-        } else {
-            false
-        }
     }
 
     /// Non-deterministic method that checks KYC status of each validator and persists

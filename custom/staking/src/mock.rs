@@ -26,6 +26,7 @@ use frame_support::{
     weights::Weight,
     StorageLinkedMap, StorageValue,
 };
+use frame_system::EnsureSignedBy;
 use sp_core::{crypto::key_types, H256};
 use sp_io;
 use sp_runtime::curve::PiecewiseLinear;
@@ -202,6 +203,15 @@ impl pallet_timestamp::Trait for Test {
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
 }
+parameter_types! {
+    pub const EpochDuration: u64 = 10;
+    pub const ExpectedBlockTime: u64 = 1;
+}
+impl pallet_babe::Trait for Test {
+    type EpochDuration = EpochDuration;
+    type ExpectedBlockTime = ExpectedBlockTime;
+    type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+}
 pallet_staking_reward_curve::build! {
     const I_NPOS: PiecewiseLinear<'static> = curve!(
         min_inflation: 0_025_000,
@@ -216,6 +226,10 @@ parameter_types! {
     pub const SessionsPerEra: SessionIndex = 3;
     pub const BondingDuration: EraIndex = 3;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
+    pub const OneThousand: u64 = 1000;
+    pub const TwoThousand: u64 = 2000;
+    pub const ThreeThousand: u64 = 3000;
+    pub const FourThousand: u64 = 4000;
 }
 impl Trait for Test {
     type Currency = pallet_balances::Module<Self>;
@@ -226,11 +240,15 @@ impl Trait for Test {
     type Slash = ();
     type Reward = ();
     type SessionsPerEra = SessionsPerEra;
+    type BondingDuration = BondingDuration;
     type SlashDeferDuration = SlashDeferDuration;
     type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId>;
-    type BondingDuration = BondingDuration;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
+    type RequiredAddOrigin = EnsureSignedBy<OneThousand, Self::AccountId>;
+    type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
+    type RequiredComplianceOrigin = EnsureSignedBy<ThreeThousand, Self::AccountId>;
+    type RequiredCommissionOrigin = EnsureSignedBy<FourThousand, Self::AccountId>;
 }
 
 pub struct ExtBuilder {
