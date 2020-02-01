@@ -1211,6 +1211,8 @@ fn validator_payment_prefs_work() {
         // and the nominator (to-be)
         let _ = Balances::make_free_balance_be(&2, 500);
 
+        <UseIndividualCommissions>::put(true);
+
         // add a dummy nominator.
         <Stakers<Test>>::insert(
             &11,
@@ -1268,6 +1270,10 @@ fn validator_global_payment_prefs_work() {
         // and the nominator (to-be)
         let _ = Balances::make_free_balance_be(&2, 500);
 
+        // Use global commission
+        <UseIndividualCommissions>::put(false);
+        <GlobalCommission>::put(Perbill::from_rational_approximation(1u64, 4u64));
+
         // add a dummy nominator.
         <Stakers<Test>>::insert(
             &11,
@@ -1286,23 +1292,74 @@ fn validator_global_payment_prefs_work() {
         );
 
         // Compute total payout now for whole duration as other parameter won't change
-        let total_payout_0 = current_total_payout_for_duration(3000);
-        assert!(total_payout_0 > 100); // Test is meaningfull if reward something
+        let total_payout_1 = current_total_payout_for_duration(3000);
+        assert!(total_payout_1 > 100); // Test is meaningfull if reward something
         <Module<Test>>::reward_by_ids(vec![(11, 1)]);
 
         start_era(1);
 
-        // whats left to be shared is the sum of 3 rounds minus the validator's cut.
-        let shared_cut = total_payout_0 / 2;
+        // Even though validator's individual commission is 50%, because global commission
+        // is in effect, shared cut is 75%. Using (x - 1 + n) / n for rounding.
+        let shared_cut = (total_payout_1 * 3 - 1 + 4) / 4;
+        let validator_reward_era_1 = (total_payout_1 - shared_cut) + shared_cut / 2;
+        let staker_reward_era_1 = shared_cut / 2;
+
         // Validator's payee is Staked account, 11, reward will be paid here.
         assert_eq!(
             Balances::total_balance(&11),
-            stash_initial_balance + shared_cut / 2 + shared_cut
+            stash_initial_balance + validator_reward_era_1
         );
         // Controller account will not get any reward.
         assert_eq!(Balances::total_balance(&10), 1);
         // Rest of the reward will be shared and paid to the nominator in stake.
-        assert_eq!(Balances::total_balance(&2), 500 + shared_cut / 2);
+        assert_eq!(Balances::total_balance(&2), 500 + staker_reward_era_1);
+
+        <UseIndividualCommissions>::put(true);
+
+        // add a dummy nominator.
+        <Stakers<Test>>::insert(
+            &11,
+            Exposure {
+                own: 500, // equal division indicates that the reward will be equally divided among validator and nominator.
+                total: 1000,
+                others: vec![IndividualExposure { who: 2, value: 500 }],
+            },
+        );
+        <Payee<Test>>::insert(&2, RewardDestination::Stash);
+        <Validators<Test>>::insert(
+            &11,
+            ValidatorPrefs {
+                commission: Perbill::from_percent(50),
+            },
+        );
+
+        // check the balance of a validator's stash accounts.
+        assert_eq!(
+            Balances::total_balance(&11),
+            stash_initial_balance + validator_reward_era_1
+        );
+
+        // Compute total payout now for whole duration as other parameter won't change
+        let total_payout_2 = current_total_payout_for_duration(3000);
+        assert!(total_payout_2 > 100); // Test is meaningfull if reward something
+        <Module<Test>>::reward_by_ids(vec![(11, 1)]);
+
+        start_era(2);
+
+        // whats left to be shared is the sum of 3 rounds minus the validator's cut.
+        let shared_cut = total_payout_2 / 2;
+        // Validator's payee is Staked account, 11, reward will be paid here.
+        assert_eq!(
+            Balances::total_balance(&11),
+            stash_initial_balance + validator_reward_era_1 + shared_cut / 2 + shared_cut
+        );
+        // Controller account will not get any reward.
+        assert_eq!(Balances::total_balance(&10), 1);
+        // Rest of the reward will be shared and paid to the nominator in stake.
+        assert_eq!(
+            Balances::total_balance(&2),
+            staker_reward_era_1 + 500 + shared_cut / 2
+        );
 
         check_exposure_all();
         check_nominator_all();
