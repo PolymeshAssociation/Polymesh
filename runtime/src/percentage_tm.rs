@@ -24,7 +24,7 @@
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
 use crate::{asset::AssetTrait, balances, constants::*, exemption, identity, utils};
-use primitives::{IdentityId, Key, Signer, Ticker};
+use primitives::{AccountKey, IdentityId, Signer, Ticker};
 
 use codec::Encode;
 use core::result::Result as StdResult;
@@ -62,7 +62,7 @@ decl_module! {
 
         /// Set a maximum percentage that can be owned by a single investor
         fn toggle_maximum_percentage_restriction(origin, did: IdentityId, ticker: Ticker, max_percentage: u16) -> DispatchResult  {
-            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");

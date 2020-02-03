@@ -8,7 +8,7 @@ use frame_support::{
     traits::Currency,
 };
 use frame_system::{self as system, EnsureSignedBy};
-use primitives::{IdentityId, Key, Signer};
+use primitives::{AccountKey, IdentityId, Signer};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
@@ -288,7 +288,7 @@ pub fn make_account_with_balance(
     Balances::make_free_balance_be(&id, balance);
 
     Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&Key::try_from(id.encode())?).unwrap();
+    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
 
     Ok((signed_id, did))
 }
@@ -307,7 +307,7 @@ pub fn register_keyring_account_with_balance(
     Identity::register_did(Origin::signed(acc_pub.clone()), vec![])
         .map_err(|_| "Register DID failed")?;
 
-    let acc_key = Key::from(acc_pub.0);
+    let acc_key = AccountKey::from(acc_pub.0);
     let did =
         Identity::get_identity(&acc_key).ok_or_else(|| "Key cannot be generated from account")?;
 

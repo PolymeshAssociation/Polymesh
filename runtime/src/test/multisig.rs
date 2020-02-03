@@ -4,7 +4,7 @@ use crate::{
 };
 use codec::Encode;
 use frame_support::{assert_err, assert_ok};
-use primitives::{Key, Signer};
+use primitives::{AccountKey, Signer};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -63,7 +63,7 @@ fn join_multisig() {
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
-            Signer::from(Key::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+            Signer::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -112,7 +112,7 @@ fn change_multisig_sigs_required() {
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
-            Signer::from(Key::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+            Signer::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -170,7 +170,7 @@ fn remove_multisig_signer() {
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
-            Signer::from(Key::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+            Signer::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -230,7 +230,7 @@ fn add_multisig_signer() {
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
-            Signer::from(Key::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+            Signer::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
