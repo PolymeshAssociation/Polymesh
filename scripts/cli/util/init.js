@@ -282,6 +282,7 @@ export {
   initMain,
   n_claim_accounts,
   n_accounts,
+  prepend,
   STORAGE_DIR,
   initial_storage_size,
   current_storage_size
