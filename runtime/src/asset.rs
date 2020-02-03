@@ -69,7 +69,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use pallet_session;
 use primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, Key, LinkData, Signer,
+    AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signer,
     Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
@@ -982,7 +982,7 @@ decl_module! {
         /// * `documents` Documents to be attached to `ticker`
         pub fn add_documents(origin, did: IdentityId, ticker: Ticker, documents: Vec<Document>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+            let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
