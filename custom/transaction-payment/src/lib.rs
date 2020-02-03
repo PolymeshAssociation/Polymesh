@@ -38,7 +38,7 @@ use frame_support::{
     weights::{DispatchInfo, GetDispatchInfo, Weight},
 };
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-use primitives::{traits::IdentityCurrency, Key, TransactionError};
+use primitives::{traits::IdentityCurrency, AccountKey, TransactionError};
 use sp_runtime::{
     traits::{Convert, SaturatedConversion, Saturating, SignedExtension, Zero},
     transaction_validity::{
@@ -234,7 +234,7 @@ where
         }
         let fee = Self::compute_fee(len as u32, info, 0u32.into());
         let encoded_transactor =
-            Key::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
+            AccountKey::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
         let imbalance;
         if let Some(did) = T::Currency::charge_fee_to_identity(&encoded_transactor) {
             sp_runtime::print("Charging fee to identity");
