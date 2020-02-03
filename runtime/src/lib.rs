@@ -14,7 +14,7 @@ pub mod committee;
 pub mod constants;
 
 #[cfg(feature = "std")]
-pub use pallet_staking::StakerStatus;
+pub use pallet_staking::{Commission, StakerStatus};
 
 mod contracts_wrapper;
 mod dividend;

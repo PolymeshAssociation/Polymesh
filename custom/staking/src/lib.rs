@@ -366,6 +366,20 @@ impl Default for ValidatorPrefs {
     }
 }
 
+/// Commission can be set globally or by validator
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum Commission {
+    Individual,
+    Global(Perbill),
+}
+
+impl Default for Commission {
+    fn default() -> Self {
+        Commission::Individual
+    }
+}
+
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub struct UnlockChunk<Balance: HasCompact> {
@@ -790,11 +804,8 @@ decl_storage! {
         pub PermissionedValidators get(permissioned_validators):
             linked_map T::AccountId => Option<PermissionedValidator>;
 
-        /// Committee can determine whether a global commision rate should be in effect.
-        pub UseIndividualCommissions get(fn use_individual_commissions) config(): bool;
-
         /// Commision rate to be used by all validators.
-        pub GlobalCommission get(fn global_commission) config(): Perbill;
+        pub ValidatorCommission get(fn validator_commission) config(): Commission;
     }
     add_extra_genesis {
         config(stakers):
@@ -851,8 +862,11 @@ decl_event!(
         /// Remove the nominators from the valid nominators when there KYC expired
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(AccountId, Vec<AccountId>),
+		/// Individual commisions are enabled.
+		IndividualCommissionInEffect,
 		/// When changes to commision are made and global commission is in effect
-		GlobalCommissionInEffect(Perbill),
+		/// (old value, new value)
+		GlobalCommissionInEffect(Perbill, Perbill),
 	}
 );
 
@@ -1338,8 +1352,12 @@ decl_module! {
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             // Ensure individual commissions are not already enabled
-            ensure!(!Self::use_individual_commissions(), Error::<T>::IndividualCommissionsEnabled);
-            <UseIndividualCommissions>::put(true);
+            if let Commission::Global(_) = <ValidatorCommission>::get() {
+                <ValidatorCommission>::put(Commission::Individual);
+                Self::deposit_event(RawEvent::IndividualCommissionInEffect);
+            } else {
+                Err(Error::<T>::IndividualCommissionsEnabled)?
+            }
         }
 
         /// Changes commission rate which applies to all validators. Only Governance
@@ -1348,16 +1366,19 @@ decl_module! {
         /// # Arguments
         /// * `commission` the new commission to be used for reward calculations
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn set_global_comission(origin, commission: Perbill) {
+        fn set_global_comission(origin, new_value: Perbill) {
             T::RequiredCommissionOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             // Ensure individual commissions are not already enabled
-            ensure!(!Self::use_individual_commissions(), Error::<T>::IndividualCommissionsEnabled);
-            <GlobalCommission>::put(commission);
-            Self::deposit_event(RawEvent::GlobalCommissionInEffect(commission));
+            if let Commission::Global(old_value) = <ValidatorCommission>::get() {
+                <ValidatorCommission>::put(Commission::Global(new_value));
+                Self::deposit_event(RawEvent::GlobalCommissionInEffect(old_value, new_value));
+            } else {
+                Err(Error::<T>::IndividualCommissionsEnabled)?
+            }
         }
 
 
@@ -1516,10 +1537,9 @@ impl<T: Trait> Module<T> {
     /// nominators' balance, pro-rata based on their exposure, after having removed the validator's
     /// pre-payout cut.
     fn reward_validator(stash: &T::AccountId, reward: BalanceOf<T>) -> PositiveImbalanceOf<T> {
-        let commission = if Self::use_individual_commissions() {
-            Self::validators(stash).commission
-        } else {
-            Self::global_commission()
+        let commission = match <ValidatorCommission>::get() {
+            Commission::Individual => Self::validators(stash).commission,
+            Commission::Global(commission) => commission,
         };
         let off_the_table = commission * reward;
         let reward = reward.saturating_sub(off_the_table);

@@ -1211,7 +1211,7 @@ fn validator_payment_prefs_work() {
         // and the nominator (to-be)
         let _ = Balances::make_free_balance_be(&2, 500);
 
-        <UseIndividualCommissions>::put(true);
+        <ValidatorCommission>::put(Commission::Individual);
 
         // add a dummy nominator.
         <Stakers<Test>>::insert(
@@ -1271,8 +1271,9 @@ fn validator_global_payment_prefs_work() {
         let _ = Balances::make_free_balance_be(&2, 500);
 
         // Use global commission
-        <UseIndividualCommissions>::put(false);
-        <GlobalCommission>::put(Perbill::from_rational_approximation(1u64, 4u64));
+        <ValidatorCommission>::put(Commission::Global(Perbill::from_rational_approximation(
+            1u64, 4u64,
+        )));
 
         // add a dummy nominator.
         <Stakers<Test>>::insert(
@@ -1314,7 +1315,7 @@ fn validator_global_payment_prefs_work() {
         // Rest of the reward will be shared and paid to the nominator in stake.
         assert_eq!(Balances::total_balance(&2), 500 + staker_reward_era_1);
 
-        <UseIndividualCommissions>::put(true);
+        <ValidatorCommission>::put(Commission::Individual);
 
         // add a dummy nominator.
         <Stakers<Test>>::insert(
