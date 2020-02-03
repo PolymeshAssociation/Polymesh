@@ -230,12 +230,36 @@ async function distributePoly(api, accounts, transfer_amount, fast) {
 
 }
 
+// Attach a signing key to each DID
+async function addSigningKeys(api, accounts, dids, signing_accounts, fast) {
+  fail_type["ADD SIGNING KEY"] = 0;
+  for (let i = 0; i < accounts.length; i++) {
+    // 1. Add Signing Item to identity.
+    let signing_item = {
+      signer: {
+          key: signing_accounts[i].publicKey 
+      },
+      signer_type: 0,
+      roles: []
+    }
+    if (fast) {
+      const unsub = await api.tx.identity
+      .addSigningItems(dids[i], [signing_item])
+      .signAndSend(accounts[i],
+        { nonce: nonces.get(accounts[i].address) });
+    } 
+    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+   
+  }
+}
+
 export {
   duDirSize,
   updateStorageSize,
   blockTillPoolEmpty,
   createIdentities,
   distributePoly,
+  addSigningKeys,
   initMain,
   n_claim_accounts,
   n_accounts,
