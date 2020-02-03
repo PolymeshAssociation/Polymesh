@@ -253,6 +253,24 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, fast) {
   }
 }
 
+// Authorizes the join of signing keys to a DID
+async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, fast) {
+  fail_type["AUTH SIGNING KEY"] = 0;
+  for (let i = 0; i < accounts.length; i++) {
+    // 1. Authorize
+    if (fast) {
+        const unsub = await api.tx.identity
+            .authorizeJoinToIdentity(dids[i])
+            .signAndSend(signing_accounts[i],
+                { nonce: nonces.get(signing_accounts[i].address) });
+        nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
+    } 
+
+  }
+
+  return dids;
+}
+
 export {
   duDirSize,
   updateStorageSize,
@@ -260,6 +278,7 @@ export {
   createIdentities,
   distributePoly,
   addSigningKeys,
+  authorizeJoinToIdentities,
   initMain,
   n_claim_accounts,
   n_accounts,
