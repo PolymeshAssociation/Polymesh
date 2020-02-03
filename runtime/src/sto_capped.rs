@@ -204,7 +204,7 @@ decl_module! {
                 .ok_or("overflow while calculating tokens sold")?;
 
             // Mint tokens and update STO
-            T::Asset::_mint_from_sto(&ticker, did, token_amount_value.0)?;
+            T::Asset::_mint_from_sto(&ticker, sender, did, token_amount_value.0)?;
 
             // Transfer poly to token owner
             // TODO: transfer between DIDs
@@ -290,10 +290,11 @@ decl_module! {
         /// * `value` Amount of POLY wants to invest in
         /// * `simple_token_ticker` Ticker of the simple token
         pub fn buy_tokens_by_simple_token(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
-            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = ensure_signed(origin)?;
+            let signer = Signer::Key(Key::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
             ticker.canonize();
             // Check whether given token is allowed as investment currency or not
             ensure!(Self::token_index_for_sto((ticker, sto_id, simple_token_ticker)) != None, "Given token is not a permitted investment currency");
@@ -318,7 +319,7 @@ decl_module! {
                                     .ok_or("overflow while updating the simple_token investment value")?;
 
             // Mint tokens and update STO
-            let _minted_tokes = T::Asset::_mint_from_sto(&ticker, did, token_amount_value.0);
+            let _minted_tokes = T::Asset::_mint_from_sto(&ticker, sender, did, token_amount_value.0);
             // Transfer the simple_token invested token to beneficiary account
             T::SimpleTokenTrait::transfer(did, &simple_token_ticker, selected_sto.beneficiary_did, token_amount_value.1)?;
 

@@ -82,7 +82,7 @@ pub trait Trait:
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Asset module
-    type Asset: asset::AssetTrait<Self::Balance>;
+    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 /// An asset rule.

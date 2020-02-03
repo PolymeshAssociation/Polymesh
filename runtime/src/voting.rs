@@ -47,7 +47,7 @@ pub trait Trait:
     pallet_timestamp::Trait + frame_system::Trait + utils::Trait + identity::Trait
 {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::Balance>;
+    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 /// Details about ballots

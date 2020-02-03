@@ -618,7 +618,7 @@ mod tests {
         type Event = ();
     }
 
-    impl asset::AssetTrait<<Test as balances::Trait>::Balance> for Module<Test> {
+    impl asset::AssetTrait<<Test as balances::Trait>::Balance, AccountId> for Module<Test> {
         fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(ticker) {
                 token.owner_did == sender_did
@@ -629,6 +629,7 @@ mod tests {
 
         fn _mint_from_sto(
             _ticker: &Ticker,
+            _caller: AccountId,
             _sender_did: IdentityId,
             _tokens_purchased: <Test as balances::Trait>::Balance,
         ) -> DispatchResult {

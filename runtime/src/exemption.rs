@@ -13,7 +13,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 pub trait Trait: frame_system::Trait + utils::Trait + balances::Trait + identity::Trait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::Balance>;
+    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 // This module's storage items.

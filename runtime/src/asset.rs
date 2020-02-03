@@ -57,7 +57,7 @@
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
 
 use crate::{balances, constants::*, general_tm, identity, percentage_tm, statistics, utils};
-use codec::Encode;
+use codec::{ Encode, Decode };
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
@@ -485,7 +485,7 @@ decl_module! {
             ticker.canonize();
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
-            ensure!(Self::_is_valid_transfer(&ticker, Some(did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             Self::_transfer(&ticker, did, to_did, value)
         }
@@ -554,10 +554,11 @@ decl_module! {
         /// * `to_did` DID to whom token is being transferred
         /// * `value` Amount of the token for transfer
         pub fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let spender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = ensure_signed(origin)?;
+            let signer = Signer::Key(Key::try_from(sender.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
             ticker.canonize();
             let ticker_from_did_did = (ticker, from_did, did);
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist");
@@ -569,7 +570,7 @@ decl_module! {
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, from_did, value)?;
 
-            ensure!(Self::_is_valid_transfer(&ticker, Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
             Self::_transfer(&ticker, from_did, to_did, value)?;
 
             // Change allowance afterwards
@@ -613,7 +614,7 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
             ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
-            Self::_mint(&ticker, to_did, value)
+            Self::_mint(&ticker, sender, to_did, value)
         }
 
         /// Function is used issue(or mint) new tokens for the given DIDs
@@ -660,7 +661,7 @@ decl_module! {
                     .ok_or("overflow in calculating balance")?);
 
                 // verify transfer check
-                ensure!(Self::_is_valid_transfer(&ticker, None, Some(investor_dids[i]), values[i])? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+                ensure!(Self::_is_valid_transfer(&ticker, sender.clone(),  None, Some(investor_dids[i]), values[i])? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
                 // New total supply must be valid
                 token.total_supply = updated_total_supply;
@@ -726,7 +727,7 @@ decl_module! {
             Self::_check_custody_allowance(&ticker, did, value)?;
 
             // verify transfer check
-            ensure!(Self::_is_valid_transfer(&ticker, Some(did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             //Decrease total supply
             let mut token = Self::token_details(&ticker);
@@ -782,7 +783,7 @@ decl_module! {
             ensure!(allowance >= value, "Not enough allowance");
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
-            ensure!(Self::_is_valid_transfer(&ticker, Some(from_did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(from_did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
 
@@ -884,7 +885,8 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        pub fn can_transfer(_origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) {
+        pub fn can_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) {
+            let sender = ensure_signed(origin)?;
             ticker.canonize();
             let mut current_balance: T::Balance = Self::balance_of((ticker, from_did));
             if current_balance < value {
@@ -896,7 +898,7 @@ decl_module! {
                 sp_runtime::print("Insufficient balance");
                 Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_INSUFFICIENT_BALANCE as u32));
             } else {
-                match Self::_is_valid_transfer(&ticker, Some(from_did), Some(to_did), value) {
+                match Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value) {
                     Ok(code) =>
                     {
                         Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, code as u32));
@@ -1127,7 +1129,7 @@ decl_module! {
                 .checked_sub(&value)
                 .ok_or("underflow in calculating the total allowance")?;
             // Validate the transfer
-            ensure!(Self::_is_valid_transfer(&ticker, Some(holder_did), Some(receiver_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(holder_did), Some(receiver_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
             Self::_transfer(&ticker, holder_did, receiver_did, value)?;
             // Update Storage of allowance
             <CustodianAllowance<T>>::insert((ticker, custodian_did, holder_did), &custodian_allowance);
@@ -1384,11 +1386,12 @@ decl_error! {
     }
 }
 
-pub trait AssetTrait<V> {
+pub trait AssetTrait<V, U> {
     fn total_supply(ticker: &Ticker) -> V;
     fn balance(ticker: &Ticker, did: IdentityId) -> V;
     fn _mint_from_sto(
         ticker: &Ticker,
+        caller: U,
         sender_did: IdentityId,
         tokens_purchased: V,
     ) -> DispatchResult;
@@ -1396,13 +1399,14 @@ pub trait AssetTrait<V> {
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> V;
 }
 
-impl<T: Trait> AssetTrait<T::Balance> for Module<T> {
+impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     fn _mint_from_sto(
         ticker: &Ticker,
+        caller: T::AccountId,
         sender: IdentityId,
         tokens_purchased: T::Balance,
     ) -> DispatchResult {
-        Self::_mint(ticker, sender, tokens_purchased)
+        Self::_mint(ticker, caller, sender, tokens_purchased)
     }
 
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
@@ -1625,6 +1629,7 @@ impl<T: Trait> Module<T> {
 
     fn _is_valid_transfer(
         ticker: &Ticker,
+        extension_caller: T::AccountId,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
         value: T::Balance,
@@ -1634,7 +1639,32 @@ impl<T: Trait> Module<T> {
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             general_status_code
         } else {
-            <percentage_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?
+            let mut is_valid = false;
+            let mut is_in_valid = false;
+            let mut force_valid = false;
+            Self::extensions((ticker, SmartExtensionTypes::TransferManager))
+                    .into_iter()
+                .filter(|tm| Self::extension_details((ticker, tm)).is_archive == false)
+            .for_each(|tm| {
+                let result = Self::verify_transfer(ticker, extension_caller.clone(), from_did, to_did, value, tm);
+                if result == RestrictionResult::VALID {
+                    is_valid = true;
+                }
+                else if result == RestrictionResult::INVALID {
+                    is_in_valid = true;
+                }
+                else if result == RestrictionResult::FORCE_VALID {
+                    force_valid = true;
+                }
+            });
+
+            //is_valid = force_valid ? true : (is_in_valid ? false : is_valid);
+            is_valid = if !force_valid { if is_in_valid { false } else { is_valid } } else { true }; 
+            if is_valid { 
+                return Ok(ERC1400_TRANSFER_SUCCESS);
+            } else {
+                return Ok(ERC1400_TRANSFER_FAILURE);
+            }
         })
     }
 
@@ -1726,7 +1756,7 @@ impl<T: Trait> Module<T> {
         Self::_is_owner(ticker, did)
     }
 
-    pub fn _mint(ticker: &Ticker, to_did: IdentityId, value: T::Balance) -> DispatchResult {
+    pub fn _mint(ticker: &Ticker, caller: T::AccountId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
         // Granularity check
         ensure!(
             Self::check_granularity(ticker, value),
@@ -1740,7 +1770,7 @@ impl<T: Trait> Module<T> {
             .ok_or("overflow in calculating balance")?;
         // verify transfer check
         ensure!(
-            Self::_is_valid_transfer(ticker, None, Some(to_did), value)?
+            Self::_is_valid_transfer(ticker, caller, None, Some(to_did), value)?
                 == ERC1400_TRANSFER_SUCCESS,
             "Transfer restrictions failed"
         );
@@ -1913,22 +1943,40 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn verify_transfer(ticker: Ticker, from: T::AccountId, to: T::AccountId, value: T::Balance, dest: T::AccountId) -> RestrictionResult {
+    pub fn verify_transfer(
+        ticker: &Ticker,
+        extension_caller: T::AccountId,
+        from_did: Option<IdentityId>,
+        to_did: Option<IdentityId>,
+        value: T::Balance,
+        dest: T::AccountId
+    ) -> RestrictionResult {
+
         let selector: Vec<u8> = b"verify_transfer".to_vec();
-        let encoded_from = T::AccountId::encode(&from);
-        let encoded_to = T::AccountId::encode(&to);
+        let balance_to = match to_did {
+            Some(did) => T::Balance::encode(&<BalanceOf<T>>::get((ticker, &did))),
+            None => T::Balance::encode(&(0.into()))
+        };
+        let balance_from = match from_did {
+            Some(did) => T::Balance::encode(&<BalanceOf<T>>::get((ticker, &did))),
+            None => T::Balance::encode(&(0.into()))
+        };
+        let encoded_to = Option::<IdentityId>::encode(&to_did);
+        let encoded_from = Option::<IdentityId>::encode(&from_did);
         let encoded_value = T::Balance::encode(&value);
-        let balance_from = T::Balance::encode(&<BalanceOf<T>>::get((ticker, &from)));
-        let balance_to = T::Balance::encode(&<BalanceOf<T>>::get((ticker, &to)));
-        let total_supply = T::Balance::encode(&<Tokens<T>>::get((&ticker)).total_supply);
+        let total_supply = T::Balance::encode(&<Tokens<T>>::get(&ticker).total_supply);
 
         // encode parameters
         let encoded_data = [
             &selector[..], &encoded_from[..], &encoded_to[..], &encoded_value[..], &balance_from[..], &balance_to[..], &total_supply[..]
         ].concat();
-        let is_allowed = Self::call_extension(from, dest, 0.into(), 500000, encoded_data);
+        let is_allowed = Self::call_extension(extension_caller, dest, 0.into(), 500000, encoded_data);
         if is_allowed.is_success() {
-            return RestrictionResult::decode(&mut &is_allowed.data[..]);
+            if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
+                return allowed;
+            } else {
+                return RestrictionResult::INVALID;
+            }
         } else {
             return RestrictionResult::INVALID;
         }
