@@ -51,6 +51,9 @@ use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, prelude::*};
 
+/// Either the ID of a successfully created proposal or an error.
+pub type CreateProposalResult = sp_std::result::Result<u64, DispatchError>;
+
 pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -286,7 +289,7 @@ impl<T: Trait> Module<T> {
         multisig: T::AccountId,
         sender_signer: Signatory,
         proposal: Box<T::Proposal>,
-    ) -> DispatchResult {
+    ) -> CreateProposalResult {
         ensure!(
             <MultiSigSigners<T>>::exists(&multisig, &sender_signer),
             "not a signer"
@@ -297,7 +300,8 @@ impl<T: Trait> Module<T> {
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
         Self::deposit_event(RawEvent::ProposalAdded(multisig.clone(), proposal_id));
-        Self::approve_for(multisig, sender_signer, proposal_id)
+        Self::approve_for(multisig, sender_signer, proposal_id)?;
+        Ok(proposal_id)
     }
 
     /// Approves a multisig transaction and executes the proposal if enough sigs have been received
