@@ -69,15 +69,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ansi_term"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
-dependencies = [
- "winapi 0.3.8",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -195,16 +186,6 @@ name = "bitvec"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993f74b4c99c1908d156b8d2e0fb6277736b0ecbd833982fd1241d39b2766a6"
-
-[[package]]
-name = "bitvec"
-version = "0.16.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f62134ef3d3f415729bdded77da1e0803af4409e7a7554ee486081c0cffbf82"
-dependencies = [
- "either",
- "radium",
-]
 
 [[package]]
 name = "blake2"
@@ -533,12 +514,6 @@ dependencies = [
  "quote 1.0.2",
  "syn 1.0.14",
 ]
-
-[[package]]
-name = "difference"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524cbf6897b527295dff137cec09ecf3a05f4fddffd7dfcd1585403449e74198"
 
 [[package]]
 name = "digest"
@@ -2052,7 +2027,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f747c06d9f3b2ad387ac881b9667298c81b1243aa9833f086e05996937c35507"
 dependencies = [
  "arrayvec 0.5.1",
- "bitvec 0.15.2",
+ "bitvec",
  "byte-slice-cast",
  "parity-scale-codec-derive",
  "serde",
@@ -2223,14 +2198,9 @@ checksum = "05da548ad6865900e60eaba7f589cc0783590a92e940c26953ff81ddbab2d677"
 name = "polymesh-primitives"
 version = "0.6.0"
 dependencies = [
- "bitvec 0.16.2",
  "frame-support",
  "frame-system",
- "hex",
- "pallet-babe",
  "parity-scale-codec",
- "serde",
- "sp-application-crypto",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -2247,12 +2217,11 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
- "serde",
  "sp-api",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-serializer",
  "sp-std",
 ]
 
@@ -2265,7 +2234,6 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-runtime-common",
- "pretty_assertions",
  "serde",
  "serde_derive",
  "sp-api",
@@ -2283,16 +2251,6 @@ name = "ppv-lite86"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74490b50b9fbe561ac330df47c08f3f33073d2d00c150f719147d7c54522fa1b"
-
-[[package]]
-name = "pretty_assertions"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a029430f0d744bc3d15dd474d591bed2402b645d024583082b9f63bb936dac6"
-dependencies = [
- "ansi_term",
- "difference",
-]
 
 [[package]]
 name = "primitive-types"
@@ -2379,12 +2337,6 @@ checksum = "053a8c8bcc71fcce321828dc897a98ab9760bef03a4fc36693c231e5b3216cfe"
 dependencies = [
  "proc-macro2 1.0.8",
 ]
-
-[[package]]
-name = "radium"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "def50a86306165861203e7f84ecffbbdfdea79f0e51039b33de1e952358c47ac"
 
 [[package]]
 name = "rand"

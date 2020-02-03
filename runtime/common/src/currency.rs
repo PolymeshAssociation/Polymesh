@@ -1,4 +1,5 @@
 use crate::traits::{BalanceLock, CommonTrait};
+use sp_std::vec::Vec;
 
 pub trait CurrencyModule<T>
 where

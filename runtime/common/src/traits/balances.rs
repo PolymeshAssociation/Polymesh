@@ -119,7 +119,7 @@ pub mod imbalances {
     use crate::traits::CommonTrait;
 
     use frame_support::traits::{Imbalance, TryDrop};
-    use sp_runtime::traits::{Saturating, Zero};
+    use sp_arithmetic::traits::{Saturating, Zero};
     use sp_std::{mem, result};
 
     /// Opaque, move-only struct with private fields that serves as a token denoting that

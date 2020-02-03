@@ -164,7 +164,7 @@ use polymesh_primitives::{traits::IdentityCurrency, IdentityId, Key, Permission,
 use polymesh_runtime_common::traits::{
     balances::{
         imbalances::{NegativeImbalance, PositiveImbalance},
-        Instance, RawEvent, Subtrait, Trait,
+        RawEvent,
     },
     identity::IdentityTrait,
 };
@@ -191,6 +191,8 @@ use sp_runtime::{
     RuntimeDebug,
 };
 use sp_std::{cmp, convert::TryFrom, fmt::Debug, mem, prelude::*, result, vec};
+
+pub use polymesh_runtime_common::traits::balances::Trait;
 
 decl_error! {
     pub enum Error for Module<T: Trait> {

@@ -42,6 +42,8 @@
 //! # TODO
 //!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use polymesh_primitives::{
     Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
     Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem, Ticker,
@@ -52,8 +54,8 @@ use polymesh_runtime_common::{
         asset::AcceptTransfer,
         balances::imbalances::{NegativeImbalance, PositiveImbalance},
         identity::{
-            AuthorizationNonce, Claim, ClaimMetaData, ClaimRecord, ClaimValue, IdentityTrait,
-            LinkedKeyInfo, RawEvent, SigningItemWithAuth, TargetIdAuthorization, Trait,
+            AuthorizationNonce, Claim, ClaimMetaData, ClaimRecord, ClaimValue, LinkedKeyInfo,
+            RawEvent, SigningItemWithAuth, TargetIdAuthorization,
         },
         multisig::AddSignerMultiSig,
         BalanceLock,
@@ -70,7 +72,7 @@ use sp_runtime::{
     traits::{CheckedSub, Dispatchable, MaybeSerializeDeserialize, Verify, Zero},
     AnySignature,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, mem::swap, prelude::*};
+use sp_std::{convert::TryFrom, fmt::Debug, mem::swap, prelude::*, vec};
 
 use frame_support::{
     decl_error, decl_module, decl_storage,
@@ -84,8 +86,8 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 
+pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
 pub type Event<T> = polymesh_runtime_common::traits::identity::Event<T>;
-// pub type Trait = polymesh_runtime_common::traits::identity::Trait;
 
 decl_storage! {
     trait Store for Module<T: Trait> as identity {

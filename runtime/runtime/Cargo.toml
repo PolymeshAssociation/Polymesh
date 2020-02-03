@@ -18,7 +18,7 @@ pallet-staking = { package = "pallet-staking", path = "../../custom/staking", de
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../../custom/staking/reward-curve", default-features = false  }
 
 
-bitvec = { version = "0.16.1", default-features = false, features = ["alloc"] }
+#bitvec = { version = "0.16.1", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4.10", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 lazy_static = { version = "1.4.0", default-features = false }
@@ -46,7 +46,7 @@ sp-staking = { git = "https://github.com/paritytech/substrate", default-features
 sp-consensus-babe = { package = "sp-consensus-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-session = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-authority-discovery = { package = "sp-authority-discovery", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-# sp-phragmen = { package = "sp-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-phragmen = { package = "sp-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
@@ -75,12 +75,10 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
 [dev-dependencies]
-# test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421", default-features = false }
+test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 hex-literal = "0.2.1"
-pretty_assertions = "^0.5.1"
 
 [build-dependencies]
-# wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "^1.0.5" }
  wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421"}
 
 [features]
@@ -89,7 +87,7 @@ default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [ 
-	"bitvec/std",
+#	"bitvec/std",
 	"rustc-hex/std",
 	"serde_derive",
 	"rand/std",
@@ -104,7 +102,7 @@ std = [
 	"sp-consensus-babe/std",
 	"sp-session/std",
 	"sp-authority-discovery/std",
-	#"sp-phragmen/std",
+	"sp-phragmen/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-block-builder/std",
@@ -132,4 +130,9 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"frame-system-rpc-runtime-api/std",
+	"polymesh-runtime-common/std",
+	"polymesh-runtime-balances/std",
+	"polymesh-runtime-group/std",
+	"polymesh-runtime-identity/std"
+
 ]

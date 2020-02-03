@@ -5,6 +5,7 @@ use frame_support::{
     traits::{ChangeMembers, InitializeMembers},
 };
 use sp_runtime::traits::EnsureOrigin;
+use sp_std::vec::Vec;
 
 decl_event!(
 	pub enum Event<T> where

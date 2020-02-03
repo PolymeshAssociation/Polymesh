@@ -12,10 +12,7 @@ use polymesh_primitives::{
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     asset::AcceptTransfer,
-    balances::Trait as BalancesTrait,
     constants::{currency::*, fee::*, time::*},
-    group::Trait as GroupTrait,
-    identity::Trait as IdentityTrait,
     multisig::AddSignerMultiSig,
     CommonTrait,
 };
@@ -56,6 +53,7 @@ use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_version::NativeVersion;
 
 pub use balances::Call as BalancesCall;
+// pub use balances::GenesisConfig as BGenesisConfig;
 pub use frame_support::StorageValue;
 pub use pallet_contracts::Gas;
 pub use pallet_staking::StakerStatus;
@@ -173,7 +171,7 @@ impl CommonTrait for Runtime {
     type AcceptTransferTarget = Asset;
 }
 
-impl BalancesTrait for Runtime {
+impl balances::Trait for Runtime {
     type OnFreeBalanceZero = ((Staking, Contracts), Session);
     type OnNewAccount = Indices;
     type Event = Event;
@@ -317,7 +315,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type Event = Event;
 }
 
-impl GroupTrait for Runtime {
+impl group::Trait for Runtime {
     type Event = Event;
     type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
@@ -506,7 +504,7 @@ impl percentage_tm::Trait for Runtime {
     type Event = Event;
 }
 
-impl IdentityTrait for Runtime {
+impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = MultiSig;
@@ -569,7 +567,7 @@ construct_runtime!(
 
         // Contracts
         Contracts: pallet_contracts,
-        ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
+        // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
         Treasury: pallet_treasury::{Module, Call, Storage, Event<T>},

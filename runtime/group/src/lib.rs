@@ -20,8 +20,10 @@
 //! - `swap_member` - Replace one identity with the other.
 //! - `reset_members` - Re-initialize group members.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use polymesh_primitives::IdentityId;
-use polymesh_runtime_common::group::{RawEvent, Trait};
+pub use polymesh_runtime_common::group::{RawEvent, Trait};
 
 use frame_support::{
     decl_module, decl_storage,
@@ -165,11 +167,13 @@ decl_module! {
 mod tests {
     use super::*;
 
-    use frame_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
+    use frame_support::{
+        assert_noop, assert_ok, impl_outer_origin, parameter_types, traits::InitializeMembers,
+    };
+    use frame_system::{self as system, EnsureSignedBy};
     use sp_core::H256;
     use sp_std::cell::RefCell;
 
-    use frame_system::{self as system, EnsureSignedBy};
     use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup},

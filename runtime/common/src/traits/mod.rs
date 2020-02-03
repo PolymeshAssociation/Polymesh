@@ -3,9 +3,8 @@ use frame_support::{
     traits::{Get, LockIdentifier, WithdrawReasons},
     Parameter,
 };
-use sp_runtime::traits::{
-    CheckedSub, MaybeSerializeDeserialize, Member, Saturating, SimpleArithmetic,
-};
+use sp_arithmetic::traits::{CheckedSub, Saturating, SimpleArithmetic};
+use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
