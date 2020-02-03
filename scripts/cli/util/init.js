@@ -211,11 +211,31 @@ const createIdentities = async function(api, accounts, fast) {
   return dids;
 };
 
+// Sends transfer_amount to accounts[] from alice
+async function distributePoly(api, accounts, transfer_amount, fast) {
+  fail_type["DISTRIBUTE POLY"] = 0;
+
+  // Perform the transfers
+  for (let i = 0; i < accounts.length; i++) {
+    if (fast) {
+      const unsub = await api.tx.balances
+      .transfer(accounts[i].address, transfer_amount)
+      .signAndSend(
+        entities["Alice"],
+        { nonce: nonces.get(entities["Alice"].address) });
+    } 
+
+    nonces.set(entities["Alice"].address, nonces.get(entities["Alice"].address).addn(1));
+  }
+
+}
+
 export {
   duDirSize,
   updateStorageSize,
   blockTillPoolEmpty,
   createIdentities,
+  distributePoly,
   initMain,
   n_claim_accounts,
   n_accounts,
