@@ -72,8 +72,8 @@ pub mod identity;
 pub use identity::Identity;
 
 /// Key is strong type which stores bytes representing the key.
-pub mod key;
-pub use key::Key;
+pub mod account_key;
+pub use account_key::AccountKey;
 
 /// This module contains entities related with signing keys.
 pub mod signing_item;

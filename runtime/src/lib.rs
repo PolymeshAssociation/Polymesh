@@ -48,7 +48,7 @@ pub mod config {
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type PolymeshCommitteeConfig =
         crate::committee::GenesisConfig<crate::Runtime, crate::committee::Instance1>;
-    pub type MIPSConfig = crate::mips::GenesisConfig<crate::Runtime>;
+    pub type MipsConfig = crate::mips::GenesisConfig<crate::Runtime>;
     pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;
     pub type SudoConfig = pallet_sudo::GenesisConfig<crate::Runtime>;

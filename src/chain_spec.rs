@@ -9,7 +9,7 @@ use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::{
     config::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
-        MIPSConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
+        MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
     runtime::CommitteeMembershipConfig,
     runtime::KYCServiceProvidersConfig,
@@ -278,7 +278,7 @@ fn testnet_genesis(
             )),
             ..Default::default()
         }),
-        mips: Some(MIPSConfig {
+        mips: Some(MipsConfig {
             min_proposal_deposit: 5000,
             quorum_threshold: 100000,
             proposal_duration: 50,
