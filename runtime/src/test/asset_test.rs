@@ -27,7 +27,7 @@ type OffChainSignature = AnySignature;
 fn issuers_can_create_and_rename_tokens() {
     build_ext().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
-
+        let funding_round_name = b"round1".to_vec();
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01],
@@ -52,6 +52,7 @@ fn issuers_can_create_and_rename_tokens() {
                 true,
                 token.asset_type.clone(),
                 identifiers.clone(),
+                Some(funding_round_name.clone())
             ),
             "Total supply above the limit"
         );
@@ -66,6 +67,7 @@ fn issuers_can_create_and_rename_tokens() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            Some(funding_round_name.clone())
         ));
 
         // A correct entry is added
@@ -74,6 +76,7 @@ fn issuers_can_create_and_rename_tokens() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
         // Unauthorized identities cannot rename the token.
         let (eve_signed, _eve_did) = make_account(AccountKeyring::Eve.public()).unwrap();
@@ -157,6 +160,7 @@ fn valid_transfers_pass() {
             true,
             token.asset_type.clone(),
             vec![],
+            None
         ));
 
         // A correct entry is added
@@ -218,6 +222,7 @@ fn valid_custodian_allowance() {
             true,
             token.asset_type.clone(),
             vec![],
+            None
         ));
 
         assert_eq!(
@@ -409,6 +414,7 @@ fn valid_custodian_allowance_of() {
             true,
             token.asset_type.clone(),
             vec![],
+            None
         ));
 
         assert_eq!(
@@ -607,6 +613,7 @@ fn checkpoints_fuzz_test() {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
 
             let asset_rule = general_tm::AssetRule {
@@ -718,6 +725,7 @@ fn register_ticker() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
@@ -873,6 +881,7 @@ fn transfer_token_ownership() {
             true,
             AssetType::default(),
             vec![],
+            None
         ));
 
         Identity::add_auth(
@@ -989,6 +998,7 @@ fn update_identifiers() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1149,6 +1159,7 @@ fn freeze_unfreeze_asset() {
             true,
             AssetType::default(),
             vec![],
+            None
         ));
         // Allow all transfers.
         let asset_rule = general_tm::AssetRule {
