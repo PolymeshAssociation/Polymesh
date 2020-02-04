@@ -30,7 +30,7 @@
             "Group": "Vec<IdentityId>"
         }
     },
-    "Key": "[u8;32]",
+    "AccountKey": "[u8;32]",
     "Permission": {
         "_enum": [
             "Full",
@@ -62,7 +62,7 @@
     "Signer":{
        "_enum": {
             "Identity": "IdentityId",
-            "Key": "Key"
+            "AccountKey": "AccountKey"
         }
     },
     "SigningItem": {
@@ -94,7 +94,7 @@
     },
     "DidRecord": {
         "roles": "Vec<IdentityRole>",
-        "master_key": "Key",
+        "master_key": "AccountKey",
         "signing_items": "Vec<SigningItem>"
     },
     "Claim": {
@@ -212,7 +212,7 @@
         "end": "u64",
         "proposal_hash": "Hash"
     },
-    "Votes": {
+    "PolymeshVotes": {
         "index": "u32",
         "ayes": "Vec<(IdentityId, Balance)>",
         "nays": "Vec<(IdentityId, Balance)>"
@@ -228,7 +228,7 @@
         "index": "MipsIndex",
         "proposal":"Call"
     },
-    "ReferendumInfo": {
+    "PolymeshReferendumInfo": {
         "index": "MipsIndex",
         "priority": "MipsPriority",
         "proposal_hash": "Hash"
@@ -280,7 +280,7 @@
         "is_archive": "bool"
     },
     "ProportionMatch": {
-        "_enum": [ 
+        "_enum": [
             "AtLeast",
             "MoreThan"
         ]

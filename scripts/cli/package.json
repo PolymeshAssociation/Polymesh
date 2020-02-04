@@ -9,10 +9,11 @@
   "author": "Polymath Network",
   "license": "UNLICENSED",
   "dependencies": {
-    "@polkadot/api": "^0.92.1",
-    "@polkadot/keyring": "^1.5.1",
+    "@polkadot/api": "^0.100.1",
+    "@polkadot/keyring": "^1.8.1",
     "cli-progress": "^3.3.1",
     "command-line-args": "^5.1.1",
+    "esm": "^3.2.25",
     "inquirer": "^7.0.0",
     "nodejs-fs-utils": "^1.1.2",
     "pm2": "^4.2.1"
