@@ -57,7 +57,7 @@
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
 
 use crate::{balances, constants::*, general_tm, identity, percentage_tm, statistics, utils};
-use codec::{ Encode, Decode };
+use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
@@ -67,15 +67,15 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, WithdrawReason},
 };
 use frame_system::{self as system, ensure_signed};
+use ink_primitives::hash as FunctionSelectorHasher;
+use pallet_contracts::ExecReturnValue;
+use pallet_contracts::Gas;
 use pallet_session;
 use primitives::{
     AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signer, SmartExtension,
     SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
-use pallet_contracts::Gas;
-use pallet_contracts::ExecReturnValue;
-use ink_primitives::hash as FunctionSelectorHasher;
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -177,7 +177,7 @@ pub enum RestrictionResult {
     VALID,
     INVALID,
     NA,
-    FORCE_VALID
+    FORCE_VALID,
 }
 
 impl Default for RestrictionResult {
@@ -1694,24 +1694,37 @@ impl<T: Trait> Module<T> {
             let mut is_in_valid = false;
             let mut force_valid = false;
             Self::extensions((ticker, SmartExtensionType::TransferManager))
-                    .into_iter()
+                .into_iter()
                 .filter(|tm| Self::extension_details((ticker, tm)).is_archive == false)
-            .for_each(|tm| {
-                let result = Self::verify_transfer(ticker, extension_caller.clone(), from_did, to_did, value, tm);
-                if result == RestrictionResult::VALID {
-                    is_valid = true;
-                }
-                else if result == RestrictionResult::INVALID {
-                    is_in_valid = true;
-                }
-                else if result == RestrictionResult::FORCE_VALID {
-                    force_valid = true;
-                }
-            });
+                .for_each(|tm| {
+                    let result = Self::verify_transfer(
+                        ticker,
+                        extension_caller.clone(),
+                        from_did,
+                        to_did,
+                        value,
+                        tm,
+                    );
+                    if result == RestrictionResult::VALID {
+                        is_valid = true;
+                    } else if result == RestrictionResult::INVALID {
+                        is_in_valid = true;
+                    } else if result == RestrictionResult::FORCE_VALID {
+                        force_valid = true;
+                    }
+                });
 
             //is_valid = force_valid ? true : (is_in_valid ? false : is_valid);
-            is_valid = if !force_valid { if is_in_valid { false } else { is_valid } } else { true }; 
-            if is_valid { 
+            is_valid = if !force_valid {
+                if is_in_valid {
+                    false
+                } else {
+                    is_valid
+                }
+            } else {
+                true
+            };
+            if is_valid {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
             } else {
                 return Ok(ERC1400_TRANSFER_FAILURE);
@@ -1807,7 +1820,12 @@ impl<T: Trait> Module<T> {
         Self::_is_owner(ticker, did)
     }
 
-    pub fn _mint(ticker: &Ticker, caller: T::AccountId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
+    pub fn _mint(
+        ticker: &Ticker,
+        caller: T::AccountId,
+        to_did: IdentityId,
+        value: T::Balance,
+    ) -> DispatchResult {
         // Granularity check
         ensure!(
             Self::check_granularity(ticker, value),
@@ -1998,17 +2016,18 @@ impl<T: Trait> Module<T> {
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
         value: T::Balance,
-        dest: T::AccountId
+        dest: T::AccountId,
     ) -> RestrictionResult {
         // 4 byte selector of verify_transfer - 0xD9386E41
-        let selector = &FunctionSelectorHasher::keccak256(&(b"verify_transfer".to_vec().as_slice()))[0..4];
+        let selector =
+            &FunctionSelectorHasher::keccak256(&(b"verify_transfer".to_vec().as_slice()))[0..4];
         let balance_to = match to_did {
             Some(did) => T::Balance::encode(&<BalanceOf<T>>::get((ticker, &did))),
-            None => T::Balance::encode(&(0.into()))
+            None => T::Balance::encode(&(0.into())),
         };
         let balance_from = match from_did {
             Some(did) => T::Balance::encode(&<BalanceOf<T>>::get((ticker, &did))),
-            None => T::Balance::encode(&(0.into()))
+            None => T::Balance::encode(&(0.into())),
         };
         let encoded_to = Option::<IdentityId>::encode(&to_did);
         let encoded_from = Option::<IdentityId>::encode(&from_did);
@@ -2024,16 +2043,24 @@ impl<T: Trait> Module<T> {
         //        balance_to: Balance,
         //        total_supply: Balance
         //    ) -> RestrictionResult { }
-        
+
         let encoded_data = [
-            &selector[..], &encoded_from[..], &encoded_to[..], &encoded_value[..], &balance_from[..], &balance_to[..], &total_supply[..]
-        ].concat();
+            &selector[..],
+            &encoded_from[..],
+            &encoded_to[..],
+            &encoded_value[..],
+            &balance_from[..],
+            &balance_to[..],
+            &total_supply[..],
+        ]
+        .concat();
 
         // Calling extension to verify the compliance rule
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
-        let is_allowed = Self::call_extension(extension_caller, dest, 0.into(), 5000000, encoded_data);
+        let is_allowed =
+            Self::call_extension(extension_caller, dest, 0.into(), 5000000, encoded_data);
         if is_allowed.is_success() {
             if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                 return allowed;
@@ -2045,7 +2072,6 @@ impl<T: Trait> Module<T> {
         }
     }
 
-
     /// A helper function that is used to call the smart extension function.
     ///
     /// # Arguments
@@ -2054,18 +2080,28 @@ impl<T: Trait> Module<T> {
     /// * `value` - Amount of native currency that need to transfer to the extension
     /// * `gas_limit` - Maximum amount of gas passed to successfully execute the function
     /// * `data` - Encoded data that contains function selector and function arguments values.
-    pub fn call_extension(from: T::AccountId, dest: T::AccountId, value: T::Balance, gas_limit: Gas, data: Vec<u8>) -> ExecReturnValue {
+    pub fn call_extension(
+        from: T::AccountId,
+        dest: T::AccountId,
+        value: T::Balance,
+        gas_limit: Gas,
+        data: Vec<u8>,
+    ) -> ExecReturnValue {
         // TODO: Fix the value conversion into Currency
-        let exec_result = <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into() , gas_limit, data);
+        let exec_result =
+            <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data);
         match exec_result {
             Ok(encoded_value) => {
                 return encoded_value;
-            },
+            }
             Err(err) => {
                 let reason: &'static str = err.reason.into();
                 // status 0 is used for extension call successfully executed
-                return ExecReturnValue {status: 1, data: reason.as_bytes().to_vec()};
-            },
-		}	
+                return ExecReturnValue {
+                    status: 1,
+                    data: reason.as_bytes().to_vec(),
+                };
+            }
+        }
     }
 }
