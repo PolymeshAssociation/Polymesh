@@ -291,7 +291,7 @@ decl_module! {
         /// * `simple_token_ticker` Ticker of the simple token
         pub fn buy_tokens_by_simple_token(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(&sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");

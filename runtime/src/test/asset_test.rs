@@ -25,6 +25,15 @@ type AssetError = asset::Error<TestStorage>;
 
 type OffChainSignature = AnySignature;
 
+// #[test]
+// fn check_encoding_scheme() {
+//     build_ext().execute_with(|| {
+//         let selector: Vec<u8> = b"verify_transfer".to_vec();
+//         let encoded_value = Vec::u8::encode(&selector);
+//         println!("{:?}", encoded_value);
+//     });
+// }
+
 #[test]
 fn issuers_can_create_and_rename_tokens() {
     build_ext().execute_with(|| {

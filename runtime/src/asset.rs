@@ -75,6 +75,7 @@ use primitives::{
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 use pallet_contracts::Gas;
 use pallet_contracts::ExecReturnValue;
+use ink_primitives::hash as FunctionSelectorHasher;
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -597,7 +598,7 @@ decl_module! {
         /// * `value` Amount of the token for transfer
         pub fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(&sender.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -1692,7 +1693,7 @@ impl<T: Trait> Module<T> {
             let mut is_valid = false;
             let mut is_in_valid = false;
             let mut force_valid = false;
-            Self::extensions((ticker, SmartExtensionTypes::TransferManager))
+            Self::extensions((ticker, SmartExtensionType::TransferManager))
                     .into_iter()
                 .filter(|tm| Self::extension_details((ticker, tm)).is_archive == false)
             .for_each(|tm| {
@@ -1999,8 +2000,8 @@ impl<T: Trait> Module<T> {
         value: T::Balance,
         dest: T::AccountId
     ) -> RestrictionResult {
-
-        let selector: Vec<u8> = b"verify_transfer".to_vec();
+        // 4 byte selector of verify_transfer - 0xD9386E41
+        let selector = &FunctionSelectorHasher::keccak256(&(b"verify_transfer".to_vec().as_slice()))[0..4];
         let balance_to = match to_did {
             Some(did) => T::Balance::encode(&<BalanceOf<T>>::get((ticker, &did))),
             None => T::Balance::encode(&(0.into()))
@@ -2014,11 +2015,25 @@ impl<T: Trait> Module<T> {
         let encoded_value = T::Balance::encode(&value);
         let total_supply = T::Balance::encode(&<Tokens<T>>::get(&ticker).total_supply);
 
-        // encode parameters
+        // Creation of the encoded data for the verifyTransfer function of the extension
+        // i.e fn verify_transfer(
+        //        from: AccountId,
+        //        to: AccountId,
+        //        value: Balance,
+        //        balance_from: Balance,
+        //        balance_to: Balance,
+        //        total_supply: Balance
+        //    ) -> RestrictionResult { }
+        
         let encoded_data = [
             &selector[..], &encoded_from[..], &encoded_to[..], &encoded_value[..], &balance_from[..], &balance_to[..], &total_supply[..]
         ].concat();
-        let is_allowed = Self::call_extension(extension_caller, dest, 0.into(), 500000, encoded_data);
+
+        // Calling extension to verify the compliance rule
+        // native currency value should be `0` as no funds need to transfer to the smart extension
+        // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
+        // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
+        let is_allowed = Self::call_extension(extension_caller, dest, 0.into(), 5000000, encoded_data);
         if is_allowed.is_success() {
             if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                 return allowed;
@@ -2048,6 +2063,7 @@ impl<T: Trait> Module<T> {
             },
             Err(err) => {
                 let reason: &'static str = err.reason.into();
+                // status 0 is used for extension call successfully executed
                 return ExecReturnValue {status: 1, data: reason.as_bytes().to_vec()};
             },
 		}	

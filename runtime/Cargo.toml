@@ -61,6 +61,7 @@ sp-block-builder = { git = "https://github.com/paritytech/substrate", default-fe
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../custom/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../custom/transaction-payment/rpc/runtime-api", default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+ink_primitives = { git = "https://github.com/paritytech/ink", package = "ink_primitives", default-features = false }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
@@ -82,6 +83,7 @@ std = [
 	"rand/std",
 	"serde/std",
 	"codec/std",
+	"ink_primitives/std",
 	"frame-support/std",
 	"frame-system/std",
 	"sp-std/std",
