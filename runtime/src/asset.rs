@@ -69,7 +69,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use pallet_session;
 use primitives::{
-    AuthorizationData, AuthorizationError, IdentityId, Key, Signer, SmartExtension,
+    AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signer, SmartExtension,
     SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
@@ -269,8 +269,8 @@ decl_module! {
         /// * `ticker` ticker to register
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
-            let signer = Signer::Key(sender_key.clone());
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let signer = Signer::AccountKey(sender_key.clone());
             let to_did =  match <identity::Module<T>>::current_did() {
                 Some(x) => x,
                 None => {
@@ -313,7 +313,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of ticker transfer authorization
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let to_did =  match <identity::Module<T>>::current_did() {
                 Some(x) => x,
                 None => {
@@ -335,7 +335,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of the token ownership transfer authorization
         pub fn accept_token_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let to_did =  match <identity::Module<T>>::current_did() {
                 Some(x) => x,
                 None => {
@@ -373,7 +373,7 @@ decl_module! {
             identifiers: Vec<(IdentifierType, Vec<u8>)>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -459,7 +459,7 @@ decl_module! {
         /// * `ticker` - the ticker of the token
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
             ticker.canonize();
             ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
             let token = <Tokens<T>>::get(&ticker);
@@ -479,7 +479,7 @@ decl_module! {
         /// * `ticker` - the ticker of the frozen token
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
             ticker.canonize();
             ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
             let token = <Tokens<T>>::get(&ticker);
@@ -500,7 +500,7 @@ decl_module! {
         /// * `name` - the new name of the token
         pub fn rename_token(origin, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
             ticker.canonize();
             ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
             let token = <Tokens<T>>::get(&ticker);
@@ -521,7 +521,7 @@ decl_module! {
         /// * `value` Value that needs to transferred
         pub fn transfer(_origin, did: IdentityId, ticker: Ticker, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(_origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -547,7 +547,7 @@ decl_module! {
         /// * `operator_data` It is a string which describes the reason of this control transfer call.
         pub fn controller_transfer(_origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(_origin)?;
-            let signer = Signer::Key( Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey( AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -571,7 +571,7 @@ decl_module! {
         /// * `value` Amount of the tokens approved
         fn approve(_origin, did: IdentityId, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(_origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -597,7 +597,7 @@ decl_module! {
         /// * `value` Amount of the token for transfer
         pub fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -630,7 +630,7 @@ decl_module! {
         /// * `_ticker` Ticker of the token
         pub fn create_checkpoint(_origin, did: IdentityId, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(_origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -650,7 +650,7 @@ decl_module! {
         /// * `value` Amount of tokens that get issued
         pub fn issue(origin, did: IdentityId, ticker: Ticker, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -670,7 +670,7 @@ decl_module! {
         /// * `values` Array of the Amount of tokens that get issued
         pub fn batch_issue(origin, did: IdentityId, ticker: Ticker, investor_dids: Vec<IdentityId>, values: Vec<T::Balance>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -747,7 +747,7 @@ decl_module! {
         /// * `_data` An off chain data blob used to validate the redeem functionality.
         pub fn redeem(_origin, did: IdentityId, ticker: Ticker, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(_origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -800,7 +800,7 @@ decl_module! {
         /// * `_data` An off chain data blob used to validate the redeem functionality.
         pub fn redeem_from(_origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(_origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -859,7 +859,7 @@ decl_module! {
         /// * `operator_data` Any data blob that defines the reason behind the force redeem.
         pub fn controller_redeem(origin, did: IdentityId, ticker: Ticker, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -903,7 +903,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         pub fn make_divisible(origin, did: IdentityId, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+            let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
@@ -1027,7 +1027,7 @@ decl_module! {
         /// * `document_hash` Hash of the document to proof the incorruptibility of the document
         pub fn set_document(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>, uri: Vec<u8>, document_hash: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+            let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
@@ -1047,7 +1047,7 @@ decl_module! {
         /// * `name` Name of the document
         pub fn remove_document(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+            let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
@@ -1073,7 +1073,7 @@ decl_module! {
         /// * `value` Allowance amount
         pub fn increase_custody_allowance(origin, ticker: Ticker, holder_did: IdentityId, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
+            let sender_signer = Signer::AccountKey( AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -1121,13 +1121,13 @@ decl_module! {
             };
             // holder_account_id should be a part of the holder_did
             ensure!(signature.verify(&msg.encode()[..], &holder_account_id), "Invalid signature");
-            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+            let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(caller_did, &sender_signer),
                 "sender must be a signing key for DID"
             );
             // Validate the holder signing key
-            let holder_signer = Signer::Key(Key::try_from(holder_account_id.encode())?);
+            let holder_signer = Signer::AccountKey(AccountKey::try_from(holder_account_id.encode())?);
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
                 "holder signing key must be a signing key for holder DID"
@@ -1155,7 +1155,7 @@ decl_module! {
             value: T::Balance
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::Key( Key::try_from(sender.encode())?);
+            let sender_signer = Signer::AccountKey( AccountKey::try_from(sender.encode())?);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(custodian_did, &sender_signer),
@@ -1190,7 +1190,7 @@ decl_module! {
         /// * `name` - the desired name of the current funding round.
         pub fn set_funding_round(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key(Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer),
                     "sender must be a signing key for DID");
@@ -1216,7 +1216,7 @@ decl_module! {
             identifiers: Vec<(IdentifierType, Vec<u8>)>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::Key(Key::try_from(sender.encode())?);
+            let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer),
                     "sender must be a signing key for DID");
             ticker.canonize();
@@ -1236,7 +1236,7 @@ decl_module! {
         /// * `extension_details` - Details of the smart extension
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did =  match <identity::Module<T>>::current_did() {
                 Some(x) => x,
                 None => {
@@ -1268,7 +1268,7 @@ decl_module! {
         /// * `extension_id` - AccountId of the extension that need to be archived
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did =  match <identity::Module<T>>::current_did() {
                 Some(x) => x,
                 None => {
@@ -1297,7 +1297,7 @@ decl_module! {
         /// * `extension_id` - AccountId of the extension that need to be un-archived
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did =  match <identity::Module<T>>::current_did() {
                 Some(x) => x,
                 None => {

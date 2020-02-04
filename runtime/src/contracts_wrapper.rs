@@ -14,7 +14,7 @@
 //!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
 
 use crate::identity;
-use primitives::{IdentityId, Key, Signer};
+use primitives::{AccountKey, IdentityId, Signer};
 
 use codec::Encode;
 use frame_support::traits::Currency;
@@ -56,7 +56,7 @@ decl_module! {
             code: Vec<u8>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::Key( Key::try_from(sender.encode())?);
+            let signer = Signer::AccountKey( AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");

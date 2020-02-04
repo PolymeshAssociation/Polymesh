@@ -1,4 +1,4 @@
-//! # MIPS Module
+//! # Mips Module
 //!
 //! MESH Improvement Proposals (MIPs) are proposals (ballots) that can then be proposed and voted on
 //! by all MESH token holders. If a ballot passes this community vote it is then passed to the
@@ -13,7 +13,7 @@
 //!
 //! ## Overview
 //!
-//! The MIPS module provides functions for:
+//! The Mips module provides functions for:
 //!
 //! - Creating Mesh Improvement Proposals
 //! - Voting on Mesh Improvement Proposals
@@ -81,7 +81,7 @@ pub struct MipsMetadata<BlockNumber: Parameter, Hash: Parameter> {
 /// For keeping track of proposal being voted on.
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Votes<AccountId, Balance> {
+pub struct PolymeshVotes<AccountId, Balance> {
     /// The proposal's unique index.
     index: MipsIndex,
     /// The current set of voters that approved with their stake.
@@ -108,7 +108,7 @@ impl Default for MipsPriority {
 /// Properties of a referendum
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct ReferendumInfo<Hash: Parameter> {
+pub struct PolymeshReferendumInfo<Hash: Parameter> {
     /// The proposal's unique index.
     index: MipsIndex,
     /// Priority.
@@ -135,7 +135,7 @@ pub trait Trait: frame_system::Trait {
 
 // This module's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as MIPS {
+    trait Store for Module<T: Trait> as Mips {
         /// The minimum amount to be used as a deposit for a public referendum proposal.
         pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): BalanceOf<T>;
 
@@ -159,12 +159,12 @@ decl_storage! {
         /// proposal hash -> proposal
         pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
 
-        /// Votes on a given proposal, if it is ongoing.
+        /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal hash -> voting info
-        pub Voting get(fn voting): map T::Hash => Option<Votes<T::AccountId, BalanceOf<T>>>;
+        pub Voting get(fn voting): map T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
-        pub ReferendumMetadata get(fn referendum_meta): Vec<ReferendumInfo<T::Hash>>;
+        pub ReferendumMetadata get(fn referendum_meta): Vec<PolymeshReferendumInfo<T::Hash>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
@@ -294,7 +294,7 @@ decl_module! {
             };
             <Proposals<T>>::insert(proposal_hash, mip);
 
-            let vote = Votes {
+            let vote = PolymeshVotes {
                 index,
                 ayes: vec![(proposer.clone(), deposit)],
                 nays: vec![],
@@ -498,7 +498,7 @@ impl<T: Trait> Module<T> {
         proposal_hash: T::Hash,
         proposal: T::Proposal,
     ) {
-        let ri = ReferendumInfo {
+        let ri = PolymeshReferendumInfo {
             index,
             priority,
             proposal_hash,
@@ -580,7 +580,7 @@ mod tests {
         pub enum Call for Test where origin: Origin {
             balances::Balances,
             system::System,
-            mips::MIPS,
+            mips::Mips,
         }
     }
 
@@ -706,7 +706,7 @@ mod tests {
 
     type System = system::Module<Test>;
     type Balances = balances::Module<Test>;
-    type MIPS = Module<Test>;
+    type Mips = Module<Test>;
 
     fn new_test_ext() -> sp_io::TestExternalities {
         let mut t = system::GenesisConfig::default()
@@ -731,7 +731,7 @@ mod tests {
     }
 
     fn next_block() {
-        assert_eq!(MIPS::end_block(System::block_number()), Ok(()));
+        assert_eq!(Mips::end_block(System::block_number()), Ok(()));
         System::set_block_number(System::block_number() + 1);
     }
 
@@ -754,12 +754,12 @@ mod tests {
 
             // Error when min deposit requirements are not met
             assert_err!(
-                MIPS::propose(Origin::signed(6), Box::new(proposal.clone()), 40),
+                Mips::propose(Origin::signed(6), Box::new(proposal.clone()), 40),
                 "deposit is less than minimum required to start a proposal"
             );
 
             // Account 6 starts a proposal with min deposit
-            assert_ok!(MIPS::propose(
+            assert_ok!(Mips::propose(
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50
@@ -768,8 +768,8 @@ mod tests {
             assert_eq!(Balances::free_balance(&6), 10);
 
             assert_eq!(
-                MIPS::voting(&hash),
-                Some(Votes {
+                Mips::voting(&hash),
+                Some(PolymeshVotes {
                     index: 0,
                     ayes: vec![(6, 50)],
                     nays: vec![],
@@ -787,7 +787,7 @@ mod tests {
             let hash = BlakeTwo256::hash_of(&proposal);
 
             // Account 6 starts a proposal with min deposit
-            assert_ok!(MIPS::propose(
+            assert_ok!(Mips::propose(
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50
@@ -796,19 +796,19 @@ mod tests {
             assert_eq!(Balances::free_balance(&6), 10);
 
             assert_eq!(
-                MIPS::voting(&hash),
-                Some(Votes {
+                Mips::voting(&hash),
+                Some(PolymeshVotes {
                     index,
                     ayes: vec![(6, 50)],
                     nays: vec![],
                 })
             );
 
-            assert_ok!(MIPS::kill_proposal(Origin::signed(1), index, hash));
+            assert_ok!(Mips::kill_proposal(Origin::signed(1), index, hash));
 
             assert_eq!(Balances::free_balance(&6), 60);
 
-            assert_eq!(MIPS::voting(&hash), None);
+            assert_eq!(Mips::voting(&hash), None);
         });
     }
 
@@ -819,17 +819,17 @@ mod tests {
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
 
-            assert_ok!(MIPS::propose(
+            assert_ok!(Mips::propose(
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50
             ));
 
-            assert_ok!(MIPS::vote(Origin::signed(5), hash, 0, true, 50));
+            assert_ok!(Mips::vote(Origin::signed(5), hash, 0, true, 50));
 
             assert_eq!(
-                MIPS::voting(&hash),
-                Some(Votes {
+                Mips::voting(&hash),
+                Some(PolymeshVotes {
                     index: 0,
                     ayes: vec![(6, 50), (5, 50)],
                     nays: vec![]
@@ -841,7 +841,7 @@ mod tests {
 
             fast_forward_to(20);
 
-            assert_eq!(MIPS::referendums(&hash), Some(proposal));
+            assert_eq!(Mips::referendums(&hash), Some(proposal));
 
             assert_eq!(Balances::free_balance(&5), 50);
             assert_eq!(Balances::free_balance(&6), 60);
@@ -855,17 +855,17 @@ mod tests {
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
 
-            assert_ok!(MIPS::propose(
+            assert_ok!(Mips::propose(
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50
             ));
 
-            assert_ok!(MIPS::vote(Origin::signed(5), hash, 0, true, 50));
+            assert_ok!(Mips::vote(Origin::signed(5), hash, 0, true, 50));
 
             assert_eq!(
-                MIPS::voting(&hash),
-                Some(Votes {
+                Mips::voting(&hash),
+                Some(PolymeshVotes {
                     index: 0,
                     ayes: vec![(6, 50), (5, 50)],
                     nays: vec![]
@@ -874,14 +874,14 @@ mod tests {
 
             fast_forward_to(20);
 
-            assert_eq!(MIPS::referendums(&hash), Some(proposal));
+            assert_eq!(Mips::referendums(&hash), Some(proposal));
 
             assert_err!(
-                MIPS::enact_referendum(Origin::signed(5), hash),
+                Mips::enact_referendum(Origin::signed(5), hash),
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
+            assert_ok!(Mips::enact_referendum(Origin::signed(1), hash));
         });
     }
 
@@ -893,26 +893,26 @@ mod tests {
             let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
 
-            assert_ok!(MIPS::propose(
+            assert_ok!(Mips::propose(
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50
             ));
 
-            assert_ok!(MIPS::vote(Origin::signed(5), hash, index, true, 50));
+            assert_ok!(Mips::vote(Origin::signed(5), hash, index, true, 50));
 
-            assert_ok!(MIPS::fast_track_proposal(Origin::signed(1), index, hash));
+            assert_ok!(Mips::fast_track_proposal(Origin::signed(1), index, hash));
 
             fast_forward_to(20);
 
-            assert_eq!(MIPS::referendums(&hash), Some(proposal));
+            assert_eq!(Mips::referendums(&hash), Some(proposal));
 
             assert_err!(
-                MIPS::enact_referendum(Origin::signed(5), hash),
+                Mips::enact_referendum(Origin::signed(5), hash),
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
+            assert_ok!(Mips::enact_referendum(Origin::signed(1), hash));
         });
     }
 
@@ -925,22 +925,22 @@ mod tests {
             let hash = BlakeTwo256::hash_of(&proposal);
 
             assert_err!(
-                MIPS::emergency_referendum(Origin::signed(6), Box::new(proposal.clone())),
+                Mips::emergency_referendum(Origin::signed(6), Box::new(proposal.clone())),
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(MIPS::emergency_referendum(
+            assert_ok!(Mips::emergency_referendum(
                 Origin::signed(1),
                 Box::new(proposal.clone())
             ));
 
             fast_forward_to(20);
 
-            assert_eq!(MIPS::referendums(&hash), Some(proposal));
+            assert_eq!(Mips::referendums(&hash), Some(proposal));
 
             assert_eq!(
-                MIPS::referendum_meta(),
-                vec![ReferendumInfo {
+                Mips::referendum_meta(),
+                vec![PolymeshReferendumInfo {
                     index,
                     priority: MipsPriority::High,
                     proposal_hash: hash
@@ -948,28 +948,28 @@ mod tests {
             );
 
             assert_err!(
-                MIPS::enact_referendum(Origin::signed(5), hash),
+                Mips::enact_referendum(Origin::signed(5), hash),
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(MIPS::enact_referendum(Origin::signed(1), hash));
+            assert_ok!(Mips::enact_referendum(Origin::signed(1), hash));
         });
     }
 
     #[test]
     fn should_update_mips_variables() {
         new_test_ext().execute_with(|| {
-            assert_eq!(MIPS::min_proposal_deposit(), 50);
-            assert_ok!(MIPS::set_min_proposal_deposit(Origin::signed(1), 10));
-            assert_eq!(MIPS::min_proposal_deposit(), 10);
+            assert_eq!(Mips::min_proposal_deposit(), 50);
+            assert_ok!(Mips::set_min_proposal_deposit(Origin::signed(1), 10));
+            assert_eq!(Mips::min_proposal_deposit(), 10);
 
-            assert_eq!(MIPS::quorum_threshold(), 70);
-            assert_ok!(MIPS::set_quorum_threshold(Origin::signed(1), 100));
-            assert_eq!(MIPS::quorum_threshold(), 100);
+            assert_eq!(Mips::quorum_threshold(), 70);
+            assert_ok!(Mips::set_quorum_threshold(Origin::signed(1), 100));
+            assert_eq!(Mips::quorum_threshold(), 100);
 
-            assert_eq!(MIPS::proposal_duration(), 10);
-            assert_ok!(MIPS::set_proposal_duration(Origin::signed(1), 100));
-            assert_eq!(MIPS::proposal_duration(), 100);
+            assert_eq!(Mips::proposal_duration(), 10);
+            assert_ok!(Mips::set_proposal_duration(Origin::signed(1), 100));
+            assert_eq!(Mips::proposal_duration(), 100);
         });
     }
 }

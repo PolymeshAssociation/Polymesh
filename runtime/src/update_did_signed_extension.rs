@@ -1,5 +1,5 @@
 use crate::{identity, identity::LinkedKeyInfo, runtime, Runtime};
-use primitives::{IdentityId, Key, TransactionError};
+use primitives::{AccountKey, IdentityId, TransactionError};
 
 use sp_runtime::{
     traits::SignedExtension,
@@ -28,7 +28,7 @@ impl<T: frame_system::Trait + Send + Sync> UpdateDid<T> {
 
     /// It extracts the `IdentityId` associated with `who` account.
     fn identity_from_key(who: &T::AccountId) -> Option<IdentityId> {
-        if let Ok(who_key) = Key::try_from(who.encode()) {
+        if let Ok(who_key) = AccountKey::try_from(who.encode()) {
             if let Some(linked_key_info) = Identity::key_to_identity_ids(&who_key) {
                 if let LinkedKeyInfo::Unique(id) = linked_key_info {
                     return Some(id);

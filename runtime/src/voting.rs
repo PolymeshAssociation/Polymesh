@@ -39,7 +39,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
-use primitives::{IdentityId, Key, Signer, Ticker};
+use primitives::{AccountKey, IdentityId, Signer, Ticker};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
@@ -119,7 +119,7 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         /// * `ballot_details` - Other details of the ballot
         pub fn add_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> DispatchResult {
-            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
@@ -172,7 +172,7 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
         pub fn vote(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> DispatchResult {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
@@ -242,7 +242,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
         pub fn cancel_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>) -> DispatchResult {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
@@ -588,7 +588,7 @@ mod tests {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
         Identity::register_did(signed_id.clone(), vec![]);
-        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
+        let did = Identity::get_identity(&AccountKey::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
