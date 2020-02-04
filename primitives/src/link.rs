@@ -7,7 +7,7 @@ use sp_std::prelude::Vec;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum LinkData {
     /// Represents a document (name, URI, hash)
-    Document(Document),
+    DocumentOwned(Document),
     /// Represents a ticker ownership
     TickerOwned(Ticker),
     /// Represents a token ownership

@@ -1073,7 +1073,7 @@ fn adding_removing_documents() {
 
         assert_eq!(
             last_doc.link_data,
-            LinkData::Document(Document {
+            LinkData::DocumentOwned(Document {
                 name: b"B".to_vec(),
                 uri: b"www.b.com".to_vec(),
                 hash: b"0x2".to_vec()
@@ -1083,6 +1083,42 @@ fn adding_removing_documents() {
         assert_eq!(last_doc.expiry, None);
 
         let doc_ids = vec![last_id, last_doc.previous_link];
+
+        assert_ok!(Asset::update_documents(
+            owner_signed.clone(),
+            owner_did,
+            ticker,
+            vec![
+                (
+                    doc_ids[0],
+                    Document {
+                        name: b"C".to_vec(),
+                        uri: b"www.c.com".to_vec(),
+                        hash: b"0x3".to_vec(),
+                    }
+                ),
+                (
+                    doc_ids[1],
+                    Document {
+                        name: b"D".to_vec(),
+                        uri: b"www.d.com".to_vec(),
+                        hash: b"0x4".to_vec(),
+                    }
+                ),
+            ]
+        ));
+
+        let last_id = Identity::last_link(Signer::from(ticker_did));
+        let last_doc = Identity::links((Signer::from(ticker_did), last_id));
+
+        assert_eq!(
+            last_doc.link_data,
+            LinkData::DocumentOwned(Document {
+                name: b"C".to_vec(),
+                uri: b"www.c.com".to_vec(),
+                hash: b"0x3".to_vec(),
+            })
+        );
 
         assert_ok!(Asset::remove_documents(
             owner_signed.clone(),

@@ -992,7 +992,7 @@ decl_module! {
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signer::from(ticker_did);
             documents.into_iter().for_each(|doc| {
-                <identity::Module<T>>::add_link(signer, LinkData::Document(doc), None)
+                <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None)
             });
 
             Ok(())
@@ -1023,15 +1023,14 @@ decl_module! {
             Ok(())
         }
 
-        /// Update document details for the given token, Only be called by the token owner
+        /// Update documents for the given token, Only be called by the token owner
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
         /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
-        /// * `doc_id` Document to be updated
-        /// * `doc` Contents of new document
-        pub fn update_document(origin, did: IdentityId, ticker: Ticker, doc_id: u64, doc: Document) -> DispatchResult {
+        /// * `docs` Vector of tuples (Document to be updated, Contents of new document)
+        pub fn update_documents(origin, did: IdentityId, ticker: Ticker, docs: Vec<(u64, Document)>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
@@ -1042,7 +1041,9 @@ decl_module! {
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signer::from(ticker_did);
-            <identity::Module<T>>::update_link(signer, doc_id, LinkData::Document(doc));
+            docs.into_iter().for_each(|(doc_id, doc)| {
+                <identity::Module<T>>::update_link(signer, doc_id, LinkData::DocumentOwned(doc))
+            });
 
             Ok(())
         }
