@@ -422,9 +422,8 @@ decl_module! {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
             }
             // Add funding round name
-            match funding_round {
-                Some(round) => <FundingRound>::insert(ticker, round),
-                None => {}
+            if let Some(round) = funding_round {
+                <FundingRound>::insert(ticker, round);
             }
             Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
 
