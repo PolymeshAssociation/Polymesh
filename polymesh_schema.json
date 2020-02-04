@@ -37,7 +37,7 @@
             "Admin",
             "Operator",
             "SpendFunds"
-       ]
+        ]
     },
     "Link": {
         "link_data": "LinkData",
@@ -46,12 +46,12 @@
         "previous_link": "u64"
     },
     "LinkData": {
-       "_enum": {
+        "_enum": {
             "TickerOwned": "Ticker",
             "TokenOwned": "Ticker"
-       }
+        }
     },
-    "SignerType": {
+    "SignatoryType": {
         "_enum": [
             "External",
             "Identity",
@@ -59,15 +59,15 @@
             "Relayer"
         ]
     },
-    "Signer":{
-       "_enum": {
+    "Signatory":{
+        "_enum": {
             "Identity": "IdentityId",
             "AccountKey": "AccountKey"
         }
     },
     "SigningItem": {
-        "signer": "Signer",
-        "signer_type": "SignerType",
+        "signer": "Signatory",
+        "signer_type": "SignatoryType",
         "permissions": "Vec<Permission>"
     },
     "SigningItemWithAuth":{

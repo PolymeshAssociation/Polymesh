@@ -54,7 +54,7 @@ use core::result::Result as StdResult;
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use frame_system::{self as system, ensure_signed};
 use identity::ClaimValue;
-use primitives::{AccountKey, IdentityId, Signer, Ticker};
+use primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// Type of operators that a rule can have
@@ -125,7 +125,7 @@ decl_module! {
 
         /// Adds an asset rule to active rules for a ticker
         pub fn add_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
-            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -145,7 +145,7 @@ decl_module! {
 
         /// Removes a rule from active asset rules
         pub fn remove_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
-            let sender = Signer::AccountKey(AccountKey::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey(AccountKey::try_from( ensure_signed(origin)?.encode())?);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -166,7 +166,7 @@ decl_module! {
 
         /// Removes all active rules of a ticker
         pub fn reset_active_rules(origin, did: IdentityId, ticker: Ticker) -> DispatchResult {
-            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -462,7 +462,7 @@ mod tests {
     }
 
     impl crate::multisig::AddSignerMultiSig for Test {
-        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }

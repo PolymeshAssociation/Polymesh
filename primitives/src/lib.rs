@@ -77,7 +77,7 @@ pub use account_key::AccountKey;
 
 /// This module contains entities related with signing keys.
 pub mod signing_item;
-pub use signing_item::{Permission, Signer, SignerType, SigningItem};
+pub use signing_item::{Permission, Signatory, SignatoryType, SigningItem};
 
 /// This module defines the needed information to add a pre-authorized key into an identity.
 pub mod pre_authorized_key_info;
