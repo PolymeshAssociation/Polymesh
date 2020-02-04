@@ -4,7 +4,7 @@ use crate::{
     test::storage::{build_ext, make_account, TestStorage},
 };
 use primitives::{
-    AuthorizationData, IdentityId, Signer, SmartExtension, SmartExtensionTypes, Ticker,
+    AuthorizationData, IdentityId, Signer, SmartExtension, SmartExtensionType, Ticker,
 };
 
 use codec::Encode;
@@ -1053,7 +1053,7 @@ fn add_extension_successfully() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::TransferManager,
+            extension_type: SmartExtensionType::TransferManager,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1062,32 +1062,20 @@ fn add_extension_successfully() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details,
+            extension_details.clone(),
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::TransferManager
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::TransferManager))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::TransferManager)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
             extension_id
         );
     });
@@ -1131,7 +1119,7 @@ fn add_same_extension_should_fail() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::TransferManager,
+            extension_type: SmartExtensionType::TransferManager,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1145,27 +1133,15 @@ fn add_same_extension_should_fail() {
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::TransferManager
+            Asset::extension_details((ticker, extension_id)),
+            extension_details.clone()
         );
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::TransferManager))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::TransferManager)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
             extension_id
         );
 
@@ -1213,7 +1189,7 @@ fn should_successfully_archive_extension() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::Offerings,
+            extension_type: SmartExtensionType::Offerings,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1222,32 +1198,20 @@ fn should_successfully_archive_extension() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details
+            extension_details.clone()
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::Offerings
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
             extension_id
         );
 
@@ -1301,7 +1265,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::Offerings,
+            extension_type: SmartExtensionType::Offerings,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1310,32 +1274,20 @@ fn should_fail_to_archive_an_already_archived_extension() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details
+            extension_details.clone()
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::Offerings
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
             extension_id
         );
 
@@ -1437,7 +1389,7 @@ fn should_successfuly_unarchive_an_extension() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::Offerings,
+            extension_type: SmartExtensionType::Offerings,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1446,32 +1398,20 @@ fn should_successfuly_unarchive_an_extension() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details
+            extension_details.clone()
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::Offerings
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
             extension_id
         );
 
@@ -1535,7 +1475,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
-            extension_type: SmartExtensionTypes::Offerings,
+            extension_type: SmartExtensionType::Offerings,
             extension_name: extension_name.to_vec(),
             extension_id: extension_id.clone(),
             is_archive: false,
@@ -1544,32 +1484,20 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         assert_ok!(Asset::add_extension(
             owner_signed.clone(),
             ticker,
-            extension_details,
+            extension_details.clone(),
         ));
 
         // verify the data within the runtime
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_type,
-            SmartExtensionTypes::Offerings
+            Asset::extension_details((ticker, extension_id)),
+            extension_details
         );
         assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_name,
-            extension_name.to_vec()
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).extension_id,
-            extension_id
-        );
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings))).len(),
+            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
             1
         );
         assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionTypes::Offerings)))[0],
+            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
             extension_id
         );
 
@@ -1598,6 +1526,96 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             Asset::unarchive_extension(owner_signed.clone(), ticker, extension_id),
             AssetError::AlreadyUnArchived
         );
+    });
+}
+
+#[test]
+fn freeze_unfreeze_asset() {
+    build_ext().execute_with(|| {
+        let now = Utc::now();
+        Timestamp::set_timestamp(now.timestamp() as u64);
+        let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let token_name = b"COOL";
+        let ticker = Ticker::from_slice(token_name);
+        assert_ok!(Asset::create_token(
+            alice_signed.clone(),
+            alice_did,
+            token_name.to_vec(),
+            ticker,
+            1_000_000,
+            true,
+            AssetType::default(),
+            vec![],
+        ));
+        // Allow all transfers.
+        let asset_rule = general_tm::AssetRule {
+            sender_rules: vec![],
+            receiver_rules: vec![],
+        };
+        assert_ok!(GeneralTM::add_active_rule(
+            alice_signed.clone(),
+            alice_did,
+            ticker,
+            asset_rule
+        ));
+        assert_err!(
+            Asset::freeze(bob_signed.clone(), ticker),
+            "sender must be a signing key for the token owner DID"
+        );
+        assert_err!(
+            Asset::unfreeze(alice_signed.clone(), ticker),
+            "asset must be frozen"
+        );
+        assert_ok!(Asset::freeze(alice_signed.clone(), ticker));
+        assert_err!(
+            Asset::freeze(alice_signed.clone(), ticker),
+            "asset must not already be frozen"
+        );
+        // Attempt to transfer token ownership.
+        Identity::add_auth(
+            Signer::from(alice_did),
+            Signer::from(bob_did),
+            AuthorizationData::TransferTokenOwnership(ticker),
+            None,
+        );
+        let auth_id = Identity::last_authorization(Signer::from(bob_did));
+        // Attempt to mint tokens.
+        assert_err!(
+            Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
+            "asset is frozen"
+        );
+        assert_ok!(Asset::accept_token_ownership_transfer(
+            bob_signed.clone(),
+            auth_id
+        ));
+        assert_err!(
+            Asset::transfer(alice_signed.clone(), alice_did, ticker, bob_did, 1),
+            "asset is frozen"
+        );
+        // `batch_issue` fails when the vector of recipients is not empty.
+        assert_err!(
+            Asset::batch_issue(bob_signed.clone(), bob_did, ticker, vec![bob_did], vec![1]),
+            "asset is frozen"
+        );
+        // `batch_issue` fails with the empty vector of investors with a different error message.
+        assert_err!(
+            Asset::batch_issue(bob_signed.clone(), bob_did, ticker, vec![], vec![]),
+            "list of investors is empty"
+        );
+        assert_ok!(Asset::unfreeze(bob_signed.clone(), ticker));
+        assert_err!(
+            Asset::unfreeze(bob_signed.clone(), ticker),
+            "asset must be frozen"
+        );
+        // Transfer some balance.
+        assert_ok!(Asset::transfer(
+            alice_signed.clone(),
+            alice_did,
+            ticker,
+            bob_did,
+            1
+        ));
     });
 }
 
