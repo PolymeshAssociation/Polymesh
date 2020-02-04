@@ -3,16 +3,15 @@
 //! This module implements a one-way bridge between Polymath Classic on the Ethereum side, and
 //! Polymesh native. It mints POLY on Polymesh in return for permanently locked ERC20 POLY tokens.
 
-use crate::{balances, identity, multisig, runtime};
+use crate::{balances, identity, multisig};
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::{Currency, Imbalance};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_support::dispatch::DispatchResult;
+use frame_support::traits::Currency;
+use frame_support::{decl_event, decl_module, decl_storage, ensure};
 use frame_system::{self as system, ensure_signed};
 use primitives::traits::IdentityCurrency;
-use primitives::{IdentityId, Key, Signer, Ticker};
+use primitives::{IdentityId, Key, Signer};
 use sp_core::H256;
-use sp_runtime::traits::Dispatchable;
 use sp_std::{convert::TryFrom, prelude::*};
 
 pub trait Trait: balances::Trait + multisig::Trait {
@@ -160,8 +159,7 @@ decl_module! {
                 IssueRecipient::Identity(did) => (Some(did.clone()), None)
             };
             if let Some(did) = did {
-                let amount = <T as Trait>::Balance::from(*value);
-                let mut amount: <T as balances::Trait>::Balance = amount.into();
+                let amount = <T as Trait>::Balance::from(*value).into();
                 let neg_imbalance = <balances::Module<T>>::issue(amount);
                 let resolution = if let Some(account_id) = to_account {
                     <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
