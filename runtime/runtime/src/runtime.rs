@@ -53,7 +53,6 @@ use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_version::NativeVersion;
 
 pub use balances::Call as BalancesCall;
-// pub use balances::GenesisConfig as BGenesisConfig;
 pub use frame_support::StorageValue;
 pub use pallet_contracts::Gas;
 pub use pallet_staking::StakerStatus;
@@ -315,7 +314,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type Event = Event;
 }
 
-impl group::Trait for Runtime {
+impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
     type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
@@ -508,6 +507,7 @@ impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = MultiSig;
+    type KYCServiceProviders = KYCServiceProviders;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -521,7 +521,6 @@ impl dividend::Trait for Runtime {
     type Event = Event;
 }
 
-/*
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
     type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
@@ -530,7 +529,7 @@ impl group::Trait<group::Instance2> for Runtime {
     type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
-}*/
+}
 
 impl statistics::Trait for Runtime {}
 
@@ -572,7 +571,7 @@ construct_runtime!(
         // Polymesh Governance Committees
         Treasury: pallet_treasury::{Module, Call, Storage, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        CommitteeMembership: group::{Module, Call, Storage, Event<T>, Config<T>},
+        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
@@ -585,7 +584,7 @@ construct_runtime!(
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
-        // KYCServiceProviders: group::{Module, Call, Storage, Event<T>, Config<T>},
+        KYCServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage },
     }
 );

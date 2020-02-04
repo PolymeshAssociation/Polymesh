@@ -1,10 +1,12 @@
 use crate::{
-    identity, multisig,
+    multisig,
     test::storage::{build_ext, register_keyring_account, Call, TestStorage},
 };
+use polymesh_primitives::{Key, Signer};
+use polymesh_runtime_identity as identity;
+
 use codec::Encode;
 use frame_support::{assert_err, assert_ok};
-use primitives::{Key, Signer};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 

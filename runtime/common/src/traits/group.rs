@@ -1,33 +1,14 @@
-use polymesh_primitives::IdentityId;
-
 use frame_support::{
     decl_event,
     traits::{ChangeMembers, InitializeMembers},
 };
+use polymesh_primitives::IdentityId;
 use sp_runtime::traits::EnsureOrigin;
 use sp_std::vec::Vec;
 
-decl_event!(
-	pub enum Event<T> where
-		<T as frame_system::Trait>::AccountId,
-		<T as Trait>::Event,
-	{
-		/// The given member was added; see the transaction for who.
-		MemberAdded(IdentityId),
-		/// The given member was removed; see the transaction for who.
-		MemberRemoved(IdentityId),
-		/// Two members were swapped; see the transaction for who.
-		MembersSwapped(IdentityId, IdentityId),
-		/// The membership was reset; see the transaction for who the new set is.
-		MembersReset(Vec<IdentityId>),
-		/// Phantom member, never used.
-		Dummy(sp_std::marker::PhantomData<(AccountId, Event)>),
-	}
-);
-
-pub trait Trait: frame_system::Trait {
+pub trait Trait<I>: frame_system::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Required origin for adding a member (though can always be Root).
     type AddOrigin: EnsureOrigin<Self::Origin>;
@@ -48,4 +29,29 @@ pub trait Trait: frame_system::Trait {
 
     /// The receiver of the signal for when the membership has changed.
     type MembershipChanged: ChangeMembers<IdentityId>;
+}
+
+decl_event!(
+    pub enum Event<T, I> where
+    <T as frame_system::Trait>::AccountId,
+    <T as Trait<I>>::Event,
+    {
+        /// The given member was added; see the transaction for who.
+        MemberAdded(IdentityId),
+        /// The given member was removed; see the transaction for who.
+        MemberRemoved(IdentityId),
+        /// Two members were swapped; see the transaction for who.
+        MembersSwapped(IdentityId, IdentityId),
+        /// The membership was reset; see the transaction for who the new set is.
+        MembersReset(Vec<IdentityId>),
+        /// Phantom member, never used.
+        Dummy(sp_std::marker::PhantomData<(AccountId, Event)>),
+    }
+);
+
+pub trait GroupTrait {
+    fn get_members() -> Vec<IdentityId>;
+
+    /// Is the given `MemberId` a valid member?
+    fn is_member(member_id: &IdentityId) -> bool;
 }

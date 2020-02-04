@@ -3,7 +3,7 @@ use crate::{
     general_tm, statistics,
     test::storage::{build_ext, register_keyring_account, TestStorage},
 };
-use primitives::Ticker;
+use polymesh_primitives::Ticker;
 
 use frame_support::assert_ok;
 use test_client::AccountKeyring;

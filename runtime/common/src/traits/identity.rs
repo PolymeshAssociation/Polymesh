@@ -1,4 +1,4 @@
-use crate::traits::{balances, group, multisig::AddSignerMultiSig, CommonTrait};
+use crate::traits::{balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait};
 use polymesh_primitives::{
     AuthorizationData, IdentityId, Key, LinkData, Permission, Signer, SigningItem,
 };
@@ -57,7 +57,7 @@ impl Default for DataTypes {
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or external type signing key are restricted to be linked to just one identity.
-/// Other types of signing key could be associated with more that one identity.
+/// Other types of signing key could be associated with more than one identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub enum LinkedKeyInfo {
     Unique(IdentityId),
@@ -99,6 +99,19 @@ pub struct SigningItemWithAuth {
     pub auth_signature: H512,
 }
 
+/// The module's configuration trait.
+pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
+    /// The overarching event type.
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    /// An extrinsic call.
+    type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
+    /// MultiSig module
+    type AddSignerMultiSigTarget: AddSignerMultiSig;
+    /// Group module
+    type KYCServiceProviders: GroupTrait;
+}
+// rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation
+#[rustfmt::skip]
 decl_event!(
     pub enum Event<T>
     where
@@ -157,16 +170,6 @@ decl_event!(
         SignerJoinedToIdentityApproved(Signer, IdentityId),
     }
 );
-
-/// The module's configuration trait.
-pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait + group::Trait {
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    /// An extrinsic call.
-    type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
-    /// MultiSig module
-    type AddSignerMultiSigTarget: AddSignerMultiSig;
-}
 
 pub trait IdentityTrait {
     fn get_identity(key: &Key) -> Option<IdentityId>;

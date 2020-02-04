@@ -23,7 +23,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use polymesh_primitives::IdentityId;
-pub use polymesh_runtime_common::group::{RawEvent, Trait};
+pub use polymesh_runtime_common::group::{GroupTrait, RawEvent, Trait};
 
 use frame_support::{
     decl_module, decl_storage,
@@ -35,26 +35,26 @@ use frame_system::{self as system, ensure_root};
 use sp_runtime::traits::EnsureOrigin;
 use sp_std::prelude::*;
 
-pub type Event<T> = polymesh_runtime_common::group::Event<T>;
+pub type Event<T, I> = polymesh_runtime_common::group::Event<T, I>;
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Group {
+    trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
         /// Identities that are part of this group
         pub Members get(fn members) config(): Vec<IdentityId>;
     }
     add_extra_genesis {
-        config(phantom): sp_std::marker::PhantomData<T>;
+        config(phantom): sp_std::marker::PhantomData<(T, I)>;
         build(|config: &Self| {
             let mut members = config.members.clone();
             members.sort();
             T::MembershipInitialized::initialize_members(&members);
-            <Members>::put(members);
+            <Members<I>>::put(members);
         })
     }
 }
 
 decl_module! {
-    pub struct Module<T: Trait>
+    pub struct Module<T: Trait<I>, I: Instance=DefaultInstance>
         for enum Call
         where origin: T::Origin
     {
@@ -72,10 +72,10 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            let mut members = <Members>::get();
+            let mut members = <Members<I>>::get();
             let location = members.binary_search(&who).err().ok_or("already a member")?;
             members.insert(location, who.clone());
-            <Members>::put(&members);
+            <Members<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
 
@@ -94,10 +94,10 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
 
-            let mut members = <Members>::get();
+            let mut members = <Members<I>>::get();
             let location = members.binary_search(&who).ok().ok_or("not a member")?;
             members.remove(location);
-            <Members>::put(&members);
+            <Members<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
 
@@ -120,14 +120,14 @@ decl_module! {
 
             if remove == add { return Ok(()) }
 
-            let mut members = <Members>::get();
+            let mut members = <Members<I>>::get();
 
             let location = members.binary_search(&remove).ok().ok_or("not a member")?;
             members[location] = add.clone();
 
             let _location = members.binary_search(&add).err().ok_or("already a member")?;
             members.sort();
-            <Members>::put(&members);
+            <Members<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(
                 &[add],
@@ -153,13 +153,23 @@ decl_module! {
 
             let mut new_members = members.clone();
             new_members.sort();
-            <Members>::mutate(|m| {
+            <Members<I>>::mutate(|m| {
                 T::MembershipChanged::set_members_sorted(&members[..], m);
                 *m = new_members;
             });
 
             Self::deposit_event(RawEvent::MembersReset(members));
         }
+    }
+}
+
+impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
+    fn get_members() -> Vec<IdentityId> {
+        return Self::members();
+    }
+
+    fn is_member(did: &IdentityId) -> bool {
+        Self::members().iter().any(|id| id == did)
     }
 }
 
@@ -247,7 +257,7 @@ mod tests {
         }
     }
 
-    impl Trait for Test {
+    impl Trait<DefaultInstance> for Test {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, u64>;
         type RemoveOrigin = EnsureSignedBy<Two, u64>;

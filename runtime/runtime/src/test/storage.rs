@@ -1,14 +1,22 @@
 use crate::{
     asset::{self, TickerRegistrationConfig},
-    balances, exemption, general_tm, group, identity, multisig, percentage_tm, statistics, utils,
+    exemption, general_tm, multisig, percentage_tm, statistics, utils,
 };
+
+use polymesh_primitives::{IdentityId, Key, Signer};
+use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::traits::{
+    asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
+};
+use polymesh_runtime_group as group;
+use polymesh_runtime_identity as identity;
+
 use codec::Encode;
 use frame_support::{
     dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin, parameter_types,
     traits::Currency,
 };
 use frame_system::{self as system, EnsureSignedBy};
-use primitives::{IdentityId, Key, Signer};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
@@ -87,8 +95,13 @@ parameter_types! {
     pub const TransactionByteFee: u64 = 0;
 }
 
-impl balances::Trait for TestStorage {
+impl CommonTrait for TestStorage {
     type Balance = u128;
+    type CreationFee = CreationFee;
+    type AcceptTransferTarget = TestStorage;
+}
+
+impl balances::Trait for TestStorage {
     type OnFreeBalanceZero = ();
     type OnNewAccount = ();
     type Event = Event;
@@ -96,8 +109,7 @@ impl balances::Trait for TestStorage {
     type TransferPayment = ();
     type ExistentialDeposit = ExistentialDeposit;
     type TransferFee = TransferFee;
-    type CreationFee = CreationFee;
-    type Identity = crate::identity::Module<TestStorage>;
+    type Identity = identity::Module<TestStorage>;
 }
 
 parameter_types! {
@@ -135,17 +147,27 @@ impl group::Trait<group::Instance1> for TestStorage {
 impl identity::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
-    type AcceptTransferTarget = TestStorage;
     type AddSignerMultiSigTarget = TestStorage;
+    type KYCServiceProviders = TestStorage;
 }
 
-impl crate::multisig::AddSignerMultiSig for TestStorage {
+impl GroupTrait for TestStorage {
+    fn get_members() -> Vec<IdentityId> {
+        unimplemented!();
+    }
+
+    fn is_member(member_id: &IdentityId) -> bool {
+        unimplemented!();
+    }
+}
+
+impl AddSignerMultiSig for TestStorage {
     fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
         unimplemented!()
     }
 }
 
-impl crate::asset::AcceptTransfer for TestStorage {
+impl AcceptTransfer for TestStorage {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
@@ -271,7 +293,7 @@ pub fn make_account(
 /// It creates an Account and registers its DID.
 pub fn make_account_with_balance(
     id: AccountId,
-    balance: <TestStorage as balances::Trait>::Balance,
+    balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
@@ -288,7 +310,7 @@ pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'sta
 
 pub fn register_keyring_account_with_balance(
     acc: AccountKeyring,
-    balance: <TestStorage as balances::Trait>::Balance,
+    balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<IdentityId, &'static str> {
     Balances::make_free_balance_be(&acc.public(), balance);
 

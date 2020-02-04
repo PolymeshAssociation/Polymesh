@@ -398,12 +398,12 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use chrono::{prelude::*, Duration};
     use core::result::Result as StdResult;
     use frame_support::traits::Currency;
     use frame_support::{assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types};
     use lazy_static::lazy_static;
-    use primitives::IdentityId;
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
@@ -418,10 +418,19 @@ mod tests {
     };
     use system::EnsureSignedBy;
 
-    use crate::asset::{AssetType, SecurityToken, TickerRegistrationConfig};
+    use polymesh_primitives::IdentityId;
+    use polymesh_runtime_balances as balances;
+    use polymesh_runtime_common::traits::{
+        asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig,
+    };
+    use polymesh_runtime_group as group;
+    use polymesh_runtime_identity as identity;
+
     use crate::{
-        balances, exemption, general_tm, group, identity, percentage_tm,
-        simple_token::SimpleTokenRecord, statistics,
+        asset::{AssetType, SecurityToken, TickerRegistrationConfig},
+        exemption, general_tm, percentage_tm,
+        simple_token::SimpleTokenRecord,
+        statistics,
     };
 
     type SessionIndex = u32;
@@ -520,8 +529,13 @@ mod tests {
         type FullIdentificationOf = ();
     }
 
-    impl balances::Trait for Test {
+    impl CommonTrait for Test {
         type Balance = u128;
+        type CreationFee = CreationFee;
+        type AcceptTransferTarget = Test;
+    }
+
+    impl balances::Trait for Test {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
@@ -529,8 +543,7 @@ mod tests {
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
-        type CreationFee = CreationFee;
-        type Identity = crate::identity::Module<Test>;
+        type Identity = identity::Module<Test>;
     }
 
     parameter_types! {
@@ -560,16 +573,36 @@ mod tests {
         type Currency = balances::Module<Test>;
     }
 
+    impl AcceptTransfer for Test {
+        fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+            unimplemented!();
+        }
+
+        fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+            unimplemented!();
+        }
+    }
+
     impl statistics::Trait for Test {}
 
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = Call<Test>;
-        type AcceptTransferTarget = asset::Module<Test>;
         type AddSignerMultiSigTarget = Test;
+        type KYCServiceProviders = Test;
     }
 
-    impl crate::multisig::AddSignerMultiSig for Test {
+    impl GroupTrait for Test {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!();
+        }
+
+        fn is_member(member_id: &IdentityId) -> bool {
+            unimplemented!();
+        }
+    }
+
+    impl AddSignerMultiSig for Test {
         fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
             unimplemented!()
         }
@@ -613,7 +646,7 @@ mod tests {
         type Event = ();
     }
 
-    impl asset::AssetTrait<<Test as balances::Trait>::Balance> for Module<Test> {
+    impl asset::AssetTrait<<Test as CommonTrait>::Balance> for Module<Test> {
         fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(ticker) {
                 token.owner_did == sender_did
@@ -625,18 +658,18 @@ mod tests {
         fn _mint_from_sto(
             _ticker: &Ticker,
             _sender_did: IdentityId,
-            _tokens_purchased: <Test as balances::Trait>::Balance,
+            _tokens_purchased: <Test as CommonTrait>::Balance,
         ) -> DispatchResult {
             unimplemented!();
         }
 
         /// Get the asset `id` balance of `who`.
-        fn balance(_ticker: &Ticker, _did: IdentityId) -> <Test as balances::Trait>::Balance {
+        fn balance(_ticker: &Ticker, _did: IdentityId) -> <Test as CommonTrait>::Balance {
             unimplemented!();
         }
 
         // Get the total supply of an asset `id`
-        fn total_supply(_ticker: &Ticker) -> <Test as balances::Trait>::Balance {
+        fn total_supply(_ticker: &Ticker) -> <Test as CommonTrait>::Balance {
             unimplemented!();
         }
 
@@ -644,7 +677,7 @@ mod tests {
             _ticker: &Ticker,
             _did: IdentityId,
             _at: u64,
-        ) -> <Test as balances::Trait>::Balance {
+        ) -> <Test as CommonTrait>::Balance {
             unimplemented!();
         }
     }
@@ -655,7 +688,7 @@ mod tests {
             HashMap<
             Ticker,
             SecurityToken<
-                <Test as balances::Trait>::Balance,
+                <Test as CommonTrait>::Balance,
                 >,
                 >,
                 >,

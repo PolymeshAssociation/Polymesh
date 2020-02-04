@@ -558,13 +558,20 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{balances, group, identity};
+
+    use polymesh_primitives::{IdentityId, Signer};
+    use polymesh_runtime_balances as balances;
+    use polymesh_runtime_common::traits::{
+        asset::AcceptTransfer, multisig::AddSignerMultiSig, CommonTrait,
+    };
+    use polymesh_runtime_group as group;
+    use polymesh_runtime_identity as identity;
+
     use frame_support::{
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
         parameter_types,
     };
     use frame_system::EnsureSignedBy;
-    use primitives::{IdentityId, Signer};
     use sp_core::H256;
     use sp_runtime::{
         testing::Header,
@@ -621,8 +628,13 @@ mod tests {
         pub const TransactionByteFee: u64 = 0;
     }
 
-    impl balances::Trait for Test {
+    impl CommonTrait for Test {
         type Balance = u128;
+        type CreationFee = CreationFee;
+        type AcceptTransferTarget = Test;
+    }
+
+    impl balances::Trait for Test {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
@@ -630,19 +642,17 @@ mod tests {
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
-        type CreationFee = CreationFee;
-        type Identity = crate::identity::Module<Test>;
+        type Identity = identity::Module<Test>;
     }
 
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = Call;
-        type AcceptTransferTarget = Test;
         type AddSignerMultiSigTarget = Test;
         type KYCServiceProviders = Test;
     }
 
-    impl crate::group::GroupTrait for Test {
+    impl group::GroupTrait for Test {
         fn get_members() -> Vec<IdentityId> {
             unimplemented!()
         }
@@ -651,13 +661,13 @@ mod tests {
         }
     }
 
-    impl crate::multisig::AddSignerMultiSig for Test {
+    impl AddSignerMultiSig for Test {
         fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }
 
-    impl crate::asset::AcceptTransfer for Test {
+    impl AcceptTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
             unimplemented!()
         }

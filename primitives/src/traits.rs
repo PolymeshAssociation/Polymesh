@@ -3,6 +3,7 @@ use crate::{identity_id::IdentityId, key::Key};
 use frame_support::{dispatch::DispatchError, traits::Currency};
 use sp_std::result;
 
+#[allow(missing_docs)]
 pub trait IdentityCurrency<AccountId>: Currency<AccountId> {
     fn withdraw_identity_balance(
         who: &IdentityId,

@@ -1,16 +1,18 @@
-use crate::{
-    balances,
-    identity::{
-        self, Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, Error, SigningItemWithAuth,
-        TargetIdAuthorization,
-    },
-    test::storage::{build_ext, register_keyring_account, TestStorage},
-};
-use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency};
-use primitives::{
+use crate::test::storage::{build_ext, register_keyring_account, TestStorage};
+
+use polymesh_primitives::{
     AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem, Ticker,
 };
+use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::traits::identity::{
+    Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, SigningItemWithAuth,
+    TargetIdAuthorization,
+};
+use polymesh_runtime_identity::{self as identity, Error};
+
+use codec::Encode;
+use frame_support::{assert_err, assert_ok, traits::Currency};
+
 use rand::Rng;
 use sp_core::H512;
 use test_client::AccountKeyring;

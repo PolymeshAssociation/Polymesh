@@ -113,13 +113,16 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
 mod tests {
     use super::UpdateDid;
     use crate::{
-        identity, runtime,
+        runtime,
         test::storage::{build_ext, register_keyring_account_with_balance, Identity, TestStorage},
         Runtime,
     };
+
+    use polymesh_primitives::TransactionError;
+    use polymesh_runtime_identity as identity;
+
     use core::default::Default;
     use frame_support::dispatch::DispatchInfo;
-    use primitives::TransactionError;
     use sp_runtime::{
         traits::SignedExtension,
         transaction_validity::{InvalidTransaction, ValidTransaction},

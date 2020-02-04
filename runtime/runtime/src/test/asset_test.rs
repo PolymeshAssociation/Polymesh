@@ -1,9 +1,12 @@
 use crate::{
     asset::{self, AssetType, IdentifierType, SecurityToken, SignData},
-    balances, general_tm, identity,
+    general_tm,
     test::storage::{build_ext, make_account, TestStorage},
 };
-use primitives::{AuthorizationData, IdentityId, Signer, Ticker};
+
+use polymesh_primitives::{AuthorizationData, IdentityId, Signer, Ticker};
+use polymesh_runtime_balances as balances;
+use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};

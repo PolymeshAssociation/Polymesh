@@ -361,9 +361,16 @@ mod tests {
     use std::result::Result;
     use test_client::{self, AccountKeyring};
 
+    use polymesh_runtime_balances as balances;
+    use polymesh_runtime_common::traits::{
+        asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
+    };
+    use polymesh_runtime_group as group;
+    use polymesh_runtime_identity as identity;
+
     use crate::{
         asset::{AssetType, SecurityToken, TickerRegistrationConfig},
-        balances, exemption, general_tm, group, identity, percentage_tm, statistics,
+        exemption, general_tm, percentage_tm, statistics,
     };
 
     impl_outer_origin! {
@@ -416,8 +423,23 @@ mod tests {
         pub const TransactionByteFee: u64 = 0;
     }
 
-    impl balances::Trait for Test {
+    impl CommonTrait for Test {
         type Balance = u128;
+        type CreationFee = CreationFee;
+        type AcceptTransferTarget = Test;
+    }
+
+    impl AcceptTransfer for Test {
+        fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+            unimplemented!();
+        }
+
+        fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+            unimplemented!();
+        }
+    }
+
+    impl balances::Trait for Test {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
         type Event = ();
@@ -425,8 +447,7 @@ mod tests {
         type TransferPayment = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
-        type CreationFee = CreationFee;
-        type Identity = crate::identity::Module<Test>;
+        type Identity = identity::Module<Test>;
     }
 
     parameter_types! {
@@ -518,11 +539,21 @@ mod tests {
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = Call<Test>;
-        type AcceptTransferTarget = asset::Module<Test>;
         type AddSignerMultiSigTarget = Test;
+        type KYCServiceProviders = Test;
     }
 
-    impl crate::multisig::AddSignerMultiSig for Test {
+    impl GroupTrait for Test {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!();
+        }
+
+        fn is_member(member_id: &IdentityId) -> bool {
+            unimplemented!();
+        }
+    }
+
+    impl AddSignerMultiSig for Test {
         fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
             unimplemented!()
         }
