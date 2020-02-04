@@ -1,6 +1,11 @@
 {
     "IdentityId":"H256",
     "Ticker": "[u8; 12]",
+    "Document": {
+        "name": "Vec<u8>",
+        "uri": "Vec<u8>",
+        "hash": "Vec<u8>"
+    },
     "AssetType": {
         "_enum": {
             "Equity": "",
@@ -47,6 +52,7 @@
     },
     "LinkData": {
        "_enum": {
+            "DocumentOwned": "Document",
             "TickerOwned": "Ticker",
             "TokenOwned": "Ticker"
        }
