@@ -13,44 +13,44 @@ const KEY_SIZE: usize = 32;
 /// It stores a simple key.
 /// It uses fixed size to avoid dynamic memory allocation.
 #[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Copy, Clone, Debug)]
-pub struct Key([u8; KEY_SIZE]);
+pub struct AccountKey([u8; KEY_SIZE]);
 
-impl Key {
+impl AccountKey {
     /// It returns this key as a byte slice.
     pub fn as_slice(&self) -> &[u8] {
         &self.0
     }
 }
 
-impl TryFrom<Vec<u8>> for Key {
+impl TryFrom<Vec<u8>> for AccountKey {
     type Error = &'static str;
 
     fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
-        Key::try_from(v.as_slice())
+        AccountKey::try_from(v.as_slice())
     }
 }
 
-impl TryFrom<&Vec<u8>> for Key {
+impl TryFrom<&Vec<u8>> for AccountKey {
     type Error = &'static str;
 
     fn try_from(v: &Vec<u8>) -> Result<Self, Self::Error> {
-        Key::try_from(v.as_slice())
+        AccountKey::try_from(v.as_slice())
     }
 }
 
-impl TryFrom<&str> for Key {
+impl TryFrom<&str> for AccountKey {
     type Error = &'static str;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Key::try_from(s.as_bytes())
+        AccountKey::try_from(s.as_bytes())
     }
 }
 
-impl TryFrom<&[u8]> for Key {
+impl TryFrom<&[u8]> for AccountKey {
     type Error = &'static str;
 
     fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
-        let mut k = Key::default();
+        let mut k = AccountKey::default();
         match s.len() {
             KEY_SIZE => k.0.copy_from_slice(s),
             KEY_SIZE_TEST => k.0[..KEY_SIZE_TEST].copy_from_slice(s),
@@ -60,19 +60,19 @@ impl TryFrom<&[u8]> for Key {
     }
 }
 
-impl From<[u8; KEY_SIZE]> for Key {
+impl From<[u8; KEY_SIZE]> for AccountKey {
     fn from(s: [u8; KEY_SIZE]) -> Self {
-        Key(s)
+        AccountKey(s)
     }
 }
 
-impl PartialEq for Key {
+impl PartialEq for AccountKey {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl PartialEq<&[u8]> for Key {
+impl PartialEq<&[u8]> for AccountKey {
     fn eq(&self, other: &&[u8]) -> bool {
         match other.len() {
             KEY_SIZE => self.0 == *other,
@@ -85,7 +85,7 @@ impl PartialEq<&[u8]> for Key {
     }
 }
 
-impl PartialEq<Vec<u8>> for Key {
+impl PartialEq<Vec<u8>> for AccountKey {
     fn eq(&self, other: &Vec<u8>) -> bool {
         self == &other.as_slice()
     }
@@ -93,7 +93,7 @@ impl PartialEq<Vec<u8>> for Key {
 
 #[cfg(test)]
 mod tests {
-    use super::{Key, KEY_SIZE};
+    use super::{AccountKey, KEY_SIZE};
     use std::convert::TryFrom;
 
     #[test]
@@ -101,10 +101,10 @@ mod tests {
         let k: [u8; KEY_SIZE] = [1u8; KEY_SIZE];
         let k2 = "ABCDABCD".as_bytes().to_vec();
 
-        assert!(Key::try_from(k).is_ok());
-        assert!(Key::try_from(k2.as_slice()).is_ok());
-        assert!(Key::try_from(k2).is_ok());
+        assert!(AccountKey::try_from(k).is_ok());
+        assert!(AccountKey::try_from(k2.as_slice()).is_ok());
+        assert!(AccountKey::try_from(k2).is_ok());
 
-        assert!(Key::try_from("ABCDABCDx".as_bytes()).is_err());
+        assert!(AccountKey::try_from("ABCDABCDx".as_bytes()).is_err());
     }
 }

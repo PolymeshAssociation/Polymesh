@@ -30,13 +30,7 @@
             "Group": "Vec<IdentityId>"
         }
     },
-    "LinkData": {
-        "_enum": {
-            "TickerOwned": "Vec<u8>",
-            "TokenOwned": "Vec<u8>"
-        }
-    },
-    "Key": "[u8;32]",
+    "AccountKey": "[u8;32]",
     "Permission": {
         "_enum": [
             "Full",
@@ -68,7 +62,7 @@
     "Signer":{
        "_enum": {
             "Identity": "IdentityId",
-            "Key": "Key"
+            "AccountKey": "AccountKey"
         }
     },
     "SigningItem": {
@@ -100,7 +94,7 @@
     },
     "DidRecord": {
         "roles": "Vec<IdentityRole>",
-        "master_key": "Key",
+        "master_key": "AccountKey",
         "signing_items": "Vec<SigningItem>"
     },
     "Claim": {
@@ -218,7 +212,7 @@
         "end": "u64",
         "proposal_hash": "Hash"
     },
-    "Votes": {
+    "PolymeshVotes": {
         "index": "u32",
         "ayes": "Vec<(IdentityId, Balance)>",
         "nays": "Vec<(IdentityId, Balance)>"
@@ -229,6 +223,15 @@
             "High",
             "Normal"
         ]
+    },
+    "MIP": {
+        "index": "MipsIndex",
+        "proposal":"Call"
+    },
+    "PolymeshReferendumInfo": {
+        "index": "MipsIndex",
+        "priority": "MipsPriority",
+        "proposal_hash": "Hash"
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
@@ -263,11 +266,12 @@
             "Active"
         ]
     },
-    "AuthorizationNonce": "u64",
     "ProportionMatch": {
         "_enum": [
             "AtLeast",
             "MoreThan"
         ]
-    }
+    },
+    "AuthorizationNonce": "u64",
+    "Counter": "u64"
 }

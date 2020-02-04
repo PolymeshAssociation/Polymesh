@@ -1099,7 +1099,7 @@ decl_module! {
             // any key value will be greater than the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then it break the loop and the given nominator in the nominator pool.
 
-            // if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(Key::try_from(stash.encode())?)) {
+            // if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(stash.encode())?)) {
             //     let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, Self::get_bonding_duration_period());
             //     if is_kyced {
                     let targets = targets.into_iter()
@@ -1285,7 +1285,7 @@ decl_module! {
 
                 //--if !(Self::nominators(target)).is_empty() {
                     // Access the identity of the nominator
-                    //--if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(Key::try_from(target.encode())?)) {
+                    //--if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(target.encode())?)) {
                         // Fetch all the claim values provided by the trusted service providers
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses

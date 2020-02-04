@@ -560,7 +560,7 @@ construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Storage, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-   		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
+   		Mips: mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
@@ -568,7 +568,7 @@ construct_runtime!(
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
-        STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
+        StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},

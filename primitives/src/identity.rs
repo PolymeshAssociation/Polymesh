@@ -1,14 +1,14 @@
 use codec::{Decode, Encode};
 use sp_std::prelude::Vec;
 
-use crate::{IdentityRole, Key, Signer, SigningItem};
+use crate::{AccountKey, IdentityRole, Signer, SigningItem};
 
 /// Identity information.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct Identity {
     pub roles: Vec<IdentityRole>,
-    pub master_key: Key,
+    pub master_key: AccountKey,
     pub signing_items: Vec<SigningItem>,
 }
 
