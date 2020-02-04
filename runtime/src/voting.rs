@@ -618,8 +618,8 @@ mod tests {
                 token.total_supply,
                 true,
                 AssetType::default(),
-                None,
                 vec![],
+                None
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -799,8 +799,8 @@ mod tests {
                 token.total_supply,
                 true,
                 AssetType::default(),
-                None,
                 vec![],
+                None
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -920,8 +920,8 @@ mod tests {
                 token.total_supply,
                 true,
                 AssetType::default(),
-                None,
                 vec![],
+                None
             ));
 
             let asset_rule = general_tm::AssetRule {

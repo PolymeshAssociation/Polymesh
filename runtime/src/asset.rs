@@ -333,8 +333,8 @@ decl_module! {
         /// * `total_supply` - the total supply of the token.
         /// * `divisible` - a boolean to identify the divisibility status of the token.
         /// * `asset_type` - the asset type.
-        /// * `funding_round` - name of the funding round
         /// * `identifiers` - a vector of asset identifiers.
+        /// * `funding_round` - name of the funding round
         pub fn create_token(
             origin,
             did: IdentityId,
@@ -343,8 +343,8 @@ decl_module! {
             total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
-            funding_round: Option<Vec<u8>>,
-            identifiers: Vec<(IdentifierType, Vec<u8>)>
+            identifiers: Vec<(IdentifierType, Vec<u8>)>,
+            funding_round: Option<Vec<u8>>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);

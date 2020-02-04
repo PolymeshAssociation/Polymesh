@@ -51,8 +51,8 @@ fn issuers_can_create_and_rename_tokens() {
                 1_000_000_000_000_000_000_000_000, // Total supply over the limit
                 true,
                 token.asset_type.clone(),
-                Some(funding_round_name.clone()),
                 identifiers.clone(),
+                Some(funding_round_name.clone())
             ),
             "Total supply above the limit"
         );
@@ -66,8 +66,8 @@ fn issuers_can_create_and_rename_tokens() {
             token.total_supply,
             true,
             token.asset_type.clone(),
-            Some(funding_round_name.clone()),
             identifiers.clone(),
+            Some(funding_round_name.clone())
         ));
 
         // A correct entry is added
@@ -159,8 +159,8 @@ fn valid_transfers_pass() {
             token.total_supply,
             true,
             token.asset_type.clone(),
-            None,
             vec![],
+            None
         ));
 
         // A correct entry is added
@@ -221,8 +221,8 @@ fn valid_custodian_allowance() {
             token.total_supply,
             true,
             token.asset_type.clone(),
-            None,
             vec![],
+            None
         ));
 
         assert_eq!(
@@ -413,8 +413,8 @@ fn valid_custodian_allowance_of() {
             token.total_supply,
             true,
             token.asset_type.clone(),
-            None,
             vec![],
+            None
         ));
 
         assert_eq!(
@@ -612,8 +612,8 @@ fn checkpoints_fuzz_test() {
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
-                None,
                 vec![],
+                None
             ));
 
             let asset_rule = general_tm::AssetRule {
@@ -724,8 +724,8 @@ fn register_ticker() {
             token.total_supply,
             true,
             token.asset_type.clone(),
-            None,
             identifiers.clone(),
+            None
         ));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
@@ -880,8 +880,8 @@ fn transfer_token_ownership() {
             1_000_000,
             true,
             AssetType::default(),
-            None,
             vec![],
+            None
         ));
 
         Identity::add_auth(
@@ -997,8 +997,8 @@ fn update_identifiers() {
             token.total_supply,
             true,
             token.asset_type.clone(),
-            None,
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1040,8 +1040,8 @@ fn freeze_unfreeze_asset() {
             1_000_000,
             true,
             AssetType::default(),
-            None,
             vec![],
+            None
         ));
         // Allow all transfers.
         let asset_rule = general_tm::AssetRule {
