@@ -27,7 +27,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root};
 use primitives::IdentityId;
-use sp_runtime::traits::{EnsureOrigin, IsMember};
+use sp_runtime::traits::EnsureOrigin;
 use sp_std::prelude::*;
 
 pub trait Trait<I = DefaultInstance>: frame_system::Trait {
