@@ -60,6 +60,8 @@ fn force_unstake_works() {
 fn basic_setup_works() {
     // Verifies initial conditions of mock
     ExtBuilder::default().build().execute_with(|| {
+        // Set min bond value to be positive integer
+        <MinimumBondThreshold<Test>>::put(10);
         // Account 11 is stashed and locked, and account 10 is the controller
         assert_eq!(Staking::bonded(&11), Some(10));
         // Account 21 is stashed and locked, and account 20 is the controller

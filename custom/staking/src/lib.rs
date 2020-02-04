@@ -806,6 +806,9 @@ decl_storage! {
 
         /// Commision rate to be used by all validators.
         pub ValidatorCommission get(fn validator_commission) config(): Commission;
+
+        /// The minimum amount with which a validator can bond.
+        pub MinimumBondThreshold get(fn min_bond_threshold) config(): BalanceOf<T>;
     }
     add_extra_genesis {
         config(stakers):
@@ -867,6 +870,8 @@ decl_event!(
 		/// When changes to commision are made and global commission is in effect
 		/// (old value, new value)
 		GlobalCommissionInEffect(Perbill, Perbill),
+        /// Min bond threshold was updated (new value)
+        MinimumBondThreshold(Balance),		
 	}
 );
 
@@ -960,8 +965,8 @@ decl_module! {
                 Err(Error::<T>::AlreadyPaired)?
             }
 
-            // reject a bond which is considered to be _dust_.
-            if value < T::Currency::minimum_balance() {
+            // Reject a bond if value is _dust_ or less than min bond threshold
+            if value < T::Currency::minimum_balance() || value < <MinimumBondThreshold<T>>::get() {
                 Err(Error::<T>::InsufficientValue)?
             }
 
@@ -1364,7 +1369,7 @@ decl_module! {
         /// committee is allowed to change this value.
         ///
         /// # Arguments
-        /// * `commission` the new commission to be used for reward calculations
+        /// * `new_value` the new commission to be used for reward calculations
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_global_comission(origin, new_value: Perbill) {
             T::RequiredCommissionOrigin::try_origin(origin)
@@ -1381,6 +1386,21 @@ decl_module! {
             }
         }
 
+        /// Changes min bond value to be used in bond(). Only Governance
+        /// committee is allowed to change this value.
+        ///
+        /// # Arguments
+        /// * `new_value` the new minimum
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
+            T::RequiredCommissionOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| Error::<T>::NotAuthorised)?;
+
+            <MinimumBondThreshold<T>>::put(new_value);
+            Self::deposit_event(RawEvent::MinimumBondThreshold(new_value));
+        }
 
         // ----- Root calls.
 
@@ -1703,8 +1723,18 @@ impl<T: Trait> Module<T> {
     /// Assumes storage is coherent with the declaration.
     fn select_validators() -> (BalanceOf<T>, Option<Vec<T::AccountId>>) {
         let mut all_nominators: Vec<(T::AccountId, Vec<T::AccountId>)> = Vec::new();
-        let all_validator_candidates_iter = <Validators<T>>::enumerate();
-        let all_validators = all_validator_candidates_iter
+        let all_validator_candidates = <Validators<T>>::enumerate()
+            .filter(|(who, _prefs)| {
+                if let Some(controller) = Self::bonded(&who) {
+                    if let Some(ledger) = Self::ledger(&controller) {
+                        return ledger.active >= <MinimumBondThreshold<T>>::get();
+                    }
+                }
+                false
+            })
+            .collect::<Vec<(T::AccountId, ValidatorPrefs)>>();
+        let all_validators = all_validator_candidates
+            .into_iter()
             .map(|(who, _pref)| {
                 let self_vote = (who.clone(), vec![who.clone()]);
                 all_nominators.push(self_vote);

@@ -276,6 +276,7 @@ fn testnet_genesis(
             validator_commission: Commission::Global(Perbill::from_rational_approximation(
                 1u64, 4u64,
             )),
+            min_bond_threshold: 0,
             ..Default::default()
         }),
         mips: Some(MipsConfig {
