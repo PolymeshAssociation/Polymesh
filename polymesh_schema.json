@@ -286,5 +286,10 @@
         ]
     },
     "AuthorizationNonce": "u64",
-    "Counter": "u64"
+    "Counter": "u64",
+    "Document": {
+        "name": "Vec<u8>",
+        "uri": "Vec<u8>",
+        "hash": "Vec<u8>"
+    }
 }

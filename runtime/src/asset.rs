@@ -69,7 +69,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use pallet_session;
 use primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signer, SmartExtension,
+    AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signer, SmartExtension,
     SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
@@ -203,9 +203,6 @@ decl_storage! {
         /// Last checkpoint updated for a DID's balance
         /// (ticker, DID) -> List of checkpoints where user balance changed
         UserCheckpoints get(fn user_checkpoints): map (Ticker, IdentityId) => Vec<u64>;
-        /// The documents attached to the tokens
-        /// (ticker, document name) -> (URI, document hash)
-        Documents get(fn documents): map (Ticker, Vec<u8>) => (Vec<u8>, Vec<u8>, T::Moment);
         /// Allowance provided to the custodian
         /// (ticker, token holder, custodian) -> balance
         pub CustodianAllowance get(fn custodian_allowance): map(Ticker, IdentityId, IdentityId) => T::Balance;
@@ -343,6 +340,7 @@ decl_module! {
         /// * `divisible` - a boolean to identify the divisibility status of the token.
         /// * `asset_type` - the asset type.
         /// * `identifiers` - a vector of asset identifiers.
+        /// * `funding_round` - name of the funding round
         pub fn create_token(
             origin,
             did: IdentityId,
@@ -351,7 +349,8 @@ decl_module! {
             total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<(IdentifierType, Vec<u8>)>
+            identifiers: Vec<(IdentifierType, Vec<u8>)>,
+            funding_round: Option<Vec<u8>>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
@@ -427,6 +426,10 @@ decl_module! {
             ));
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
+            }
+            // Add funding round name
+            if let Some(round) = funding_round {
+                <FundingRound>::insert(ticker, round);
             }
             Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
 
@@ -982,58 +985,78 @@ decl_module! {
             Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
 
-        /// Used to get the documents details attach with the token
-        ///
-        /// # Arguments
-        /// * `_origin` Caller signing key
-        /// * `ticker` Ticker of the token
-        /// * `name` Name of the document
-        pub fn get_document(_origin, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
-            ticker.canonize();
-            let record = <Documents<T>>::get((ticker, name.clone()));
-            Self::deposit_event(RawEvent::GetDocument(ticker, name, record.0, record.1, record.2));
-            Ok(())
-        }
-
-        /// Used to set the details of the document, Only be called by the token owner
+        /// Add documents for a given token. To be called only by the token owner
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
         /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
-        /// * `name` Name of the document
-        /// * `uri` Off chain URL of the document
-        /// * `document_hash` Hash of the document to proof the incorruptibility of the document
-        pub fn set_document(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>, uri: Vec<u8>, document_hash: Vec<u8>) -> DispatchResult {
+        /// * `documents` Documents to be attached to `ticker`
+        pub fn add_documents(origin, did: IdentityId, ticker: Ticker, documents: Vec<Document>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
             ticker.canonize();
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
-            <Documents<T>>::insert((ticker, name), (uri, document_hash, <pallet_timestamp::Module<T>>::get()));
+            let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
+            let signer = Signer::from(ticker_did);
+            documents.into_iter().for_each(|doc| {
+                <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None)
+            });
+
             Ok(())
         }
 
-        /// Used to remove the document details for the given token, Only be called by the token owner
+        /// Remove documents for a given token. To be called only by the token owner
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
         /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
-        /// * `name` Name of the document
-        pub fn remove_document(origin, did: IdentityId, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
+        /// * `doc_ids` Documents to be removed from `ticker`
+        pub fn remove_documents(origin, did: IdentityId, ticker: Ticker, doc_ids: Vec<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
             ticker.canonize();
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
-            <Documents<T>>::remove((ticker, name));
+            let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
+            let signer = Signer::from(ticker_did);
+            doc_ids.into_iter().for_each(|doc_id| {
+                <identity::Module<T>>::remove_link(signer, doc_id)
+            });
+
+            Ok(())
+        }
+
+        /// Update documents for the given token, Only be called by the token owner
+        ///
+        /// # Arguments
+        /// * `origin` Signing key of the token owner
+        /// * `did` DID of the token owner
+        /// * `ticker` Ticker of the token
+        /// * `docs` Vector of tuples (Document to be updated, Contents of new document)
+        pub fn update_documents(origin, did: IdentityId, ticker: Ticker, docs: Vec<(u64, Document)>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
+
+            let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
+            let signer = Signer::from(ticker_did);
+            docs.into_iter().for_each(|(doc_id, doc)| {
+                <identity::Module<T>>::update_link(signer, doc_id, LinkData::DocumentOwned(doc))
+            });
+
             Ok(())
         }
 

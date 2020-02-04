@@ -171,11 +171,11 @@ use frame_support::weights::SimpleDispatchInfo;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    Parameter, StorageValue,
+    Parameter, StorageMap, StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 use sp_runtime::traits::{
-    Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Member, Saturating,
+    Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize, Member, Saturating,
     SimpleArithmetic, StaticLookup, Zero,
 };
 use sp_runtime::RuntimeDebug;
@@ -417,6 +417,12 @@ decl_storage! {
 
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map AccountKey => bool;
+
+        /// AccountId of the block rewards reserve
+        pub BlockRewardsReserve get(block_reward_reserve) build(|_| {
+            let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
+            T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
+        }): T::AccountId;
     }
     add_extra_genesis {
         config(balances): Vec<(T::AccountId, T::Balance)>;
@@ -619,8 +625,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 // of the inner member.
 mod imbalances {
     use super::{
-        result, DefaultInstance, Imbalance, Instance, Saturating, StorageValue, Subtrait, Trait,
-        TryDrop, Zero,
+        result, DefaultInstance, Imbalance, Instance, Saturating, StorageMap, StorageValue,
+        Subtrait, Trait, TryDrop, Zero,
     };
     use sp_std::mem;
 
@@ -753,6 +759,13 @@ mod imbalances {
     impl<T: Subtrait<I>, I: Instance> Drop for PositiveImbalance<T, I> {
         /// Basic drop handler will just square up the total issuance.
         fn drop(&mut self) {
+            let brr = <super::BlockRewardsReserve<super::ElevatedTrait<T, I>, I>>::get();
+            let brr_balance = <super::FreeBalance<super::ElevatedTrait<T, I>, I>>::get(&brr);
+            if brr_balance > Zero::zero() {
+                let new_brr_balance = brr_balance.saturating_sub(self.0);
+                self.0 = self.0 - (brr_balance - new_brr_balance);
+                <super::FreeBalance<super::ElevatedTrait<T, I>, I>>::insert(&brr, new_brr_balance);
+            }
             <super::TotalIssuance<super::ElevatedTrait<T, I>, I>>::mutate(|v| {
                 *v = v.saturating_add(self.0)
             });
@@ -863,8 +876,18 @@ where
     }
 
     fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
+        let brr = <BlockRewardsReserve<T, I>>::get();
+        let brr_balance = <FreeBalance<T, I>>::get(&brr);
+        let amount_to_mint;
+        if brr_balance > Zero::zero() {
+            let new_brr_balance = brr_balance.saturating_sub(amount);
+            amount_to_mint = amount - (brr_balance - new_brr_balance);
+            <FreeBalance<T, I>>::insert(&brr, new_brr_balance);
+        } else {
+            amount_to_mint = amount;
+        }
         <TotalIssuance<T, I>>::mutate(|issued| {
-            *issued = issued.checked_add(&amount).unwrap_or_else(|| {
+            *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
                 amount = Self::Balance::max_value() - *issued;
                 Self::Balance::max_value()
             })
@@ -1280,7 +1303,7 @@ mod tests {
         assert_err, assert_ok,
         dispatch::DispatchResult,
         impl_outer_origin, parameter_types,
-        traits::Get,
+        traits::{ExistenceRequirement::AllowDeath, Get},
         weights::{DispatchInfo, Weight},
     };
     use frame_system::EnsureSignedBy;
@@ -1540,6 +1563,7 @@ mod tests {
                             30 * self.existential_deposit,
                         ),
                         (AccountKeyring::Dave.public(), 40 * self.existential_deposit),
+                        (AccountKeyring::Eve.public(), 1000),
                         // (12, 10 * self.existential_deposit),
                     ]
                 } else {
@@ -1645,6 +1669,114 @@ mod tests {
                     .is_err()
                 );
             });
+    }
+
+    #[test]
+    fn mint_subsidy_works() {
+        ExtBuilder::default().monied(true).build().execute_with(|| {
+            let brr = Balances::block_reward_reserve();
+            assert_eq!(Balances::free_balance(&brr), 0);
+            let mut ti = Balances::total_issuance();
+            let alice = AccountKeyring::Alice.public();
+            let mut balance_alice = Balances::free_balance(&alice);
+
+            // When there is no balance in BRR, minting should increase total supply
+            assert_ok!(Balances::deposit_into_existing(&alice, 10).map(drop));
+            assert_eq!(Balances::free_balance(&alice), balance_alice + 10);
+            assert_eq!(Balances::total_issuance(), ti + 10);
+            ti = ti + 10;
+            balance_alice = balance_alice + 10;
+
+            // Funding BRR
+            assert_ok!(<Balances as Currency<_>>::transfer(
+                &AccountKeyring::Eve.public(),
+                &brr,
+                500,
+                AllowDeath
+            ));
+            assert_eq!(Balances::free_balance(&brr), 500);
+            assert_eq!(Balances::total_issuance(), ti);
+
+            // When BRR has enough funds to subsidize a mint fully, it should subsidize it.
+            assert_ok!(Balances::deposit_into_existing(&alice, 100).map(drop));
+            assert_eq!(Balances::free_balance(&brr), 400);
+            assert_eq!(Balances::free_balance(&alice), balance_alice + 100);
+            assert_eq!(Balances::total_issuance(), ti);
+            balance_alice = balance_alice + 100;
+
+            // When BRR has funds to subsidize a mint partially, it should subsidize it and rest should be minted.
+            assert_ok!(Balances::deposit_into_existing(&alice, 1000).map(drop));
+            assert_eq!(Balances::free_balance(&brr), 0);
+            assert_eq!(Balances::free_balance(&alice), balance_alice + 1000);
+            // 400 subsidized, 600 minted.
+            assert_eq!(Balances::total_issuance(), ti + 600);
+            ti = ti + 600;
+            balance_alice = balance_alice + 1000;
+
+            // When BRR has no funds to subsidize a mint, it should be fully minted.
+            assert_ok!(Balances::deposit_into_existing(&alice, 100).map(drop));
+            assert_eq!(Balances::free_balance(&brr), 0);
+            assert_eq!(Balances::free_balance(&alice), balance_alice + 100);
+            assert_eq!(Balances::total_issuance(), ti + 100);
+        });
+    }
+
+    #[test]
+    fn issue_must_work() {
+        ExtBuilder::default().monied(true).build().execute_with(|| {
+            let init_total_issuance = Balances::total_issuance();
+            let imbalance = Balances::burn(10);
+            assert_eq!(Balances::total_issuance(), init_total_issuance - 10);
+            drop(imbalance);
+            assert_eq!(Balances::total_issuance(), init_total_issuance);
+
+            let brr = Balances::block_reward_reserve();
+            assert_eq!(Balances::free_balance(&brr), 0);
+            let mut ti = Balances::total_issuance();
+            let alice = AccountKeyring::Alice.public();
+            let mut balance_alice = Balances::free_balance(&alice);
+
+            // When there is no balance in BRR, issuance should increase total supply
+            // NOTE: dropping negative imbalance is equivalent to burning. It will decrease total supply.
+            let imbalance = Balances::issue(10);
+            assert_eq!(Balances::total_issuance(), ti + 10);
+            drop(imbalance);
+            assert_eq!(Balances::total_issuance(), ti);
+
+            // Funding BRR
+            assert_ok!(<Balances as Currency<_>>::transfer(
+                &AccountKeyring::Eve.public(),
+                &brr,
+                500,
+                AllowDeath
+            ));
+            assert_eq!(Balances::free_balance(&brr), 500);
+            assert_eq!(Balances::total_issuance(), ti);
+
+            // When BRR has enough funds to subsidize a mint fully, it should subsidize it.
+            let imbalance2 = Balances::issue(100);
+            assert_eq!(Balances::total_issuance(), ti);
+            assert_eq!(Balances::free_balance(&brr), 400);
+            drop(imbalance2);
+            assert_eq!(Balances::total_issuance(), ti - 100);
+            ti = ti - 100;
+
+            // When BRR has funds to subsidize a mint partially, it should subsidize it and rest should be minted.
+            let imbalance3 = Balances::issue(1000);
+            assert_eq!(Balances::total_issuance(), ti + 600);
+            assert_eq!(Balances::free_balance(&brr), 0);
+            drop(imbalance3);
+            // NOTE: Since burned Poly reduces total supply rather than increasing BRR balance,
+            // the new total supply is 1000 less after dropping.
+            assert_eq!(Balances::total_issuance(), ti - 400);
+            ti = ti - 400;
+
+            // When BRR has no funds to subsidize a mint, it should be fully minted.
+            let imbalance4 = Balances::issue(100);
+            assert_eq!(Balances::total_issuance(), ti + 100);
+            drop(imbalance4);
+            assert_eq!(Balances::total_issuance(), ti);
+        });
     }
 
     #[test]

@@ -555,6 +555,7 @@ mod tests {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
@@ -638,6 +639,7 @@ mod tests {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
@@ -728,6 +730,7 @@ mod tests {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
 
             let asset_rule = AssetRule {
