@@ -3,20 +3,20 @@
 //! This module implements a one-way bridge between Polymath Classic on the Ethereum side, and
 //! Polymesh native. It mints POLY on Polymesh in return for permanently locked ERC20 POLY tokens.
 
-use crate::{asset, balances, identity, multisig, runtime};
+use crate::{balances, identity, multisig, runtime};
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::traits::{Currency, Imbalance};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::{self as system, ensure_signed};
+use primitives::traits::IdentityCurrency;
 use primitives::{IdentityId, Key, Signer, Ticker};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
 use sp_std::{convert::TryFrom, prelude::*};
 
-pub static POLY_TICKER: &[u8] = b"POLY";
-
-pub trait Trait: asset::Trait + multisig::Trait {
-    /// The overarching event type.
+pub trait Trait: balances::Trait + multisig::Trait {
+    type Balance: From<u128> + Into<<Self as balances::Trait>::Balance>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as identity::Trait>::Proposal>;
 }
@@ -137,29 +137,38 @@ decl_module! {
         }
 
         /// Handles an approved bridge transaction proposal.
-        fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId>) -> DispatchResult {
+        fn handle_bridge_tx(_origin, bridge_tx: BridgeTx<T::AccountId>) -> DispatchResult {
             // Not removing the ongoing proposal since that would have been unnecessary due to
             // proposal uniqueness.
-            let sender = ensure_signed(origin.clone())?;
-            let sender_key = Key::try_from(sender.encode())?;
-            let did = <identity::Module<T>>::get_identity(&sender_key)
-                .ok_or_else(|| identity::Error::<T>::NoDIDFound)?;
+            //
+            // TODO: use `origin`?
+            // let sender = ensure_signed(origin.clone())?;
+            // let sender_key = Key::try_from(sender.encode())?;
+            // let did = <identity::Module<T>>::get_identity(&sender_key)
+            //     .ok_or_else(|| identity::Error::<T>::NoDIDFound)?;
             let BridgeTx {
                 nonce: _,
                 recipient,
                 value,
-                tx_hash
+                tx_hash: _,
             } = &bridge_tx;
-            let ticker = Ticker::from_slice(POLY_TICKER);
-            let to_did = match recipient {
+            let (did, to_account) = match recipient {
                 IssueRecipient::Account(account_id) => {
                     let to_key = Key::try_from(account_id.clone().encode())?;
-                    <identity::Module<T>>::get_identity(&to_key)
+                    (<identity::Module<T>>::get_identity(&to_key), Some(account_id))
                 }
-                IssueRecipient::Identity(did) => Some(did.clone())
+                IssueRecipient::Identity(did) => (Some(did.clone()), None)
             };
-            if let Some(to_did) = to_did {
-                <asset::Module<T>>::issue(origin, did, ticker, to_did, 0u128.into() /* FIXME: *value */, vec![])?;
+            if let Some(did) = did {
+                let amount = <T as Trait>::Balance::from(*value);
+                let mut amount: <T as balances::Trait>::Balance = amount.into();
+                let neg_imbalance = <balances::Module<T>>::issue(amount);
+                let resolution = if let Some(account_id) = to_account {
+                    <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
+                } else {
+                    <balances::Module<T>>::resolve_into_existing_identity(&did, neg_imbalance)
+                };
+                resolution.map_err(|_| "failed to credit the issued amount")?;
                 Self::deposit_event(RawEvent::Bridged(bridge_tx));
             } else {
                 // TODO: Move the bridge transaction to a pending state.

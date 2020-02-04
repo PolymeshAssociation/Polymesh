@@ -467,6 +467,7 @@ impl multisig::Trait for Runtime {
 }
 
 impl bridge::Trait for Runtime {
+    type Balance = Balance;
     type Event = Event;
     type Proposal = Call;
 }
