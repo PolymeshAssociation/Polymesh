@@ -1215,7 +1215,7 @@ decl_module! {
         /// * `extension_details` - Details of the smart extension
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did =  match <identity::Module<T>>::current_did() {
                 Some(x) => x,
                 None => {
@@ -1247,7 +1247,7 @@ decl_module! {
         /// * `extension_id` - AccountId of the extension that need to be archived
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did =  match <identity::Module<T>>::current_did() {
                 Some(x) => x,
                 None => {
@@ -1276,7 +1276,7 @@ decl_module! {
         /// * `extension_id` - AccountId of the extension that need to be un-archived
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did =  match <identity::Module<T>>::current_did() {
                 Some(x) => x,
                 None => {
