@@ -554,6 +554,7 @@ mod tests {
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
+                None,
                 vec![],
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
@@ -637,6 +638,7 @@ mod tests {
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
+                None,
                 vec![],
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
@@ -727,6 +729,7 @@ mod tests {
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
+                None,
                 vec![],
             ));
 

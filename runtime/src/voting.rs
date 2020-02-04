@@ -618,6 +618,7 @@ mod tests {
                 token.total_supply,
                 true,
                 AssetType::default(),
+                None,
                 vec![],
             ));
 
@@ -798,6 +799,7 @@ mod tests {
                 token.total_supply,
                 true,
                 AssetType::default(),
+                None,
                 vec![],
             ));
 
@@ -918,6 +920,7 @@ mod tests {
                 token.total_supply,
                 true,
                 AssetType::default(),
+                None,
                 vec![],
             ));
 

@@ -27,7 +27,7 @@ type OffChainSignature = AnySignature;
 fn issuers_can_create_and_rename_tokens() {
     build_ext().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
-
+        let funding_round_name = b"round1".to_vec();
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01],
@@ -51,6 +51,7 @@ fn issuers_can_create_and_rename_tokens() {
                 1_000_000_000_000_000_000_000_000, // Total supply over the limit
                 true,
                 token.asset_type.clone(),
+                Some(funding_round_name.clone()),
                 identifiers.clone(),
             ),
             "Total supply above the limit"
@@ -65,6 +66,7 @@ fn issuers_can_create_and_rename_tokens() {
             token.total_supply,
             true,
             token.asset_type.clone(),
+            Some(funding_round_name.clone()),
             identifiers.clone(),
         ));
 
@@ -74,6 +76,7 @@ fn issuers_can_create_and_rename_tokens() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
         // Unauthorized identities cannot rename the token.
         let (eve_signed, _eve_did) = make_account(AccountKeyring::Eve.public()).unwrap();
@@ -156,6 +159,7 @@ fn valid_transfers_pass() {
             token.total_supply,
             true,
             token.asset_type.clone(),
+            None,
             vec![],
         ));
 
@@ -217,6 +221,7 @@ fn valid_custodian_allowance() {
             token.total_supply,
             true,
             token.asset_type.clone(),
+            None,
             vec![],
         ));
 
@@ -408,6 +413,7 @@ fn valid_custodian_allowance_of() {
             token.total_supply,
             true,
             token.asset_type.clone(),
+            None,
             vec![],
         ));
 
@@ -606,6 +612,7 @@ fn checkpoints_fuzz_test() {
                 token.total_supply,
                 true,
                 token.asset_type.clone(),
+                None,
                 vec![],
             ));
 
@@ -717,6 +724,7 @@ fn register_ticker() {
             token.total_supply,
             true,
             token.asset_type.clone(),
+            None,
             identifiers.clone(),
         ));
 
@@ -872,6 +880,7 @@ fn transfer_token_ownership() {
             1_000_000,
             true,
             AssetType::default(),
+            None,
             vec![],
         ));
 
@@ -988,6 +997,7 @@ fn update_identifiers() {
             token.total_supply,
             true,
             token.asset_type.clone(),
+            None,
             identifiers.clone(),
         ));
         // A correct entry was added
@@ -1030,6 +1040,7 @@ fn freeze_unfreeze_asset() {
             1_000_000,
             true,
             AssetType::default(),
+            None,
             vec![],
         ));
         // Allow all transfers.

@@ -44,6 +44,7 @@ fn investor_count_per_asset_with_ext() {
         1_000_000, // Total supply over the limit
         true,
         token.asset_type.clone(),
+        None,
         identifiers.clone()
     ));
 

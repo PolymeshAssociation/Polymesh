@@ -333,6 +333,7 @@ decl_module! {
         /// * `total_supply` - the total supply of the token.
         /// * `divisible` - a boolean to identify the divisibility status of the token.
         /// * `asset_type` - the asset type.
+        /// * `funding_round` - name of the funding round
         /// * `identifiers` - a vector of asset identifiers.
         pub fn create_token(
             origin,
@@ -342,6 +343,7 @@ decl_module! {
             total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
+            funding_round: Option<Vec<u8>>,
             identifiers: Vec<(IdentifierType, Vec<u8>)>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -418,6 +420,11 @@ decl_module! {
             ));
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
+            }
+            // Add funding round name
+            match funding_round {
+                Some(round) => <FundingRound>::insert(ticker, round),
+                None => {}
             }
             Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
 
