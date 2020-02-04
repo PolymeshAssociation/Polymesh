@@ -3,7 +3,7 @@ use crate::{
     balances, general_tm, identity,
     test::storage::{build_ext, make_account, TestStorage},
 };
-use primitives::{AuthorizationData, IdentityId, Signer, Ticker};
+use primitives::{AuthorizationData, Document, IdentityId, LinkData, Signer, Ticker};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
@@ -1010,6 +1010,124 @@ fn update_identifiers() {
         for (typ, val) in updated_identifiers {
             assert_eq!(Asset::identifiers((ticker, typ)), val);
         }
+    });
+}
+
+#[test]
+fn adding_removing_documents() {
+    build_ext().execute_with(|| {
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+
+        let token = SecurityToken {
+            name: vec![0x01],
+            owner_did,
+            total_supply: 1_000_000,
+            divisible: true,
+            asset_type: AssetType::default(),
+        };
+
+        let ticker = Ticker::from_slice(token.name.as_slice());
+
+        assert!(!<identity::DidRecords>::exists(
+            Identity::get_token_did(&ticker).unwrap()
+        ));
+
+        let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
+        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker_did = Identity::get_token_did(&ticker).unwrap();
+
+        // Issuance is successful
+        assert_ok!(Asset::create_token(
+            owner_signed.clone(),
+            owner_did,
+            token.name.clone(),
+            ticker,
+            token.total_supply,
+            true,
+            token.asset_type.clone(),
+            identifiers.clone(),
+        ));
+
+        let documents = vec![
+            Document {
+                name: b"A".to_vec(),
+                uri: b"www.a.com".to_vec(),
+                hash: b"0x1".to_vec(),
+            },
+            Document {
+                name: b"B".to_vec(),
+                uri: b"www.b.com".to_vec(),
+                hash: b"0x2".to_vec(),
+            },
+        ];
+
+        assert_ok!(Asset::add_documents(
+            owner_signed.clone(),
+            owner_did,
+            ticker,
+            documents
+        ));
+
+        let last_id = Identity::last_link(Signer::from(ticker_did));
+        let last_doc = Identity::links((Signer::from(ticker_did), last_id));
+
+        assert_eq!(
+            last_doc.link_data,
+            LinkData::DocumentOwned(Document {
+                name: b"B".to_vec(),
+                uri: b"www.b.com".to_vec(),
+                hash: b"0x2".to_vec()
+            })
+        );
+        assert_eq!(last_doc.next_link, 0);
+        assert_eq!(last_doc.expiry, None);
+
+        let doc_ids = vec![last_id, last_doc.previous_link];
+
+        assert_ok!(Asset::update_documents(
+            owner_signed.clone(),
+            owner_did,
+            ticker,
+            vec![
+                (
+                    doc_ids[0],
+                    Document {
+                        name: b"C".to_vec(),
+                        uri: b"www.c.com".to_vec(),
+                        hash: b"0x3".to_vec(),
+                    }
+                ),
+                (
+                    doc_ids[1],
+                    Document {
+                        name: b"D".to_vec(),
+                        uri: b"www.d.com".to_vec(),
+                        hash: b"0x4".to_vec(),
+                    }
+                ),
+            ]
+        ));
+
+        let last_id = Identity::last_link(Signer::from(ticker_did));
+        let last_doc = Identity::links((Signer::from(ticker_did), last_id));
+
+        assert_eq!(
+            last_doc.link_data,
+            LinkData::DocumentOwned(Document {
+                name: b"C".to_vec(),
+                uri: b"www.c.com".to_vec(),
+                hash: b"0x3".to_vec(),
+            })
+        );
+
+        assert_ok!(Asset::remove_documents(
+            owner_signed.clone(),
+            owner_did,
+            ticker,
+            doc_ids
+        ));
+
+        assert_eq!(Identity::last_link(Signer::from(ticker_did)), 0);
     });
 }
 

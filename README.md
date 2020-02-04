@@ -7,6 +7,10 @@
 
 Polymesh is a blockchain for regulated securities and open finance.
 
+# Whitepaper
+
+https://polymath.network/polymesh-whitepaper
+
 # Build
 
 Install Rust:
