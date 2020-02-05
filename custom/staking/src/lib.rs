@@ -1206,74 +1206,74 @@ decl_module! {
         /// to the pool of validators. Staking module uses `PermissionedValidators` to ensure
         /// validators have completed KYB compliance and considers them for validation.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn add_potential_validator(origin, controller: T::AccountId) {
+        fn add_potential_validator(origin, validator: T::AccountId) {
             T::RequiredAddOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
-            ensure!(!<PermissionedValidators<T>>::exists(&controller), Error::<T>::AlreadyExists);
+            ensure!(!<PermissionedValidators<T>>::exists(&validator), Error::<T>::AlreadyExists);
 
-            <PermissionedValidators<T>>::insert(&controller, PermissionedValidator {
+            <PermissionedValidators<T>>::insert(&validator, PermissionedValidator {
                 compliance: Compliance::Active
             });
 
-            Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
+            Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator));
         }
 
         /// Remove a validator from the pool of validators. Effects are known in the next session.
         /// Staking module checks `PermissionedValidators` to ensure validators have
         /// completed KYB compliance
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn remove_validator(origin, controller: T::AccountId) {
+        fn remove_validator(origin, validator: T::AccountId) {
             T::RequiredRemoveOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
-            ensure!(<PermissionedValidators<T>>::exists(&controller), Error::<T>::NotExists);
+            ensure!(<PermissionedValidators<T>>::exists(&validator), Error::<T>::NotExists);
 
-            <PermissionedValidators<T>>::remove(&controller);
+            <PermissionedValidators<T>>::remove(&validator);
 
-            Self::deposit_event(RawEvent::PermissionedValidatorAdded(controller));
+            Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator));
         }
 
         /// Governance committee on 2/3 rds majority can update the compliance status of a validator
         /// as `Pending`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn compliance_failed(origin, controller: T::AccountId) {
+        fn compliance_failed(origin, validator: T::AccountId) {
             T::RequiredComplianceOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
-            ensure!(<PermissionedValidators<T>>::exists(&controller), Error::<T>::NotExists);
+            ensure!(<PermissionedValidators<T>>::exists(&validator), Error::<T>::NotExists);
 
-            <PermissionedValidators<T>>::mutate(&controller, |entry| {
+            <PermissionedValidators<T>>::mutate(&validator, |entry| {
                 if let Some(validator) = entry {
                     validator.compliance = Compliance::Pending
                 }
             });
-            Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(controller));
+            Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(validator));
         }
 
         /// Governance committee on 2/3 rds majority can update the compliance status of a validator
         /// as `Active`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn compliance_passed(origin, controller: T::AccountId) {
+        fn compliance_passed(origin, validator: T::AccountId) {
             T::RequiredComplianceOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
-            ensure!(<PermissionedValidators<T>>::exists(&controller), Error::<T>::NotExists);
+            ensure!(<PermissionedValidators<T>>::exists(&validator), Error::<T>::NotExists);
 
-            <PermissionedValidators<T>>::mutate(&controller, |entry| {
+            <PermissionedValidators<T>>::mutate(&validator, |entry| {
                 if let Some(validator) = entry {
                     validator.compliance = Compliance::Active
                 }
             });
-            Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(controller));
+            Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(validator));
         }
 
         /// Validate the nominators KYC expiry time
