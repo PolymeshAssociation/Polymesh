@@ -1287,12 +1287,21 @@ fn validator_global_payment_prefs_work() {
             },
         );
         <Payee<Test>>::insert(&2, RewardDestination::Stash);
-        <Validators<Test>>::insert(
-            &11,
-            ValidatorPrefs {
-                commission: Perbill::from_percent(50),
-            },
+        assert_err!(
+            Staking::validate(
+                Origin::signed(10),
+                ValidatorPrefs {
+                    commission: Perbill::from_rational_approximation(1u64, 2u64),
+                }
+            ),
+            Error::<Test>::InvalidCommission
         );
+        assert_ok!(Staking::validate(
+            Origin::signed(10),
+            ValidatorPrefs {
+                commission: Perbill::from_rational_approximation(1u64, 4u64),
+            }
+        ));
 
         // Compute total payout now for whole duration as other parameter won't change
         let total_payout_1 = current_total_payout_for_duration(3000);

@@ -906,6 +906,10 @@ decl_error! {
         NotExists,
         /// Individual commissions already enabled
         AlreadyEnabled,
+        /// Updates with same value
+        NoChange,
+        /// Updates with same value
+        InvalidCommission,
     }
 }
 
@@ -1104,6 +1108,10 @@ decl_module! {
 
             ensure!(Self::is_controller_eligible(&controller), Error::<T>::NotCompliant);
             ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
+
+            if let Commission::Global(commission) = <ValidatorCommission>::get() {
+                ensure!(prefs.commission == commission, Error::<T>::InvalidCommission);
+            }
 
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
@@ -1382,7 +1390,9 @@ decl_module! {
 
             // Ensure individual commissions are not already enabled
             if let Commission::Global(old_value) = <ValidatorCommission>::get() {
+                ensure!(old_value != new_value, Error::<T>::NoChange);
                 <ValidatorCommission>::put(Commission::Global(new_value));
+                Self::update_validator_prefs(new_value);
                 Self::deposit_event(RawEvent::GlobalCommissionInEffect(old_value, new_value));
             } else {
                 Err(Error::<T>::AlreadyEnabled)?
@@ -1560,11 +1570,7 @@ impl<T: Trait> Module<T> {
     /// nominators' balance, pro-rata based on their exposure, after having removed the validator's
     /// pre-payout cut.
     fn reward_validator(stash: &T::AccountId, reward: BalanceOf<T>) -> PositiveImbalanceOf<T> {
-        let commission = match <ValidatorCommission>::get() {
-            Commission::Individual => Self::validators(stash).commission,
-            Commission::Global(commission) => commission,
-        };
-        let off_the_table = commission * reward;
+        let off_the_table = Self::validators(stash).commission * reward;
         let reward = reward.saturating_sub(off_the_table);
         let mut imbalance = <PositiveImbalanceOf<T>>::zero();
         let validator_cut = if reward.is_zero() {
@@ -2020,6 +2026,17 @@ impl<T: Trait> Module<T> {
         let total_session = (T::SessionsPerEra::get() as u32) * (T::BondingDuration::get() as u32);
         let session_length = <T as pallet_babe::Trait>::EpochDuration::get();
         total_session as u64 * session_length
+    }
+
+    /// Update commision in ValidatorPrefs to given value
+    fn update_validator_prefs(commission: Perbill) {
+        let validators = <Validators<T>>::enumerate()
+            .map(|(who, _)| who)
+            .collect::<Vec<T::AccountId>>();
+
+        for v in validators {
+            <Validators<T>>::mutate(v, |prefs| prefs.commission = commission);
+        }
     }
 }
 
