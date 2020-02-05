@@ -45,18 +45,18 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - debug-cache-{{ checksum "./runtime/Cargo.lock" }}
+            - debug-cache-{{ checksum "./runtime/runtime/Cargo.lock" }}
       - run:
           name: runtime tests
-          command: cd runtime && cargo test && cd ..
+          command: cd runtime/runtime && cargo test && cd ../..
           working_directory: .
       - save_cache:
-          key: debug-cache-{{ checksum "./runtime/Cargo.lock" }}
+          key: debug-cache-{{ checksum "./runtime/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
-            - "./runtime/target"
-            - "./runtime/wasm/target"
+            - "./runtime/runtime/target"
+            - "./runtime/runtime/wasm/target"
 workflows:
   version: 2
   commit:
