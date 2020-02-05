@@ -1,7 +1,4 @@
-use crate::{
-    asset::{self, TickerRegistrationConfig},
-    exemption, general_tm, multisig, percentage_tm, statistics, utils,
-};
+use crate::{asset, exemption, general_tm, multisig, percentage_tm, statistics, utils};
 
 use polymesh_primitives::{IdentityId, Key, Signer};
 use polymesh_runtime_balances as balances;
@@ -156,7 +153,7 @@ impl GroupTrait for TestStorage {
         unimplemented!();
     }
 
-    fn is_member(member_id: &IdentityId) -> bool {
+    fn is_member(_member_id: &IdentityId) -> bool {
         unimplemented!();
     }
 }

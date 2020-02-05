@@ -427,11 +427,11 @@ mod tests {
     }
 
     impl AcceptTransfer for Test {
-        fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        fn accept_ticker_transfer(_to_did: IdentityId, _auth_id: u64) -> DispatchResult {
             unimplemented!();
         }
 
-        fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        fn accept_token_ownership_transfer(_to_did: IdentityId, _auth_id: u64) -> DispatchResult {
             unimplemented!();
         }
     }
@@ -546,7 +546,7 @@ mod tests {
             unimplemented!();
         }
 
-        fn is_member(member_id: &IdentityId) -> bool {
+        fn is_member(_member_id: &IdentityId) -> bool {
             unimplemented!();
         }
     }
@@ -613,7 +613,7 @@ mod tests {
     ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
-        Identity::register_did(signed_id.clone(), vec![]);
+        let _ = Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }

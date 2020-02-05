@@ -612,7 +612,7 @@ mod tests {
         account_id: &AccountId,
     ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
         let signed_id = Origin::signed(account_id.clone());
-        Identity::register_did(signed_id.clone(), vec![]);
+        let _ = Identity::register_did(signed_id.clone(), vec![]);
         let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
