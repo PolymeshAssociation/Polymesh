@@ -619,6 +619,7 @@ mod tests {
                 true,
                 AssetType::default(),
                 vec![],
+                None
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -799,6 +800,7 @@ mod tests {
                 true,
                 AssetType::default(),
                 vec![],
+                None
             ));
 
             assert_ok!(Asset::create_checkpoint(
@@ -919,6 +921,7 @@ mod tests {
                 true,
                 AssetType::default(),
                 vec![],
+                None
             ));
 
             let asset_rule = general_tm::AssetRule {
