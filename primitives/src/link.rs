@@ -1,9 +1,13 @@
+use crate::Document;
 use crate::Ticker;
 use codec::{Decode, Encode};
+use sp_std::prelude::Vec;
 
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum LinkData {
+    /// Represents a document (name, URI, hash)
+    DocumentOwned(Document),
     /// Represents a ticker ownership
     TickerOwned(Ticker),
     /// Represents a token ownership

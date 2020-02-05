@@ -1,3 +1,4 @@
+use crate::identity_id::IdentityId;
 use crate::signing_item::Signer;
 use crate::Ticker;
 use codec::{Decode, Encode};
@@ -6,6 +7,10 @@ use frame_support::dispatch::DispatchError;
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationData {
+    /// KYC provider's attestation to change master key
+    AttestMasterKeyRotation(IdentityId),
+    /// Authorization to change master key
+    RotateMasterKey(IdentityId),
     /// Authorization to transfer a ticker
     TransferTicker(Ticker),
     /// Add a signer to multisig
