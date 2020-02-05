@@ -266,7 +266,7 @@
             "Active"
         ]
     },
-    "SmartExtensionTypes": {
+    "SmartExtensionType": {
         "_enum": {
             "TransferManager": "",
             "Offerings": "",
@@ -274,7 +274,7 @@
         }
     },
     "SmartExtension": {
-        "extension_type": "SmartExtensionTypes",
+        "extension_type": "SmartExtensionType",
         "extension_name": "Vec<u8>",
         "extension_id": "IdentityId",
         "is_archive": "bool"
