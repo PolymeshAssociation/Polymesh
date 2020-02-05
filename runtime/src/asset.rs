@@ -1690,13 +1690,16 @@ impl<T: Trait> Module<T> {
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             general_status_code
         } else {
+            let mut final_result = true;
             let mut is_valid = false;
             let mut is_in_valid = false;
             let mut force_valid = false;
-            Self::extensions((ticker, SmartExtensionType::TransferManager))
+            let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
                 .into_iter()
                 .filter(|tm| Self::extension_details((ticker, tm)).is_archive == false)
-                .for_each(|tm| {
+                .collect::<Vec<T::AccountId>>();
+            if tms.len() > 0 {
+                for tm in tms.into_iter() {
                     let result = Self::verify_transfer(
                         ticker,
                         extension_caller.clone(),
@@ -1712,19 +1715,20 @@ impl<T: Trait> Module<T> {
                     } else if result == RestrictionResult::FORCE_VALID {
                         force_valid = true;
                     }
-                });
-
-            //is_valid = force_valid ? true : (is_in_valid ? false : is_valid);
-            is_valid = if !force_valid {
-                if is_in_valid {
-                    false
-                } else {
-                    is_valid
                 }
-            } else {
-                true
-            };
-            if is_valid {
+                //is_valid = force_valid ? true : (is_in_valid ? false : is_valid);
+                is_valid = if !force_valid {
+                    if is_in_valid {
+                        false
+                    } else {
+                        is_valid
+                    }
+                } else {
+                    true
+                };
+                final_result = is_valid;
+            }
+            if final_result {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
             } else {
                 return Ok(ERC1400_TRANSFER_FAILURE);

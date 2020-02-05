@@ -396,7 +396,10 @@ mod tests {
     use chrono::{prelude::*, Duration};
     use core::result::Result as StdResult;
     use frame_support::traits::Currency;
-    use frame_support::{assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types};
+    use frame_support::{
+        assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
+        parameter_types,
+    };
     use lazy_static::lazy_static;
     use primitives::IdentityId;
     use sp_core::{crypto::key_types, H256};
@@ -451,6 +454,13 @@ mod tests {
 
     impl_outer_origin! {
         pub enum Origin for Test {}
+    }
+
+    impl_outer_dispatch! {
+        pub enum Call for Test where origin: Origin {
+            pallet_contracts::Contracts,
+            identity::Identity,
+        }
     }
 
     // For testing the module, we construct most of a mock runtime. This means
@@ -559,7 +569,7 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = Call<Test>;
+        type Proposal = Call;
         type AcceptTransferTarget = asset::Module<Test>;
         type AddSignerMultiSigTarget = Test;
         type KYCServiceProviders = Test;
@@ -592,6 +602,54 @@ mod tests {
 
     impl percentage_tm::Trait for Test {
         type Event = ();
+    }
+
+    parameter_types! {
+        pub const SignedClaimHandicap: u64 = 2;
+        pub const TombstoneDeposit: u64 = 16;
+        pub const StorageSizeOffset: u32 = 8;
+        pub const RentByteFee: u64 = 4;
+        pub const RentDepositOffset: u64 = 10_000;
+        pub const SurchargeReward: u64 = 150;
+        pub const ContractTransactionBaseFee: u64 = 2;
+        pub const ContractTransactionByteFee: u64 = 6;
+        pub const ContractFee: u64 = 21;
+        pub const CallBaseFee: u64 = 135;
+        pub const InstantiateBaseFee: u64 = 175;
+        pub const MaxDepth: u32 = 100;
+        pub const MaxValueSize: u32 = 16_384;
+        pub const ContractTransferFee: u64 = 50000;
+        pub const ContractCreationFee: u64 = 50;
+        pub const BlockGasLimit: u64 = 10000000;
+    }
+
+    impl pallet_contracts::Trait for Test {
+        type Currency = Balances;
+        type Time = Timestamp;
+        type Randomness = Randomness;
+        type Call = Call;
+        type Event = ();
+        type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminator<Test>;
+        type ComputeDispatchFee = pallet_contracts::DefaultDispatchFeeComputor<Test>;
+        type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Test>;
+        type GasPayment = ();
+        type RentPayment = ();
+        type SignedClaimHandicap = SignedClaimHandicap;
+        type TombstoneDeposit = TombstoneDeposit;
+        type StorageSizeOffset = StorageSizeOffset;
+        type RentByteFee = RentByteFee;
+        type RentDepositOffset = RentDepositOffset;
+        type SurchargeReward = SurchargeReward;
+        type TransferFee = ContractTransferFee;
+        type CreationFee = ContractCreationFee;
+        type TransactionBaseFee = ContractTransactionBaseFee;
+        type TransactionByteFee = ContractTransactionByteFee;
+        type ContractFee = ContractFee;
+        type CallBaseFee = CallBaseFee;
+        type InstantiateBaseFee = InstantiateBaseFee;
+        type MaxDepth = MaxDepth;
+        type MaxValueSize = MaxValueSize;
+        type BlockGasLimit = BlockGasLimit;
     }
 
     parameter_types! {
@@ -676,6 +734,9 @@ mod tests {
     type GeneralTM = general_tm::Module<Test>;
     type SimpleToken = simple_token::Module<Test>;
     type Identity = identity::Module<Test>;
+    type Timestamp = pallet_timestamp::Module<Test>;
+    type Randomness = pallet_randomness_collective_flip::Module<Test>;
+    type Contracts = pallet_contracts::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
     fn identity_owned_by_1() -> sp_io::TestExternalities {

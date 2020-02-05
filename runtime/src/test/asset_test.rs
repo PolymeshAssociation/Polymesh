@@ -13,9 +13,9 @@ use sp_runtime::AnySignature;
 use test_client::AccountKeyring;
 
 use chrono::prelude::Utc;
+use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
 use std::convert::TryFrom;
-
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
@@ -24,15 +24,6 @@ type GeneralTM = general_tm::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 
 type OffChainSignature = AnySignature;
-
-// #[test]
-// fn check_encoding_scheme() {
-//     build_ext().execute_with(|| {
-//         let selector: Vec<u8> = b"verify_transfer".to_vec();
-//         let encoded_value = Vec::u8::encode(&selector);
-//         println!("{:?}", encoded_value);
-//     });
-// }
 
 #[test]
 fn issuers_can_create_and_rename_tokens() {
