@@ -34,7 +34,6 @@
 use crate::{asset, simple_token, utils};
 
 use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
-use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait};
 use polymesh_runtime_identity as identity;
 
@@ -574,11 +573,11 @@ mod tests {
     }
 
     impl AcceptTransfer for Test {
-        fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        fn accept_ticker_transfer(_to_did: IdentityId, _auth_id: u64) -> DispatchResult {
             unimplemented!();
         }
 
-        fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        fn accept_token_ownership_transfer(_to_did: IdentityId, _auth_id: u64) -> DispatchResult {
             unimplemented!();
         }
     }
@@ -590,6 +589,7 @@ mod tests {
         type Proposal = Call<Test>;
         type AddSignerMultiSigTarget = Test;
         type KYCServiceProviders = Test;
+        type Balances = balances::Module<Test>;
     }
 
     impl GroupTrait for Test {
@@ -597,7 +597,7 @@ mod tests {
             unimplemented!();
         }
 
-        fn is_member(member_id: &IdentityId) -> bool {
+        fn is_member(_member_id: &IdentityId) -> bool {
             unimplemented!();
         }
     }

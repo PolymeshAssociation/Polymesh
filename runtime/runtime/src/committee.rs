@@ -507,6 +507,7 @@ mod tests {
         type Proposal = Call;
         type AddSignerMultiSigTarget = Test;
         type KYCServiceProviders = Test;
+        type Balances = balances::Module<Test>;
     }
 
     impl group::GroupTrait for Test {

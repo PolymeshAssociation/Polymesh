@@ -36,10 +36,7 @@ use crate::{
 };
 
 use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
-use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{
-    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait,
-};
+use polymesh_runtime_common::{identity::Trait as IdentityTrait, CommonTrait};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
@@ -541,6 +538,7 @@ mod tests {
         type Proposal = Call<Test>;
         type AddSignerMultiSigTarget = Test;
         type KYCServiceProviders = Test;
+        type Balances = balances::Module<Test>;
     }
 
     impl GroupTrait for Test {

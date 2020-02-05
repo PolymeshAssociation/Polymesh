@@ -1,6 +1,9 @@
 use crate::{
     multisig,
-    test::storage::{build_ext, register_keyring_account, Call, TestStorage},
+    test::{
+        storage::{register_keyring_account, Call, TestStorage},
+        ExtBuilder,
+    },
 };
 use polymesh_primitives::{Key, Signer};
 use polymesh_runtime_identity as identity;
@@ -17,7 +20,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn create_multisig() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -59,7 +62,7 @@ fn create_multisig() {
 
 #[test]
 fn join_multisig() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -108,7 +111,7 @@ fn join_multisig() {
 
 #[test]
 fn change_multisig_sigs_required() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -166,7 +169,7 @@ fn change_multisig_sigs_required() {
 
 #[test]
 fn remove_multisig_signer() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -226,7 +229,7 @@ fn remove_multisig_signer() {
 
 #[test]
 fn add_multisig_signer() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());

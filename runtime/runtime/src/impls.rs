@@ -126,9 +126,8 @@ impl<T: Get<Perbill>> Convert<Fixed64, Fixed64> for TargetedFeeAdjustment<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use polymesh_runtime_common::constants::currency::*;
 
-    use crate::{runtime::TargetBlockFullness, AvailableBlockRatio, MaximumBlockWeight, Runtime};
+    use crate::{runtime::TargetBlockFullness, MaximumBlockWeight, Runtime};
     use frame_support::weights::Weight;
     use sp_runtime::assert_eq_error_rate;
 

@@ -114,7 +114,10 @@ mod tests {
     use super::UpdateDid;
     use crate::{
         runtime,
-        test::storage::{build_ext, register_keyring_account_with_balance, Identity, TestStorage},
+        test::{
+            storage::{register_keyring_account_with_balance, Identity, TestStorage},
+            ExtBuilder,
+        },
         Runtime,
     };
 
@@ -134,7 +137,9 @@ mod tests {
 
     #[test]
     fn update_did_tests() {
-        build_ext().execute_with(&update_did_tests_with_externalities);
+        ExtBuilder::default()
+            .build()
+            .execute_with(&update_did_tests_with_externalities);
     }
 
     fn update_did_tests_with_externalities() {

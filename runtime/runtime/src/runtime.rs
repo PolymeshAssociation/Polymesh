@@ -11,9 +11,7 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
-    asset::AcceptTransfer,
     constants::{currency::*, fee::*, time::*},
-    multisig::AddSignerMultiSig,
     CommonTrait,
 };
 use polymesh_runtime_group as group;
@@ -508,6 +506,7 @@ impl identity::Trait for Runtime {
     type Proposal = Call;
     type AddSignerMultiSigTarget = MultiSig;
     type KYCServiceProviders = KYCServiceProviders;
+    type Balances = balances::Module<Runtime>;
 }
 
 impl contracts_wrapper::Trait for Runtime {}

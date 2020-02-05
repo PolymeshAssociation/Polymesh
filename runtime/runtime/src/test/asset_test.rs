@@ -1,7 +1,10 @@
 use crate::{
     asset::{self, AssetType, IdentifierType, SecurityToken, SignData},
     general_tm,
-    test::storage::{build_ext, make_account, TestStorage},
+    test::{
+        storage::{make_account, TestStorage},
+        ExtBuilder,
+    },
 };
 
 use polymesh_primitives::{AuthorizationData, IdentityId, Signer, Ticker};
@@ -28,7 +31,7 @@ type OffChainSignature = AnySignature;
 
 #[test]
 fn issuers_can_create_and_rename_tokens() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         // Expected token entry
@@ -111,7 +114,7 @@ fn issuers_can_create_and_rename_tokens() {
 #[test]
 #[ignore]
 fn non_issuers_cant_create_tokens() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let (_, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         // Expected token entry
@@ -132,7 +135,7 @@ fn non_issuers_cant_create_tokens() {
 
 #[test]
 fn valid_transfers_pass() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
@@ -190,7 +193,7 @@ fn valid_transfers_pass() {
 
 #[test]
 fn valid_custodian_allowance() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let now = Utc::now();
@@ -381,7 +384,7 @@ fn valid_custodian_allowance() {
 
 #[test]
 fn valid_custodian_allowance_of() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let now = Utc::now();
@@ -583,7 +586,7 @@ fn checkpoints_fuzz_test() {
     println!("Starting");
     for _ in 0..10 {
         // When fuzzing in local, feel free to bump this number to add more fuzz runs.
-        build_ext().execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
             let now = Utc::now();
             Timestamp::set_timestamp(now.timestamp() as u64);
 
@@ -696,7 +699,7 @@ fn checkpoints_fuzz_test() {
 
 #[test]
 fn register_ticker() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
@@ -769,7 +772,7 @@ fn register_ticker() {
 
 #[test]
 fn transfer_ticker() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
@@ -857,7 +860,7 @@ fn transfer_ticker() {
 
 #[test]
 fn transfer_token_ownership() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
@@ -966,7 +969,7 @@ fn transfer_token_ownership() {
 
 #[test]
 fn update_identifiers() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         // Expected token entry

@@ -3,7 +3,8 @@ use crate::traits::{identity::IdentityTrait, CommonTrait};
 
 use frame_support::{
     decl_event,
-    traits::{Get, OnFreeBalanceZero, OnUnbalanced},
+    dispatch::DispatchError,
+    traits::{ExistenceRequirement, Get, OnFreeBalanceZero, OnUnbalanced, WithdrawReasons},
 };
 use frame_system::{self as system, OnNewAccount};
 
@@ -84,7 +85,7 @@ pub trait Trait: CommonTrait {
 
     /// Handler for the unbalanced reduction when taking fees associated with balance
     /// transfer (which may also include account creation).
-    type TransferPayment: OnUnbalanced<NegativeImbalance<Self>>;
+    type TransferPayment: OnUnbalanced<NegativeImbalance<Self::Balance>>;
 
     /// This type is no longer needed but kept for compatibility reasons.
     /// The minimum amount required to keep an account open.
@@ -97,7 +98,7 @@ pub trait Trait: CommonTrait {
     type Identity: IdentityTrait;
 
     /// Handler for the unbalanced reduction when removing a dust account.
-    type DustRemoval: OnUnbalanced<NegativeImbalance<Self>>;
+    type DustRemoval: OnUnbalanced<NegativeImbalance<Self::Balance>>;
 
     // / The overarching event type.
     // type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
@@ -113,35 +114,42 @@ impl<T: Trait, I: Instance> Subtrait<I> for T {
     type Identity = T::Identity;
 }
 
+pub trait BalancesTrait<A, B, NI> {
+    fn withdraw(
+        who: &A,
+        value: B,
+        reasons: WithdrawReasons,
+        _liveness: ExistenceRequirement,
+    ) -> sp_std::result::Result<NI, DispatchError>;
+}
+
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy
 // of the inner member.
 pub mod imbalances {
-    use crate::traits::CommonTrait;
-
     use frame_support::traits::{Imbalance, TryDrop};
-    use sp_arithmetic::traits::{Saturating, Zero};
-    use sp_std::{mem, result};
+    use sp_arithmetic::traits::{SimpleArithmetic, Zero};
+    use sp_std::{marker::Copy, mem, result};
 
     /// Opaque, move-only struct with private fields that serves as a token denoting that
     /// funds have been created without any equal and opposite accounting.
     #[must_use]
-    pub struct PositiveImbalance<T: CommonTrait>(T::Balance);
+    pub struct PositiveImbalance<B: Zero + SimpleArithmetic>(B);
 
-    impl<T: CommonTrait> PositiveImbalance<T> {
+    impl<B: Zero + SimpleArithmetic + Copy> PositiveImbalance<B> {
         /// Create a new positive imbalance from a balance.
-        pub fn new(amount: T::Balance) -> Self {
+        pub fn new(amount: B) -> Self {
             PositiveImbalance(amount)
         }
     }
 
-    impl<T: CommonTrait> TryDrop for PositiveImbalance<T> {
+    impl<B: Zero + SimpleArithmetic + Copy> TryDrop for PositiveImbalance<B> {
         fn try_drop(self) -> result::Result<(), Self> {
             self.drop_zero()
         }
     }
 
-    impl<T: CommonTrait> Imbalance<T::Balance> for PositiveImbalance<T> {
-        type Opposite = NegativeImbalance<T>;
+    impl<B: Zero + SimpleArithmetic + Copy> Imbalance<B> for PositiveImbalance<B> {
+        type Opposite = NegativeImbalance<B>;
 
         fn zero() -> Self {
             Self(Zero::zero())
@@ -153,7 +161,7 @@ pub mod imbalances {
                 Err(self)
             }
         }
-        fn split(self, amount: T::Balance) -> (Self, Self) {
+        fn split(self, amount: B) -> (Self, Self) {
             let first = self.0.min(amount);
             let second = self.0 - first;
 
@@ -180,31 +188,31 @@ pub mod imbalances {
                 Err(NegativeImbalance::new(b - a))
             }
         }
-        fn peek(&self) -> T::Balance {
-            self.0.clone()
+        fn peek(&self) -> B {
+            self.0
         }
     }
 
     /// Opaque, move-only struct with private fields that serves as a token denoting that
     /// funds have been destroyed without any equal and opposite accounting.
     #[must_use]
-    pub struct NegativeImbalance<T: CommonTrait>(T::Balance);
+    pub struct NegativeImbalance<B: Zero + SimpleArithmetic + Copy>(B);
 
-    impl<T: CommonTrait> NegativeImbalance<T> {
+    impl<B: Zero + SimpleArithmetic + Copy> NegativeImbalance<B> {
         /// Create a new negative imbalance from a balance.
-        pub fn new(amount: T::Balance) -> Self {
+        pub fn new(amount: B) -> Self {
             NegativeImbalance(amount)
         }
     }
 
-    impl<T: CommonTrait> TryDrop for NegativeImbalance<T> {
+    impl<B: Zero + SimpleArithmetic + Copy> TryDrop for NegativeImbalance<B> {
         fn try_drop(self) -> result::Result<(), Self> {
             self.drop_zero()
         }
     }
 
-    impl<T: CommonTrait> Imbalance<T::Balance> for NegativeImbalance<T> {
-        type Opposite = PositiveImbalance<T>;
+    impl<B: Zero + SimpleArithmetic + Copy> Imbalance<B> for NegativeImbalance<B> {
+        type Opposite = PositiveImbalance<B>;
 
         fn zero() -> Self {
             Self(Zero::zero())
@@ -216,7 +224,7 @@ pub mod imbalances {
                 Err(self)
             }
         }
-        fn split(self, amount: T::Balance) -> (Self, Self) {
+        fn split(self, amount: B) -> (Self, Self) {
             let first = self.0.min(amount);
             let second = self.0 - first;
 
@@ -243,8 +251,8 @@ pub mod imbalances {
                 Err(PositiveImbalance::new(b - a))
             }
         }
-        fn peek(&self) -> T::Balance {
-            self.0.clone()
+        fn peek(&self) -> B {
+            self.0
         }
     }
 }

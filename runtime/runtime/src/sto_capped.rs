@@ -36,9 +36,7 @@ use crate::{
 
 use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{
-    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait,
-};
+use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;

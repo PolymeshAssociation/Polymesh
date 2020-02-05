@@ -164,7 +164,7 @@ use polymesh_primitives::{traits::IdentityCurrency, IdentityId, Key, Permission,
 use polymesh_runtime_common::traits::{
     balances::{
         imbalances::{NegativeImbalance, PositiveImbalance},
-        RawEvent,
+        BalancesTrait, RawEvent,
     },
     identity::IdentityTrait,
 };
@@ -443,17 +443,17 @@ decl_module! {
 
             let current_free = <FreeBalance<T>>::get(&who);
             if new_free > current_free {
-                mem::drop(PositiveImbalance::<T>::new(new_free - current_free));
+                mem::drop(PositiveImbalance::<T::Balance>::new(new_free - current_free));
             } else if new_free < current_free {
-                mem::drop(NegativeImbalance::<T>::new(current_free - new_free));
+                mem::drop(NegativeImbalance::<T::Balance>::new(current_free - new_free));
             }
             Self::set_free_balance(&who, new_free);
 
             let current_reserved = <ReservedBalance<T>>::get(&who);
             if new_reserved > current_reserved {
-                mem::drop(PositiveImbalance::<T>::new(new_reserved - current_reserved));
+                mem::drop(PositiveImbalance::<T::Balance>::new(new_reserved - current_reserved));
             } else if new_reserved < current_reserved {
-                mem::drop(NegativeImbalance::<T>::new(current_reserved - new_reserved));
+                mem::drop(NegativeImbalance::<T::Balance>::new(current_reserved - new_reserved));
             }
             Self::set_reserved_balance(&who, new_reserved);
         }
@@ -510,6 +510,20 @@ impl<T: Trait> Module<T> {
     fn new_account(who: &T::AccountId, balance: T::Balance) {
         T::OnNewAccount::on_new_account(&who);
         Self::deposit_event(RawEvent::NewAccount(who.clone(), balance));
+    }
+}
+
+impl<T> BalancesTrait<T::AccountId, T::Balance, NegativeImbalance<T::Balance>> for Module<T>
+where
+    T: Trait,
+{
+    fn withdraw(
+        who: &T::AccountId,
+        value: T::Balance,
+        reasons: WithdrawReasons,
+        liveness: ExistenceRequirement,
+    ) -> sp_std::result::Result<NegativeImbalance<T::Balance>, DispatchError> {
+        <Self as Currency<T::AccountId>>::withdraw(who, value, reasons, liveness)
     }
 }
 
@@ -575,8 +589,8 @@ where
     T::Balance: MaybeSerializeDeserialize + Debug,
 {
     type Balance = T::Balance;
-    type PositiveImbalance = PositiveImbalance<T>;
-    type NegativeImbalance = NegativeImbalance<T>;
+    type PositiveImbalance = PositiveImbalance<T::Balance>;
+    type NegativeImbalance = NegativeImbalance<T::Balance>;
 
     fn total_balance(who: &T::AccountId) -> Self::Balance {
         Self::free_balance(who) + Self::reserved_balance(who)
@@ -1016,459 +1030,3 @@ where
         Self::total_balance(who).is_zero()
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use polymesh_runtime_common::traits::{
-        CommonTrait,
-        group, identity,
-        asset::AcceptTransfer,
-        multisig::AddSignerMultiSig
-    };
-
-    use frame_support::{
-        assert_err, assert_ok,
-        dispatch::DispatchResult,
-        impl_outer_origin, parameter_types,
-        traits::Get,
-        weights::{DispatchInfo, Weight},
-    };
-    use frame_system::EnsureSignedBy;
-    use pallet_transaction_payment::ChargeTransactionPayment;
-    use sp_core::H256;
-    use sp_io::{self};
-    use sp_runtime::{
-        testing::Header,
-        traits::{Convert, IdentityLookup, SignedExtension, Verify},
-        AnySignature, Perbill,
-    };
-    use std::{cell::RefCell, result::Result};
-    use test_client::AccountKeyring;
-
-    impl_outer_origin! {
-        pub enum Origin for Runtime {}
-    }
-
-    thread_local! {
-        static EXISTENTIAL_DEPOSIT: RefCell<u128> = RefCell::new(0);
-        static TRANSFER_FEE: RefCell<u128> = RefCell::new(0);
-        static CREATION_FEE: RefCell<u128> = RefCell::new(0);
-    }
-
-    pub struct ExistentialDeposit;
-    impl Get<u128> for ExistentialDeposit {
-        fn get() -> u128 {
-            EXISTENTIAL_DEPOSIT.with(|v| *v.borrow())
-        }
-    }
-
-    pub struct TransferFee;
-    impl Get<u128> for TransferFee {
-        fn get() -> u128 {
-            TRANSFER_FEE.with(|v| *v.borrow())
-        }
-    }
-
-    pub struct CreationFee;
-    impl Get<u128> for CreationFee {
-        fn get() -> u128 {
-            CREATION_FEE.with(|v| *v.borrow())
-        }
-    }
-
-    // Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
-    #[derive(Clone, PartialEq, Eq, Debug)]
-    pub struct Runtime;
-    type AccountId = <AnySignature as Verify>::Signer;
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub const MaximumBlockWeight: u32 = 1024;
-        pub const MaximumBlockLength: u32 = 2 * 1024;
-        pub const AvailableBlockRatio: Perbill = Perbill::one();
-        pub const MinimumPeriod: u64 = 3;
-    }
-
-    impl frame_system::Trait for Runtime {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Call = ();
-        type Hash = H256;
-        type Hashing = ::sp_runtime::traits::BlakeTwo256;
-        type AccountId = AccountId;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type BlockHashCount = BlockHashCount;
-        type MaximumBlockWeight = MaximumBlockWeight;
-        type MaximumBlockLength = MaximumBlockLength;
-        type AvailableBlockRatio = AvailableBlockRatio;
-        type Version = ();
-        type ModuleToIndex = ();
-    }
-
-    parameter_types! {
-        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
-        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
-        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
-        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
-        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
-    }
-
-    impl group::Trait for Runtime {
-        type Event = ();
-        type AddOrigin = EnsureSignedBy<One, AccountId>;
-        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
-        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
-        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
-        type MembershipInitialized = ();
-        type MembershipChanged = ();
-    }
-
-    impl CommonTrait for Runtime {
-        type Balance = u128;
-    }
-
-    impl identity::Trait for Runtime {
-        type Event = ();
-        type Proposal = Call<Runtime>;
-        type AcceptTransferTarget = Runtime;
-        type AddSignerMultiSigTarget = Runtime;
-    }
-
-    impl IdentityTrait for Runtime {
-        fn get_identity(key: &Key) -> Option<IdentityId>
-        fn is_signer_authorized(did: IdentityId, signer: &Signer) -> bool;
-        fn is_signer_authorized_with_permissions(
-            did: IdentityId,
-            signer: &Signer,
-            permissions: Vec<Permission>,
-        ) -> bool;
-        fn is_master_key(did: IdentityId, key: &Key) -> bool;
-    }
-
-
-    impl AcceptTransfer for Runtime {
-        fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-    }
-
-    impl AddSignerMultiSig for Runtime {
-        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-    }
-    impl pallet_timestamp::Trait for Runtime {
-        type Moment = u64;
-        type OnTimestampSet = ();
-        type MinimumPeriod = MinimumPeriod;
-    }
-
-    impl Trait for Runtime {
-        type OnFreeBalanceZero = ();
-        type OnNewAccount = ();
-        type Event = ();
-        type DustRemoval = ();
-        type TransferPayment = ();
-        type ExistentialDeposit = ExistentialDeposit;
-        type TransferFee = TransferFee;
-        type Identity = Module<Runtime>;
-    }
-
-    thread_local! {
-        static TRANSACTION_BASE_FEE: RefCell<u128> = RefCell::new(0);
-        static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(1);
-        static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
-    }
-
-    pub struct TransactionBaseFee;
-    impl Get<u128> for TransactionBaseFee {
-        fn get() -> u128 {
-            TRANSACTION_BASE_FEE.with(|v| *v.borrow())
-        }
-    }
-
-    pub struct TransactionByteFee;
-    impl Get<u128> for TransactionByteFee {
-        fn get() -> u128 {
-            TRANSACTION_BYTE_FEE.with(|v| *v.borrow())
-        }
-    }
-
-    pub struct WeightToFee(u128);
-    impl Convert<Weight, u128> for WeightToFee {
-        fn convert(t: Weight) -> u128 {
-            WEIGHT_TO_FEE.with(|v| *v.borrow() * (t as u128))
-        }
-    }
-
-    impl pallet_transaction_payment::Trait for Runtime {
-        type Currency = Module<Runtime>;
-        type OnTransactionPayment = ();
-        type TransactionBaseFee = TransactionBaseFee;
-        type TransactionByteFee = TransactionByteFee;
-        type WeightToFee = WeightToFee;
-        type FeeMultiplierUpdate = ();
-    }
-
-    pub struct ExtBuilder {
-        transaction_base_fee: u128,
-        transaction_byte_fee: u128,
-        weight_to_fee: u128,
-        existential_deposit: u128,
-        transfer_fee: u128,
-        creation_fee: u128,
-        monied: bool,
-        vesting: bool,
-    }
-    impl Default for ExtBuilder {
-        fn default() -> Self {
-            Self {
-                transaction_base_fee: 0,
-                transaction_byte_fee: 0,
-                weight_to_fee: 0,
-                existential_deposit: 0,
-                transfer_fee: 0,
-                creation_fee: 0,
-                monied: false,
-                vesting: false,
-            }
-        }
-    }
-    impl ExtBuilder {
-        pub fn transaction_fees(
-            mut self,
-            base_fee: u128,
-            byte_fee: u128,
-            weight_fee: u128,
-        ) -> Self {
-            self.transaction_base_fee = base_fee;
-            self.transaction_byte_fee = byte_fee;
-            self.weight_to_fee = weight_fee;
-            self
-        }
-        pub fn existential_deposit(mut self, existential_deposit: u128) -> Self {
-            self.existential_deposit = existential_deposit;
-            self
-        }
-        #[allow(dead_code)]
-        pub fn transfer_fee(mut self, transfer_fee: u128) -> Self {
-            self.transfer_fee = transfer_fee;
-            self
-        }
-        pub fn monied(mut self, monied: bool) -> Self {
-            self.monied = monied;
-            if self.existential_deposit == 0 {
-                self.existential_deposit = 1;
-            }
-            self
-        }
-        pub fn set_associated_consts(&self) {
-            EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
-            TRANSFER_FEE.with(|v| *v.borrow_mut() = self.transfer_fee);
-            CREATION_FEE.with(|v| *v.borrow_mut() = self.creation_fee);
-            TRANSACTION_BASE_FEE.with(|v| *v.borrow_mut() = self.transaction_base_fee);
-            TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
-            WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
-        }
-        pub fn build(self) -> sp_io::TestExternalities {
-            self.set_associated_consts();
-            let mut t = frame_system::GenesisConfig::default()
-                .build_storage::<Runtime>()
-                .unwrap();
-            GenesisConfig::<Runtime> {
-                balances: if self.monied {
-                    vec![
-                        (
-                            AccountKeyring::Alice.public(),
-                            10 * self.existential_deposit,
-                        ),
-                        (AccountKeyring::Bob.public(), 20 * self.existential_deposit),
-                        (
-                            AccountKeyring::Charlie.public(),
-                            30 * self.existential_deposit,
-                        ),
-                        (AccountKeyring::Dave.public(), 40 * self.existential_deposit),
-                        // (12, 10 * self.existential_deposit),
-                    ]
-                } else {
-                    vec![]
-                },
-                vesting: if self.vesting && self.monied {
-                    vec![
-                        (
-                            AccountKeyring::Alice.public(),
-                            0,
-                            10,
-                            5 * self.existential_deposit,
-                        ),
-                        (AccountKeyring::Bob.public(), 10, 20, 0),
-                        // (12, 10, 20, 5 * self.existential_deposit),
-                    ]
-                } else {
-                    vec![]
-                },
-            }
-            .assimilate_storage(&mut t)
-            .unwrap();
-            t.into()
-        }
-    }
-
-    pub type Balances = Module<Runtime>;
-    pub type Identity = Module<Runtime>;
-    pub type TransactionPayment = pallet_transaction_payment::Module<Runtime>;
-
-    pub const CALL: &<Runtime as frame_system::Trait>::Call = &();
-
-    /// create a transaction info struct from weight. Handy to avoid building the whole struct.
-    pub fn info_from_weight(w: Weight) -> DispatchInfo {
-        DispatchInfo {
-            weight: w,
-            ..Default::default()
-        }
-    }
-
-    fn make_account(
-        account_id: &AccountId,
-    ) -> Result<(<Runtime as frame_system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(account_id.clone());
-        Identity::register_did(signed_id.clone(), vec![]);
-        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
-        Ok((signed_id, did))
-    }
-
-    #[test]
-    #[ignore]
-    fn signed_extension_charge_transaction_payment_work() {
-        ExtBuilder::default()
-            .existential_deposit(10)
-            .transaction_fees(10, 1, 5)
-            .monied(true)
-            .build()
-            .execute_with(|| {
-                let len = 10;
-                let alice_pub = AccountKeyring::Alice.public();
-                assert!(
-                    <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-                        ChargeTransactionPayment::from(0),
-                        &alice_pub,
-                        CALL,
-                        info_from_weight(5),
-                        len
-                    )
-                    .is_ok()
-                );
-                assert_eq!(Balances::free_balance(&alice_pub), 100 - 20 - 25);
-                assert!(
-                    <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-                        ChargeTransactionPayment::from(0 /* 0 tip */),
-                        &alice_pub,
-                        CALL,
-                        info_from_weight(3),
-                        len
-                    )
-                    .is_ok()
-                );
-                assert_eq!(Balances::free_balance(&alice_pub), 100 - 20 - 25 - 20 - 15);
-            });
-    }
-
-    #[test]
-    fn tipping_fails() {
-        ExtBuilder::default()
-            .existential_deposit(10)
-            .transaction_fees(10, 1, 5)
-            .monied(true)
-            .build()
-            .execute_with(|| {
-                let len = 10;
-                assert!(
-                    <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-                        ChargeTransactionPayment::from(5 /* 5 tip */),
-                        &AccountKeyring::Alice.public(),
-                        CALL,
-                        info_from_weight(3),
-                        len
-                    )
-                    .is_err()
-                );
-            });
-    }
-
-    #[test]
-    #[ignore]
-    fn should_charge_identity() {
-        ExtBuilder::default()
-            .existential_deposit(10)
-            .transaction_fees(10, 1, 5)
-            .monied(true)
-            .build()
-            .execute_with(|| {
-                let dave_pub = AccountKeyring::Dave.public();
-                let (signed_acc_id, acc_did) = make_account(&dave_pub).unwrap();
-                let len = 10;
-                assert!(
-                    <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-                        ChargeTransactionPayment::from(0 /* 0 tip */),
-                        &dave_pub,
-                        CALL,
-                        info_from_weight(3),
-                        len
-                    )
-                    .is_ok()
-                );
-
-                assert_ok!(Balances::change_charge_did_flag(
-                    signed_acc_id.clone(),
-                    true
-                ));
-                assert!(
-                    <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-                        ChargeTransactionPayment::from(0 /* 0 tip */),
-                        &dave_pub,
-                        CALL,
-                        info_from_weight(3),
-                        len
-                    )
-                    .is_err()
-                ); // no balance in identity
-                assert_eq!(Balances::free_balance(&dave_pub), 365);
-                assert_ok!(Balances::top_up_identity_balance(
-                    signed_acc_id.clone(),
-                    acc_did,
-                    300
-                ));
-                assert_eq!(Balances::free_balance(&dave_pub), 65);
-                assert_eq!(Balances::identity_balance(acc_did), 300);
-                assert!(
-                    <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-                        ChargeTransactionPayment::from(0 /* 0 tip */),
-                        &dave_pub,
-                        CALL,
-                        info_from_weight(3),
-                        len
-                    )
-                    .is_ok()
-                );
-                assert_ok!(Balances::reclaim_identity_balance(
-                    signed_acc_id.clone(),
-                    acc_did,
-                    230
-                ));
-                assert_err!(
-                    Balances::reclaim_identity_balance(signed_acc_id, acc_did, 230),
-                    "too few free funds in account"
-                );
-                assert_eq!(Balances::free_balance(&dave_pub), 295);
-                assert_eq!(Balances::identity_balance(acc_did), 35);
-            });
-    }
-}
-*/

@@ -34,7 +34,6 @@
 use crate::utils;
 
 use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
-use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::currency::MAX_SUPPLY,
     identity::Trait as IdentityTrait, CommonTrait,

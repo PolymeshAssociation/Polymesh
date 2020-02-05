@@ -1,4 +1,9 @@
-use crate::traits::{balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait};
+use crate::traits::{
+    balances::{self, imbalances::NegativeImbalance},
+    group::GroupTrait,
+    multisig::AddSignerMultiSig,
+    CommonTrait,
+};
 use polymesh_primitives::{
     AuthorizationData, IdentityId, Key, LinkData, Permission, Signer, SigningItem,
 };
@@ -109,6 +114,12 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     type AddSignerMultiSigTarget: AddSignerMultiSig;
     /// Group module
     type KYCServiceProviders: GroupTrait;
+
+    type Balances: balances::BalancesTrait<
+        <Self as frame_system::Trait>::AccountId,
+        <Self as CommonTrait>::Balance,
+        NegativeImbalance<<Self as CommonTrait>::Balance>,
+    >;
 }
 // rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation
 #[rustfmt::skip]

@@ -49,18 +49,17 @@ use polymesh_primitives::{
     Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
-    constants::did::USER,
+    constants::did::{SECURITY_TOKEN, USER},
     traits::{
         asset::AcceptTransfer,
-        balances::imbalances::{NegativeImbalance, PositiveImbalance},
+        balances::BalancesTrait,
         identity::{
             AuthorizationNonce, Claim, ClaimMetaData, ClaimRecord, ClaimValue, LinkedKeyInfo,
             RawEvent, SigningItemWithAuth, TargetIdAuthorization,
         },
         multisig::AddSignerMultiSig,
-        BalanceLock,
     },
-    BatchDispatchInfo, CurrencyModule,
+    BatchDispatchInfo,
 };
 
 use codec::Encode;
@@ -69,19 +68,16 @@ use core::{convert::From, result::Result as StdResult};
 use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-    traits::{CheckedSub, Dispatchable, MaybeSerializeDeserialize, Verify, Zero},
+    traits::{Dispatchable, Hash, Verify},
     AnySignature,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, mem::swap, prelude::*, vec};
+use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
 
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{
-        Currency, ExistenceRequirement, Imbalance, SignedImbalance, UpdateBalanceOutcome,
-        WithdrawReason, WithdrawReasons,
-    },
+    traits::{ExistenceRequirement, WithdrawReason},
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
@@ -166,7 +162,7 @@ decl_module! {
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             // TODO: Subtract proper fee.
-            let _imbalance = <Self as Currency<_>>::withdraw(
+            let _imbalance = <T::Balances>::withdraw(
                 &sender,
                 Self::did_creation_fee(),
                 WithdrawReason::Fee.into(),
@@ -1369,14 +1365,11 @@ impl<T: Trait> Module<T> {
     }
 
     /// It is a helper function that can be used to get did for any asset
-    pub fn get_token_did(_ticker: &Ticker) -> StdResult<IdentityId, &'static str> {
-        /*
+    pub fn get_token_did(ticker: &Ticker) -> StdResult<IdentityId, &'static str> {
         let mut buf = Vec::new();
         buf.extend_from_slice(&SECURITY_TOKEN.encode());
         buf.extend_from_slice(&ticker.encode());
         IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
-        */
-        unimplemented!()
     }
 
     pub fn _register_did(sender: T::AccountId, signing_items: Vec<SigningItem>) -> DispatchResult {
@@ -1464,7 +1457,7 @@ impl<T: Trait> IdentityTrait for Module<T> {
 // Implement Currencty for this module
 // =======================================
 
-// impl_currency!();
+/*
 impl<T: Trait> Currency<T::AccountId> for Module<T>
 where
     T::Balance: MaybeSerializeDeserialize + Debug,
@@ -1722,4 +1715,4 @@ impl<T: Trait> CurrencyModule<T> for Module<T> {
     fn free_balance_exists(_who: &T::AccountId) -> bool {
         unimplemented!()
     }
-}
+}*/

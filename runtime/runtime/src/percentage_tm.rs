@@ -26,8 +26,7 @@
 use crate::{asset::AssetTrait, exemption, utils};
 
 use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
-use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, constants::*, CommonTrait};
+use polymesh_runtime_common::{constants::*, CommonTrait};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;

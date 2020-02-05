@@ -22,7 +22,6 @@ use sp_core::{
     sr25519::Pair,
     H256,
 };
-use sp_io::TestExternalities;
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
@@ -149,6 +148,7 @@ impl identity::Trait for TestStorage {
     type Proposal = Call;
     type AddSignerMultiSigTarget = TestStorage;
     type KYCServiceProviders = TestStorage;
+    type Balances = balances::Module<TestStorage>;
 }
 
 impl GroupTrait for TestStorage {
@@ -253,36 +253,6 @@ pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
 pub type Asset = asset::Module<TestStorage>;
 pub type MultiSig = multisig::Module<TestStorage>;
-
-/// Create externalities
-pub fn build_ext() -> TestExternalities {
-    let mut storage = frame_system::GenesisConfig::default()
-        .build_storage::<TestStorage>()
-        .unwrap();
-
-    // Identity genesis.
-    identity::GenesisConfig::<TestStorage> {
-        owner: AccountKeyring::Alice.public().into(),
-        did_creation_fee: 250,
-    }
-    .assimilate_storage(&mut storage)
-    .unwrap();
-
-    // Asset genesis.
-    asset::GenesisConfig::<TestStorage> {
-        asset_creation_fee: 0,
-        ticker_registration_fee: 0,
-        ticker_registration_config: TickerRegistrationConfig {
-            max_ticker_length: 8,
-            registration_length: Some(10000),
-        },
-        fee_collector: AccountKeyring::Dave.public().into(),
-    }
-    .assimilate_storage(&mut storage)
-    .unwrap();
-
-    sp_io::TestExternalities::new(storage)
-}
 
 pub fn make_account(
     id: AccountId,

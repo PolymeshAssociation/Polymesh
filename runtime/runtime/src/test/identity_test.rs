@@ -1,4 +1,7 @@
-use crate::test::storage::{build_ext, register_keyring_account, TestStorage};
+use crate::test::{
+    storage::{register_keyring_account, TestStorage},
+    ExtBuilder,
+};
 
 use polymesh_primitives::{
     AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem, Ticker,
@@ -26,7 +29,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn add_claims_batch() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let issuer = AccountKeyring::Bob.public();
@@ -112,7 +115,7 @@ fn add_claims_batch() {
 /// TODO Add `Signer::Identity(..)` test.
 #[test]
 fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let owner_signer = Signer::Key(Key::from(AccountKeyring::Alice.public().0));
 
@@ -153,7 +156,7 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
 
 #[test]
 fn revoking_claims() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let issuer = Origin::signed(AccountKeyring::Bob.public());
@@ -195,7 +198,9 @@ fn revoking_claims() {
 
 #[test]
 fn only_master_key_can_add_signing_key_permissions() {
-    build_ext().execute_with(&only_master_key_can_add_signing_key_permissions_with_externalities);
+    ExtBuilder::default()
+        .build()
+        .execute_with(&only_master_key_can_add_signing_key_permissions_with_externalities);
 }
 
 fn only_master_key_can_add_signing_key_permissions_with_externalities() {
@@ -256,7 +261,9 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
 
 #[test]
 fn add_signing_keys_with_specific_type() {
-    build_ext().execute_with(&add_signing_keys_with_specific_type_with_externalities);
+    ExtBuilder::default()
+        .build()
+        .execute_with(&add_signing_keys_with_specific_type_with_externalities);
 }
 
 /// It tests that signing key can be added using non-default key type
@@ -298,7 +305,9 @@ fn add_signing_keys_with_specific_type_with_externalities() {
 /// It verifies that frozen keys are recovered after `unfreeze` call.
 #[test]
 fn freeze_signing_keys_test() {
-    build_ext().execute_with(&freeze_signing_keys_with_externalities);
+    ExtBuilder::default()
+        .build()
+        .execute_with(&freeze_signing_keys_with_externalities);
 }
 
 fn freeze_signing_keys_with_externalities() {
@@ -386,7 +395,9 @@ fn freeze_signing_keys_with_externalities() {
 /// It double-checks that frozen keys are removed too.
 #[test]
 fn remove_frozen_signing_keys_test() {
-    build_ext().execute_with(&remove_frozen_signing_keys_with_externalities);
+    ExtBuilder::default()
+        .build()
+        .execute_with(&remove_frozen_signing_keys_with_externalities);
 }
 
 fn remove_frozen_signing_keys_with_externalities() {
@@ -434,7 +445,9 @@ fn remove_frozen_signing_keys_with_externalities() {
 
 #[test]
 fn enforce_uniqueness_keys_in_identity_tests() {
-    build_ext().execute_with(&enforce_uniqueness_keys_in_identity);
+    ExtBuilder::default()
+        .build()
+        .execute_with(&enforce_uniqueness_keys_in_identity);
 }
 
 fn enforce_uniqueness_keys_in_identity() {
@@ -501,7 +514,9 @@ fn enforce_uniqueness_keys_in_identity() {
 
 #[test]
 fn add_remove_signing_identities() {
-    build_ext().execute_with(&add_remove_signing_identities_with_externalities);
+    ExtBuilder::default()
+        .build()
+        .execute_with(&add_remove_signing_identities_with_externalities);
 }
 
 fn add_remove_signing_identities_with_externalities() {
@@ -548,7 +563,9 @@ fn add_remove_signing_identities_with_externalities() {
 
 #[test]
 fn two_step_join_id() {
-    build_ext().execute_with(&two_step_join_id_with_ext);
+    ExtBuilder::default()
+        .build()
+        .execute_with(&two_step_join_id_with_ext);
 }
 
 fn two_step_join_id_with_ext() {
@@ -635,7 +652,9 @@ fn two_step_join_id_with_ext() {
 
 #[test]
 fn one_step_join_id() {
-    build_ext().execute_with(&one_step_join_id_with_ext);
+    ExtBuilder::default()
+        .build()
+        .execute_with(&one_step_join_id_with_ext);
 }
 
 fn one_step_join_id_with_ext() {
@@ -762,7 +781,7 @@ fn one_step_join_id_with_ext() {
 
 #[test]
 fn adding_authorizations() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
@@ -846,7 +865,7 @@ fn adding_authorizations() {
 
 #[test]
 fn removing_authorizations() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let _alice_did = Signer::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
@@ -895,7 +914,7 @@ fn removing_authorizations() {
 
 #[test]
 fn adding_links() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
         let ticker51 = Ticker::from_slice(&[0x51]);
@@ -939,7 +958,7 @@ fn adding_links() {
 
 #[test]
 fn removing_links() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let bob_did = Signer::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
         let mut link_ids_bob = Vec::new();

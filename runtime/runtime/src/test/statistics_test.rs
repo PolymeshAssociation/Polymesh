@@ -1,7 +1,10 @@
 use crate::{
     asset::{self, IdentifierType, SecurityToken},
     general_tm, statistics,
-    test::storage::{build_ext, register_keyring_account, TestStorage},
+    test::{
+        storage::{register_keyring_account, TestStorage},
+        ExtBuilder,
+    },
 };
 use polymesh_primitives::Ticker;
 
@@ -15,7 +18,9 @@ type GeneralTM = general_tm::Module<TestStorage>;
 
 #[test]
 fn investor_count_per_asset() {
-    build_ext().execute_with(|| investor_count_per_asset_with_ext);
+    ExtBuilder::default()
+        .build()
+        .execute_with(|| investor_count_per_asset_with_ext);
 }
 
 fn investor_count_per_asset_with_ext() {

@@ -3,7 +3,6 @@ use crate::{
     utils,
 };
 
-use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait};
 use polymesh_runtime_identity as identity;
 
