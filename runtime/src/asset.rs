@@ -994,7 +994,7 @@ decl_module! {
         /// * `documents` Documents to be attached to `ticker`
         pub fn add_documents(origin, did: IdentityId, ticker: Ticker, documents: Vec<Document>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signer::AccountKey(AccountKey::try_from(sender.encode())?);
+            let sender_signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
@@ -1002,7 +1002,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
-            let signer = Signer::from(ticker_did);
+            let signer = Signatory::from(ticker_did);
             documents.into_iter().for_each(|doc| {
                 <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None)
             });
@@ -1027,7 +1027,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
-            let signer = Signer::from(ticker_did);
+            let signer = Signatory::from(ticker_did);
             doc_ids.into_iter().for_each(|doc_id| {
                 <identity::Module<T>>::remove_link(signer, doc_id)
             });
@@ -1052,7 +1052,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
-            let signer = Signer::from(ticker_did);
+            let signer = Signatory::from(ticker_did);
             docs.into_iter().for_each(|(doc_id, doc)| {
                 <identity::Module<T>>::update_link(signer, doc_id, LinkData::DocumentOwned(doc))
             });
@@ -1233,7 +1233,7 @@ decl_module! {
         /// Whitelisting the Smart-Extension address for a given ticker
         ///
         /// # Arguments
-        /// * `origin` - Signer who owns to ticker/asset
+        /// * `origin` - Signatory who owns to ticker/asset
         /// * `ticker` - ticker for whom extension get added
         /// * `extension_details` - Details of the smart extension
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
@@ -1265,7 +1265,7 @@ decl_module! {
         /// Archived the extension. Extension will not be used to verify the compliance or any smart logic it posses
         ///
         /// # Arguments
-        /// * `origin` - Signer who owns the ticker/asset.
+        /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be archived
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
@@ -1294,7 +1294,7 @@ decl_module! {
         /// Archived the extension. Extension will not be used to verify the compliance or any smart logic it posses
         ///
         /// # Arguments
-        /// * `origin` - Signer who owns the ticker/asset.
+        /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be un-archived
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {

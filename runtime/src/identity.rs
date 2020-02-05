@@ -1128,7 +1128,7 @@ decl_event!(
         LinkRemoved(u64, Signatory),
 
         /// Link contents updated. (link_id, associated identity or key)
-        LinkUpdated(u64, Signer),
+        LinkUpdated(u64, Signatory),
 
         /// Signatory approved a previous request to join to a target identity.
         SignerJoinedToIdentityApproved( Signatory, IdentityId),
@@ -1299,7 +1299,7 @@ impl<T: Trait> Module<T> {
 
     /// Update link data (if it exists) from a key or identity
     /// NB: Please do all the required checks before calling this function.
-    pub fn update_link(target: Signer, link_id: u64, link_data: LinkData) {
+    pub fn update_link(target: Signatory, link_id: u64, link_data: LinkData) {
         if <Links<T>>::exists((target, link_id)) {
             <Links<T>>::mutate((target, link_id), |link| link.link_data = link_data);
 
