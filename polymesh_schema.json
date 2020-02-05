@@ -37,7 +37,7 @@
             "Admin",
             "Operator",
             "SpendFunds"
-       ]
+        ]
     },
     "Link": {
         "link_data": "LinkData",
@@ -46,10 +46,10 @@
         "previous_link": "u64"
     },
     "LinkData": {
-       "_enum": {
+        "_enum": {
             "TickerOwned": "Ticker",
             "TokenOwned": "Ticker"
-       }
+        }
     },
     "SignerType": {
         "_enum": [
@@ -60,7 +60,7 @@
         ]
     },
     "Signer":{
-       "_enum": {
+        "_enum": {
             "Identity": "IdentityId",
             "AccountKey": "AccountKey"
         }
@@ -266,7 +266,7 @@
             "Active"
         ]
     },
-    "SmartExtensionTypes": {
+    "SmartExtensionType": {
         "_enum": {
             "TransferManager": "",
             "Offerings": "",
@@ -274,7 +274,7 @@
         }
     },
     "SmartExtension": {
-        "extension_type": "SmartExtensionTypes",
+        "extension_type": "SmartExtensionType",
         "extension_name": "Vec<u8>",
         "extension_id": "IdentityId",
         "is_archive": "bool"
