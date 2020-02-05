@@ -69,8 +69,8 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use pallet_session;
 use primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signer, SmartExtension,
-    SmartExtensionType, Ticker,
+    AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signer,
+    SmartExtension, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]

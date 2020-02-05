@@ -1059,6 +1059,7 @@ fn adding_removing_documents() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
 
         let documents = vec![
@@ -1173,6 +1174,7 @@ fn add_extension_successfully() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1239,6 +1241,7 @@ fn add_same_extension_should_fail() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1310,6 +1313,7 @@ fn should_successfully_archive_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1386,6 +1390,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1467,6 +1472,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1510,6 +1516,7 @@ fn should_successfuly_unarchive_an_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1596,6 +1603,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
