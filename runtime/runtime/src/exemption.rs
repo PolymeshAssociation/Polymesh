@@ -6,7 +6,7 @@ use crate::{
 use polymesh_runtime_common::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait};
 use polymesh_runtime_identity as identity;
 
-use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
+use polymesh_primitives::{AccountKey, IdentityId, Signer, Ticker};
 
 use codec::Encode;
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
@@ -38,7 +38,7 @@ decl_module! {
 
         fn modify_exemption_list(origin, did: IdentityId, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
             ticker.canonize();
-            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");

@@ -33,7 +33,7 @@
 
 use crate::{asset, simple_token, utils};
 
-use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
+use polymesh_primitives::{AccountKey, IdentityId, Signer, Ticker};
 use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait};
 use polymesh_runtime_identity as identity;
 
@@ -110,7 +110,7 @@ decl_module! {
             payout_ticker: Ticker,
             checkpoint_id: u64
         ) -> DispatchResult {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -182,7 +182,7 @@ decl_module! {
 
         /// Lets the owner cancel a dividend before start/maturity date
         pub fn cancel(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender = Signer::Key( Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey( AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -223,7 +223,7 @@ decl_module! {
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
         pub fn claim(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -290,7 +290,7 @@ decl_module! {
 
         /// After a dividend had expired, collect the remaining amount to owner address
         pub fn claim_unclaimed(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -545,6 +545,16 @@ mod tests {
         type Identity = identity::Module<Test>;
     }
 
+    impl group::Trait<group::Instance2> for Test {
+        type Event = ();
+        type AddOrigin = EnsureSignedBy<One, AccountId>;
+        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
+    }
+
     parameter_types! {
         pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
         pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -735,7 +745,7 @@ mod tests {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
         let _ = Identity::register_did(signed_id.clone(), vec![]);
-        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
+        let did = Identity::get_identity(&AccountKey::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
@@ -777,6 +787,7 @@ mod tests {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
 
             // Issuance for payout token is successful

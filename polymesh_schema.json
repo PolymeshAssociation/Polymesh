@@ -1,40 +1,36 @@
 {
-    "Balance": "u128",
-    "IdentityId":"[u8;32]",
+    "IdentityId":"H256",
+    "Ticker": "[u8; 12]",
+    "AssetType": {
+        "_enum": {
+            "Equity": "",
+            "Debt": "",
+            "Commodity": "",
+            "StructuredProduct": "",
+            "Custom": "Vec<u8>"
+        }
+    },
+    "IdentifierType": {
+        "_enum": {
+            "Isin": "",
+            "Cusip": "",
+            "Custom": "Vec<u8>"
+        }
+    },
     "SecurityToken": {
         "name": "Vec<u8>",
         "total_supply": "Balance",
         "owner_did": "IdentityId",
-        "divisible": "bool"
+        "divisible": "bool",
+        "asset_type": "AssetType"
     },
-    "Restriction": {
-        "name": "Vec<u8>",
-        "token_id": "u32",
-        "can_transfer": "bool"
-    },
-    "Whitelist": {
-        "investor_did": "IdentityId",
-        "canSendAfter": "Moment",
-        "canReceiveAfter": "Moment"
-    },
-    "Issuer": {
-        "did": "IdentityId",
-        "access_level": "u16",
-        "active": "bool"
-    },
-    "Investor": {
-        "did": "IdentityId",
-        "access_level": "u16",
-        "active": "bool",
-        "jurisdiction": "u16"
-    },
-    "LinkedKeyInfo": { 
-        "_enum": { 
+    "LinkedKeyInfo": {
+        "_enum": {
             "Unique": "IdentityId",
             "Group": "Vec<IdentityId>"
         }
     },
-    "Key": "[u8;32]",
+    "AccountKey": "[u8;32]",
     "Permission": {
         "_enum": [
             "Full",
@@ -43,19 +39,31 @@
             "SpendFunds"
        ]
     },
+    "Link": {
+        "link_data": "LinkData",
+        "expiry": "Option<Moment>",
+        "next_link": "u64",
+        "previous_link": "u64"
+    },
+    "LinkData": {
+       "_enum": {
+            "TickerOwned": "Ticker",
+            "TokenOwned": "Ticker"
+       }
+    },
     "SignerType": {
         "_enum": [
             "External",
             "Identity",
-            "Multisig",
+            "MultiSig",
             "Relayer"
         ]
     },
     "Signer":{
-       "_enum": { 
+       "_enum": {
             "Identity": "IdentityId",
-            "Key": "Key"
-        } 
+            "AccountKey": "AccountKey"
+        }
     },
     "SigningItem": {
         "signer": "Signer",
@@ -65,10 +73,6 @@
     "SigningItemWithAuth":{
         "signing_item": "SigningItem",
         "auth_signature": "Signature"
-    },
-    "LinkedKeyInfo": {
-        "_enum": "[u8;1]",
-        "did": "[u8;32]"
     },
     "IdentityRole": {
         "_enum": [
@@ -90,7 +94,7 @@
     },
     "DidRecord": {
         "roles": "Vec<IdentityRole>",
-        "master_key": "Key",
+        "master_key": "AccountKey",
         "signing_items": "Vec<SigningItem>"
     },
     "Claim": {
@@ -105,6 +109,12 @@
     "ClaimValue": {
         "data_type": "DataTypes",
         "value": "Vec<u8>"
+    },
+    "ClaimRecord": {
+        "did": "IdentityId",
+        "claim_key": "Vec<u8>",
+        "expiry": "Moment",
+        "claim_value": "ClaimValue"
     },
     "DataTypes": {
         "_enum": [
@@ -153,13 +163,11 @@
         "last_purchase_date": "Moment"
     },
     "SimpleTokenRecord": {
-        "ticker": "Vec<u8>",
+        "ticker": "Ticker",
         "total_supply": "Balance",
         "owner_did": "IdentityId"
     },
     "FeeOf": "Balance",
-    "TSMoment": "u64",
-    "Moment": "u64",
     "Dividend": {
         "amount": "Balance",
         "active": "bool",
@@ -168,18 +176,23 @@
         "payout_currency": "Option<Vec<u8>>",
         "checkpoint_id": "u64"
     },
+    "TargetIdAuthorization": {
+        "target_id": "IdentityId",
+        "nonce": "u64",
+        "expires_at": "Moment"
+    },
     "TickerRegistration": {
         "owner": "IdentityId",
         "expiry": "Option<Moment>"
     },
     "TickerRegistrationConfig": {
-        "max_ticker_length": "u32",
+        "max_ticker_length": "u8",
         "registration_length": "Option<Moment>"
     },
     "SignData": {
         "custodian_did": "IdentityId",
         "holder_did": "IdentityId",
-        "ticker": "Vec<u8>",
+        "ticker": "Ticker",
         "value": "Balance",
         "nonce": "u16"
     },
@@ -194,19 +207,89 @@
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
     },
+    "MipsMetadata": {
+        "index": "u32",
+        "end": "u64",
+        "proposal_hash": "Hash"
+    },
+    "PolymeshVotes": {
+        "index": "u32",
+        "ayes": "Vec<(IdentityId, Balance)>",
+        "nays": "Vec<(IdentityId, Balance)>"
+    },
+    "MipsIndex": "u32",
+    "MipsPriority": {
+        "_enum": [
+            "High",
+            "Normal"
+        ]
+    },
+    "MIP": {
+        "index": "MipsIndex",
+        "proposal":"Call"
+    },
+    "PolymeshReferendumInfo": {
+        "index": "MipsIndex",
+        "priority": "MipsPriority",
+        "proposal_hash": "Hash"
+    },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
-        "next_ticker": "Option<Vec<u8>>",
-        "previous_ticker": "Option<Vec<u8>>"
+        "next_ticker": "Option<Ticker>",
+        "previous_ticker": "Option<Ticker>"
     },
     "OffChainSignature": "H512",
     "PermissionedValidator": {
         "compliance": "Compliance"
+    },
+    "Authorization": {
+        "authorization_data": "AuthorizationData",
+        "authorized_by": "IdentityId",
+        "expiry": "Option<Moment>",
+        "next_authorization": "u64",
+        "previous_authorization": "u64"
+    },
+    "AuthorizationData": {
+        "_enum": {
+            "AttestMasterKeyRotation": "IdentityId",
+            "RotateMasterKey": "IdentityId",
+            "TransferTicker": "Ticker",
+            "AddMultiSigSigner": "",
+            "TransferTokenOwnership": "Ticker",
+            "Custom": "Vec<u8>",
+            "NoData": ""
+        }
     },
     "Compliance": {
         "_enum": [
             "Pending",
             "Active"
         ]
+    },
+    "SmartExtensionTypes": {
+        "_enum": {
+            "TransferManager": "",
+            "Offerings": "",
+            "Custom": "Vec<u8>"
+        }
+    },
+    "SmartExtension": {
+        "extension_type": "SmartExtensionTypes",
+        "extension_name": "Vec<u8>",
+        "extension_id": "IdentityId",
+        "is_archive": "bool"
+    },
+    "ProportionMatch": {
+        "_enum": [
+            "AtLeast",
+            "MoreThan"
+        ]
+    },
+    "AuthorizationNonce": "u64",
+    "Counter": "u64",
+    "Document": {
+        "name": "Vec<u8>",
+        "uri": "Vec<u8>",
+        "hash": "Vec<u8>"
     }
 }

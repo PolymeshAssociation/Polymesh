@@ -4,7 +4,7 @@ use crate::test::{
 };
 
 use polymesh_primitives::{
-    AuthorizationData, Key, LinkData, Permission, Signer, SignerType, SigningItem, Ticker,
+    AccountKey, AuthorizationData, LinkData, Permission, Signer, SignerType, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{
@@ -117,14 +117,14 @@ fn add_claims_batch() {
 fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
     ExtBuilder::default().build().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let owner_signer = Signer::Key(Key::from(AccountKeyring::Alice.public().0));
+        let owner_signer = Signer::AccountKey(AccountKey::from(AccountKeyring::Alice.public().0));
 
         let a_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let a = Origin::signed(AccountKeyring::Bob.public());
         let b_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-        let charlie_key = Key::from(AccountKeyring::Charlie.public().0);
-        let charlie_signer = Signer::Key(charlie_key);
+        let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
+        let charlie_signer = Signer::AccountKey(charlie_key);
         let charlie_signing_item =
             SigningItem::new(charlie_signer.clone(), vec![Permission::Admin]);
 
@@ -204,8 +204,8 @@ fn only_master_key_can_add_signing_key_permissions() {
 }
 
 fn only_master_key_can_add_signing_key_permissions_with_externalities() {
-    let bob_key = Key::from(AccountKeyring::Bob.public().0);
-    let charlie_key = Key::from(AccountKeyring::Charlie.public().0);
+    let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
+    let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob = Origin::signed(AccountKeyring::Bob.public());
@@ -223,13 +223,13 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         alice_did,
-        Signer::Key(bob_key),
+        Signer::AccountKey(bob_key),
         vec![Permission::Operator]
     ));
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         alice_did,
-        Signer::Key(charlie_key),
+        Signer::AccountKey(charlie_key),
         vec![Permission::Admin, Permission::Operator]
     ));
 
@@ -238,7 +238,7 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
         Identity::set_permission_to_signer(
             bob.clone(),
             alice_did,
-            Signer::Key(bob_key),
+            Signer::AccountKey(bob_key),
             vec![Permission::Full]
         ),
         "Only master key of an identity is able to execute this operation"
@@ -246,7 +246,7 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.
     assert_err!(
-        Identity::set_permission_to_signer(bob, alice_did, Signer::Key(charlie_key), vec![]),
+        Identity::set_permission_to_signer(bob, alice_did, Signer::AccountKey(charlie_key), vec![]),
         "Only master key of an identity is able to execute this operation"
     );
 
@@ -254,7 +254,7 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice,
         alice_did,
-        Signer::Key(bob_key),
+        Signer::AccountKey(bob_key),
         vec![]
     ));
 }
@@ -269,17 +269,17 @@ fn add_signing_keys_with_specific_type() {
 /// It tests that signing key can be added using non-default key type
 /// (`SignerType::External`).
 fn add_signing_keys_with_specific_type_with_externalities() {
-    let charlie_key = Key::from(AccountKeyring::Charlie.public().0);
-    let dave_key = Key::from(AccountKeyring::Dave.public().0);
+    let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
+    let dave_key = AccountKey::from(AccountKeyring::Dave.public().0);
 
     // Create keys using non-default type.
     let charlie_signing_key = SigningItem {
-        signer: Signer::Key(charlie_key),
+        signer: Signer::AccountKey(charlie_key),
         signer_type: SignerType::Relayer,
         permissions: vec![],
     };
     let dave_signing_key = SigningItem {
-        signer: Signer::Key(dave_key),
+        signer: Signer::AccountKey(dave_key),
         signer_type: SignerType::MultiSig,
         permissions: vec![],
     };
@@ -312,17 +312,17 @@ fn freeze_signing_keys_test() {
 
 fn freeze_signing_keys_with_externalities() {
     let (bob_key, charlie_key, dave_key) = (
-        Key::from(AccountKeyring::Bob.public().0),
-        Key::from(AccountKeyring::Charlie.public().0),
-        Key::from(AccountKeyring::Dave.public().0),
+        AccountKey::from(AccountKeyring::Bob.public().0),
+        AccountKey::from(AccountKeyring::Charlie.public().0),
+        AccountKey::from(AccountKeyring::Dave.public().0),
     );
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
     let dave = Origin::signed(AccountKeyring::Dave.public());
 
-    let bob_signing_key = SigningItem::new(Signer::Key(bob_key), vec![Permission::Admin]);
+    let bob_signing_key = SigningItem::new(Signer::AccountKey(bob_key), vec![Permission::Admin]);
     let charlie_signing_key =
-        SigningItem::new(Signer::Key(charlie_key), vec![Permission::Operator]);
+        SigningItem::new(Signer::AccountKey(charlie_key), vec![Permission::Operator]);
     let dave_signing_key = SigningItem::from(dave_key);
 
     // Add signing keys.
@@ -342,7 +342,7 @@ fn freeze_signing_keys_with_externalities() {
     ));
 
     assert_eq!(
-        Identity::is_signer_authorized(alice_did, &Signer::Key(bob_key)),
+        Identity::is_signer_authorized(alice_did, &Signer::AccountKey(bob_key)),
         true
     );
 
@@ -354,7 +354,7 @@ fn freeze_signing_keys_with_externalities() {
     assert_ok!(Identity::freeze_signing_keys(alice.clone(), alice_did));
 
     assert_eq!(
-        Identity::is_signer_authorized(alice_did, &Signer::Key(bob_key)),
+        Identity::is_signer_authorized(alice_did, &Signer::AccountKey(bob_key)),
         false
     );
 
@@ -367,7 +367,7 @@ fn freeze_signing_keys_with_externalities() {
     ));
     assert_ok!(Identity::authorize_join_to_identity(dave, alice_did));
     assert_eq!(
-        Identity::is_signer_authorized(alice_did, &Signer::Key(dave_key)),
+        Identity::is_signer_authorized(alice_did, &Signer::AccountKey(dave_key)),
         false
     );
 
@@ -375,7 +375,7 @@ fn freeze_signing_keys_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         alice_did,
-        Signer::Key(bob_key),
+        Signer::AccountKey(bob_key),
         vec![Permission::Operator]
     ));
 
@@ -387,7 +387,7 @@ fn freeze_signing_keys_with_externalities() {
     assert_ok!(Identity::unfreeze_signing_keys(alice.clone(), alice_did));
 
     assert_eq!(
-        Identity::is_signer_authorized(alice_did, &Signer::Key(dave_key)),
+        Identity::is_signer_authorized(alice_did, &Signer::AccountKey(dave_key)),
         true
     );
 }
@@ -402,13 +402,13 @@ fn remove_frozen_signing_keys_test() {
 
 fn remove_frozen_signing_keys_with_externalities() {
     let (bob_key, charlie_key) = (
-        Key::from(AccountKeyring::Bob.public().0),
-        Key::from(AccountKeyring::Charlie.public().0),
+        AccountKey::from(AccountKeyring::Bob.public().0),
+        AccountKey::from(AccountKeyring::Charlie.public().0),
     );
 
-    let bob_signing_key = SigningItem::new(Signer::Key(bob_key), vec![Permission::Admin]);
+    let bob_signing_key = SigningItem::new(Signer::AccountKey(bob_key), vec![Permission::Admin]);
     let charlie_signing_key =
-        SigningItem::new(Signer::Key(charlie_key), vec![Permission::Operator]);
+        SigningItem::new(Signer::AccountKey(charlie_key), vec![Permission::Operator]);
 
     // Add signing keys.
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -436,7 +436,7 @@ fn remove_frozen_signing_keys_with_externalities() {
     assert_ok!(Identity::remove_signing_items(
         alice.clone(),
         alice_did,
-        vec![Signer::Key(bob_key)]
+        vec![Signer::AccountKey(bob_key)]
     ));
     // Check DidRecord.
     let did_rec = Identity::did_records(alice_did);
@@ -458,8 +458,8 @@ fn enforce_uniqueness_keys_in_identity() {
     let bob = Origin::signed(AccountKeyring::Bob.public());
 
     // Check external signed key uniqueness.
-    let charlie_key = Key::from(AccountKeyring::Charlie.public().0);
-    let charlie_sk = SigningItem::new(Signer::Key(charlie_key), vec![Permission::Operator]);
+    let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
+    let charlie_sk = SigningItem::new(Signer::AccountKey(charlie_key), vec![Permission::Operator]);
     assert_ok!(Identity::add_signing_items(
         alice.clone(),
         alice_id,
@@ -476,9 +476,9 @@ fn enforce_uniqueness_keys_in_identity() {
     );
 
     // Check non-external signed key non-uniqueness.
-    let dave_key = Key::from(AccountKeyring::Dave.public().0);
+    let dave_key = AccountKey::from(AccountKeyring::Dave.public().0);
     let dave_sk = SigningItem {
-        signer: Signer::Key(dave_key),
+        signer: Signer::AccountKey(dave_key),
         signer_type: SignerType::MultiSig,
         permissions: vec![Permission::Operator],
     };
@@ -494,9 +494,9 @@ fn enforce_uniqueness_keys_in_identity() {
     ));
 
     // Check that master key acts like external signed key.
-    let bob_key = Key::from(AccountKeyring::Bob.public().0);
+    let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
     let bob_sk_as_mutisig = SigningItem {
-        signer: Signer::Key(bob_key),
+        signer: Signer::AccountKey(bob_key),
         signer_type: SignerType::MultiSig,
         permissions: vec![Permission::Operator],
     };
@@ -505,7 +505,7 @@ fn enforce_uniqueness_keys_in_identity() {
         Error::<TestStorage>::AlreadyLinked
     );
 
-    let bob_sk = SigningItem::new(Signer::Key(bob_key), vec![Permission::Admin]);
+    let bob_sk = SigningItem::new(Signer::AccountKey(bob_key), vec![Permission::Admin]);
     assert_err!(
         Identity::add_signing_items(alice.clone(), alice_id, vec![bob_sk]),
         Error::<TestStorage>::AlreadyLinked
@@ -575,15 +575,15 @@ fn two_step_join_id_with_ext() {
     let bob = Origin::signed(AccountKeyring::Bob.public());
 
     let c_sk = SigningItem::new(
-        Signer::Key(Key::from(AccountKeyring::Charlie.public().0)),
+        Signer::AccountKey(AccountKey::from(AccountKeyring::Charlie.public().0)),
         vec![Permission::Operator],
     );
     let d_sk = SigningItem::new(
-        Signer::Key(Key::from(AccountKeyring::Dave.public().0)),
+        Signer::AccountKey(AccountKey::from(AccountKeyring::Dave.public().0)),
         vec![Permission::Full],
     );
     let e_sk = SigningItem::new(
-        Signer::Key(Key::from(AccountKeyring::Eve.public().0)),
+        Signer::AccountKey(AccountKey::from(AccountKeyring::Eve.public().0)),
         vec![Permission::Full],
     );
 

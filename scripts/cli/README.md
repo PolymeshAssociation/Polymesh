@@ -8,7 +8,6 @@ Scripts to quickly run a local three node Polymesh testnet.
 
 ```shell
 $ yarn install #Project deps
-$ npm install -g pm2 #test setup orchestration
 ```
 
 ## Usage
@@ -19,9 +18,9 @@ To run the three node local Polymesh testnet:
 # Orchestrate the environment
 $ ./run.sh 
 # Viewing Substrate logs
-$ pm2 log pmesh-primary-node
-$ pm2 log pmesh-peer-node-1
-$ pm2 log pmesh-primary-node-2
+$ ./node_modules/.bin/pm2 log pmesh-primary-node
+$ ./node_modules/.bin/pm2 log pmesh-peer-node-1
+$ ./node_modules/.bin/pm2 log pmesh-peer-node-2
 ```
 
 To run the script and execute transactions:

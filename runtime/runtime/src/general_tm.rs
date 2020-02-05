@@ -48,7 +48,7 @@ use crate::{
     utils,
 };
 
-use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
+use polymesh_primitives::{AccountKey, IdentityId, Signer, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait,
     constants::*,
@@ -130,7 +130,7 @@ decl_module! {
 
         /// Adds an asset rule to active rules for a ticker
         pub fn add_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
-            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -150,7 +150,7 @@ decl_module! {
 
         /// Removes a rule from active asset rules
         pub fn remove_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
-            let sender = Signer::Key(Key::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey(AccountKey::try_from( ensure_signed(origin)?.encode())?);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -171,7 +171,7 @@ decl_module! {
 
         /// Removes all active rules of a ticker
         pub fn reset_active_rules(origin, did: IdentityId, ticker: Ticker) -> DispatchResult {
-            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -327,7 +327,7 @@ mod tests {
     impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
-        type BlockNumber = BlockNumber;
+        type BlockNumber = u64;
         type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
@@ -550,7 +550,7 @@ mod tests {
         let signed_id = Origin::signed(account_id.clone());
         Balances::make_free_balance_be(&account_id, 1_000_000);
         let _ = Identity::register_did(signed_id.clone(), vec![]);
-        let did = Identity::get_identity(&Key::try_from(account_id.encode())?).unwrap();
+        let did = Identity::get_identity(&AccountKey::try_from(account_id.encode())?).unwrap();
         Ok((signed_id, did))
     }
 
@@ -581,6 +581,7 @@ mod tests {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
@@ -664,6 +665,7 @@ mod tests {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
@@ -754,6 +756,7 @@ mod tests {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
 
             let asset_rule = AssetRule {

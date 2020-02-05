@@ -45,14 +45,19 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use polymesh_primitives::{
-    Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord, IdentityId, Key,
-    Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem, Ticker,
+    AccountKey, Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord,
+    IdentityId, Link, LinkData, Permission, PreAuthorizedKeyInfo, Signer, SignerType, SigningItem,
+    Ticker,
 };
 use polymesh_runtime_common::{
-    constants::did::{SECURITY_TOKEN, USER},
+    constants::{
+        did::{SECURITY_TOKEN, USER},
+        KYC_EXPIRY_CLAIM_KEY,
+    },
     traits::{
         asset::AcceptTransfer,
         balances::BalancesTrait,
+        group::GroupTrait,
         identity::{
             AuthorizationNonce, Claim, ClaimMetaData, ClaimRecord, ClaimValue, LinkedKeyInfo,
             RawEvent, SigningItemWithAuth, TargetIdAuthorization,
@@ -63,12 +68,15 @@ use polymesh_runtime_common::{
 };
 
 use codec::Encode;
-use core::{convert::From, result::Result as StdResult};
+use core::{
+    convert::{From, TryInto},
+    result::Result as StdResult,
+};
 
 use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-    traits::{Dispatchable, Hash, Verify},
+    traits::{Dispatchable, Hash, SaturatedConversion, Verify},
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
@@ -107,7 +115,7 @@ decl_storage! {
         pub ClaimKeys get(fn claim_keys): map IdentityId => Vec<ClaimMetaData>;
 
         // Account => DID
-        pub KeyToIdentityIds get(fn key_to_identity_ids): map Key => Option<LinkedKeyInfo>;
+        pub KeyToIdentityIds get(fn key_to_identity_ids): map AccountKey => Option<LinkedKeyInfo>;
 
         /// How much does creating a DID cost
         pub DidCreationFee get(fn did_creation_fee) config(): T::Balance;
@@ -178,12 +186,12 @@ decl_module! {
         ///  - If any signing key is already linked to any identity, it will fail.
         ///  - If any signing key is already
         pub fn add_signing_items(origin, did: IdentityId, signing_items: Vec<SigningItem>) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             // Check constraint 1-to-1 in relation key-identity.
             for s_item in &signing_items{
-                if let Signer::Key(ref key) = s_item.signer {
+                if let Signer::AccountKey(ref key) = s_item.signer {
                     if !Self::can_key_be_linked_to_did( key, s_item.signer_type) {
                         return Err(Error::<T>::AlreadyLinked.into());
                     }
@@ -205,13 +213,13 @@ decl_module! {
         /// # Failure
         /// It can only called by master key owner.
         pub fn remove_signing_items(origin, did: IdentityId, signers_to_remove: Vec<Signer>) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             // Remove any Pre-Authentication & link
             signers_to_remove.iter().for_each( |signer| {
                 Self::remove_pre_join_identity( signer, did);
-                if let Signer::Key(ref key) = signer {
+                if let Signer::AccountKey(ref key) = signer {
                     Self::unlink_key_to_did(key, did);
                 }
             });
@@ -229,9 +237,9 @@ decl_module! {
         ///
         /// # Failure
         /// Only called by master key owner.
-        fn set_master_key(origin, did: IdentityId, new_key: Key) -> DispatchResult {
+        fn set_master_key(origin, did: IdentityId, new_key: AccountKey) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from( sender.encode())?;
+            let sender_key = AccountKey::try_from( sender.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             ensure!( Self::can_key_be_linked_to_did(&new_key, SignerType::External), "Master key can only belong to one DID");
@@ -242,6 +250,74 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::NewMasterKey(did, sender, new_key));
+            Ok(())
+        }
+
+        /// Call this with the new master key. By invoking this method, caller accepts authorization
+        /// with the new master key. If a KYC service provider approved this change, master key of
+        /// the DID is updated.
+        ///
+        /// # Arguments
+        /// * `owner_auth_id` Authorization from the owner who initiated the change
+        /// * `kyc_auth_id` Authorization from a KYC service provider
+        pub fn accept_master_key(origin, rotation_auth_id: u64, kyc_auth_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let signer = Signer::from(sender_key);
+
+            // When both authorizations are present...
+            ensure!(<Authorizations<T>>::exists((signer, rotation_auth_id)), "Invalid authorization from owner");
+            ensure!(<Authorizations<T>>::exists((signer, kyc_auth_id)), "Invalid authorization from KYC service provider");
+
+            // Accept authorization from the owner
+            let rotation_auth = Self::authorizations((signer, rotation_auth_id));
+            if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
+                // Ensure the request was made by the owner of master key
+                match rotation_auth.authorized_by {
+                    Signer::AccountKey(key) =>  {
+                        let master_key = <DidRecords>::get(rotation_for_did).master_key;
+                        ensure!(key == master_key, "Authorization to change key was not from the owner of master key");
+                    },
+                    _ => return Err(Error::<T>::UnknownAuthorization.into())
+                };
+
+                // Aceept authorization from KYC service provider
+                let kyc_auth = Self::authorizations((signer, kyc_auth_id));
+                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
+                    // Attestor must be a KYC service provider
+                    let kyc_provider_did = match kyc_auth.authorized_by {
+                        Signer::AccountKey(ref key) =>  Self::get_identity(key),
+                        Signer::Identity(id)  => Some(id),
+                    };
+
+                    if let Some(id) = kyc_provider_did {
+                        ensure!(T::KYCServiceProviders::is_member(&id), "Attestation was not by a KYC service provider");
+                    } else {
+                        return Err(Error::<T>::NoDIDFound.into());
+                    }
+
+                    // Make sure authorizations are for the same DID
+                    ensure!(rotation_for_did == attestation_for_did, "Authorizations are not for the same DID");
+
+                    // remove owner's authorization
+                    Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
+
+                    // remove KYC service provider's authorization
+                    Self::consume_auth(kyc_auth.authorized_by, signer, kyc_auth_id)?;
+
+                    // Replace master key of the owner that initiated key rotation
+                    <DidRecords>::mutate(rotation_for_did, |record| {
+                        (*record).master_key = sender_key.clone();
+                    });
+
+                    Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
+                } else {
+                    return Err(Error::<T>::UnknownAuthorization.into());
+                }
+            } else {
+                return Err(Error::<T>::UnknownAuthorization.into());
+            }
+
             Ok(())
         }
 
@@ -260,10 +336,10 @@ decl_module! {
             ensure!(<DidRecords>::exists(did), "DID must already exist");
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
 
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
 
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_signer = Signer::Key(sender_key);
+            let sender_signer = Signer::AccountKey(sender_key);
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
@@ -302,9 +378,9 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             // Verify that sender key is one of did_issuer's signing keys
-            let sender_signer = Signer::Key(sender_key);
+            let sender_signer = Signer::AccountKey(sender_key);
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer),
                     "Sender must hold a claim issuer's signing key");
             // Claims that successfully passed all required checks. Unless all claims pass those
@@ -383,7 +459,7 @@ decl_module! {
 
         /// Marks the specified claim as revoked
         pub fn revoke_claim(origin, did: IdentityId, claim_key: Vec<u8>, did_issuer: IdentityId) -> DispatchResult {
-            let sender = Signer::Key( Key::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signer::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
 
             ensure!(<DidRecords>::exists(&did), "DID must already exist");
             ensure!(<DidRecords>::exists(&did_issuer), "claim issuer DID must already exist");
@@ -414,11 +490,11 @@ decl_module! {
         /// It sets permissions for an specific `target_key` key.
         /// Only the master key of an identity is able to set signing key permissions.
         pub fn set_permission_to_signer(origin, did: IdentityId, signer: Signer, permissions: Vec<Permission>) -> DispatchResult {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
             let record = Self::grant_check_only_master_key( &sender_key, did)?;
 
             // You are trying to add a permission to did's master key. It is not needed.
-            if let Signer::Key(ref key) = signer {
+            if let Signer::AccountKey(ref key) = signer {
                 if record.master_key == *key {
                     return Ok(());
                 }
@@ -445,7 +521,7 @@ decl_module! {
         }
 
         pub fn get_my_did(origin) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             if let Some(did) = Self::get_identity(&sender_key) {
                 Self::deposit_event(RawEvent::DidQuery(sender_key, did));
                 sp_runtime::print(did);
@@ -463,7 +539,7 @@ decl_module! {
             authorization_data: AuthorizationData,
             expiry: Option<T::Moment>
         ) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did =  match Self::current_did() {
                 Some(x) => x,
                 None => {
@@ -488,7 +564,7 @@ decl_module! {
             authorization_data: AuthorizationData,
             expiry: Option<T::Moment>
         ) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
 
             Self::add_auth(Signer::from(sender_key), target, authorization_data, expiry);
 
@@ -502,7 +578,7 @@ decl_module! {
             // Vec<(target_did, auth_data, expiry)>
             auths: Vec<(Signer, AuthorizationData, Option<T::Moment>)>
         ) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did =  match Self::current_did() {
                 Some(x) => x,
                 None => {
@@ -527,7 +603,7 @@ decl_module! {
             target: Signer,
             auth_id: u64
         ) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did =  match Self::current_did() {
                 Some(x) => x,
                 None => {
@@ -556,7 +632,7 @@ decl_module! {
             // Vec<(target_did, auth_id)>
             auth_identifiers: Vec<(Signer, u64)>
         ) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did =  match Self::current_did() {
                 Some(x) => x,
                 None => {
@@ -589,7 +665,7 @@ decl_module! {
             origin,
             auth_id: u64
         ) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let signer = match Self::current_did() {
                 Some(x) => Signer::from(x),
                 None => {
@@ -616,7 +692,7 @@ decl_module! {
                         _ => return Err(Error::<T>::UnknownAuthorization.into())
                     }
                 },
-                Signer::Key(key) => {
+                Signer::AccountKey(key) => {
                     match auth.authorization_data {
                         AuthorizationData::AddMultiSigSigner =>
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signer::from(key), auth_id),
@@ -631,7 +707,7 @@ decl_module! {
             origin,
             auth_ids: Vec<u64>
         ) -> DispatchResult {
-            let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let signer = match Self::current_did() {
                 Some(x) => Signer::from(x),
                 None => {
@@ -663,7 +739,7 @@ decl_module! {
                         }
                     }
                 },
-                Signer::Key(key) => {
+                Signer::AccountKey(key) => {
                     for auth_id in auth_ids {
                         // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                         // It will just skip that particular authorization.
@@ -690,11 +766,11 @@ decl_module! {
         /// Identity.
         ///
         /// # Errors
-        ///  - Key should be authorized previously to join to that target identity.
-        ///  - Key is not linked to any other identity.
+        ///  - AccountKey should be authorized previously to join to that target identity.
+        ///  - AccountKey is not linked to any other identity.
         pub fn authorize_join_to_identity(origin, target_id: IdentityId) -> DispatchResult {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
-            let signer_from_key = Signer::Key( sender_key.clone());
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let signer_from_key = Signer::AccountKey( sender_key.clone());
             let signer_id_found = Self::key_to_identity_ids(sender_key);
 
             // Double check that `origin` (its key or identity) has been pre-authorize.
@@ -727,7 +803,7 @@ decl_module! {
                         .find( |pre_auth_item| pre_auth_item.target_id == target_id) {
                     // Remove pre-auth, link key to identity and update identity record.
                     Self::remove_pre_join_identity(&signer, target_id);
-                    if let Signer::Key(key) = signer {
+                    if let Signer::AccountKey(key) = signer {
                         Self::link_key_to_did( &key, pre_auth.signing_item.signer_type, target_id);
                     }
                     <DidRecords>::mutate( target_id, |identity| {
@@ -747,13 +823,13 @@ decl_module! {
         /// It only affects the authorization: if key accepted it previously, then this transaction
         /// shall have no effect.
         pub fn unauthorized_join_to_identity(origin, signer: Signer, target_id: IdentityId) -> DispatchResult {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
 
             let mut is_remove_allowed = Self::is_master_key( target_id, &sender_key);
 
             if !is_remove_allowed {
                 is_remove_allowed = match signer {
-                    Signer::Key(ref key) => sender_key == *key,
+                    Signer::AccountKey(ref key) => sender_key == *key,
                     Signer::Identity(id) => Self::is_master_key(id, &sender_key)
                 }
             }
@@ -784,7 +860,7 @@ decl_module! {
                 expires_at: T::Moment,
                 additional_keys: Vec<SigningItemWithAuth>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
 
             // 0. Check expiration
@@ -803,7 +879,7 @@ decl_module! {
 
                 // Get account_id from signer
                 let account_id_found = match si.signer {
-                    Signer::Key(ref key) =>  Public::try_from(key.as_slice()).ok(),
+                    Signer::AccountKey(ref key) =>  Public::try_from(key.as_slice()).ok(),
                     Signer::Identity(ref id) if <DidRecords>::exists(id) => {
                         let master_key = <DidRecords>::get(id).master_key;
                         Public::try_from( master_key.as_slice()).ok()
@@ -812,7 +888,7 @@ decl_module! {
                 };
 
                 if let Some(account_id) = account_id_found {
-                    if let Signer::Key(ref key) = si.signer {
+                    if let Signer::AccountKey(ref key) = si.signer {
                         // 1.1. Constraint 1-to-1 account to DID
                         ensure!( Self::can_key_be_linked_to_did( key, si.signer_type),
                         "One signing key can only belong to one identity");
@@ -827,14 +903,14 @@ decl_module! {
                     ensure!( signature.verify( auth_encoded.as_slice(), &account_id),
                         "Invalid Authorization signature");
                 } else {
-                    return Err(Error::<T>::InvalidKey.into());
+                    return Err(Error::<T>::InvalidAccountKey.into());
                 }
             }
 
             // 2.1. Link keys to identity
             additional_keys.iter().for_each( |si_with_auth| {
                 let si = & si_with_auth.signing_item;
-                if let Signer::Key(ref key) = si.signer {
+                if let Signer::AccountKey(ref key) = si.signer {
                     Self::link_key_to_did( key, si.signer_type, id);
                 }
             });
@@ -855,10 +931,10 @@ decl_module! {
         /// It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
         /// the authorized transaction is not yet executed.
         pub fn revoke_offchain_authorization(origin, signer: Signer, auth: TargetIdAuthorization<T::Moment>) -> DispatchResult {
-            let sender_key = Key::try_from( ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
 
             match signer {
-                Signer::Key(ref key) => ensure!( sender_key == *key, "This key is not allowed to revoke this off-chain authorization"),
+                Signer::AccountKey(ref key) => ensure!( sender_key == *key, "This key is not allowed to revoke this off-chain authorization"),
                 Signer::Identity(id) => ensure!( Self::is_master_key(id, &sender_key), "Only master key is allowed to revoke an Identity Signer off-chain authorization"),
             }
 
@@ -873,7 +949,7 @@ decl_module! {
         /// * `buffer_time` Buffer time corresponds to which kyc expiry need to check
         pub fn is_my_identity_has_valid_kyc(origin, buffer_time: u64) ->  DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did =  match Self::current_did() {
                 Some(x) => x,
                 None => {
@@ -906,7 +982,7 @@ decl_error! {
         /// Given authorization is not pre-known
         UnknownAuthorization,
         /// Account Id cannot be extracted from signer
-        InvalidKey,
+        InvalidAccountKey,
     }
 }
 
@@ -1053,6 +1129,16 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Update link data (if it exists) from a key or identity
+    /// NB: Please do all the required checks before calling this function.
+    pub fn update_link(target: Signer, link_id: u64, link_data: LinkData) {
+        if <Links<T>>::exists((target, link_id)) {
+            <Links<T>>::mutate((target, link_id), |link| link.link_data = link_data);
+
+            Self::deposit_event(RawEvent::LinkUpdated(link_id, target));
+        }
+    }
+
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
     fn update_signing_item_permissions(
@@ -1099,7 +1185,7 @@ impl<T: Trait> Module<T> {
 
         // Check master id or key
         match signer {
-            Signer::Key(ref signer_key) if record.master_key == *signer_key => true,
+            Signer::AccountKey(ref signer_key) if record.master_key == *signer_key => true,
             Signer::Identity(ref signer_id) if did == *signer_id => true,
             _ => {
                 // Check signing items if DID is not frozen.
@@ -1117,7 +1203,7 @@ impl<T: Trait> Module<T> {
         let record = <DidRecords>::get(did);
 
         match signer {
-            Signer::Key(ref signer_key) if record.master_key == *signer_key => true,
+            Signer::AccountKey(ref signer_key) if record.master_key == *signer_key => true,
             Signer::Identity(ref signer_id) if did == *signer_id => true,
             _ => {
                 if !Self::is_did_frozen(did) {
@@ -1138,7 +1224,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Use `did` as reference.
-    pub fn is_master_key(did: IdentityId, key: &Key) -> bool {
+    pub fn is_master_key(did: IdentityId, key: &AccountKey) -> bool {
         key == &<DidRecords>::get(did).master_key
     }
 
@@ -1158,7 +1244,6 @@ impl<T: Trait> Module<T> {
                 return Some(claim.claim_value);
             }
         }
-
         None
     }
 
@@ -1177,12 +1262,10 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn is_identity_has_valid_kyc(
-        _claim_for: IdentityId,
-        _buffer: u64,
+        claim_for: IdentityId,
+        buffer: u64,
     ) -> (bool, Option<IdentityId>) {
-        unimplemented!();
-        /*
-        let trusted_kyc_providers = <group::Module<T, group::Instance1>>::members();
+        let trusted_kyc_providers = T::KYCServiceProviders::get_members();
         if trusted_kyc_providers.len() > 0 {
             for trusted_kyc_provider in trusted_kyc_providers {
                 if let Some(claim) = Self::fetch_claim_value(
@@ -1191,7 +1274,6 @@ impl<T: Trait> Module<T> {
                     trusted_kyc_provider,
                 ) {
                     if let Ok(value) = claim.value.as_slice().try_into() {
-                        //let kyc_expiry: [u8; 8] = value;
                         if let Some(threshold) = ((<pallet_timestamp::Module<T>>::get())
                             .saturated_into::<u64>())
                         .checked_add(buffer)
@@ -1205,7 +1287,6 @@ impl<T: Trait> Module<T> {
             }
         }
         return (false, None);
-        */
     }
 
     /// It checks that `sender_key` is the master key of `did` Identifier and that
@@ -1213,7 +1294,7 @@ impl<T: Trait> Module<T> {
     /// # Return
     /// A result object containing the `DidRecord` of `did`.
     pub fn grant_check_only_master_key(
-        sender_key: &Key,
+        sender_key: &AccountKey,
         did: IdentityId,
     ) -> sp_std::result::Result<DidRecord, &'static str> {
         ensure!(<DidRecords>::exists(did), "DID does not exist");
@@ -1229,7 +1310,7 @@ impl<T: Trait> Module<T> {
     /// It checks if `key` is the master key or signing key of any did
     /// # Return
     /// An Option object containing the `did` that belongs to the key.
-    pub fn get_identity(key: &Key) -> Option<IdentityId> {
+    pub fn get_identity(key: &AccountKey) -> Option<IdentityId> {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
                 return Some(linked_id);
@@ -1247,7 +1328,7 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         freeze: bool,
     ) -> DispatchResult {
-        let sender_key = Key::try_from(ensure_signed(origin)?.encode())?;
+        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
         let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
         if freeze {
@@ -1260,7 +1341,7 @@ impl<T: Trait> Module<T> {
 
     /// It checks that any sternal account can only be associated with at most one.
     /// Master keys are considered as external accounts.
-    pub fn can_key_be_linked_to_did(key: &Key, signer_type: SignerType) -> bool {
+    pub fn can_key_be_linked_to_did(key: &AccountKey, signer_type: SignerType) -> bool {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
                 LinkedKeyInfo::Unique(..) => false,
@@ -1275,7 +1356,7 @@ impl<T: Trait> Module<T> {
     /// # Errors
     /// This function can be used if `can_key_be_linked_to_did` returns true. Otherwise, it will do
     /// nothing.
-    fn link_key_to_did(key: &Key, key_type: SignerType, did: IdentityId) {
+    fn link_key_to_did(key: &AccountKey, key_type: SignerType, did: IdentityId) {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
                 LinkedKeyInfo::Group(mut dids) => {
@@ -1291,7 +1372,7 @@ impl<T: Trait> Module<T> {
                 }
             }
         } else {
-            // Key is not yet linked to any identity, so no constraints.
+            // AccountKey is not yet linked to any identity, so no constraints.
             let linked_key_info = match key_type {
                 SignerType::External => LinkedKeyInfo::Unique(did),
                 _ => LinkedKeyInfo::Group(vec![did]),
@@ -1302,7 +1383,7 @@ impl<T: Trait> Module<T> {
 
     /// It unlinks the `key` key from `did`.
     /// If there is no more associated identities, its full entry is removed.
-    fn unlink_key_to_did(key: &Key, did: IdentityId) {
+    fn unlink_key_to_did(key: &AccountKey, did: IdentityId) {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
                 LinkedKeyInfo::Unique(..) => <KeyToIdentityIds>::remove(key),
@@ -1380,7 +1461,7 @@ impl<T: Trait> Module<T> {
         // Even if this transaction fails, nonce should be increased for added unpredictability of dids
         <MultiPurposeNonce>::put(&new_nonce);
 
-        let master_key = Key::try_from(sender.encode())?;
+        let master_key = AccountKey::try_from(sender.encode())?;
 
         // 1 Check constraints.
         // 1.1. Master key is not linked to any identity.
@@ -1403,7 +1484,7 @@ impl<T: Trait> Module<T> {
         ensure!(!<DidRecords>::exists(did), "DID must be unique");
         // 1.4. Signing keys can be linked to the new identity.
         for s_item in &signing_items {
-            if let Signer::Key(ref key) = s_item.signer {
+            if let Signer::AccountKey(ref key) = s_item.signer {
                 if !Self::can_key_be_linked_to_did(key, s_item.signer_type) {
                     return Err(Error::<T>::AlreadyLinked.into());
                 }
@@ -1433,7 +1514,7 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> IdentityTrait for Module<T> {
-    fn get_identity(key: &Key) -> Option<IdentityId> {
+    fn get_identity(key: &AccountKey) -> Option<IdentityId> {
         Self::get_identity(&key)
     }
 
@@ -1441,7 +1522,7 @@ impl<T: Trait> IdentityTrait for Module<T> {
         Self::is_signer_authorized(did, signer)
     }
 
-    fn is_master_key(did: IdentityId, key: &Key) -> bool {
+    fn is_master_key(did: IdentityId, key: &AccountKey) -> bool {
         Self::is_master_key(did, &key)
     }
 
@@ -1453,266 +1534,3 @@ impl<T: Trait> IdentityTrait for Module<T> {
         Self::is_signer_authorized_with_permissions(did, signer, permissions)
     }
 }
-
-// Implement Currencty for this module
-// =======================================
-
-/*
-impl<T: Trait> Currency<T::AccountId> for Module<T>
-where
-    T::Balance: MaybeSerializeDeserialize + Debug,
-    Module<T>: CurrencyModule<T>,
-{
-    type Balance = T::Balance;
-    type PositiveImbalance = PositiveImbalance<T>;
-    type NegativeImbalance = NegativeImbalance<T>;
-
-    fn total_balance(who: &T::AccountId) -> Self::Balance {
-        Self::free_balance(who) + Self::currency_reserved_balance(who)
-    }
-
-    fn can_slash(who: &T::AccountId, value: Self::Balance) -> bool {
-        Self::free_balance(who) >= value
-    }
-
-    fn total_issuance() -> Self::Balance {
-        // <TotalIssuance<T, I>>::get()
-        Self::currency_total_issuance()
-    }
-
-    fn minimum_balance() -> Self::Balance {
-        0u128.into()
-    }
-
-    fn free_balance(who: &T::AccountId) -> Self::Balance {
-        // <FreeBalance<T, I>>::get(who)
-        Self::currency_free_balance(who)
-    }
-
-    fn burn(mut amount: Self::Balance) -> Self::PositiveImbalance {
-        /*
-          <TotalIssuance<T, I>>::mutate(|issued| {
-        *issued = issued.checked_sub(&amount).unwrap_or_else(|| {
-        amount = *issued;
-        Zero::zero()
-        });
-        });*/
-        Self::currency_burn(amount);
-        PositiveImbalance::new(amount)
-    }
-
-    fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
-        /*<TotalIssuance<T, I>>::mutate(|issued| {
-        *issued = issued.checked_add(&amount).unwrap_or_else(|| {
-        amount = Self::Balance::max_value() - *issued;
-        Self::Balance::max_value()
-        })
-        });*/
-        Self::currency_issue(amount);
-        NegativeImbalance::new(amount)
-    }
-
-    // # <weight>
-    // Despite iterating over a list of locks, they are limited by the number of
-    // lock IDs, which means the number of runtime modules that intend to use and create locks.
-    // # </weight>
-    fn ensure_can_withdraw(
-        _who: &T::AccountId,
-        _amount: T::Balance,
-        _reasons: WithdrawReasons,
-        _new_balance: T::Balance,
-    ) -> DispatchResult {
-        /*
-        if reasons.intersects(WithdrawReason::Reserve | WithdrawReason::Transfer)
-            && Self::vesting_balance(who) > new_balance
-            {
-                Err(Error::<T>::VestingBalance)?
-            }
-        let locks = Self::locks(who);
-        if locks.is_empty() {
-            return Ok(());
-        }
-
-        let now = <frame_system::Module<T>>::block_number();
-        if locks
-            .into_iter()
-                .all(|l| now >= l.until || new_balance >= l.amount || !l.reasons.intersects(reasons))
-                {
-                    Ok(())
-                } else {
-                    Err(Error::<T>::LiquidityRestrictions.into())
-                }
-        */
-        Ok(())
-    }
-
-    fn transfer(
-        _transactor: &T::AccountId,
-        _dest: &T::AccountId,
-        _value: Self::Balance,
-        _existence_requirement: ExistenceRequirement,
-    ) -> DispatchResult {
-        /*
-           let from_balance = Self::free_balance(transactor);
-           let to_balance = Self::free_balance(dest);
-           let would_create = to_balance.is_zero();
-           let fee = if would_create {
-           T::CreationFee::get()
-           } else {
-           T::TransferFee::get()
-           };
-           let liability = value.checked_add(&fee).ok_or(Error::<T, I>::Overflow)?;
-           let new_from_balance = from_balance
-           .checked_sub(&liability)
-           .ok_or(Error::<T, I>::InsufficientBalance)?;
-
-           Self::ensure_can_withdraw(
-           transactor,
-           value,
-           WithdrawReason::Transfer.into(),
-           new_from_balance,
-           )?;
-
-        // NOTE: total stake being stored in the same type means that this could never overflow
-        // but better to be safe than sorry.
-        let new_to_balance = to_balance
-        .checked_add(&value)
-        .ok_or(Error::<T, I>::Overflow)?;
-
-        if transactor != dest {
-        Self::set_free_balance(transactor, new_from_balance);
-        if !<FreeBalance<T, I>>::exists(dest) {
-        Self::new_account(dest, new_to_balance);
-        }
-
-        Self::set_free_balance(dest, new_to_balance);
-        T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
-
-        Self::deposit_event(RawEvent::Transfer(
-        transactor.clone(),
-        dest.clone(),
-        value,
-        fee,
-        ));
-        }*/
-
-        Ok(())
-    }
-
-    fn withdraw(
-        who: &T::AccountId,
-        value: Self::Balance,
-        reasons: WithdrawReasons,
-        _liveness: ExistenceRequirement,
-    ) -> sp_std::result::Result<Self::NegativeImbalance, DispatchError> {
-        if let Some(new_balance) = Self::free_balance(who).checked_sub(&value) {
-            Self::ensure_can_withdraw(who, value, reasons, new_balance)?;
-            Self::set_free_balance(who, new_balance);
-            Ok(NegativeImbalance::new(value))
-        } else {
-            // Err(Error::<T>::InsufficientBalance)?
-            unimplemented!()
-        }
-    }
-
-    fn slash(who: &T::AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
-        let free_balance = Self::free_balance(who);
-        let free_slash = sp_std::cmp::min(free_balance, value);
-        Self::set_free_balance(who, free_balance - free_slash);
-        let remaining_slash = value - free_slash;
-        // NOTE: `slash()` prefers free balance, but assumes that reserve balance can be drawn
-        // from in extreme circumstances. `can_slash()` should be used prior to `slash()` to avoid having
-        // to draw from reserved funds, however we err on the side of punishment if things are inconsistent
-        // or `can_slash` wasn't used appropriately.
-        if !remaining_slash.is_zero() {
-            let reserved_balance = Self::currency_reserved_balance(who);
-            let reserved_slash = sp_std::cmp::min(reserved_balance, remaining_slash);
-            Self::set_reserved_balance(who, reserved_balance - reserved_slash);
-            (
-                NegativeImbalance::new(free_slash + reserved_slash),
-                remaining_slash - reserved_slash,
-            )
-        } else {
-            (NegativeImbalance::new(value), Zero::zero())
-        }
-    }
-
-    fn deposit_into_existing(
-        who: &T::AccountId,
-        value: Self::Balance,
-    ) -> sp_std::result::Result<Self::PositiveImbalance, DispatchError> {
-        if Self::total_balance(who).is_zero() {
-            // Err(Error::<T>::DeadAccount)?
-            unimplemented!()
-        }
-        Self::set_free_balance(who, Self::free_balance(who) + value);
-        Ok(PositiveImbalance::new(value))
-    }
-
-    fn deposit_creating(who: &T::AccountId, value: Self::Balance) -> Self::PositiveImbalance {
-        let (imbalance, _) = Self::make_free_balance_be(who, Self::free_balance(who) + value);
-        if let SignedImbalance::Positive(p) = imbalance {
-            p
-        } else {
-            // Impossible, but be defensive.
-            Self::PositiveImbalance::zero()
-        }
-    }
-
-    fn make_free_balance_be(
-        who: &T::AccountId,
-        balance: Self::Balance,
-    ) -> (
-        SignedImbalance<Self::Balance, Self::PositiveImbalance>,
-        UpdateBalanceOutcome,
-    ) {
-        let original = Self::free_balance(who);
-        let imbalance = if original <= balance {
-            SignedImbalance::Positive(PositiveImbalance::new(balance - original))
-        } else {
-            SignedImbalance::Negative(NegativeImbalance::new(original - balance))
-        };
-        // if !<FreeBalance<T, I>>::exists(who) {
-        if !Self::free_balance_exists(who) {
-            Self::new_account(&who, balance);
-        }
-        Self::set_free_balance(who, balance);
-        (imbalance, UpdateBalanceOutcome::Updated)
-    }
-}
-
-impl<T: Trait> CurrencyModule<T> for Module<T> {
-    fn currency_reserved_balance(_who: &T::AccountId) -> T::Balance {
-        unimplemented!()
-    }
-    fn set_reserved_balance(_who: &T::AccountId, _amount: T::Balance) {
-        unimplemented!()
-    }
-    fn currency_total_issuance() -> T::Balance {
-        unimplemented!()
-    }
-    fn currency_free_balance(_who: &T::AccountId) -> T::Balance {
-        unimplemented!()
-    }
-    fn set_free_balance(_who: &T::AccountId, _amount: T::Balance) -> T::Balance {
-        unimplemented!()
-    }
-    fn currency_burn(_amount: T::Balance) {
-        unimplemented!();
-    }
-    fn currency_issue(_amount: T::Balance) {
-        unimplemented!();
-    }
-    fn currency_vesting_balance(_who: &T::AccountId) -> T::Balance {
-        unimplemented!()
-    }
-    fn currency_locks(_who: &T::AccountId) -> Vec<BalanceLock<T::Balance, T::BlockNumber>> {
-        unimplemented!()
-    }
-    fn new_account(_who: &T::AccountId, _amount: T::Balance) {
-        unimplemented!();
-    }
-    fn free_balance_exists(_who: &T::AccountId) -> bool {
-        unimplemented!()
-    }
-}*/

@@ -25,7 +25,7 @@
 
 use crate::{asset::AssetTrait, exemption, utils};
 
-use polymesh_primitives::{IdentityId, Key, Signer, Ticker};
+use polymesh_primitives::{AccountKey, IdentityId, Signer, Ticker};
 use polymesh_runtime_common::{constants::*, CommonTrait};
 use polymesh_runtime_identity as identity;
 
@@ -65,8 +65,7 @@ decl_module! {
 
         /// Set a maximum percentage that can be owned by a single investor
         fn toggle_maximum_percentage_restriction(origin, did: IdentityId, ticker: Ticker, max_percentage: u16) -> DispatchResult  {
-            let sender = Signer::Key(Key::try_from(ensure_signed(origin)?.encode())?);
-
+            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();

@@ -1,6 +1,6 @@
 use crate::{runtime, Runtime};
 
-use polymesh_primitives::{IdentityId, Key, TransactionError};
+use polymesh_primitives::{AccountKey, IdentityId, TransactionError};
 use polymesh_runtime_common::identity::LinkedKeyInfo;
 use polymesh_runtime_identity as identity;
 
@@ -31,7 +31,7 @@ impl<T: frame_system::Trait + Send + Sync> UpdateDid<T> {
 
     /// It extracts the `IdentityId` associated with `who` account.
     fn identity_from_key(who: &T::AccountId) -> Option<IdentityId> {
-        if let Ok(who_key) = Key::try_from(who.encode()) {
+        if let Ok(who_key) = AccountKey::try_from(who.encode()) {
             if let Some(linked_key_info) = Identity::key_to_identity_ids(&who_key) {
                 if let LinkedKeyInfo::Unique(id) = linked_key_info {
                     return Some(id);
@@ -81,6 +81,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
             // Add here any function from any module which does *not* need a current identity.
             Call::Identity(identity::Call::register_did(..))
             | Call::Identity(identity::Call::authorize_join_to_identity(..))
+            | Call::Identity(identity::Call::accept_master_key(..))
             | Call::Identity(identity::Call::accept_authorization(..))
             | Call::Identity(identity::Call::batch_accept_authorization(..)) => {
                 Ok(ValidTransaction::default())
