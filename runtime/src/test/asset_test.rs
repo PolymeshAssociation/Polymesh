@@ -4,7 +4,8 @@ use crate::{
     test::storage::{build_ext, make_account, TestStorage},
 };
 use primitives::{
-    AuthorizationData, Document, IdentityId, LinkData, Signer, SmartExtension, SmartExtensionType, Ticker,
+    AuthorizationData, Document, IdentityId, LinkData, Signer, SmartExtension, SmartExtensionType,
+    Ticker,
 };
 
 use codec::Encode;
@@ -1142,7 +1143,6 @@ fn adding_removing_documents() {
         assert_eq!(Identity::last_link(Signer::from(ticker_did)), 0);
     });
 }
-
 
 #[test]
 fn add_extension_successfully() {
