@@ -70,7 +70,7 @@ use frame_system::{self as system, ensure_signed};
 use pallet_session;
 use primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signer,
-    Ticker,
+    SmartExtension, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 #[cfg(feature = "std")]
@@ -218,6 +218,12 @@ decl_storage! {
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
         IssuedInFundingRound get(fn issued_in_funding_round): map (Ticker, Vec<u8>) => T::Balance;
+        /// List of Smart extension added for the given tokens
+        /// ticker, AccountId (SE address) -> SmartExtension detail
+        pub ExtensionDetails get(fn extension_details): map (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
+        /// List of Smart extension added for the given tokens and for the given type
+        /// ticker, type of SE -> address/AccountId of SE
+        pub Extensions get(fn extensions): map (Ticker, SmartExtensionType) => Vec<T::AccountId>;
         /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
         pub Frozen get(fn frozen): map Ticker => bool;
@@ -1223,6 +1229,96 @@ decl_module! {
             Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
             Ok(())
         }
+
+        /// Whitelisting the Smart-Extension address for a given ticker
+        ///
+        /// # Arguments
+        /// * `origin` - Signer who owns to ticker/asset
+        /// * `ticker` - ticker for whom extension get added
+        /// * `extension_details` - Details of the smart extension
+        pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let my_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err(Error::<T>::DIDNotFound.into());
+                    }
+                }
+            };
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
+
+            // Verify the details of smart extension & store it
+            ensure!(!<ExtensionDetails<T>>::exists((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
+            <ExtensionDetails<T>>::insert((ticker, &extension_details.extension_id), extension_details.clone());
+            <Extensions<T>>::mutate((ticker, &extension_details.extension_type), |ids| {
+                ids.push(extension_details.extension_id.clone())
+            });
+            Self::deposit_event(RawEvent::ExtensionAdded(ticker, extension_details.extension_id, extension_details.extension_name, extension_details.extension_type));
+            Ok(())
+        }
+
+        /// Archived the extension. Extension will not be used to verify the compliance or any smart logic it posses
+        ///
+        /// # Arguments
+        /// * `origin` - Signer who owns the ticker/asset.
+        /// * `ticker` - Ticker symbol of the asset.
+        /// * `extension_id` - AccountId of the extension that need to be archived
+        pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let my_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err(Error::<T>::DIDNotFound.into());
+                    }
+                }
+            };
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
+            ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
+            // Mutate the extension details
+            ensure!(!(<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyArchived);
+            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = true; });
+            Self::deposit_event(RawEvent::ExtensionArchived(ticker, extension_id));
+            Ok(())
+        }
+
+        /// Archived the extension. Extension will not be used to verify the compliance or any smart logic it posses
+        ///
+        /// # Arguments
+        /// * `origin` - Signer who owns the ticker/asset.
+        /// * `ticker` - Ticker symbol of the asset.
+        /// * `extension_id` - AccountId of the extension that need to be un-archived
+        pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let my_did =  match <identity::Module<T>>::current_did() {
+                Some(x) => x,
+                None => {
+                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
+                        did
+                    } else {
+                        return Err(Error::<T>::DIDNotFound.into());
+                    }
+                }
+            };
+            ticker.canonize();
+            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
+            ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
+            // Mutate the extension details
+            ensure!((<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyUnArchived);
+            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = false; });
+            Self::deposit_event(RawEvent::ExtensionUnArchived(ticker, extension_id));
+            Ok(())
+        }
     }
 }
 
@@ -1231,6 +1327,7 @@ decl_event! {
         where
         Balance = <T as balances::Trait>::Balance,
         Moment = <T as pallet_timestamp::Trait>::Moment,
+        AccountId = <T as frame_system::Trait>::AccountId,
     {
         /// event for transfer of tokens
         /// ticker, from DID, to DID, value
@@ -1307,6 +1404,15 @@ decl_event! {
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: ticker, funding round name.
         FundingRound(Ticker, Vec<u8>),
+        /// Emitted when extension is added successfully
+        /// ticker, extension AccountId, extension name, type of smart Extension
+        ExtensionAdded(Ticker, AccountId, Vec<u8>, SmartExtensionType),
+        /// Emitted when extension get archived
+        /// ticker, AccountId
+        ExtensionArchived(Ticker, AccountId),
+        /// Emitted when extension get archived
+        /// ticker, AccountId
+        ExtensionUnArchived(Ticker, AccountId),
     }
 }
 
@@ -1318,6 +1424,14 @@ decl_error! {
         NoTickerTransferAuth,
         /// Not a token ownership transfer auth
         NotTickerOwnershipTransferAuth,
+        /// Not authorized
+        UnAuthorized,
+        /// when extension already archived
+        AlreadyArchived,
+        /// when extension already unarchived
+        AlreadyUnArchived,
+        /// when extension is already added
+        ExtensionAlreadyPresent
     }
 }
 
