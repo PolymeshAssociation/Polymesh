@@ -99,6 +99,10 @@ pub use link::LinkData;
 pub mod ticker;
 pub use ticker::Ticker;
 
+pub mod smart_extension;
+pub use smart_extension::SmartExtension;
+pub use smart_extension::SmartExtensionType;
+
 pub mod document;
 pub use document::Document;
 
