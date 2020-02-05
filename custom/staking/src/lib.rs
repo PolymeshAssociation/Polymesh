@@ -905,7 +905,7 @@ decl_error! {
         /// Permissioned validator not exists
         NotExists,
         /// Individual commissions already enabled
-        IndividualCommissionsEnabled,
+        AlreadyEnabled,
     }
 }
 
@@ -965,8 +965,8 @@ decl_module! {
                 Err(Error::<T>::AlreadyPaired)?
             }
 
-            // Reject a bond if value is _dust_ or less than min bond threshold
-            if value < T::Currency::minimum_balance() || value < <MinimumBondThreshold<T>>::get() {
+            // reject a bond which is considered to be _dust_.
+            if value < T::Currency::minimum_balance() {
                 Err(Error::<T>::InsufficientValue)?
             }
 
@@ -1101,7 +1101,10 @@ decl_module! {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
+
             ensure!(Self::is_controller_eligible(&controller), Error::<T>::NotCompliant);
+            ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
+
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
         }
@@ -1361,7 +1364,7 @@ decl_module! {
                 <ValidatorCommission>::put(Commission::Individual);
                 Self::deposit_event(RawEvent::IndividualCommissionInEffect);
             } else {
-                Err(Error::<T>::IndividualCommissionsEnabled)?
+                Err(Error::<T>::AlreadyEnabled)?
             }
         }
 
@@ -1382,7 +1385,7 @@ decl_module! {
                 <ValidatorCommission>::put(Commission::Global(new_value));
                 Self::deposit_event(RawEvent::GlobalCommissionInEffect(old_value, new_value));
             } else {
-                Err(Error::<T>::IndividualCommissionsEnabled)?
+                Err(Error::<T>::AlreadyEnabled)?
             }
         }
 
@@ -1716,7 +1719,9 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    /// Select a new validator set from the assembled stakers and their role preferences.
+    /// Select a new validator set from the assembled stakers and their role preferences. Validator
+    /// accounts are selected if they meet the following conditions:
+    ///  - active balance is at least `MinimumBondThreshold`
     ///
     /// Returns the new `SlotStake` value and a set of newly selected _stash_ IDs.
     ///

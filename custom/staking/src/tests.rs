@@ -18,7 +18,7 @@
 
 use super::*;
 use frame_support::{
-    assert_noop, assert_ok,
+    assert_err, assert_noop, assert_ok,
     dispatch::DispatchError,
     traits::{Currency, ReservableCurrency},
 };
@@ -1890,6 +1890,111 @@ fn switching_roles() {
             // ne era
             start_session(6);
             assert_eq_uvec!(validator_controllers(), vec![2, 20]);
+
+            check_exposure_all();
+            check_nominator_all();
+        });
+}
+
+#[test]
+fn switching_roles_when_min_bond_changes() {
+    // Test that it should be possible to switch between roles (nominator, validator, idle) with minimal overhead.
+    ExtBuilder::default()
+        .nominate(false)
+        .build()
+        .execute_with(|| {
+            Timestamp::set_timestamp(1); // Initialize time.
+
+            // Reset reward destination
+            for i in &[10, 20] {
+                assert_ok!(Staking::set_payee(
+                    Origin::signed(*i),
+                    RewardDestination::Controller
+                ));
+            }
+
+            assert_eq_uvec!(validator_controllers(), vec![20, 10]);
+
+            // put some money in account that we'll use.
+            for i in 1..7 {
+                let _ = Balances::deposit_creating(&i, 5000);
+            }
+
+            // add 2 nominators
+            assert_ok!(Staking::bond(
+                Origin::signed(1),
+                2,
+                2000,
+                RewardDestination::Controller
+            ));
+            assert_ok!(Staking::nominate(Origin::signed(2), vec![11, 5]));
+
+            assert_ok!(Staking::bond(
+                Origin::signed(3),
+                4,
+                500,
+                RewardDestination::Controller
+            ));
+            assert_ok!(Staking::nominate(Origin::signed(4), vec![21, 1]));
+
+            <MinimumBondThreshold<Test>>::put(100);
+
+            // add a new validator candidate
+            assert_ok!(Staking::bond(
+                Origin::signed(5),
+                6,
+                10,
+                RewardDestination::Controller
+            ));
+            assert_err!(
+                Staking::validate(Origin::signed(6), ValidatorPrefs::default()),
+                Error::<Test>::InsufficientValue
+            );
+            assert_ok!(Staking::bond_extra(Origin::signed(5), 2000));
+            assert_ok!(Staking::validate(
+                Origin::signed(6),
+                ValidatorPrefs::default()
+            ));
+
+            // new block
+            start_session(1);
+
+            // no change
+            assert_eq_uvec!(validator_controllers(), vec![20, 10]);
+
+            // new block
+            start_session(2);
+
+            // no change
+            assert_eq_uvec!(validator_controllers(), vec![20, 10]);
+
+            // new block --> ne era --> new validators
+            start_session(3);
+
+            // with current nominators 10 and 5 have the most stake
+            assert_eq_uvec!(validator_controllers(), vec![6, 10]);
+
+            // 2 decides to be a validator. Consequences:
+            assert_ok!(Staking::validate(
+                Origin::signed(2),
+                ValidatorPrefs::default()
+            ));
+            // new stakes:
+            // 10: 1000 self vote
+            // 20: 1000 self vote + 250 vote
+            // 6 : 2000 self vote
+            // 2 : 2000 self vote + 250 vote.
+            // Winners: 6 and 2
+
+            start_session(4);
+            assert_eq_uvec!(validator_controllers(), vec![6, 10]);
+
+            start_session(5);
+            assert_eq_uvec!(validator_controllers(), vec![6, 10]);
+
+            // ne era
+            start_session(6);
+            assert_eq_uvec!(validator_controllers(), vec![6, 2]);
 
             check_exposure_all();
             check_nominator_all();
