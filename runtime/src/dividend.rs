@@ -749,6 +749,7 @@ mod tests {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
 
             // Issuance for payout token is successful

@@ -48,6 +48,7 @@ contracts = { package = "pallet-contracts", git = "https://github.com/paritytech
 sc-authority-discovery = { package = "sc-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-authority-discovery = { package = "sp-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 contracts-rpc = { package = "pallet-contracts-rpc", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "./custom/transaction-payment/rpc", default-features = false }
 
 [build-dependencies]
 vergen = "3.0.4"

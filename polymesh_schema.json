@@ -266,6 +266,19 @@
             "Active"
         ]
     },
+    "SmartExtensionTypes": {
+        "_enum": {
+            "TransferManager": "",
+            "Offerings": "",
+            "Custom": "Vec<u8>"
+        }
+    },
+    "SmartExtension": {
+        "extension_type": "SmartExtensionTypes",
+        "extension_name": "Vec<u8>",
+        "extension_id": "IdentityId",
+        "is_archive": "bool"
+    },
     "ProportionMatch": {
         "_enum": [
             "AtLeast",
@@ -273,5 +286,10 @@
         ]
     },
     "AuthorizationNonce": "u64",
-    "Counter": "u64"
+    "Counter": "u64",
+    "Document": {
+        "name": "Vec<u8>",
+        "uri": "Vec<u8>",
+        "hash": "Vec<u8>"
+    }
 }
