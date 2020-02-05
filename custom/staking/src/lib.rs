@@ -281,7 +281,7 @@ use sp_staking::{
     offence::{Offence, OffenceDetails, OnOffenceHandler, ReportOffence},
     SessionIndex,
 };
-use sp_std::{prelude::*, vec, result};
+use sp_std::{prelude::*, result, vec};
 
 //use crate::identity;
 use pallet_babe;
