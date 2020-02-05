@@ -1082,8 +1082,8 @@ fn adding_removing_documents() {
             documents
         ));
 
-        let last_id = Identity::last_link(Signer::from(ticker_did));
-        let last_doc = Identity::links((Signer::from(ticker_did), last_id));
+        let last_id = Identity::last_link(Signatory::from(ticker_did));
+        let last_doc = Identity::links((Signatory::from(ticker_did), last_id));
 
         assert_eq!(
             last_doc.link_data,
@@ -1122,8 +1122,8 @@ fn adding_removing_documents() {
             ]
         ));
 
-        let last_id = Identity::last_link(Signer::from(ticker_did));
-        let last_doc = Identity::links((Signer::from(ticker_did), last_id));
+        let last_id = Identity::last_link(Signatory::from(ticker_did));
+        let last_doc = Identity::links((Signatory::from(ticker_did), last_id));
 
         assert_eq!(
             last_doc.link_data,
@@ -1141,7 +1141,7 @@ fn adding_removing_documents() {
             doc_ids
         ));
 
-        assert_eq!(Identity::last_link(Signer::from(ticker_did)), 0);
+        assert_eq!(Identity::last_link(Signatory::from(ticker_did)), 0);
     });
 }
 
