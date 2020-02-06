@@ -32,7 +32,7 @@
 //! - `balance_of` - Returns the simple token balance associated with an identity
 
 use crate::{balances, identity, utils};
-use primitives::{AccountKey, IdentityId, Signer, Ticker};
+use primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;
 use sp_std::{convert::TryFrom, prelude::*};
@@ -76,7 +76,7 @@ decl_module! {
 
         /// Create a new token and mint a balance to the issuing identity
         pub fn create_token(origin, did: IdentityId, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
-            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -110,7 +110,7 @@ decl_module! {
 
         /// Approve another identity to transfer tokens on behalf of the caller
         fn approve(origin, did: IdentityId, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
             ticker.canonize();
             let ticker_did = (ticker, did.clone());
             ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
@@ -131,7 +131,7 @@ decl_module! {
         /// Transfer tokens to another identity
         pub fn transfer(origin, did: IdentityId, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
             ticker.canonize();
-            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -141,7 +141,7 @@ decl_module! {
 
         /// Transfer tokens to another identity using the approval mechanic
         fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
-            let spender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let spender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "spender must be a signing key for DID");

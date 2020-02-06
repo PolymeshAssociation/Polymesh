@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use sp_std::prelude::Vec;
 
-use crate::{AccountKey, IdentityRole, Signer, SigningItem};
+use crate::{AccountKey, IdentityRole, Signatory, SigningItem};
 
 /// Identity information.
 #[allow(missing_docs)]
@@ -29,7 +29,7 @@ impl Identity {
     }
 
     /// It removes `keys_to_remove` from signing keys.
-    pub fn remove_signing_items(&mut self, signers_to_remove: &[Signer]) -> &mut Self {
+    pub fn remove_signing_items(&mut self, signers_to_remove: &[Signatory]) -> &mut Self {
         self.signing_items.retain(|curr_si| {
             signers_to_remove
                 .iter()

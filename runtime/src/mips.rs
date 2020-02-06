@@ -564,7 +564,7 @@ mod tests {
         parameter_types,
     };
     use frame_system::EnsureSignedBy;
-    use primitives::{IdentityId, Signer};
+    use primitives::{IdentityId, Signatory};
     use sp_core::H256;
     use sp_runtime::{
         testing::Header,
@@ -652,7 +652,7 @@ mod tests {
     }
 
     impl crate::multisig::AddSignerMultiSig for Test {
-        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }

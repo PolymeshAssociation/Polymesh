@@ -1,5 +1,5 @@
 use crate::identity_id::IdentityId;
-use crate::signing_item::Signer;
+use crate::signing_item::Signatory;
 use crate::Ticker;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
@@ -60,7 +60,7 @@ pub struct Authorization<U> {
     pub authorization_data: AuthorizationData,
 
     /// Identity of the organization/individual that added this authorization
-    pub authorized_by: Signer,
+    pub authorized_by: Signatory,
 
     /// time when this authorization expires. optional.
     pub expiry: Option<U>,

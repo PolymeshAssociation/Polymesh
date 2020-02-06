@@ -20,7 +20,7 @@
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
 //!
 use crate::identity;
-use primitives::{AccountKey, IdentityId, Signer};
+use primitives::{AccountKey, IdentityId, Signatory};
 use sp_runtime::traits::{EnsureOrigin, Hash};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -190,7 +190,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
         fn propose(origin, did: IdentityId, proposal: Box<<T as Trait<I>>::Proposal>) {
             let who = ensure_signed(origin)?;
-            let signer = Signer::AccountKey(AccountKey::try_from(who.encode())?);
+            let signer = Signatory::AccountKey(AccountKey::try_from(who.encode())?);
 
             // Ensure sender can sign for the given identity
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -223,7 +223,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
         fn vote(origin, did: IdentityId, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
             let who = ensure_signed(origin)?;
-            let signer = Signer::AccountKey(AccountKey::try_from(who.encode())?);
+            let signer = Signatory::AccountKey(AccountKey::try_from(who.encode())?);
 
             // Ensure sender can sign for the given identity
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -517,7 +517,7 @@ mod tests {
     }
 
     impl crate::multisig::AddSignerMultiSig for Test {
-        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }

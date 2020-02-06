@@ -4,7 +4,8 @@ use crate::{
     test::storage::{build_ext, make_account, TestStorage},
 };
 use primitives::{
-    AuthorizationData, IdentityId, Signer, SmartExtension, SmartExtensionType, Ticker,
+    AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
+    SmartExtensionType, Ticker,
 };
 
 use codec::Encode;
@@ -29,7 +30,7 @@ type OffChainSignature = AnySignature;
 fn issuers_can_create_and_rename_tokens() {
     build_ext().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
-
+        let funding_round_name = b"round1".to_vec();
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01],
@@ -54,6 +55,7 @@ fn issuers_can_create_and_rename_tokens() {
                 true,
                 token.asset_type.clone(),
                 identifiers.clone(),
+                Some(funding_round_name.clone())
             ),
             "Total supply above the limit"
         );
@@ -68,6 +70,7 @@ fn issuers_can_create_and_rename_tokens() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            Some(funding_round_name.clone())
         ));
 
         // A correct entry is added
@@ -76,6 +79,7 @@ fn issuers_can_create_and_rename_tokens() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
         // Unauthorized identities cannot rename the token.
         let (eve_signed, _eve_did) = make_account(AccountKeyring::Eve.public()).unwrap();
@@ -159,6 +163,7 @@ fn valid_transfers_pass() {
             true,
             token.asset_type.clone(),
             vec![],
+            None
         ));
 
         // A correct entry is added
@@ -220,6 +225,7 @@ fn valid_custodian_allowance() {
             true,
             token.asset_type.clone(),
             vec![],
+            None
         ));
 
         assert_eq!(
@@ -411,6 +417,7 @@ fn valid_custodian_allowance_of() {
             true,
             token.asset_type.clone(),
             vec![],
+            None
         ));
 
         assert_eq!(
@@ -609,6 +616,7 @@ fn checkpoints_fuzz_test() {
                 true,
                 token.asset_type.clone(),
                 vec![],
+                None
             ));
 
             let asset_rule = general_tm::AssetRule {
@@ -720,6 +728,7 @@ fn register_ticker() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
@@ -782,15 +791,15 @@ fn transfer_ticker() {
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
         Identity::add_auth(
-            Signer::from(owner_did),
-            Signer::from(alice_did),
+            Signatory::from(owner_did),
+            Signatory::from(alice_did),
             AuthorizationData::TransferTicker(ticker),
             None,
         );
 
         Identity::add_auth(
-            Signer::from(owner_did),
-            Signer::from(bob_did),
+            Signatory::from(owner_did),
+            Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             None,
         );
@@ -799,7 +808,7 @@ fn transfer_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
 
-        let mut auth_id = Identity::last_authorization(Signer::from(alice_did));
+        let mut auth_id = Identity::last_authorization(Signatory::from(alice_did));
 
         assert_err!(
             Asset::accept_ticker_transfer(alice_signed.clone(), auth_id + 1),
@@ -808,43 +817,43 @@ fn transfer_ticker() {
 
         assert_ok!(Asset::accept_ticker_transfer(alice_signed.clone(), auth_id));
 
-        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
             "Illegal use of Authorization"
         );
 
         Identity::add_auth(
-            Signer::from(alice_did),
-            Signer::from(bob_did),
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 - 100),
         );
-        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
             "Authorization expired"
         );
 
         Identity::add_auth(
-            Signer::from(alice_did),
-            Signer::from(bob_did),
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
             AssetError::NoTickerTransferAuth
         );
 
         Identity::add_auth(
-            Signer::from(alice_did),
-            Signer::from(bob_did),
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_ok!(Asset::accept_ticker_transfer(bob_signed.clone(), auth_id));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
@@ -875,25 +884,26 @@ fn transfer_token_ownership() {
             true,
             AssetType::default(),
             vec![],
+            None
         ));
 
         Identity::add_auth(
-            Signer::from(owner_did),
-            Signer::from(alice_did),
+            Signatory::from(owner_did),
+            Signatory::from(alice_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             None,
         );
 
         Identity::add_auth(
-            Signer::from(owner_did),
-            Signer::from(bob_did),
+            Signatory::from(owner_did),
+            Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             None,
         );
 
         assert_eq!(Asset::token_details(&ticker).owner_did, owner_did);
 
-        let mut auth_id = Identity::last_authorization(Signer::from(alice_did));
+        let mut auth_id = Identity::last_authorization(Signatory::from(alice_did));
 
         assert_err!(
             Asset::accept_token_ownership_transfer(alice_signed.clone(), auth_id + 1),
@@ -906,55 +916,55 @@ fn transfer_token_ownership() {
         ));
         assert_eq!(Asset::token_details(&ticker).owner_did, alice_did);
 
-        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             "Illegal use of Authorization"
         );
 
         Identity::add_auth(
-            Signer::from(alice_did),
-            Signer::from(bob_did),
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             Some(now.timestamp() as u64 - 100),
         );
-        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             "Authorization expired"
         );
 
         Identity::add_auth(
-            Signer::from(alice_did),
-            Signer::from(bob_did),
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             AssetError::NotTickerOwnershipTransferAuth
         );
 
         Identity::add_auth(
-            Signer::from(alice_did),
-            Signer::from(bob_did),
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(Ticker::from_slice(&[0x50])),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             "Token does not exist"
         );
 
         Identity::add_auth(
-            Signer::from(alice_did),
-            Signer::from(bob_did),
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signer::from(bob_did));
+        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_ok!(Asset::accept_token_ownership_transfer(
             bob_signed.clone(),
             auth_id
@@ -991,6 +1001,7 @@ fn update_identifiers() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1012,6 +1023,125 @@ fn update_identifiers() {
         for (typ, val) in updated_identifiers {
             assert_eq!(Asset::identifiers((ticker, typ)), val);
         }
+    });
+}
+
+#[test]
+fn adding_removing_documents() {
+    build_ext().execute_with(|| {
+        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+
+        let token = SecurityToken {
+            name: vec![0x01],
+            owner_did,
+            total_supply: 1_000_000,
+            divisible: true,
+            asset_type: AssetType::default(),
+        };
+
+        let ticker = Ticker::from_slice(token.name.as_slice());
+
+        assert!(!<identity::DidRecords>::exists(
+            Identity::get_token_did(&ticker).unwrap()
+        ));
+
+        let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
+        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker_did = Identity::get_token_did(&ticker).unwrap();
+
+        // Issuance is successful
+        assert_ok!(Asset::create_token(
+            owner_signed.clone(),
+            owner_did,
+            token.name.clone(),
+            ticker,
+            token.total_supply,
+            true,
+            token.asset_type.clone(),
+            identifiers.clone(),
+            None
+        ));
+
+        let documents = vec![
+            Document {
+                name: b"A".to_vec(),
+                uri: b"www.a.com".to_vec(),
+                hash: b"0x1".to_vec(),
+            },
+            Document {
+                name: b"B".to_vec(),
+                uri: b"www.b.com".to_vec(),
+                hash: b"0x2".to_vec(),
+            },
+        ];
+
+        assert_ok!(Asset::add_documents(
+            owner_signed.clone(),
+            owner_did,
+            ticker,
+            documents
+        ));
+
+        let last_id = Identity::last_link(Signatory::from(ticker_did));
+        let last_doc = Identity::links((Signatory::from(ticker_did), last_id));
+
+        assert_eq!(
+            last_doc.link_data,
+            LinkData::DocumentOwned(Document {
+                name: b"B".to_vec(),
+                uri: b"www.b.com".to_vec(),
+                hash: b"0x2".to_vec()
+            })
+        );
+        assert_eq!(last_doc.next_link, 0);
+        assert_eq!(last_doc.expiry, None);
+
+        let doc_ids = vec![last_id, last_doc.previous_link];
+
+        assert_ok!(Asset::update_documents(
+            owner_signed.clone(),
+            owner_did,
+            ticker,
+            vec![
+                (
+                    doc_ids[0],
+                    Document {
+                        name: b"C".to_vec(),
+                        uri: b"www.c.com".to_vec(),
+                        hash: b"0x3".to_vec(),
+                    }
+                ),
+                (
+                    doc_ids[1],
+                    Document {
+                        name: b"D".to_vec(),
+                        uri: b"www.d.com".to_vec(),
+                        hash: b"0x4".to_vec(),
+                    }
+                ),
+            ]
+        ));
+
+        let last_id = Identity::last_link(Signatory::from(ticker_did));
+        let last_doc = Identity::links((Signatory::from(ticker_did), last_id));
+
+        assert_eq!(
+            last_doc.link_data,
+            LinkData::DocumentOwned(Document {
+                name: b"C".to_vec(),
+                uri: b"www.c.com".to_vec(),
+                hash: b"0x3".to_vec(),
+            })
+        );
+
+        assert_ok!(Asset::remove_documents(
+            owner_signed.clone(),
+            owner_did,
+            ticker,
+            doc_ids
+        ));
+
+        assert_eq!(Identity::last_link(Signatory::from(ticker_did)), 0);
     });
 }
 
@@ -1044,6 +1174,7 @@ fn add_extension_successfully() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1110,6 +1241,7 @@ fn add_same_extension_should_fail() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1181,6 +1313,7 @@ fn should_successfully_archive_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1257,6 +1390,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1338,6 +1472,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1381,6 +1516,7 @@ fn should_successfuly_unarchive_an_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1467,6 +1603,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
+            None
         ));
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1547,6 +1684,7 @@ fn freeze_unfreeze_asset() {
             true,
             AssetType::default(),
             vec![],
+            None
         ));
         // Allow all transfers.
         let asset_rule = general_tm::AssetRule {
@@ -1574,12 +1712,12 @@ fn freeze_unfreeze_asset() {
         );
         // Attempt to transfer token ownership.
         Identity::add_auth(
-            Signer::from(alice_did),
-            Signer::from(bob_did),
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             None,
         );
-        let auth_id = Identity::last_authorization(Signer::from(bob_did));
+        let auth_id = Identity::last_authorization(Signatory::from(bob_did));
         // Attempt to mint tokens.
         assert_err!(
             Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
