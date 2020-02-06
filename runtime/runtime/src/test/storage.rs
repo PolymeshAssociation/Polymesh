@@ -1,6 +1,6 @@
 use crate::{asset, exemption, general_tm, multisig, percentage_tm, statistics, utils};
 
-use polymesh_primitives::{AccountKey, IdentityId, Signer};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -159,7 +159,7 @@ impl GroupTrait for TestStorage {
 }
 
 impl AddSignerMultiSig for TestStorage {
-    fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
         unimplemented!()
     }
 }

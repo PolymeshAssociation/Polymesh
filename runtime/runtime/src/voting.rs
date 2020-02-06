@@ -35,7 +35,7 @@ use crate::{
     utils,
 };
 
-use polymesh_primitives::{AccountKey, IdentityId, Signer, Ticker};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{identity::Trait as IdentityTrait, CommonTrait};
 use polymesh_runtime_identity as identity;
 
@@ -123,7 +123,7 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         /// * `ballot_details` - Other details of the ballot
         pub fn add_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> DispatchResult {
-            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
@@ -176,7 +176,7 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
         pub fn vote(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> DispatchResult {
-            let sender = Signer::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
@@ -246,7 +246,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
         pub fn cancel_ballot(origin, did: IdentityId, ticker: Ticker, ballot_name: Vec<u8>) -> DispatchResult {
-            let sender = Signer::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
@@ -552,7 +552,7 @@ mod tests {
     }
 
     impl AddSignerMultiSig for Test {
-        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }

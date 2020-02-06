@@ -160,7 +160,9 @@
 //! * Total issued balanced of all accounts should be less than `Trait::Balance::max_value()`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signer};
+use polymesh_primitives::{
+    traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signatory,
+};
 use polymesh_runtime_common::traits::{
     balances::{
         imbalances::{NegativeImbalance, PositiveImbalance},
@@ -813,7 +815,7 @@ where
             if let Some(did) = <T::Identity>::get_identity(&who) {
                 if <T::Identity>::is_signer_authorized_with_permissions(
                     did,
-                    &Signer::AccountKey(who.clone()),
+                    &Signatory::AccountKey(who.clone()),
                     vec![Permission::SpendFunds],
                 ) {
                     return Some(did);

@@ -13,7 +13,7 @@
 //!   - Initially restrict list of accounts that can put_code
 //!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
 
-use polymesh_primitives::{AccountKey, IdentityId, Signer};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_common::identity::Trait as IdentityTrait;
 use polymesh_runtime_identity as identity;
 
@@ -57,7 +57,7 @@ decl_module! {
             code: Vec<u8>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signer::AccountKey( AccountKey::try_from(sender.encode())?);
+            let signer = Signatory::AccountKey( AccountKey::try_from(sender.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");

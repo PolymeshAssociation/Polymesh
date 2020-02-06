@@ -1,4 +1,4 @@
-use polymesh_primitives::Signer;
+use polymesh_primitives::Signatory;
 
 use frame_support::dispatch::DispatchResult;
 
@@ -9,5 +9,5 @@ pub trait AddSignerMultiSig {
     /// # Arguments
     /// * `signer` did/key of the signer
     /// * `auth_id` Authorization id of the authorization created by the multisig
-    fn accept_multisig_signer(signer: Signer, auth_id: u64) -> DispatchResult;
+    fn accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult;
 }

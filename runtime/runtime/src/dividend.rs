@@ -33,7 +33,7 @@
 
 use crate::{asset, simple_token, utils};
 
-use polymesh_primitives::{AccountKey, IdentityId, Signer, Ticker};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait};
 use polymesh_runtime_identity as identity;
 
@@ -110,7 +110,7 @@ decl_module! {
             payout_ticker: Ticker,
             checkpoint_id: u64
         ) -> DispatchResult {
-            let sender = Signer::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -182,7 +182,7 @@ decl_module! {
 
         /// Lets the owner cancel a dividend before start/maturity date
         pub fn cancel(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender = Signer::AccountKey( AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey( AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -223,7 +223,7 @@ decl_module! {
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
         pub fn claim(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -290,7 +290,7 @@ decl_module! {
 
         /// After a dividend had expired, collect the remaining amount to owner address
         pub fn claim_unclaimed(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender = Signer::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -613,7 +613,7 @@ mod tests {
     }
 
     impl AddSignerMultiSig for Test {
-        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }

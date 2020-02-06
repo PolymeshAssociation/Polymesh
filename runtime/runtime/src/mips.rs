@@ -559,7 +559,7 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
-    use polymesh_primitives::{IdentityId, Signer};
+    use polymesh_primitives::{IdentityId, Signatory};
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, multisig::AddSignerMultiSig, CommonTrait,
@@ -663,7 +663,7 @@ mod tests {
     }
 
     impl AddSignerMultiSig for Test {
-        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }

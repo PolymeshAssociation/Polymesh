@@ -5,7 +5,7 @@ use crate::traits::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, IdentityId, LinkData, Permission, Signer, SigningItem,
+    AccountKey, AuthorizationData, IdentityId, LinkData, Permission, Signatory, SigningItem,
 };
 
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
@@ -136,7 +136,7 @@ decl_event!(
         NewSigningItems(IdentityId, Vec<SigningItem>),
 
         /// DID, the keys that got removed
-        RevokedSigningItems(IdentityId, Vec<Signer>),
+        RevokedSigningItems(IdentityId, Vec<Signatory>),
 
         /// DID, updated signing key, previous permissions
         SigningPermissionsUpdated(IdentityId, SigningItem, Vec<Permission>),
@@ -168,14 +168,14 @@ decl_event!(
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
         NewAuthorization(
             u64,
-            Signer,
-            Signer,
+            Signatory,
+            Signatory,
             AuthorizationData,
             Option<Moment>
         ),
 
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
-        AuthorizationRemoved(u64, Signer),
+        AuthorizationRemoved(u64, Signatory),
 
         /// MasterKey changed (Requestor DID, New MasterKey)
         MasterKeyChanged(IdentityId, AccountKey),
@@ -183,28 +183,28 @@ decl_event!(
         /// New link added (link_id, associated identity or key, link_data, expiry)
         NewLink(
             u64,
-            Signer,
+            Signatory,
             LinkData,
             Option<Moment>
         ),
 
         /// Link removed. (link_id, associated identity or key)
-        LinkRemoved(u64, Signer),
+        LinkRemoved(u64, Signatory),
 
         /// Link contents updated. (link_id, associated identity or key)
-        LinkUpdated(u64, Signer),
+        LinkUpdated(u64, Signatory),
 
-        /// Signer approved a previous request to join to a target identity.
-        SignerJoinedToIdentityApproved( Signer, IdentityId),
+        /// Signatory approved a previous request to join to a target identity.
+        SignerJoinedToIdentityApproved( Signatory, IdentityId),
     }
 );
 
 pub trait IdentityTrait {
     fn get_identity(key: &AccountKey) -> Option<IdentityId>;
-    fn is_signer_authorized(did: IdentityId, signer: &Signer) -> bool;
+    fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool;
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
-        signer: &Signer,
+        signer: &Signatory,
         permissions: Vec<Permission>,
     ) -> bool;
     fn is_master_key(did: IdentityId, key: &AccountKey) -> bool;
