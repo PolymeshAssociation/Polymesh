@@ -11,8 +11,9 @@ path = "src/main.rs"
 
 [dependencies]
 polymesh-primitives = { path = "primitives" }
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "runtime/common", default-features = false }
-polymesh-runtime = { path = "runtime/runtime" }
+polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets/common", default-features = false }
+polymesh-runtime = { path = "pallets/runtime" }
+pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
 
 
 parking_lot = "0.9.0"
@@ -52,7 +53,6 @@ contracts = { package = "pallet-contracts", git = "https://github.com/paritytech
 sc-authority-discovery = { package = "sc-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-authority-discovery = { package = "sp-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 contracts-rpc = { package = "pallet-contracts-rpc", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "./custom/transaction-payment/rpc", default-features = false }
 
 [build-dependencies]
 vergen = "3.0.4"

@@ -12,13 +12,12 @@ polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group"
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
 
-pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../../custom/transaction-payment/rpc/runtime-api", default-features = false  } 
-pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../../custom/transaction-payment", default-features = false  }
-pallet-staking = { package = "pallet-staking", path = "../../custom/staking", default-features = false  }
-pallet-staking-reward-curve = { version = "2.0.0",  path = "../../custom/staking/reward-curve", default-features = false  }
+pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../transaction-payment/rpc/runtime-api", default-features = false  } 
+pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
+pallet-staking = { package = "pallet-staking", path = "../staking", default-features = false  }
+pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve", default-features = false  }
 
 
-#bitvec = { version = "0.16.1", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4.10", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 lazy_static = { version = "1.4.0", default-features = false }
@@ -30,7 +29,6 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true }
 serde_json = { version = "1.0.44", default-features = false }
 yaml-rust = { version = "0.4.3", default-features = false }
-
 
 
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
