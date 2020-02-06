@@ -33,7 +33,6 @@ impl_outer_origin! {
 
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
-        bridge::Bridge,
         identity::Identity,
         multisig::MultiSig,
         pallet_contracts::Contracts,

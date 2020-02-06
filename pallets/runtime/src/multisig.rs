@@ -135,7 +135,8 @@ decl_module! {
             let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
             let sender_signer = Signatory::from(signer_did);
-            Self::create_proposal(multisig, sender_signer, proposal)
+            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Ok(())
         }
 
         /// Creates a multisig proposal
@@ -147,7 +148,8 @@ decl_module! {
         pub fn create_proposal_as_key(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::create_proposal(multisig, sender_signer, proposal)
+            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Ok(())
         }
 
         /// Approves a multisig proposal using caller's identity

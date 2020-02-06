@@ -12,7 +12,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use primitives::traits::IdentityCurrency;
-use primitives::{IdentityId, Key, Signer};
+use primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
 use sp_std::collections::btree_map::BTreeMap;
@@ -97,7 +97,7 @@ decl_module! {
         /// approving an existing proposal if the change has already been proposed.
         pub fn propose_change_validators(origin, new_validators: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
-            let sender_signer = Signer::from(Key::try_from(sender.encode())?);
+            let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
             let current_validators = Self::validators();
             if current_validators == Default::default() {
                 // There are no validators to approve the change. Simply set the given validators.
@@ -129,7 +129,7 @@ decl_module! {
         /// transaction has already been proposed.
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
-            let sender_signer = Signer::from(Key::try_from(sender.encode())?);
+            let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
             let validators = Self::validators();
             ensure!(validators != Default::default(), "bridge validators not set");
             let proposal_id = Self::bridge_tx_proposals(bridge_tx.clone());
@@ -226,7 +226,7 @@ impl<T: Trait> Module<T> {
         } = &bridge_tx;
         let (did, account_id) = match recipient {
             IssueRecipient::Account(account_id) => {
-                let to_key = Key::try_from(account_id.clone().encode())?;
+                let to_key = AccountKey::try_from(account_id.clone().encode())?;
                 (
                     <identity::Module<T>>::get_identity(&to_key),
                     Some(account_id),
