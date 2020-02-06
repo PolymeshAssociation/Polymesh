@@ -182,7 +182,7 @@ use sp_runtime::RuntimeDebug;
 use sp_std::{cmp, convert::TryFrom, fmt::Debug, mem, prelude::*, result};
 
 use crate::identity::IdentityTrait;
-use primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signer};
+use primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signatory};
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 
@@ -1078,7 +1078,7 @@ where
             if let Some(did) = <T::Identity>::get_identity(&who) {
                 if <T::Identity>::is_signer_authorized_with_permissions(
                     did,
-                    &Signer::AccountKey(who.clone()),
+                    &Signatory::AccountKey(who.clone()),
                     vec![Permission::SpendFunds],
                 ) {
                     return Some(did);
@@ -1426,7 +1426,7 @@ mod tests {
         }
     }
     impl crate::multisig::AddSignerMultiSig for Runtime {
-        fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
         }
     }
