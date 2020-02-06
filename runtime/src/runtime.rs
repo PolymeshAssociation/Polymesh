@@ -279,7 +279,7 @@ impl pallet_staking::Trait for Runtime {
     type SessionsPerEra = SessionsPerEra;
     type BondingDuration = BondingDuration;
     type SlashDeferDuration = SlashDeferDuration;
-    /// A super-majority of the council can cancel the slash.
+    /// A super-majority of the committee can cancel the slash.
     type SlashCancelOrigin =
         committee::EnsureProportionAtLeast<_3, _4, AccountId, GovernanceCommittee>;
     type SessionInterface = Self;
@@ -290,6 +290,9 @@ impl pallet_staking::Trait for Runtime {
         committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
     type RequiredComplianceOrigin =
         committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    /// A super-majority of the council can enforce global commission.
+    type RequiredCommissionOrigin =
+        committee::EnsureProportionAtLeast<_3, _4, AccountId, GovernanceCommittee>;
 }
 
 type GovernanceCommittee = committee::Instance1;
