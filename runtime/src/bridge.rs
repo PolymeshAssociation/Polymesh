@@ -7,18 +7,25 @@ use crate::{balances, identity, multisig};
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
-use frame_support::{decl_event, decl_module, decl_storage, ensure};
+use frame_support::{
+    decl_event, decl_module, decl_storage, ensure, weights::GetDispatchInfo, Parameter,
+};
 use frame_system::{self as system, ensure_signed};
 use primitives::traits::IdentityCurrency;
 use primitives::{IdentityId, Key, Signer};
 use sp_core::H256;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_runtime::traits::Dispatchable;
 use sp_std::collections::btree_map::BTreeMap;
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub trait Trait: balances::Trait + multisig::Trait {
     type Balance: From<u128> + Into<<Self as balances::Trait>::Balance>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Proposal: From<Call<Self>> + Into<<Self as identity::Trait>::Proposal>;
+    type Proposal: From<Call<Self>>
+        + Into<<Self as identity::Trait>::Proposal>
+        + Parameter
+        + Dispatchable<Origin = Self::Origin>
+        + GetDispatchInfo;
 }
 
 decl_storage! {
@@ -220,7 +227,10 @@ impl<T: Trait> Module<T> {
         let (did, account_id) = match recipient {
             IssueRecipient::Account(account_id) => {
                 let to_key = Key::try_from(account_id.clone().encode())?;
-                (<identity::Module<T>>::get_identity(&to_key), Some(account_id))
+                (
+                    <identity::Module<T>>::get_identity(&to_key),
+                    Some(account_id),
+                )
             }
             IssueRecipient::Identity(did) => (Some(*did), None),
         };

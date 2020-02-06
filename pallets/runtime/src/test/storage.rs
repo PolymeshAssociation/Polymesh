@@ -1,4 +1,4 @@
-use crate::{asset, exemption, general_tm, multisig, percentage_tm, statistics, utils};
+use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics, utils};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
@@ -33,6 +33,7 @@ impl_outer_origin! {
 
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
+        bridge::Bridge,
         identity::Identity,
         multisig::MultiSig,
         pallet_contracts::Contracts,
@@ -237,6 +238,12 @@ impl general_tm::Trait for TestStorage {
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
+}
+
+impl bridge::Trait for TestStorage {
+    type Balance = u128;
+    type Event = Event;
+    type Proposal = Call;
 }
 
 impl exemption::Trait for TestStorage {
