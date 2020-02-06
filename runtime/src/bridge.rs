@@ -5,7 +5,7 @@
 
 use crate::{balances, identity, multisig};
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
 use frame_support::{decl_event, decl_module, decl_storage, ensure};
 use frame_system::{self as system, ensure_signed};
@@ -13,6 +13,7 @@ use primitives::traits::IdentityCurrency;
 use primitives::{IdentityId, Key, Signer};
 use sp_core::H256;
 use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::collections::btree_map::BTreeMap;
 
 pub trait Trait: balances::Trait + multisig::Trait {
     type Balance: From<u128> + Into<<Self as balances::Trait>::Balance>;
@@ -29,7 +30,7 @@ decl_storage! {
         /// Correspondence between bridge transaction proposals and multisig proposal IDs.
         BridgeTxProposals get(bridge_tx_proposals): map hasher(blake2_256) BridgeTx<T::AccountId> => u64;
         /// Pending issuance transactions to identities.
-        PendingTxs get(pending_txs): map IdentityId => Vec<PendingTx>;
+        PendingTxs get(pending_txs): map IdentityId => Vec<BridgeTx<T::AccountId>>;
     }
 }
 
@@ -53,17 +54,17 @@ pub struct BridgeTx<AccountId> {
     pub tx_hash: H256,
 }
 
-/// A pending bridge transaction that was approved by validators but delayed due to the recipient
-/// identity not having a valid KYC.
+/// A transaction that is pending a valid identity KYC.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PendingTx {
-    /// Bridge validator runtime nonce.
-    pub nonce: u64,
-    /// Amount of tokens locked on Ethereum.
-    pub value: u128,
-    /// Ethereum token lock transaction hash.
-    pub tx_hash: H256,
+pub struct PendingTx<AccountId> {
+    /// The identity on which the KYC is pending.
+    pub did: IdentityId,
+    /// The pending transaction.
+    pub bridge_tx: BridgeTx<AccountId>,
 }
+
+/// Either a pending transaction or a `None` or an error.
+type IssueResult<AccountId> = sp_std::result::Result<Option<PendingTx<AccountId>>, DispatchError>;
 
 decl_event! {
     pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId {
@@ -74,7 +75,9 @@ decl_event! {
         Bridged(BridgeTx<AccountId>),
         /// Notification of an approved transaction having moved to a pending state due to the
         /// recipient identity either being non-existent or not having a valid KYC.
-        Pending(PendingTx),
+        Pending(PendingTx<AccountId>),
+        /// Notification of a failure to finalize a pending transaction. The transaction is removed.
+        Failed(BridgeTx<AccountId>),
     }
 }
 
@@ -144,28 +147,34 @@ decl_module! {
 
         /// Finalizes pending bridge transactions following a receipt of a valid KYC by the
         /// recipient identity.
-        pub fn finalize_pending(origin, did: IdentityId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_key = Key::try_from(sender.encode())?;
-            let signer = Signer::Key(sender_key.clone());
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer),
-                    "sender must be a signing key for DID");
+        pub fn finalize_pending(_origin, did: IdentityId) -> DispatchResult {
             ensure!(<identity::Module<T>>::has_valid_kyc(&did), "recipient DID has no valid KYC");
-            for PendingTx {
-                nonce,
-                value,
-                tx_hash,
-            } in Self::pending_txs(did).drain(..) {
-                let amount = <T as Trait>::Balance::from(value).into();
-                let neg_imbalance = <balances::Module<T>>::issue(amount);
-                <balances::Module<T>>::resolve_into_existing_identity(&did, neg_imbalance)
-                    .map_err(|_| "failed to credit the issued amount")?;
-                Self::deposit_event(RawEvent::Bridged(BridgeTx {
-                    nonce,
-                    recipient: IssueRecipient::Identity(did),
-                    value,
-                    tx_hash,
-                }));
+            let mut new_pending_txs: BTreeMap<_, Vec<BridgeTx<T::AccountId>>> = BTreeMap::new();
+            for bridge_tx in Self::pending_txs(&did) {
+                match Self::issue(bridge_tx.clone()) {
+                    Ok(None) => Self::deposit_event(RawEvent::Bridged(bridge_tx)),
+                    Ok(Some(PendingTx {
+                        did: to_did,
+                        bridge_tx,
+                    })) => {
+                        let entry = new_pending_txs
+                            .entry(to_did)
+                            .or_default();
+                        entry.push(bridge_tx.clone());
+                        Self::deposit_event(RawEvent::Pending(PendingTx {
+                            did: to_did,
+                            bridge_tx
+                        }));
+                    }
+                    Err(_) => Self::deposit_event(RawEvent::Failed(bridge_tx)),
+                }
+            }
+            for (to_did, txs) in new_pending_txs {
+                if to_did == did {
+                    <PendingTxs<T>>::insert(did, txs);
+                } else {
+                    <PendingTxs<T>>::mutate(to_did, |pending_txs| pending_txs.extend(txs));
+                }
             }
             Ok(())
         }
@@ -182,57 +191,63 @@ decl_module! {
 
         /// Handles an approved bridge transaction proposal.
         fn handle_bridge_tx(_origin, bridge_tx: BridgeTx<T::AccountId>) -> DispatchResult {
-            // Not removing the ongoing proposal since that would have been unnecessary due to
-            // proposal uniqueness.
-            //
-            // TODO: use `origin`?
-            // let sender = ensure_signed(origin.clone())?;
-            // let sender_key = Key::try_from(sender.encode())?;
-            // let did = <identity::Module<T>>::get_identity(&sender_key)
-            //     .ok_or_else(|| identity::Error::<T>::NoDIDFound)?;
-            let BridgeTx {
-                nonce,
-                recipient,
-                value,
-                tx_hash,
-            } = &bridge_tx;
-            let (did, account_id) = match recipient {
-                IssueRecipient::Account(account_id) => {
-                    let to_key = Key::try_from(account_id.clone().encode())?;
-                    (<identity::Module<T>>::get_identity(&to_key), Some(account_id))
-                }
-                IssueRecipient::Identity(did) => (Some(*did), None),
-            };
-            if let Some(did) = did {
-                // Issue to an identity or to an account associated with one.
-                if <identity::Module<T>>::has_valid_kyc(did) {
-                    let amount = <T as Trait>::Balance::from(*value).into();
-                    let neg_imbalance = <balances::Module<T>>::issue(amount);
-                    let resolution = if let Some(account_id) = account_id {
-                        <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
-                    } else {
-                        <balances::Module<T>>::resolve_into_existing_identity(&did, neg_imbalance)
-                    };
-                    resolution.map_err(|_| "failed to credit the issued amount")?;
-                    Self::deposit_event(RawEvent::Bridged(bridge_tx));
-                } else {
-                    // Postpone issuance and change the recipient to the identity.
-                    let pending_tx = PendingTx {
-                        nonce: *nonce,
-                        value: *value,
-                        tx_hash: *tx_hash,
-                    };
-                    <PendingTxs>::mutate(did, |txs| txs.push(pending_tx.clone()));
-                    Self::deposit_event(RawEvent::Pending(pending_tx));
-                }
-            } else if let Some(account_id) = account_id {
-                // Issue to an account not associated with an identity.
-                let amount = <T as Trait>::Balance::from(*value).into();
-                let neg_imbalance = <balances::Module<T>>::issue(amount);
-                <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance);
+            if let Some(PendingTx {
+                did,
+                bridge_tx,
+            }) = Self::issue(bridge_tx.clone())? {
+                <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
+                Self::deposit_event(RawEvent::Pending(PendingTx{
+                    did,
+                    bridge_tx
+                }));
+            } else {
                 Self::deposit_event(RawEvent::Bridged(bridge_tx));
             }
             Ok(())
         }
+    }
+}
+
+impl<T: Trait> Module<T> {
+    /// Issues the transacted amount to the recipient or returns a pending transaction.
+    fn issue(bridge_tx: BridgeTx<T::AccountId>) -> IssueResult<T::AccountId> {
+        let BridgeTx {
+            nonce: _,
+            recipient,
+            value,
+            tx_hash: _,
+        } = &bridge_tx;
+        let (did, account_id) = match recipient {
+            IssueRecipient::Account(account_id) => {
+                let to_key = Key::try_from(account_id.clone().encode())?;
+                (<identity::Module<T>>::get_identity(&to_key), Some(account_id))
+            }
+            IssueRecipient::Identity(did) => (Some(*did), None),
+        };
+        if let Some(did) = did {
+            // Issue to an identity or to an account associated with one.
+            if <identity::Module<T>>::has_valid_kyc(did) {
+                let amount = <T as Trait>::Balance::from(*value).into();
+                let neg_imbalance = <balances::Module<T>>::issue(amount);
+                let resolution = if let Some(account_id) = account_id {
+                    <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
+                } else {
+                    <balances::Module<T>>::resolve_into_existing_identity(&did, neg_imbalance)
+                };
+                resolution.map_err(|_| "failed to credit the recipient account")?;
+            } else {
+                return Ok(Some(PendingTx {
+                    did,
+                    bridge_tx: bridge_tx,
+                }));
+            }
+        } else if let Some(account_id) = account_id {
+            // Issue to an account not associated with an identity.
+            let amount = <T as Trait>::Balance::from(*value).into();
+            let neg_imbalance = <balances::Module<T>>::issue(amount);
+            <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
+                .map_err(|_| "failed to credit the recipient identity")?;
+        }
+        Ok(None)
     }
 }
