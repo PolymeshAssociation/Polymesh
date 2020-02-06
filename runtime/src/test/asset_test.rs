@@ -4,8 +4,8 @@ use crate::{
     test::storage::{build_ext, make_account, TestStorage},
 };
 use primitives::{
-    AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionType,
-    Ticker,
+    AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
+    SmartExtensionType, Ticker,
 };
 
 use codec::Encode;
