@@ -226,11 +226,10 @@ parameter_types! {
     pub const SessionsPerEra: SessionIndex = 3;
     pub const BondingDuration: EraIndex = 3;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
-    pub const One: u64 = 1;
-    pub const Two: u64 = 2;
-    pub const Three: u64 = 3;
-    pub const Four: u64 = 4;
-    pub const Five: u64 = 5;
+    pub const OneThousand: u64 = 1000;
+    pub const TwoThousand: u64 = 2000;
+    pub const ThreeThousand: u64 = 3000;
+    pub const FourThousand: u64 = 4000;
 }
 impl Trait for Test {
     type Currency = pallet_balances::Module<Self>;
@@ -246,10 +245,10 @@ impl Trait for Test {
     type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
-    type RequiredAddOrigin = EnsureSignedBy<One, Self::AccountId>;
-    type RequiredRemoveOrigin = EnsureSignedBy<Two, Self::AccountId>;
-    type RequiredComplianceOrigin = EnsureSignedBy<Three, Self::AccountId>;
-    type RequiredCommissionOrigin = EnsureSignedBy<Four, Self::AccountId>;
+    type RequiredAddOrigin = EnsureSignedBy<OneThousand, Self::AccountId>;
+    type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
+    type RequiredComplianceOrigin = EnsureSignedBy<ThreeThousand, Self::AccountId>;
+    type RequiredCommissionOrigin = EnsureSignedBy<FourThousand, Self::AccountId>;
 }
 
 pub struct ExtBuilder {

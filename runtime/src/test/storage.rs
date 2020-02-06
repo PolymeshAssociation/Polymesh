@@ -8,7 +8,7 @@ use frame_support::{
     traits::Currency,
 };
 use frame_system::{self as system, EnsureSignedBy};
-use primitives::{AccountKey, IdentityId, Signer};
+use primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
@@ -151,7 +151,7 @@ impl crate::group::GroupTrait for TestStorage {
 }
 
 impl crate::multisig::AddSignerMultiSig for TestStorage {
-    fn accept_multisig_signer(_: Signer, _: u64) -> DispatchResult {
+    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
         unimplemented!()
     }
 }

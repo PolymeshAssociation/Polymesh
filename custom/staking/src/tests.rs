@@ -384,6 +384,8 @@ fn staking_should_work() {
 
             // --- Block 1:
             start_session(1);
+            // Pass copliance for account 3
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 3));
             // add a new candidate for being a validator. account 3 controlled by 4.
             assert_ok!(Staking::bond(
                 Origin::signed(3),
@@ -1831,6 +1833,9 @@ fn switching_roles() {
                 let _ = Balances::deposit_creating(&i, 5000);
             }
 
+            // Pass copliance for account 1
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 1));
+
             // add 2 nominators
             assert_ok!(Staking::bond(
                 Origin::signed(1),
@@ -1847,6 +1852,9 @@ fn switching_roles() {
                 RewardDestination::Controller
             ));
             assert_ok!(Staking::nominate(Origin::signed(4), vec![21, 1]));
+
+            // Pass copliance for account 5
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 5));
 
             // add a new validator candidate
             assert_ok!(Staking::bond(
@@ -1929,6 +1937,9 @@ fn switching_roles_when_min_bond_changes() {
                 let _ = Balances::deposit_creating(&i, 5000);
             }
 
+            // Pass compliance for account 1
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 1));
+
             // add 2 nominators
             assert_ok!(Staking::bond(
                 Origin::signed(1),
@@ -1946,7 +1957,10 @@ fn switching_roles_when_min_bond_changes() {
             ));
             assert_ok!(Staking::nominate(Origin::signed(4), vec![21, 1]));
 
-            <MinimumBondThreshold<Test>>::put(100);
+            <MinimumBondThreshold<Test>>::put(1250);
+
+            // Pass compliance for account 1
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 5));
 
             // add a new validator candidate
             assert_ok!(Staking::bond(
@@ -1977,11 +1991,14 @@ fn switching_roles_when_min_bond_changes() {
             // no change
             assert_eq_uvec!(validator_controllers(), vec![20, 10]);
 
-            // new block --> ne era --> new validators
+            // new block --> new era --> new validators
             start_session(3);
 
             // with current nominators 10 and 5 have the most stake
-            assert_eq_uvec!(validator_controllers(), vec![6, 10]);
+            assert_eq_uvec!(validator_controllers(), vec![6]);
+
+            // Reduce the min bond value
+            <MinimumBondThreshold<Test>>::put(1000);
 
             // 2 decides to be a validator. Consequences:
             assert_ok!(Staking::validate(
@@ -1996,13 +2013,14 @@ fn switching_roles_when_min_bond_changes() {
             // Winners: 6 and 2
 
             start_session(4);
-            assert_eq_uvec!(validator_controllers(), vec![6, 10]);
+            assert_eq_uvec!(validator_controllers(), vec![6]);
 
             start_session(5);
-            assert_eq_uvec!(validator_controllers(), vec![6, 10]);
+            assert_eq_uvec!(validator_controllers(), vec![6]);
 
-            // ne era
+            // new era
             start_session(6);
+            // 2 should join now that bond value has been
             assert_eq_uvec!(validator_controllers(), vec![6, 2]);
 
             check_exposure_all();
@@ -2126,6 +2144,8 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
                 1,
                 RewardDestination::Controller
             ));
+            // Pass copliance for account 1
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 1));
             assert_ok!(Staking::validate(
                 Origin::signed(2),
                 ValidatorPrefs::default()
@@ -2182,6 +2202,11 @@ fn phragmen_linear_worse_case_equalize() {
             bond_validator(50, 1000);
             bond_validator(60, 1000);
             bond_validator(70, 1000);
+
+            // Pass copliance for account 51, 61 & 71
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 51));
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 61));
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 71));
 
             bond_nominator(2, 2000, vec![11]);
             bond_nominator(4, 1000, vec![11, 21]);
@@ -2251,6 +2276,10 @@ fn phragmen_should_not_overflow_validators() {
             bond_validator(2, u64::max_value());
             bond_validator(4, u64::max_value());
 
+            // Pass copliance for account 3 & 5
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 3));
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 5));
+
             bond_nominator(6, u64::max_value() / 2, vec![3, 5]);
             bond_nominator(8, u64::max_value() / 2, vec![3, 5]);
 
@@ -2277,6 +2306,10 @@ fn phragmen_should_not_overflow_nominators() {
             bond_validator(2, u64::max_value() / 2);
             bond_validator(4, u64::max_value() / 2);
 
+            // Pass copliance for account 3 & 5
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 3));
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 5));
+
             bond_nominator(6, u64::max_value(), vec![3, 5]);
             bond_nominator(8, u64::max_value(), vec![3, 5]);
 
@@ -2298,6 +2331,10 @@ fn phragmen_should_not_overflow_ultimate() {
         .execute_with(|| {
             bond_validator(2, u64::max_value());
             bond_validator(4, u64::max_value());
+
+            // Pass copliance for account 3 & 5
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 3));
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 5));
 
             bond_nominator(6, u64::max_value(), vec![3, 5]);
             bond_nominator(8, u64::max_value(), vec![3, 5]);

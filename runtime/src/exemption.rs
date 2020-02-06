@@ -2,7 +2,7 @@ use crate::{
     asset::{self, AssetTrait},
     balances, identity, utils,
 };
-use primitives::{AccountKey, IdentityId, Signer, Ticker};
+use primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
@@ -34,7 +34,7 @@ decl_module! {
 
         fn modify_exemption_list(origin, did: IdentityId, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
             ticker.canonize();
-            let sender = Signer::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
