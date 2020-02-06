@@ -621,6 +621,14 @@ decl_module! {
             }
         }
 
+        pub fn get_asset_did(origin, ticker: Ticker) -> DispatchResult {
+            ensure_signed(origin)?;
+            let did = Self::get_token_did(&ticker)?;
+            Self::deposit_event(RawEvent::AssetDid(ticker, did));
+            sp_runtime::print(did);
+            Ok(())
+        }
+
         // Manage generic authorizations
         /// Adds an authorization
         pub fn add_authorization(
@@ -1097,6 +1105,9 @@ decl_event!(
 
         /// DID queried
         DidQuery(AccountKey, IdentityId),
+
+        /// Asset DID queried
+        AssetDid(Ticker, IdentityId),
 
         /// To query the status of DID
         MyKycStatus(IdentityId, bool, Option<IdentityId>),
@@ -1610,6 +1621,7 @@ impl<T: Trait> Module<T> {
     /// It registers a did for a new asset. Only called by create_token function.
     pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
         let did = Self::get_token_did(ticker)?;
+        Self::deposit_event(RawEvent::AssetDid(*ticker, did));
         // Making sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
         ensure!(!<DidRecords>::exists(did), "DID must be unique");
