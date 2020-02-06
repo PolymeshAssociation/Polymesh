@@ -65,9 +65,9 @@ async function initMain(api) {
     `Initial storage size (${STORAGE_DIR}): ${initial_storage_size / 1024}MB`
   );
 
-  generateEntity(api, "Alice");
-  generateEntity(api, "Bob");
-  generateEntity(api, "Dave");
+    // generateEntity(api, "Alice");
+    // generateEntity(api, "Bob");
+    // generateEntity(api, "Dave");
 
   // Create `n_accounts` master key accounts
   console.log("Generating Master Keys");
@@ -86,12 +86,13 @@ async function initMain(api) {
 
 let generateEntity = async function(api, name) {
   let entity = keyring.addFromUri(`//${name}`, { name: `${name}` });
-  entities[name] = entity;
+  entities.push(entity);
+  let lastIndex = entities.length - 1;
   let entityRawNonce = await api.query.system.accountNonce(
-    entities[name].address
+    entities[lastIndex].address
   );
   let entity_nonce = new BN(entityRawNonce.toString());
-  nonces.set(entities[name].address, entity_nonce);
+  nonces.set(entities[lastIndex].address, entity_nonce);
 };
 
 const generateMasterKeys = async function(api) {
@@ -192,7 +193,7 @@ function updateStorageSize(dir) {
 // Create a new DID for each of accounts[]
 const createIdentities = async function(api, accounts, fast) {
   let dids = [];
-  if (!("CREATE IDENTITIES" in fail_type)) {
+    if (!("CREATE IDENTITIES" in fail_type)) {
     fail_type["CREATE IDENTITIES"] = 0;
   }
   for (let i = 0; i < accounts.length; i++) {
@@ -214,18 +215,19 @@ const createIdentities = async function(api, accounts, fast) {
 // Sends transfer_amount to accounts[] from alice
 async function distributePoly(api, accounts, transfer_amount, fast) {
   fail_type["DISTRIBUTE POLY"] = 0;
-
+   let signingEntity = entities[0];
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
     if (fast) {
+      
       const unsub = await api.tx.balances
       .transfer(accounts[i].address, transfer_amount)
       .signAndSend(
-        entities["Alice"],
-        { nonce: nonces.get(entities["Alice"].address) });
+        signingEntity,
+        { nonce: nonces.get(signingEntity.address) });
     } 
 
-    nonces.set(entities["Alice"].address, nonces.get(entities["Alice"].address).addn(1));
+    nonces.set(signingEntity.address, nonces.get(signingEntity.address).addn(1));
   }
 
 }
@@ -285,5 +287,6 @@ export {
   prepend,
   STORAGE_DIR,
   initial_storage_size,
-  current_storage_size
+  current_storage_size,
+  generateEntity
 };

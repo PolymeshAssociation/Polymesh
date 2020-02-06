@@ -50,7 +50,7 @@ async function main() {
 
   initMain(api);
 
-  const testEntities = [entities["Alice"], entities["Bob"], entities["Dave"]];
+  const testEntities = entities.slice(0,2);
 
   // Execute each stats collection stage
   const init_tasks = {
@@ -118,27 +118,11 @@ async function main() {
   await new Promise(resolve => setTimeout(resolve, 3000));
   init_multibar.stop();
 
-  updateStorageSize(STORAGE_DIR);
-  console.log(
-    `Total storage size delta: ${current_storage_size - initial_storage_size}KB`
-  );
-  console.log(`Total number of failures: ${fail_count}`);
   if (fail_count > 0) {
-    for (let err in fail_type) {
-      console.log(`\t` + err + ":" + fail_type[err]);
-    }
+    console.log("Test Failed");
+    process.exit();
   }
-  console.log(`Transactions processed:`);
-  for (let block_number in block_sizes) {
-    console.log(
-      `\tBlock Number: ` +
-        block_number +
-        "\t\tProcessed: " +
-        block_sizes[block_number] +
-        "\tTime (ms): " +
-        block_times[block_number]
-    );
-  }
+  
   console.log("DONE");
 
   process.exit();

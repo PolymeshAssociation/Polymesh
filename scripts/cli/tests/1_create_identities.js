@@ -31,7 +31,8 @@ let {
   block_sizes,
   block_times,
   entities,
-  initial_storage_size
+  initial_storage_size,
+  generateEntity
 } = require("../util/init.js");
 
 async function main() {
@@ -46,14 +47,18 @@ async function main() {
     provider: ws_provider
   });
 
+    generateEntity(api, "Alice");
+    generateEntity(api, "Bob");
+    generateEntity(api, "Dave");
+
   initMain(api);
 
-  const testEntities = [entities["Alice"], entities["Bob"], entities["Dave"]]
+  const testEntities = entities.slice(0,2);
 
   // Execute each stats collection stage
   const init_tasks = {
-    "Submit  : CREATE ISSUER IDENTITIES       ": n_accounts + 3,
-    "Complete: CREATE ISSUER IDENTITIES       ": n_accounts + 3
+    "Submit  : CREATE ISSUER IDENTITIES       ": n_accounts + 2,
+    "Complete: CREATE ISSUER IDENTITIES       ": n_accounts + 2
   };
   const init_bars = [];
 
@@ -97,27 +102,11 @@ async function main() {
   await new Promise(resolve => setTimeout(resolve, 3000));
   init_multibar.stop();
 
-  updateStorageSize(STORAGE_DIR);
-  console.log(
-    `Total storage size delta: ${current_storage_size - initial_storage_size}KB`
-  );
-  console.log(`Total number of failures: ${fail_count}`);
   if (fail_count > 0) {
-    for (let err in fail_type) {
-      console.log(`\t` + err + ":" + fail_type[err]);
-    }
+    console.log("Test Failed");
+    process.exit();
   }
-  console.log(`Transactions processed:`);
-  for (let block_number in block_sizes) {
-    console.log(
-      `\tBlock Number: ` +
-        block_number +
-        "\t\tProcessed: " +
-        block_sizes[block_number] +
-        "\tTime (ms): " +
-        block_times[block_number]
-    );
-  }
+  
   console.log("DONE");
 
   process.exit();
@@ -139,6 +128,7 @@ async function createIdentities(api, accounts, submitBar, completeBar) {
           if (status.isFinalized) {
             let new_did_ok = false;
             events.forEach(({ phase, event: { data, method, section } }) => {
+              console.log(`Section: ${section} and Method: ${method}`);
               if (section == "identity" && method == "NewDid") {
                 new_did_ok = true;
                 completeBar.increment();
