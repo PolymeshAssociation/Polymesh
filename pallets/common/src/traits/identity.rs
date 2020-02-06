@@ -1,8 +1,5 @@
 use crate::traits::{
-    balances::{self, imbalances::NegativeImbalance},
-    group::GroupTrait,
-    multisig::AddSignerMultiSig,
-    CommonTrait,
+    balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, IdentityId, LinkData, Permission, Signatory, SigningItem,
@@ -118,7 +115,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     type Balances: balances::BalancesTrait<
         <Self as frame_system::Trait>::AccountId,
         <Self as CommonTrait>::Balance,
-        NegativeImbalance<<Self as CommonTrait>::Balance>,
+        NegativeImbalance<Self>,
     >;
 }
 // rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation

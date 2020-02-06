@@ -16,6 +16,11 @@ pub struct BalanceLock<Balance, BlockNumber> {
     pub reasons: WithdrawReasons,
 }
 
+pub trait BlockRewardsReserveTrait<B> {
+    fn drop_positive_imbalance(amount: B);
+    fn drop_negative_imbalance(amount: B);
+}
+
 pub trait CommonTrait: frame_system::Trait {
     /// The balance of an account.
     type Balance: Parameter
@@ -36,11 +41,11 @@ pub trait CommonTrait: frame_system::Trait {
 
     type AcceptTransferTarget: asset::AcceptTransfer;
 
-    // type Currency: Currency<Self::AccountId>;
-
-    // pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
-    // pub type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+    type BlockRewardsReserve: BlockRewardsReserveTrait<Self::Balance>;
 }
+
+pub mod imbalances;
+pub use imbalances::{NegativeImbalance, PositiveImbalance};
 
 pub mod asset;
 pub mod balances;

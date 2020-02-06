@@ -164,11 +164,9 @@ use polymesh_primitives::{
     traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signatory,
 };
 use polymesh_runtime_common::traits::{
-    balances::{
-        imbalances::{NegativeImbalance, PositiveImbalance},
-        BalancesTrait, RawEvent,
-    },
+    balances::{BalancesTrait, RawEvent},
     identity::IdentityTrait,
+    BlockRewardsReserveTrait, NegativeImbalance, PositiveImbalance,
 };
 
 use codec::{Decode, Encode};
@@ -187,8 +185,8 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed, IsDeadAccount, OnNewAccount};
 use sp_runtime::{
     traits::{
-        Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating, SimpleArithmetic,
-        StaticLookup, Zero,
+        Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize, Saturating,
+        SimpleArithmetic, StaticLookup, Zero,
     },
     RuntimeDebug,
 };
@@ -317,6 +315,12 @@ decl_storage! {
 
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map AccountKey => bool;
+
+        /// AccountId of the block rewards reserve
+        pub BlockRewardsReserve get(block_reward_reserve) build(|_| {
+            let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
+            T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
+        }): T::AccountId;
     }
     add_extra_genesis {
         config(balances): Vec<(T::AccountId, T::Balance)>;
@@ -445,17 +449,17 @@ decl_module! {
 
             let current_free = <FreeBalance<T>>::get(&who);
             if new_free > current_free {
-                mem::drop(PositiveImbalance::<T::Balance>::new(new_free - current_free));
+                mem::drop(PositiveImbalance::<T>::new(new_free - current_free));
             } else if new_free < current_free {
-                mem::drop(NegativeImbalance::<T::Balance>::new(current_free - new_free));
+                mem::drop(NegativeImbalance::<T>::new(current_free - new_free));
             }
             Self::set_free_balance(&who, new_free);
 
             let current_reserved = <ReservedBalance<T>>::get(&who);
             if new_reserved > current_reserved {
-                mem::drop(PositiveImbalance::<T::Balance>::new(new_reserved - current_reserved));
+                mem::drop(PositiveImbalance::<T>::new(new_reserved - current_reserved));
             } else if new_reserved < current_reserved {
-                mem::drop(NegativeImbalance::<T::Balance>::new(current_reserved - new_reserved));
+                mem::drop(NegativeImbalance::<T>::new(current_reserved - new_reserved));
             }
             Self::set_reserved_balance(&who, new_reserved);
         }
@@ -515,7 +519,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T> BalancesTrait<T::AccountId, T::Balance, NegativeImbalance<T::Balance>> for Module<T>
+impl<T> BalancesTrait<T::AccountId, T::Balance, NegativeImbalance<T>> for Module<T>
 where
     T: Trait,
 {
@@ -524,75 +528,35 @@ where
         value: T::Balance,
         reasons: WithdrawReasons,
         liveness: ExistenceRequirement,
-    ) -> sp_std::result::Result<NegativeImbalance<T::Balance>, DispatchError> {
+    ) -> sp_std::result::Result<NegativeImbalance<T>, DispatchError> {
         <Self as Currency<T::AccountId>>::withdraw(who, value, reasons, liveness)
     }
 }
 
-/*
-// TODO: #2052
-// Somewhat ugly hack in order to gain access to module's `increase_total_issuance_by`
-// using only the Subtrait (which defines only the types that are not dependent
-// on Positive/NegativeImbalance). Subtrait must be used otherwise we end up with a
-// circular dependency with Trait having some types be dependent on PositiveImbalance<Trait>
-// and PositiveImbalance itself depending back on Trait for its Drop impl (and thus
-// its type declaration).
-// This works as long as `increase_total_issuance_by` doesn't use the Imbalance
-// types (basically for charging fees).
-// This should eventually be refactored so that the three type items that do
-// depend on the Imbalance type (TransactionPayment, TransferPayment, DustRemoval)
-// are placed in their own SRML module.
-struct ElevatedTrait<T: Subtrait<I>, I: Instance>(T, I);
-impl<T: Subtrait<I>, I: Instance> Clone for ElevatedTrait<T, I> {
-    fn clone(&self) -> Self {
-        unimplemented!()
+impl<T: Trait> BlockRewardsReserveTrait<T::Balance> for Module<T> {
+    fn drop_positive_imbalance(mut amount: T::Balance) {
+        let brr = <BlockRewardsReserve<T>>::get();
+        let brr_balance = <FreeBalance<T>>::get(&brr);
+        if brr_balance > Zero::zero() {
+            let new_brr_balance = brr_balance.saturating_sub(amount);
+            amount = amount - (brr_balance - new_brr_balance);
+            <FreeBalance<T>>::insert(&brr, new_brr_balance);
+        }
+        <TotalIssuance<T>>::mutate(|v| *v = v.saturating_add(amount));
+    }
+
+    fn drop_negative_imbalance(amount: T::Balance) {
+        <TotalIssuance<T>>::mutate(|v| *v = v.saturating_sub(amount));
     }
 }
-impl<T: Subtrait<I>, I: Instance> PartialEq for ElevatedTrait<T, I> {
-    fn eq(&self, _: &Self) -> bool {
-        unimplemented!()
-    }
-}
-impl<T: Subtrait<I>, I: Instance> Eq for ElevatedTrait<T, I> {}
-impl<T: Subtrait<I>, I: Instance> frame_system::Trait for ElevatedTrait<T, I> {
-    type Origin = T::Origin;
-    type Call = T::Call;
-    type Index = T::Index;
-    type BlockNumber = T::BlockNumber;
-    type Hash = T::Hash;
-    type Hashing = T::Hashing;
-    type AccountId = T::AccountId;
-    type Lookup = T::Lookup;
-    type Header = T::Header;
-    type Event = ();
-    type BlockHashCount = T::BlockHashCount;
-    type MaximumBlockWeight = T::MaximumBlockWeight;
-    type MaximumBlockLength = T::MaximumBlockLength;
-    type AvailableBlockRatio = T::AvailableBlockRatio;
-    type Version = T::Version;
-    type ModuleToIndex = T::ModuleToIndex;
-}
-impl<T: Subtrait<I>, I: Instance> Trait for ElevatedTrait<T, I> {
-    type OnFreeBalanceZero = T::OnFreeBalanceZero;
-    type OnNewAccount = T::OnNewAccount;
-    type Event = ();
-    type TransferPayment = ();
-    type DustRemoval = ();
-    type ExistentialDeposit = T::ExistentialDeposit;
-    type TransferFee = T::TransferFee;
-    type Identity = T::Identity;
-}
-impl<T: Subtrait<I>, I: Instance> CommonTrait for ElevatedTrait<T,I> {
-    // TODO
-}*/
 
 impl<T: Trait> Currency<T::AccountId> for Module<T>
 where
     T::Balance: MaybeSerializeDeserialize + Debug,
 {
     type Balance = T::Balance;
-    type PositiveImbalance = PositiveImbalance<T::Balance>;
-    type NegativeImbalance = NegativeImbalance<T::Balance>;
+    type PositiveImbalance = PositiveImbalance<T>;
+    type NegativeImbalance = NegativeImbalance<T>;
 
     fn total_balance(who: &T::AccountId) -> Self::Balance {
         Self::free_balance(who) + Self::reserved_balance(who)
@@ -625,8 +589,18 @@ where
     }
 
     fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
+        let brr = <BlockRewardsReserve<T>>::get();
+        let brr_balance = <FreeBalance<T>>::get(&brr);
+        let amount_to_mint;
+        if brr_balance > Zero::zero() {
+            let new_brr_balance = brr_balance.saturating_sub(amount);
+            amount_to_mint = amount - (brr_balance - new_brr_balance);
+            <FreeBalance<T>>::insert(&brr, new_brr_balance);
+        } else {
+            amount_to_mint = amount;
+        }
         <TotalIssuance<T>>::mutate(|issued| {
-            *issued = issued.checked_add(&amount).unwrap_or_else(|| {
+            *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
                 amount = Self::Balance::max_value() - *issued;
                 Self::Balance::max_value()
             })

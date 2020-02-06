@@ -95,6 +95,7 @@ impl CommonTrait for TestStorage {
     type Balance = u128;
     type CreationFee = CreationFee;
     type AcceptTransferTarget = TestStorage;
+    type BlockRewardsReserve = balances::Module<TestStorage>;
 }
 
 impl balances::Trait for TestStorage {

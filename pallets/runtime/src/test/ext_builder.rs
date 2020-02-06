@@ -82,6 +82,7 @@ impl ExtBuilder {
                     30 * self.existential_deposit,
                 ),
                 (AccountKeyring::Dave.public(), 40 * self.existential_deposit),
+                (AccountKeyring::Eve.public(), 1000),
             ]
         } else {
             vec![]

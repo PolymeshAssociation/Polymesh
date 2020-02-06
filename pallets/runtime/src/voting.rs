@@ -424,6 +424,7 @@ mod tests {
         type Balance = u128;
         type CreationFee = CreationFee;
         type AcceptTransferTarget = Test;
+        type BlockRewardsReserve = balances::Module<Test>;
     }
 
     impl AcceptTransfer for Test {

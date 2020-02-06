@@ -1,7 +1,7 @@
 use crate::{
     runtime,
     test::{
-        storage::{make_account, TestStorage},
+        storage::{make_account, Origin, TestStorage},
         ExtBuilder,
     },
     Runtime,
@@ -11,6 +11,7 @@ use polymesh_runtime_identity as identity;
 
 use frame_support::{
     assert_err, assert_ok,
+    traits::{Currency, ExistenceRequirement},
     weights::{DispatchInfo, Weight},
 };
 use pallet_transaction_payment::ChargeTransactionPayment;
@@ -89,6 +90,115 @@ fn tipping_fails() {
                 .is_err()
             );
         });
+}
+#[test]
+fn mint_subsidy_works() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        let brr = Balances::block_reward_reserve();
+        assert_eq!(Balances::free_balance(&brr), 0);
+        let mut ti = Balances::total_issuance();
+        let alice = AccountKeyring::Alice.public();
+        let mut balance_alice = Balances::free_balance(&alice);
+
+        // When there is no balance in BRR, minting should increase total supply
+        assert_ok!(Balances::deposit_into_existing(&alice, 10).map(drop));
+        assert_eq!(Balances::free_balance(&alice), balance_alice + 10);
+        assert_eq!(Balances::total_issuance(), ti + 10);
+        ti = ti + 10;
+        balance_alice = balance_alice + 10;
+
+        // Funding BRR
+        let eve = AccountKeyring::Eve.public();
+        assert_ok!(<Balances as Currency<_>>::transfer(
+            &eve,
+            &brr,
+            500,
+            ExistenceRequirement::AllowDeath
+        ));
+        assert_eq!(Balances::free_balance(&brr), 500);
+        assert_eq!(Balances::total_issuance(), ti);
+
+        // When BRR has enough funds to subsidize a mint fully, it should subsidize it.
+        assert_ok!(Balances::deposit_into_existing(&alice, 100).map(drop));
+        assert_eq!(Balances::free_balance(&brr), 400);
+        assert_eq!(Balances::free_balance(&alice), balance_alice + 100);
+        assert_eq!(Balances::total_issuance(), ti);
+        balance_alice = balance_alice + 100;
+
+        // When BRR has funds to subsidize a mint partially, it should subsidize it and rest should be minted.
+        assert_ok!(Balances::deposit_into_existing(&alice, 1000).map(drop));
+        assert_eq!(Balances::free_balance(&brr), 0);
+        assert_eq!(Balances::free_balance(&alice), balance_alice + 1000);
+        // 400 subsidized, 600 minted.
+        assert_eq!(Balances::total_issuance(), ti + 600);
+        ti = ti + 600;
+        balance_alice = balance_alice + 1000;
+
+        // When BRR has no funds to subsidize a mint, it should be fully minted.
+        assert_ok!(Balances::deposit_into_existing(&alice, 100).map(drop));
+        assert_eq!(Balances::free_balance(&brr), 0);
+        assert_eq!(Balances::free_balance(&alice), balance_alice + 100);
+        assert_eq!(Balances::total_issuance(), ti + 100);
+    });
+}
+
+#[test]
+fn issue_must_work() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        let init_total_issuance = Balances::total_issuance();
+        let imbalance = Balances::burn(10);
+        assert_eq!(Balances::total_issuance(), init_total_issuance - 10);
+        drop(imbalance);
+        assert_eq!(Balances::total_issuance(), init_total_issuance);
+
+        let brr = Balances::block_reward_reserve();
+        assert_eq!(Balances::free_balance(&brr), 0);
+        let mut ti = Balances::total_issuance();
+        let alice = AccountKeyring::Alice.public();
+        let balance_alice = Balances::free_balance(&alice);
+
+        // When there is no balance in BRR, issuance should increase total supply
+        // NOTE: dropping negative imbalance is equivalent to burning. It will decrease total supply.
+        let imbalance = Balances::issue(10);
+        assert_eq!(Balances::total_issuance(), ti + 10);
+        drop(imbalance);
+        assert_eq!(Balances::total_issuance(), ti);
+
+        // Funding BRR
+        let eve = AccountKeyring::Eve.public();
+        assert_ok!(<Balances as Currency<_>>::transfer(
+            &eve,
+            &brr,
+            500,
+            ExistenceRequirement::AllowDeath
+        ));
+        assert_eq!(Balances::free_balance(&brr), 500);
+        assert_eq!(Balances::total_issuance(), ti);
+
+        // When BRR has enough funds to subsidize a mint fully, it should subsidize it.
+        let imbalance2 = Balances::issue(100);
+        assert_eq!(Balances::total_issuance(), ti);
+        assert_eq!(Balances::free_balance(&brr), 400);
+        drop(imbalance2);
+        assert_eq!(Balances::total_issuance(), ti - 100);
+        ti = ti - 100;
+
+        // When BRR has funds to subsidize a mint partially, it should subsidize it and rest should be minted.
+        let imbalance3 = Balances::issue(1000);
+        assert_eq!(Balances::total_issuance(), ti + 600);
+        assert_eq!(Balances::free_balance(&brr), 0);
+        drop(imbalance3);
+        // NOTE: Since burned Poly reduces total supply rather than increasing BRR balance,
+        // the new total supply is 1000 less after dropping.
+        assert_eq!(Balances::total_issuance(), ti - 400);
+        ti = ti - 400;
+
+        // When BRR has no funds to subsidize a mint, it should be fully minted.
+        let imbalance4 = Balances::issue(100);
+        assert_eq!(Balances::total_issuance(), ti + 100);
+        drop(imbalance4);
+        assert_eq!(Balances::total_issuance(), ti);
+    });
 }
 
 #[test]

@@ -166,6 +166,7 @@ impl CommonTrait for Runtime {
     type Balance = Balance;
     type CreationFee = CreationFee;
     type AcceptTransferTarget = Asset;
+    type BlockRewardsReserve = balances::Module<Runtime>;
 }
 
 impl balances::Trait for Runtime {
