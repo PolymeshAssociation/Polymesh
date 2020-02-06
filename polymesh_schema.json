@@ -291,7 +291,6 @@
         "_enum": [
             "VALID",
             "INVALID",
-            "NA",
             "FORCE_VALID"
         ]
     }   

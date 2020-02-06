@@ -176,13 +176,12 @@ pub enum TickerRegistrationStatus {
 pub enum RestrictionResult {
     VALID,
     INVALID,
-    NA,
     FORCE_VALID,
 }
 
 impl Default for RestrictionResult {
     fn default() -> Self {
-        RestrictionResult::NA
+        RestrictionResult::VALID
     }
 }
 
@@ -1714,7 +1713,7 @@ impl<T: Trait> Module<T> {
                         is_in_valid = true;
                     } else if result == RestrictionResult::FORCE_VALID {
                         force_valid = true;
-                    }
+                    } 
                 }
                 //is_valid = force_valid ? true : (is_in_valid ? false : is_valid);
                 is_valid = if !force_valid {
@@ -2092,9 +2091,7 @@ impl<T: Trait> Module<T> {
         data: Vec<u8>,
     ) -> ExecReturnValue {
         // TODO: Fix the value conversion into Currency
-        let exec_result =
-            <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data);
-        match exec_result {
+        match <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data) {
             Ok(encoded_value) => {
                 return encoded_value;
             }
