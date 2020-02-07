@@ -18,7 +18,7 @@
 
 use super::*;
 use frame_support::{
-    assert_noop, assert_ok,
+    assert_err, assert_noop, assert_ok,
     dispatch::DispatchError,
     traits::{Currency, ReservableCurrency},
 };
@@ -60,6 +60,8 @@ fn force_unstake_works() {
 fn basic_setup_works() {
     // Verifies initial conditions of mock
     ExtBuilder::default().build().execute_with(|| {
+        // Set min bond value to be positive integer
+        <MinimumBondThreshold<Test>>::put(10);
         // Account 11 is stashed and locked, and account 10 is the controller
         assert_eq!(Staking::bonded(&11), Some(10));
         // Account 21 is stashed and locked, and account 20 is the controller
@@ -1213,6 +1215,8 @@ fn validator_payment_prefs_work() {
         // and the nominator (to-be)
         let _ = Balances::make_free_balance_be(&2, 500);
 
+        <ValidatorCommission>::put(Commission::Individual);
+
         // add a dummy nominator.
         <Stakers<Test>>::insert(
             &11,
@@ -1248,6 +1252,128 @@ fn validator_payment_prefs_work() {
         assert_eq!(Balances::total_balance(&10), 1);
         // Rest of the reward will be shared and paid to the nominator in stake.
         assert_eq!(Balances::total_balance(&2), 500 + shared_cut / 2);
+
+        check_exposure_all();
+        check_nominator_all();
+    });
+}
+
+#[test]
+fn validator_global_payment_prefs_work() {
+    // Test that validator preferences are correctly honored
+    // Note: unstake threshold is being directly tested in slashing tests.
+    // This test will focus on validator payment.
+    ExtBuilder::default().build().execute_with(|| {
+        // Initial config
+        let stash_initial_balance = Balances::total_balance(&11);
+
+        // check the balance of a validator accounts.
+        assert_eq!(Balances::total_balance(&10), 1);
+        // check the balance of a validator's stash accounts.
+        assert_eq!(Balances::total_balance(&11), stash_initial_balance);
+        // and the nominator (to-be)
+        let _ = Balances::make_free_balance_be(&2, 500);
+
+        // Use global commission
+        <ValidatorCommission>::put(Commission::Global(Perbill::from_rational_approximation(
+            1u64, 4u64,
+        )));
+
+        // add a dummy nominator.
+        <Stakers<Test>>::insert(
+            &11,
+            Exposure {
+                own: 500, // equal division indicates that the reward will be equally divided among validator and nominator.
+                total: 1000,
+                others: vec![IndividualExposure { who: 2, value: 500 }],
+            },
+        );
+        <Payee<Test>>::insert(&2, RewardDestination::Stash);
+        assert_err!(
+            Staking::validate(
+                Origin::signed(10),
+                ValidatorPrefs {
+                    commission: Perbill::from_rational_approximation(1u64, 2u64),
+                }
+            ),
+            Error::<Test>::InvalidCommission
+        );
+        assert_ok!(Staking::validate(
+            Origin::signed(10),
+            ValidatorPrefs {
+                commission: Perbill::from_rational_approximation(1u64, 4u64),
+            }
+        ));
+
+        // Compute total payout now for whole duration as other parameter won't change
+        let total_payout_1 = current_total_payout_for_duration(3000);
+        assert!(total_payout_1 > 100); // Test is meaningfull if reward something
+        <Module<Test>>::reward_by_ids(vec![(11, 1)]);
+
+        start_era(1);
+
+        // Even though validator's individual commission is 50%, because global commission
+        // is in effect, shared cut is 75%. Using (x - 1 + n) / n for rounding.
+        let shared_cut = (total_payout_1 * 3 - 1 + 4) / 4;
+        let validator_reward_era_1 = (total_payout_1 - shared_cut) + shared_cut / 2;
+        let staker_reward_era_1 = shared_cut / 2;
+
+        // Validator's payee is Staked account, 11, reward will be paid here.
+        assert_eq!(
+            Balances::total_balance(&11),
+            stash_initial_balance + validator_reward_era_1
+        );
+        // Controller account will not get any reward.
+        assert_eq!(Balances::total_balance(&10), 1);
+        // Rest of the reward will be shared and paid to the nominator in stake.
+        assert_eq!(Balances::total_balance(&2), 500 + staker_reward_era_1);
+
+        <ValidatorCommission>::put(Commission::Individual);
+
+        // add a dummy nominator.
+        <Stakers<Test>>::insert(
+            &11,
+            Exposure {
+                own: 500, // equal division indicates that the reward will be equally divided among validator and nominator.
+                total: 1000,
+                others: vec![IndividualExposure { who: 2, value: 500 }],
+            },
+        );
+        <Payee<Test>>::insert(&2, RewardDestination::Stash);
+        <Validators<Test>>::insert(
+            &11,
+            ValidatorPrefs {
+                commission: Perbill::from_percent(50),
+            },
+        );
+
+        // check the balance of a validator's stash accounts.
+        assert_eq!(
+            Balances::total_balance(&11),
+            stash_initial_balance + validator_reward_era_1
+        );
+
+        // Compute total payout now for whole duration as other parameter won't change
+        let total_payout_2 = current_total_payout_for_duration(3000);
+        assert!(total_payout_2 > 100); // Test is meaningfull if reward something
+        <Module<Test>>::reward_by_ids(vec![(11, 1)]);
+
+        start_era(2);
+
+        // whats left to be shared is the sum of 3 rounds minus the validator's cut.
+        let shared_cut = total_payout_2 / 2;
+        // Validator's payee is Staked account, 11, reward will be paid here.
+        assert_eq!(
+            Balances::total_balance(&11),
+            stash_initial_balance + validator_reward_era_1 + shared_cut / 2 + shared_cut
+        );
+        // Controller account will not get any reward.
+        assert_eq!(Balances::total_balance(&10), 1);
+        // Rest of the reward will be shared and paid to the nominator in stake.
+        assert_eq!(
+            Balances::total_balance(&2),
+            staker_reward_era_1 + 500 + shared_cut / 2
+        );
 
         check_exposure_all();
         check_nominator_all();
@@ -1781,6 +1907,121 @@ fn switching_roles() {
             // ne era
             start_session(6);
             assert_eq_uvec!(validator_controllers(), vec![2, 20]);
+
+            check_exposure_all();
+            check_nominator_all();
+        });
+}
+
+#[test]
+fn switching_roles_when_min_bond_changes() {
+    // Test that it should be possible to switch between roles (nominator, validator, idle) with minimal overhead.
+    ExtBuilder::default()
+        .nominate(false)
+        .build()
+        .execute_with(|| {
+            Timestamp::set_timestamp(1); // Initialize time.
+
+            // Reset reward destination
+            for i in &[10, 20] {
+                assert_ok!(Staking::set_payee(
+                    Origin::signed(*i),
+                    RewardDestination::Controller
+                ));
+            }
+
+            assert_eq_uvec!(validator_controllers(), vec![20, 10]);
+
+            // put some money in account that we'll use.
+            for i in 1..7 {
+                let _ = Balances::deposit_creating(&i, 5000);
+            }
+
+            // Pass compliance for account 1
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 1));
+
+            // add 2 nominators
+            assert_ok!(Staking::bond(
+                Origin::signed(1),
+                2,
+                2000,
+                RewardDestination::Controller
+            ));
+            assert_ok!(Staking::nominate(Origin::signed(2), vec![11, 5]));
+
+            assert_ok!(Staking::bond(
+                Origin::signed(3),
+                4,
+                500,
+                RewardDestination::Controller
+            ));
+            assert_ok!(Staking::nominate(Origin::signed(4), vec![21, 1]));
+
+            <MinimumBondThreshold<Test>>::put(1250);
+
+            // Pass compliance for account 1
+            assert_ok!(Staking::add_potential_validator(Origin::signed(1000), 5));
+
+            // add a new validator candidate
+            assert_ok!(Staking::bond(
+                Origin::signed(5),
+                6,
+                10,
+                RewardDestination::Controller
+            ));
+            assert_err!(
+                Staking::validate(Origin::signed(6), ValidatorPrefs::default()),
+                Error::<Test>::InsufficientValue
+            );
+            assert_ok!(Staking::bond_extra(Origin::signed(5), 2000));
+            assert_ok!(Staking::validate(
+                Origin::signed(6),
+                ValidatorPrefs::default()
+            ));
+
+            // new block
+            start_session(1);
+
+            // no change
+            assert_eq_uvec!(validator_controllers(), vec![20, 10]);
+
+            // new block
+            start_session(2);
+
+            // no change
+            assert_eq_uvec!(validator_controllers(), vec![20, 10]);
+
+            // new block --> new era --> new validators
+            start_session(3);
+
+            // with current nominators 10 and 5 have the most stake
+            assert_eq_uvec!(validator_controllers(), vec![6]);
+
+            // Reduce the min bond value
+            <MinimumBondThreshold<Test>>::put(1000);
+
+            // 2 decides to be a validator. Consequences:
+            assert_ok!(Staking::validate(
+                Origin::signed(2),
+                ValidatorPrefs::default()
+            ));
+            // new stakes:
+            // 10: 1000 self vote
+            // 20: 1000 self vote + 250 vote
+            // 6 : 2000 self vote
+            // 2 : 2000 self vote + 250 vote.
+            // Winners: 6 and 2
+
+            start_session(4);
+            assert_eq_uvec!(validator_controllers(), vec![6]);
+
+            start_session(5);
+            assert_eq_uvec!(validator_controllers(), vec![6]);
+
+            // new era
+            start_session(6);
+            // 2 should join now that bond value has been
+            assert_eq_uvec!(validator_controllers(), vec![6, 2]);
 
             check_exposure_all();
             check_nominator_all();

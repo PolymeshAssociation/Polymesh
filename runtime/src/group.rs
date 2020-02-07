@@ -200,9 +200,10 @@ decl_module! {
 }
 
 pub trait GroupTrait {
+    /// Retrieve all members of this group
     fn get_members() -> Vec<IdentityId>;
 
-    /// Is the given `MemberId` a valid member?
+    /// Is the given `IdentityId` a valid member?
     fn is_member(member_id: &IdentityId) -> bool;
 }
 
