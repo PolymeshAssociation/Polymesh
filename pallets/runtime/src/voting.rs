@@ -538,7 +538,7 @@ mod tests {
         type Event = ();
         type Proposal = Call<Test>;
         type AddSignerMultiSigTarget = Test;
-        type KYCServiceProviders = Test;
+        type KycServiceProviders = Test;
         type Balances = balances::Module<Test>;
     }
 
