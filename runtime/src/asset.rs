@@ -147,9 +147,9 @@ pub struct SignData<U> {
 /// struct to store the ticker registration details
 #[derive(codec::Encode, codec::Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistration<U> {
-    owner: IdentityId,
-    expiry: Option<U>,
-    link_id: u64,
+    pub owner: IdentityId,
+    pub expiry: Option<U>,
+    pub link_id: u64,
 }
 
 /// struct to store the ticker registration config

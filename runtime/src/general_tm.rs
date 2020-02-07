@@ -541,6 +541,7 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
+                ..Default::default()
             };
             let ticker = Ticker::from_slice(token.name.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
@@ -625,6 +626,7 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
+                ..Default::default()
             };
             let ticker = Ticker::from_slice(token.name.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
@@ -716,6 +718,7 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
+                ..Default::default()
             };
             let ticker = Ticker::from_slice(token.name.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);

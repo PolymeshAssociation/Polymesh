@@ -32,12 +32,13 @@ fn issuers_can_create_and_rename_tokens() {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
         let funding_round_name = b"round1".to_vec();
         // Expected token entry
-        let token = SecurityToken {
+        let mut token = SecurityToken {
             name: vec![0x01],
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
         let ticker = Ticker::from_slice(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
@@ -73,12 +74,26 @@ fn issuers_can_create_and_rename_tokens() {
             Some(funding_round_name.clone())
         ));
 
+        let token_link = Identity::links((
+            Signatory::from(owner_did),
+            Asset::token_details(ticker).link_id,
+        ));
+        assert_eq!(token_link.link_data, LinkData::TokenOwned(ticker));
+        assert_eq!(token_link.expiry, None);
+
+        let ticker_link = Identity::links((
+            Signatory::from(owner_did),
+            Asset::ticker_registration(ticker).link_id,
+        ));
+        assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
+        assert_eq!(ticker_link.expiry, None);
+
+        token.link_id = Asset::token_details(ticker).link_id;
         // A correct entry is added
         assert_eq!(Asset::token_details(ticker), token);
         assert!(<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        assert_eq!(Asset::token_details(ticker), token);
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
         // Unauthorized identities cannot rename the token.
@@ -90,12 +105,13 @@ fn issuers_can_create_and_rename_tokens() {
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token);
         // Rename the token and check storage has been updated.
-        let renamed_token = SecurityToken {
+        let mut renamed_token = SecurityToken {
             name: vec![0x42],
             owner_did: token.owner_did,
             total_supply: token.total_supply,
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
+            link_id: Asset::token_details(ticker).link_id,
         };
         assert_ok!(Asset::rename_token(
             owner_signed.clone(),
@@ -124,6 +140,7 @@ fn non_issuers_cant_create_tokens() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
 
         Balances::make_free_balance_be(&AccountKeyring::Bob.public(), 1_000_000);
@@ -148,6 +165,7 @@ fn valid_transfers_pass() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
         let ticker = Ticker::from_slice(token.name.as_slice());
 
@@ -165,9 +183,6 @@ fn valid_transfers_pass() {
             vec![],
             None
         ));
-
-        // A correct entry is added
-        assert_eq!(Asset::token_details(ticker), token);
 
         let asset_rule = general_tm::AssetRule {
             sender_rules: vec![],
@@ -207,6 +222,7 @@ fn valid_custodian_allowance() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
         let ticker = Ticker::from_slice(token.name.as_slice());
 
@@ -232,8 +248,6 @@ fn valid_custodian_allowance() {
             Asset::balance_of((ticker, token.owner_did)),
             token.total_supply
         );
-
-        assert_eq!(Asset::token_details(ticker), token);
 
         let asset_rule = general_tm::AssetRule {
             sender_rules: vec![],
@@ -399,6 +413,7 @@ fn valid_custodian_allowance_of() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
         let ticker = Ticker::from_slice(token.name.as_slice());
 
@@ -424,8 +439,6 @@ fn valid_custodian_allowance_of() {
             Asset::balance_of((ticker, token.owner_did)),
             token.total_supply
         );
-
-        assert_eq!(Asset::token_details(ticker), token);
 
         let asset_rule = general_tm::AssetRule {
             sender_rules: vec![],
@@ -602,6 +615,7 @@ fn checkpoints_fuzz_test() {
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
+                ..Default::default()
             };
             let ticker = Ticker::from_slice(token.name.as_slice());
             let (_, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
@@ -715,6 +729,7 @@ fn register_ticker() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
         let identifiers = vec![(IdentifierType::Custom(b"check".to_vec()), b"me".to_vec())];
         let ticker = Ticker::from_slice(token.name.as_slice());
@@ -757,6 +772,12 @@ fn register_ticker() {
         assert_eq!(Asset::is_ticker_available(&ticker), true);
 
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
+
+        let ticker_link = Identity::links((
+            Signatory::from(owner_did),
+            Asset::ticker_registration(ticker).link_id,
+        ));
+        assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
 
         let (alice_signed, _) = make_account(AccountKeyring::Alice.public()).unwrap();
 
@@ -815,7 +836,23 @@ fn transfer_ticker() {
             "Authorization does not exist"
         );
 
+        let old_ticker = Asset::ticker_registration(ticker);
+        let old_ticker_link =
+            Identity::links((Signatory::from(old_ticker.owner), old_ticker.link_id));
+        assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
+
         assert_ok!(Asset::accept_ticker_transfer(alice_signed.clone(), auth_id));
+
+        assert!(!<identity::Links<TestStorage>>::exists((
+            Signatory::from(old_ticker.owner),
+            old_ticker.link_id
+        )));
+
+        let ticker_link = Identity::links((
+            Signatory::from(alice_did),
+            Asset::ticker_registration(ticker).link_id,
+        ));
+        assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
 
         auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
@@ -910,11 +947,40 @@ fn transfer_token_ownership() {
             "Authorization does not exist"
         );
 
+        let old_ticker = Asset::ticker_registration(ticker);
+        let old_ticker_link =
+            Identity::links((Signatory::from(old_ticker.owner), old_ticker.link_id));
+        assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
+
+        let old_token = Asset::token_details(ticker);
+        let old_token_link =
+            Identity::links((Signatory::from(old_token.owner_did), old_token.link_id));
+        assert_eq!(old_token_link.link_data, LinkData::TokenOwned(ticker));
+
         assert_ok!(Asset::accept_token_ownership_transfer(
             alice_signed.clone(),
             auth_id
         ));
         assert_eq!(Asset::token_details(&ticker).owner_did, alice_did);
+        assert!(!<identity::Links<TestStorage>>::exists((
+            Signatory::from(old_ticker.owner),
+            old_ticker.link_id
+        )));
+        assert!(!<identity::Links<TestStorage>>::exists((
+            Signatory::from(old_token.owner_did),
+            old_token.link_id
+        )));
+
+        let ticker_link = Identity::links((
+            Signatory::from(alice_did),
+            Asset::ticker_registration(ticker).link_id,
+        ));
+        assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
+        let token_link = Identity::links((
+            Signatory::from(alice_did),
+            Asset::token_details(ticker).link_id,
+        ));
+        assert_eq!(token_link.link_data, LinkData::TokenOwned(ticker));
 
         auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
@@ -979,12 +1045,13 @@ fn update_identifiers() {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         // Expected token entry
-        let token = SecurityToken {
+        let mut token = SecurityToken {
             name: b"TEST".to_vec(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
         let ticker = Ticker::from_slice(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
@@ -1003,6 +1070,8 @@ fn update_identifiers() {
             identifiers.clone(),
             None
         ));
+
+        token.link_id = Asset::token_details(ticker).link_id;
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
         assert_eq!(
@@ -1037,6 +1106,7 @@ fn adding_removing_documents() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
 
         let ticker = Ticker::from_slice(token.name.as_slice());
@@ -1157,6 +1227,7 @@ fn add_extension_successfully() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
 
         let ticker = Ticker::from_slice(token.name.as_slice());
@@ -1176,8 +1247,6 @@ fn add_extension_successfully() {
             identifiers.clone(),
             None
         ));
-        // A correct entry was added
-        assert_eq!(Asset::token_details(ticker), token);
 
         // Add smart extension
         let extension_name = b"PTM";
@@ -1224,6 +1293,7 @@ fn add_same_extension_should_fail() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
 
         let ticker = Ticker::from_slice(token.name.as_slice());
@@ -1243,8 +1313,6 @@ fn add_same_extension_should_fail() {
             identifiers.clone(),
             None
         ));
-        // A correct entry was added
-        assert_eq!(Asset::token_details(ticker), token);
 
         // Add smart extension
         let extension_name = b"PTM";
@@ -1296,6 +1364,7 @@ fn should_successfully_archive_extension() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
 
         let ticker = Ticker::from_slice(token.name.as_slice());
@@ -1315,8 +1384,6 @@ fn should_successfully_archive_extension() {
             identifiers.clone(),
             None
         ));
-        // A correct entry was added
-        assert_eq!(Asset::token_details(ticker), token);
         // Add smart extension
         let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
@@ -1373,6 +1440,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
 
         let ticker = Ticker::from_slice(token.name.as_slice());
@@ -1392,8 +1460,6 @@ fn should_fail_to_archive_an_already_archived_extension() {
             identifiers.clone(),
             None
         ));
-        // A correct entry was added
-        assert_eq!(Asset::token_details(ticker), token);
         // Add smart extension
         let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
@@ -1455,6 +1521,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
 
         let ticker = Ticker::from_slice(token.name.as_slice());
@@ -1474,8 +1541,6 @@ fn should_fail_to_archive_a_non_existent_extension() {
             identifiers.clone(),
             None
         ));
-        // A correct entry was added
-        assert_eq!(Asset::token_details(ticker), token);
         // Add smart extension
         let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
@@ -1499,6 +1564,7 @@ fn should_successfuly_unarchive_an_extension() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
 
         let ticker = Ticker::from_slice(token.name.as_slice());
@@ -1518,8 +1584,6 @@ fn should_successfuly_unarchive_an_extension() {
             identifiers.clone(),
             None
         ));
-        // A correct entry was added
-        assert_eq!(Asset::token_details(ticker), token);
         // Add smart extension
         let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
@@ -1586,6 +1650,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
+            ..Default::default()
         };
 
         let ticker = Ticker::from_slice(token.name.as_slice());
@@ -1605,8 +1670,6 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             identifiers.clone(),
             None
         ));
-        // A correct entry was added
-        assert_eq!(Asset::token_details(ticker), token);
         // Add smart extension
         let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
