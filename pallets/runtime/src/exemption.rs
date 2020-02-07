@@ -1,0 +1,136 @@
+use crate::{
+    asset::{self, AssetTrait},
+    utils,
+};
+
+use polymesh_runtime_common::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait};
+use polymesh_runtime_identity as identity;
+
+use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
+
+use codec::Encode;
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::{self as system, ensure_signed};
+use sp_std::{convert::TryFrom, prelude::*};
+
+/// The module's configuration trait.
+pub trait Trait: frame_system::Trait + utils::Trait + BalancesTrait + IdentityTrait {
+    /// The overarching event type.
+    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Asset: asset::AssetTrait<Self::Balance>;
+}
+
+// This module's storage items.
+decl_storage! {
+    trait Store for Module<T: Trait> as exemption {
+        // Mapping -> ExemptionList[ticker][TM][DID] = true/false
+        ExemptionList get(fn exemption_list): map (Ticker, u16, IdentityId) => bool;
+    }
+}
+
+// The module's dispatchable functions.
+decl_module! {
+    /// The module declaration.
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Initializing events
+        // this is needed only if you are using events in your module
+        fn deposit_event() = default;
+
+        fn modify_exemption_list(origin, did: IdentityId, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
+            ticker.canonize();
+            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+
+            ensure!(Self::is_owner(&ticker, did), "Sender must be the token owner");
+            let ticker_asset_holder_did = (ticker, _tm, asset_holder_did.clone());
+            let is_exempted = Self::exemption_list(&ticker_asset_holder_did);
+            ensure!(is_exempted != exempted, "No change in the state");
+
+            <ExemptionList>::insert(&ticker_asset_holder_did, exempted);
+            Self::deposit_event(Event::ModifyExemptionList(ticker, _tm, asset_holder_did, exempted));
+
+            Ok(())
+        }
+    }
+}
+
+decl_event!(
+    pub enum Event {
+        ModifyExemptionList(Ticker, u16, IdentityId, bool),
+    }
+);
+
+impl<T: Trait> Module<T> {
+    pub fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
+        T::Asset::is_owner(ticker, sender_did)
+    }
+
+    pub fn is_exempted(ticker: &Ticker, tm: u16, did: IdentityId) -> bool {
+        Self::exemption_list((*ticker, tm, did))
+    }
+}
+
+/// tests for this module
+#[cfg(test)]
+mod tests {
+    // use super::*;
+
+    // use substrate_primitives::{Blake2Hasher, H256};
+    // use sp_io::with_externalities;
+    // use sp_runtime::{
+    //     testing::{Digest, DigestItem, Header},
+    //     traits::{BlakeTwo256, IdentityLookup},
+    //     BuildStorage,
+    // };
+    // use frame_support::{assert_ok, impl_outer_origin};
+
+    // impl_outer_origin! {
+    //     pub enum Origin for Test {}
+    // }
+
+    // // For testing the module, we construct most of a mock runtime. This means
+    // // first constructing a configuration type (`Test`) which `impl`s each of the
+    // // configuration traits of modules we want to use.
+    // #[derive(Clone, Eq, PartialEq)]
+    // pub struct Test;
+    // impl frame_system::Trait for Test {
+    //     type Origin = Origin;
+    //     type Index = u64;
+    //     type BlockNumber = u64;
+    //     type Hash = H256;
+    //     type Hashing = BlakeTwo256;
+    //     type Digest = H256;
+    //     type AccountId = u64;
+    //     type Lookup = IdentityLookup<Self::AccountId>;
+    //     type Header = Header;
+    //     type Event = ();
+    //     type Log = DigestItem;
+    // }
+    // impl Trait for Test {
+    //     type Event = ();
+    // }
+    // type exemption = Module<Test>;
+
+    // // This function basically just builds a genesis storage key/value store according to
+    // // our desired mockup.
+    // fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
+    //     frame_system::GenesisConfig::default()
+    //         .build_storage()
+    //         .unwrap()
+    //         .0
+    //         .into()
+    // }
+
+    // #[test]
+    // fn it_works_for_default_value() {
+    //     with_externalities(&mut new_test_ext(), || {
+    //         // Just a dummy test for the dummy funtion `do_something`
+    //         // calling the `do_something` function with a value 42
+    //         assert_ok!(exemption::do_something(Origin::signed(1), 42));
+    //         // asserting that the stored value is equal to what we stored
+    //         assert_eq!(exemption::something(), Some(42));
+    //     });
+    // }
+}
