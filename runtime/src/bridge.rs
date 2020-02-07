@@ -118,7 +118,11 @@ decl_module! {
                     <ChangeValidatorsProposals<T>>::insert(new_validators, proposal_id);
                 } else {
                     // This is an existing proposal.
-                    <multisig::Module<T>>::approve_as_key(origin, current_validators, proposal_id)?;
+                    <multisig::Module<T>>::approve_as_identity(
+                        origin,
+                        current_validators,
+                        proposal_id
+                    )?;
                 }
             }
             Ok(())
@@ -147,7 +151,7 @@ decl_module! {
                 <BridgeTxProposals<T>>::insert(bridge_tx, proposal_id);
             } else {
                 // This is an existing proposal.
-                <multisig::Module<T>>::approve_as_key(origin, validators, proposal_id)?;
+                <multisig::Module<T>>::approve_as_identity(origin, validators, proposal_id)?;
             }
             Ok(())
         }

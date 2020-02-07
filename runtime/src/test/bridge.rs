@@ -22,7 +22,7 @@ fn can_issue_to_identity() {
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
-        let charlie = Origin::signed(AccountKeyring::Bob.public());
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let validator_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
         let bobs_balance = Balances::identity_balance(bob_did);
         assert_ok!(MultiSig::create_multisig(
@@ -35,7 +35,32 @@ fn can_issue_to_identity() {
             2,
         ));
         assert_eq!(MultiSig::ms_signs_required(validator_address), 2);
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            alice.clone(),
+            Identity::last_authorization(Signatory::from(alice_did))
+        ));
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            bob.clone(),
+            Identity::last_authorization(Signatory::from(bob_did))
+        ));
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            charlie.clone(),
+            Identity::last_authorization(Signatory::from(charlie_did))
+        ));
+        assert_eq!(
+            MultiSig::ms_signers((validator_address, Signatory::from(alice_did))),
+            true
+        );
+        assert_eq!(
+            MultiSig::ms_signers((validator_address, Signatory::from(bob_did))),
+            true
+        );
+        assert_eq!(
+            MultiSig::ms_signers((validator_address, Signatory::from(charlie_did))),
+            true
+        );
         assert_ok!(Bridge::propose_change_validators(alice, validator_address));
+        assert_eq!(Bridge::validators(), validator_address);
         let value = 1_000_000;
         let bridge_tx = BridgeTx {
             nonce: 1,
@@ -44,8 +69,27 @@ fn can_issue_to_identity() {
             tx_hash: Default::default(),
         };
         assert_ok!(Bridge::propose_bridge_tx(bob, bridge_tx.clone()));
-        assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx));
+        assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
         let new_bobs_balance = Balances::identity_balance(bob_did);
         assert_eq!(new_bobs_balance, bobs_balance + value);
+    });
+}
+
+#[test]
+fn cannot_propose_without_validators() {
+    build_ext().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+        let value = 1_000_000;
+        let bridge_tx = BridgeTx {
+            nonce: 1,
+            recipient: IssueRecipient::Identity(alice_did),
+            value,
+            tx_hash: Default::default(),
+        };
+        assert_err!(
+            Bridge::propose_bridge_tx(alice, bridge_tx),
+            "bridge validators not set"
+        );
     });
 }
