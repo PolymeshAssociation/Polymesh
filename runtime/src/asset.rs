@@ -67,7 +67,6 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, WithdrawReason},
 };
 use frame_system::{self as system, ensure_signed};
-use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_contracts::ExecReturnValue;
 use pallet_contracts::Gas;
 use pallet_session;
@@ -76,6 +75,7 @@ use primitives::{
     SmartExtension, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
+use hex_literal::hex;
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -174,14 +174,14 @@ pub enum TickerRegistrationStatus {
 /// The type of an identifier associated with a token.
 #[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RestrictionResult {
-    VALID,
-    INVALID,
-    FORCE_VALID,
+    Valid,
+    Invalid,
+    ForceValid,
 }
 
 impl Default for RestrictionResult {
     fn default() -> Self {
-        RestrictionResult::VALID
+        RestrictionResult::Valid
     }
 }
 
@@ -1349,7 +1349,7 @@ decl_event! {
         Balance = <T as balances::Trait>::Balance,
         Moment = <T as pallet_timestamp::Trait>::Moment,
         AccountId = <T as frame_system::Trait>::AccountId,
-    {
+    {   
         /// event for transfer of tokens
         /// ticker, from DID, to DID, value
         Transfer(Ticker, IdentityId, IdentityId, Balance),
@@ -1722,7 +1722,7 @@ impl<T: Trait> Module<T> {
                 .collect::<Vec<T::AccountId>>();
             if tms.len() > 0 {
                 for tm in tms.into_iter() {
-                    let result = Self::verify_transfer(
+                    let result = Self::verify_restriction(
                         ticker,
                         extension_caller.clone(),
                         from_did,
@@ -1730,11 +1730,11 @@ impl<T: Trait> Module<T> {
                         value,
                         tm,
                     );
-                    if result == RestrictionResult::VALID {
+                    if result == RestrictionResult::Valid {
                         is_valid = true;
-                    } else if result == RestrictionResult::INVALID {
+                    } else if result == RestrictionResult::Invalid {
                         is_in_valid = true;
-                    } else if result == RestrictionResult::FORCE_VALID {
+                    } else if result == RestrictionResult::ForceValid {
                         force_valid = true;
                     }
                 }
@@ -2036,7 +2036,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn verify_transfer(
+    pub fn verify_restriction(
         ticker: &Ticker,
         extension_caller: T::AccountId,
         from_did: Option<IdentityId>,
@@ -2045,8 +2045,7 @@ impl<T: Trait> Module<T> {
         dest: T::AccountId,
     ) -> RestrictionResult {
         // 4 byte selector of verify_transfer - 0xD9386E41
-        let selector =
-            &FunctionSelectorHasher::keccak256(&(b"verify_transfer".to_vec().as_slice()))[0..4];
+        let selector = hex!("D9386E41");
         let balance_to = match to_did {
             Some(did) => T::Balance::encode(&<BalanceOf<T>>::get((ticker, &did))),
             None => T::Balance::encode(&(0.into())),
@@ -2062,8 +2061,8 @@ impl<T: Trait> Module<T> {
 
         // Creation of the encoded data for the verifyTransfer function of the extension
         // i.e fn verify_transfer(
-        //        from: AccountId,
-        //        to: AccountId,
+        //        from: IdentityId,
+        //        to: IdentityId,
         //        value: Balance,
         //        balance_from: Balance,
         //        balance_to: Balance,
@@ -2072,8 +2071,8 @@ impl<T: Trait> Module<T> {
 
         let encoded_data = [
             &selector[..],
-            &encoded_from[..],
-            &encoded_to[..],
+            // &encoded_from[..],
+            // &encoded_to[..],
             &encoded_value[..],
             &balance_from[..],
             &balance_to[..],
@@ -2091,10 +2090,10 @@ impl<T: Trait> Module<T> {
             if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                 return allowed;
             } else {
-                return RestrictionResult::INVALID;
+                return RestrictionResult::Invalid;
             }
         } else {
-            return RestrictionResult::INVALID;
+            return RestrictionResult::Invalid;
         }
     }
 

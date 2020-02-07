@@ -12,11 +12,11 @@ use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
 use sp_runtime::AnySignature;
 use test_client::AccountKeyring;
-
+use hex_literal::hex;
 use chrono::prelude::Utc;
 use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
@@ -25,6 +25,18 @@ type GeneralTM = general_tm::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 
 type OffChainSignature = AnySignature;
+
+#[test]
+fn check_the_test_hex() {
+    build_ext().execute_with(|| {
+        let function_hex: &'static str  = "verifyTransfer";
+        let selector: [u8; 4] = (FunctionSelectorHasher::keccak256("verify_transfer".as_bytes())[0..4]).try_into().unwrap();
+        println!("{:#X}", u32::from_be_bytes(selector));
+        let data = hex!("D9386E41");
+        println!("{:?}", data);
+    });
+}
+
 
 #[test]
 fn issuers_can_create_and_rename_tokens() {

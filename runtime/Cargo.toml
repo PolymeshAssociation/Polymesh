@@ -62,10 +62,11 @@ pallet-transaction-payment = { package = "pallet-transaction-payment", path = ".
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../custom/transaction-payment/rpc/runtime-api", default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 ink_primitives = { git = "https://github.com/paritytech/ink", package = "ink_primitives", default-features = false }
+hex-literal = "0.2.1"
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-hex-literal = "0.2.1"
+
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.4" }

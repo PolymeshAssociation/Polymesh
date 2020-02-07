@@ -289,9 +289,9 @@
     "Counter": "u64",
     "RestrictionResult": {
         "_enum": [
-            "VALID",
-            "INVALID",
-            "FORCE_VALID"
+            "Valid",
+            "Invalid",
+            "ForceValid"
         ]
     },   
     "Document": {
