@@ -284,7 +284,7 @@ decl_module! {
                     };
 
                     if let Some(id) = kyc_provider_did {
-                        ensure!(T::KYCServiceProviders::is_member(&id), "Attestation was not by a KYC service provider");
+                        ensure!(T::KycServiceProviders::is_member(&id), "Attestation was not by a KYC service provider");
                     } else {
                         return Err(Error::<T>::NoDIDFound.into());
                     }
@@ -1258,7 +1258,7 @@ impl<T: Trait> Module<T> {
         claim_for: IdentityId,
         buffer: u64,
     ) -> (bool, Option<IdentityId>) {
-        let trusted_kyc_providers = T::KYCServiceProviders::get_members();
+        let trusted_kyc_providers = T::KycServiceProviders::get_members();
         if trusted_kyc_providers.len() > 0 {
             for trusted_kyc_provider in trusted_kyc_providers {
                 if let Some(claim) = Self::fetch_claim_value(
