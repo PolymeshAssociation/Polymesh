@@ -31,7 +31,7 @@ pub trait Trait: balances::Trait + multisig::Trait {
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
         /// The multisig account of the bridge validator set.
-        Validators get(validators): T::AccountId;
+        Validators get(validators) config(): T::AccountId;
         /// Correspondence between validator set change proposals and multisig proposal IDs.
         ChangeValidatorsProposals get(change_validators_proposals): map T::AccountId => u64;
         /// Correspondence between bridge transaction proposals and multisig proposal IDs.
@@ -191,7 +191,12 @@ decl_module! {
         }
 
         /// Handles an approved validator set change transaction proposal.
-        fn handle_change_validators(_origin, new_validators: T::AccountId) -> DispatchResult {
+        ///
+        /// NOTE: Extrinsics without `pub` are exported too. This function is declared as `pub` only
+        /// to test that it cannot be called from a wrong `origin`.
+        pub fn handle_change_validators(origin, new_validators: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin.clone())?;
+            ensure!(sender == Self::validators(), "should be called by the validator set account");
             // Update the validator set.
             <Validators<T>>::put(new_validators.clone());
             // Remove the record of the ongoing proposal.
@@ -201,7 +206,12 @@ decl_module! {
         }
 
         /// Handles an approved bridge transaction proposal.
-        fn handle_bridge_tx(_origin, bridge_tx: BridgeTx<T::AccountId>) -> DispatchResult {
+        ///
+        /// NOTE: Extrinsics without `pub` are exported too. This function is declared as `pub` only
+        /// to test that it cannot be called from a wrong `origin`.
+        pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId>) -> DispatchResult {
+            let sender = ensure_signed(origin.clone())?;
+            ensure!(sender == Self::validators(), "should be called by the validator set account");
             if let Some(PendingTx {
                 did,
                 bridge_tx,
