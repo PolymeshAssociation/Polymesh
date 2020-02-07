@@ -67,6 +67,7 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, WithdrawReason},
 };
 use frame_system::{self as system, ensure_signed};
+use hex_literal::hex;
 use pallet_contracts::ExecReturnValue;
 use pallet_contracts::Gas;
 use pallet_session;
@@ -75,7 +76,6 @@ use primitives::{
     SmartExtension, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
-use hex_literal::hex;
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -1349,7 +1349,7 @@ decl_event! {
         Balance = <T as balances::Trait>::Balance,
         Moment = <T as pallet_timestamp::Trait>::Moment,
         AccountId = <T as frame_system::Trait>::AccountId,
-    {   
+    {
         /// event for transfer of tokens
         /// ticker, from DID, to DID, value
         Transfer(Ticker, IdentityId, IdentityId, Balance),
