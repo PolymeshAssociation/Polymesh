@@ -2,7 +2,7 @@ use crate::traits::{
     balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, IdentityId, LinkData, Permission, Signatory, SigningItem,
+    AccountKey, AuthorizationData, IdentityId, LinkData, Permission, Signatory, SigningItem, Ticker,
 };
 
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
