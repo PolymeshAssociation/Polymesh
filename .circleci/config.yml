@@ -34,8 +34,8 @@ jobs:
           paths:
             - "~/.cargo"
             - "./target"
-            - "./runtime/target"
-            - "./runtime/wasm/target"
+            - "./pallets/runtime/target"
+            - "./pallets/runtime/wasm/target"
   test:
     docker:
       - image: maxsam4/rust
@@ -45,18 +45,18 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - debug-cache-{{ checksum "./runtime/Cargo.lock" }}
+            - debug-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}
       - run:
           name: runtime tests
-          command: cd runtime && cargo test && cd ..
+          command: cd pallets/runtime && cargo test && cd ../..
           working_directory: .
       - save_cache:
-          key: debug-cache-{{ checksum "./runtime/Cargo.lock" }}
+          key: debug-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
-            - "./runtime/target"
-            - "./runtime/wasm/target"
+            - "./pallets/runtime/target"
+            - "./pallets/runtime/wasm/target"
 workflows:
   version: 2
   commit:
