@@ -36,6 +36,7 @@ impl_outer_dispatch! {
         identity::Identity,
         multisig::MultiSig,
         pallet_contracts::Contracts,
+        bridge::Bridge,
     }
 }
 
@@ -309,6 +310,7 @@ pub type MultiSig = multisig::Module<TestStorage>;
 pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
 pub type Timestamp = pallet_timestamp::Module<TestStorage>;
 pub type Contracts = pallet_contracts::Module<TestStorage>;
+pub type Bridge = bridge::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
