@@ -1483,7 +1483,6 @@ fn should_fail_to_archive_a_non_existent_extension() {
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
         // Add smart extension
-        let extension_name = b"STO";
         let extension_id = AccountKeyring::Bob.public();
 
         assert_err!(

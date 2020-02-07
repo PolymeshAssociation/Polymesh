@@ -366,6 +366,20 @@ impl Default for ValidatorPrefs {
     }
 }
 
+/// Commission can be set globally or by validator
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum Commission {
+    Individual,
+    Global(Perbill),
+}
+
+impl Default for Commission {
+    fn default() -> Self {
+        Commission::Individual
+    }
+}
+
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub struct UnlockChunk<Balance: HasCompact> {
@@ -789,6 +803,12 @@ decl_storage! {
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
             linked_map T::AccountId => Option<PermissionedValidator>;
+
+        /// Commision rate to be used by all validators.
+        pub ValidatorCommission get(fn validator_commission) config(): Commission;
+
+        /// The minimum amount with which a validator can bond.
+        pub MinimumBondThreshold get(fn min_bond_threshold) config(): BalanceOf<T>;
     }
     add_extra_genesis {
         config(stakers):
@@ -855,6 +875,13 @@ decl_event!(
         /// Remove the nominators from the valid nominators when there KYC expired
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(AccountId, Vec<AccountId>),
+		/// Individual commisions are enabled.
+		IndividualCommissionInEffect,
+		/// When changes to commision are made and global commission is in effect
+		/// (old value, new value)
+		GlobalCommissionInEffect(Perbill, Perbill),
+        /// Min bond threshold was updated (new value)
+        MinimumBondThreshold(Balance),		
 	}
 );
 
@@ -887,6 +914,12 @@ decl_error! {
         NotAuthorised,
         /// Permissioned validator not exists
         NotExists,
+        /// Individual commissions already enabled
+        AlreadyEnabled,
+        /// Updates with same value
+        NoChange,
+        /// Updates with same value
+        InvalidCommission,
     }
 }
 
@@ -1082,6 +1115,13 @@ decl_module! {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
+
+            ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
+
+            if let Commission::Global(commission) = <ValidatorCommission>::get() {
+                ensure!(prefs.commission == commission, Error::<T>::InvalidCommission);
+            }
+
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
         }
@@ -1324,6 +1364,64 @@ decl_module! {
                 //--}
             }
             Self::deposit_event(RawEvent::InvalidatedNominators(caller, expired_nominators));
+        }
+
+        /// Enables individual commisions. This can be set only once. Once individual commission
+        /// rates are enabled, there's no going back.  Only Governance committee is allowed to
+        /// change this value.
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn enable_individual_commissions(origin) {
+            T::RequiredCommissionOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| Error::<T>::NotAuthorised)?;
+
+            // Ensure individual commissions are not already enabled
+            if let Commission::Global(_) = <ValidatorCommission>::get() {
+                <ValidatorCommission>::put(Commission::Individual);
+                Self::deposit_event(RawEvent::IndividualCommissionInEffect);
+            } else {
+                Err(Error::<T>::AlreadyEnabled)?
+            }
+        }
+
+        /// Changes commission rate which applies to all validators. Only Governance
+        /// committee is allowed to change this value.
+        ///
+        /// # Arguments
+        /// * `new_value` the new commission to be used for reward calculations
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_global_comission(origin, new_value: Perbill) {
+            T::RequiredCommissionOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| Error::<T>::NotAuthorised)?;
+
+            // Ensure individual commissions are not already enabled
+            if let Commission::Global(old_value) = <ValidatorCommission>::get() {
+                ensure!(old_value != new_value, Error::<T>::NoChange);
+                <ValidatorCommission>::put(Commission::Global(new_value));
+                Self::update_validator_prefs(new_value);
+                Self::deposit_event(RawEvent::GlobalCommissionInEffect(old_value, new_value));
+            } else {
+                Err(Error::<T>::AlreadyEnabled)?
+            }
+        }
+
+        /// Changes min bond value to be used in bond(). Only Governance
+        /// committee is allowed to change this value.
+        ///
+        /// # Arguments
+        /// * `new_value` the new minimum
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
+            T::RequiredCommissionOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| Error::<T>::NotAuthorised)?;
+
+            <MinimumBondThreshold<T>>::put(new_value);
+            Self::deposit_event(RawEvent::MinimumBondThreshold(new_value));
         }
 
         // ----- Root calls.
@@ -1636,7 +1734,9 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    /// Select a new validator set from the assembled stakers and their role preferences.
+    /// Select a new validator set from the assembled stakers and their role preferences. Validator
+    /// accounts are selected if they meet the following conditions:
+    ///  - active balance is at least `MinimumBondThreshold`
     ///
     /// Returns the new `SlotStake` value and a set of newly selected _stash_ IDs.
     ///
@@ -1645,11 +1745,7 @@ impl<T: Trait> Module<T> {
         let mut all_nominators: Vec<(T::AccountId, Vec<T::AccountId>)> = Vec::new();
         let all_validator_candidates = <Validators<T>>::enumerate()
             .filter(|(who, _prefs)| {
-                if let Some(validator) = Self::permissioned_validators(who) {
-                    validator.compliance == Compliance::Active
-                } else {
-                    false
-                }
+                Self::is_active_balance_above_min_bond(who) && Self::is_validator_kyc_compliant(who)
             })
             .collect::<Vec<(T::AccountId, ValidatorPrefs)>>();
         let all_validators = all_validator_candidates
@@ -1856,6 +1952,25 @@ impl<T: Trait> Module<T> {
         });
     }
 
+    /// Checks if active balance is above min bond requirement
+    pub fn is_active_balance_above_min_bond(who: &T::AccountId) -> bool {
+        if let Some(controller) = Self::bonded(&who) {
+            if let Some(ledger) = Self::ledger(&controller) {
+                return ledger.active >= <MinimumBondThreshold<T>>::get();
+            }
+        }
+        false
+    }
+
+    /// Does the given account id have compliance status `Active`
+    pub fn is_validator_kyc_compliant(who: &T::AccountId) -> bool {
+        if let Some(validator) = Self::permissioned_validators(who) {
+            validator.compliance == Compliance::Active
+        } else {
+            false
+        }
+    }
+
     /// Non-deterministic method that checks KYC status of each validator and persists
     /// any changes to compliance status.
     fn refresh_compliance_statuses() {
@@ -1916,6 +2031,17 @@ impl<T: Trait> Module<T> {
         let total_session = (T::SessionsPerEra::get() as u32) * (T::BondingDuration::get() as u32);
         let session_length = <T as pallet_babe::Trait>::EpochDuration::get();
         total_session as u64 * session_length
+    }
+
+    /// Update commision in ValidatorPrefs to given value
+    fn update_validator_prefs(commission: Perbill) {
+        let validators = <Validators<T>>::enumerate()
+            .map(|(who, _)| who)
+            .collect::<Vec<T::AccountId>>();
+
+        for v in validators {
+            <Validators<T>>::mutate(v, |prefs| prefs.commission = commission);
+        }
     }
 }
 

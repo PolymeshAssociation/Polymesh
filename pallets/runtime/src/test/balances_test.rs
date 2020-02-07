@@ -1,7 +1,7 @@
 use crate::{
     runtime,
     test::{
-        storage::{make_account, Origin, TestStorage},
+        storage::{make_account, TestStorage},
         ExtBuilder,
     },
     Runtime,
@@ -155,7 +155,6 @@ fn issue_must_work() {
         assert_eq!(Balances::free_balance(&brr), 0);
         let mut ti = Balances::total_issuance();
         let alice = AccountKeyring::Alice.public();
-        let balance_alice = Balances::free_balance(&alice);
 
         // When there is no balance in BRR, issuance should increase total supply
         // NOTE: dropping negative imbalance is equivalent to burning. It will decrease total supply.

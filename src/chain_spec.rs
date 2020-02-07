@@ -6,10 +6,10 @@ use polymesh_runtime::{
     committee::ProportionMatch,
     config::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
-        MIPSConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
+        MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
     runtime::{CommitteeMembershipConfig, KYCServiceProvidersConfig, PolymeshCommitteeConfig},
-    Perbill, SessionKeys, StakerStatus, WASM_BINARY,
+    Commission, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
 use sc_service::Properties;
@@ -261,9 +261,13 @@ fn testnet_genesis(
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: Perbill::from_percent(10),
+            validator_commission: Commission::Global(Perbill::from_rational_approximation(
+                1u64, 4u64,
+            )),
+            min_bond_threshold: 0,
             ..Default::default()
         }),
-        mips: Some(MIPSConfig {
+        mips: Some(MipsConfig {
             min_proposal_deposit: 5000,
             quorum_threshold: 100000,
             proposal_duration: 50,

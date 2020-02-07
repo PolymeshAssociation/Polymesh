@@ -77,7 +77,7 @@ test-client = { package = "substrate-test-runtime-client", git = "https://github
 hex-literal = "0.2.1"
 
 [build-dependencies]
- wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421"}
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421"}
 
 [features]
 equalize = []
@@ -85,7 +85,6 @@ default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [ 
-#	"bitvec/std",
 	"rustc-hex/std",
 	"serde_derive",
 	"rand/std",
@@ -132,5 +131,4 @@ std = [
 	"polymesh-runtime-balances/std",
 	"polymesh-runtime-group/std",
 	"polymesh-runtime-identity/std"
-
 ]

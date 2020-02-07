@@ -2,9 +2,6 @@
 
 pub mod constants;
 
-mod currency;
-pub use currency::CurrencyModule;
-
 pub mod traits;
 pub use traits::{asset, balances, group, identity, multisig, CommonTrait};
 

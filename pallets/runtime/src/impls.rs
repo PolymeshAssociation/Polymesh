@@ -127,7 +127,13 @@ impl<T: Get<Perbill>> Convert<Fixed64, Fixed64> for TargetedFeeAdjustment<T> {
 mod tests {
     use super::*;
 
-    use crate::{runtime::TargetBlockFullness, MaximumBlockWeight, Runtime};
+    use crate::{
+        runtime::{TargetBlockFullness, TransactionPayment},
+        AvailableBlockRatio, MaximumBlockWeight, Runtime,
+    };
+
+    use polymesh_runtime_common::constants::currency::{CENTS, DOLLARS, MILLICENTS};
+
     use frame_support::weights::Weight;
     use sp_runtime::assert_eq_error_rate;
 
@@ -227,7 +233,6 @@ mod tests {
         })
     }
 
-    /*
     #[test]
     #[ignore]
     fn congested_chain_simulation() {
@@ -268,7 +273,7 @@ mod tests {
                 );
             }
         });
-    }*/
+    }
 
     #[test]
     fn stateless_weight_mul() {

@@ -163,6 +163,8 @@ decl_module! {
     }
 }
 
+/// Retrieve all members of this group
+/// Is the given `IdentityId` a valid member?
 impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
     fn get_members() -> Vec<IdentityId> {
         return Self::members();

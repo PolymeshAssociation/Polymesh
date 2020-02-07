@@ -1,9 +1,5 @@
-use wasm_builder_runner::{build_current_project_with_rustflags, WasmBuilderSource};
+use wasm_builder_runner::{build_current_project, WasmBuilderSource};
 
 fn main() {
-    build_current_project_with_rustflags(
-        "wasm_binary.rs",
-        WasmBuilderSource::Crates("1.0.8"),
-        "--verbose",
-    );
+    build_current_project("wasm_binary.rs", WasmBuilderSource::Crates("1.0.8"));
 }

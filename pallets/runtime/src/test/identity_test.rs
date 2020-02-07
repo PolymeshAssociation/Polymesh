@@ -1002,3 +1002,57 @@ fn removing_links() {
         }
     });
 }
+
+#[test]
+fn changing_master_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+
+        let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let new_key = AccountKey::from(AccountKeyring::Bob.public().0);
+        let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
+
+        let _kyc_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let kyc = Origin::signed(AccountKeyring::Charlie.public());
+
+        // Master key matches Alice's key
+        assert_eq!(
+            Identity::did_records(alice_did).master_key,
+            AccountKey::from(AccountKeyring::Alice.public().0)
+        );
+
+        // Alice triggers change of master key
+        assert_ok!(Identity::add_authorization_as_key(
+            alice.clone(),
+            Signatory::AccountKey(new_key),
+            AuthorizationData::RotateMasterKey(alice_did),
+            None,
+        ));
+
+        let owner_auth_id = Identity::last_authorization(Signatory::AccountKey(new_key));
+
+        // Charlie a KYC provider approves the change
+        assert_ok!(Identity::add_authorization(
+            kyc.clone(),
+            Signatory::AccountKey(new_key),
+            AuthorizationData::AttestMasterKeyRotation(alice_did),
+            None,
+        ));
+
+        let kyc_auth_id = Identity::last_authorization(Signatory::AccountKey(new_key));
+
+        // Accept the authorization with the new key
+        assert_ok!(Identity::accept_master_key(
+            new_key_origin.clone(),
+            owner_auth_id.clone(),
+            kyc_auth_id.clone()
+        ));
+
+        // Alice's master key is now Bob's
+        assert_eq!(
+            Identity::did_records(alice_did).master_key,
+            AccountKey::from(AccountKeyring::Bob.public().0)
+        );
+    });
+}

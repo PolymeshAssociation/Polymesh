@@ -151,11 +151,11 @@ impl identity::Trait for TestStorage {
 
 impl GroupTrait for TestStorage {
     fn get_members() -> Vec<IdentityId> {
-        unimplemented!();
+        unimplemented!()
     }
 
-    fn is_member(_member_id: &IdentityId) -> bool {
-        unimplemented!();
+    fn is_member(_did: &IdentityId) -> bool {
+        true
     }
 }
 
@@ -287,8 +287,8 @@ pub fn register_keyring_account_with_balance(
         .map_err(|_| "Register DID failed")?;
 
     let acc_key = AccountKey::from(acc_pub.0);
-    let did = Identity::get_identity(&acc_key)
-        .ok_or_else(|| "AccountKey cannot be generated from account")?;
+    let did =
+        Identity::get_identity(&acc_key).ok_or_else(|| "Key cannot be generated from account")?;
 
     Ok(did)
 }
