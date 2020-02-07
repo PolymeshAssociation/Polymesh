@@ -131,6 +131,7 @@ pub struct SecurityToken<U> {
     pub owner_did: IdentityId,
     pub divisible: bool,
     pub asset_type: AssetType,
+    pub link_id: u64,
 }
 
 /// struct to store the signed data
@@ -148,6 +149,7 @@ pub struct SignData<U> {
 pub struct TickerRegistration<U> {
     owner: IdentityId,
     expiry: Option<U>,
+    link_id: u64,
 }
 
 /// struct to store the ticker registration config
@@ -408,12 +410,15 @@ decl_module! {
                 <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
             }
 
+            let link = <identity::Module<T>>::add_link(Signatory::from(did), LinkData::TokenOwned(ticker), None);
+
             let token = SecurityToken {
                 name,
                 total_supply,
                 owner_did: did,
                 divisible,
                 asset_type: asset_type.clone(),
+                link_id: link,
             };
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert((ticker, did), total_supply);
@@ -1004,7 +1009,7 @@ decl_module! {
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
             documents.into_iter().for_each(|doc| {
-                <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None)
+                <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None);
             });
 
             Ok(())
@@ -1587,9 +1592,17 @@ impl<T: Trait> Module<T> {
         // charge fee
         Self::charge_ticker_registration_fee(ticker, sender.clone(), to_did);
 
+        if <Tickers<T>>::exists(ticker) {
+            let ticker_details = <Tickers<T>>::get(ticker);
+            <identity::Module<T>>::remove_link(Signatory::from(ticker_details.owner), ticker_details.link_id);
+        }
+
+        let link = <identity::Module<T>>::add_link(Signatory::from(to_did), LinkData::TickerOwned(*ticker), expiry.clone());
+
         let ticker_registration = TickerRegistration {
             owner: to_did,
             expiry: expiry.clone(),
+            link_id: link,
         };
 
         // Store ticker registration details
@@ -1910,17 +1923,24 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
-        let current_owner = Self::ticker_registration(&ticker).owner;
+        let ticker_details = Self::ticker_registration(&ticker);
 
         <identity::Module<T>>::consume_auth(
-            Signatory::from(current_owner),
+            Signatory::from(ticker_details.owner),
             Signatory::from(to_did),
             auth_id,
         )?;
 
-        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
+        <identity::Module<T>>::remove_link(Signatory::from(ticker_details.owner), ticker_details.link_id);
 
-        Self::deposit_event(RawEvent::TickerTransferred(ticker, current_owner, to_did));
+        let link = <identity::Module<T>>::add_link(Signatory::from(to_did), LinkData::TickerOwned(ticker), ticker_details.expiry);
+
+        <Tickers<T>>::mutate(&ticker, |tr| {
+            tr.owner = to_did;
+            tr.link_id = link;
+        });
+
+        Self::deposit_event(RawEvent::TickerTransferred(ticker, ticker_details.owner, to_did));
 
         Ok(())
     }
@@ -1943,20 +1963,34 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(<Tokens<T>>::exists(&ticker), "Token does not exist");
-        let current_owner = Self::token_details(&ticker).owner_did;
+
+        let token_details = Self::token_details(&ticker);
+        let ticker_details = Self::ticker_registration(&ticker);
 
         <identity::Module<T>>::consume_auth(
-            Signatory::from(current_owner),
+            Signatory::from(token_details.owner_did),
             Signatory::from(to_did),
             auth_id,
         )?;
 
-        <Tokens<T>>::mutate(&ticker, |t| t.owner_did = to_did);
-        <Tickers<T>>::mutate(&ticker, |t| t.owner = to_did);
+        <identity::Module<T>>::remove_link(Signatory::from(ticker_details.owner), ticker_details.link_id);
+        <identity::Module<T>>::remove_link(Signatory::from(token_details.owner_did), token_details.link_id);
+
+        let ticker_link = <identity::Module<T>>::add_link(Signatory::from(to_did), LinkData::TickerOwned(ticker), None);
+        let token_link = <identity::Module<T>>::add_link(Signatory::from(to_did), LinkData::TokenOwned(ticker), None);
+
+        <Tickers<T>>::mutate(&ticker, |tr| {
+            tr.owner = to_did;
+            tr.link_id = ticker_link;
+        });
+        <Tokens<T>>::mutate(&ticker, |tr| {
+            tr.owner_did = to_did;
+            tr.link_id = token_link;
+        });
 
         Self::deposit_event(RawEvent::TokenOwnershipTransferred(
             ticker,
-            current_owner,
+            token_details.owner_did,
             to_did,
         ));
 
