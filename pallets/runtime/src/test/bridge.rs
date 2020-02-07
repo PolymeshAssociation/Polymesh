@@ -1,11 +1,16 @@
 use crate::{
-    balances,
     bridge::{self, BridgeTx, IssueRecipient, PendingTx},
-    identity, multisig,
-    test::storage::{build_ext, register_keyring_account, Call, TestStorage},
+    multisig,
+    test::{
+        storage::{register_keyring_account, Call, TestStorage},
+        ExtBuilder,
+    },
 };
+use polymesh_runtime_balances as balances;
+use polymesh_runtime_identity as identity;
+
 use frame_support::{assert_err, assert_ok};
-use primitives::Signatory;
+use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
@@ -16,7 +21,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn can_issue_to_identity() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
@@ -77,7 +82,7 @@ fn can_issue_to_identity() {
 
 #[test]
 fn cannot_propose_without_validators() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let value = 1_000_000;
@@ -96,7 +101,7 @@ fn cannot_propose_without_validators() {
 
 #[test]
 fn cannot_call_validator_callback_extrinsics() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let alice_account = AccountKeyring::Alice.public();
         let alice = Origin::signed(alice_account);
         assert_err!(

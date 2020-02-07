@@ -3,7 +3,7 @@
 //! This module implements a one-way bridge between Polymath Classic on the Ethereum side, and
 //! Polymesh native. It mints POLY on Polymesh in return for permanently locked ERC20 POLY tokens.
 
-use crate::{balances, identity, multisig};
+use crate::multisig;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
@@ -11,15 +11,17 @@ use frame_support::{
     decl_event, decl_module, decl_storage, ensure, weights::GetDispatchInfo, Parameter,
 };
 use frame_system::{self as system, ensure_signed};
-use primitives::traits::IdentityCurrency;
-use primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
+use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait};
+use polymesh_runtime_identity as identity;
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::{convert::TryFrom, prelude::*};
 
-pub trait Trait: balances::Trait + multisig::Trait {
-    type Balance: From<u128> + Into<<Self as balances::Trait>::Balance>;
+pub trait Trait: BalancesTrait + multisig::Trait {
+    type Balance: From<u128> + Into<<Self as CommonTrait>::Balance>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>>
         + Into<<Self as identity::Trait>::Proposal>
