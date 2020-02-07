@@ -1,21 +1,17 @@
-pub use polymesh_runtime;
-
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::{AccountId, Signature};
-use polymesh_runtime::asset::TickerRegistrationConfig;
-use polymesh_runtime::committee::ProportionMatch;
-use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::{
+    asset::TickerRegistrationConfig,
+    committee::ProportionMatch,
     config::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
         MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
-    runtime::CommitteeMembershipConfig,
-    runtime::KYCServiceProvidersConfig,
-    runtime::PolymeshCommitteeConfig,
+    runtime::{CommitteeMembershipConfig, KycServiceProvidersConfig, PolymeshCommitteeConfig},
     Commission, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
+use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
 use sc_service::Properties;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -296,7 +292,7 @@ fn testnet_genesis(
             vote_threshold: (ProportionMatch::AtLeast, 1, 2),
             phantom: Default::default(),
         }),
-        group_Instance2: Some(KYCServiceProvidersConfig {
+        group_Instance2: Some(KycServiceProvidersConfig {
             members: vec![],
             phantom: Default::default(),
         }),
