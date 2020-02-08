@@ -491,6 +491,7 @@ mod tests {
                 SimpleToken::create_token(owner_signed.clone(), owner_did, ticker, total_supply),
                 "Ticker with this name already exists"
             );
+
             assert_ok!(SimpleToken::create_token(
                 owner_signed.clone(),
                 owner_did,
@@ -498,13 +499,62 @@ mod tests {
                 total_supply,
             ));
             assert_eq!(
-                SimpleToken::tokens(ticker),
+                SimpleToken::tokens(Ticker::from_slice(
+                    "1234567890123456789012345678901234567890".as_bytes()
+                )),
                 SimpleTokenRecord {
                     ticker: Ticker::from_slice("123456789012".as_bytes()),
                     total_supply,
                     owner_did
                 }
             );
+
+            assert_err!(
+                SimpleToken::create_token(
+                    owner_signed.clone(),
+                    owner_did,
+                    Ticker::from_slice(&[0x02]),
+                    MAX_SUPPLY + 1
+                ),
+                "Total supply above the limit"
+            );
+        });
+    }
+
+    #[test]
+    fn transfer_works() {
+        new_test_ext().execute_with(|| {
+            let owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            let spender_acc = AccountId::from(AccountKeyring::Bob);
+            let (spender_signed, spender_did) = make_account(&spender_acc).unwrap();
+
+            let ticker = Ticker::from_slice(&[0x01]);
+            let total_supply = 1_000_000;
+
+            // Issuance is successful
+            assert_ok!(SimpleToken::create_token(
+                owner_signed.clone(),
+                owner_did,
+                ticker,
+                total_supply
+            ));
+
+            let gift = 1000u128;
+            assert_ok!(SimpleToken::transfer(
+                owner_signed.clone(),
+                owner_did,
+                ticker,
+                spender_did,
+                gift
+            ));
+
+            assert_eq!(
+                SimpleToken::balance_of((ticker, owner_did)),
+                total_supply - gift
+            );
+            assert_eq!(SimpleToken::balance_of((ticker, spender_did)), gift);
         });
     }
 }
