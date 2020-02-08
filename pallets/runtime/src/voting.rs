@@ -634,6 +634,7 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
+                ..Default::default()
             };
             let ticker = Ticker::from_slice(token.name.as_slice());
             // Share issuance is successful
@@ -815,6 +816,7 @@ mod tests {
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
+                ..Default::default()
             };
             let ticker = Ticker::from_slice(token.name.as_slice());
             // Share issuance is successful
@@ -936,6 +938,7 @@ mod tests {
                 total_supply: 1000,
                 divisible: true,
                 asset_type: AssetType::default(),
+                ..Default::default()
             };
             let ticker = Ticker::from_slice(token.name.as_slice());
             // Share issuance is successful

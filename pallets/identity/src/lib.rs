@@ -1070,7 +1070,7 @@ impl<T: Trait> Module<T> {
 
     /// Adds a link to a key or an identity
     /// NB: Please do all the required checks before calling this function.
-    pub fn add_link(target: Signatory, link_data: LinkData, expiry: Option<T::Moment>) {
+    pub fn add_link(target: Signatory, link_data: LinkData, expiry: Option<T::Moment>) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
         <MultiPurposeNonce>::put(&new_nonce);
 
@@ -1095,6 +1095,7 @@ impl<T: Trait> Module<T> {
         <Links<T>>::insert((target, new_nonce), link);
 
         Self::deposit_event(RawEvent::NewLink(new_nonce, target, link_data, expiry));
+        new_nonce
     }
 
     /// Remove a link (if it exists) from a key or identity
