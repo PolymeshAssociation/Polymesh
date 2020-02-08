@@ -36,6 +36,7 @@
 //!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit = "256"]
 
 use polymesh_primitives::{
     AccountKey, Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord,
@@ -522,6 +523,14 @@ decl_module! {
             } else {
                 Err(Error::<T>::NoDIDFound.into())
             }
+        }
+
+        pub fn get_asset_did(origin, ticker: Ticker) -> DispatchResult {
+            ensure_signed(origin)?;
+            let did = Self::get_token_did(&ticker)?;
+            Self::deposit_event(RawEvent::AssetDid(ticker, did));
+            sp_runtime::print(did);
+            Ok(())
         }
 
         // Manage generic authorizations
@@ -1432,6 +1441,7 @@ impl<T: Trait> Module<T> {
     /// It registers a did for a new asset. Only called by create_token function.
     pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
         let did = Self::get_token_did(ticker)?;
+        Self::deposit_event(RawEvent::AssetDid(*ticker, did));
         // Making sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
         ensure!(!<DidRecords>::exists(did), "DID must be unique");
