@@ -542,6 +542,11 @@ mod tests {
             ));
 
             let gift = 1000u128;
+            assert_err!(
+                SimpleToken::transfer(spender_signed.clone(), spender_did, ticker, owner_did, gift),
+                "Sender doesn't own this token"
+            );
+
             assert_ok!(SimpleToken::transfer(
                 owner_signed.clone(),
                 owner_did,
@@ -549,12 +554,98 @@ mod tests {
                 spender_did,
                 gift
             ));
-
             assert_eq!(
                 SimpleToken::balance_of((ticker, owner_did)),
                 total_supply - gift
             );
             assert_eq!(SimpleToken::balance_of((ticker, spender_did)), gift);
+        });
+    }
+
+    #[test]
+    fn approve_transfer_works() {
+        new_test_ext().execute_with(|| {
+            let owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            let spender_acc = AccountId::from(AccountKeyring::Bob);
+            let (spender_signed, spender_did) = make_account(&spender_acc).unwrap();
+
+            let agent_acc = AccountId::from(AccountKeyring::Bob);
+            let (agent_signed, agent_did) = make_account(&agent_acc).unwrap();
+
+            let ticker = Ticker::from_slice(&[0x01]);
+            let total_supply = 1_000_000;
+
+            // Issuance is successful
+            assert_ok!(SimpleToken::create_token(
+                owner_signed.clone(),
+                owner_did,
+                ticker,
+                total_supply
+            ));
+
+            let allowance = 1000u128;
+
+            assert_err!(
+                SimpleToken::approve(
+                    spender_signed.clone(),
+                    spender_did,
+                    ticker,
+                    spender_did,
+                    allowance
+                ),
+                "Account does not own this token"
+            );
+
+            assert_ok!(SimpleToken::approve(
+                owner_signed.clone(),
+                owner_did,
+                ticker,
+                spender_did,
+                allowance
+            ));
+            assert_eq!(
+                SimpleToken::allowance((ticker, owner_did, spender_did)),
+                allowance
+            );
+
+            assert_err!(
+                SimpleToken::approve(
+                    owner_signed.clone(),
+                    owner_did,
+                    ticker,
+                    spender_did,
+                    std::u128::MAX
+                ),
+                "overflow in calculating allowance"
+            );
+
+            assert_err!(
+                SimpleToken::transfer_from(
+                    agent_signed.clone(),
+                    agent_did,
+                    ticker,
+                    owner_did,
+                    spender_did,
+                    allowance + 1u128
+                ),
+                "Not enough allowance."
+            );
+
+            assert_ok!(SimpleToken::transfer_from(
+                agent_signed.clone(),
+                agent_did,
+                ticker,
+                owner_did,
+                spender_did,
+                allowance
+            ));
+            assert_eq!(
+                SimpleToken::balance_of((ticker, owner_did)),
+                total_supply - allowance
+            );
+            assert_eq!(SimpleToken::balance_of((ticker, spender_did)), allowance);
         });
     }
 }
