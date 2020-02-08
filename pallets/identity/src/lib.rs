@@ -36,6 +36,7 @@
 //!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit="256"]
 
 use polymesh_primitives::{
     AccountKey, Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord,
