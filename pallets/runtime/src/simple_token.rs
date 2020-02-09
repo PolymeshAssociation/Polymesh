@@ -77,6 +77,7 @@ decl_storage! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+
         fn deposit_event() = default;
 
         /// Create a new token and mint a balance to the issuing identity
@@ -247,64 +248,404 @@ impl<T: Trait> Module<T> {
 /// tests for this module
 #[cfg(test)]
 mod tests {
-    /*
-     *    use super::*;
-     *
-     *    use substrate_primitives::{Blake2Hasher, H256};
-     *    use sp_io::with_externalities;
-     *    use sp_runtime::{
-     *        testing::{Digest, DigestItem, Header},
-     *        traits::{BlakeTwo256, IdentityLookup},
-     *        BuildStorage,
-     *    };
-     *    use frame_support::{assert_ok, impl_outer_origin};
-     *
-     *    impl_outer_origin! {
-     *        pub enum Origin for Test {}
-     *    }
-     *
-     *    // For testing the module, we construct most of a mock runtime. This means
-     *    // first constructing a configuration type (`Test`) which `impl`s each of the
-     *    // configuration traits of modules we want to use.
-     *    #[derive(Clone, Eq, PartialEq)]
-     *    pub struct Test;
-     *    impl frame_system::Trait for Test {
-     *        type Origin = Origin;
-     *        type Index = u64;
-     *        type BlockNumber = u64;
-     *        type Hash = H256;
-     *        type Hashing = BlakeTwo256;
-     *        type Digest = H256;
-     *        type AccountId = u64;
-     *        type Lookup = IdentityLookup<Self::AccountId>;
-     *        type Header = Header;
-     *        type Event = ();
-     *        type Log = DigestItem;
-     *    }
-     *    impl Trait for Test {
-     *        type Event = ();
-     *    }
-     *    type SimpleToken = Module<Test>;
-     *
-     *    // This function basically just builds a genesis storage key/value store according to
-     *    // our desired mockup.
-     *    fn new_test_ext() -> sp_io::TestExternalities<Blake2Hasher> {
-     *        frame_system::GenesisConfig::default()
-     *            .build_storage()
-     *            .unwrap()
-     *            .0
-     *            .into()
-     *    }
-     *
-     *    #[test]
-     *    fn it_works_for_default_value() {
-     *        with_externalities(&mut new_test_ext(), || {
-     *            // Just a dummy test for the dummy funtion `do_something`
-     *            // calling the `do_something` function with a value 42
-     *            assert_ok!(SimpleToken::do_something(Origin::signed(1), 42));
-     *            // asserting that the stored value is equal to what we stored
-     *            assert_eq!(SimpleToken::something(), Some(42));
-     *        });
-     *    }
-     */
+    use super::*;
+
+    use core::result::Result as StdResult;
+    use polymesh_primitives::{IdentityId, Signatory};
+    use polymesh_runtime_balances as balances;
+    use polymesh_runtime_common::traits::{
+        asset::AcceptTransfer, multisig::AddSignerMultiSig, CommonTrait,
+    };
+    use polymesh_runtime_group as group;
+    use polymesh_runtime_identity as identity;
+
+    use frame_support::{
+        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
+        parameter_types,
+    };
+    use frame_system::EnsureSignedBy;
+    use sp_core::{crypto::key_types, H256};
+    use sp_runtime::{
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        AnySignature, KeyTypeId, Perbill,
+    };
+    use test_client::{self, AccountKeyring};
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    type SessionIndex = u32;
+    type AuthorityId = <AnySignature as Verify>::Signer;
+    type BlockNumber = u64;
+    type AccountId = <AnySignature as Verify>::Signer;
+    type OffChainSignature = AnySignature;
+
+    #[derive(Clone, Eq, PartialEq, Debug)]
+    pub struct Test;
+
+    parameter_types! {
+        pub const BlockHashCount: u64 = 250;
+        pub const MaximumBlockWeight: u32 = 1024;
+        pub const MaximumBlockLength: u32 = 2 * 1024;
+        pub const AvailableBlockRatio: Perbill = Perbill::one();
+    }
+
+    impl frame_system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Call = ();
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = AccountId;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type Version = ();
+        type ModuleToIndex = ();
+    }
+
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 0;
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const TransactionBaseFee: u64 = 0;
+        pub const TransactionByteFee: u64 = 0;
+    }
+
+    impl CommonTrait for Test {
+        type Balance = u128;
+        type CreationFee = CreationFee;
+        type AcceptTransferTarget = Test;
+        type BlockRewardsReserve = balances::Module<Test>;
+    }
+
+    impl balances::Trait for Test {
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type Identity = identity::Module<Test>;
+    }
+
+    impl identity::Trait for Test {
+        type Event = ();
+        type Proposal = Call<Test>;
+        type AddSignerMultiSigTarget = Test;
+        type KYCServiceProviders = Test;
+        type Balances = balances::Module<Test>;
+    }
+
+    impl group::GroupTrait for Test {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
+        fn is_member(_did: &IdentityId) -> bool {
+            unimplemented!()
+        }
+    }
+
+    impl AddSignerMultiSig for Test {
+        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
+            unimplemented!()
+        }
+    }
+
+    impl AcceptTransfer for Test {
+        fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
+            unimplemented!()
+        }
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
+            unimplemented!()
+        }
+    }
+
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
+    }
+
+    impl pallet_timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
+
+    impl utils::Trait for Test {
+        type Public = AccountId;
+        type OffChainSignature = OffChainSignature;
+        fn validator_id_to_account_id(
+            v: <Self as pallet_session::Trait>::ValidatorId,
+        ) -> Self::AccountId {
+            v
+        }
+    }
+
+    pub struct TestOnSessionEnding;
+    impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+        fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
+            None
+        }
+    }
+
+    pub struct TestSessionHandler;
+    impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+        const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
+        fn on_new_session<Ks: OpaqueKeys>(
+            _changed: bool,
+            _validators: &[(AuthorityId, Ks)],
+            _queued_validators: &[(AuthorityId, Ks)],
+        ) {
+        }
+
+        fn on_disabled(_validator_index: usize) {}
+
+        fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+
+        fn on_before_session_ending() {}
+    }
+
+    parameter_types! {
+        pub const Period: BlockNumber = 1;
+        pub const Offset: BlockNumber = 0;
+        pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+    }
+
+    impl pallet_session::Trait for Test {
+        type OnSessionEnding = TestOnSessionEnding;
+        type Keys = UintAuthorityId;
+        type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+        type SessionHandler = TestSessionHandler;
+        type Event = ();
+        type ValidatorId = AuthorityId;
+        type ValidatorIdOf = ConvertInto;
+        type SelectInitialValidators = ();
+        type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    }
+
+    impl pallet_session::historical::Trait for Test {
+        type FullIdentification = ();
+        type FullIdentificationOf = ();
+    }
+
+    impl Trait for Test {
+        type Event = ();
+    }
+
+    type Identity = identity::Module<Test>;
+    type System = system::Module<Test>;
+    type Balances = balances::Module<Test>;
+    type SimpleToken = Module<Test>;
+
+    fn new_test_ext() -> sp_io::TestExternalities {
+        let mut t = system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+        t.into()
+    }
+
+    fn make_account(
+        account_id: &AccountId,
+    ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
+        let signed_id = Origin::signed(account_id.clone());
+        let _ = Identity::register_did(signed_id.clone(), vec![]);
+        let did = Identity::get_identity(&AccountKey::try_from(account_id.encode())?).unwrap();
+        Ok((signed_id, did))
+    }
+
+    #[test]
+    fn create_token_works() {
+        new_test_ext().execute_with(|| {
+            let owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            let ticker = Ticker::from_slice(&[0x01]);
+            let total_supply = 1_000_000;
+
+            // Issuance is successful
+            assert_ok!(SimpleToken::create_token(
+                owner_signed.clone(),
+                owner_did,
+                ticker,
+                total_supply
+            ));
+
+            assert_eq!(
+                SimpleToken::tokens(ticker),
+                SimpleTokenRecord {
+                    ticker,
+                    total_supply,
+                    owner_did
+                }
+            );
+
+            assert_err!(
+                SimpleToken::create_token(owner_signed.clone(), owner_did, ticker, total_supply),
+                "Ticker with this name already exists"
+            );
+
+            assert_ok!(SimpleToken::create_token(
+                owner_signed.clone(),
+                owner_did,
+                Ticker::from_slice("1234567890123456789012345678901234567890".as_bytes()),
+                total_supply,
+            ));
+            assert_eq!(
+                SimpleToken::tokens(Ticker::from_slice(
+                    "1234567890123456789012345678901234567890".as_bytes()
+                )),
+                SimpleTokenRecord {
+                    ticker: Ticker::from_slice("123456789012".as_bytes()),
+                    total_supply,
+                    owner_did
+                }
+            );
+
+            assert_err!(
+                SimpleToken::create_token(
+                    owner_signed.clone(),
+                    owner_did,
+                    Ticker::from_slice(&[0x02]),
+                    MAX_SUPPLY + 1
+                ),
+                "Total supply above the limit"
+            );
+        });
+    }
+
+    #[test]
+    fn transfer_works() {
+        new_test_ext().execute_with(|| {
+            let owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            let spender_acc = AccountId::from(AccountKeyring::Bob);
+            let (spender_signed, spender_did) = make_account(&spender_acc).unwrap();
+
+            let ticker = Ticker::from_slice(&[0x01]);
+            let total_supply = 1_000_000;
+
+            // Issuance is successful
+            assert_ok!(SimpleToken::create_token(
+                owner_signed.clone(),
+                owner_did,
+                ticker,
+                total_supply
+            ));
+
+            let gift = 1000u128;
+            assert_err!(
+                SimpleToken::transfer(spender_signed.clone(), spender_did, ticker, owner_did, gift),
+                "Sender doesn't own this token"
+            );
+
+            assert_ok!(SimpleToken::transfer(
+                owner_signed.clone(),
+                owner_did,
+                ticker,
+                spender_did,
+                gift
+            ));
+            assert_eq!(
+                SimpleToken::balance_of((ticker, owner_did)),
+                total_supply - gift
+            );
+            assert_eq!(SimpleToken::balance_of((ticker, spender_did)), gift);
+        });
+    }
+
+    #[test]
+    fn approve_transfer_works() {
+        new_test_ext().execute_with(|| {
+            let owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
+
+            let spender_acc = AccountId::from(AccountKeyring::Bob);
+            let (spender_signed, spender_did) = make_account(&spender_acc).unwrap();
+
+            let agent_acc = AccountId::from(AccountKeyring::Bob);
+            let (agent_signed, agent_did) = make_account(&agent_acc).unwrap();
+
+            let ticker = Ticker::from_slice(&[0x01]);
+            let total_supply = 1_000_000;
+
+            // Issuance is successful
+            assert_ok!(SimpleToken::create_token(
+                owner_signed.clone(),
+                owner_did,
+                ticker,
+                total_supply
+            ));
+
+            let allowance = 1000u128;
+
+            assert_err!(
+                SimpleToken::approve(
+                    spender_signed.clone(),
+                    spender_did,
+                    ticker,
+                    spender_did,
+                    allowance
+                ),
+                "Account does not own this token"
+            );
+
+            assert_ok!(SimpleToken::approve(
+                owner_signed.clone(),
+                owner_did,
+                ticker,
+                spender_did,
+                allowance
+            ));
+            assert_eq!(
+                SimpleToken::allowance((ticker, owner_did, spender_did)),
+                allowance
+            );
+
+            assert_err!(
+                SimpleToken::approve(
+                    owner_signed.clone(),
+                    owner_did,
+                    ticker,
+                    spender_did,
+                    std::u128::MAX
+                ),
+                "overflow in calculating allowance"
+            );
+
+            assert_err!(
+                SimpleToken::transfer_from(
+                    agent_signed.clone(),
+                    agent_did,
+                    ticker,
+                    owner_did,
+                    spender_did,
+                    allowance + 1u128
+                ),
+                "Not enough allowance."
+            );
+
+            assert_ok!(SimpleToken::transfer_from(
+                agent_signed.clone(),
+                agent_did,
+                ticker,
+                owner_did,
+                spender_did,
+                allowance
+            ));
+            assert_eq!(
+                SimpleToken::balance_of((ticker, owner_did)),
+                total_supply - allowance
+            );
+            assert_eq!(SimpleToken::balance_of((ticker, spender_did)), allowance);
+        });
+    }
 }
