@@ -26,7 +26,7 @@ jobs:
       - restore_cache:
           keys:
             - release-cache-{{ checksum "./concatenated.lock" }}-{{ checksum "./rust.version" }}
-            - release-cache-{{ checksum "./Cargo.lock" }}-{{ checksum "./rust.version" }}
+            - release-cache2-{{ checksum "./Cargo.lock" }}-{{ checksum "./rust.version" }}
             - release-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
@@ -40,7 +40,7 @@ jobs:
             - "./pallets/runtime/target"
             - "./pallets/runtime/wasm/target"
       - save_cache:
-          key: release-cache-{{ checksum "./Cargo.lock" }}-{{ checksum "./rust.version" }}
+          key: release-cache2-{{ checksum "./Cargo.lock" }}-{{ checksum "./rust.version" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -84,7 +84,7 @@ jobs:
             - "./pallets/runtime/target"
             - "./pallets/runtime/wasm/target"
       - save_cache:
-          key: release-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./rust.version" }}
+          key: debug-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./rust.version" }}
           paths:
             - "~/.cargo"
             - "./target"
