@@ -1,0 +1,48 @@
+[package]
+name = "polymesh-runtime-group"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false  }
+polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false  }
+
+serde = { version = "1.0.104", default-features = false }
+serde_derive = { version = "1.0.104", optional = true, default-features = false }
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-version = { package = "sp-version", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+
+frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+
+[dev-dependencies]
+test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421", default-features = false }
+
+
+[features]
+equalize = []
+default = ["std", "equalize"]
+no_std = []
+only-staking = []
+std = [ 
+	"serde_derive",
+	"serde/std",
+	"codec/std",
+	"sp-std/std",
+	"sp-io/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-api/std",
+	"sp-version/std",
+	"frame-system/std",
+	"frame-support/std",
+	"polymesh-primitives/std",
+]

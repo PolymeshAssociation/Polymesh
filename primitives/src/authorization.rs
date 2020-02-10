@@ -1,4 +1,5 @@
-use crate::signing_item::Signer;
+use crate::identity_id::IdentityId;
+use crate::signing_item::Signatory;
 use crate::Ticker;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
@@ -6,6 +7,10 @@ use frame_support::dispatch::DispatchError;
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationData {
+    /// KYC provider's attestation to change master key
+    AttestMasterKeyRotation(IdentityId),
+    /// Authorization to change master key
+    RotateMasterKey(IdentityId),
     /// Authorization to transfer a ticker
     TransferTicker(Ticker),
     /// Add a signer to multisig
@@ -55,7 +60,7 @@ pub struct Authorization<U> {
     pub authorization_data: AuthorizationData,
 
     /// Identity of the organization/individual that added this authorization
-    pub authorized_by: Signer,
+    pub authorized_by: Signatory,
 
     /// time when this authorization expires. optional.
     pub expiry: Option<U>,
