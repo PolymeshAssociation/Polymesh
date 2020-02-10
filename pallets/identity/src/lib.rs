@@ -1034,10 +1034,7 @@ impl<T: Trait> Module<T> {
                 return Err(AuthorizationError::Expired.into());
             }
         }
-        Self::remove_auth(
-            target,
-            auth_id
-        );
+        Self::remove_auth(target, auth_id);
         Ok(())
     }
 

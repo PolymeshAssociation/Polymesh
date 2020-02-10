@@ -17,7 +17,6 @@ use polymesh_runtime_identity::{self as identity, Error};
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, traits::Currency};
 
-use rand::Rng;
 use sp_core::H512;
 use test_client::AccountKeyring;
 
@@ -800,15 +799,28 @@ fn adding_authorizations() {
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
-        let auth_id = Identity::add_auth(
-            alice.clone(),
+        let mut auth_id = Identity::add_auth(
+            alice_did,
             bob_did,
             AuthorizationData::TransferTicker(ticker50),
             None,
         );
-        let auth = Identity::get_authorization(bob_did, auth_id);
+        let mut auth = Identity::get_authorization(bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, None);
+        assert_eq!(
+            auth.authorization_data,
+            AuthorizationData::TransferTicker(ticker50)
+        );
+        auth_id = Identity::add_auth(
+            alice_did,
+            bob_did,
+            AuthorizationData::TransferTicker(ticker50),
+            Some(100),
+        );
+        auth = Identity::get_authorization(bob_did, auth_id);
+        assert_eq!(auth.authorized_by, alice_did);
+        assert_eq!(auth.expiry, Some(100));
         assert_eq!(
             auth.authorization_data,
             AuthorizationData::TransferTicker(ticker50)
@@ -819,12 +831,12 @@ fn adding_authorizations() {
 #[test]
 fn removing_authorizations() {
     ExtBuilder::default().build().execute_with(|| {
-        let _alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
+        let alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
         let auth_id = Identity::add_auth(
-            alice.clone(),
+            alice_did,
             bob_did,
             AuthorizationData::TransferTicker(ticker50),
             None,
@@ -849,6 +861,7 @@ fn adding_links() {
     ExtBuilder::default().build().execute_with(|| {
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
+        let ticker51 = Ticker::from_slice(&[0x51]);
         let mut link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
         let mut link = Identity::get_link(bob_did, link_id);
         assert_eq!(link.expiry, None);
@@ -887,39 +900,32 @@ fn changing_master_key() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
+        let alice_key = AccountKey::from(AccountKeyring::Alice.public().0);
 
         let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let new_key = AccountKey::from(AccountKeyring::Bob.public().0);
         let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
 
-        let _kyc_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let kyc_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let kyc = Origin::signed(AccountKeyring::Charlie.public());
 
         // Master key matches Alice's key
-        assert_eq!(
-            Identity::did_records(alice_did).master_key,
-            AccountKey::from(AccountKeyring::Alice.public().0)
-        );
+        assert_eq!(Identity::did_records(alice_did).master_key, alice_key);
 
         // Alice triggers change of master key
-        assert_ok!(Identity::add_authorization_as_key(
-            alice.clone(),
+        let owner_auth_id = Identity::add_auth(
+            Signatory::AccountKey(alice_key),
             Signatory::AccountKey(new_key),
             AuthorizationData::RotateMasterKey(alice_did),
             None,
-        ));
+        );
 
-        let owner_auth_id = Identity::last_authorization(Signatory::AccountKey(new_key));
-
-        // Charlie a KYC provider approves the change
-        assert_ok!(Identity::add_authorization(
-            kyc.clone(),
+        let kyc_auth_id = Identity::add_auth(
+            Signatory::Identity(kyc_did),
             Signatory::AccountKey(new_key),
             AuthorizationData::AttestMasterKeyRotation(alice_did),
             None,
-        ));
-
-        let kyc_auth_id = Identity::last_authorization(Signatory::AccountKey(new_key));
+        );
 
         // Accept the authorization with the new key
         assert_ok!(Identity::accept_master_key(
