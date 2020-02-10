@@ -73,8 +73,13 @@ fn can_issue_to_identity() {
             value,
             tx_hash: Default::default(),
         };
+        assert_eq!(Bridge::validators(), validator_address);
+        assert_eq!(Bridge::bridge_tx_proposals(bridge_tx.clone()), 0);
         assert_ok!(Bridge::propose_bridge_tx(bob, bridge_tx.clone()));
+        let proposal_id = Bridge::bridge_tx_proposals(bridge_tx.clone());
+        assert_ne!(proposal_id, 0);
         assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
+        assert_eq!(proposal_id, Bridge::bridge_tx_proposals(bridge_tx.clone()));
         let new_bobs_balance = Balances::identity_balance(bob_did);
         assert_eq!(new_bobs_balance, bobs_balance + value);
     });
