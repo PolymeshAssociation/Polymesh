@@ -99,7 +99,7 @@ decl_storage! {
         pub IsDidFrozen get(fn is_did_frozen): map IdentityId => bool;
 
         /// It stores the current identity for current transaction.
-        pub CurrentDid get(fn current_did): Option<IdentityId>;
+        pub CurrentDid: Option<IdentityId>;
 
         /// (DID, claim_key, claim_issuer) -> Associated claims
         pub Claims get(fn claims): map(IdentityId, ClaimMetaData) => Claim<T::Moment>;

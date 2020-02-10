@@ -65,7 +65,7 @@ use polymesh_primitives::{
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     asset::AcceptTransfer, balances::Trait as BalancesTrait, constants::*,
-    identity::Trait as IdentityTrait, CommonTrait,
+    identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -74,7 +74,7 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, ExistenceRequirement, WithdrawReason},
 };
@@ -257,16 +257,8 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let signer = Signatory::AccountKey(sender_key.clone());
-            let to_did =  match <identity::Module<T>>::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::DIDNotFound.into());
-                    }
-                }
-            };
+            let to_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)
+                .ok_or_else(|| DispatchError::from(Error::<T>::DIDNotFound))?;
 
             ticker.canonize();
             ensure!(<identity::Module<T>>::is_signer_authorized(to_did, &signer), "sender must be a signing key for DID");
@@ -300,16 +292,9 @@ decl_module! {
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let to_did =  match <identity::Module<T>>::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::DIDNotFound.into());
-                    }
-                }
-            };
+            let to_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)
+                .ok_or_else(|| DispatchError::from(Error::<T>::DIDNotFound))?;
+;
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
@@ -322,16 +307,9 @@ decl_module! {
         pub fn accept_token_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let to_did =  match <identity::Module<T>>::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::DIDNotFound.into());
-                    }
-                }
-            };
+            let to_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)
+                .ok_or_else(|| DispatchError::from(Error::<T>::DIDNotFound))?;
+
             Self::_accept_token_ownership_transfer(to_did, auth_id)
         }
 
@@ -1247,16 +1225,9 @@ decl_module! {
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did =  match <identity::Module<T>>::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::DIDNotFound.into());
-                    }
-                }
-            };
+            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)
+                .ok_or_else(|| DispatchError::from(Error::<T>::DIDNotFound))?;
+
             ticker.canonize();
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
 
@@ -1279,16 +1250,9 @@ decl_module! {
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did =  match <identity::Module<T>>::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::DIDNotFound.into());
-                    }
-                }
-            };
+            let my_did =  Context::current_identity_or::<identity::Module<T>>(&sender_key)
+                .ok_or_else(|| DispatchError::from(Error::<T>::DIDNotFound))?;
+
             ticker.canonize();
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
             ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
@@ -1308,16 +1272,9 @@ decl_module! {
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did =  match <identity::Module<T>>::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::DIDNotFound.into());
-                    }
-                }
-            };
+            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)
+                .ok_or_else(|| DispatchError::from(Error::<T>::DIDNotFound))?;
+
             ticker.canonize();
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
             ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
