@@ -68,3 +68,7 @@ pub struct Authorization<U> {
     /// Authorization id of this authorization
     pub auth_id: u64,
 }
+
+/// Data required to fetch and authorization
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct AuthIdentifier(pub Signatory, pub u64);

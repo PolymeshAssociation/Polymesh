@@ -39,9 +39,9 @@
 #![recursion_limit = "256"]
 
 use polymesh_primitives::{
-    AccountKey, Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord,
-    IdentityId, Link, LinkData, Permission, PreAuthorizedKeyInfo, Signatory, SignatoryType,
-    SigningItem, Ticker,
+    AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError,
+    Identity as DidRecord, IdentityId, Link, LinkData, Permission, PreAuthorizedKeyInfo, Signatory,
+    SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
     constants::{
@@ -129,11 +129,14 @@ decl_storage! {
         /// Inmediate revoke of any off-chain authorization.
         pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked): map (Signatory, TargetIdAuthorization<T::Moment>) => bool;
 
-        /// All authorizations that an identity has
+        /// All authorizations that an identity/key has
         pub Authorizations: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Authorization<T::Moment>;
 
         /// All links that an identity/key has
         pub Links: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Link<T::Moment>;
+
+        /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
+        pub AuthorizationsGiven: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Signatory;
     }
 }
 
@@ -617,7 +620,7 @@ decl_module! {
 
             ensure!(auth.authorized_by.eq_either(&from_did, &sender_key) || target.eq_either(&from_did, &sender_key) , "Unauthorized");
 
-            Self::remove_auth(target, auth_id);
+            Self::remove_auth(target, auth_id, auth.authorized_by);
 
             Ok(())
         }
@@ -626,7 +629,7 @@ decl_module! {
         pub fn batch_remove_authorization(
             origin,
             // Vec<(target_did, auth_id)>
-            auth_identifiers: Vec<(Signatory, u64)>
+            auth_identifiers: Vec<AuthIdentifier>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did =  match Self::current_did() {
@@ -640,15 +643,18 @@ decl_module! {
                 }
             };
 
-            for auth_identifier in &auth_identifiers {
+            let mut auths = Vec::with_capacity(auth_identifiers.len());
+            for i in 0..auth_identifiers.len() {
+                let auth_identifier = &auth_identifiers[i];
                 ensure!(<Authorizations<T>>::exists(&auth_identifier.0, &auth_identifier.1), "Invalid auth");
 
-                let auth = <Authorizations<T>>::get(&auth_identifier.0, &auth_identifier.1);
-                ensure!(auth.authorized_by.eq_either(&from_did, &sender_key) || auth_identifier.0.eq_either(&from_did, &sender_key) , "Unauthorized");
+                auths.push(<Authorizations<T>>::get(&auth_identifier.0, &auth_identifier.1));
+                ensure!(auths[i].authorized_by.eq_either(&from_did, &sender_key) || auth_identifier.0.eq_either(&from_did, &sender_key) , "Unauthorized");
             }
 
-            for auth_identifier in auth_identifiers {
-                Self::remove_auth(auth_identifier.0, auth_identifier.1);
+            for i in 0..auth_identifiers.len() {
+                let auth_identifier = &auth_identifiers[i];
+                Self::remove_auth(auth_identifier.0, auth_identifier.1, auths[i].authorized_by);
             }
 
             Ok(())
@@ -998,6 +1004,7 @@ impl<T: Trait> Module<T> {
         };
 
         <Authorizations<T>>::insert(target, new_nonce, auth);
+        <AuthorizationsGiven>::insert(from, new_nonce, target);
 
         Self::deposit_event(RawEvent::NewAuthorization(
             new_nonce,
@@ -1011,8 +1018,9 @@ impl<T: Trait> Module<T> {
 
     /// Remove any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
-    pub fn remove_auth(target: Signatory, auth_id: u64) {
+    pub fn remove_auth(target: Signatory, auth_id: u64, authorizer: Signatory) {
         <Authorizations<T>>::remove(target, auth_id);
+        <AuthorizationsGiven>::remove(authorizer, auth_id);
         Self::deposit_event(RawEvent::AuthorizationRemoved(auth_id, target));
     }
 
@@ -1034,7 +1042,7 @@ impl<T: Trait> Module<T> {
                 return Err(AuthorizationError::Expired.into());
             }
         }
-        Self::remove_auth(target, auth_id);
+        Self::remove_auth(target, auth_id, auth.authorized_by);
         Ok(())
     }
 
