@@ -15,7 +15,7 @@ use polymesh_runtime_common::traits::identity::{
 use polymesh_runtime_identity::{self as identity, Error};
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency};
+use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 
 use sp_core::H512;
 use test_client::AccountKeyring;
@@ -805,6 +805,10 @@ fn adding_authorizations() {
             AuthorizationData::TransferTicker(ticker50),
             None,
         );
+        assert_eq!(
+            <identity::AuthorizationsGiven>::get(alice_did, auth_id),
+            bob_did
+        );
         let mut auth = Identity::get_authorization(bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, None);
@@ -817,6 +821,10 @@ fn adding_authorizations() {
             bob_did,
             AuthorizationData::TransferTicker(ticker50),
             Some(100),
+        );
+        assert_eq!(
+            <identity::AuthorizationsGiven>::get(alice_did, auth_id),
+            bob_did
         );
         auth = Identity::get_authorization(bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
@@ -841,6 +849,10 @@ fn removing_authorizations() {
             AuthorizationData::TransferTicker(ticker50),
             None,
         );
+        assert_eq!(
+            <identity::AuthorizationsGiven>::get(alice_did, auth_id),
+            bob_did
+        );
         let auth = Identity::get_authorization(bob_did, auth_id);
         assert_eq!(
             auth.authorization_data,
@@ -851,8 +863,10 @@ fn removing_authorizations() {
             bob_did,
             auth_id
         ));
-        let removed_auth = Identity::get_authorization(bob_did, auth_id);
-        assert_eq!(removed_auth.authorization_data, AuthorizationData::NoData);
+        assert!(!<identity::AuthorizationsGiven>::exists(alice_did, auth_id));
+        assert!(!<identity::Authorizations<TestStorage>>::exists(
+            bob_did, auth_id
+        ));
     });
 }
 
