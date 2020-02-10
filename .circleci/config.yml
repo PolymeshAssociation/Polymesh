@@ -22,32 +22,32 @@ jobs:
           command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
       - run:
           name: Store rust version in an environment var for cache key
-          command: export RUST_VERISON=$(rustc --version) && echo $RUST_VERISON
+          command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - release-cache-{{ checksum "./concatenated.lock" }}-{{ .Environment.RUST_VERISON }}
-            - release-cache-{{ checksum "./Cargo.lock" }}-{{ .Environment.RUST_VERISON }}
-            - release-cache-{{ .Environment.RUST_VERISON }}
+            - release-cache-{{ checksum "./concatenated.lock" }}-{{ checksum "./rust.version" }}
+            - release-cache-{{ checksum "./Cargo.lock" }}-{{ checksum "./rust.version" }}
+            - release-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
           command: cargo build -j 1 --release
           no_output_timeout: 4h
       - save_cache:
-          key: release-cache-{{ checksum "./concatenated.lock" }}-{{ .Environment.RUST_VERISON }}
+          key: release-cache-{{ checksum "./concatenated.lock" }}-{{ checksum "./rust.version" }}
           paths:
             - "~/.cargo"
             - "./target"
             - "./pallets/runtime/target"
             - "./pallets/runtime/wasm/target"
       - save_cache:
-          key: release-cache-{{ checksum "./Cargo.lock" }}-{{ .Environment.RUST_VERISON }}
+          key: release-cache-{{ checksum "./Cargo.lock" }}-{{ checksum "./rust.version" }}
           paths:
             - "~/.cargo"
             - "./target"
             - "./pallets/runtime/target"
             - "./pallets/runtime/wasm/target"
       - save_cache:
-          key: release-cache-{{ .Environment.RUST_VERISON }}
+          key: release-cache-{{ checksum "./rust.version" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -64,34 +64,34 @@ jobs:
           name: Build concatenated lock file for caching
           command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
       - run:
-          name: Store rust version in an environment var for cache key
-          command: export RUST_VERISON=$(rustc --version) && echo $RUST_VERISON
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - debug-cache-{{ checksum "./concatenated.lock" }}-{{ .Environment.RUST_VERISON }}
-            - debug-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ .Environment.RUST_VERISON }}
-            - debug-cache-{{ .Environment.RUST_VERISON }}
+            - debug-cache-{{ checksum "./concatenated.lock" }}-{{ checksum "./rust.version" }}
+            - debug-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./rust.version" }}
+            - debug-cache-{{ checksum "./rust.version" }}
       - run:
           name: runtime tests
           command: cargo test
           working_directory: ./pallets/runtime
           no_output_timeout: 60m
       - save_cache:
-          key: debug-cache-{{ checksum "./concatenated.lock" }}-{{ .Environment.RUST_VERISON }}
+          key: debug-cache-{{ checksum "./concatenated.lock" }}-{{ checksum "./rust.version" }}
           paths:
             - "~/.cargo"
             - "./target"
             - "./pallets/runtime/target"
             - "./pallets/runtime/wasm/target"
       - save_cache:
-          key: release-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ .Environment.RUST_VERISON }}
+          key: release-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./rust.version" }}
           paths:
             - "~/.cargo"
             - "./target"
             - "./pallets/runtime/target"
             - "./pallets/runtime/wasm/target"
       - save_cache:
-          key: debug-cache-{{ .Environment.RUST_VERISON }}
+          key: debug-cache-{{ checksum "./rust.version" }}
           paths:
             - "~/.cargo"
             - "./target"
