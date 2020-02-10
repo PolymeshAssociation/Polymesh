@@ -130,16 +130,10 @@ decl_storage! {
         pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked): map (Signatory, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity has
-        pub Authorizations get(fn authorizations): map(Signatory, u64) => Authorization<T::Moment>;
-
-        /// Auth id of the latest auth of an identity. Used to allow iterating over auths
-        pub LastAuthorization get(fn last_authorization): map Signatory => u64;
+        pub Authorizations: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Authorization<T::Moment>;
 
         /// All links that an identity/key has
-        pub Links get(fn links): map(Signatory, u64) => Link<T::Moment>;
-
-        /// Link id of the latest auth of an identity/key. Used to allow iterating over links
-        pub LastLink get(fn last_link): map Signatory => u64;
+        pub Links: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Link<T::Moment>;
     }
 }
 
@@ -260,11 +254,11 @@ decl_module! {
             let signer = Signatory::from(sender_key);
 
             // When both authorizations are present...
-            ensure!(<Authorizations<T>>::exists((signer, rotation_auth_id)), "Invalid authorization from owner");
-            ensure!(<Authorizations<T>>::exists((signer, kyc_auth_id)), "Invalid authorization from KYC service provider");
+            ensure!(<Authorizations<T>>::exists(signer, rotation_auth_id), "Invalid authorization from owner");
+            ensure!(<Authorizations<T>>::exists(signer, kyc_auth_id), "Invalid authorization from KYC service provider");
 
             // Accept authorization from the owner
-            let rotation_auth = Self::authorizations((signer, rotation_auth_id));
+            let rotation_auth = <Authorizations<T>>::get(signer, rotation_auth_id);
             if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
                 // Ensure the request was made by the owner of master key
                 match rotation_auth.authorized_by {
@@ -276,7 +270,7 @@ decl_module! {
                 };
 
                 // Aceept authorization from KYC service provider
-                let kyc_auth = Self::authorizations((signer, kyc_auth_id));
+                let kyc_auth = <Authorizations<T>>::get(signer, kyc_auth_id);
                 if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
                     // Attestor must be a KYC service provider
                     let kyc_provider_did = match kyc_auth.authorized_by {
@@ -617,13 +611,13 @@ decl_module! {
                 }
             };
 
-            ensure!(<Authorizations<T>>::exists((target, auth_id)), "Invalid auth");
+            ensure!(<Authorizations<T>>::exists(target, auth_id), "Invalid auth");
 
-            let auth = Self::authorizations((target, auth_id));
+            let auth = <Authorizations<T>>::get(target, auth_id);
 
             ensure!(auth.authorized_by.eq_either(&from_did, &sender_key) || target.eq_either(&from_did, &sender_key) , "Unauthorized");
 
-            Self::remove_auth(target, auth_id, auth.next_authorization, auth.previous_authorization);
+            Self::remove_auth(target, auth_id);
 
             Ok(())
         }
@@ -647,16 +641,14 @@ decl_module! {
             };
 
             for auth_identifier in &auth_identifiers {
-                ensure!(<Authorizations<T>>::exists(auth_identifier), "Invalid auth");
+                ensure!(<Authorizations<T>>::exists(&auth_identifier.0, &auth_identifier.1), "Invalid auth");
 
-                let auth = Self::authorizations(auth_identifier);
+                let auth = <Authorizations<T>>::get(&auth_identifier.0, &auth_identifier.1);
                 ensure!(auth.authorized_by.eq_either(&from_did, &sender_key) || auth_identifier.0.eq_either(&from_did, &sender_key) , "Unauthorized");
             }
 
             for auth_identifier in auth_identifiers {
-                let auth = Self::authorizations(&auth_identifier);
-
-                Self::remove_auth(auth_identifier.0, auth_identifier.1, auth.next_authorization, auth.previous_authorization);
+                Self::remove_auth(auth_identifier.0, auth_identifier.1);
             }
 
             Ok(())
@@ -679,8 +671,8 @@ decl_module! {
                 }
             };
 
-            ensure!(<Authorizations<T>>::exists((signer, auth_id)), "Invalid auth");
-            let auth = Self::authorizations((signer, auth_id));
+            ensure!(<Authorizations<T>>::exists(signer, auth_id), "Invalid auth");
+            let auth = <Authorizations<T>>::get(signer, auth_id);
 
             match signer {
                 Signatory::Identity(did) => {
@@ -726,8 +718,8 @@ decl_module! {
                     for auth_id in auth_ids {
                         // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                         // It will just skip that particular authorization.
-                        if <Authorizations<T>>::exists((signer, auth_id)) {
-                            let auth = Self::authorizations((signer, auth_id));
+                        if <Authorizations<T>>::exists(signer, auth_id) {
+                            let auth = <Authorizations<T>>::get(signer, auth_id);
                             // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::TransferTicker(_) =>
@@ -745,8 +737,8 @@ decl_module! {
                     for auth_id in auth_ids {
                         // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                         // It will just skip that particular authorization.
-                        if <Authorizations<T>>::exists((signer, auth_id)) {
-                            let auth = Self::authorizations((signer, auth_id));
+                        if <Authorizations<T>>::exists(signer, auth_id) {
+                            let auth = <Authorizations<T>>::get(signer, auth_id);
                             //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::AddMultiSigSigner =>
@@ -994,30 +986,18 @@ impl<T: Trait> Module<T> {
         target: Signatory,
         authorization_data: AuthorizationData,
         expiry: Option<T::Moment>,
-    ) {
+    ) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
         <MultiPurposeNonce>::put(&new_nonce);
-
-        let last_auth = Self::last_authorization(&target);
-
-        if last_auth > 0 {
-            //0 means no previous auth. 0 is the default value.
-            // Changing the last auth to point to new auth as next auth.
-            <Authorizations<T>>::mutate((target, last_auth), |last_authorization| {
-                last_authorization.next_authorization = new_nonce
-            });
-        }
 
         let auth = Authorization {
             authorization_data: authorization_data.clone(),
             authorized_by: from,
             expiry: expiry,
-            next_authorization: 0,
-            previous_authorization: last_auth,
+            auth_id: new_nonce,
         };
 
-        <LastAuthorization>::insert(&target, new_nonce);
-        <Authorizations<T>>::insert((target, new_nonce), auth);
+        <Authorizations<T>>::insert(target, new_nonce, auth);
 
         Self::deposit_event(RawEvent::NewAuthorization(
             new_nonce,
@@ -1026,38 +1006,24 @@ impl<T: Trait> Module<T> {
             authorization_data,
             expiry,
         ));
+        new_nonce
     }
 
     /// Remove any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
-    pub fn remove_auth(target: Signatory, auth_id: u64, next_auth: u64, previous_auth: u64) {
-        if next_auth != 0 {
-            // update next auth's previous auth to point to previous auth of this auth
-            <Authorizations<T>>::mutate((target, next_auth), |next_auth| {
-                next_auth.previous_authorization = previous_auth
-            });
-        } else {
-            // this was the last auth. update last auth to be previous auth.
-            <LastAuthorization>::insert(&target, previous_auth);
-        }
-        if previous_auth != 0 {
-            // update previous auth's next auth to point to next auth of this auth
-            <Authorizations<T>>::mutate((target, previous_auth), |prev_auth| {
-                prev_auth.next_authorization = next_auth
-            });
-        }
-        <Authorizations<T>>::remove((target, auth_id));
+    pub fn remove_auth(target: Signatory, auth_id: u64) {
+        <Authorizations<T>>::remove(target, auth_id);
         Self::deposit_event(RawEvent::AuthorizationRemoved(auth_id, target));
     }
 
     /// Consumes an authorization.
     /// Checks if the auth has not expired and the caller is authorized to consume this auth.
     pub fn consume_auth(from: Signatory, target: Signatory, auth_id: u64) -> DispatchResult {
-        if !<Authorizations<T>>::exists((target, auth_id)) {
+        if !<Authorizations<T>>::exists(target, auth_id) {
             // Auth does not exist
             return Err(AuthorizationError::Invalid.into());
         }
-        let auth = Self::authorizations((target, auth_id));
+        let auth = <Authorizations<T>>::get(target, auth_id);
         if auth.authorized_by != from {
             // Not authorized to revoke this authorization
             return Err(AuthorizationError::Unauthorized.into());
@@ -1070,11 +1036,17 @@ impl<T: Trait> Module<T> {
         }
         Self::remove_auth(
             target,
-            auth_id,
-            auth.next_authorization,
-            auth.previous_authorization,
+            auth_id
         );
         Ok(())
+    }
+
+    pub fn get_authorization(target: Signatory, auth_id: u64) -> Authorization<T::Moment> {
+        <Authorizations<T>>::get(target, auth_id)
+    }
+
+    pub fn get_link(target: Signatory, link_id: u64) -> Link<T::Moment> {
+        <Links<T>>::get(target, link_id)
     }
 
     /// Adds a link to a key or an identity
@@ -1083,25 +1055,13 @@ impl<T: Trait> Module<T> {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
         <MultiPurposeNonce>::put(&new_nonce);
 
-        let last_link = Self::last_link(&target);
-
-        if last_link > 0 {
-            // 0 means no previous link. 0 is the default value.
-            // Changing the last link to point to new link as next link.
-            <Links<T>>::mutate((target, last_link), |last_link| {
-                last_link.next_link = new_nonce
-            });
-        }
-
         let link = Link {
             link_data: link_data.clone(),
             expiry: expiry,
-            next_link: 0,
-            previous_link: last_link,
+            link_id: new_nonce,
         };
 
-        <LastLink>::insert(&target, new_nonce);
-        <Links<T>>::insert((target, new_nonce), link);
+        <Links<T>>::insert(target, new_nonce, link);
 
         Self::deposit_event(RawEvent::NewLink(new_nonce, target, link_data, expiry));
         new_nonce
@@ -1110,24 +1070,8 @@ impl<T: Trait> Module<T> {
     /// Remove a link (if it exists) from a key or identity
     /// NB: Please do all the required checks before calling this function.
     pub fn remove_link(target: Signatory, link_id: u64) {
-        if <Links<T>>::exists((target, link_id)) {
-            let link = Self::links((target, link_id));
-            if link.next_link != 0 {
-                // update next link's previous link to point to previous link of this link
-                <Links<T>>::mutate((target, link.next_link), |next_link| {
-                    next_link.previous_link = link.previous_link
-                });
-            } else {
-                // this was the last link. update last link to be previous link.
-                <LastLink>::insert(&target, link.previous_link);
-            }
-            if link.previous_link != 0 {
-                // update previous link's next link to point to next link of this link
-                <Links<T>>::mutate((target, link.previous_link), |prev_link| {
-                    prev_link.next_link = link.next_link
-                });
-            }
-            <Links<T>>::remove((target, link_id));
+        if <Links<T>>::exists(target, link_id) {
+            <Links<T>>::remove(target, link_id);
             Self::deposit_event(RawEvent::LinkRemoved(link_id, target));
         }
     }
@@ -1135,8 +1079,8 @@ impl<T: Trait> Module<T> {
     /// Update link data (if it exists) from a key or identity
     /// NB: Please do all the required checks before calling this function.
     pub fn update_link(target: Signatory, link_id: u64, link_data: LinkData) {
-        if <Links<T>>::exists((target, link_id)) {
-            <Links<T>>::mutate((target, link_id), |link| link.link_data = link_data);
+        if <Links<T>>::exists(target, link_id) {
+            <Links<T>>::mutate(target, link_id, |link| link.link_data = link_data);
 
             Self::deposit_event(RawEvent::LinkUpdated(link_id, target));
         }

@@ -1907,11 +1907,11 @@ impl<T: Trait> Module<T> {
     /// Accept and process a ticker transfer
     pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         ensure!(
-            <identity::Authorizations<T>>::exists((Signatory::from(to_did), auth_id)),
+            <identity::Authorizations<T>>::exists(Signatory::from(to_did), auth_id),
             AuthorizationError::from(AuthorizationError::Invalid)
         );
 
-        let auth = <identity::Module<T>>::authorizations((Signatory::from(to_did), auth_id));
+        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
 
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferTicker(ticker) => {
@@ -1958,11 +1958,11 @@ impl<T: Trait> Module<T> {
     /// Accept and process a token ownership transfer
     pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         ensure!(
-            <identity::Authorizations<T>>::exists((Signatory::from(to_did), auth_id)),
+            <identity::Authorizations<T>>::exists(Signatory::from(to_did), auth_id),
             AuthorizationError::from(AuthorizationError::Invalid)
         );
 
-        let auth = <identity::Module<T>>::authorizations((Signatory::from(to_did), auth_id));
+        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
 
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferTokenOwnership(ticker) => {
