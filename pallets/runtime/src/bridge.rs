@@ -46,9 +46,9 @@ decl_storage! {
         /// The multisig account of the bridge validator set.
         Validators get(validators) config(): T::AccountId;
         /// Correspondence between validator set change proposals and multisig proposal IDs.
-        ChangeValidatorsProposals get(change_validators_proposals): map T::AccountId => u64;
+        ChangeValidatorsProposals get(change_validators_proposals): map T::AccountId => Option<u64>;
         /// Correspondence between bridge transaction proposals and multisig proposal IDs.
-        BridgeTxProposals get(bridge_tx_proposals): map hasher(blake2_256) BridgeTx<T::AccountId> => u64;
+        BridgeTxProposals get(bridge_tx_proposals): map hasher(blake2_256) BridgeTx<T::AccountId> => Option<u64>;
         /// Pending issuance transactions to identities.
         PendingTxs get(pending_txs): map IdentityId => Vec<BridgeTx<T::AccountId>>;
     }
@@ -112,14 +112,26 @@ decl_module! {
         /// approving an existing proposal if the change has already been proposed.
         pub fn propose_change_validators(origin, new_validators: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
-            let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let sender_did =  <identity::Module<T>>::current_did().map_or_else(|| {
+                <identity::Module<T>>::get_identity(&sender_key)
+                    .ok_or_else(|| Error::<T>::IdentityMissing)
+            }, Ok)?;
+            let sender_signer = Signatory::from(sender_did);
             let current_validators = Self::validators();
             if current_validators == Default::default() {
                 // There are no validators to approve the change. Simply set the given validators.
                 <Validators<T>>::put(new_validators);
-            } else {
-                let proposal_id = Self::change_validators_proposals(new_validators.clone());
-                if proposal_id == 0 {
+            } else if current_validators != new_validators {
+                // Change validators only if the new validator set has a different address.
+                if let Some(proposal_id) = Self::change_validators_proposals(new_validators.clone()) {
+                    // This is an existing proposal.
+                    <multisig::Module<T>>::approve_as_identity(
+                        origin,
+                        current_validators,
+                        proposal_id
+                    )?;
+                } else {
                     // This is a new proposal.
                     let proposal = <T as Trait>::Proposal::from(
                         Call::<T>::handle_change_validators(new_validators.clone())
@@ -131,13 +143,6 @@ decl_module! {
                         sender_signer
                     )?;
                     <ChangeValidatorsProposals<T>>::insert(new_validators, proposal_id);
-                } else {
-                    // This is an existing proposal.
-                    <multisig::Module<T>>::approve_as_identity(
-                        origin,
-                        current_validators,
-                        proposal_id
-                    )?;
                 }
             }
             Ok(())
@@ -149,15 +154,17 @@ decl_module! {
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let sender_did =  <identity::Module<T>>::current_did().map_or_else(|| {
+            let sender_did = <identity::Module<T>>::current_did().map_or_else(|| {
                 <identity::Module<T>>::get_identity(&sender_key)
                     .ok_or_else(|| Error::<T>::IdentityMissing)
             }, Ok)?;
             let sender_signer = Signatory::from(sender_did);
             let validators = Self::validators();
             ensure!(validators != Default::default(), "bridge validators not set");
-            let proposal_id = Self::bridge_tx_proposals(bridge_tx.clone());
-            if proposal_id == 0 {
+            if let Some(proposal_id) = Self::bridge_tx_proposals(bridge_tx.clone()) {
+                // This is an existing proposal.
+                <multisig::Module<T>>::approve_as_identity(origin, validators, proposal_id)?;
+            } else {
                 // The proposal is new.
                 let proposal = <T as Trait>::Proposal::from(
                     Call::<T>::handle_bridge_tx(bridge_tx.clone())
@@ -169,9 +176,6 @@ decl_module! {
                     sender_signer
                 )?;
                 <BridgeTxProposals<T>>::insert(bridge_tx, proposal_id);
-            } else {
-                // This is an existing proposal.
-                <multisig::Module<T>>::approve_as_identity(origin, validators, proposal_id)?;
             }
             Ok(())
         }
@@ -239,11 +243,13 @@ decl_module! {
                 <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
                 Self::deposit_event(RawEvent::Pending(PendingTx{
                     did,
-                    bridge_tx
+                    bridge_tx: bridge_tx.clone()
                 }));
             } else {
-                Self::deposit_event(RawEvent::Bridged(bridge_tx));
+                Self::deposit_event(RawEvent::Bridged(bridge_tx.clone()));
             }
+            // Remove the record of the ongoing proposal.
+            <BridgeTxProposals<T>>::remove(&bridge_tx);
             Ok(())
         }
     }
