@@ -1,6 +1,11 @@
 {
     "IdentityId":"H256",
     "Ticker": "[u8; 12]",
+    "Document": {
+        "name": "Vec<u8>",
+        "uri": "Vec<u8>",
+        "hash": "Vec<u8>"
+    },
     "AssetType": {
         "_enum": {
             "Equity": "",
@@ -22,7 +27,8 @@
         "total_supply": "Balance",
         "owner_did": "IdentityId",
         "divisible": "bool",
-        "asset_type": "AssetType"
+        "asset_type": "AssetType",
+        "link_id": "u64"
     },
     "LinkedKeyInfo": {
         "_enum": {
@@ -30,20 +36,14 @@
             "Group": "Vec<IdentityId>"
         }
     },
-    "LinkData": {
-        "_enum": {
-            "TickerOwned": "Vec<u8>",
-            "TokenOwned": "Vec<u8>"
-        }
-    },
-    "Key": "[u8;32]",
+    "AccountKey": "[u8;32]",
     "Permission": {
         "_enum": [
             "Full",
             "Admin",
             "Operator",
             "SpendFunds"
-       ]
+        ]
     },
     "Link": {
         "link_data": "LinkData",
@@ -53,11 +53,12 @@
     },
     "LinkData": {
        "_enum": {
+            "DocumentOwned": "Document",
             "TickerOwned": "Ticker",
             "TokenOwned": "Ticker"
-       }
+        }
     },
-    "SignerType": {
+    "SignatoryType": {
         "_enum": [
             "External",
             "Identity",
@@ -65,15 +66,15 @@
             "Relayer"
         ]
     },
-    "Signer":{
-       "_enum": {
+    "Signatory":{
+        "_enum": {
             "Identity": "IdentityId",
-            "Key": "Key"
+            "AccountKey": "AccountKey"
         }
     },
     "SigningItem": {
-        "signer": "Signer",
-        "signer_type": "SignerType",
+        "signer": "Signatory",
+        "signer_type": "SignatoryType",
         "permissions": "Vec<Permission>"
     },
     "SigningItemWithAuth":{
@@ -100,7 +101,7 @@
     },
     "DidRecord": {
         "roles": "Vec<IdentityRole>",
-        "master_key": "Key",
+        "master_key": "AccountKey",
         "signing_items": "Vec<SigningItem>"
     },
     "Claim": {
@@ -189,7 +190,8 @@
     },
     "TickerRegistration": {
         "owner": "IdentityId",
-        "expiry": "Option<Moment>"
+        "expiry": "Option<Moment>",
+        "link_id": "u64"
     },
     "TickerRegistrationConfig": {
         "max_ticker_length": "u8",
@@ -218,7 +220,7 @@
         "end": "u64",
         "proposal_hash": "Hash"
     },
-    "Votes": {
+    "PolymeshVotes": {
         "index": "u32",
         "ayes": "Vec<(IdentityId, Balance)>",
         "nays": "Vec<(IdentityId, Balance)>"
@@ -229,6 +231,15 @@
             "High",
             "Normal"
         ]
+    },
+    "MIP": {
+        "index": "MipsIndex",
+        "proposal":"Call"
+    },
+    "PolymeshReferendumInfo": {
+        "index": "MipsIndex",
+        "priority": "MipsPriority",
+        "proposal_hash": "Hash"
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
@@ -248,6 +259,8 @@
     },
     "AuthorizationData": {
         "_enum": {
+            "AttestMasterKeyRotation": "IdentityId",
+            "RotateMasterKey": "IdentityId",
             "TransferTicker": "Ticker",
             "AddMultiSigSigner": "",
             "TransferTokenOwnership": "Ticker",
@@ -261,5 +274,31 @@
             "Active"
         ]
     },
-    "AuthorizationNonce": "u64"
+    "SmartExtensionType": {
+        "_enum": {
+            "TransferManager": "",
+            "Offerings": "",
+            "Custom": "Vec<u8>"
+        }
+    },
+    "SmartExtension": {
+        "extension_type": "SmartExtensionType",
+        "extension_name": "Vec<u8>",
+        "extension_id": "IdentityId",
+        "is_archive": "bool"
+    },
+    "ProportionMatch": {
+        "_enum": [
+            "AtLeast",
+            "MoreThan"
+        ]
+    },
+    "AuthorizationNonce": "u64",
+    "Counter": "u64",
+    "Commission": {
+        "_enum": {
+            "Individual": "",
+            "Global": "u32"
+        }
+    }
 }

@@ -72,12 +72,12 @@ pub mod identity;
 pub use identity::Identity;
 
 /// Key is strong type which stores bytes representing the key.
-pub mod key;
-pub use key::Key;
+pub mod account_key;
+pub use account_key::AccountKey;
 
 /// This module contains entities related with signing keys.
 pub mod signing_item;
-pub use signing_item::{Permission, Signer, SignerType, SigningItem};
+pub use signing_item::{Permission, Signatory, SignatoryType, SigningItem};
 
 /// This module defines the needed information to add a pre-authorized key into an identity.
 pub mod pre_authorized_key_info;
@@ -98,6 +98,13 @@ pub use link::LinkData;
 
 pub mod ticker;
 pub use ticker::Ticker;
+
+pub mod smart_extension;
+pub use smart_extension::SmartExtension;
+pub use smart_extension::SmartExtensionType;
+
+pub mod document;
+pub use document::Document;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

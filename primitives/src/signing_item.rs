@@ -5,7 +5,7 @@ use sp_std::{
     vec,
 };
 
-use crate::{IdentityId, Key};
+use crate::{AccountKey, IdentityId};
 
 // use crate::entity::IgnoredCaseString;
 
@@ -27,7 +27,7 @@ pub enum Permission {
 /// Signing key type.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
-pub enum SignerType {
+pub enum SignatoryType {
     External,
     Identity,
     MultiSig,
@@ -35,83 +35,83 @@ pub enum SignerType {
     Custom(u8),
 }
 
-impl Default for SignerType {
+impl Default for SignatoryType {
     fn default() -> Self {
-        SignerType::External
+        SignatoryType::External
     }
 }
 
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
-pub enum Signer {
+pub enum Signatory {
     Identity(IdentityId),
-    Key(Key),
+    AccountKey(AccountKey),
 }
 
-impl Default for Signer {
+impl Default for Signatory {
     fn default() -> Self {
-        Signer::Identity(IdentityId::default())
+        Signatory::Identity(IdentityId::default())
     }
 }
 
-impl From<Key> for Signer {
-    fn from(v: Key) -> Self {
-        Signer::Key(v)
+impl From<AccountKey> for Signatory {
+    fn from(v: AccountKey) -> Self {
+        Signatory::AccountKey(v)
     }
 }
 
-impl From<IdentityId> for Signer {
+impl From<IdentityId> for Signatory {
     fn from(v: IdentityId) -> Self {
-        Signer::Identity(v)
+        Signatory::Identity(v)
     }
 }
 
-impl PartialEq<Key> for Signer {
-    fn eq(&self, other: &Key) -> bool {
+impl PartialEq<AccountKey> for Signatory {
+    fn eq(&self, other: &AccountKey) -> bool {
         match self {
-            Signer::Key(ref key) => key == other,
+            Signatory::AccountKey(ref key) => key == other,
             _ => false,
         }
     }
 }
 
-impl PartialEq<IdentityId> for Signer {
+impl PartialEq<IdentityId> for Signatory {
     fn eq(&self, other: &IdentityId) -> bool {
         match self {
-            Signer::Identity(ref id) => id == other,
+            Signatory::Identity(ref id) => id == other,
             _ => false,
         }
     }
 }
 
-impl Signer {
-    /// Checks if Signer is either a particular Identity or a particular key
-    pub fn eq_either(&self, other_identity: &IdentityId, other_key: &Key) -> bool {
+impl Signatory {
+    /// Checks if Signatory is either a particular Identity or a particular key
+    pub fn eq_either(&self, other_identity: &IdentityId, other_key: &AccountKey) -> bool {
         match self {
-            Signer::Key(ref key) => key == other_key,
-            Signer::Identity(ref id) => id == other_identity,
+            Signatory::AccountKey(ref key) => key == other_key,
+            Signatory::Identity(ref id) => id == other_identity,
         }
     }
 }
 
-impl PartialOrd for Signer {
+impl PartialOrd for Signatory {
     /// Any key is less than any Identity.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Signer {
+impl Ord for Signatory {
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
-            Signer::Identity(id) => match other {
-                Signer::Identity(other_id) => id.cmp(other_id),
-                Signer::Key(..) => Ordering::Greater,
+            Signatory::Identity(id) => match other {
+                Signatory::Identity(other_id) => id.cmp(other_id),
+                Signatory::AccountKey(..) => Ordering::Greater,
             },
-            Signer::Key(key) => match other {
-                Signer::Key(other_key) => key.cmp(other_key),
-                Signer::Identity(..) => Ordering::Less,
+            Signatory::AccountKey(key) => match other {
+                Signatory::AccountKey(other_key) => key.cmp(other_key),
+                Signatory::Identity(..) => Ordering::Less,
             },
         }
     }
@@ -121,17 +121,17 @@ impl Ord for Signer {
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 pub struct SigningItem {
-    pub signer: Signer,
-    pub signer_type: SignerType,
+    pub signer: Signatory,
+    pub signer_type: SignatoryType,
     pub permissions: Vec<Permission>,
 }
 
 impl SigningItem {
     /// It creates an 'External' signing key.
-    pub fn new(signer: Signer, permissions: Vec<Permission>) -> Self {
+    pub fn new(signer: Signatory, permissions: Vec<Permission>) -> Self {
         Self {
             signer,
-            signer_type: SignerType::External,
+            signer_type: SignatoryType::External,
             permissions,
         }
     }
@@ -146,15 +146,15 @@ impl SigningItem {
     }
 }
 
-impl From<Key> for SigningItem {
-    fn from(s: Key) -> Self {
-        Self::new(Signer::Key(s), vec![])
+impl From<AccountKey> for SigningItem {
+    fn from(s: AccountKey) -> Self {
+        Self::new(Signatory::AccountKey(s), vec![])
     }
 }
 
 impl From<IdentityId> for SigningItem {
     fn from(id: IdentityId) -> Self {
-        Self::new(Signer::Identity(id), vec![])
+        Self::new(Signatory::Identity(id), vec![])
     }
 }
 
@@ -166,8 +166,8 @@ impl PartialEq for SigningItem {
     }
 }
 
-impl PartialEq<Key> for SigningItem {
-    fn eq(&self, other: &Key) -> bool {
+impl PartialEq<AccountKey> for SigningItem {
+    fn eq(&self, other: &AccountKey) -> bool {
         self.signer == *other
     }
 }
@@ -193,19 +193,19 @@ impl Ord for SigningItem {
 
 #[cfg(test)]
 mod tests {
-    use super::{Key, Permission, Signer, SigningItem};
+    use super::{AccountKey, Permission, Signatory, SigningItem};
     use crate::IdentityId;
     use std::convert::{From, TryFrom};
 
     #[test]
     fn build_test() {
-        let key = Key::try_from("ABCDABCD".as_bytes()).unwrap();
-        let rk1 = SigningItem::new(Signer::Key(key.clone()), vec![]);
+        let key = AccountKey::try_from("ABCDABCD".as_bytes()).unwrap();
+        let rk1 = SigningItem::new(Signatory::AccountKey(key.clone()), vec![]);
         let rk2 = SigningItem::from(key.clone());
         assert_eq!(rk1, rk2);
 
         let rk3 = SigningItem::new(
-            Signer::Key(key.clone()),
+            Signatory::AccountKey(key.clone()),
             vec![Permission::Operator, Permission::Admin],
         );
         assert_ne!(rk1, rk3);
@@ -226,9 +226,9 @@ mod tests {
 
     #[test]
     fn full_permission_test() {
-        let key = Key::try_from("ABCDABCD".as_bytes()).unwrap();
-        let full_key = SigningItem::new(Signer::Key(key.clone()), vec![Permission::Full]);
-        let not_full_key = SigningItem::new(Signer::Key(key), vec![Permission::Operator]);
+        let key = AccountKey::try_from("ABCDABCD".as_bytes()).unwrap();
+        let full_key = SigningItem::new(Signatory::AccountKey(key.clone()), vec![Permission::Full]);
+        let not_full_key = SigningItem::new(Signatory::AccountKey(key), vec![Permission::Operator]);
         assert_eq!(full_key.has_permission(Permission::Operator), true);
         assert_eq!(full_key.has_permission(Permission::Admin), true);
 
@@ -239,14 +239,14 @@ mod tests {
     #[test]
     fn signer_build_and_eq_tests() {
         let k = "ABCDABCD".as_bytes().to_vec();
-        let key = Key::try_from(k.as_slice()).unwrap();
+        let key = AccountKey::try_from(k.as_slice()).unwrap();
         let iden = IdentityId::try_from(
             "did:poly:f1d273950ddaf693db228084d63ef18282e00f91997ae9df4f173f09e86d0976",
         )
         .unwrap();
-        assert_eq!(Signer::from(key), key);
-        assert_ne!(Signer::from(key), iden);
-        assert_eq!(Signer::from(iden), iden);
-        assert_ne!(Signer::from(iden), key);
+        assert_eq!(Signatory::from(key), key);
+        assert_ne!(Signatory::from(key), iden);
+        assert_eq!(Signatory::from(iden), iden);
+        assert_ne!(Signatory::from(iden), key);
     }
 }

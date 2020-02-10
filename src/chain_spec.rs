@@ -1,21 +1,17 @@
-pub use polymesh_runtime;
-
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::{AccountId, Signature};
-use polymesh_runtime::asset::TickerRegistrationConfig;
-use polymesh_runtime::committee::ProportionMatch;
-use polymesh_runtime::constants::{currency::MILLICENTS, currency::POLY};
 use polymesh_runtime::{
+    asset::TickerRegistrationConfig,
+    committee::ProportionMatch,
     config::{
         AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
-        MIPSConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
+        MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
     },
-    runtime::CommitteeMembershipConfig,
-    runtime::KYCServiceProvidersConfig,
-    runtime::PolymeshCommitteeConfig,
-    Perbill, SessionKeys, StakerStatus, WASM_BINARY,
+    runtime::{CommitteeMembershipConfig, KycServiceProvidersConfig, PolymeshCommitteeConfig},
+    Commission, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
+use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
 use sc_service::Properties;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -92,7 +88,6 @@ impl Alternative {
                             get_account_id_from_seed::<sr25519::Public>("Alice"),
                             get_account_id_from_seed::<sr25519::Public>("Bob"),
                             get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
                         ],
                         true,
                     )
@@ -111,8 +106,6 @@ impl Alternative {
                         vec![
                             get_authority_keys_from_seed("Alice"),
                             get_authority_keys_from_seed("Bob"),
-                            get_authority_keys_from_seed("Charlie"),
-                            get_authority_keys_from_seed("Dave"),
                         ],
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
                         vec![
@@ -120,14 +113,9 @@ impl Alternative {
                             get_account_id_from_seed::<sr25519::Public>("Bob"),
                             get_account_id_from_seed::<sr25519::Public>("Charlie"),
                             get_account_id_from_seed::<sr25519::Public>("Dave"),
-                            get_account_id_from_seed::<sr25519::Public>("Eve"),
-                            get_account_id_from_seed::<sr25519::Public>("Ferdie"),
                             get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
                             get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
                             get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                            get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                            get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                            get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                         ],
                         true,
                     )
@@ -219,7 +207,7 @@ fn testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GenesisConfig {
-    const STASH: u128 = 100 * POLY;
+    const STASH: u128 = 30_000_000_000 * POLY; //30G Poly
     let _desired_seats = (endowed_accounts.len() / 2 - initial_authorities.len()) as u32;
     GenesisConfig {
         frame_system: Some(SystemConfig {
@@ -244,7 +232,7 @@ fn testnet_genesis(
             balances: endowed_accounts
                 .iter()
                 .cloned()
-                .map(|k| (k, 1 << 60))
+                .map(|k| (k, 1 << 55))
                 .collect(),
             vesting: vec![],
         }),
@@ -273,9 +261,13 @@ fn testnet_genesis(
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: Perbill::from_percent(10),
+            validator_commission: Commission::Global(Perbill::from_rational_approximation(
+                1u64, 4u64,
+            )),
+            min_bond_threshold: 0,
             ..Default::default()
         }),
-        mips: Some(MIPSConfig {
+        mips: Some(MipsConfig {
             min_proposal_deposit: 5000,
             quorum_threshold: 100000,
             proposal_duration: 50,
@@ -300,7 +292,7 @@ fn testnet_genesis(
             vote_threshold: (ProportionMatch::AtLeast, 1, 2),
             phantom: Default::default(),
         }),
-        group_Instance2: Some(KYCServiceProvidersConfig {
+        group_Instance2: Some(KycServiceProvidersConfig {
             members: vec![],
             phantom: Default::default(),
         }),
