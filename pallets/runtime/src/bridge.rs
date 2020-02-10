@@ -8,7 +8,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
 use frame_support::{
-    decl_event, decl_module, decl_storage, ensure, weights::GetDispatchInfo, Parameter,
+    decl_error, decl_event, decl_module, decl_storage, ensure, weights::GetDispatchInfo, Parameter,
 };
 use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
@@ -28,6 +28,17 @@ pub trait Trait: BalancesTrait + multisig::Trait {
         + Parameter
         + Dispatchable<Origin = Self::Origin>
         + GetDispatchInfo;
+}
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// The validator does not have an identity.
+        IdentityMissing,
+        /// Failure to credit the recipient account.
+        CannotCreditAccount,
+        /// Failure to credit the recipient identity.
+        CannotCreditIdentity,
+    }
 }
 
 decl_storage! {
@@ -92,6 +103,8 @@ decl_event! {
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = Error<T>;
+
         fn deposit_event() = default;
 
         /// Proposes to change the address of the bridge validator multisig accountn, which amounts
@@ -135,7 +148,12 @@ decl_module! {
         /// transaction has already been proposed.
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
-            let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let sender_did =  <identity::Module<T>>::current_did().map_or_else(|| {
+                <identity::Module<T>>::get_identity(&sender_key)
+                    .ok_or_else(|| Error::<T>::IdentityMissing)
+            }, Ok)?;
+            let sender_signer = Signatory::from(sender_did);
             let validators = Self::validators();
             ensure!(validators != Default::default(), "bridge validators not set");
             let proposal_id = Self::bridge_tx_proposals(bridge_tx.clone());
@@ -260,7 +278,7 @@ impl<T: Trait> Module<T> {
                 } else {
                     <balances::Module<T>>::resolve_into_existing_identity(&did, neg_imbalance)
                 };
-                resolution.map_err(|_| "failed to credit the recipient account")?;
+                resolution.map_err(|_| Error::<T>::CannotCreditAccount)?;
             } else {
                 return Ok(Some(PendingTx {
                     did,
@@ -272,7 +290,7 @@ impl<T: Trait> Module<T> {
             let amount = <T as Trait>::Balance::from(*value).into();
             let neg_imbalance = <balances::Module<T>>::issue(amount);
             <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
-                .map_err(|_| "failed to credit the recipient identity")?;
+                .map_err(|_| Error::<T>::CannotCreditIdentity)?;
         }
         Ok(None)
     }

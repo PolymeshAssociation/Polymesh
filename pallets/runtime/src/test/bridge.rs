@@ -1,10 +1,10 @@
+use crate::test::storage::{
+    register_keyring_account, register_keyring_account_with_balance, Call, TestStorage,
+};
+use crate::test::ExtBuilder;
 use crate::{
     bridge::{self, BridgeTx, IssueRecipient, PendingTx},
     multisig,
-    test::{
-        storage::{register_keyring_account, Call, TestStorage},
-        ExtBuilder,
-    },
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_identity as identity;
@@ -22,14 +22,26 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 #[test]
 fn can_issue_to_identity() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let alice_did =
+            register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+        let bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+        let charlie_did =
+            register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
+        assert_ok!(Balances::top_up_identity_balance(
+            alice.clone(),
+            alice_did,
+            555
+        ));
+        assert_ok!(Balances::top_up_identity_balance(bob.clone(), bob_did, 555));
+        assert_ok!(Balances::top_up_identity_balance(
+            charlie.clone(),
+            charlie_did,
+            555
+        ));
         let validator_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
-        let bobs_balance = Balances::identity_balance(bob_did);
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![
@@ -64,9 +76,12 @@ fn can_issue_to_identity() {
             MultiSig::ms_signers((validator_address, Signatory::from(charlie_did))),
             true
         );
-        assert_ok!(Bridge::propose_change_validators(alice, validator_address));
+        assert_ok!(Bridge::propose_change_validators(
+            alice.clone(),
+            validator_address
+        ));
         assert_eq!(Bridge::validators(), validator_address);
-        let value = 1_000_000;
+        let value = 1_000_000_000_000_000;
         let bridge_tx = BridgeTx {
             nonce: 1,
             recipient: IssueRecipient::Identity(bob_did),
@@ -76,6 +91,7 @@ fn can_issue_to_identity() {
         assert_eq!(Bridge::validators(), validator_address);
         assert_eq!(Bridge::bridge_tx_proposals(bridge_tx.clone()), 0);
         assert_ok!(Bridge::propose_bridge_tx(bob, bridge_tx.clone()));
+        let bobs_balance = Balances::identity_balance(bob_did);
         let proposal_id = Bridge::bridge_tx_proposals(bridge_tx.clone());
         assert_ne!(proposal_id, 0);
         assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
