@@ -1,7 +1,7 @@
 use crate::{runtime, Runtime};
 
 use polymesh_primitives::{AccountKey, IdentityId, TransactionError};
-use polymesh_runtime_common::identity::LinkedKeyInfo;
+use polymesh_runtime_common::{ identity::LinkedKeyInfo, Context };
 use polymesh_runtime_identity as identity;
 
 use sp_runtime::{
@@ -91,7 +91,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
                 let id_opt = Self::identity_from_key(who);
                 if let Some(id) = id_opt.clone() {
                     if Identity::has_valid_kyc(id) {
-                        Identity::set_current_did(id_opt);
+                        Context::set_current_identity::<Identity>(id_opt);
                         Ok(ValidTransaction::default())
                     } else {
                         Err(InvalidTransaction::Custom(TransactionError::RequiredKYC as u8).into())
@@ -106,7 +106,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
 
     /// It clears the `Identity::current_did` after transaction.
     fn post_dispatch(_pre: Self::Pre, _info: Self::DispatchInfo, _len: usize) {
-        Identity::set_current_did(None);
+        Context::set_current_identity::<Identity>(None);
     }
 }
 
