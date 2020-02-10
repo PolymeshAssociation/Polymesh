@@ -87,6 +87,7 @@ pub use pre_authorized_key_info::PreAuthorizedKeyInfo;
 pub mod authorization;
 /// Pub Traits
 pub mod traits;
+pub use authorization::AuthIdentifier;
 pub use authorization::Authorization;
 pub use authorization::AuthorizationData;
 pub use authorization::AuthorizationError;
