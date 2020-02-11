@@ -2,35 +2,10 @@ use crate::traits::identity::IdentityTrait;
 
 use polymesh_primitives::{AccountKey, IdentityId};
 
-/*
-use lazy_static::lazy_static;
-use parking_lot::{RwLock},
-use std::sync::{Arc, RwLock};
-
-lazy_static! {
-    static ref  CONTEXT: Arc<RwLock<Context>> = Arc::new( RwLock::new( Context::default()));
-}
-
-#[derive(Default)]
-pub struct Context {
-    identity: Option<IdentityId>
-}
-
-impl Context {
-    pub fn current_identity() -> Option<IdentityId> {
-        CONTEXT.read().unwrap().identity.clone()
-    }
-
-    pub fn set_current_identity( id: Option<IdentityId>) {
-        CONTEXT.write().unwrap().identity = id
-    }
-
-    pub fn current_identity_or<I: IdentityTrait>( key: &AccountKey) -> Option<IdentityId> {
-        Self::current_identity().or_else( || I::get_identity(key))
-    }
-}
-*/
-
+/// Helper class to access to some context information.
+/// Currently it allows to access to
+///     - `current_identity` throught an `IdentityTrait`, because it is stored using extrinsics.
+///     .
 #[derive(Default)]
 pub struct Context {}
 
@@ -43,6 +18,9 @@ impl Context {
         I::set_current_identity(id)
     }
 
+    /// It gets the current identity and if it is none, it will use the identity from `key`.
+    /// This funtion is a helper tool for testing where SignedExtension is not used and
+    /// `current_identity` is always none.
     pub fn current_identity_or<I: IdentityTrait>(key: &AccountKey) -> Option<IdentityId> {
         Self::current_identity::<I>().or_else(|| I::get_identity(key))
     }
@@ -53,11 +31,15 @@ mod test {
     use super::*;
     use polymesh_primitives::{Permission, Signatory};
 
-    use std::{collections::BTreeMap, convert::From, thread};
+    use lazy_static::lazy_static;
+    use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
     use test_client::AccountKeyring;
 
+    lazy_static! {
+        pub static ref CURR_IDENTITY: RwLock<Option<IdentityId>> = RwLock::new(None);
+    }
+
     struct IdentityTest {}
-    // key2Id: BTreeMap<AccountId, IdentityId>,
 
     impl IdentityTrait for IdentityTest {
         fn get_identity(key: &AccountKey) -> Option<IdentityId> {
@@ -74,6 +56,16 @@ mod test {
             } else {
                 None
             }
+        }
+
+        fn current_identity() -> Option<IdentityId> {
+            let r = CURR_IDENTITY.read().unwrap();
+            r.clone()
+        }
+
+        fn set_current_identity(id: Option<IdentityId>) {
+            let mut w = CURR_IDENTITY.write().unwrap();
+            *w = id;
         }
 
         fn is_signer_authorized(_did: IdentityId, _signer: &Signatory) -> bool {
@@ -95,28 +87,31 @@ mod test {
 
     #[test]
     fn context_functions() -> Result<(), &'static str> {
-        assert_eq!(Context::current_identity(), None);
-        Context::set_current_identity(Some(IdentityId::from(42)));
+        assert_eq!(Context::current_identity::<IdentityTest>(), None);
+        Context::set_current_identity::<IdentityTest>(Some(IdentityId::from(42)));
 
         let _ = thread::spawn(|| {
-            let id = Context::current_identity();
+            let id = Context::current_identity::<IdentityTest>();
             assert_eq!(id, Some(IdentityId::from(42u128)));
-            Context::set_current_identity(None);
+            Context::set_current_identity::<IdentityTest>(None);
         })
         .join()
         .map_err(|_| "Poison error")?;
 
-        assert_eq!(Context::current_identity(), None);
+        assert_eq!(Context::current_identity::<IdentityTest>(), None);
 
         let _ = thread::spawn(|| {
-            let id = Context::current_identity();
+            let id = Context::current_identity::<IdentityTest>();
             assert_eq!(id, None);
-            Context::set_current_identity(Some(IdentityId::from(15)));
+            Context::set_current_identity::<IdentityTest>(Some(IdentityId::from(15)));
         })
         .join()
         .map_err(|_| "Poison error")?;
 
-        assert_eq!(Context::current_identity(), Some(IdentityId::from(15)));
+        assert_eq!(
+            Context::current_identity::<IdentityTest>(),
+            Some(IdentityId::from(15))
+        );
 
         // Check "or" option.
         let alice = AccountKey::from(AccountKeyring::Alice.public().0);
@@ -124,7 +119,7 @@ mod test {
             Context::current_identity_or::<IdentityTest>(&alice),
             Some(IdentityId::from(15))
         );
-        Context::set_current_identity(None);
+        Context::set_current_identity::<IdentityTest>(None);
         assert_eq!(
             Context::current_identity_or::<IdentityTest>(&alice),
             Some(IdentityId::from(1))
