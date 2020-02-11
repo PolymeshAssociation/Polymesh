@@ -181,7 +181,7 @@ pub enum RestrictionResult {
 
 impl Default for RestrictionResult {
     fn default() -> Self {
-        RestrictionResult::Valid
+        RestrictionResult::Invalid
     }
 }
 
@@ -1714,7 +1714,7 @@ impl<T: Trait> Module<T> {
         } else {
             let mut final_result = true;
             let mut is_valid = false;
-            let mut is_in_valid = false;
+            let mut is_invalid = false;
             let mut force_valid = false;
             let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
                 .into_iter()
@@ -1730,25 +1730,14 @@ impl<T: Trait> Module<T> {
                         value,
                         tm,
                     );
-                    if result == RestrictionResult::Valid {
-                        is_valid = true;
-                    } else if result == RestrictionResult::Invalid {
-                        is_in_valid = true;
-                    } else if result == RestrictionResult::ForceValid {
-                        force_valid = true;
+                    match result {
+                        RestrictionResult::Valid => {is_valid = true},
+                        RestrictionResult::Invalid => {is_invalid = true},
+                        RestrictionResult::ForceValid => {force_valid = true}
                     }
                 }
-                //is_valid = force_valid ? true : (is_in_valid ? false : is_valid);
-                is_valid = if !force_valid {
-                    if is_in_valid {
-                        false
-                    } else {
-                        is_valid
-                    }
-                } else {
-                    true
-                };
-                final_result = is_valid;
+                //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
+                final_result = force_valid || !is_invalid && is_valid;
             }
             if final_result {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
@@ -2061,8 +2050,8 @@ impl<T: Trait> Module<T> {
 
         // Creation of the encoded data for the verifyTransfer function of the extension
         // i.e fn verify_transfer(
-        //        from: IdentityId,
-        //        to: IdentityId,
+        //        from: Option<IdentityId>,
+        //        to: Option<IdentityId>,
         //        value: Balance,
         //        balance_from: Balance,
         //        balance_to: Balance,
@@ -2071,8 +2060,8 @@ impl<T: Trait> Module<T> {
 
         let encoded_data = [
             &selector[..],
-            // &encoded_from[..],
-            // &encoded_to[..],
+            &encoded_from[..],
+            &encoded_to[..],
             &encoded_value[..],
             &balance_from[..],
             &balance_to[..],

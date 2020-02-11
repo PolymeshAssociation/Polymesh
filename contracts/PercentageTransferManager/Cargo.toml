@@ -16,7 +16,7 @@ type-metadata = { git = "https://github.com/type-metadata/type-metadata.git", de
 
 [lib]
 name = "percentage_transfer_manager"
-path = "lib.rs"
+path = "src/lib.rs"
 crate-type = [
 	# Used for normal contract Wasm blobs.
 	"cdylib",
@@ -36,14 +36,14 @@ std = [
 ]
 test-env = [
     "std",
-    "ink_lang/test-env",
+    "ink_lang/test-env"
 ]
 ink-generate-abi = [
     "std",
     "ink_abi",
     "type-metadata",
     "ink_core/ink-generate-abi",
-    "ink_lang/ink-generate-abi",
+    "ink_lang/ink-generate-abi"
 ]
 ink-as-dependency = []
 
