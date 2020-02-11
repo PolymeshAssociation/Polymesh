@@ -111,7 +111,7 @@ fn issuers_can_create_and_rename_tokens() {
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token);
         // Rename the token and check storage has been updated.
-        let mut renamed_token = SecurityToken {
+        let renamed_token = SecurityToken {
             name: vec![0x42],
             owner_did: token.owner_did,
             total_supply: token.total_supply,
