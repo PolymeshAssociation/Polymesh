@@ -11,7 +11,6 @@ use frame_support::{decl_error, decl_event, decl_module, decl_storage};
 use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::CommonTrait;
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
 use sp_std::collections::btree_map::BTreeMap;

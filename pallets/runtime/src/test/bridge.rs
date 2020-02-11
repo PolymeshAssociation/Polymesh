@@ -6,17 +6,16 @@ use crate::{
     bridge::{self, BridgeTx, IssueRecipient, ValidatorSet},
     multisig,
 };
+use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use polymesh_primitives::{IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_identity as identity;
-
-use frame_support::{assert_err, assert_ok};
-use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type Identity = identity::Module<TestStorage>;
+type Authorizations = identity::Authorizations<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
@@ -62,17 +61,23 @@ fn can_issue_to_identity() {
             2,
         ));
         assert_eq!(MultiSig::ms_signs_required(validator_account), 2);
+        let last_authorization = |did: IdentityId| {
+            <Authorizations>::iter_prefix(Signatory::from(did))
+                .next()
+                .unwrap()
+                .auth_id
+        };
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
-            Identity::last_authorization(Signatory::from(alice_did))
+            last_authorization(alice_did)
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             bob.clone(),
-            Identity::last_authorization(Signatory::from(bob_did))
+            last_authorization(bob_did)
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             charlie.clone(),
-            Identity::last_authorization(Signatory::from(charlie_did))
+            last_authorization(charlie_did)
         ));
         assert_eq!(
             MultiSig::ms_signers((validator_account, Signatory::from(alice_did))),
@@ -125,7 +130,6 @@ fn can_change_validators() {
         let bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
         let charlie_did =
             register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
-        let dave_did = register_keyring_account_with_balance(AccountKeyring::Dave, 1_000).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
@@ -152,17 +156,23 @@ fn can_change_validators() {
             2,
         ));
         assert_eq!(MultiSig::ms_signs_required(validator_account), 2);
+        let last_authorization = |did: IdentityId| {
+            <Authorizations>::iter_prefix(Signatory::from(did))
+                .next()
+                .unwrap()
+                .auth_id
+        };
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
-            Identity::last_authorization(Signatory::from(alice_did))
+            last_authorization(alice_did)
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             bob.clone(),
-            Identity::last_authorization(Signatory::from(bob_did))
+            last_authorization(bob_did)
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             charlie.clone(),
-            Identity::last_authorization(Signatory::from(charlie_did))
+            last_authorization(charlie_did)
         ));
         assert_eq!(
             MultiSig::ms_signers((validator_account, Signatory::from(alice_did))),
