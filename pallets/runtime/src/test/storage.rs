@@ -241,7 +241,6 @@ impl asset::Trait for TestStorage {
 }
 
 impl bridge::Trait for TestStorage {
-    type Balance = u128;
     type Event = Event;
     type Proposal = Call;
 }

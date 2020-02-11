@@ -18,7 +18,6 @@ use sp_std::collections::btree_map::BTreeMap;
 use sp_std::{convert::TryFrom, prelude::*};
 
 pub trait Trait: multisig::Trait {
-    type Balance: From<u128> + Into<<Self as CommonTrait>::Balance>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as identity::Trait>::Proposal>;
 }
@@ -288,7 +287,7 @@ impl<T: Trait> Module<T> {
         if let Some(did) = did {
             // Issue to an identity or to an account associated with one.
             if <identity::Module<T>>::has_valid_kyc(did) {
-                let amount = <T as Trait>::Balance::from(*value).into();
+                let amount = <T::Balance as From<u128>>::from(*value);
                 let neg_imbalance = <balances::Module<T>>::issue(amount);
                 let resolution = if let Some(account_id) = account_id {
                     <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
@@ -304,7 +303,7 @@ impl<T: Trait> Module<T> {
             }
         } else if let Some(account_id) = account_id {
             // Issue to an account not associated with an identity.
-            let amount = <T as Trait>::Balance::from(*value).into();
+            let amount = <T::Balance as From<u128>>::from(*value);
             let neg_imbalance = <balances::Module<T>>::issue(amount);
             <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
                 .map_err(|_| Error::<T>::CannotCreditIdentity)?;
