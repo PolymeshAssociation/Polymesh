@@ -15,13 +15,15 @@ use polymesh_runtime_balances as balances;
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
-use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
+use frame_support::{
+    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
+};
 use sp_runtime::AnySignature;
 use test_client::AccountKeyring;
 
 use chrono::prelude::Utc;
 use rand::Rng;
-use std::convert::TryFrom;
+use std::{convert::TryFrom, mem};
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -80,17 +82,17 @@ fn issuers_can_create_and_rename_tokens() {
             Some(funding_round_name.clone())
         ));
 
-        let token_link = Identity::links((
+        let token_link = Identity::get_link(
             Signatory::from(owner_did),
             Asset::token_details(ticker).link_id,
-        ));
+        );
         assert_eq!(token_link.link_data, LinkData::TokenOwned(ticker));
         assert_eq!(token_link.expiry, None);
 
-        let ticker_link = Identity::links((
+        let ticker_link = Identity::get_link(
             Signatory::from(owner_did),
             Asset::ticker_registration(ticker).link_id,
-        ));
+        );
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
         assert_eq!(ticker_link.expiry, None);
 
@@ -779,10 +781,10 @@ fn register_ticker() {
 
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
-        let ticker_link = Identity::links((
+        let ticker_link = Identity::get_link(
             Signatory::from(owner_did),
             Asset::ticker_registration(ticker).link_id,
-        ));
+        );
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
 
         let (alice_signed, _) = make_account(AccountKeyring::Alice.public()).unwrap();
@@ -817,14 +819,14 @@ fn transfer_ticker() {
         assert_eq!(Asset::is_ticker_available(&ticker), true);
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
-        Identity::add_auth(
+        let auth_id_alice = Identity::add_auth(
             Signatory::from(owner_did),
             Signatory::from(alice_did),
             AuthorizationData::TransferTicker(ticker),
             None,
         );
 
-        Identity::add_auth(
+        let auth_id_bob = Identity::add_auth(
             Signatory::from(owner_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
@@ -835,68 +837,65 @@ fn transfer_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
 
-        let mut auth_id = Identity::last_authorization(Signatory::from(alice_did));
-
         assert_err!(
-            Asset::accept_ticker_transfer(alice_signed.clone(), auth_id + 1),
+            Asset::accept_ticker_transfer(alice_signed.clone(), auth_id_alice + 1),
             "Authorization does not exist"
         );
 
         let old_ticker = Asset::ticker_registration(ticker);
         let old_ticker_link =
-            Identity::links((Signatory::from(old_ticker.owner), old_ticker.link_id));
+            Identity::get_link(Signatory::from(old_ticker.owner), old_ticker.link_id);
         assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
 
-        assert_ok!(Asset::accept_ticker_transfer(alice_signed.clone(), auth_id));
+        assert_ok!(Asset::accept_ticker_transfer(
+            alice_signed.clone(),
+            auth_id_alice
+        ));
 
-        assert!(!<identity::Links<TestStorage>>::exists((
+        assert!(!<identity::Links<TestStorage>>::exists(
             Signatory::from(old_ticker.owner),
             old_ticker.link_id
-        )));
+        ));
 
-        let ticker_link = Identity::links((
+        let ticker_link = Identity::get_link(
             Signatory::from(alice_did),
             Asset::ticker_registration(ticker).link_id,
-        ));
+        );
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
 
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
-            Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
+            Asset::accept_ticker_transfer(bob_signed.clone(), auth_id_bob),
             "Illegal use of Authorization"
         );
 
-        Identity::add_auth(
+        let mut auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 - 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
             "Authorization expired"
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
             AssetError::NoTickerTransferAuth
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_ok!(Asset::accept_ticker_transfer(bob_signed.clone(), auth_id));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
@@ -930,14 +929,14 @@ fn transfer_token_ownership() {
             None
         ));
 
-        Identity::add_auth(
+        let auth_id_alice = Identity::add_auth(
             Signatory::from(owner_did),
             Signatory::from(alice_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             None,
         );
 
-        Identity::add_auth(
+        let auth_id_bob = Identity::add_auth(
             Signatory::from(owner_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
@@ -946,97 +945,90 @@ fn transfer_token_ownership() {
 
         assert_eq!(Asset::token_details(&ticker).owner_did, owner_did);
 
-        let mut auth_id = Identity::last_authorization(Signatory::from(alice_did));
-
         assert_err!(
-            Asset::accept_token_ownership_transfer(alice_signed.clone(), auth_id + 1),
+            Asset::accept_token_ownership_transfer(alice_signed.clone(), auth_id_alice + 1),
             "Authorization does not exist"
         );
 
         let old_ticker = Asset::ticker_registration(ticker);
         let old_ticker_link =
-            Identity::links((Signatory::from(old_ticker.owner), old_ticker.link_id));
+            Identity::get_link(Signatory::from(old_ticker.owner), old_ticker.link_id);
         assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
 
         let old_token = Asset::token_details(ticker);
         let old_token_link =
-            Identity::links((Signatory::from(old_token.owner_did), old_token.link_id));
+            Identity::get_link(Signatory::from(old_token.owner_did), old_token.link_id);
         assert_eq!(old_token_link.link_data, LinkData::TokenOwned(ticker));
 
         assert_ok!(Asset::accept_token_ownership_transfer(
             alice_signed.clone(),
-            auth_id
+            auth_id_alice
         ));
         assert_eq!(Asset::token_details(&ticker).owner_did, alice_did);
-        assert!(!<identity::Links<TestStorage>>::exists((
+        assert!(!<identity::Links<TestStorage>>::exists(
             Signatory::from(old_ticker.owner),
             old_ticker.link_id
-        )));
-        assert!(!<identity::Links<TestStorage>>::exists((
+        ));
+        assert!(!<identity::Links<TestStorage>>::exists(
             Signatory::from(old_token.owner_did),
             old_token.link_id
-        )));
+        ));
 
-        let ticker_link = Identity::links((
+        let ticker_link = Identity::get_link(
             Signatory::from(alice_did),
             Asset::ticker_registration(ticker).link_id,
-        ));
+        );
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
-        let token_link = Identity::links((
+        let token_link = Identity::get_link(
             Signatory::from(alice_did),
             Asset::token_details(ticker).link_id,
-        ));
+        );
         assert_eq!(token_link.link_data, LinkData::TokenOwned(ticker));
 
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
-            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id_bob),
             "Illegal use of Authorization"
         );
 
-        Identity::add_auth(
+        let mut auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             Some(now.timestamp() as u64 - 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             "Authorization expired"
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             AssetError::NotTickerOwnershipTransferAuth
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(Ticker::from_slice(&[0x50])),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             "Token does not exist"
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_ok!(Asset::accept_token_ownership_transfer(
             bob_signed.clone(),
             auth_id
@@ -1158,21 +1150,32 @@ fn adding_removing_documents() {
             documents
         ));
 
-        let last_id = Identity::last_link(Signatory::from(ticker_did));
-        let last_doc = Identity::links((Signatory::from(ticker_did), last_id));
+        let mut docs = <identity::Links<TestStorage>>::iter_prefix(Signatory::from(ticker_did));
+        let mut doc1 = docs.next().unwrap();
+        let mut doc2 = docs.next().unwrap();
+        if doc1.link_id > doc2.link_id {
+            mem::swap(&mut doc1, &mut doc2);
+        }
 
         assert_eq!(
-            last_doc.link_data,
+            doc1.link_data,
+            LinkData::DocumentOwned(Document {
+                name: b"A".to_vec(),
+                uri: b"www.a.com".to_vec(),
+                hash: b"0x1".to_vec(),
+            })
+        );
+        assert_eq!(doc1.expiry, None);
+
+        assert_eq!(
+            doc2.link_data,
             LinkData::DocumentOwned(Document {
                 name: b"B".to_vec(),
                 uri: b"www.b.com".to_vec(),
                 hash: b"0x2".to_vec()
             })
         );
-        assert_eq!(last_doc.next_link, 0);
-        assert_eq!(last_doc.expiry, None);
-
-        let doc_ids = vec![last_id, last_doc.previous_link];
+        assert_eq!(doc2.expiry, None);
 
         assert_ok!(Asset::update_documents(
             owner_signed.clone(),
@@ -1180,7 +1183,7 @@ fn adding_removing_documents() {
             ticker,
             vec![
                 (
-                    doc_ids[0],
+                    doc1.link_id,
                     Document {
                         name: b"C".to_vec(),
                         uri: b"www.c.com".to_vec(),
@@ -1188,7 +1191,7 @@ fn adding_removing_documents() {
                     }
                 ),
                 (
-                    doc_ids[1],
+                    doc2.link_id,
                     Document {
                         name: b"D".to_vec(),
                         uri: b"www.d.com".to_vec(),
@@ -1198,26 +1201,32 @@ fn adding_removing_documents() {
             ]
         ));
 
-        let last_id = Identity::last_link(Signatory::from(ticker_did));
-        let last_doc = Identity::links((Signatory::from(ticker_did), last_id));
+        docs = <identity::Links<TestStorage>>::iter_prefix(Signatory::from(ticker_did));
+        doc1 = docs.next().unwrap();
+        doc2 = docs.next().unwrap();
+        if doc1.link_id > doc2.link_id {
+            mem::swap(&mut doc1, &mut doc2);
+        }
 
         assert_eq!(
-            last_doc.link_data,
+            doc1.link_data,
             LinkData::DocumentOwned(Document {
                 name: b"C".to_vec(),
                 uri: b"www.c.com".to_vec(),
                 hash: b"0x3".to_vec(),
             })
         );
+        assert_eq!(doc1.expiry, None);
 
-        assert_ok!(Asset::remove_documents(
-            owner_signed.clone(),
-            owner_did,
-            ticker,
-            doc_ids
-        ));
-
-        assert_eq!(Identity::last_link(Signatory::from(ticker_did)), 0);
+        assert_eq!(
+            doc2.link_data,
+            LinkData::DocumentOwned(Document {
+                name: b"D".to_vec(),
+                uri: b"www.d.com".to_vec(),
+                hash: b"0x4".to_vec(),
+            })
+        );
+        assert_eq!(doc2.expiry, None);
     });
 }
 
@@ -1778,27 +1787,26 @@ fn freeze_unfreeze_asset() {
             Asset::freeze(alice_signed.clone(), ticker),
             "asset must not already be frozen"
         );
-        // Attempt to transfer token ownership.
-        Identity::add_auth(
-            Signatory::from(alice_did),
-            Signatory::from(bob_did),
-            AuthorizationData::TransferTokenOwnership(ticker),
-            None,
-        );
-        let auth_id = Identity::last_authorization(Signatory::from(bob_did));
         // Attempt to mint tokens.
         assert_err!(
             Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
             "asset is frozen"
         );
-        assert_ok!(Asset::accept_token_ownership_transfer(
-            bob_signed.clone(),
-            auth_id
-        ));
         assert_err!(
             Asset::transfer(alice_signed.clone(), alice_did, ticker, bob_did, 1),
             "asset is frozen"
         );
+        // Attempt to transfer token ownership.
+        let auth_id = Identity::add_auth(
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
+            AuthorizationData::TransferTokenOwnership(ticker),
+            None,
+        );
+        assert_ok!(Asset::accept_token_ownership_transfer(
+            bob_signed.clone(),
+            auth_id
+        ));
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
             Asset::batch_issue(bob_signed.clone(), bob_did, ticker, vec![bob_did], vec![1]),
