@@ -1,6 +1,7 @@
 use crate::traits::identity::IdentityTrait;
 
 use polymesh_primitives::{AccountKey, IdentityId};
+use sp_runtime::DispatchError;
 
 /// Helper class to access to some context information.
 /// Currently it allows to access to
@@ -21,8 +22,16 @@ impl Context {
     /// It gets the current identity and if it is none, it will use the identity from `key`.
     /// This funtion is a helper tool for testing where SignedExtension is not used and
     /// `current_identity` is always none.
-    pub fn current_identity_or<I: IdentityTrait>(key: &AccountKey) -> Option<IdentityId> {
-        Self::current_identity::<I>().or_else(|| I::get_identity(key))
+    pub fn current_identity_or<I: IdentityTrait>(
+        key: &AccountKey,
+    ) -> Result<IdentityId, DispatchError> {
+        Self::current_identity::<I>()
+            .or_else(|| I::get_identity(key))
+            .ok_or_else(|| {
+                DispatchError::Other(
+                    "Current identity is none and key is not linked to any identity",
+                )
+            })
     }
 }
 
@@ -117,16 +126,21 @@ mod test {
         let alice = AccountKey::from(AccountKeyring::Alice.public().0);
         assert_eq!(
             Context::current_identity_or::<IdentityTest>(&alice),
-            Some(IdentityId::from(15))
+            Ok(IdentityId::from(15))
         );
         Context::set_current_identity::<IdentityTest>(None);
         assert_eq!(
             Context::current_identity_or::<IdentityTest>(&alice),
-            Some(IdentityId::from(1))
+            Ok(IdentityId::from(1))
         );
 
         let eve = AccountKey::from(AccountKeyring::Eve.public().0);
-        assert_eq!(Context::current_identity_or::<IdentityTest>(&eve), None);
+        assert_eq!(
+            Context::current_identity_or::<IdentityTest>(&eve),
+            Err(DispatchError::Other(
+                "Current identity is none and key is not linked to any identity"
+            ))
+        );
 
         Ok(())
     }

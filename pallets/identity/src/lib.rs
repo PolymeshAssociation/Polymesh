@@ -542,8 +542,7 @@ decl_module! {
             expiry: Option<T::Moment>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let from_did = Context::current_identity_or::<Self>(&sender_key)
-                .ok_or_else(|| DispatchError::from(Error::<T>::NoDIDFound))?;
+            let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
             Self::add_auth(Signatory::from(from_did), target, authorization_data, expiry);
 
@@ -573,8 +572,7 @@ decl_module! {
             auths: Vec<(Signatory, AuthorizationData, Option<T::Moment>)>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let from_did = Context::current_identity_or::<Self>(&sender_key)
-                .ok_or_else(|| DispatchError::from(Error::<T>::NoDIDFound))?;
+            let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
             for auth in auths {
                 Self::add_auth(Signatory::from(from_did), auth.0, auth.1, auth.2);
@@ -590,8 +588,7 @@ decl_module! {
             auth_id: u64
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let from_did = Context::current_identity_or::<Self>(&sender_key)
-                .ok_or_else(|| DispatchError::from(Error::<T>::NoDIDFound))?;
+            let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
             ensure!(<Authorizations<T>>::exists((target, auth_id)), "Invalid auth");
 
@@ -611,8 +608,7 @@ decl_module! {
             auth_identifiers: Vec<(Signatory, u64)>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let from_did = Context::current_identity_or::<Self>(&sender_key)
-                .ok_or_else(|| DispatchError::from(Error::<T>::NoDIDFound))?;
+            let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
 
             for auth_identifier in &auth_identifiers {
@@ -638,7 +634,9 @@ decl_module! {
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let signer = Context::current_identity_or::<Self>(&sender_key)
-                .map_or( Signatory::from(sender_key), |did| Signatory::from(did));
+                .map_or_else(
+                    |_error| Signatory::from(sender_key),
+                    |did| Signatory::from(did));
 
             ensure!(<Authorizations<T>>::exists((signer, auth_id)), "Invalid auth");
             let auth = Self::authorizations((signer, auth_id));
@@ -672,7 +670,9 @@ decl_module! {
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let signer = Context::current_identity_or::<Self>(&sender_key)
-                .map_or( Signatory::from(sender_key), |did| Signatory::from(did));
+                .map_or_else(
+                    |_error| Signatory::from(sender_key),
+                    |did| Signatory::from(did));
 
             match signer {
                 Signatory::Identity(did) => {
@@ -905,8 +905,7 @@ decl_module! {
         pub fn is_my_identity_has_valid_kyc(origin, buffer_time: u64) ->  DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did = Context::current_identity_or::<Self>(&sender_key)
-                .ok_or_else(|| DispatchError::from(Error::<T>::NoDIDFound))?;
+            let my_did = Context::current_identity_or::<Self>(&sender_key)?;
 
             let (is_kyced, kyc_provider) = Self::is_identity_has_valid_kyc(my_did, buffer_time);
             Self::deposit_event(RawEvent::MyKycStatus(my_did, is_kyced, kyc_provider));

@@ -129,8 +129,7 @@ decl_module! {
         pub fn create_proposal_as_identity(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)
-                .ok_or_else(|| DispatchError::from(Error::<T>::IdentityMissing))?;
+            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
             let sender_signer = Signatory::from(signer_did);
             Self::create_proposal(multisig, proposal, sender_signer)
@@ -157,8 +156,7 @@ decl_module! {
         pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)
-                .ok_or_else(|| DispatchError::from(Error::<T>::IdentityMissing))?;
+            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
             let signer = Signatory::from(signer_did);
             ensure!(Self::ms_signers((multisig.clone(), signer)), "not an signer");
@@ -185,8 +183,7 @@ decl_module! {
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)
-                .ok_or_else(|| DispatchError::from(Error::<T>::IdentityMissing))?;
+            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
             let signer = Signatory::from(signer_did);
             Self::_accept_multisig_signer(signer, auth_id)
