@@ -716,7 +716,7 @@ mod tests {
         type Event = ();
     }
 
-    impl asset::AssetTrait<<Test as CommonTrait>::Balance> for Module<Test> {
+    impl asset::AssetTrait<<Test as CommonTrait>::Balance, AccountId> for Module<Test> {
         fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(ticker) {
                 token.owner_did == sender_did

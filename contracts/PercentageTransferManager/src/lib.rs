@@ -138,7 +138,7 @@ mod percentage_transfer_manager {
         /// * `new_percentage` - New value of Max percentage of assets hold by an investor
         #[ink(message)]
         fn change_allowed_percentage(&mut self, new_percentage: u128) {
-            assert_eq!(self.env().caller(), *self.owner.get());
+            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
             assert!(
                 *self.max_allowed_percentage.get() != new_percentage,
                 "Must change setting"
@@ -156,7 +156,7 @@ mod percentage_transfer_manager {
         /// * `primary_issuance` - whether to allow all primary issuance transfers
         #[ink(message)]
         fn change_primary_issuance(&mut self, primary_issuance: bool) {
-            assert_eq!(self.env().caller(), *self.owner.get());
+            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
             assert!(
                 *self.allow_primary_issuance.get() != primary_issuance,
                 "Must change setting"
@@ -174,7 +174,7 @@ mod percentage_transfer_manager {
         /// * `is_exempted` - New exemption status of the identity
         #[ink(message)]
         fn modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
-            assert!(self.env().caller() == *self.owner.get(), "Incorrect owner");
+            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
             assert!(
                 self._is_exempted_or_not(&identity) != is_exempted,
                 "Must change setting"
@@ -192,7 +192,7 @@ mod percentage_transfer_manager {
         /// * `new_owner` - AccountId of the new owner
         #[ink(message)]
         fn transfer_ownership(&mut self, new_owner: AccountId) {
-            assert_eq!(self.env().caller(), *self.owner.get());
+            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
             self.env().emit_event(TransferOwnership {
                 old_owner: self.env().caller(),
                 new_owner: new_owner,
@@ -414,13 +414,6 @@ mod percentage_transfer_manager {
                 RestrictionResult::Invalid
             );
 
-            //Should fail to change the allowed percentage because no change in the allowed percentage value
-            // TODO: It panics, find a way to test panics state
-            // assert_eq!(
-            //     percentage_transfer_manager.change_allowed_percentage(200000u128),
-            //     "Must change setting"
-            // );
-
             percentage_transfer_manager.change_allowed_percentage(300000u128);
 
             // Should pass with the same values because allowed percentage get increased
@@ -435,14 +428,93 @@ mod percentage_transfer_manager {
                 ),
                 RestrictionResult::Valid
             );
+        }
+
+        #[test]
+        #[should_panic(expected = "Must change setting")]
+        fn should_panic_when_same_value_submitted_as_param() {
+            let mut percentage_transfer_manager =
+                PercentageTransferManagerStorage::new(200000, false);
+            let from = IdentityId::from(1);
+            let to = IdentityId::from(2);
+            let multiplier: u128 = 1000000;
+            //Should fail to change the allowed percentage because no change in the allowed percentage value
+            percentage_transfer_manager.change_allowed_percentage(200000u128);
+        }
+
+        #[test]
+        #[should_panic(expected = "Not Authorized")]
+        fn should_panic_when_wrong_owner_call() {
+            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let mut percentage_transfer_manager =
+                PercentageTransferManagerStorage::new(200000, false);
+            let from = IdentityId::from(1);
+            let to = IdentityId::from(2);
+            let multiplier: u128 = 1000000;
 
             // Should fail to call change_allowed_percentage when ownership changes
             percentage_transfer_manager.transfer_ownership(default_accounts.bob);
             assert_eq!(percentage_transfer_manager.owner(), default_accounts.bob);
-            // TODO: It panics, find a way to test panics state
-            // assert_eq!(
-            //     percentage_transfer_manager.change_allowed_percentage(200000u128)
-            // );
+            percentage_transfer_manager.change_allowed_percentage(200000u128);
+        }
+
+        #[test]
+        #[should_panic(expected = "Not Authorized")]
+        fn should_panic_when_calling_modify_exemption_list_by_wrong_owner() {
+            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let mut percentage_transfer_manager =
+                PercentageTransferManagerStorage::new(200000, false);
+            let from = IdentityId::from(1);
+            let to = IdentityId::from(2);
+            let multiplier: u128 = 1000000;
+
+            percentage_transfer_manager.transfer_ownership(default_accounts.bob);
+            assert_eq!(percentage_transfer_manager.owner(), default_accounts.bob);
+            percentage_transfer_manager.modify_exemption_list(to, true);
+        }
+
+        #[test]
+        #[should_panic(expected = "Must change setting")]
+        fn should_panic_when_calling_modify_exemption_list_when_same_value_passed() {
+            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let mut percentage_transfer_manager =
+                PercentageTransferManagerStorage::new(200000, false);
+            let from = IdentityId::from(1);
+            let to = IdentityId::from(2);
+            let multiplier: u128 = 1000000;
+
+            percentage_transfer_manager.modify_exemption_list(to, true);
+            // Should fail to call modify_exemption_list with same exemption state
+            percentage_transfer_manager.modify_exemption_list(to, true);
+        }
+
+        #[test]
+        #[should_panic(expected = "Not Authorized")]
+        fn should_panic_when_calling_change_primary_issuance_by_wrong_owner() {
+            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let mut percentage_transfer_manager =
+                PercentageTransferManagerStorage::new(200000, false);
+            let from = IdentityId::from(1);
+            let to = IdentityId::from(2);
+            let multiplier: u128 = 1000000;
+
+            percentage_transfer_manager.transfer_ownership(default_accounts.bob);
+            assert_eq!(percentage_transfer_manager.owner(), default_accounts.bob);
+            percentage_transfer_manager.change_primary_issuance(true);
+        }
+
+        #[test]
+        #[should_panic(expected = "Must change setting")]
+        fn should_panic_when_calling_change_primary_issuance_when_same_value_passed() {
+            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let mut percentage_transfer_manager =
+                PercentageTransferManagerStorage::new(200000, false);
+            let from = IdentityId::from(1);
+            let to = IdentityId::from(2);
+            let multiplier: u128 = 1000000;
+
+            // Should fail to call change_primary_issuance with same issuance state
+            percentage_transfer_manager.change_primary_issuance(false);
         }
     }
 }

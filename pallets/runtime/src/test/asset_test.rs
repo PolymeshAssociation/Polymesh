@@ -34,7 +34,7 @@ type OffChainSignature = AnySignature;
 
 #[test]
 fn check_the_test_hex() {
-    build_ext().execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         let function_hex: &'static str = "verifyTransfer";
         let selector: [u8; 4] = (FunctionSelectorHasher::keccak256("verify_transfer".as_bytes())
             [0..4])
