@@ -7,27 +7,20 @@ use crate::multisig;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, ensure, weights::GetDispatchInfo, Parameter,
-};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait};
+use polymesh_runtime_common::CommonTrait;
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
-use sp_runtime::traits::Dispatchable;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::{convert::TryFrom, prelude::*};
 
-pub trait Trait: BalancesTrait + multisig::Trait {
+pub trait Trait: multisig::Trait {
     type Balance: From<u128> + Into<<Self as CommonTrait>::Balance>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Proposal: From<Call<Self>>
-        + Into<<Self as identity::Trait>::Proposal>
-        + Parameter
-        + Dispatchable<Origin = Self::Origin>
-        + GetDispatchInfo;
+    type Proposal: From<Call<Self>> + Into<<Self as identity::Trait>::Proposal>;
 }
 
 decl_error! {
@@ -44,13 +37,34 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
         /// The multisig account of the bridge validator set.
-        Validators get(validators) config(): T::AccountId;
+        Validators get(validators) build(|config: &GenesisConfig| {
+            if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
+            {
+                panic!("too many signatures required");
+            }
+            if config.signatures_required == 0 {
+                /// Default to the empty validator set.
+                return Default::default();
+            }
+            <multisig::Module<T>>::create_multisig_wallet(
+                Default::default(),
+                config.signers.as_slice(),
+                config.signatures_required
+            ).expect("cannot create the bridge multisig")
+        }): T::AccountId;
         /// Correspondence between validator set change proposals and multisig proposal IDs.
         ChangeValidatorsProposals get(change_validators_proposals): map T::AccountId => Option<u64>;
-        /// Correspondence between bridge transaction proposals and multisig proposal IDs.
-        BridgeTxProposals get(bridge_tx_proposals): map hasher(blake2_256) BridgeTx<T::AccountId> => Option<u64>;
+        /// Correspondence between bridge transaction proposals -- identified with their nonces --
+        /// and multisig proposal IDs.
+        BridgeTxProposals get(bridge_tx_proposals): map u64 => Option<u64>;
         /// Pending issuance transactions to identities.
         PendingTxs get(pending_txs): map IdentityId => Vec<BridgeTx<T::AccountId>>;
+    }
+    add_extra_genesis {
+        /// The set of initial validators from which a multisig address is created at genesis time.
+        config(signers): Vec<Signatory>;
+        /// The number of required signatures in the genesis validator set.
+        config(signatures_required): u64;
     }
 }
 
@@ -161,21 +175,20 @@ decl_module! {
             let sender_signer = Signatory::from(sender_did);
             let validators = Self::validators();
             ensure!(validators != Default::default(), "bridge validators not set");
-            if let Some(proposal_id) = Self::bridge_tx_proposals(bridge_tx.clone()) {
+            let nonce = bridge_tx.nonce;
+            if let Some(proposal_id) = Self::bridge_tx_proposals(&nonce) {
                 // This is an existing proposal.
                 <multisig::Module<T>>::approve_as_identity(origin, validators, proposal_id)?;
             } else {
                 // The proposal is new.
-                let proposal = <T as Trait>::Proposal::from(
-                    Call::<T>::handle_bridge_tx(bridge_tx.clone())
-                );
+                let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
                 let boxed_call = Box::new(proposal.into());
                 let proposal_id = <multisig::Module<T>>::create_proposal(
                     validators,
                     boxed_call,
                     sender_signer
                 )?;
-                <BridgeTxProposals<T>>::insert(bridge_tx, proposal_id);
+                <BridgeTxProposals>::insert(nonce, proposal_id);
             }
             Ok(())
         }
@@ -241,15 +254,13 @@ decl_module! {
                 bridge_tx,
             }) = Self::issue(bridge_tx.clone())? {
                 <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
-                Self::deposit_event(RawEvent::Pending(PendingTx{
+                Self::deposit_event(RawEvent::Pending(PendingTx {
                     did,
-                    bridge_tx: bridge_tx.clone()
+                    bridge_tx
                 }));
             } else {
-                Self::deposit_event(RawEvent::Bridged(bridge_tx.clone()));
+                Self::deposit_event(RawEvent::Bridged(bridge_tx));
             }
-            // Remove the record of the ongoing proposal.
-            <BridgeTxProposals<T>>::remove(&bridge_tx);
             Ok(())
         }
     }
