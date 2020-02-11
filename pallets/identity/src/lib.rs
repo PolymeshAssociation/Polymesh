@@ -36,6 +36,7 @@
 //!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit = "256"]
 
 use polymesh_primitives::{
     AccountKey, Authorization, AuthorizationData, AuthorizationError, Identity as DidRecord,
@@ -284,7 +285,7 @@ decl_module! {
                     };
 
                     if let Some(id) = kyc_provider_did {
-                        ensure!(T::KYCServiceProviders::is_member(&id), "Attestation was not by a KYC service provider");
+                        ensure!(T::KycServiceProviders::is_member(&id), "Attestation was not by a KYC service provider");
                     } else {
                         return Err(Error::<T>::NoDIDFound.into());
                     }
@@ -522,6 +523,14 @@ decl_module! {
             } else {
                 Err(Error::<T>::NoDIDFound.into())
             }
+        }
+
+        pub fn get_asset_did(origin, ticker: Ticker) -> DispatchResult {
+            ensure_signed(origin)?;
+            let did = Self::get_token_did(&ticker)?;
+            Self::deposit_event(RawEvent::AssetDid(ticker, did));
+            sp_runtime::print(did);
+            Ok(())
         }
 
         // Manage generic authorizations
@@ -1016,7 +1025,7 @@ impl<T: Trait> Module<T> {
 
     /// Adds a link to a key or an identity
     /// NB: Please do all the required checks before calling this function.
-    pub fn add_link(target: Signatory, link_data: LinkData, expiry: Option<T::Moment>) {
+    pub fn add_link(target: Signatory, link_data: LinkData, expiry: Option<T::Moment>) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
         <MultiPurposeNonce>::put(&new_nonce);
 
@@ -1041,6 +1050,7 @@ impl<T: Trait> Module<T> {
         <Links<T>>::insert((target, new_nonce), link);
 
         Self::deposit_event(RawEvent::NewLink(new_nonce, target, link_data, expiry));
+        new_nonce
     }
 
     /// Remove a link (if it exists) from a key or identity
@@ -1204,7 +1214,7 @@ impl<T: Trait> Module<T> {
         claim_for: IdentityId,
         buffer: u64,
     ) -> (bool, Option<IdentityId>) {
-        let trusted_kyc_providers = T::KYCServiceProviders::get_members();
+        let trusted_kyc_providers = T::KycServiceProviders::get_members();
         if trusted_kyc_providers.len() > 0 {
             for trusted_kyc_provider in trusted_kyc_providers {
                 if let Some(claim) = Self::fetch_claim_value(
@@ -1369,6 +1379,7 @@ impl<T: Trait> Module<T> {
     /// It registers a did for a new asset. Only called by create_token function.
     pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
         let did = Self::get_token_did(ticker)?;
+        Self::deposit_event(RawEvent::AssetDid(*ticker, did));
         // Making sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
         ensure!(!<DidRecords>::exists(did), "DID must be unique");

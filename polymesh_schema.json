@@ -27,7 +27,8 @@
         "total_supply": "Balance",
         "owner_did": "IdentityId",
         "divisible": "bool",
-        "asset_type": "AssetType"
+        "asset_type": "AssetType",
+        "link_id": "u64"
     },
     "LinkedKeyInfo": {
         "_enum": {
@@ -189,7 +190,8 @@
     },
     "TickerRegistration": {
         "owner": "IdentityId",
-        "expiry": "Option<Moment>"
+        "expiry": "Option<Moment>",
+        "link_id": "u64"
     },
     "TickerRegistrationConfig": {
         "max_ticker_length": "u8",
