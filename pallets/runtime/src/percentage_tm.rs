@@ -26,7 +26,7 @@
 use crate::{asset::AssetTrait, exemption, utils};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{constants::*, CommonTrait};
+use polymesh_runtime_common::{constants::*, CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
@@ -58,14 +58,19 @@ decl_storage! {
     }
 }
 
+type Identity<T> = identity::Module<T>;
+
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
         /// Set a maximum percentage that can be owned by a single investor
-        fn toggle_maximum_percentage_restriction(origin, did: IdentityId, ticker: Ticker, max_percentage: u16) -> DispatchResult  {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        fn toggle_maximum_percentage_restriction(origin, ticker: Ticker, max_percentage: u16) -> DispatchResult  {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
+
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();

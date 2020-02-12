@@ -132,7 +132,6 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
 
         assert_ok!(Identity::add_signing_items(
             a.clone(),
-            a_did,
             vec![charlie_signing_item]
         ));
         assert_ok!(Identity::authorize_join_to_identity(
@@ -149,7 +148,6 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
         // ... and remove that key.
         assert_ok!(Identity::remove_signing_items(
             a.clone(),
-            a_did.clone(),
             vec![charlie_signer.clone()]
         ));
         assert!(Identity::is_signer_authorized(a_did, &charlie_signer) == false);
@@ -159,8 +157,8 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
 #[test]
 fn revoking_claims() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
@@ -182,7 +180,6 @@ fn revoking_claims() {
         assert_err!(
             Identity::revoke_claim(
                 issuer.clone(),
-                issuer_did,
                 "some_key".as_bytes().to_vec(),
                 claim_issuer_did
             ),
@@ -191,7 +188,6 @@ fn revoking_claims() {
 
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
-            owner_did,
             "some_key".as_bytes().to_vec(),
             claim_issuer_did
         ));
@@ -215,7 +211,6 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
 
     assert_ok!(Identity::add_signing_items(
         alice.clone(),
-        alice_did,
         vec![SigningItem::from(bob_key), SigningItem::from(charlie_key)]
     ));
     assert_ok!(Identity::authorize_join_to_identity(bob.clone(), alice_did));
@@ -224,13 +219,11 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     // Only `alice` is able to update `bob`'s permissions and `charlie`'s permissions.
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
-        alice_did,
         Signatory::AccountKey(bob_key),
         vec![Permission::Operator]
     ));
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
-        alice_did,
         Signatory::AccountKey(charlie_key),
         vec![Permission::Admin, Permission::Operator]
     ));
@@ -239,7 +232,6 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     assert_err!(
         Identity::set_permission_to_signer(
             bob.clone(),
-            alice_did,
             Signatory::AccountKey(bob_key),
             vec![Permission::Full]
         ),
@@ -248,19 +240,13 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.
     assert_err!(
-        Identity::set_permission_to_signer(
-            bob,
-            alice_did,
-            Signatory::AccountKey(charlie_key),
-            vec![]
-        ),
+        Identity::set_permission_to_signer(bob, Signatory::AccountKey(charlie_key), vec![]),
         "Only master key of an identity is able to execute this operation"
     );
 
     // Alice over-write some permissions.
     assert_ok!(Identity::set_permission_to_signer(
         alice,
-        alice_did,
         Signatory::AccountKey(bob_key),
         vec![]
     ));
@@ -292,11 +278,10 @@ fn add_signing_keys_with_specific_type_with_externalities() {
     };
 
     // Add signing keys with non-default type.
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     assert_ok!(Identity::add_signing_items(
         alice,
-        alice_did,
         vec![charlie_signing_key, dave_signing_key.clone()]
     ));
 
@@ -341,7 +326,6 @@ fn freeze_signing_keys_with_externalities() {
     let signing_keys_v1 = vec![bob_signing_key.clone(), charlie_signing_key];
     assert_ok!(Identity::add_signing_items(
         alice.clone(),
-        alice_did,
         signing_keys_v1.clone()
     ));
     assert_ok!(Identity::authorize_join_to_identity(bob.clone(), alice_did));
@@ -357,10 +341,10 @@ fn freeze_signing_keys_with_externalities() {
 
     // Freeze signing keys: bob & charlie.
     assert_err!(
-        Identity::freeze_signing_keys(bob.clone(), alice_did),
+        Identity::freeze_signing_keys(bob.clone()),
         "Only master key of an identity is able to execute this operation"
     );
-    assert_ok!(Identity::freeze_signing_keys(alice.clone(), alice_did));
+    assert_ok!(Identity::freeze_signing_keys(alice.clone()));
 
     assert_eq!(
         Identity::is_signer_authorized(alice_did, &Signatory::AccountKey(bob_key)),
@@ -371,7 +355,6 @@ fn freeze_signing_keys_with_externalities() {
     let signing_keys_v2 = vec![dave_signing_key.clone()];
     assert_ok!(Identity::add_signing_items(
         alice.clone(),
-        alice_did,
         signing_keys_v2.clone()
     ));
     assert_ok!(Identity::authorize_join_to_identity(dave, alice_did));
@@ -383,17 +366,16 @@ fn freeze_signing_keys_with_externalities() {
     // update permission of frozen keys.
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
-        alice_did,
         Signatory::AccountKey(bob_key),
         vec![Permission::Operator]
     ));
 
     // unfreeze all
     assert_err!(
-        Identity::unfreeze_signing_keys(bob.clone(), alice_did),
+        Identity::unfreeze_signing_keys(bob.clone()),
         "Only master key of an identity is able to execute this operation"
     );
-    assert_ok!(Identity::unfreeze_signing_keys(alice.clone(), alice_did));
+    assert_ok!(Identity::unfreeze_signing_keys(alice.clone()));
 
     assert_eq!(
         Identity::is_signer_authorized(alice_did, &Signatory::AccountKey(dave_key)),
@@ -428,7 +410,6 @@ fn remove_frozen_signing_keys_with_externalities() {
     let signing_keys_v1 = vec![bob_signing_key, charlie_signing_key.clone()];
     assert_ok!(Identity::add_signing_items(
         alice.clone(),
-        alice_did,
         signing_keys_v1.clone()
     ));
     assert_ok!(Identity::authorize_join_to_identity(
@@ -441,12 +422,11 @@ fn remove_frozen_signing_keys_with_externalities() {
     ));
 
     // Freeze all signing keys
-    assert_ok!(Identity::freeze_signing_keys(alice.clone(), alice_did));
+    assert_ok!(Identity::freeze_signing_keys(alice.clone()));
 
     // Remove Bob's key.
     assert_ok!(Identity::remove_signing_items(
         alice.clone(),
-        alice_did,
         vec![Signatory::AccountKey(bob_key)]
     ));
     // Check DidRecord.
@@ -465,7 +445,7 @@ fn enforce_uniqueness_keys_in_identity() {
     // Register identities
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
-    let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let _bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let bob = Origin::signed(AccountKeyring::Bob.public());
 
     // Check external signed key uniqueness.
@@ -476,7 +456,6 @@ fn enforce_uniqueness_keys_in_identity() {
     );
     assert_ok!(Identity::add_signing_items(
         alice.clone(),
-        alice_id,
         vec![charlie_sk.clone()]
     ));
     assert_ok!(Identity::authorize_join_to_identity(
@@ -485,7 +464,7 @@ fn enforce_uniqueness_keys_in_identity() {
     ));
 
     assert_err!(
-        Identity::add_signing_items(bob.clone(), bob_id, vec![charlie_sk]),
+        Identity::add_signing_items(bob.clone(), vec![charlie_sk]),
         Error::<TestStorage>::AlreadyLinked
     );
 
@@ -498,14 +477,9 @@ fn enforce_uniqueness_keys_in_identity() {
     };
     assert_ok!(Identity::add_signing_items(
         alice.clone(),
-        alice_id,
         vec![dave_sk.clone()]
     ));
-    assert_ok!(Identity::add_signing_items(
-        bob.clone(),
-        bob_id,
-        vec![dave_sk]
-    ));
+    assert_ok!(Identity::add_signing_items(bob.clone(), vec![dave_sk]));
 
     // Check that master key acts like external signed key.
     let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
@@ -515,13 +489,13 @@ fn enforce_uniqueness_keys_in_identity() {
         permissions: vec![Permission::Operator],
     };
     assert_err!(
-        Identity::add_signing_items(alice.clone(), alice_id, vec![bob_sk_as_mutisig]),
+        Identity::add_signing_items(alice.clone(), vec![bob_sk_as_mutisig]),
         Error::<TestStorage>::AlreadyLinked
     );
 
     let bob_sk = SigningItem::new(Signatory::AccountKey(bob_key), vec![Permission::Admin]);
     assert_err!(
-        Identity::add_signing_items(alice.clone(), alice_id, vec![bob_sk]),
+        Identity::add_signing_items(alice.clone(), vec![bob_sk]),
         Error::<TestStorage>::AlreadyLinked
     );
 }
@@ -545,7 +519,6 @@ fn add_remove_signing_identities_with_externalities() {
 
     assert_ok!(Identity::add_signing_items(
         alice.clone(),
-        alice_id,
         vec![SigningItem::from(bob_id), SigningItem::from(charlie_id)]
     ));
     assert_ok!(Identity::authorize_join_to_identity(bob, alice_id));
@@ -557,7 +530,6 @@ fn add_remove_signing_identities_with_externalities() {
 
     assert_ok!(Identity::remove_signing_items(
         alice.clone(),
-        alice_id,
         vec![Signatory::Identity(bob_id), Signatory::Identity(dave_id)]
     ));
 
@@ -605,14 +577,9 @@ fn two_step_join_id_with_ext() {
     let signing_keys = vec![c_sk.clone(), d_sk.clone(), e_sk.clone()];
     assert_ok!(Identity::add_signing_items(
         alice.clone(),
-        alice_id,
         signing_keys.clone()
     ));
-    assert_ok!(Identity::add_signing_items(
-        bob.clone(),
-        bob_id,
-        signing_keys
-    ));
+    assert_ok!(Identity::add_signing_items(bob.clone(), signing_keys));
     assert_eq!(
         Identity::is_signer_authorized(alice_id, &c_sk.signer),
         false
@@ -637,7 +604,6 @@ fn two_step_join_id_with_ext() {
     assert_eq!(Identity::is_signer_authorized(alice_id, &d_sk.signer), true);
     assert_ok!(Identity::remove_signing_items(
         alice.clone(),
-        alice_id,
         vec![d_sk.signer.clone()]
     ));
     assert_eq!(
@@ -713,7 +679,6 @@ fn one_step_join_id_with_ext() {
 
     assert_ok!(Identity::add_signing_items_with_authorization(
         a.clone(),
-        a_id,
         expires_at,
         signing_items_with_auth[..2].to_owned()
     ));
@@ -729,7 +694,6 @@ fn one_step_join_id_with_ext() {
     assert_err!(
         Identity::add_signing_items_with_authorization(
             a.clone(),
-            a_id,
             expires_at,
             signing_items_with_auth[2..].to_owned()
         ),
@@ -759,7 +723,6 @@ fn one_step_join_id_with_ext() {
     assert_err!(
         Identity::add_signing_items_with_authorization(
             a,
-            a_id.clone(),
             expires_at,
             vec![eve_signing_item_with_auth]
         ),
@@ -785,7 +748,6 @@ fn one_step_join_id_with_ext() {
     assert_err!(
         Identity::add_signing_items_with_authorization(
             f,
-            f_id,
             expires_at,
             vec![ferdie_signing_item_with_auth]
         ),
