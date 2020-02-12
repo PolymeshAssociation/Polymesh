@@ -167,7 +167,7 @@ use polymesh_primitives::{
 use polymesh_runtime_common::traits::{
     balances::{BalancesTrait, RawEvent},
     identity::IdentityTrait,
-    BlockRewardsReserveTrait, NegativeImbalance, PositiveImbalance,
+    NegativeImbalance, PositiveImbalance,
 };
 
 use codec::{Decode, Encode};
@@ -534,8 +534,7 @@ where
     }
 }
 
-impl<T: Trait> BlockRewardsReserveTrait<T::Balance> for Module<T> {
-    //
+impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for Module<T> {
     fn drop_positive_imbalance(mut amount: T::Balance) {
         let brr = <BlockRewardsReserve<T>>::get();
         let brr_balance = <FreeBalance<T>>::get(&brr);
@@ -550,10 +549,8 @@ impl<T: Trait> BlockRewardsReserveTrait<T::Balance> for Module<T> {
     fn drop_negative_imbalance(amount: T::Balance) {
         <TotalIssuance<T>>::mutate(|v| *v = v.saturating_sub(amount));
     }
-}
 
-impl<T: Trait> BlockRewardsReserveCurrency<T::AccountId> for Module<T> {
-    fn issue_using_block_rewards_reserve(amount: Self::Balance) -> Self::NegativeImbalance {
+    fn issue_using_block_rewards_reserve(amount: T::Balance) -> NegativeImbalance<T> {
         let brr = <BlockRewardsReserve<T>>::get();
         let brr_balance = <FreeBalance<T>>::get(&brr);
         let amount_to_mint = if brr_balance > Zero::zero() {

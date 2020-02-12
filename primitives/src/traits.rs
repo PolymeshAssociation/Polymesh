@@ -29,7 +29,11 @@ pub trait IdentityCurrency<AccountId>: Currency<AccountId> {
 }
 
 /// A currency that has a block rewards reserve.
-pub trait BlockRewardsReserveCurrency<AccountId>: Currency<AccountId> {
+pub trait BlockRewardsReserveCurrency<Balance, NegativeImbalance> {
+    /// An instance of `Drop` for positive imbalance.
+    fn drop_positive_imbalance(amount: Balance);
+    /// An instance of `Drop` for negative imbalance.
+    fn drop_negative_imbalance(amount: Balance);
     /// Issues a given amount of currency from the block rewards reserve if possible.
-    fn issue_using_block_rewards_reserve(amount: Self::Balance) -> Self::NegativeImbalance;
+    fn issue_using_block_rewards_reserve(amount: Balance) -> NegativeImbalance;
 }

@@ -16,11 +16,12 @@ use frame_support::{
 };
 use pallet_transaction_payment::ChargeTransactionPayment;
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
-use polymesh_runtime_common::traits::{BlockRewardsReserveTrait, NegativeImbalance};
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
+
+type AccountId = <TestStorage as frame_system::Trait>::AccountId;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
@@ -177,7 +178,8 @@ fn issue_must_work() {
         assert_eq!(Balances::total_issuance(), ti);
 
         // When BRR has enough funds to subsidize a mint fully, it should subsidize it.
-        let imbalance2: NegativeImbalance<_> = Balances::issue_using_block_rewards_reserve(100);
+        let imbalance2: <Balances as Currency<AccountId>>::NegativeImbalance =
+            Balances::issue_using_block_rewards_reserve(100);
         assert_eq!(Balances::total_issuance(), ti);
         assert_eq!(Balances::free_balance(&brr), 400);
         drop(imbalance2);
@@ -194,7 +196,7 @@ fn issue_must_work() {
         assert_eq!(Balances::total_issuance(), ti - 400);
         ti = ti - 400;
 
-        // When BRR has no funds to subsk183
+        // When BRR has no funds to subsidize a mint, it should be fully minted.
         let imbalance4 = Balances::issue_using_block_rewards_reserve(100);
         assert_eq!(Balances::total_issuance(), ti + 100);
         drop(imbalance4);

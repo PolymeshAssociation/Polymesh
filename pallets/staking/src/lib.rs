@@ -623,7 +623,7 @@ where
 pub trait Trait: frame_system::Trait + pallet_babe::Trait {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>
-        + BlockRewardsReserveCurrency<Self::AccountId>;
+        + BlockRewardsReserveCurrency<BalanceOf<Self>, NegativeImbalanceOf<Self>>;
 
     /// Time used for computing era duration.
     type Time: Time;
