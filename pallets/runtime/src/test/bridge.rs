@@ -97,11 +97,11 @@ fn can_issue_to_identity() {
             bridge_signers
         ));
         assert_eq!(Bridge::bridge_signers(), bridge_signers);
-        let value = 1_000_000_000_000_000_000_000;
+        let amount = 1_000_000_000_000_000_000_000;
         let bridge_tx = BridgeTx {
             nonce: 1,
             recipient: IssueRecipient::Identity(bob_did),
-            value,
+            amount,
             tx_hash: Default::default(),
         };
         assert_eq!(Bridge::bridge_signers(), bridge_signers);
@@ -119,7 +119,7 @@ fn can_issue_to_identity() {
         assert_tx_approvals!(bridge_signers, 1, 0);
         assert_eq!(proposal_id(), Some(0));
         let new_bobs_balance = Balances::identity_balance(bob_did);
-        assert_eq!(new_bobs_balance, bobs_balance + value);
+        assert_eq!(new_bobs_balance, bobs_balance + amount);
     });
 }
 
@@ -230,11 +230,11 @@ fn cannot_propose_without_bridge_signers() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
-        let value = 1_000_000;
+        let amount = 1_000_000;
         let bridge_tx = BridgeTx {
             nonce: 1,
             recipient: IssueRecipient::Identity(alice_did),
-            value,
+            amount,
             tx_hash: Default::default(),
         };
         assert_err!(
@@ -256,7 +256,7 @@ fn cannot_call_bridge_callback_extrinsics() {
         let bridge_tx = BridgeTx {
             nonce: 1,
             recipient: IssueRecipient::Account(alice_account),
-            value: 1_000_000,
+            amount: 1_000_000,
             tx_hash: Default::default(),
         };
         assert_err!(Bridge::handle_bridge_tx(alice, bridge_tx), Error::BadCaller);
