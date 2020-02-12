@@ -208,7 +208,7 @@ fn can_change_validators() {
         assert_eq!(Bridge::validators(), validator_account);
         assert_err!(
             Bridge::propose_validator_set(dave.clone(), new_validator_set.clone()),
-            "not a signer to approve as identity"
+            Error::IdentityMissing
         );
         assert_tx_approvals!(validator_account, 0, 1);
         assert_tx_approvals!(new_validator_account, 0, 0);
@@ -266,6 +266,6 @@ fn cannot_call_validator_callback_extrinsics() {
             value: 1_000_000,
             tx_hash: Default::default(),
         };
-        assert_err!(Bridge::handle_bridge_tx(alice, bridge_tx), Error::BadCaller,);
+        assert_err!(Bridge::handle_bridge_tx(alice, bridge_tx), Error::BadCaller);
     });
 }
