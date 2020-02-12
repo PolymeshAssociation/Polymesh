@@ -161,7 +161,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 use polymesh_primitives::{
-    traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signatory,
+    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
+    AccountKey, IdentityId, Permission, Signatory,
 };
 use polymesh_runtime_common::traits::{
     balances::{BalancesTrait, RawEvent},
@@ -534,6 +535,7 @@ where
 }
 
 impl<T: Trait> BlockRewardsReserveTrait<T::Balance> for Module<T> {
+    //
     fn drop_positive_imbalance(mut amount: T::Balance) {
         let brr = <BlockRewardsReserve<T>>::get();
         let brr_balance = <FreeBalance<T>>::get(&brr);
@@ -547,6 +549,21 @@ impl<T: Trait> BlockRewardsReserveTrait<T::Balance> for Module<T> {
 
     fn drop_negative_imbalance(amount: T::Balance) {
         <TotalIssuance<T>>::mutate(|v| *v = v.saturating_sub(amount));
+    }
+}
+
+impl<T: Trait> BlockRewardsReserveCurrency<T::AccountId> for Module<T> {
+    fn issue_using_block_rewards_reserve(amount: Self::Balance) -> Self::NegativeImbalance {
+        let brr = <BlockRewardsReserve<T>>::get();
+        let brr_balance = <FreeBalance<T>>::get(&brr);
+        let amount_to_mint = if brr_balance > Zero::zero() {
+            let new_brr_balance = brr_balance.saturating_sub(amount);
+            <FreeBalance<T>>::insert(&brr, new_brr_balance);
+            amount - (brr_balance - new_brr_balance)
+        } else {
+            amount
+        };
+        <Self as Currency<T::AccountId>>::issue(amount_to_mint)
     }
 }
 
@@ -589,18 +606,11 @@ where
     }
 
     fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
-        let brr = <BlockRewardsReserve<T>>::get();
-        let brr_balance = <FreeBalance<T>>::get(&brr);
-        let amount_to_mint;
-        if brr_balance > Zero::zero() {
-            let new_brr_balance = brr_balance.saturating_sub(amount);
-            amount_to_mint = amount - (brr_balance - new_brr_balance);
-            <FreeBalance<T>>::insert(&brr, new_brr_balance);
-        } else {
-            amount_to_mint = amount;
+        if amount.is_zero() {
+            return NegativeImbalance::zero();
         }
         <TotalIssuance<T>>::mutate(|issued| {
-            *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
+            *issued = issued.checked_add(&amount).unwrap_or_else(|| {
                 amount = Self::Balance::max_value() - *issued;
                 Self::Balance::max_value()
             })

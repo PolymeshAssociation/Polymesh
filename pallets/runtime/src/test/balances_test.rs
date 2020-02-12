@@ -15,6 +15,8 @@ use frame_support::{
     weights::{DispatchInfo, Weight},
 };
 use pallet_transaction_payment::ChargeTransactionPayment;
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
+use polymesh_runtime_common::traits::{BlockRewardsReserveTrait, NegativeImbalance};
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
@@ -158,7 +160,7 @@ fn issue_must_work() {
 
         // When there is no balance in BRR, issuance should increase total supply
         // NOTE: dropping negative imbalance is equivalent to burning. It will decrease total supply.
-        let imbalance = Balances::issue(10);
+        let imbalance = Balances::issue_using_block_rewards_reserve(10);
         assert_eq!(Balances::total_issuance(), ti + 10);
         drop(imbalance);
         assert_eq!(Balances::total_issuance(), ti);
@@ -175,7 +177,7 @@ fn issue_must_work() {
         assert_eq!(Balances::total_issuance(), ti);
 
         // When BRR has enough funds to subsidize a mint fully, it should subsidize it.
-        let imbalance2 = Balances::issue(100);
+        let imbalance2: NegativeImbalance<_> = Balances::issue_using_block_rewards_reserve(100);
         assert_eq!(Balances::total_issuance(), ti);
         assert_eq!(Balances::free_balance(&brr), 400);
         drop(imbalance2);
@@ -183,7 +185,7 @@ fn issue_must_work() {
         ti = ti - 100;
 
         // When BRR has funds to subsidize a mint partially, it should subsidize it and rest should be minted.
-        let imbalance3 = Balances::issue(1000);
+        let imbalance3 = Balances::issue_using_block_rewards_reserve(1000);
         assert_eq!(Balances::total_issuance(), ti + 600);
         assert_eq!(Balances::free_balance(&brr), 0);
         drop(imbalance3);
@@ -192,8 +194,8 @@ fn issue_must_work() {
         assert_eq!(Balances::total_issuance(), ti - 400);
         ti = ti - 400;
 
-        // When BRR has no funds to subsidize a mint, it should be fully minted.
-        let imbalance4 = Balances::issue(100);
+        // When BRR has no funds to subsk183
+        let imbalance4 = Balances::issue_using_block_rewards_reserve(100);
         assert_eq!(Balances::total_issuance(), ti + 100);
         drop(imbalance4);
         assert_eq!(Balances::total_issuance(), ti);
