@@ -9,11 +9,10 @@ use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
-type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
@@ -88,14 +87,25 @@ fn join_multisig() {
             false
         );
 
+        let alice_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
-            Identity::last_authorization(Signatory::from(alice_did))
+            alice_auth_id
         ));
+
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+            .next()
+            .unwrap()
+            .auth_id;
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
-            Identity::last_authorization(bob_signer)
+            bob_auth_id
         ));
 
         assert_eq!(
@@ -127,14 +137,25 @@ fn change_multisig_sigs_required() {
             2,
         ));
 
+        let alice_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
-            Identity::last_authorization(Signatory::from(alice_did))
+            alice_auth_id
         ));
+
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+            .next()
+            .unwrap()
+            .auth_id;
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
-            Identity::last_authorization(bob_signer)
+            bob_auth_id
         ));
 
         assert_eq!(
@@ -185,14 +206,25 @@ fn remove_multisig_signer() {
             1,
         ));
 
+        let alice_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
-            Identity::last_authorization(Signatory::from(alice_did))
+            alice_auth_id
         ));
+
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+            .next()
+            .unwrap()
+            .auth_id;
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
-            Identity::last_authorization(bob_signer)
+            bob_auth_id
         ));
 
         assert_eq!(
@@ -245,9 +277,15 @@ fn add_multisig_signer() {
             1,
         ));
 
+        let alice_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
-            Identity::last_authorization(Signatory::from(alice_did))
+            alice_auth_id
         ));
 
         assert_eq!(
@@ -279,9 +317,14 @@ fn add_multisig_signer() {
             false
         );
 
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+            .next()
+            .unwrap()
+            .auth_id;
+
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
-            Identity::last_authorization(bob_signer)
+            bob_auth_id
         ));
 
         assert_eq!(
