@@ -21,28 +21,6 @@ pub trait Trait: multisig::Trait {
     type Proposal: From<Call<Self>> + Into<<Self as identity::Trait>::Proposal>;
 }
 
-/// A configuration of bridge validator set.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ValidatorSet {
-    /// The unique nonce allowing to submit multiple proposals with the same signers and the number
-    /// of required signatures.
-    pub nonce: u64,
-    /// The signers of the multisig.
-    pub signers: Vec<Signatory>,
-    /// The number of required signatures in the multisig.
-    pub signatures_required: u64,
-}
-
-/// Information about a change of the validator set including the multisig account address of the
-/// new validator set and the accepted proposal.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ValidatorSetChange<AccountId> {
-    /// The new multisig account address.
-    pub account_id: AccountId,
-    /// The accepted proposal.
-    pub validator_set: ValidatorSet,
-}
-
 /// The intended recipient of POLY exchanged from the locked ERC20 tokens.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum IssueRecipient<AccountId> {
@@ -53,7 +31,7 @@ pub enum IssueRecipient<AccountId> {
 /// A unique lock-and-mint bridge transaction containing Ethereum transaction data and a bridge nonce.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BridgeTx<AccountId> {
-    /// Bridge validator runtime nonce.
+    /// Bridge signer runtime nonce.
     pub nonce: u64,
     /// Recipient of POLY on Polymesh: the deposit address or identity.
     pub recipient: IssueRecipient<AccountId>,
@@ -77,19 +55,15 @@ type IssueResult<AccountId> = sp_std::result::Result<Option<PendingTx<AccountId>
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The bridge validator set address is not set.
-        ValidatorsNotSet,
-        /// The proposal doesn't contain any signers.
-        NoSignersProvided,
-        /// The proposed number of required signatures is out of bounds.
-        RequiredSignaturesOutOfBounds,
-        /// The validator does not have an identity.
+        /// The bridge signer set address is not set.
+        BridgeSignersNotSet,
+        /// The signer does not have an identity.
         IdentityMissing,
         /// Failure to credit the recipient account.
         CannotCreditAccount,
         /// Failure to credit the recipient identity.
         CannotCreditIdentity,
-        /// The origin is not the validator set multisig.
+        /// The origin is not the signer set multisig.
         BadCaller,
         /// The recipient DID has no valid KYC.
         NoValidKyc,
@@ -98,15 +72,15 @@ decl_error! {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
-        /// The multisig account of the bridge validator set. The genesis signers must accept their
+        /// The multisig account of the bridge signer set. The genesis signers must accept their
         /// authorizations to be able to get their proposals delivered.
-        Validators get(validators) build(|config: &GenesisConfig| {
+        BridgeSigners get(bridge_signers) build(|config: &GenesisConfig| {
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
                 panic!("too many signatures required");
             }
             if config.signatures_required == 0 {
-                /// Default to the empty validator set.
+                /// Default to the empty signer set.
                 return Default::default();
             }
             <multisig::Module<T>>::create_multisig_account(
@@ -115,25 +89,23 @@ decl_storage! {
                 config.signatures_required
             ).expect("cannot create the bridge multisig")
         }): T::AccountId;
-        /// Correspondence between validator set change proposals and multisig proposal IDs.
-        ValidatorSetProposals get(validator_set_proposals): map ValidatorSet => Option<u64>;
         /// Correspondence between bridge transaction proposals and multisig proposal IDs.
         BridgeTxProposals get(bridge_tx_proposals): map BridgeTx<T::AccountId> => Option<u64>;
         /// Pending issuance transactions to identities.
         PendingTxs get(pending_txs): map IdentityId => Vec<BridgeTx<T::AccountId>>;
     }
     add_extra_genesis {
-        /// The set of initial validators from which a multisig address is created at genesis time.
+        /// The set of initial signers from which a multisig address is created at genesis time.
         config(signers): Vec<Signatory>;
-        /// The number of required signatures in the genesis validator set.
+        /// The number of required signatures in the genesis signer set.
         config(signatures_required): u64;
     }
 }
 
 decl_event! {
     pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId {
-        /// Confirmation of a validator set change.
-        ValidatorSetChanged(ValidatorSetChange<AccountId>),
+        /// Confirmation of a signer set change.
+        BridgeSignersChanged(AccountId),
         /// Confirmation of minting POLY on Polymesh in return for the locked ERC20 tokens on
         /// Ethereum.
         Bridged(BridgeTx<AccountId>),
@@ -151,60 +123,10 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Proposes to change the bridge validators and the number of required signatures, which
-        /// amounts to making a multisig proposal for the validator set change if the change is new
-        /// or approving an existing proposal if the change has already been proposed.
-        pub fn propose_validator_set(origin, validator_set: ValidatorSet) ->
-            DispatchResult
-        {
-            let sender = ensure_signed(origin.clone())?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let sender_did =  <identity::Module<T>>::current_did().map_or_else(|| {
-                <identity::Module<T>>::get_identity(&sender_key)
-                    .ok_or_else(|| Error::<T>::IdentityMissing)
-            }, Ok)?;
-            let sender_signer = Signatory::from(sender_did);
-            let current_validators = Self::validators();
-            if current_validators == Default::default() {
-                return Err(Error::<T>::ValidatorsNotSet.into());
-            }
-            let signers_len = validator_set.signers.len();
-            let sigs_required = validator_set.signatures_required;
-            if signers_len == 0 {
-                return Err(Error::<T>::NoSignersProvided.into());
-            }
-            if u64::try_from(signers_len).unwrap_or_default() < sigs_required ||
-                sigs_required == 0
-            {
-                return Err(Error::<T>::RequiredSignaturesOutOfBounds.into());
-            }
-            if let Some(proposal_id) = Self::validator_set_proposals(&validator_set) {
-                // This is an existing proposal.
-                <multisig::Module<T>>::approve_as_identity(
-                    origin,
-                    current_validators,
-                    proposal_id
-                )?;
-            } else {
-                // The proposal is new.
-                let proposal = <T as Trait>::Proposal::from(
-                    Call::<T>::handle_validator_set(validator_set.clone())
-                );
-                let boxed_call = Box::new(proposal.into());
-                let proposal_id = <multisig::Module<T>>::create_proposal(
-                    current_validators,
-                    boxed_call,
-                    sender_signer
-                )?;
-                <ValidatorSetProposals>::insert(validator_set, proposal_id);
-            }
-            Ok(())
-        }
-
-        /// Change the validator set account as root.
-        pub fn change_validator_set_account(origin, account_id: T::AccountId) -> DispatchResult {
+        /// Change the signer set account as root.
+        pub fn change_bridge_signers(origin, account_id: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
-            <Validators<T>>::put(account_id);
+            <BridgeSigners<T>>::put(account_id);
             Ok(())
         }
 
@@ -219,13 +141,13 @@ decl_module! {
                     .ok_or_else(|| Error::<T>::IdentityMissing)
             }, Ok)?;
             let sender_signer = Signatory::from(sender_did);
-            let validators = Self::validators();
-            if validators == Default::default() {
-                return Err(Error::<T>::ValidatorsNotSet.into());
+            let bridge_signers = Self::bridge_signers();
+            if bridge_signers == Default::default() {
+                return Err(Error::<T>::BridgeSignersNotSet.into());
             }
             if let Some(proposal_id) = Self::bridge_tx_proposals(&bridge_tx) {
                 // This is an existing proposal.
-                <multisig::Module<T>>::approve_as_identity(origin, validators, proposal_id)?;
+                <multisig::Module<T>>::approve_as_identity(origin, bridge_signers, proposal_id)?;
             } else {
                 // The proposal is new.
                 let proposal = <T as Trait>::Proposal::from(
@@ -233,7 +155,7 @@ decl_module! {
                 );
                 let boxed_call = Box::new(proposal.into());
                 let proposal_id = <multisig::Module<T>>::create_proposal(
-                    validators,
+                    bridge_signers,
                     boxed_call,
                     sender_signer
                 )?;
@@ -278,27 +200,15 @@ decl_module! {
             Ok(())
         }
 
-        /// Handles an approved validator set change transaction proposal. The new signers must
-        /// approve their authorizations issued by this function.
-        ///
-        /// NOTE: Extrinsics without `pub` are exported too. This function is declared as `pub` only
-        /// to test that it cannot be called from a wrong `origin`.
-        pub fn handle_validator_set(origin, validator_set: ValidatorSet) -> DispatchResult {
+        /// Handles an approved signer set multisig account change proposal.
+        pub fn handle_bridge_signers(origin, account_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
-            if sender != Self::validators() {
+            if sender != Self::bridge_signers() {
                 return Err(Error::<T>::BadCaller.into());
             }
-            let account_id = <multisig::Module<T>>::create_multisig_account(
-                sender,
-                validator_set.signers.as_slice(),
-                validator_set.signatures_required,
-            )?;
-            // Update the validator set.
-            <Validators<T>>::put(account_id.clone());
-            Self::deposit_event(RawEvent::ValidatorSetChanged(ValidatorSetChange {
-                account_id,
-                validator_set
-            }));
+            // Update the bridge signers.
+            <BridgeSigners<T>>::put(account_id.clone());
+            Self::deposit_event(RawEvent::BridgeSignersChanged(account_id));
             Ok(())
         }
 
@@ -308,7 +218,7 @@ decl_module! {
         /// to test that it cannot be called from a wrong `origin`.
         pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
-            if sender != Self::validators() {
+            if sender != Self::bridge_signers() {
                 return Err(Error::<T>::BadCaller.into());
             }
             if let Some(PendingTx {
