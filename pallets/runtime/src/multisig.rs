@@ -62,7 +62,7 @@ decl_storage! {
         /// Signers of a multisig. (mulisig, signer) => Option<Signatory>.
         /// It's none when Signatory is not an authorized signer of the multisig.
         pub MultiSigSigners: double_map hasher(blake2_256) T::AccountId, blake2_256(Signatory) => Option<Signatory>;
-        /// Number of signers of a multisig
+        /// Number of approved/accepted signers of a multisig.
         pub NumberOfSigners get(number_of_signers): map T::AccountId => u64;
         /// Confirmations required before processing a multisig tx
         pub MultiSigSignsRequired get(ms_signs_required): map T::AccountId => u64;
@@ -248,7 +248,9 @@ decl_module! {
         pub fn remove_multisig_signer(origin, signer: Signatory) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
-            <MultiSigSigners<T>>::insert(sender.clone(), signer, signer);
+            ensure!(<MultiSigSigners<T>>::get(&sender, &signer).is_some(), "not a signer");
+            <NumberOfSigners<T>>::mutate(sender.clone(), |x| *x - 1u64);
+            <MultiSigSigners<T>>::remove(sender.clone(), signer);
             Self::deposit_event(RawEvent::MultiSigSignerRemoved(sender, signer));
             Ok(())
         }
@@ -260,6 +262,7 @@ decl_module! {
         pub fn change_sigs_required(origin, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
+            ensure!(<NumberOfSigners<T>>::get(&sender) >= sigs_required, "Not enough signers attached to the multisig");
             <MultiSigSignsRequired<T>>::insert(&sender, &sigs_required);
             Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(sender, sigs_required));
             Ok(())
@@ -392,11 +395,12 @@ impl<T: Trait> Module<T> {
             <MultiSigSignsRequired<T>>::exists(&wallet_id),
             "Multi sig does not exist"
         );
-
+        ensure!(<MultiSigSigners<T>>::get(&wallet_id, &signer).is_none(), "already a signer");
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
         <identity::Module<T>>::consume_auth(wallet_signer, signer, auth_id)?;
 
         <MultiSigSigners<T>>::insert(wallet_id.clone(), signer, signer);
+        <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x + 1u64);
 
         Self::deposit_event(RawEvent::MultiSigSignerAdded(wallet_id, signer));
 
