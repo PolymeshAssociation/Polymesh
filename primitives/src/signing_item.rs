@@ -5,7 +5,7 @@ use sp_std::{
     vec,
 };
 
-use crate::{IdentityId, Key};
+use crate::{AccountKey, IdentityId};
 
 // use crate::entity::IgnoredCaseString;
 
@@ -46,7 +46,7 @@ impl Default for SignerType {
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Signer {
     Identity(IdentityId),
-    Key(Key),
+    AccountKey(AccountKey),
 }
 
 impl Default for Signer {
@@ -55,9 +55,9 @@ impl Default for Signer {
     }
 }
 
-impl From<Key> for Signer {
-    fn from(v: Key) -> Self {
-        Signer::Key(v)
+impl From<AccountKey> for Signer {
+    fn from(v: AccountKey) -> Self {
+        Signer::AccountKey(v)
     }
 }
 
@@ -67,10 +67,10 @@ impl From<IdentityId> for Signer {
     }
 }
 
-impl PartialEq<Key> for Signer {
-    fn eq(&self, other: &Key) -> bool {
+impl PartialEq<AccountKey> for Signer {
+    fn eq(&self, other: &AccountKey) -> bool {
         match self {
-            Signer::Key(ref key) => key == other,
+            Signer::AccountKey(ref key) => key == other,
             _ => false,
         }
     }
@@ -87,9 +87,9 @@ impl PartialEq<IdentityId> for Signer {
 
 impl Signer {
     /// Checks if Signer is either a particular Identity or a particular key
-    pub fn eq_either(&self, other_identity: &IdentityId, other_key: &Key) -> bool {
+    pub fn eq_either(&self, other_identity: &IdentityId, other_key: &AccountKey) -> bool {
         match self {
-            Signer::Key(ref key) => key == other_key,
+            Signer::AccountKey(ref key) => key == other_key,
             Signer::Identity(ref id) => id == other_identity,
         }
     }
@@ -107,10 +107,10 @@ impl Ord for Signer {
         match self {
             Signer::Identity(id) => match other {
                 Signer::Identity(other_id) => id.cmp(other_id),
-                Signer::Key(..) => Ordering::Greater,
+                Signer::AccountKey(..) => Ordering::Greater,
             },
-            Signer::Key(key) => match other {
-                Signer::Key(other_key) => key.cmp(other_key),
+            Signer::AccountKey(key) => match other {
+                Signer::AccountKey(other_key) => key.cmp(other_key),
                 Signer::Identity(..) => Ordering::Less,
             },
         }
@@ -146,9 +146,9 @@ impl SigningItem {
     }
 }
 
-impl From<Key> for SigningItem {
-    fn from(s: Key) -> Self {
-        Self::new(Signer::Key(s), vec![])
+impl From<AccountKey> for SigningItem {
+    fn from(s: AccountKey) -> Self {
+        Self::new(Signer::AccountKey(s), vec![])
     }
 }
 
@@ -166,8 +166,8 @@ impl PartialEq for SigningItem {
     }
 }
 
-impl PartialEq<Key> for SigningItem {
-    fn eq(&self, other: &Key) -> bool {
+impl PartialEq<AccountKey> for SigningItem {
+    fn eq(&self, other: &AccountKey) -> bool {
         self.signer == *other
     }
 }
@@ -193,19 +193,19 @@ impl Ord for SigningItem {
 
 #[cfg(test)]
 mod tests {
-    use super::{Key, Permission, Signer, SigningItem};
+    use super::{AccountKey, Permission, Signer, SigningItem};
     use crate::IdentityId;
     use std::convert::{From, TryFrom};
 
     #[test]
     fn build_test() {
-        let key = Key::try_from("ABCDABCD".as_bytes()).unwrap();
-        let rk1 = SigningItem::new(Signer::Key(key.clone()), vec![]);
+        let key = AccountKey::try_from("ABCDABCD".as_bytes()).unwrap();
+        let rk1 = SigningItem::new(Signer::AccountKey(key.clone()), vec![]);
         let rk2 = SigningItem::from(key.clone());
         assert_eq!(rk1, rk2);
 
         let rk3 = SigningItem::new(
-            Signer::Key(key.clone()),
+            Signer::AccountKey(key.clone()),
             vec![Permission::Operator, Permission::Admin],
         );
         assert_ne!(rk1, rk3);
@@ -226,9 +226,9 @@ mod tests {
 
     #[test]
     fn full_permission_test() {
-        let key = Key::try_from("ABCDABCD".as_bytes()).unwrap();
-        let full_key = SigningItem::new(Signer::Key(key.clone()), vec![Permission::Full]);
-        let not_full_key = SigningItem::new(Signer::Key(key), vec![Permission::Operator]);
+        let key = AccountKey::try_from("ABCDABCD".as_bytes()).unwrap();
+        let full_key = SigningItem::new(Signer::AccountKey(key.clone()), vec![Permission::Full]);
+        let not_full_key = SigningItem::new(Signer::AccountKey(key), vec![Permission::Operator]);
         assert_eq!(full_key.has_permission(Permission::Operator), true);
         assert_eq!(full_key.has_permission(Permission::Admin), true);
 
@@ -239,7 +239,7 @@ mod tests {
     #[test]
     fn signer_build_and_eq_tests() {
         let k = "ABCDABCD".as_bytes().to_vec();
-        let key = Key::try_from(k.as_slice()).unwrap();
+        let key = AccountKey::try_from(k.as_slice()).unwrap();
         let iden = IdentityId::try_from(
             "did:poly:f1d273950ddaf693db228084d63ef18282e00f91997ae9df4f173f09e86d0976",
         )

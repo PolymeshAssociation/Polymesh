@@ -199,6 +199,23 @@ decl_module! {
     }
 }
 
+pub trait GroupTrait {
+    fn get_members() -> Vec<IdentityId>;
+
+    /// Is the given `MemberId` a valid member?
+    fn is_member(member_id: &IdentityId) -> bool;
+}
+
+impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
+    fn get_members() -> Vec<IdentityId> {
+        return Self::members();
+    }
+
+    fn is_member(did: &IdentityId) -> bool {
+        Self::members().iter().any(|id| id == did)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

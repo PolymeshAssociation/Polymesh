@@ -250,9 +250,9 @@ impl pallet_session::historical::Trait for Runtime {
 
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-        min_inflation: 0_025_000,
-        max_inflation: 0_100_000,
-        ideal_stake: 0_500_000,
+        min_inflation: 0_500_000,
+        max_inflation: 1_000_000,
+        ideal_stake: 0_100_000,
         falloff: 0_050_000,
         max_piece_count: 40,
         test_precision: 0_005_000,
@@ -495,6 +495,7 @@ impl identity::Trait for Runtime {
     type Proposal = Call;
     type AcceptTransferTarget = Asset;
     type AddSignerMultiSigTarget = MultiSig;
+    type KYCServiceProviders = KYCServiceProviders;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -559,7 +560,7 @@ construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Storage, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-   		MIPS: mips::{Module, Call, Storage, Event<T>, Config<T>},
+   		Mips: mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
@@ -567,7 +568,7 @@ construct_runtime!(
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
-        STOCapped: sto_capped::{Module, Call, Storage, Event<T>},
+        StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
