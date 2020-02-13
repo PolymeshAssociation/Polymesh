@@ -816,7 +816,9 @@ where
         who: &IdentityId,
         value: Self::Balance,
     ) -> result::Result<Self::PositiveImbalance, DispatchError> {
-        // TODO: check that the account balance is above 0?
+        if value.is_zero() {
+            return Ok(PositiveImbalance::zero());
+        }
         if let Some(new_balance) = Self::identity_balance(who).checked_add(&value) {
             <IdentityBalance<T>>::insert(who, new_balance);
             Ok(PositiveImbalance::new(value))
