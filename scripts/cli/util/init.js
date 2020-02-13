@@ -55,89 +55,42 @@ const initial_storage_size = duDirSize(STORAGE_DIR);
 current_storage_size = initial_storage_size;
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
-// and Master keys, Signing keys, and Claim keys.
 async function initMain(api) {
-  console.log(
-    `Welcome to Polymesh Stats Collector. Creating ${n_accounts} accounts and DIDs, with ${n_claims} claims per DID.`
-  );
+  let entities = [];
+  let alice = await generateEntity(api, "Alice");
+  let bob = await generateEntity(api, "Bob");
+  entities.push(alice);
+  entities.push(bob);
 
-  console.log(
-    `Initial storage size (${STORAGE_DIR}): ${initial_storage_size / 1024}MB`
-  );
-
-    // generateEntity(api, "Alice");
-    // generateEntity(api, "Bob");
-    // generateEntity(api, "Dave");
-
-  // Create `n_accounts` master key accounts
-  console.log("Generating Master Keys");
-  generateMasterKeys(api);
-
-  // Create `n_accounts` signing key accounts
-  console.log("Generating Signing Keys");
-  generateSigningKeys(api);
-
-  // Create `n_accounts` claim key accounts
-  console.log("Generating Claim Keys");
-  generateClaimKeys(api);
-
-  updateStorageSize(STORAGE_DIR);
+  return entities;
 }
 
 let generateEntity = async function(api, name) {
-  let entity = keyring.addFromUri(`//${name}`, { name: `${name}` });
-  entities.push(entity);
-  let lastIndex = entities.length - 1;
-  let entityRawNonce = await api.query.system.accountNonce(
-    entities[lastIndex].address
-  );
+  let entity = [];
+  entity = keyring.addFromUri(`//${name}`, { name: `${name}` });
+  let entityRawNonce = await api.query.system.accountNonce(entity.address);
   let entity_nonce = new BN(entityRawNonce.toString());
-  nonces.set(entities[lastIndex].address, entity_nonce);
+  nonces.set(entity.address, entity_nonce);
+
+    return entity;
 };
 
-const generateMasterKeys = async function(api) {
-  for (let i = 0; i < n_accounts; i++) {
-    master_keys.push(
-      keyring.addFromUri("//IssuerMK" + prepend + i.toString(), {
+
+const generateKeys = async function(api, numberOfKeys, keyPrepend) {
+  let keys = [];
+  for (let i = 0; i < numberOfKeys; i++) {
+    keys.push(
+      keyring.addFromUri("//" + keyPrepend + i.toString(), {
         name: i.toString()
       })
     );
     let accountRawNonce = await api.query.system.accountNonce(
-      master_keys[i].address
+      keys[i].address
     );
     let account_nonce = new BN(accountRawNonce.toString());
-    nonces.set(master_keys[i].address, account_nonce);
+    nonces.set(keys[i].address, account_nonce);
   }
-};
-
-const generateSigningKeys = async function(api) {
-  for (let i = 0; i < n_accounts; i++) {
-    signing_keys.push(
-      keyring.addFromUri("//IssuerSK" + prepend + i.toString(), {
-        name: i.toString()
-      })
-    );
-    let accountRawNonce = await api.query.system.accountNonce(
-      signing_keys[i].address
-    );
-    let account_nonce = new BN(accountRawNonce.toString());
-    nonces.set(signing_keys[i].address, account_nonce);
-  }
-};
-
-const generateClaimKeys = async function(api) {
-  for (let i = 0; i < n_claim_accounts; i++) {
-    claim_keys.push(
-      keyring.addFromUri("//ClaimIssuerMK" + prepend + i.toString(), {
-        name: i.toString()
-      })
-    );
-    let claimIssuerRawNonce = await api.query.system.accountNonce(
-      claim_keys[i].address
-    );
-    let account_nonce = new BN(claimIssuerRawNonce.toString());
-    nonces.set(claim_keys[i].address, account_nonce);
-  }
+  return keys;
 };
 
 const blockTillPoolEmpty = async function(api) {
@@ -191,17 +144,16 @@ function updateStorageSize(dir) {
 }
 
 // Create a new DID for each of accounts[]
-const createIdentities = async function(api, accounts, fast) {
+// precondition - accounts all have enough POLY
+const createIdentities = async function(api, accounts) {
   let dids = [];
-    if (!("CREATE IDENTITIES" in fail_type)) {
-    fail_type["CREATE IDENTITIES"] = 0;
-  }
+   
   for (let i = 0; i < accounts.length; i++) {
-    if (fast) {
+    
       await api.tx.identity
         .registerDid([])
         .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
-    }
+    
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
   await blockTillPoolEmpty(api);
@@ -213,28 +165,25 @@ const createIdentities = async function(api, accounts, fast) {
 };
 
 // Sends transfer_amount to accounts[] from alice
-async function distributePoly(api, accounts, transfer_amount, fast) {
-  fail_type["DISTRIBUTE POLY"] = 0;
-   let signingEntity = entities[0];
+async function distributePoly(api, accounts, transfer_amount, signingEntity) {
+
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
-    if (fast) {
       
       const unsub = await api.tx.balances
       .transfer(accounts[i].address, transfer_amount)
       .signAndSend(
         signingEntity,
         { nonce: nonces.get(signingEntity.address) });
-    } 
-
+     
     nonces.set(signingEntity.address, nonces.get(signingEntity.address).addn(1));
   }
 
 }
 
 // Attach a signing key to each DID
-async function addSigningKeys(api, accounts, dids, signing_accounts, fast) {
-  fail_type["ADD SIGNING KEY"] = 0;
+async function addSigningKeys(api, accounts, dids, signing_accounts) {
+ 
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
     let signing_item = {
@@ -244,34 +193,71 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, fast) {
       signer_type: 0,
       roles: []
     }
-    if (fast) {
+  
       const unsub = await api.tx.identity
       .addSigningItems(dids[i], [signing_item])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
-    } 
+    
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
    
   }
 }
 
 // Authorizes the join of signing keys to a DID
-async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, fast) {
-  fail_type["AUTH SIGNING KEY"] = 0;
+async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) {
+  
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
-    if (fast) {
+   
         const unsub = await api.tx.identity
             .authorizeJoinToIdentity(dids[i])
             .signAndSend(signing_accounts[i],
                 { nonce: nonces.get(signing_accounts[i].address) });
         nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
-    } 
-
   }
 
   return dids;
 }
+
+// Used to make the functions in scripts more efficient 
+async function callback(status, events, sectionName, methodName, fail_count) {
+ 
+    let new_did_ok = false;
+    events.forEach(({ phase, event: { data, method, section } }) => {
+      if (section == sectionName && method == methodName) {
+        new_did_ok = true;
+      }
+    });
+
+    if (!new_did_ok) {
+      fail_count++;
+    }
+
+  return fail_count;
+}
+
+// this object holds the required imports for all the scripts 
+let reqImports = {
+  path,
+  ApiPromise,
+  WsProvider,
+  createIdentities,
+  initMain,
+  blockTillPoolEmpty,
+  generateKeys,
+  fs,
+  callback,
+  nonces,
+  transfer_amount,
+  fail_count,
+  distributePoly,
+  addSigningKeys,
+  authorizeJoinToIdentities,
+  sk_roles,
+  prepend
+}
+
 
 export {
   duDirSize,
@@ -288,5 +274,8 @@ export {
   STORAGE_DIR,
   initial_storage_size,
   current_storage_size,
-  generateEntity
+  generateEntity,
+  generateKeys,
+  keyring,
+  reqImports
 };
