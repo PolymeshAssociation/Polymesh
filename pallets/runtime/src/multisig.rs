@@ -247,7 +247,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
             ensure!(<MultiSigSigners<T>>::get(&sender, &signer).is_some(), "not a signer");
-            <NumberOfSigners<T>>::mutate(sender.clone(), |x| *x - 1u64);
+            <NumberOfSigners<T>>::mutate(sender.clone(), |x| *x = *x - 1u64);
             <MultiSigSigners<T>>::remove(sender.clone(), signer);
             Self::deposit_event(RawEvent::MultiSigSignerRemoved(sender, signer));
             Ok(())
@@ -401,7 +401,7 @@ impl<T: Trait> Module<T> {
         <identity::Module<T>>::consume_auth(wallet_signer, signer, auth_id)?;
 
         <MultiSigSigners<T>>::insert(wallet_id.clone(), signer, signer);
-        <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x + 1u64);
+        <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x = *x + 1u64);
 
         Self::deposit_event(RawEvent::MultiSigSignerAdded(wallet_id, signer));
 
@@ -421,6 +421,11 @@ impl<T: Trait> Module<T> {
     ) -> Result<T::AccountId, CodecError> {
         let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, sender).encode());
         T::AccountId::decode(&mut &h.encode()[..])
+    }
+
+    /// Helper function that checks if someone is an authorized signer of a multisig or not
+    pub fn ms_signers(multi_sig: T::AccountId, signer: Signatory) -> bool {
+        <MultiSigSigners<T>>::get(multi_sig, signer).is_some()
     }
 }
 

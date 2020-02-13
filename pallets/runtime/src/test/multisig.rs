@@ -33,6 +33,8 @@ fn create_multisig() {
             1,
         ));
 
+        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
 
         assert_err!(
@@ -78,13 +80,15 @@ fn join_multisig() {
             1,
         ));
 
+        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), Signatory::from(alice_did))),
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             false
         );
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), bob_signer)),
+            MultiSig::ms_signers(musig_address.clone(), bob_signer),
             false
         );
 
@@ -110,11 +114,11 @@ fn join_multisig() {
         ));
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), Signatory::from(alice_did))),
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), bob_signer)),
+            MultiSig::ms_signers(musig_address.clone(), bob_signer),
             true
         );
     });
@@ -138,6 +142,8 @@ fn change_multisig_sigs_required() {
             2,
         ));
 
+        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
                 .next()
@@ -160,12 +166,12 @@ fn change_multisig_sigs_required() {
         ));
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), Signatory::from(alice_did))),
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             true
         );
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), bob_signer)),
+            MultiSig::ms_signers(musig_address.clone(), bob_signer),
             true
         );
 
@@ -207,6 +213,10 @@ fn remove_multisig_signer() {
             1,
         ));
 
+        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+
+        assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 0);
+
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
                 .next()
@@ -218,6 +228,8 @@ fn remove_multisig_signer() {
             alice_auth_id
         ));
 
+        assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
+
         let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
             .next()
             .unwrap()
@@ -228,13 +240,15 @@ fn remove_multisig_signer() {
             bob_auth_id
         ));
 
+        assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 2);
+
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), Signatory::from(alice_did))),
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             true
         );
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), bob_signer)),
+            MultiSig::ms_signers(musig_address.clone(), bob_signer),
             true
         );
 
@@ -248,14 +262,29 @@ fn remove_multisig_signer() {
             call
         ));
 
+        assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
+
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), Signatory::from(alice_did))),
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             true
         );
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), bob_signer)),
+            MultiSig::ms_signers(musig_address.clone(), bob_signer),
             false
+        );
+
+        let remove_alice = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer(
+            Signatory::from(alice_did),
+        )));
+
+        assert_err!(
+            MultiSig::create_proposal_as_identity(
+                alice.clone(),
+                musig_address.clone(),
+                remove_alice
+            ),
+            "dsfsd"
         );
     });
 }
@@ -278,6 +307,8 @@ fn add_multisig_signer() {
             1,
         ));
 
+        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
                 .next()
@@ -290,11 +321,11 @@ fn add_multisig_signer() {
         ));
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), Signatory::from(alice_did))),
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), bob_signer)),
+            MultiSig::ms_signers(musig_address.clone(), bob_signer),
             false
         );
 
@@ -309,12 +340,12 @@ fn add_multisig_signer() {
         ));
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), Signatory::from(alice_did))),
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             true
         );
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), bob_signer)),
+            MultiSig::ms_signers(musig_address.clone(), bob_signer),
             false
         );
 
@@ -329,7 +360,7 @@ fn add_multisig_signer() {
         ));
 
         assert_eq!(
-            MultiSig::ms_signers((musig_address.clone(), bob_signer)),
+            MultiSig::ms_signers(musig_address.clone(), bob_signer),
             true
         );
     });
