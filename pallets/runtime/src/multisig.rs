@@ -102,8 +102,6 @@ decl_module! {
 
             let wallet_id = Self::get_multisig_address(sender.clone(), new_nonce).map_err(|_| Error::<T>::DecodingError)?;
 
-            <identity::Module<T>>::_register_did(wallet_id.clone(), vec![])?;
-
             for signer in signers.clone() {
                 <identity::Module<T>>::add_auth(
                     Signatory::from(AccountKey::try_from(wallet_id.encode())?),
@@ -140,7 +138,7 @@ decl_module! {
                 }
             };
             let sender_signer = Signatory::from(signer_did);
-            Self::create_proposal(multisig, proposal, sender_signer)
+            Self::create_proposal(multisig, sender_signer, proposal)
         }
 
         /// Creates a multisig proposal
@@ -152,7 +150,7 @@ decl_module! {
         pub fn create_proposal_as_key(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::create_proposal(multisig, proposal, sender_signer)
+            Self::create_proposal(multisig, sender_signer, proposal)
         }
 
         /// Approves a multisig proposal using caller's identity
@@ -176,7 +174,7 @@ decl_module! {
             };
             let signer = Signatory::from(signer_did);
             ensure!(<MultiSigSigners<T>>::get(&multisig, &signer).is_some(), "not a signer");
-            Self::approve_for(multisig, proposal_id, signer)
+            Self::approve_for(multisig, signer, proposal_id)
         }
 
         /// Approves a multisig proposal using caller's signing key (AccountId)
@@ -189,7 +187,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
             ensure!(<MultiSigSigners<T>>::get(&multisig, &signer).is_some(), "not a signer");
-            Self::approve_for(multisig, proposal_id, signer)
+            Self::approve_for(multisig, signer, proposal_id)
         }
 
         /// Accept a multisig signer authorization given to signer's identity
@@ -307,8 +305,8 @@ impl<T: Trait> Module<T> {
     /// Creates a new proposal
     pub fn create_proposal(
         multisig: T::AccountId,
-        proposal: Box<T::Proposal>,
         sender_signer: Signatory,
+        proposal: Box<T::Proposal>,
     ) -> DispatchResult {
         ensure!(
             <MultiSigSigners<T>>::get(&multisig, &sender_signer).is_some(),
@@ -320,11 +318,11 @@ impl<T: Trait> Module<T> {
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
         Self::deposit_event(RawEvent::ProposalAdded(multisig.clone(), proposal_id));
-        Self::approve_for(multisig, proposal_id, sender_signer)
+        Self::approve_for(multisig, sender_signer, proposal_id)
     }
 
     /// Approves a multisig transaction and executes the proposal if enough sigs have been received
-    fn approve_for(multisig: T::AccountId, proposal_id: u64, signer: Signatory) -> DispatchResult {
+    fn approve_for(multisig: T::AccountId, signer: Signatory, proposal_id: u64) -> DispatchResult {
         let multisig_signer_proposal = (multisig.clone(), signer, proposal_id);
         let multisig_proposal = (multisig.clone(), proposal_id);
         ensure!(!Self::votes(&multisig_signer_proposal), "Already approved");
@@ -395,7 +393,10 @@ impl<T: Trait> Module<T> {
             <MultiSigSignsRequired<T>>::exists(&wallet_id),
             "Multi sig does not exist"
         );
-        ensure!(<MultiSigSigners<T>>::get(&wallet_id, &signer).is_none(), "already a signer");
+        ensure!(
+            <MultiSigSigners<T>>::get(&wallet_id, &signer).is_none(),
+            "already a signer"
+        );
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
         <identity::Module<T>>::consume_auth(wallet_signer, signer, auth_id)?;
 
