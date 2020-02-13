@@ -52,9 +52,10 @@ pub struct PendingTx<AccountId, Balance> {
 }
 
 /// Either a pending transaction or a `None` or an error.
-type IssueResult<T> = sp_std::result::Result
-    <Option<PendingTx<<T as frame_system::Trait>::AccountId, <T as CommonTrait>::Balance>>,
-     DispatchError>;
+type IssueResult<T> = sp_std::result::Result<
+    Option<PendingTx<<T as frame_system::Trait>::AccountId, <T as CommonTrait>::Balance>>,
+    DispatchError,
+>;
 
 decl_error! {
     pub enum Error for Module<T: Trait> {

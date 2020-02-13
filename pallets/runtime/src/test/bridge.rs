@@ -199,9 +199,7 @@ fn can_change_relayers() {
             1,
         ));
         assert_eq!(MultiSig::ms_signs_required(new_relayers), 1);
-        let call = Box::new(Call::Bridge(bridge::Call::handle_relayers(
-            new_relayers,
-        )));
+        let call = Box::new(Call::Bridge(bridge::Call::handle_relayers(new_relayers)));
         assert_tx_approvals!(relayers, 0, 0);
         assert_tx_approvals!(new_relayers, 0, 0);
         assert!(MultiSig::create_proposal(relayers, call, Signatory::from(bob_did)).is_ok());
@@ -214,11 +212,7 @@ fn can_change_relayers() {
         );
         assert_tx_approvals!(relayers, 0, 1);
         assert_tx_approvals!(new_relayers, 0, 0);
-        assert_ok!(MultiSig::approve_as_identity(
-            charlie.clone(),
-            relayers,
-            0
-        ));
+        assert_ok!(MultiSig::approve_as_identity(charlie.clone(), relayers, 0));
         assert_tx_approvals!(relayers, 0, 2);
         assert_tx_approvals!(new_relayers, 0, 0);
         assert_eq!(Bridge::relayers(), new_relayers);
