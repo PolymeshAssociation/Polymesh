@@ -1,36 +1,31 @@
-export const { ApiPromise, WsProvider } = require("@polkadot/api");
-export const { Keyring } = require("@polkadot/keyring");
-export const BN = require("bn.js");
-export const cli = require("command-line-args");
-export const cliProg = require("cli-progress");
+const { ApiPromise, WsProvider } = require("@polkadot/api");
+const { Keyring } = require("@polkadot/keyring");
+const BN = require("bn.js");
+const cli = require("command-line-args");
+const cliProg = require("cli-progress");
 const childProc = require("child_process");
-export const colors = require("colors");
+const colors = require("colors");
 
-export const fs = require("fs");
-export const path = require("path");
+const fs = require("fs");
+const path = require("path");
 
 // Helps track the size delta for
-export let current_storage_size = 0;
+let current_storage_size = 0;
 
 // Updated by the CLI option
 let STORAGE_DIR;
-export let nonces = new Map();
-export let entities = [];
-export let master_keys = [];
-export let signing_keys = [];
-export let claim_keys = [];
-export let sk_roles = [[0], [1], [2], [1, 2]];
+let nonces = new Map();
+let sk_roles = [[0], [1], [2], [1, 2]];
 
-export let fail_count = 0;
-export let fail_type = {};
-export let block_sizes = {};
-export let block_times = {};
+let fail_count = 0;
+let block_sizes = {};
+let block_times = {};
 
-export let synced_block = 0;
-export let synced_block_ts = 0;
+let synced_block = 0;
+let synced_block_ts = 0;
 
 // Amount to seed each key with
-export let transfer_amount = 10 * 10 ** 12;
+let transfer_amount = 10 * 10 ** 12;
 
 // Parse CLI args and compute tx count
 const opts = {
@@ -260,22 +255,5 @@ let reqImports = {
 
 
 export {
-  duDirSize,
-  updateStorageSize,
-  blockTillPoolEmpty,
-  createIdentities,
-  distributePoly,
-  addSigningKeys,
-  authorizeJoinToIdentities,
-  initMain,
-  n_claim_accounts,
-  n_accounts,
-  prepend,
-  STORAGE_DIR,
-  initial_storage_size,
-  current_storage_size,
-  generateEntity,
-  generateKeys,
-  keyring,
   reqImports
 };

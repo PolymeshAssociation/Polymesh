@@ -1,7 +1,7 @@
 //! Document type
 
 use codec::{Decode, Encode};
-use sp_std::{convert::TryFrom, default::Default, prelude::Vec};
+use sp_std::prelude::Vec;
 
 /// Represents a document associated with an asset
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
