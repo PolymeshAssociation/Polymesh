@@ -59,9 +59,8 @@ decl_storage! {
         /// Nonce to ensure unique MultiSig addresses are generated. starts from 1.
         pub MultiSigNonce get(ms_nonce) build(|_| 1u64): u64;
 
-        /// Signers of a multisig. (mulisig, signer) => Option<Signatory>.
-        /// It's none when Signatory is not an authorized signer of the multisig.
-        pub MultiSigSigners: double_map hasher(blake2_256) T::AccountId, blake2_256(Signatory) => Option<Signatory>;
+        /// Signers of a multisig. (mulisig, signer) => signer.
+        pub MultiSigSigners: double_map hasher(blake2_256) T::AccountId, blake2_256(Signatory) => Signatory;
         /// Number of approved/accepted signers of a multisig.
         pub NumberOfSigners get(number_of_signers): map T::AccountId => u64;
         /// Confirmations required before processing a multisig tx
@@ -173,7 +172,7 @@ decl_module! {
                 }
             };
             let signer = Signatory::from(signer_did);
-            ensure!(<MultiSigSigners<T>>::get(&multisig, &signer).is_some(), "not a signer");
+            ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), "not a signer");
             Self::approve_for(multisig, signer, proposal_id)
         }
 
@@ -186,7 +185,7 @@ decl_module! {
         pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            ensure!(<MultiSigSigners<T>>::get(&multisig, &signer).is_some(), "not a signer");
+            ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), "not a signer");
             Self::approve_for(multisig, signer, proposal_id)
         }
 
@@ -246,9 +245,10 @@ decl_module! {
         pub fn remove_multisig_signer(origin, signer: Signatory) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
-            ensure!(<MultiSigSigners<T>>::get(&sender, &signer).is_some(), "not a signer");
-            <NumberOfSigners<T>>::mutate(sender.clone(), |x| *x = *x - 1u64);
-            <MultiSigSigners<T>>::remove(sender.clone(), signer);
+            ensure!(<MultiSigSigners<T>>::exists(&sender, &signer), "not a multisig signer");
+            ensure!(<NumberOfSigners<T>>::get(&sender) > <MultiSigSignsRequired<T>>::get(&sender), "Not enough signers");
+            <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - 1u64);
+            <MultiSigSigners<T>>::remove(&sender, signer);
             Self::deposit_event(RawEvent::MultiSigSignerRemoved(sender, signer));
             Ok(())
         }
@@ -309,7 +309,7 @@ impl<T: Trait> Module<T> {
         proposal: Box<T::Proposal>,
     ) -> DispatchResult {
         ensure!(
-            <MultiSigSigners<T>>::get(&multisig, &sender_signer).is_some(),
+            <MultiSigSigners<T>>::exists(&multisig, &sender_signer),
             "not a signer"
         );
         let proposal_id = Self::ms_tx_done(multisig.clone());
@@ -394,7 +394,7 @@ impl<T: Trait> Module<T> {
             "Multi sig does not exist"
         );
         ensure!(
-            <MultiSigSigners<T>>::get(&wallet_id, &signer).is_none(),
+            !<MultiSigSigners<T>>::exists(&wallet_id, &signer),
             "already a signer"
         );
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
@@ -425,7 +425,7 @@ impl<T: Trait> Module<T> {
 
     /// Helper function that checks if someone is an authorized signer of a multisig or not
     pub fn ms_signers(multi_sig: T::AccountId, signer: Signatory) -> bool {
-        <MultiSigSigners<T>>::get(multi_sig, signer).is_some()
+        <MultiSigSigners<T>>::exists(multi_sig, signer)
     }
 }
 

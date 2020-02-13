@@ -201,6 +201,7 @@ fn remove_multisig_signer() {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
+        let alice_signer = Signatory::from(alice_did);
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
             Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
@@ -209,7 +210,7 @@ fn remove_multisig_signer() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![Signatory::from(alice_did), bob_signer],
+            vec![alice_signer, bob_signer],
             1,
         ));
 
@@ -217,11 +218,10 @@ fn remove_multisig_signer() {
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 0);
 
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(alice_signer)
+            .next()
+            .unwrap()
+            .auth_id;
 
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
@@ -243,7 +243,7 @@ fn remove_multisig_signer() {
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 2);
 
         assert_eq!(
-            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
+            MultiSig::ms_signers(musig_address.clone(), alice_signer),
             true
         );
 
@@ -265,7 +265,7 @@ fn remove_multisig_signer() {
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
 
         assert_eq!(
-            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
+            MultiSig::ms_signers(musig_address.clone(), alice_signer),
             true
         );
 
@@ -274,17 +274,22 @@ fn remove_multisig_signer() {
             false
         );
 
+        Identity::set_current_did(None);
+
         let remove_alice = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer(
-            Signatory::from(alice_did),
+            alice_signer,
         )));
 
-        assert_err!(
-            MultiSig::create_proposal_as_identity(
-                alice.clone(),
-                musig_address.clone(),
-                remove_alice
-            ),
-            "dsfsd"
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.clone(),
+            musig_address.clone(),
+            remove_alice
+        ));
+
+        // Alice not removed since that would've broken the multi sig.
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), alice_signer),
+            true
         );
     });
 }
