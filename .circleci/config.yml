@@ -71,6 +71,42 @@ jobs:
             - "./target"
             - "./pallets/runtime/target"
             - "./pallets/runtime/wasm/target"
+  cli:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Build concatenated lock file for caching
+          command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+            - debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - debug-cache-{{ checksum "./rust.version" }}
+            - debug-cache
+      - run:
+          name: cli node instance 
+          command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
+          working_directory: ./target/release
+          no_output_timeout: 10m
+      - run:
+          name: cli scripts test
+          command: npm test
+          working_directory: ./
+          no_output_timeout: 30m
+      - save_cache:
+          key: debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
+            - "./pallets/runtime/target"
+            - "./pallets/runtime/wasm/target"
 workflows:
   version: 2
   commit:

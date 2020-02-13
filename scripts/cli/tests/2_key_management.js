@@ -51,10 +51,16 @@ async function addSigningKeys( api, accounts, dids, signing_accounts ) {
   
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
+
     let signing_item = {
       signer: {
-        key: signing_accounts[i].publicKey
+       // _enum: {
+          AccountKey: signing_accounts[i].publicKey
+       // }
       },
+      // {
+      //   key: signing_accounts[i].publicKey
+      // },
       signer_type: 0,
       roles: []
     };
