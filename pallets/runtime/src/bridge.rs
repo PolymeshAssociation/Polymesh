@@ -58,15 +58,15 @@ type IssueResult<T> = sp_std::result::Result
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The bridge signer set address is not set.
-        BridgeSignersNotSet,
+        /// The bridge relayer set address is not set.
+        RelayersNotSet,
         /// The signer does not have an identity.
         IdentityMissing,
         /// Failure to credit the recipient account.
         CannotCreditAccount,
         /// Failure to credit the recipient identity.
         CannotCreditIdentity,
-        /// The origin is not the signer set multisig.
+        /// The origin is not the relayer set multisig.
         BadCaller,
         /// The recipient DID has no valid KYC.
         NoValidKyc,
@@ -75,9 +75,9 @@ decl_error! {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
-        /// The multisig account of the bridge signer set. The genesis signers must accept their
+        /// The multisig account of the bridge relayer set. The genesis signers must accept their
         /// authorizations to be able to get their proposals delivered.
-        BridgeSigners get(bridge_signers) build(|config: &GenesisConfig| {
+        Relayers get(relayers) build(|config: &GenesisConfig| {
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
                 panic!("too many signatures required");
@@ -112,7 +112,7 @@ decl_event! {
         Balance = <T as CommonTrait>::Balance
     {
         /// Confirmation of a signer set change.
-        BridgeSignersChanged(AccountId),
+        RelayersChanged(AccountId),
         /// Confirmation of minting POLY on Polymesh in return for the locked ERC20 tokens on
         /// Ethereum.
         Bridged(BridgeTx<AccountId, Balance>),
@@ -131,9 +131,9 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Change the signer set account as root.
-        pub fn change_bridge_signers(origin, account_id: T::AccountId) -> DispatchResult {
+        pub fn change_relayers(origin, account_id: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
-            <BridgeSigners<T>>::put(account_id);
+            <Relayers<T>>::put(account_id);
             Ok(())
         }
 
@@ -150,13 +150,13 @@ decl_module! {
                     .ok_or_else(|| Error::<T>::IdentityMissing)
             }, Ok)?;
             let sender_signer = Signatory::from(sender_did);
-            let bridge_signers = Self::bridge_signers();
-            if bridge_signers == Default::default() {
-                return Err(Error::<T>::BridgeSignersNotSet.into());
+            let relayers = Self::relayers();
+            if relayers == Default::default() {
+                return Err(Error::<T>::RelayersNotSet.into());
             }
             if let Some(proposal_id) = Self::bridge_tx_proposals(&bridge_tx) {
                 // This is an existing proposal.
-                <multisig::Module<T>>::approve_as_identity(origin, bridge_signers, proposal_id)?;
+                <multisig::Module<T>>::approve_as_identity(origin, relayers, proposal_id)?;
             } else {
                 // The proposal is new.
                 let proposal = <T as Trait>::Proposal::from(
@@ -164,7 +164,7 @@ decl_module! {
                 );
                 let boxed_call = Box::new(proposal.into());
                 let proposal_id = <multisig::Module<T>>::create_proposal(
-                    bridge_signers,
+                    relayers,
                     boxed_call,
                     sender_signer
                 )?;
@@ -211,14 +211,14 @@ decl_module! {
         }
 
         /// Handles an approved signer set multisig account change proposal.
-        pub fn handle_bridge_signers(origin, account_id: T::AccountId) -> DispatchResult {
+        pub fn handle_relayers(origin, account_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
-            if sender != Self::bridge_signers() {
+            if sender != Self::relayers() {
                 return Err(Error::<T>::BadCaller.into());
             }
             // Update the bridge signers.
-            <BridgeSigners<T>>::put(account_id.clone());
-            Self::deposit_event(RawEvent::BridgeSignersChanged(account_id));
+            <Relayers<T>>::put(account_id.clone());
+            Self::deposit_event(RawEvent::RelayersChanged(account_id));
             Ok(())
         }
 
@@ -230,7 +230,7 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin.clone())?;
-            if sender != Self::bridge_signers() {
+            if sender != Self::relayers() {
                 return Err(Error::<T>::BadCaller.into());
             }
             if let Some(PendingTx {
