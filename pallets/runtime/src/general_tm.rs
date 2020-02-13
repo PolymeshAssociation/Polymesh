@@ -470,7 +470,7 @@ mod tests {
         pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
     }
 
-    impl group::Trait<group::Instance2> for Test {
+    impl group::Trait<group::Instance1> for Test {
         type Event = ();
         type AddOrigin = EnsureSignedBy<One, AccountId>;
         type RemoveOrigin = EnsureSignedBy<Two, AccountId>;

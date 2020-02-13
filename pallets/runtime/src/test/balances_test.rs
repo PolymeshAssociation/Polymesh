@@ -154,7 +154,7 @@ fn issue_must_work() {
         let brr = Balances::block_reward_reserve();
         assert_eq!(Balances::free_balance(&brr), 0);
         let mut ti = Balances::total_issuance();
-        let alice = AccountKeyring::Alice.public();
+        let _alice = AccountKeyring::Alice.public();
 
         // When there is no balance in BRR, issuance should increase total supply
         // NOTE: dropping negative imbalance is equivalent to burning. It will decrease total supply.

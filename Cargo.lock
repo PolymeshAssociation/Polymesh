@@ -210,11 +210,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 
 [[package]]
-name = "autocfg"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
 name = "backtrace"
 version = "0.3.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -288,7 +283,7 @@ checksum = "5da9b3d9f6f585199287a473f4f8dfab6566cf827d15c00c219f53c645687ead"
 
 [[package]]
 name = "bitvec"
-version = "0.16.2"
+version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993f74b4c99c1908d156b8d2e0fb6277736b0ecbd833982fd1241d39b2766a6"
 
@@ -3059,6 +3054,7 @@ dependencies = [
  "polymesh-primitives",
  "sp-runtime",
  "sp-std",
+
 ]
 
 [[package]]
@@ -3075,22 +3071,6 @@ dependencies = [
  "sp-core",
  "sp-rpc",
  "sp-runtime",
-]
-
-[[package]]
-name = "pallet-transaction-payment-rpc"
-version = "2.0.0"
-dependencies = [
- "jsonrpc-core 14.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "jsonrpc-core-client 14.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "jsonrpc-derive 14.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "pallet-transaction-payment-rpc-runtime-api 2.0.0",
- "parity-scale-codec 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-blockchain 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
- "sp-core 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
- "sp-rpc 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
- "sp-runtime 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
 ]
 
 [[package]]
@@ -3265,6 +3245,7 @@ name = "parking_lot"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f842b1982eb6c2fe34036a4fbfb06dd185a3f5c8edfaacdf7d1ea10b07de6252"
+
 dependencies = [
  "lock_api 0.3.3",
  "parking_lot_core 0.6.2",
@@ -3315,6 +3296,7 @@ name = "parking_lot_core"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b876b1b9e7ac6e1a74a6da34d25c42e17e8862aa409cbbbdcfc8d86c6f3bc62b"
+
 dependencies = [
  "cfg-if",
  "cloudabi",
@@ -3330,6 +3312,7 @@ name = "parking_lot_core"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7582838484df45743c8434fbff785e8edf260c28748353d44bc0da32e0ceabf1"
+
 dependencies = [
  "cfg-if",
  "cloudabi",
