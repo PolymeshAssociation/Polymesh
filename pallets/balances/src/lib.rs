@@ -550,7 +550,7 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         <TotalIssuance<T>>::mutate(|v| *v = v.saturating_sub(amount));
     }
 
-    fn issue_using_block_rewards_reserve(amount: T::Balance) -> NegativeImbalance<T> {
+    fn issue_using_block_rewards_reserve(mut amount: T::Balance) -> NegativeImbalance<T> {
         let brr = <BlockRewardsReserve<T>>::get();
         let brr_balance = <FreeBalance<T>>::get(&brr);
         let amount_to_mint = if brr_balance > Zero::zero() {
@@ -560,7 +560,13 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         } else {
             amount
         };
-        <Self as Currency<T::AccountId>>::issue(amount_to_mint)
+        <TotalIssuance<T>>::mutate(|issued| {
+            *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
+                amount = T::Balance::max_value() - *issued;
+                T::Balance::max_value()
+            })
+        });
+        NegativeImbalance::new(amount)
     }
 }
 

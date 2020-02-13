@@ -315,15 +315,6 @@
         "uri": "Vec<u8>",
         "hash": "Vec<u8>"
     },
-    "ValidatorSet": {
-        "nonce": "u64",
-        "signers": "Vec<Signatory>",
-        "signatures_required": "u64"
-    },
-    "ValidatorSetChange": {
-        "account_id": "AccountId",
-        "validator_set": "ValidatorSet"
-    },
     "IssueRecipient": {
         "_enum": {
             "Account": "AccountKey",

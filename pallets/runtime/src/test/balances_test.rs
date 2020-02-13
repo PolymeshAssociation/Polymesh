@@ -21,8 +21,6 @@ use test_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
 
-type AccountId = <TestStorage as frame_system::Trait>::AccountId;
-
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
     DispatchInfo {
@@ -178,8 +176,7 @@ fn issue_must_work() {
         assert_eq!(Balances::total_issuance(), ti);
 
         // When BRR has enough funds to subsidize a mint fully, it should subsidize it.
-        let imbalance2: <Balances as Currency<AccountId>>::NegativeImbalance =
-            Balances::issue_using_block_rewards_reserve(100);
+        let imbalance2 = Balances::issue_using_block_rewards_reserve(100);
         assert_eq!(Balances::total_issuance(), ti);
         assert_eq!(Balances::free_balance(&brr), 400);
         drop(imbalance2);
