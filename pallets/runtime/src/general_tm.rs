@@ -528,8 +528,7 @@ mod tests {
         identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
-            did_records: vec![],
-            key_to_identity_ids: vec![],
+            ..Default::default()
         }
         .assimilate_storage(&mut t)
         .unwrap();

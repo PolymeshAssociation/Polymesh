@@ -226,6 +226,7 @@ fn testnet_genesis(
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             did_creation_fee: 250,
+            ..Default::default()
         }),
         simple_token: Some(SimpleTokenConfig { creation_fee: 1000 }),
         balances: Some(BalancesConfig {
