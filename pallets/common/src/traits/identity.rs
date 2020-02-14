@@ -1,6 +1,7 @@
 use crate::traits::{
     balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
 };
+use codec::{Decode, Encode};
 use polymesh_primitives::{
     AccountKey, AuthorizationData, IdentityId, LinkData, Permission, Signatory, SigningItem, Ticker,
 };
@@ -18,29 +19,41 @@ pub struct Claim<U> {
     pub claim_value: ClaimValue,
 }
 
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+/// A wrapper for a claim key.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ClaimKey(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for ClaimKey {
+    fn from(s: T) -> Self {
+        let mut v = Vec::new();
+        v.extend_from_slice(s.as_ref());
+        ClaimKey(v)
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimMetaData {
-    pub claim_key: Vec<u8>,
+    pub claim_key: ClaimKey,
     pub claim_issuer: IdentityId,
 }
 
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ClaimValue {
     pub data_type: DataTypes,
     pub value: Vec<u8>,
 }
 
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 /// A structure for passing claims to `add_claims_batch`. The type argument is required to be
 /// `timestamp::Trait::Moment`.
 pub struct ClaimRecord<U> {
     pub did: IdentityId,
-    pub claim_key: Vec<u8>,
+    pub claim_key: ClaimKey,
     pub expiry: U,
     pub claim_value: ClaimValue,
 }
 
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum DataTypes {
     U8,
     U16,
@@ -60,7 +73,7 @@ impl Default for DataTypes {
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or external type signing key are restricted to be linked to just one identity.
 /// Other types of signing key could be associated with more than one identity.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum LinkedKeyInfo {
     Unique(IdentityId),
     Group(Vec<IdentityId>),
@@ -77,7 +90,7 @@ pub type AuthorizationNonce = u64;
 /// value of nonce of master key of `target_id`. See `System::account_nonce`.
 /// In this way, the authorization is delimited to an specific transaction (usually the next one)
 /// of master key of target identity.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct TargetIdAuthorization<Moment> {
     /// Target identity which is authorized to make an operation.
     pub target_id: IdentityId,
@@ -93,7 +106,7 @@ pub struct TargetIdAuthorization<Moment> {
 /// # TODO
 ///  - Replace `H512` type by a template type which represents explicitly the relation with
 ///  `TargetIdAuthorization`.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct SigningItemWithAuth {
     /// Signing item to be added.
     pub signing_item: SigningItem,
