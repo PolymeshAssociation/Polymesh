@@ -3,7 +3,7 @@ use crate::{asset, exemption, general_tm, multisig, percentage_tm, statistics, u
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
-    asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
+    asset::AcceptTransfer, multisig::AddSignerMultiSig, CommonTrait,
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
@@ -131,7 +131,7 @@ parameter_types! {
     pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
 }
 
-impl group::Trait<group::Instance1> for TestStorage {
+impl group::Trait<group::Instance2> for TestStorage {
     type Event = ();
     type AddOrigin = EnsureSignedBy<One, AccountId>;
     type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
@@ -145,18 +145,8 @@ impl identity::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = TestStorage;
-    type KycServiceProviders = TestStorage;
+    type KycServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
-}
-
-impl GroupTrait for TestStorage {
-    fn get_members() -> Vec<IdentityId> {
-        unimplemented!()
-    }
-
-    fn is_member(_did: &IdentityId) -> bool {
-        true
-    }
 }
 
 impl AddSignerMultiSig for TestStorage {

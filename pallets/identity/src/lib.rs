@@ -94,7 +94,7 @@ decl_storage! {
         Owner get(fn owner) config(): T::AccountId;
 
         /// DID -> identity info
-        pub DidRecords get(fn did_records): map IdentityId => DidRecord;
+        pub DidRecords get(fn did_records) config(): map IdentityId => DidRecord;
 
         /// DID -> bool that indicates if signing keys are frozen.
         pub IsDidFrozen get(fn is_did_frozen): map IdentityId => bool;
@@ -109,7 +109,7 @@ decl_storage! {
         pub ClaimKeys get(fn claim_keys): map IdentityId => Vec<ClaimMetaData>;
 
         // Account => DID
-        pub KeyToIdentityIds get(fn key_to_identity_ids): map AccountKey => Option<LinkedKeyInfo>;
+        pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map AccountKey => Option<LinkedKeyInfo>;
 
         /// How much does creating a DID cost
         pub DidCreationFee get(fn did_creation_fee) config(): T::Balance;
@@ -149,15 +149,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
-
-        /// Register signing keys for a new DID. Uses origin key as the master key.
-        ///
-        /// # TODO
-        /// Signing keys should authorize its use in this identity.
-        ///
-        /// # Failure
-        /// - Master key (administrator) can be linked to just one identity.
-        /// - External signing keys can be linked to just one identity.
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             // TODO: Subtract proper fee.
@@ -168,6 +159,42 @@ decl_module! {
                 ExistenceRequirement::KeepAlive,
             )?;
             Self::_register_did(sender, signing_items)
+        }
+
+        /// Register `target_account` with a new Identity.
+        ///
+        /// # Failure
+        /// - `origin` has to be a trusted KYC provider.
+        /// - `target_account` (master key of the new Identity) can be linked to just one and only
+        /// one identity.
+        /// - External signing keys can be linked to just one identity.
+        pub fn cdd_register_did(
+            origin,
+            target_account: T::AccountId,
+            cdd_claim: ClaimValue,
+            signing_items: Vec<SigningItem>) -> DispatchResult {
+
+            // Sender has to be part of KYCProviders
+            let cdd_sender = ensure_signed(origin)?;
+            let cdd_key = AccountKey::try_from(cdd_sender.encode())?;
+            let cdd_id = Self::get_identity(&cdd_key).ok_or( Error::<T>::NoDIDFound)?;
+
+            let kyc_providers = T::KycServiceProviders::get_members();
+            ensure!( kyc_providers.into_iter().any( |kyc_id| kyc_id == cdd_id),
+                Error::<T>::UnAuthorizedKYCProvider);
+
+            // Subtract fee from target: It will need an authoriztion from `target_account`.
+            let _imbalance = <T::Balances>::withdraw(
+                &cdd_sender,
+                Self::did_creation_fee(),
+                WithdrawReason::Fee.into(),
+                ExistenceRequirement::KeepAlive,
+            )?;
+
+            // Register Identity
+            Self::_register_did(target_account, signing_items)
+
+            // Add BaseCDD claim
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -983,6 +1010,8 @@ decl_error! {
         UnknownAuthorization,
         /// Account Id cannot be extracted from signer
         InvalidAccountKey,
+        /// Only KYC service providers are allowed.
+        UnAuthorizedKYCProvider,
     }
 }
 
