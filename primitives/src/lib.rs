@@ -105,7 +105,7 @@ pub use smart_extension::SmartExtension;
 pub use smart_extension::SmartExtensionType;
 
 pub mod document;
-pub use document::Document;
+pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
 /// Represents custom transaction errors.
 #[repr(u8)]

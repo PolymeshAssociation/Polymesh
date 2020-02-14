@@ -1117,14 +1117,14 @@ fn adding_removing_documents() {
 
         let documents = vec![
             Document {
-                name: b"A".to_vec(),
-                uri: b"www.a.com".to_vec(),
-                hash: b"0x1".to_vec(),
+                name: b"A".into(),
+                uri: b"www.a.com".into(),
+                hash: b"0x1".into(),
             },
             Document {
-                name: b"B".to_vec(),
-                uri: b"www.b.com".to_vec(),
-                hash: b"0x2".to_vec(),
+                name: b"B".into(),
+                uri: b"www.b.com".into(),
+                hash: b"0x2".into(),
             },
         ];
 
@@ -1144,9 +1144,9 @@ fn adding_removing_documents() {
         assert_eq!(
             doc1.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"A".to_vec(),
-                uri: b"www.a.com".to_vec(),
-                hash: b"0x1".to_vec(),
+                name: b"A".into(),
+                uri: b"www.a.com".into(),
+                hash: b"0x1".into(),
             })
         );
         assert_eq!(doc1.expiry, None);
@@ -1154,9 +1154,9 @@ fn adding_removing_documents() {
         assert_eq!(
             doc2.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"B".to_vec(),
-                uri: b"www.b.com".to_vec(),
-                hash: b"0x2".to_vec()
+                name: b"B".into(),
+                uri: b"www.b.com".into(),
+                hash: b"0x2".into()
             })
         );
         assert_eq!(doc2.expiry, None);
@@ -1168,17 +1168,17 @@ fn adding_removing_documents() {
                 (
                     doc1.link_id,
                     Document {
-                        name: b"C".to_vec(),
-                        uri: b"www.c.com".to_vec(),
-                        hash: b"0x3".to_vec(),
+                        name: b"C".into(),
+                        uri: b"www.c.com".into(),
+                        hash: b"0x3".into(),
                     }
                 ),
                 (
                     doc2.link_id,
                     Document {
-                        name: b"D".to_vec(),
-                        uri: b"www.d.com".to_vec(),
-                        hash: b"0x4".to_vec(),
+                        name: b"D".into(),
+                        uri: b"www.d.com".into(),
+                        hash: b"0x4".into(),
                     }
                 ),
             ]
@@ -1194,9 +1194,9 @@ fn adding_removing_documents() {
         assert_eq!(
             doc1.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"C".to_vec(),
-                uri: b"www.c.com".to_vec(),
-                hash: b"0x3".to_vec(),
+                name: b"C".into(),
+                uri: b"www.c.com".into(),
+                hash: b"0x3".into(),
             })
         );
         assert_eq!(doc1.expiry, None);
@@ -1204,9 +1204,9 @@ fn adding_removing_documents() {
         assert_eq!(
             doc2.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"D".to_vec(),
-                uri: b"www.d.com".to_vec(),
-                hash: b"0x4".to_vec(),
+                name: b"D".into(),
+                uri: b"www.d.com".into(),
+                hash: b"0x4".into(),
             })
         );
         assert_eq!(doc2.expiry, None);

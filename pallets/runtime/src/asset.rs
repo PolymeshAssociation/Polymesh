@@ -59,8 +59,8 @@
 use crate::{general_tm, percentage_tm, statistics, utils};
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signatory,
-    SmartExtension, SmartExtensionType, Ticker,
+    AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
+    DocumentUri, IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
@@ -1366,7 +1366,7 @@ decl_event! {
         IsIssuable(Ticker, bool),
         /// get_document() output
         /// ticker, name, uri, hash, last modification date
-        GetDocument(Ticker, Vec<u8>, Vec<u8>, Vec<u8>, Moment),
+        GetDocument(Ticker, DocumentName, DocumentUri, DocumentHash, Moment),
         /// emit when tokens transferred by the custodian
         /// ticker, custodian did, holder/from did, to did, amount
         CustodyTransfer(Ticker, IdentityId, IdentityId, IdentityId, Balance),
