@@ -34,7 +34,6 @@ async function main() {
 
   await reqImports["authorizeJoinToIdentities"]( api, master_keys, issuer_dids, signing_keys);
 
-
   await reqImports["blockTillPoolEmpty"](api);
 
   await addSigningKeyRoles(api, master_keys, issuer_dids, signing_keys);
@@ -57,7 +56,7 @@ async function main() {
 async function addSigningKeyRoles(api, accounts, dids, signing_accounts) {
   
     for (let i = 0; i < accounts.length; i++) {
-      let signer = { key: signing_accounts[i].publicKey };
+      let signer = {  AccountKey: signing_accounts[i].publicKey };
       
         const unsub = await api.tx.identity
         .setPermissionToSigner(dids[i], signer, reqImports["sk_roles"][i%reqImports["sk_roles"].length])

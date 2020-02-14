@@ -183,11 +183,11 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
     // 1. Add Signing Item to identity.
     let signing_item = {
       signer: {
-          key: signing_accounts[i].publicKey 
+          AccountKey: signing_accounts[i].publicKey
       },
       signer_type: 0,
       roles: []
-    }
+    };
   
       const unsub = await api.tx.identity
       .addSigningItems(dids[i], [signing_item])

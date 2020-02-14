@@ -91,6 +91,10 @@ jobs:
             - debug-cache-{{ checksum "./rust.version" }}
             - debug-cache
       - run:
+          name: Build release
+          command: cargo build -j 1 --release
+          no_output_timeout: 4h
+      - run:
           name: cli node instance 
           command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
           working_directory: ./target/release

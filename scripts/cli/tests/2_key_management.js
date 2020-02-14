@@ -54,13 +54,8 @@ async function addSigningKeys( api, accounts, dids, signing_accounts ) {
 
     let signing_item = {
       signer: {
-       // _enum: {
           AccountKey: signing_accounts[i].publicKey
-       // }
       },
-      // {
-      //   key: signing_accounts[i].publicKey
-      // },
       signer_type: 0,
       roles: []
     };
