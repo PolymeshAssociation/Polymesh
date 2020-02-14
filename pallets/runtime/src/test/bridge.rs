@@ -16,6 +16,7 @@ type Bridge = bridge::Module<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Authorizations = identity::Authorizations<TestStorage>;
+type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type MultiSigError = multisig::Error<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
@@ -61,6 +62,7 @@ fn can_issue_to_identity() {
             ],
             2,
         ));
+        assert_ok!(Identity::_register_did(relayers.clone(), vec![]));
         assert_eq!(MultiSig::ms_signs_required(relayers), 2);
         let last_authorization = |did: IdentityId| {
             <Authorizations>::iter_prefix(Signatory::from(did))
@@ -81,15 +83,15 @@ fn can_issue_to_identity() {
             last_authorization(charlie_did)
         ));
         assert_eq!(
-            MultiSig::ms_signers((relayers, Signatory::from(alice_did))),
+            MultiSig::ms_signers(relayers, Signatory::from(alice_did)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers((relayers, Signatory::from(bob_did))),
+            MultiSig::ms_signers(relayers, Signatory::from(bob_did)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers((relayers, Signatory::from(charlie_did))),
+            MultiSig::ms_signers(relayers, Signatory::from(charlie_did)),
             true
         );
         assert_ok!(Bridge::change_relayers(
@@ -156,6 +158,7 @@ fn can_change_relayers() {
             ],
             2,
         ));
+        assert_ok!(Identity::_register_did(relayers.clone(), vec![]));
         assert_eq!(MultiSig::ms_signs_required(relayers), 2);
         let last_authorization = |did: IdentityId| {
             <Authorizations>::iter_prefix(Signatory::from(did))
@@ -176,15 +179,15 @@ fn can_change_relayers() {
             last_authorization(charlie_did)
         ));
         assert_eq!(
-            MultiSig::ms_signers((relayers, Signatory::from(alice_did))),
+            MultiSig::ms_signers(relayers, Signatory::from(alice_did)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers((relayers, Signatory::from(bob_did))),
+            MultiSig::ms_signers(relayers, Signatory::from(bob_did)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers((relayers, Signatory::from(charlie_did))),
+            MultiSig::ms_signers(relayers, Signatory::from(charlie_did)),
             true
         );
         assert_ok!(Bridge::change_relayers(
@@ -198,17 +201,18 @@ fn can_change_relayers() {
             vec![Signatory::from(bob_did), Signatory::from(charlie_did)],
             1,
         ));
+        assert_ok!(Identity::_register_did(new_relayers.clone(), vec![]));
         assert_eq!(MultiSig::ms_signs_required(new_relayers), 1);
         let call = Box::new(Call::Bridge(bridge::Call::handle_relayers(new_relayers)));
         assert_tx_approvals!(relayers, 0, 0);
         assert_tx_approvals!(new_relayers, 0, 0);
-        assert!(MultiSig::create_proposal(relayers, call, Signatory::from(bob_did)).is_ok());
+        assert!(MultiSig::create_proposal(relayers, Signatory::from(bob_did), call).is_ok());
         assert_tx_approvals!(relayers, 0, 1);
         assert_tx_approvals!(new_relayers, 0, 0);
         assert_eq!(Bridge::relayers(), relayers);
         assert_err!(
             MultiSig::approve_as_identity(dave.clone(), relayers, 0),
-            MultiSigError::IdentityMissing
+            "Current identity is none and key is not linked to any identity"
         );
         assert_tx_approvals!(relayers, 0, 1);
         assert_tx_approvals!(new_relayers, 0, 0);

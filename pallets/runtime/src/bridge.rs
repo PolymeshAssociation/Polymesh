@@ -11,7 +11,7 @@ use frame_support::{decl_error, decl_event, decl_module, decl_storage};
 use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::CommonTrait;
+use polymesh_runtime_common::{traits::CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
 use sp_std::collections::btree_map::BTreeMap;
@@ -146,10 +146,7 @@ decl_module! {
         {
             let sender = ensure_signed(origin.clone())?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let sender_did = <identity::Module<T>>::current_did().map_or_else(|| {
-                <identity::Module<T>>::get_identity(&sender_key)
-                    .ok_or_else(|| Error::<T>::IdentityMissing)
-            }, Ok)?;
+            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
             let sender_signer = Signatory::from(sender_did);
             let relayers = Self::relayers();
             if relayers == Default::default() {
@@ -166,8 +163,8 @@ decl_module! {
                 let boxed_call = Box::new(proposal.into());
                 let proposal_id = <multisig::Module<T>>::create_proposal(
                     relayers,
-                    boxed_call,
-                    sender_signer
+                    sender_signer,
+                    boxed_call
                 )?;
                 <BridgeTxProposals<T>>::insert(bridge_tx, proposal_id);
             }

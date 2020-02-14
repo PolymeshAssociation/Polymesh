@@ -287,7 +287,6 @@ impl<T: Trait> Module<T> {
         <MultiSigNonce>::put(new_nonce);
         let account_id =
             Self::get_multisig_address(sender, new_nonce).map_err(|_| Error::<T>::DecodingError)?;
-        <identity::Module<T>>::_register_did(account_id.clone(), vec![])?;
         for signer in signers {
             <identity::Module<T>>::add_auth(
                 Signatory::from(AccountKey::try_from(account_id.encode())?),
