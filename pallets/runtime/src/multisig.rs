@@ -366,11 +366,11 @@ impl<T: Trait> Module<T> {
     /// Accept and process addition of a signer to a multisig
     pub fn _accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
         ensure!(
-            <identity::Authorizations<T>>::exists((signer, auth_id)),
+            <identity::Authorizations<T>>::exists(signer, auth_id),
             AuthorizationError::Invalid
         );
 
-        let auth = <identity::Module<T>>::authorizations((signer, auth_id));
+        let auth = <identity::Authorizations<T>>::get(signer, auth_id);
 
         ensure!(
             auth.authorization_data == AuthorizationData::AddMultiSigSigner,

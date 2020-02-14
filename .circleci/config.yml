@@ -10,7 +10,6 @@ jobs:
       - run:
           name: Check formatting
           command: ./scripts/rustfmt.sh
-          working_directory: .
   build:
     docker:
       - image: maxsam4/rust
@@ -18,19 +17,24 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - run:
+          name: Build concatenated lock file for caching
+          command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - build-cache-{{ checksum "./Cargo.lock" }}
-      - run:
-          name: Build rocksdb
-          command: cargo build -p rocksdb -j 1 --release
-          working_directory: .
+            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - release-cache-{{ checksum "./rust.version" }}
+            - release-cache
       - run:
           name: Build release
           command: cargo build -j 1 --release
-          working_directory: .
+          no_output_timeout: 4h
       - save_cache:
-          key: build-cache-{{ checksum "./Cargo.lock" }}
+          key: release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -43,15 +47,25 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - run:
+          name: Build concatenated lock file for caching
+          command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - debug-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+            - debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - debug-cache-{{ checksum "./rust.version" }}
+            - debug-cache
       - run:
           name: runtime tests
-          command: cd pallets/runtime && cargo test && cd ../..
-          working_directory: .
+          command: cargo test
+          working_directory: ./pallets/runtime
+          no_output_timeout: 60m
       - save_cache:
-          key: debug-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
           paths:
             - "~/.cargo"
             - "./target"

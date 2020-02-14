@@ -260,10 +260,8 @@ mod tests {
     use polymesh_runtime_identity as identity;
 
     use frame_support::{
-        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
-        parameter_types,
+        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types,
     };
-    use frame_system::EnsureSignedBy;
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
@@ -295,7 +293,7 @@ mod tests {
     impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
-        type BlockNumber = u64;
+        type BlockNumber = BlockNumber;
         type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
@@ -441,12 +439,10 @@ mod tests {
     }
 
     type Identity = identity::Module<Test>;
-    type System = system::Module<Test>;
-    type Balances = balances::Module<Test>;
     type SimpleToken = Module<Test>;
 
     fn new_test_ext() -> sp_io::TestExternalities {
-        let mut t = system::GenesisConfig::default()
+        let t = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         t.into()

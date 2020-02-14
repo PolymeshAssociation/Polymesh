@@ -15,9 +15,8 @@ use polymesh_runtime_common::traits::identity::{
 use polymesh_runtime_identity::{self as identity, Error};
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency};
+use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 
-use rand::Rng;
 use sp_core::H512;
 use test_client::AccountKeyring;
 
@@ -799,131 +798,75 @@ fn adding_authorizations() {
         let alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
-        let charlie_did =
-            Signatory::from(register_keyring_account(AccountKeyring::Charlie).unwrap());
-        let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let ticker50 = Ticker::from_slice(&[0x50]);
-        let ticker51 = Ticker::from_slice(&[0x51]);
-        let mut auth_ids_bob = Vec::new();
-        auth_ids_bob.push(0); // signifies that there are no more auths left
-        assert_ok!(Identity::add_authorization(
-            alice.clone(),
+        let mut auth_id = Identity::add_auth(
+            alice_did,
             bob_did,
             AuthorizationData::TransferTicker(ticker50),
             None,
-        ));
-        auth_ids_bob.push(Identity::last_authorization(bob_did));
-        assert_ok!(Identity::add_authorization(
-            alice.clone(),
-            bob_did,
-            AuthorizationData::TransferTicker(ticker51),
-            None,
-        ));
-        auth_ids_bob.push(Identity::last_authorization(bob_did));
-        assert_ok!(Identity::add_authorization(
-            alice,
-            bob_did,
-            AuthorizationData::TransferTicker(ticker50),
-            Some(100),
-        ));
-        auth_ids_bob.push(Identity::last_authorization(bob_did));
-        assert_ok!(Identity::add_authorization(
-            charlie,
+        );
+        assert_eq!(
+            <identity::AuthorizationsGiven>::get(alice_did, auth_id),
+            bob_did
+        );
+        let mut auth = Identity::get_authorization(bob_did, auth_id);
+        assert_eq!(auth.authorized_by, alice_did);
+        assert_eq!(auth.expiry, None);
+        assert_eq!(
+            auth.authorization_data,
+            AuthorizationData::TransferTicker(ticker50)
+        );
+        auth_id = Identity::add_auth(
+            alice_did,
             bob_did,
             AuthorizationData::TransferTicker(ticker50),
             Some(100),
-        ));
-        auth_ids_bob.push(Identity::last_authorization(bob_did));
-        auth_ids_bob.push(0); // signifies that there are no more auths left
-        for i in 1..(auth_ids_bob.len() - 1) {
-            let auth = Identity::authorizations((bob_did, auth_ids_bob[i]));
-            assert_eq!(auth.previous_authorization, auth_ids_bob[i - 1]);
-            assert_eq!(auth.next_authorization, auth_ids_bob[i + 1]);
-            match i {
-                1 => {
-                    assert_eq!(auth.authorized_by, alice_did);
-                    assert_eq!(auth.expiry, None);
-                    assert_eq!(
-                        auth.authorization_data,
-                        AuthorizationData::TransferTicker(ticker50)
-                    );
-                }
-                2 => {
-                    assert_eq!(auth.authorized_by, alice_did);
-                    assert_eq!(auth.expiry, None);
-                    assert_eq!(
-                        auth.authorization_data,
-                        AuthorizationData::TransferTicker(ticker51)
-                    );
-                }
-                3 => {
-                    assert_eq!(auth.authorized_by, alice_did);
-                    assert_eq!(auth.expiry, Some(100));
-                    assert_eq!(
-                        auth.authorization_data,
-                        AuthorizationData::TransferTicker(ticker50)
-                    );
-                }
-                4 => {
-                    assert_eq!(auth.authorized_by, charlie_did);
-                    assert_eq!(auth.expiry, Some(100));
-                    assert_eq!(
-                        auth.authorization_data,
-                        AuthorizationData::TransferTicker(ticker50)
-                    );
-                }
-                _ => {}
-            }
-        }
+        );
+        assert_eq!(
+            <identity::AuthorizationsGiven>::get(alice_did, auth_id),
+            bob_did
+        );
+        auth = Identity::get_authorization(bob_did, auth_id);
+        assert_eq!(auth.authorized_by, alice_did);
+        assert_eq!(auth.expiry, Some(100));
+        assert_eq!(
+            auth.authorization_data,
+            AuthorizationData::TransferTicker(ticker50)
+        );
     });
 }
 
 #[test]
 fn removing_authorizations() {
     ExtBuilder::default().build().execute_with(|| {
-        let _alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
+        let alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
-        let mut auth_ids_bob = Vec::new();
-        auth_ids_bob.push(0); // signifies that there are no more auths left
-        for _ in 0..10 {
-            assert_ok!(Identity::add_authorization(
-                alice.clone(),
-                bob_did,
-                AuthorizationData::TransferTicker(ticker50),
-                None,
-            ));
-            auth_ids_bob.push(Identity::last_authorization(bob_did));
-        }
-        auth_ids_bob.push(0); // signifies that there are no more auths left
-        let mut rng = rand::thread_rng();
-        for _ in 0..10 {
-            let auth_to_remove = rng.gen_range(1, auth_ids_bob.len() - 1);
-            let auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
-            assert_eq!(
-                auth.authorization_data,
-                AuthorizationData::TransferTicker(ticker50)
-            );
-            assert_eq!(
-                auth.previous_authorization,
-                auth_ids_bob[auth_to_remove - 1]
-            );
-            assert_eq!(auth.next_authorization, auth_ids_bob[auth_to_remove + 1]);
-            assert_ok!(Identity::remove_authorization(
-                alice.clone(),
-                bob_did,
-                auth_ids_bob[auth_to_remove]
-            ));
-            let removed_auth = Identity::authorizations((bob_did, auth_ids_bob[auth_to_remove]));
-            assert_eq!(removed_auth.authorization_data, AuthorizationData::NoData);
-            auth_ids_bob.remove(auth_to_remove);
-            for i in 1..(auth_ids_bob.len() - 1) {
-                let auth = Identity::authorizations((bob_did, auth_ids_bob[i]));
-                assert_eq!(auth.previous_authorization, auth_ids_bob[i - 1]);
-                assert_eq!(auth.next_authorization, auth_ids_bob[i + 1]);
-            }
-        }
+        let auth_id = Identity::add_auth(
+            alice_did,
+            bob_did,
+            AuthorizationData::TransferTicker(ticker50),
+            None,
+        );
+        assert_eq!(
+            <identity::AuthorizationsGiven>::get(alice_did, auth_id),
+            bob_did
+        );
+        let auth = Identity::get_authorization(bob_did, auth_id);
+        assert_eq!(
+            auth.authorization_data,
+            AuthorizationData::TransferTicker(ticker50)
+        );
+        assert_ok!(Identity::remove_authorization(
+            alice.clone(),
+            bob_did,
+            auth_id
+        ));
+        assert!(!<identity::AuthorizationsGiven>::exists(alice_did, auth_id));
+        assert!(!<identity::Authorizations<TestStorage>>::exists(
+            bob_did, auth_id
+        ));
     });
 }
 
@@ -933,41 +876,22 @@ fn adding_links() {
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
         let ticker51 = Ticker::from_slice(&[0x51]);
-        let mut link_ids_bob = Vec::new();
-        link_ids_bob.push(0); // signifies that there are no more links left
-        Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
-        link_ids_bob.push(Identity::last_link(bob_did));
-        Identity::add_link(bob_did, LinkData::TickerOwned(ticker51), None);
-        link_ids_bob.push(Identity::last_link(bob_did));
-        Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
-        link_ids_bob.push(Identity::last_link(bob_did));
-        Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
-        link_ids_bob.push(Identity::last_link(bob_did));
-        link_ids_bob.push(0); // signifies that there are no more links left
-        for i in 1..(link_ids_bob.len() - 1) {
-            let link = Identity::links((bob_did, link_ids_bob[i]));
-            assert_eq!(link.previous_link, link_ids_bob[i - 1]);
-            assert_eq!(link.next_link, link_ids_bob[i + 1]);
-            match i {
-                1 => {
-                    assert_eq!(link.expiry, None);
-                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-                }
-                2 => {
-                    assert_eq!(link.expiry, None);
-                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker51));
-                }
-                3 => {
-                    assert_eq!(link.expiry, Some(100));
-                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-                }
-                4 => {
-                    assert_eq!(link.expiry, Some(100));
-                    assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-                }
-                _ => {}
-            }
-        }
+        let mut link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
+        let mut link = Identity::get_link(bob_did, link_id);
+        assert_eq!(link.expiry, None);
+        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+        link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker51), None);
+        link = Identity::get_link(bob_did, link_id);
+        assert_eq!(link.expiry, None);
+        assert_eq!(link.link_data, LinkData::TickerOwned(ticker51));
+        link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
+        link = Identity::get_link(bob_did, link_id);
+        assert_eq!(link.expiry, Some(100));
+        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+        link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
+        link = Identity::get_link(bob_did, link_id);
+        assert_eq!(link.expiry, Some(100));
+        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
     });
 }
 
@@ -976,30 +900,12 @@ fn removing_links() {
     ExtBuilder::default().build().execute_with(|| {
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::from_slice(&[0x50]);
-        let mut link_ids_bob = Vec::new();
-        link_ids_bob.push(0); // signifies that there are no more links left
-        for _ in 0..10 {
-            Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
-            link_ids_bob.push(Identity::last_link(bob_did));
-        }
-        link_ids_bob.push(0); // signifies that there are no more links left
-        let mut rng = rand::thread_rng();
-        for _ in 0..10 {
-            let link_to_remove = rng.gen_range(1, link_ids_bob.len() - 1);
-            let link = Identity::links((bob_did, link_ids_bob[link_to_remove]));
-            assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-            assert_eq!(link.previous_link, link_ids_bob[link_to_remove - 1]);
-            assert_eq!(link.next_link, link_ids_bob[link_to_remove + 1]);
-            Identity::remove_link(bob_did, link_ids_bob[link_to_remove]);
-            let removed_link = Identity::links((bob_did, link_ids_bob[link_to_remove]));
-            assert_eq!(removed_link.link_data, LinkData::NoData);
-            link_ids_bob.remove(link_to_remove);
-            for i in 1..(link_ids_bob.len() - 1) {
-                let link = Identity::links((bob_did, link_ids_bob[i]));
-                assert_eq!(link.previous_link, link_ids_bob[i - 1]);
-                assert_eq!(link.next_link, link_ids_bob[i + 1]);
-            }
-        }
+        let link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
+        let link = Identity::get_link(bob_did, link_id);
+        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+        Identity::remove_link(bob_did, link_id);
+        let removed_link = Identity::get_link(bob_did, link_id);
+        assert_eq!(removed_link.link_data, LinkData::NoData);
     });
 }
 
@@ -1008,39 +914,32 @@ fn changing_master_key() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
+        let alice_key = AccountKey::from(AccountKeyring::Alice.public().0);
 
         let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let new_key = AccountKey::from(AccountKeyring::Bob.public().0);
         let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
 
-        let _kyc_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let kyc_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let kyc = Origin::signed(AccountKeyring::Charlie.public());
 
         // Master key matches Alice's key
-        assert_eq!(
-            Identity::did_records(alice_did).master_key,
-            AccountKey::from(AccountKeyring::Alice.public().0)
-        );
+        assert_eq!(Identity::did_records(alice_did).master_key, alice_key);
 
         // Alice triggers change of master key
-        assert_ok!(Identity::add_authorization_as_key(
-            alice.clone(),
+        let owner_auth_id = Identity::add_auth(
+            Signatory::AccountKey(alice_key),
             Signatory::AccountKey(new_key),
             AuthorizationData::RotateMasterKey(alice_did),
             None,
-        ));
+        );
 
-        let owner_auth_id = Identity::last_authorization(Signatory::AccountKey(new_key));
-
-        // Charlie a KYC provider approves the change
-        assert_ok!(Identity::add_authorization(
-            kyc.clone(),
+        let kyc_auth_id = Identity::add_auth(
+            Signatory::Identity(kyc_did),
             Signatory::AccountKey(new_key),
             AuthorizationData::AttestMasterKeyRotation(alice_did),
             None,
-        ));
-
-        let kyc_auth_id = Identity::last_authorization(Signatory::AccountKey(new_key));
+        );
 
         // Accept the authorization with the new key
         assert_ok!(Identity::accept_master_key(
