@@ -90,12 +90,17 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
             _ => {
                 let id_opt = Self::identity_from_key(who);
                 if let Some(id) = id_opt.clone() {
+                    // TODO KYC Claim validation is disable by now
+                    // and it will enable later.
+                    /*
                     if Identity::has_valid_kyc(id).is_some() {
                         Context::set_current_identity::<Identity>(id_opt);
                         Ok(ValidTransaction::default())
                     } else {
                         Err(InvalidTransaction::Custom(TransactionError::RequiredKYC as u8).into())
-                    }
+                    }*/
+                    Context::set_current_identity::<Identity>(id_opt);
+                    Ok(ValidTransaction::default())
                 } else {
                     sp_runtime::print("ERROR: This transaction requires an Identity");
                     Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
