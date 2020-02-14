@@ -131,16 +131,12 @@ mod percentage_transfer_manager {
         ) -> RestrictionResult {
             if from == None && *self.allow_primary_issuance.get()
                 || self._is_exempted_or_not(&(to.unwrap_or_default()))
+                || ((balance_to + value) * 10u128.pow(6)) / total_supply
+                    <= *self.max_allowed_percentage.get()
             {
                 return RestrictionResult::Valid;
             }
-            if ((balance_to + value) * 10u128.pow(6)) / total_supply
-                > *self.max_allowed_percentage.get()
-            {
-                return RestrictionResult::Invalid;
-            } else {
-                return RestrictionResult::Valid;
-            }
+            return RestrictionResult::Invalid;
         }
 
         /// Change the value of allowed percentage
@@ -198,11 +194,10 @@ mod percentage_transfer_manager {
         /// # Arguments
         /// * `exemptions` - Identities & exemption status of the identities
         #[ink(message)]
-        fn modify_exemption_list_batch(
-            &mut self,
-            exemptions: Vec<(IdentityId, bool)>,
-        ) {
-            for exemptions.into_iter(||)
+        fn modify_exemption_list_batch(&mut self, exemptions: Vec<(IdentityId, bool)>) {
+            for (identity, status) in exemptions.into_iter() {
+                self.modify_exemption_list(identity, status);
+            }
         }
 
         /// Transfer ownership of the smart extension
@@ -544,41 +539,19 @@ mod percentage_transfer_manager {
             percentage_transfer_manager.change_primary_issuance(false);
         }
 
-        // #[test]
-        // #[should_panic(expected = "Arguments length mismatch")]
-        // fn should_panic_at_exempt_multiple_identities() {
-        //     let mut percentage_transfer_manager =
-        //         PercentageTransferManagerStorage::new(200000, false);
-        //     let exempted_identities = vec![
-        //         IdentityId::from(1),
-        //         IdentityId::from(2),
-        //         IdentityId::from(3),
-        //     ];
-        //     let exemption_status = vec![true, false];
-        //     percentage_transfer_manager
-        //         .modify_exemption_list_batch(exempted_identities, exemption_status);
-        // }
-
         #[test]
         fn should_exempt_multiple_identities() {
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let exempted_identities = vec![
                 (IdentityId::from(1), true),
-                (IdentityId::from(2), false),
-                (IdentityId::from(3), true)
+                (IdentityId::from(2), true),
+                (IdentityId::from(3), true),
             ];
-            let exemption_status = vec![true, false, true];
-            percentage_transfer_manager
-                .modify_exemption_list_batch(exempted_identities.clone());
-
-            println!(
-                "Status -- {:?}",
-                percentage_transfer_manager.is_exempted_or_not(IdentityId::from(1))
-            );
+            percentage_transfer_manager.modify_exemption_list_batch(exempted_identities.clone());
 
             assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(1)));
-            assert!(!percentage_transfer_manager.is_exempted_or_not(IdentityId::from(2)));
+            assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(2)));
             assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(3)));
         }
     }
