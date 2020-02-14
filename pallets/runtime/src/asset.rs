@@ -181,7 +181,7 @@ pub enum TickerRegistrationStatus {
     RegisteredByDid,
 }
 
-/// The type of an identifier associated with a token.
+/// Enum that uses as the return type for the restriction verification
 #[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RestrictionResult {
     Valid,
@@ -2136,12 +2136,9 @@ impl<T: Trait> Module<T> {
         if is_allowed.is_success() {
             if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                 return allowed;
-            } else {
-                return RestrictionResult::Invalid;
             }
-        } else {
-            return RestrictionResult::Invalid;
         }
+        return RestrictionResult::Invalid;
     }
 
     /// A helper function that is used to call the smart extension function.

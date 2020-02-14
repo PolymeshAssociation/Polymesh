@@ -8,7 +8,17 @@ mod custom_types {
     use scale::Encode;
 
     #[derive(
-        scale::Decode, scale::Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Debug,
+        scale::Decode,
+        scale::Encode,
+        PartialEq,
+        Ord,
+        Eq,
+        PartialOrd,
+        Copy,
+        Hash,
+        Clone,
+        Debug,
+        Default,
     )]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
     pub struct IdentityId([u8; 32]);
@@ -39,6 +49,7 @@ mod custom_types {
 mod percentage_transfer_manager {
     use crate::custom_types::{IdentityId, RestrictionResult};
     use ink_core::storage;
+    use ink_prelude::vec::Vec;
 
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
@@ -119,7 +130,7 @@ mod percentage_transfer_manager {
             total_supply: Balance,
         ) -> RestrictionResult {
             if from == None && *self.allow_primary_issuance.get()
-                || self._is_exempted_or_not(&(to.unwrap()))
+                || self._is_exempted_or_not(&(to.unwrap_or_default()))
             {
                 return RestrictionResult::Valid;
             }
@@ -179,11 +190,27 @@ mod percentage_transfer_manager {
                 self._is_exempted_or_not(&identity) != is_exempted,
                 "Must change setting"
             );
-            self.exemption_list.insert(identity, is_exempted);
-            self.env().emit_event(ModifyExemptionList {
-                identity: identity,
-                exempted: is_exempted,
-            });
+            self._modify_exemption_list(identity, is_exempted);
+        }
+
+        /// To exempt the given Identities from the restriction
+        ///
+        /// # Arguments
+        /// * `identities` - Identities of the token holders whose exemption status needs to change
+        /// * `exemptions` - New exemption status of the identities
+        #[ink(message)]
+        fn modify_exemption_list_batch(
+            &mut self,
+            identities: Vec<IdentityId>,
+            exemptions: Vec<bool>,
+        ) {
+            assert!(
+                identities.len() == exemptions.len(),
+                "Arguments length mismatch"
+            );
+            for i in 0..identities.len() {
+                self._modify_exemption_list(identities[i], exemptions[i]);
+            }
         }
 
         /// Transfer ownership of the smart extension
@@ -226,6 +253,14 @@ mod percentage_transfer_manager {
 
         fn _is_exempted_or_not(&self, of: &IdentityId) -> bool {
             *self.exemption_list.get(of).unwrap_or(&false)
+        }
+
+        fn _modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
+            self.exemption_list.insert(identity, is_exempted);
+            self.env().emit_event(ModifyExemptionList {
+                identity: identity,
+                exempted: is_exempted,
+            });
         }
     }
 
@@ -515,6 +550,44 @@ mod percentage_transfer_manager {
 
             // Should fail to call change_primary_issuance with same issuance state
             percentage_transfer_manager.change_primary_issuance(false);
+        }
+
+        #[test]
+        #[should_panic(expected = "Arguments length mismatch")]
+        fn should_panic_at_exempt_multiple_identities() {
+            let mut percentage_transfer_manager =
+                PercentageTransferManagerStorage::new(200000, false);
+            let exempted_identities = vec![
+                IdentityId::from(1),
+                IdentityId::from(2),
+                IdentityId::from(3),
+            ];
+            let exemption_status = vec![true, false];
+            percentage_transfer_manager
+                .modify_exemption_list_batch(exempted_identities, exemption_status);
+        }
+
+        #[test]
+        fn should_exempt_multiple_identities() {
+            let mut percentage_transfer_manager =
+                PercentageTransferManagerStorage::new(200000, false);
+            let exempted_identities = vec![
+                IdentityId::from(1),
+                IdentityId::from(2),
+                IdentityId::from(3),
+            ];
+            let exemption_status = vec![true, false, true];
+            percentage_transfer_manager
+                .modify_exemption_list_batch(exempted_identities.clone(), exemption_status);
+
+            println!(
+                "Status -- {:?}",
+                percentage_transfer_manager.is_exempted_or_not(IdentityId::from(1))
+            );
+
+            assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(1)));
+            assert!(!percentage_transfer_manager.is_exempted_or_not(IdentityId::from(2)));
+            assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(3)));
         }
     }
 }
