@@ -329,17 +329,6 @@ fn rewards_should_work() {
             assert_eq!(Staking::current_era(), 2);
             assert_eq!(Session::current_index(), 7);
 
-            // 11 validator has 2/3 of the total rewards and half half for it and its nominator
-            // assert_eq_error_rate!(
-            //     Balances::total_balance(&account_from(2)),
-            //     init_balance_2 + total_payout / 3,
-            //     1
-            // );
-            // assert_eq_error_rate!(
-            //     Balances::total_balance(&account_from(10)),
-            //     init_balance_10 + total_payout / 3,
-            //     1
-            // );
             assert_eq!(Balances::total_balance(&account_from(11)), init_balance_11);
         });
 }
