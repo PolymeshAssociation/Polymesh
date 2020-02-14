@@ -53,6 +53,7 @@ use polymesh_runtime_common::{
     balances::Trait as BalancesTrait,
     constants::*,
     identity::{ClaimValue, Trait as IdentityTrait},
+    Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -116,6 +117,8 @@ pub struct RuleData {
     operator: Operators,
 }
 
+type Identity<T> = identity::Module<T>;
+
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
         /// List of active rules for a ticker (Ticker -> Array of AssetRules)
@@ -129,8 +132,10 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Adds an asset rule to active rules for a ticker
-        pub fn add_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn add_active_rule(origin, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -149,8 +154,10 @@ decl_module! {
         }
 
         /// Removes a rule from active asset rules
-        pub fn remove_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from( ensure_signed(origin)?.encode())?);
+        pub fn remove_active_rule(origin, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -170,8 +177,10 @@ decl_module! {
         }
 
         /// Removes all active rules of a ticker
-        pub fn reset_active_rules(origin, did: IdentityId, ticker: Ticker) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn reset_active_rules(origin, ticker: Ticker) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -576,7 +585,6 @@ mod tests {
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_signed.clone(),
-                token_owner_did,
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -624,7 +632,6 @@ mod tests {
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 asset_rule
             ));
@@ -632,7 +639,6 @@ mod tests {
             //Transfer tokens to investor
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 token_owner_did,
                 token.total_supply
@@ -661,7 +667,6 @@ mod tests {
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_signed.clone(),
-                token_owner_did,
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -672,7 +677,7 @@ mod tests {
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-            let (_claim_issuer, claim_issuer_did) =
+            let (claim_issuer_signed, claim_issuer_did) =
                 make_account(&claim_issuer_acc.clone()).unwrap();
 
             let claim_value = ClaimValue {
@@ -680,10 +685,11 @@ mod tests {
                 value: 10u8.encode(),
             };
 
+            let claim_key = b"some_key".to_vec();
             assert_ok!(Identity::add_claim(
-                Origin::signed(claim_issuer_acc.clone()),
+                claim_issuer_signed,
                 token_owner_did,
-                "some_key".as_bytes().to_vec(),
+                claim_key.clone(),
                 claim_issuer_did,
                 99999999999999999u64,
                 claim_value.clone()
@@ -716,7 +722,6 @@ mod tests {
 
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 asset_rule
             ));
@@ -724,7 +729,6 @@ mod tests {
             //Transfer tokens to investor
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 token_owner_did.clone(),
                 token.total_supply
@@ -753,7 +757,6 @@ mod tests {
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_signed.clone(),
-                token_owner_did,
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -770,7 +773,6 @@ mod tests {
 
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 asset_rule
             ));
@@ -780,7 +782,6 @@ mod tests {
 
             assert_ok!(GeneralTM::reset_active_rules(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker
             ));
 

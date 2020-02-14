@@ -34,7 +34,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use polymesh_primitives::{AccountKey, AuthorizationData, AuthorizationError, Signatory};
-use polymesh_runtime_common::{identity::Trait as IdentityTrait, multisig::AddSignerMultiSig};
+use polymesh_runtime_common::{
+    identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use codec::{Decode, Encode, Error as CodecError};
@@ -78,6 +80,7 @@ decl_storage! {
         pub Votes get(votes): map (T::AccountId, Signatory, u64) => bool;
     }
 }
+use core::convert::From;
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -126,16 +129,8 @@ decl_module! {
         pub fn create_proposal_as_identity(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did =  match <identity::Module<T>>::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::IdentityMissing.into());
-                    }
-                }
-            };
+            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+
             let sender_signer = Signatory::from(signer_did);
             Self::create_proposal(multisig, sender_signer, proposal)
         }
@@ -161,16 +156,8 @@ decl_module! {
         pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did =  match <identity::Module<T>>::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::IdentityMissing.into());
-                    }
-                }
-            };
+            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+
             let signer = Signatory::from(signer_did);
             ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), "not a signer");
             Self::approve_for(multisig, signer, proposal_id)
@@ -196,16 +183,8 @@ decl_module! {
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did =  match <identity::Module<T>>::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = <identity::Module<T>>::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::IdentityMissing.into());
-                    }
-                }
-            };
+            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+
             let signer = Signatory::from(signer_did);
             Self::_accept_multisig_signer(signer, auth_id)
         }

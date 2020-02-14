@@ -36,7 +36,7 @@ use crate::{
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait};
+use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
@@ -100,6 +100,8 @@ decl_storage! {
     }
 }
 
+type Identity<T> = identity::Module<T>;
+
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -111,7 +113,6 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner who wants to initialize the sto
-        /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `beneficiary_did` DID which holds all the funds collected
         /// * `cap` Total amount of tokens allowed for sale
@@ -121,7 +122,6 @@ decl_module! {
         /// * `simple_token_ticker` Ticker of the simple token
         pub fn launch_sto(
             origin,
-            did: IdentityId,
             ticker: Ticker,
             beneficiary_did: IdentityId,
             cap: T::Balance,
@@ -130,7 +130,9 @@ decl_module! {
             end_date: T::Moment,
             simple_token_ticker: Ticker
         ) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -181,9 +183,12 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
-        pub fn buy_tokens(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance ) -> DispatchResult {
+        pub fn buy_tokens(origin, ticker: Ticker, sto_id: u32, value: T::Balance ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender_signer = Signatory::AccountKey(sender_key);
+
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
@@ -238,13 +243,14 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
-        /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in.
         /// * `simple_token_ticker` Ticker of the stable coin
         /// * `modify_status` Boolean to know whether the provided simple token ticker will be used or not.
-        pub fn modify_allowed_tokens(origin, did: IdentityId, ticker: Ticker, sto_id: u32, simple_token_ticker: Ticker, modify_status: bool) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn modify_allowed_tokens(origin, ticker: Ticker, sto_id: u32, simple_token_ticker: Ticker, modify_status: bool) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             /// Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -288,13 +294,14 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the investor
-        /// * `did` DID of the investor
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
         /// * `simple_token_ticker` Ticker of the simple token
-        pub fn buy_tokens_by_simple_token(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn buy_tokens_by_simple_token(origin, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -345,11 +352,12 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
-        /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to paused
-        pub fn pause_sto(origin, did: IdentityId, ticker: Ticker, sto_id: u32) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn pause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -372,11 +380,12 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
-        /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to un paused
-        pub fn unpause_sto(origin, did: IdentityId, ticker: Ticker, sto_id: u32) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn unpause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");

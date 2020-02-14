@@ -58,7 +58,7 @@ use polymesh_runtime_common::{
         },
         multisig::AddSignerMultiSig,
     },
-    BatchDispatchInfo,
+    BatchDispatchInfo, Context,
 };
 
 use codec::Encode;
@@ -100,7 +100,7 @@ decl_storage! {
         pub IsDidFrozen get(fn is_did_frozen): map IdentityId => bool;
 
         /// It stores the current identity for current transaction.
-        pub CurrentDid get(fn current_did): Option<IdentityId>;
+        pub CurrentDid: Option<IdentityId>;
 
         /// (DID, claim_key, claim_issuer) -> Associated claims
         pub Claims get(fn claims): map(IdentityId, ClaimMetaData) => Claim<T::Moment>;
@@ -176,8 +176,9 @@ decl_module! {
         ///  - It can only called by master key owner.
         ///  - If any signing key is already linked to any identity, it will fail.
         ///  - If any signing key is already
-        pub fn add_signing_items(origin, did: IdentityId, signing_items: Vec<SigningItem>) -> DispatchResult {
+        pub fn add_signing_items(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             // Check constraint 1-to-1 in relation key-identity.
@@ -203,8 +204,9 @@ decl_module! {
         ///
         /// # Failure
         /// It can only called by master key owner.
-        pub fn remove_signing_items(origin, did: IdentityId, signers_to_remove: Vec<Signatory>) -> DispatchResult {
+        pub fn remove_signing_items(origin, signers_to_remove: Vec<Signatory>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             // Remove any Pre-Authentication & link
@@ -228,9 +230,10 @@ decl_module! {
         ///
         /// # Failure
         /// Only called by master key owner.
-        fn set_master_key(origin, did: IdentityId, new_key: AccountKey) -> DispatchResult {
+        fn set_master_key(origin, new_key: AccountKey) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from( sender.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             ensure!( Self::can_key_be_linked_to_did(&new_key, SignatoryType::External), "Master key can only belong to one DID");
@@ -415,7 +418,7 @@ decl_module! {
 
             // 1. Constraints.
             // 1.1. A valid current identity.
-            if let Some(current_did) = <CurrentDid>::get() {
+            if let Some(current_did) = Context::current_identity::<Self>() {
                 // 1.2. Check that current_did is a signing key of target_did
                 ensure!( Self::is_signer_authorized(current_did, &Signatory::Identity(target_did)),
                     "Current identity cannot be forwarded, it is not a signing key of target identity");
@@ -430,7 +433,7 @@ decl_module! {
             ensure!(Self::has_valid_kyc(target_did), "Invalid KYC validation on target did");
 
             // 2. Actions
-            <CurrentDid>::put(target_did);
+            Context::set_current_identity::<Self>(Some(target_did));
 
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
@@ -449,12 +452,12 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked
-        pub fn revoke_claim(origin, did: IdentityId, claim_key: Vec<u8>, did_issuer: IdentityId) -> DispatchResult {
-            let sender = Signatory::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
+        pub fn revoke_claim(origin, claim_key: Vec<u8>, did_issuer: IdentityId) -> DispatchResult {
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
-            ensure!(<DidRecords>::exists(&did), "DID must already exist");
             ensure!(<DidRecords>::exists(&did_issuer), "claim issuer DID must already exist");
-
             // Verify that sender key is one of did_issuer's signing keys
             ensure!(Self::is_signer_authorized(did_issuer, &sender), "Sender must hold a claim issuer's signing key");
 
@@ -480,8 +483,9 @@ decl_module! {
 
         /// It sets permissions for an specific `target_key` key.
         /// Only the master key of an identity is able to set signing key permissions.
-        pub fn set_permission_to_signer(origin, did: IdentityId, signer: Signatory, permissions: Vec<Permission>) -> DispatchResult {
+        pub fn set_permission_to_signer(origin, signer: Signatory, permissions: Vec<Permission>) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
             let record = Self::grant_check_only_master_key( &sender_key, did)?;
 
             // You are trying to add a permission to did's master key. It is not needed.
@@ -503,23 +507,20 @@ decl_module! {
         ///
         /// # Errors
         ///
-        pub fn freeze_signing_keys(origin, did: IdentityId) -> DispatchResult {
-            Self::set_frozen_signing_key_flags( origin, did, true)
+        pub fn freeze_signing_keys(origin) -> DispatchResult {
+            Self::set_frozen_signing_key_flags( origin, true)
         }
 
-        pub fn unfreeze_signing_keys(origin, did: IdentityId) -> DispatchResult {
-            Self::set_frozen_signing_key_flags( origin, did, false)
+        pub fn unfreeze_signing_keys(origin) -> DispatchResult {
+            Self::set_frozen_signing_key_flags( origin, false)
         }
 
         pub fn get_my_did(origin) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            if let Some(did) = Self::get_identity(&sender_key) {
-                Self::deposit_event(RawEvent::DidQuery(sender_key, did));
-                sp_runtime::print(did);
-                Ok(())
-            } else {
-                Err(Error::<T>::NoDIDFound.into())
-            }
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
+
+            Self::deposit_event(RawEvent::DidQuery(sender_key, did));
+            Ok(())
         }
 
         pub fn get_asset_did(origin, ticker: Ticker) -> DispatchResult {
@@ -539,16 +540,7 @@ decl_module! {
             expiry: Option<T::Moment>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let from_did =  match Self::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = Self::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::NoDIDFound.into());
-                    }
-                }
-            };
+            let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
             Self::add_auth(Signatory::from(from_did), target, authorization_data, expiry);
 
@@ -578,16 +570,7 @@ decl_module! {
             auths: Vec<(Signatory, AuthorizationData, Option<T::Moment>)>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let from_did =  match Self::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = Self::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::NoDIDFound.into());
-                    }
-                }
-            };
+            let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
             for auth in auths {
                 Self::add_auth(Signatory::from(from_did), auth.0, auth.1, auth.2);
@@ -603,16 +586,7 @@ decl_module! {
             auth_id: u64
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let from_did =  match Self::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = Self::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::NoDIDFound.into());
-                    }
-                }
-            };
+            let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
             ensure!(<Authorizations<T>>::exists(target, auth_id), "Invalid auth");
 
@@ -632,16 +606,8 @@ decl_module! {
             auth_identifiers: Vec<AuthIdentifier>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let from_did =  match Self::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = Self::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::NoDIDFound.into());
-                    }
-                }
-            };
+            let from_did = Context::current_identity_or::<Self>(&sender_key)?;
+
 
             let mut auths = Vec::with_capacity(auth_identifiers.len());
             for i in 0..auth_identifiers.len() {
@@ -666,16 +632,10 @@ decl_module! {
             auth_id: u64
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let signer = match Self::current_did() {
-                Some(x) => Signatory::from(x),
-                None => {
-                    if let Some(did) = Self::get_identity(&sender_key) {
-                        Signatory::from(did)
-                    } else {
-                        Signatory::from(sender_key)
-                    }
-                }
-            };
+            let signer = Context::current_identity_or::<Self>(&sender_key)
+                .map_or_else(
+                    |_error| Signatory::from(sender_key),
+                    |did| Signatory::from(did));
 
             ensure!(<Authorizations<T>>::exists(signer, auth_id), "Invalid auth");
             let auth = <Authorizations<T>>::get(signer, auth_id);
@@ -708,16 +668,10 @@ decl_module! {
             auth_ids: Vec<u64>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let signer = match Self::current_did() {
-                Some(x) => Signatory::from(x),
-                None => {
-                    if let Some(did) = Self::get_identity(&sender_key) {
-                        Signatory::from(did)
-                    } else {
-                        Signatory::from(sender_key)
-                    }
-                }
-            };
+            let signer = Context::current_identity_or::<Self>(&sender_key)
+                .map_or_else(
+                    |_error| Signatory::from(sender_key),
+                    |did| Signatory::from(did));
 
             match signer {
                 Signatory::Identity(did) => {
@@ -856,11 +810,11 @@ decl_module! {
         ///     - It can only called by master key owner.
         ///     - Keys should be able to linked to any identity.
         pub fn add_signing_items_with_authorization( origin,
-                id: IdentityId,
                 expires_at: T::Moment,
                 additional_keys: Vec<SigningItemWithAuth>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
+            let id = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
 
             // 0. Check expiration
@@ -950,16 +904,8 @@ decl_module! {
         pub fn is_my_identity_has_valid_kyc(origin, buffer_time: u64) ->  DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did =  match Self::current_did() {
-                Some(x) => x,
-                None => {
-                    if let Some(did) = Self::get_identity(&sender_key) {
-                        did
-                    } else {
-                        return Err(Error::<T>::NoDIDFound.into());
-                    }
-                }
-            };
+            let my_did = Context::current_identity_or::<Self>(&sender_key)?;
+
             let (is_kyced, kyc_provider) = Self::is_identity_has_valid_kyc(my_did, buffer_time);
             Self::deposit_event(RawEvent::MyKycStatus(my_did, is_kyced, kyc_provider));
             Ok(())
@@ -1275,12 +1221,9 @@ impl<T: Trait> Module<T> {
     ///
     /// # Errors
     /// Only master key can freeze/unfreeze an identity.
-    fn set_frozen_signing_key_flags(
-        origin: T::Origin,
-        did: IdentityId,
-        freeze: bool,
-    ) -> DispatchResult {
+    fn set_frozen_signing_key_flags(origin: T::Origin, freeze: bool) -> DispatchResult {
         let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+        let did = Context::current_identity_or::<Self>(&sender_key)?;
         let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
         if freeze {
@@ -1351,14 +1294,6 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// It set/reset the current identity.
-    pub fn set_current_did(did_opt: Option<IdentityId>) {
-        if let Some(did) = did_opt {
-            <CurrentDid>::put(did);
-        } else {
-            <CurrentDid>::kill();
-        }
-    }
     /// It adds `signing_item` to pre authorized items for `id` identity.
     fn add_pre_join_identity(signing_item: &SigningItem, id: IdentityId) {
         let signer = &signing_item.signer;
@@ -1469,6 +1404,18 @@ impl<T: Trait> Module<T> {
 impl<T: Trait> IdentityTrait for Module<T> {
     fn get_identity(key: &AccountKey) -> Option<IdentityId> {
         Self::get_identity(&key)
+    }
+
+    fn current_identity() -> Option<IdentityId> {
+        <CurrentDid>::get()
+    }
+
+    fn set_current_identity(id: Option<IdentityId>) {
+        if let Some(id) = id {
+            <CurrentDid>::put(id);
+        } else {
+            <CurrentDid>::kill();
+        }
     }
 
     fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool {

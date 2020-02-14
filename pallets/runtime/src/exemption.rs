@@ -3,7 +3,9 @@ use crate::{
     utils,
 };
 
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait};
+use polymesh_runtime_common::{
+    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
@@ -28,6 +30,8 @@ decl_storage! {
     }
 }
 
+type Identity<T> = identity::Module<T>;
+
 // The module's dispatchable functions.
 decl_module! {
     /// The module declaration.
@@ -36,9 +40,12 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        fn modify_exemption_list(origin, did: IdentityId, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
+        fn modify_exemption_list(origin, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
             ticker.canonize();
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
