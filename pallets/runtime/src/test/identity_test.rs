@@ -975,39 +975,57 @@ fn cdd_register_did_test() {
 }
 
 fn cdd_register_did_test_we() {
-    let kyc_1 = Origin::signed(AccountKeyring::Eve.public());
-    let kyc_2 = Origin::signed(AccountKeyring::Ferdie.public());
+    let kyc_1_acc = AccountKeyring::Eve.public();
+    let kyc_1_key = AccountKey::try_from(kyc_1_acc.0).unwrap();
+    let kyc_2_acc = AccountKeyring::Ferdie.public();
+    let kyc_2_key = AccountKey::try_from(kyc_2_acc.0).unwrap();
     let non_id = Origin::signed(AccountKeyring::Charlie.public());
 
     let alice_acc = AccountKeyring::Alice.public();
     let alice_key = AccountKey::try_from(alice_acc.0).unwrap();
     let bob_acc = AccountKeyring::Bob.public();
+    let bob_key = AccountKey::try_from(bob_acc.0).unwrap();
 
+    // KYC 1 registers correctly the Alice's ID.
     assert_ok!(Identity::cdd_register_did(
-        kyc_1,
+        Origin::signed(kyc_1_acc),
         alice_acc,
+        10,
         ClaimValue::default(),
         vec![]
     ));
-    assert_eq!(Identity::get_identity(&alice_key).is_some(), true);
 
+    // Check that Alice's ID is attested by KYC 1.
+    let alice_id = Identity::get_identity(&alice_key).unwrap();
+    let kyc_1_id = Identity::get_identity(&kyc_1_key).unwrap();
+    assert_eq!(Identity::has_valid_kyc(alice_id), Some(kyc_1_id));
+
+    // Error case: Try account without ID.
     assert_err!(
-        Identity::cdd_register_did(non_id, bob_acc, ClaimValue::default(), vec![]),
+        Identity::cdd_register_did(non_id, bob_acc, 10, ClaimValue::default(), vec![]),
         Error::<TestStorage>::NoDIDFound
     );
+    // Error case: Try account with ID but it is not part of KYC providers.
     assert_err!(
         Identity::cdd_register_did(
             Origin::signed(alice_acc),
             bob_acc,
+            10,
             ClaimValue::default(),
             vec![]
         ),
         Error::<TestStorage>::UnAuthorizedKYCProvider
     );
+
+    // KYC 2 registers properly Bob's ID.
     assert_ok!(Identity::cdd_register_did(
-        kyc_2,
+        Origin::signed(kyc_2_acc),
         bob_acc,
+        10,
         ClaimValue::default(),
         vec![]
     ));
+    let bob_id = Identity::get_identity(&bob_key).unwrap();
+    let kyc_2_id = Identity::get_identity(&kyc_2_key).unwrap();
+    assert_eq!(Identity::has_valid_kyc(bob_id), Some(kyc_2_id));
 }

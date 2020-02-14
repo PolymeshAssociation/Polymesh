@@ -32,8 +32,6 @@
 //! see [freeze_signing_keys](./struct.Module.html#method.freeze_signing_keys)
 //! see [unfreeze_signing_keys](./struct.Module.html#method.unfreeze_signing_keys)
 //!
-//! # TODO
-//!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -114,9 +112,6 @@ decl_storage! {
         /// How much does creating a DID cost
         pub DidCreationFee get(fn did_creation_fee) config(): T::Balance;
 
-        /// It stores validated identities by any KYC.
-        pub KYCValidation get(fn has_valid_kyc): map IdentityId => bool;
-
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
 
@@ -158,7 +153,9 @@ decl_module! {
                 WithdrawReason::Fee.into(),
                 ExistenceRequirement::KeepAlive,
             )?;
-            Self::_register_did(sender, signing_items)
+
+            let _new_id = Self::_register_did(sender, signing_items)?;
+            Ok(())
         }
 
         /// Register `target_account` with a new Identity.
@@ -171,7 +168,8 @@ decl_module! {
         pub fn cdd_register_did(
             origin,
             target_account: T::AccountId,
-            cdd_claim: ClaimValue,
+            kyc_claim_expiry: T::Moment,
+            kyc_claim: ClaimValue,
             signing_items: Vec<SigningItem>) -> DispatchResult {
 
             // Sender has to be part of KYCProviders
@@ -191,10 +189,9 @@ decl_module! {
                 ExistenceRequirement::KeepAlive,
             )?;
 
-            // Register Identity
-            Self::_register_did(target_account, signing_items)
-
-            // Add BaseCDD claim
+            // Register Identity and add claim.
+            let new_id = Self::_register_did(target_account, signing_items)?;
+            Self::unsafe_add_claim(new_id, KYC_EXPIRY_CLAIM_KEY.to_vec(), cdd_id, kyc_claim_expiry, kyc_claim)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -360,30 +357,7 @@ decl_module! {
             let sender_signer = Signatory::AccountKey(sender_key);
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
 
-            let claim_meta_data = ClaimMetaData {
-                claim_key: claim_key,
-                claim_issuer: did_issuer,
-            };
-
-            let now = <pallet_timestamp::Module<T>>::get();
-
-            let claim = Claim {
-                issuance_date: now,
-                expiry: expiry,
-                claim_value: claim_value,
-            };
-
-            <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
-
-            <ClaimKeys>::mutate(&did, |old_claim_data| {
-                if !old_claim_data.contains(&claim_meta_data) {
-                    old_claim_data.push(claim_meta_data.clone());
-                }
-            });
-
-            Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
-
-            Ok(())
+            Self::unsafe_add_claim( did, claim_key, did_issuer, expiry, claim_value)
         }
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
@@ -454,7 +428,7 @@ decl_module! {
             // Please keep in mind that `current_did` is double-checked:
             //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
             //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
-            ensure!(Self::has_valid_kyc(target_did), "Invalid KYC validation on target did");
+            ensure!(Self::has_valid_kyc(target_did).is_some(), "Invalid KYC validation on target did");
 
             // 2. Actions
             <CurrentDid>::put(target_did);
@@ -1242,6 +1216,21 @@ impl<T: Trait> Module<T> {
         None
     }
 
+    pub fn has_valid_kyc(claim_for: IdentityId) -> Option<IdentityId> {
+        let trusted_kyc_providers = T::KycServiceProviders::get_members();
+        for trusted_kyc_provider in trusted_kyc_providers {
+            if let Some(_claim) = Self::fetch_claim_value(
+                claim_for,
+                KYC_EXPIRY_CLAIM_KEY.to_vec(),
+                trusted_kyc_provider,
+            ) {
+                return Some(trusted_kyc_provider);
+            }
+        }
+
+        None
+    }
+
     pub fn is_identity_has_valid_kyc(
         claim_for: IdentityId,
         buffer: u64,
@@ -1435,7 +1424,10 @@ impl<T: Trait> Module<T> {
         IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
     }
 
-    pub fn _register_did(sender: T::AccountId, signing_items: Vec<SigningItem>) -> DispatchResult {
+    pub fn _register_did(
+        sender: T::AccountId,
+        signing_items: Vec<SigningItem>,
+    ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
         // NB: this does not guarantee randomness
         let new_nonce =
@@ -1485,12 +1477,41 @@ impl<T: Trait> Module<T> {
             master_key,
             ..Default::default()
         };
-        <DidRecords>::insert(did, record);
+        <DidRecords>::insert(&did, record);
 
-        // TODO KYC is valid by default.
-        KYCValidation::insert(did, true);
+        Self::deposit_event(RawEvent::NewDid(did.clone(), sender, signing_items));
+        Ok(did)
+    }
 
-        Self::deposit_event(RawEvent::NewDid(did, sender, signing_items));
+    /// It adds a new claim without any previous security check.
+    fn unsafe_add_claim(
+        target_did: IdentityId,
+        claim_key: Vec<u8>,
+        did_issuer: IdentityId,
+        expiry: <T as pallet_timestamp::Trait>::Moment,
+        claim_value: ClaimValue,
+    ) -> DispatchResult {
+        let claim_meta_data = ClaimMetaData {
+            claim_key: claim_key,
+            claim_issuer: did_issuer,
+        };
+
+        let claim = Claim {
+            issuance_date: <pallet_timestamp::Module<T>>::get(),
+            expiry: expiry,
+            claim_value: claim_value,
+        };
+
+        <Claims<T>>::insert((target_did.clone(), claim_meta_data.clone()), claim.clone());
+
+        <ClaimKeys>::mutate(&target_did, |old_claim_data| {
+            if !old_claim_data.contains(&claim_meta_data) {
+                old_claim_data.push(claim_meta_data.clone());
+            }
+        });
+
+        Self::deposit_event(RawEvent::NewClaims(target_did, claim_meta_data, claim));
+
         Ok(())
     }
 }
