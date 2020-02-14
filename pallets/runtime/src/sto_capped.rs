@@ -300,7 +300,7 @@ decl_module! {
         /// * `simple_token_ticker` Ticker of the simple token
         pub fn buy_tokens_by_simple_token(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let spender = Signatory::AccountKey(sender_key);
 

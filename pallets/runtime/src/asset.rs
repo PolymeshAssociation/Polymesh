@@ -512,7 +512,8 @@ decl_module! {
         /// * `to_did` DID of the `to` token holder, to whom token needs to transferred
         /// * `value` Value that needs to transferred
         pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::AccountKey(sender_key);
 
@@ -521,7 +522,7 @@ decl_module! {
             ticker.canonize();
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
-            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             Self::_transfer(&ticker, did, to_did, value)
         }
@@ -587,9 +588,9 @@ decl_module! {
         /// * `from_did` DID from whom token is being transferred
         /// * `to_did` DID to whom token is being transferred
         /// * `value` Amount of the token for transfer
-        pub fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
+        pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let spender = Signatory::AccountKey(sender_key);
 
@@ -606,7 +607,7 @@ decl_module! {
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, from_did, value)?;
 
-            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
             Self::_transfer(&ticker, from_did, to_did, value)?;
 
             // Change allowance afterwards
@@ -642,7 +643,8 @@ decl_module! {
         /// * `to_did` DID of the token holder to whom new tokens get issued.
         /// * `value` Amount of tokens that get issued
         pub fn issue(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::AccountKey(sender_key);
 
@@ -662,7 +664,8 @@ decl_module! {
         /// * `investor_dids` Array of the DID of the token holders to whom new tokens get issued.
         /// * `values` Array of the Amount of tokens that get issued
         pub fn batch_issue(origin, ticker: Ticker, investor_dids: Vec<IdentityId>, values: Vec<T::Balance>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::AccountKey(sender_key);
 
@@ -739,7 +742,8 @@ decl_module! {
         /// * `value` Amount of the tokens needs to redeem
         /// * `_data` An off chain data blob used to validate the redeem functionality.
         pub fn redeem(origin, ticker: Ticker, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::AccountKey(sender_key);
 
@@ -764,7 +768,7 @@ decl_module! {
             Self::_check_custody_allowance(&ticker, did, value)?;
 
             // verify transfer check
-            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             //Decrease total supply
             let mut token = Self::token_details(&ticker);
@@ -792,7 +796,8 @@ decl_module! {
         /// * `value` Amount of the tokens needs to redeem
         /// * `_data` An off chain data blob used to validate the redeem functionality.
         pub fn redeem_from(origin, ticker: Ticker, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::AccountKey(sender_key);
 
@@ -820,7 +825,7 @@ decl_module! {
             ensure!(allowance >= value, "Not enough allowance");
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
-            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(from_did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(from_did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
 
             let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
 
@@ -1190,7 +1195,7 @@ decl_module! {
                 .checked_sub(&value)
                 .ok_or("underflow in calculating the total allowance")?;
             // Validate the transfer
-            ensure!(Self::_is_valid_transfer(&ticker, sender, Some(holder_did), Some(receiver_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(holder_did), Some(receiver_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
             Self::_transfer(&ticker, holder_did, receiver_did, value)?;
             // Update Storage of allowance
             <CustodianAllowance<T>>::insert((ticker, custodian_did, holder_did), &custodian_allowance);
