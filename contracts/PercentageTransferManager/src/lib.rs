@@ -196,21 +196,13 @@ mod percentage_transfer_manager {
         /// To exempt the given Identities from the restriction
         ///
         /// # Arguments
-        /// * `identities` - Identities of the token holders whose exemption status needs to change
-        /// * `exemptions` - New exemption status of the identities
+        /// * `exemptions` - Identities & exemption status of the identities
         #[ink(message)]
         fn modify_exemption_list_batch(
             &mut self,
-            identities: Vec<IdentityId>,
-            exemptions: Vec<bool>,
+            exemptions: Vec<(IdentityId, bool)>,
         ) {
-            assert!(
-                identities.len() == exemptions.len(),
-                "Arguments length mismatch"
-            );
-            for i in 0..identities.len() {
-                self._modify_exemption_list(identities[i], exemptions[i]);
-            }
+            for exemptions.into_iter(||)
         }
 
         /// Transfer ownership of the smart extension
@@ -552,33 +544,33 @@ mod percentage_transfer_manager {
             percentage_transfer_manager.change_primary_issuance(false);
         }
 
-        #[test]
-        #[should_panic(expected = "Arguments length mismatch")]
-        fn should_panic_at_exempt_multiple_identities() {
-            let mut percentage_transfer_manager =
-                PercentageTransferManagerStorage::new(200000, false);
-            let exempted_identities = vec![
-                IdentityId::from(1),
-                IdentityId::from(2),
-                IdentityId::from(3),
-            ];
-            let exemption_status = vec![true, false];
-            percentage_transfer_manager
-                .modify_exemption_list_batch(exempted_identities, exemption_status);
-        }
+        // #[test]
+        // #[should_panic(expected = "Arguments length mismatch")]
+        // fn should_panic_at_exempt_multiple_identities() {
+        //     let mut percentage_transfer_manager =
+        //         PercentageTransferManagerStorage::new(200000, false);
+        //     let exempted_identities = vec![
+        //         IdentityId::from(1),
+        //         IdentityId::from(2),
+        //         IdentityId::from(3),
+        //     ];
+        //     let exemption_status = vec![true, false];
+        //     percentage_transfer_manager
+        //         .modify_exemption_list_batch(exempted_identities, exemption_status);
+        // }
 
         #[test]
         fn should_exempt_multiple_identities() {
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let exempted_identities = vec![
-                IdentityId::from(1),
-                IdentityId::from(2),
-                IdentityId::from(3),
+                (IdentityId::from(1), true),
+                (IdentityId::from(2), false),
+                (IdentityId::from(3), true)
             ];
             let exemption_status = vec![true, false, true];
             percentage_transfer_manager
-                .modify_exemption_list_batch(exempted_identities.clone(), exemption_status);
+                .modify_exemption_list_batch(exempted_identities.clone());
 
             println!(
                 "Status -- {:?}",
