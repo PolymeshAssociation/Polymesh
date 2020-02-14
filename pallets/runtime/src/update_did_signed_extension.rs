@@ -168,7 +168,7 @@ mod tests {
 
         // `Identity::add_signing_items` needs DID. `validate` updates `current_did` and
         // `post_dispatch` clears it.
-        let add_signing_items_1 = Call::Identity(IdentityCall::add_signing_items(alice_id, vec![]));
+        let add_signing_items_1 = Call::Identity(IdentityCall::add_signing_items(vec![]));
         assert_eq!(
             update_did_se.validate(&alice_signed, &add_signing_items_1, dispatch_info, 0),
             valid_transaction_ok
@@ -178,7 +178,7 @@ mod tests {
         assert_eq!(Context::current_identity::<Identity>(), None);
 
         // `Identity::freeze_signing_keys` fails because `c_acc` account has not a DID.
-        let freeze_call1 = Call::Identity(IdentityCall::freeze_signing_keys(alice_id));
+        let freeze_call1 = Call::Identity(IdentityCall::freeze_signing_keys());
         assert_eq!(
             update_did_se.validate(&charlie_signed, &freeze_call1, dispatch_info, 0usize),
             Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())

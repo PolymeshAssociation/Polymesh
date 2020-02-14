@@ -176,8 +176,9 @@ decl_module! {
         ///  - It can only called by master key owner.
         ///  - If any signing key is already linked to any identity, it will fail.
         ///  - If any signing key is already
-        pub fn add_signing_items(origin, did: IdentityId, signing_items: Vec<SigningItem>) -> DispatchResult {
+        pub fn add_signing_items(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             // Check constraint 1-to-1 in relation key-identity.
@@ -203,8 +204,9 @@ decl_module! {
         ///
         /// # Failure
         /// It can only called by master key owner.
-        pub fn remove_signing_items(origin, did: IdentityId, signers_to_remove: Vec<Signatory>) -> DispatchResult {
+        pub fn remove_signing_items(origin, signers_to_remove: Vec<Signatory>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             // Remove any Pre-Authentication & link
@@ -228,9 +230,10 @@ decl_module! {
         ///
         /// # Failure
         /// Only called by master key owner.
-        fn set_master_key(origin, did: IdentityId, new_key: AccountKey) -> DispatchResult {
+        fn set_master_key(origin, new_key: AccountKey) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from( sender.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
             ensure!( Self::can_key_be_linked_to_did(&new_key, SignatoryType::External), "Master key can only belong to one DID");
@@ -449,12 +452,12 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked
-        pub fn revoke_claim(origin, did: IdentityId, claim_key: Vec<u8>, did_issuer: IdentityId) -> DispatchResult {
-            let sender = Signatory::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
+        pub fn revoke_claim(origin, claim_key: Vec<u8>, did_issuer: IdentityId) -> DispatchResult {
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
-            ensure!(<DidRecords>::exists(&did), "DID must already exist");
             ensure!(<DidRecords>::exists(&did_issuer), "claim issuer DID must already exist");
-
             // Verify that sender key is one of did_issuer's signing keys
             ensure!(Self::is_signer_authorized(did_issuer, &sender), "Sender must hold a claim issuer's signing key");
 
@@ -480,8 +483,9 @@ decl_module! {
 
         /// It sets permissions for an specific `target_key` key.
         /// Only the master key of an identity is able to set signing key permissions.
-        pub fn set_permission_to_signer(origin, did: IdentityId, signer: Signatory, permissions: Vec<Permission>) -> DispatchResult {
+        pub fn set_permission_to_signer(origin, signer: Signatory, permissions: Vec<Permission>) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
             let record = Self::grant_check_only_master_key( &sender_key, did)?;
 
             // You are trying to add a permission to did's master key. It is not needed.
@@ -503,23 +507,20 @@ decl_module! {
         ///
         /// # Errors
         ///
-        pub fn freeze_signing_keys(origin, did: IdentityId) -> DispatchResult {
-            Self::set_frozen_signing_key_flags( origin, did, true)
+        pub fn freeze_signing_keys(origin) -> DispatchResult {
+            Self::set_frozen_signing_key_flags( origin, true)
         }
 
-        pub fn unfreeze_signing_keys(origin, did: IdentityId) -> DispatchResult {
-            Self::set_frozen_signing_key_flags( origin, did, false)
+        pub fn unfreeze_signing_keys(origin) -> DispatchResult {
+            Self::set_frozen_signing_key_flags( origin, false)
         }
 
         pub fn get_my_did(origin) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            if let Some(did) = Self::get_identity(&sender_key) {
-                Self::deposit_event(RawEvent::DidQuery(sender_key, did));
-                sp_runtime::print(did);
-                Ok(())
-            } else {
-                Err(Error::<T>::NoDIDFound.into())
-            }
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
+
+            Self::deposit_event(RawEvent::DidQuery(sender_key, did));
+            Ok(())
         }
 
         pub fn get_asset_did(origin, ticker: Ticker) -> DispatchResult {
@@ -809,11 +810,11 @@ decl_module! {
         ///     - It can only called by master key owner.
         ///     - Keys should be able to linked to any identity.
         pub fn add_signing_items_with_authorization( origin,
-                id: IdentityId,
                 expires_at: T::Moment,
                 additional_keys: Vec<SigningItemWithAuth>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
+            let id = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, id)?;
 
             // 0. Check expiration
@@ -1220,12 +1221,9 @@ impl<T: Trait> Module<T> {
     ///
     /// # Errors
     /// Only master key can freeze/unfreeze an identity.
-    fn set_frozen_signing_key_flags(
-        origin: T::Origin,
-        did: IdentityId,
-        freeze: bool,
-    ) -> DispatchResult {
+    fn set_frozen_signing_key_flags(origin: T::Origin, freeze: bool) -> DispatchResult {
         let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+        let did = Context::current_identity_or::<Self>(&sender_key)?;
         let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
         if freeze {
