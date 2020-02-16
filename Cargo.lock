@@ -3014,6 +3014,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "serde",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "staking-rpc-runtime-api",
+]
+
+[[package]]
 name = "pallet-sudo"
 version = "2.0.0"
 source = "git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
@@ -3435,6 +3450,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-im-online",
+ "pallet-staking-rpc",
  "pallet-transaction-payment-rpc",
  "parking_lot 0.9.0",
  "polymesh-primitives",
@@ -5576,6 +5592,13 @@ name = "stable_deref_trait"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
+
+[[package]]
+name = "staking-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "sp-api",
+]
 
 [[package]]
 name = "static_assertions"

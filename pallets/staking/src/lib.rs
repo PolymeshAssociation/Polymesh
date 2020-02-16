@@ -1997,6 +1997,12 @@ impl<T: Trait> Module<T> {
         true
     }
 
+    /// Return reward curve points
+    pub fn get_curve() -> &'static [(Perbill, Perbill)] {
+        let curve = &T::RewardCurve::get();
+        curve.points
+    }
+
     /// Ensures that at the end of the current session there will be a new era.
     fn ensure_new_era() {
         match ForceEra::get() {
