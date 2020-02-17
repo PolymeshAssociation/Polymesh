@@ -3190,9 +3190,9 @@ fn slash_in_old_span_does_not_deselect() {
         // or non-zero.
         assert_eq!(Staking::force_era(), Forcing::NotForcing);
         assert!(!<Validators<Test>>::exists(account_from(11)));
-        // Somehow It should fail in the previous code but it was passing
-        // As 100 balance of 11 account get slashed so it should be removed
-        // from the ledger.
+        // It should fail in the previous code but somehow it was passing
+        // As 100% balance of 11 account get slashed so it should be removed
+        // from the ledger. IMO this is wrong statement that substrate developer write
         //assert_ledger_consistent(11);
     });
 }
