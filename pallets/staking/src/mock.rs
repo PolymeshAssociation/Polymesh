@@ -646,9 +646,9 @@ pub fn assert_is_stash(acc: AccountId) {
 }
 
 pub fn assert_ledger_consistent(stash_acc: u64) {
-    let stash = get_account_key_ring(stash_acc);
+    let stash = account_from(stash_acc);
     assert_is_stash(stash);
-    let ledger = Staking::ledger(get_account_key_ring(stash_acc - 1)).unwrap();
+    let ledger = Staking::ledger(account_from(stash_acc - 1)).unwrap();
 
     let real_total: Balance = ledger
         .unlocking
