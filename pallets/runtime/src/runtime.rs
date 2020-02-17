@@ -27,7 +27,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::u32_trait::{_1, _2, _3, _4};
 use sp_offchain;
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::transaction_validity::TransactionValidity;
+use sp_runtime::transaction_validity::{TransactionValidity, ValidateUnsigned};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Permill,
 };
@@ -536,6 +536,57 @@ impl group::Trait<group::Instance2> for Runtime {
 
 impl statistics::Trait for Runtime {}
 
+// Define the transaction signer using the key definition
+type SubmitTransaction = frame_system::offchain::TransactionSubmitter<
+    pallet_cdd_offchain_worker::crypto::Public,
+    Runtime,
+    UncheckedExtrinsic,
+>;
+
+impl pallet_cdd_offchain_worker::Trait for Runtime {
+    type Event = Event;
+    type Call = Call;
+    // To use signed transactions in runtime
+    type SubmitSignedTransaction = SubmitTransaction;
+    // To use unsigned transactions in runtime
+    type SubmitUnsignedTransaction = SubmitTransaction;
+}
+
+impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+
+    fn create_transaction<
+        TSigner: frame_system::offchain::Signer<Self::Public, Self::Signature>,
+    >(
+        call: Call,
+        public: Self::Public,
+        account: AccountId,
+        index: Index,
+    ) -> Option<(
+        Call,
+        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        let period = 1 << 8;
+        let current_block = System::block_number().saturated_into::<u64>();
+        let tip = 0;
+        let extra: SignedExtra = (
+            frame_system::CheckVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
+            frame_system::CheckNonce::<Runtime>::from(index),
+            frame_system::CheckWeight::<Runtime>::new(),
+            transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+            // TODO: Add Contract & Identity signed extension
+        );
+        let raw_payload = SignedPayload::new(call, extra).ok()?;
+        let signature = TSigner::sign(public, &raw_payload)?;
+        let address = Indices::unlookup(account);
+        let (call, extra, _) = raw_payload.deconstruct();
+        Some((call, (address, signature, extra)))
+    }
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -589,6 +640,7 @@ construct_runtime!(
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
         KycServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage },
+        CddOffChainWorker: pallet_cdd_offchain_worker::{ Module, Call, Storage, Event<T>, ValidateUnsigned}
     }
 );
 
