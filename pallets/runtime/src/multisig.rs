@@ -49,7 +49,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{Dispatchable, Hash};
-use sp_std::{convert::TryFrom, prelude::*, vec};
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
