@@ -71,6 +71,8 @@ decl_error! {
         BadCaller,
         /// The recipient DID has no valid KYC.
         NoValidKyc,
+        /// The bridge transaction proposal has already been handled and the funds minted.
+        ProposalAlreadyHandled,
     }
 }
 
@@ -97,6 +99,8 @@ decl_storage! {
         BridgeTxProposals get(bridge_tx_proposals): map BridgeTx<T::AccountId, T::Balance> => Option<u64>;
         /// Pending issuance transactions to identities.
         PendingTxs get(pending_txs): map IdentityId => Vec<BridgeTx<T::AccountId, T::Balance>>;
+        /// Handled bridge transaction proposals.
+        HandledProposals get(handled_proposals): map BridgeTx<T::AccountId, T::Balance> => bool;
     }
     add_extra_genesis {
         /// The set of initial signers from which a multisig address is created at genesis time.
@@ -231,6 +235,9 @@ decl_module! {
             if sender != Self::relayers() {
                 return Err(Error::<T>::BadCaller.into());
             }
+            if Self::handled_proposals(&bridge_tx) {
+                return Err(Error::<T>::ProposalAlreadyHandled.into());
+            }
             if let Some(PendingTx {
                 did,
                 bridge_tx,
@@ -241,6 +248,7 @@ decl_module! {
                     bridge_tx
                 }));
             } else {
+                <HandledProposals<T>>::insert(&bridge_tx, true);
                 Self::deposit_event(RawEvent::Bridged(bridge_tx));
             }
             Ok(())
