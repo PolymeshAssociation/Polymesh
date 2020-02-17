@@ -14,17 +14,20 @@ use polymesh_primitives::{
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_identity as identity;
 
+use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
     assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
 };
-
-use sp_runtime::AnySignature;
-use test_client::AccountKeyring;
-
-use chrono::prelude::Utc;
+use hex_literal::hex;
+use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
-use std::{convert::TryFrom, mem};
+use sp_runtime::AnySignature;
+use std::{
+    convert::{TryFrom, TryInto},
+    mem,
+};
+use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -34,6 +37,20 @@ type GeneralTM = general_tm::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 
 type OffChainSignature = AnySignature;
+
+#[test]
+fn check_the_test_hex() {
+    ExtBuilder::default().build().execute_with(|| {
+        let function_hex: &'static str = "verifyTransfer";
+        let selector: [u8; 4] = (FunctionSelectorHasher::keccak256("verify_transfer".as_bytes())
+            [0..4])
+            .try_into()
+            .unwrap();
+        println!("{:#X}", u32::from_be_bytes(selector));
+        let data = hex!("D9386E41");
+        println!("{:?}", data);
+    });
+}
 
 #[test]
 fn issuers_can_create_and_rename_tokens() {
@@ -58,7 +75,6 @@ fn issuers_can_create_and_rename_tokens() {
         assert_err!(
             Asset::create_token(
                 owner_signed.clone(),
-                owner_did,
                 token.name.clone(),
                 ticker,
                 1_000_000_000_000_000_000_000_000, // Total supply over the limit
@@ -73,7 +89,6 @@ fn issuers_can_create_and_rename_tokens() {
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -184,7 +199,6 @@ fn valid_transfers_pass() {
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -202,14 +216,12 @@ fn valid_transfers_pass() {
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
-            owner_did,
             ticker,
             asset_rule
         ));
 
         assert_ok!(Asset::transfer(
             owner_signed.clone(),
-            owner_did,
             ticker,
             alice_did,
             500
@@ -244,7 +256,6 @@ fn valid_custodian_allowance() {
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -267,14 +278,12 @@ fn valid_custodian_allowance() {
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
-            owner_did,
             ticker,
             asset_rule
         ));
         let funding_round1 = b"Round One".to_vec();
         assert_ok!(Asset::set_funding_round(
             owner_signed.clone(),
-            owner_did,
             ticker,
             funding_round1.clone()
         ));
@@ -282,7 +291,6 @@ fn valid_custodian_allowance() {
         let num_tokens1: u128 = 2_000_000;
         assert_ok!(Asset::issue(
             owner_signed.clone(),
-            owner_did,
             ticker,
             investor1_did,
             num_tokens1,
@@ -347,7 +355,6 @@ fn valid_custodian_allowance() {
         // Transfer the token upto the limit
         assert_ok!(Asset::transfer(
             investor1_signed.clone(),
-            investor1_did,
             ticker,
             investor2_did,
             140_00_00 as u128
@@ -362,7 +369,6 @@ fn valid_custodian_allowance() {
         assert_noop!(
             Asset::transfer(
                 investor1_signed.clone(),
-                investor1_did,
                 ticker,
                 investor2_did,
                 50_00_00 as u128
@@ -435,7 +441,6 @@ fn valid_custodian_allowance_of() {
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -458,7 +463,6 @@ fn valid_custodian_allowance_of() {
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
-            owner_did,
             ticker,
             asset_rule
         ));
@@ -466,7 +470,6 @@ fn valid_custodian_allowance_of() {
         // Mint some tokens to investor1
         assert_ok!(Asset::issue(
             owner_signed.clone(),
-            owner_did,
             ticker,
             investor1_did,
             200_00_00 as u128,
@@ -546,7 +549,6 @@ fn valid_custodian_allowance_of() {
         // Transfer the token upto the limit
         assert_ok!(Asset::transfer(
             investor1_signed.clone(),
-            investor1_did,
             ticker,
             investor2_did,
             140_00_00 as u128
@@ -561,7 +563,6 @@ fn valid_custodian_allowance_of() {
         assert_noop!(
             Asset::transfer(
                 investor1_signed.clone(),
-                investor1_did,
                 ticker,
                 investor2_did,
                 50_00_00 as u128
@@ -633,7 +634,6 @@ fn checkpoints_fuzz_test() {
             // Issuance is successful
             assert_ok!(Asset::create_token(
                 owner_signed.clone(),
-                owner_did,
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -651,7 +651,6 @@ fn checkpoints_fuzz_test() {
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
                 owner_signed.clone(),
-                owner_did,
                 ticker,
                 asset_rule
             ));
@@ -670,19 +669,9 @@ fn checkpoints_fuzz_test() {
                     }
                     owner_balance[j] -= 1;
                     bob_balance[j] += 1;
-                    assert_ok!(Asset::transfer(
-                        owner_signed.clone(),
-                        owner_did,
-                        ticker,
-                        bob_did,
-                        1
-                    ));
+                    assert_ok!(Asset::transfer(owner_signed.clone(), ticker, bob_did, 1));
                 }
-                assert_ok!(Asset::create_checkpoint(
-                    owner_signed.clone(),
-                    owner_did,
-                    ticker,
-                ));
+                assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker,));
                 let x: u64 = u64::try_from(j).unwrap();
                 assert_eq!(
                     Asset::get_balance_at(ticker, owner_did, 0),
@@ -746,7 +735,6 @@ fn register_ticker() {
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -926,7 +914,6 @@ fn transfer_token_ownership() {
         let ticker = Ticker::from_slice(token_name.as_slice());
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token_name.clone(),
             ticker,
             1_000_000,
@@ -1072,7 +1059,6 @@ fn update_identifiers() {
         let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1096,7 +1082,6 @@ fn update_identifiers() {
         ];
         assert_ok!(Asset::update_identifiers(
             owner_signed.clone(),
-            owner_did,
             ticker,
             updated_identifiers.clone(),
         ));
@@ -1133,7 +1118,6 @@ fn adding_removing_documents() {
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1158,7 +1142,6 @@ fn adding_removing_documents() {
 
         assert_ok!(Asset::add_documents(
             owner_signed.clone(),
-            owner_did,
             ticker,
             documents
         ));
@@ -1193,7 +1176,6 @@ fn adding_removing_documents() {
 
         assert_ok!(Asset::update_documents(
             owner_signed.clone(),
-            owner_did,
             ticker,
             vec![
                 (
@@ -1250,12 +1232,11 @@ fn adding_removing_documents() {
 #[test]
 fn add_extension_successfully() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let (owner_signed, _) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
             name: b"TEST".to_vec(),
-            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -1270,7 +1251,6 @@ fn add_extension_successfully() {
         let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1336,7 +1316,6 @@ fn add_same_extension_should_fail() {
         let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1407,7 +1386,6 @@ fn should_successfully_archive_extension() {
         let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1483,7 +1461,6 @@ fn should_fail_to_archive_an_already_archived_extension() {
         let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1564,7 +1541,6 @@ fn should_fail_to_archive_a_non_existent_extension() {
         let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1606,7 +1582,6 @@ fn should_successfuly_unarchive_an_extension() {
         let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1692,7 +1667,6 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1771,7 +1745,6 @@ fn freeze_unfreeze_asset() {
         let ticker = Ticker::from_slice(token_name);
         assert_ok!(Asset::create_token(
             alice_signed.clone(),
-            alice_did,
             token_name.to_vec(),
             ticker,
             1_000_000,
@@ -1787,7 +1760,6 @@ fn freeze_unfreeze_asset() {
         };
         assert_ok!(GeneralTM::add_active_rule(
             alice_signed.clone(),
-            alice_did,
             ticker,
             asset_rule
         ));
@@ -1807,11 +1779,11 @@ fn freeze_unfreeze_asset() {
 
         // Attempt to mint tokens.
         assert_err!(
-            Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
+            Asset::issue(alice_signed.clone(), ticker, bob_did, 1, vec![]),
             "asset is frozen"
         );
         assert_err!(
-            Asset::transfer(alice_signed.clone(), alice_did, ticker, bob_did, 1),
+            Asset::transfer(alice_signed.clone(), ticker, bob_did, 1),
             "asset is frozen"
         );
         // Attempt to transfer token ownership.
@@ -1829,12 +1801,12 @@ fn freeze_unfreeze_asset() {
 
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
-            Asset::batch_issue(bob_signed.clone(), bob_did, ticker, vec![bob_did], vec![1]),
+            Asset::batch_issue(bob_signed.clone(), ticker, vec![bob_did], vec![1]),
             "asset is frozen"
         );
         // `batch_issue` fails with the empty vector of investors with a different error message.
         assert_err!(
-            Asset::batch_issue(bob_signed.clone(), bob_did, ticker, vec![], vec![]),
+            Asset::batch_issue(bob_signed.clone(), ticker, vec![], vec![]),
             "list of investors is empty"
         );
         assert_ok!(Asset::unfreeze(bob_signed.clone(), ticker));
@@ -1843,13 +1815,7 @@ fn freeze_unfreeze_asset() {
             "asset must be frozen"
         );
         // Transfer some balance.
-        assert_ok!(Asset::transfer(
-            alice_signed.clone(),
-            alice_did,
-            ticker,
-            bob_did,
-            1
-        ));
+        assert_ok!(Asset::transfer(alice_signed.clone(), ticker, bob_did, 1));
     });
 }
 

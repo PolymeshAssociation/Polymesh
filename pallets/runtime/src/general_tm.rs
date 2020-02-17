@@ -53,6 +53,7 @@ use polymesh_runtime_common::{
     balances::Trait as BalancesTrait,
     constants::*,
     identity::{ClaimValue, Trait as IdentityTrait},
+    Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -87,7 +88,7 @@ pub trait Trait:
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Asset module
-    type Asset: asset::AssetTrait<Self::Balance>;
+    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 /// An asset rule.
@@ -116,6 +117,8 @@ pub struct RuleData {
     operator: Operators,
 }
 
+type Identity<T> = identity::Module<T>;
+
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
         /// List of active rules for a ticker (Ticker -> Array of AssetRules)
@@ -129,8 +132,10 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Adds an asset rule to active rules for a ticker
-        pub fn add_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn add_active_rule(origin, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -149,8 +154,10 @@ decl_module! {
         }
 
         /// Removes a rule from active asset rules
-        pub fn remove_active_rule(origin, did: IdentityId, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from( ensure_signed(origin)?.encode())?);
+        pub fn remove_active_rule(origin, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -170,8 +177,10 @@ decl_module! {
         }
 
         /// Removes all active rules of a ticker
-        pub fn reset_active_rules(origin, did: IdentityId, ticker: Ticker) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn reset_active_rules(origin, ticker: Ticker) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
             ticker.canonize();
@@ -282,7 +291,10 @@ mod tests {
     use super::*;
     use chrono::prelude::*;
     use frame_support::traits::Currency;
-    use frame_support::{assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types};
+    use frame_support::{
+        assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
+        parameter_types,
+    };
     use frame_system::EnsureSignedBy;
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
@@ -309,6 +321,13 @@ mod tests {
 
     impl_outer_origin! {
         pub enum Origin for Test {}
+    }
+
+    impl_outer_dispatch! {
+        pub enum Call for Test where origin: Origin {
+            pallet_contracts::Contracts,
+            identity::Identity,
+        }
     }
 
     // For testing the module, we construct most of a mock runtime. This means
@@ -482,7 +501,7 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = Call<Test>;
+        type Proposal = Call;
         type AddSignerMultiSigTarget = Test;
         type KycServiceProviders = Test;
         type Balances = balances::Module<Test>;
@@ -515,10 +534,61 @@ mod tests {
         type Asset = asset::Module<Test>;
     }
 
+    parameter_types! {
+        pub const SignedClaimHandicap: u64 = 2;
+        pub const TombstoneDeposit: u64 = 16;
+        pub const StorageSizeOffset: u32 = 8;
+        pub const RentByteFee: u64 = 4;
+        pub const RentDepositOffset: u64 = 10_000;
+        pub const SurchargeReward: u64 = 150;
+        pub const ContractTransactionBaseFee: u64 = 2;
+        pub const ContractTransactionByteFee: u64 = 6;
+        pub const ContractFee: u64 = 21;
+        pub const CallBaseFee: u64 = 135;
+        pub const InstantiateBaseFee: u64 = 175;
+        pub const MaxDepth: u32 = 100;
+        pub const MaxValueSize: u32 = 16_384;
+        pub const ContractTransferFee: u64 = 50000;
+        pub const ContractCreationFee: u64 = 50;
+        pub const BlockGasLimit: u64 = 10000000;
+    }
+
+    impl pallet_contracts::Trait for Test {
+        type Currency = Balances;
+        type Time = Timestamp;
+        type Randomness = Randomness;
+        type Call = Call;
+        type Event = ();
+        type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminator<Test>;
+        type ComputeDispatchFee = pallet_contracts::DefaultDispatchFeeComputor<Test>;
+        type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Test>;
+        type GasPayment = ();
+        type RentPayment = ();
+        type SignedClaimHandicap = SignedClaimHandicap;
+        type TombstoneDeposit = TombstoneDeposit;
+        type StorageSizeOffset = StorageSizeOffset;
+        type RentByteFee = RentByteFee;
+        type RentDepositOffset = RentDepositOffset;
+        type SurchargeReward = SurchargeReward;
+        type TransferFee = ContractTransferFee;
+        type CreationFee = ContractCreationFee;
+        type TransactionBaseFee = ContractTransactionBaseFee;
+        type TransactionByteFee = ContractTransactionByteFee;
+        type ContractFee = ContractFee;
+        type CallBaseFee = CallBaseFee;
+        type InstantiateBaseFee = InstantiateBaseFee;
+        type MaxDepth = MaxDepth;
+        type MaxValueSize = MaxValueSize;
+        type BlockGasLimit = BlockGasLimit;
+    }
+
     type Identity = identity::Module<Test>;
     type GeneralTM = Module<Test>;
     type Balances = balances::Module<Test>;
     type Asset = asset::Module<Test>;
+    type Timestamp = pallet_timestamp::Module<Test>;
+    type Randomness = pallet_randomness_collective_flip::Module<Test>;
+    type Contracts = pallet_contracts::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
     fn identity_owned_by_alice() -> sp_io::TestExternalities {
@@ -576,7 +646,6 @@ mod tests {
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_signed.clone(),
-                token_owner_did,
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -624,7 +693,6 @@ mod tests {
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 asset_rule
             ));
@@ -632,7 +700,6 @@ mod tests {
             //Transfer tokens to investor
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 token_owner_did,
                 token.total_supply
@@ -661,7 +728,6 @@ mod tests {
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_signed.clone(),
-                token_owner_did,
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -672,7 +738,7 @@ mod tests {
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-            let (_claim_issuer, claim_issuer_did) =
+            let (claim_issuer_signed, claim_issuer_did) =
                 make_account(&claim_issuer_acc.clone()).unwrap();
 
             let claim_value = ClaimValue {
@@ -680,10 +746,11 @@ mod tests {
                 value: 10u8.encode(),
             };
 
+            let claim_key = b"some_key".to_vec();
             assert_ok!(Identity::add_claim(
-                Origin::signed(claim_issuer_acc.clone()),
+                claim_issuer_signed,
                 token_owner_did,
-                "some_key".as_bytes().to_vec(),
+                claim_key.clone(),
                 claim_issuer_did,
                 99999999999999999u64,
                 claim_value.clone()
@@ -716,7 +783,6 @@ mod tests {
 
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 asset_rule
             ));
@@ -724,7 +790,6 @@ mod tests {
             //Transfer tokens to investor
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 token_owner_did.clone(),
                 token.total_supply
@@ -753,7 +818,6 @@ mod tests {
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_signed.clone(),
-                token_owner_did,
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -770,7 +834,6 @@ mod tests {
 
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 asset_rule
             ));
@@ -780,7 +843,6 @@ mod tests {
 
             assert_ok!(GeneralTM::reset_active_rules(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker
             ));
 
