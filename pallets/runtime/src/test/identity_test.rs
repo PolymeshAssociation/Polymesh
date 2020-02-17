@@ -39,7 +39,7 @@ fn add_claims_batch() {
         let claim_records = vec![
             ClaimRecord {
                 did: claim_issuer_did.clone(),
-                claim_key: claim_key.into(),
+                claim_key: claim_key.to_vec(),
                 expiry: 100u64,
                 claim_value: ClaimValue {
                     data_type: DataTypes::VecU8,
@@ -48,7 +48,7 @@ fn add_claims_batch() {
             },
             ClaimRecord {
                 did: claim_issuer_did.clone(),
-                claim_key: claim_key.into(),
+                claim_key: claim_key.to_vec(),
                 expiry: 200u64,
                 claim_value: ClaimValue {
                     data_type: DataTypes::VecU8,
@@ -69,7 +69,7 @@ fn add_claims_batch() {
         } = Identity::claims((
             claim_issuer_did.clone(),
             ClaimMetaData {
-                claim_key: claim_key.into(),
+                claim_key: claim_key.to_vec(),
                 claim_issuer: claim_issuer_did.clone(),
             },
         ));
@@ -83,7 +83,7 @@ fn add_claims_batch() {
         );
         let claim_records_err2 = vec![ClaimRecord {
             did: issuer_did.clone(),
-            claim_key: claim_key.into(),
+            claim_key: claim_key.to_vec(),
             expiry: 400u64,
             claim_value: ClaimValue {
                 data_type: DataTypes::VecU8,
@@ -103,7 +103,7 @@ fn add_claims_batch() {
             Identity::claims((
                 issuer_did.clone(),
                 ClaimMetaData {
-                    claim_key: claim_key.into(),
+                    claim_key: claim_key.to_vec(),
                     claim_issuer: claim_issuer_did.clone(),
                 },
             )),
@@ -170,7 +170,7 @@ fn revoking_claims() {
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            b"some_key".into(),
+            "some_key".as_bytes().to_vec(),
             claim_issuer_did,
             100u64,
             claim_value.clone()
@@ -179,7 +179,7 @@ fn revoking_claims() {
         assert_err!(
             Identity::revoke_claim(
                 issuer.clone(),
-                b"some_key".into(),
+                "some_key".as_bytes().to_vec(),
                 claim_issuer_did
             ),
             "Sender must hold a claim issuer\'s signing key"
@@ -187,7 +187,7 @@ fn revoking_claims() {
 
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
-            b"some_key".into(),
+            "some_key".as_bytes().to_vec(),
             claim_issuer_did
         ));
     });

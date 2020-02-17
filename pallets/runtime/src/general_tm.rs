@@ -52,7 +52,7 @@ use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait,
     constants::*,
-    identity::{ClaimKey, ClaimValue, Trait as IdentityTrait},
+    identity::{ClaimValue, Trait as IdentityTrait},
     Context,
 };
 use polymesh_runtime_identity as identity;
@@ -103,7 +103,7 @@ pub struct AssetRule {
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct RuleData {
     /// Claim key
-    key: ClaimKey,
+    key: Vec<u8>,
 
     /// Claim target value. (RHS of operatior)
     value: Vec<u8>,
@@ -210,7 +210,7 @@ impl<T: Trait> Module<T> {
 
     fn fetch_value(
         did: IdentityId,
-        key: ClaimKey,
+        key: Vec<u8>,
         trusted_issuers: Vec<IdentityId>,
     ) -> Option<ClaimValue> {
         <identity::Module<T>>::fetch_claim_value_multiple_issuers(did, key, trusted_issuers)
@@ -667,7 +667,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 Origin::signed(claim_issuer_acc.clone()),
                 token_owner_did,
-                b"some_key".into(),
+                "some_key".as_bytes().to_vec(),
                 claim_issuer_did,
                 99999999999999999u64,
                 claim_value.clone()
@@ -677,8 +677,8 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = RuleData {
-                key: b"some_key".into(),
-                value: b"some_value".to_vec(),
+                key: "some_key".as_bytes().to_vec(),
+                value: "some_value".as_bytes().to_vec(),
                 trusted_issuers: vec![claim_issuer_did],
                 operator: Operators::EqualTo,
             };
@@ -746,7 +746,7 @@ mod tests {
                 value: 10u8.encode(),
             };
 
-            let claim_key = ClaimKey::from(b"some_key");
+            let claim_key = b"some_key".to_vec();
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed,
                 token_owner_did,
@@ -760,14 +760,14 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = RuleData {
-                key: claim_key.clone(),
+                key: "some_key".as_bytes().to_vec(),
                 value: 5u8.encode(),
                 trusted_issuers: vec![claim_issuer_did],
                 operator: Operators::GreaterThan,
             };
 
             let receiver_rule = RuleData {
-                key: claim_key,
+                key: "some_key".as_bytes().to_vec(),
                 value: 15u8.encode(),
                 trusted_issuers: vec![claim_issuer_did],
                 operator: Operators::LessThan,

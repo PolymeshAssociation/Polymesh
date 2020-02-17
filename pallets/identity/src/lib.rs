@@ -53,8 +53,8 @@ use polymesh_runtime_common::{
         balances::BalancesTrait,
         group::GroupTrait,
         identity::{
-            AuthorizationNonce, Claim, ClaimKey, ClaimMetaData, ClaimRecord, ClaimValue,
-            LinkedKeyInfo, RawEvent, SigningItemWithAuth, TargetIdAuthorization,
+            AuthorizationNonce, Claim, ClaimMetaData, ClaimRecord, ClaimValue, LinkedKeyInfo,
+            RawEvent, SigningItemWithAuth, TargetIdAuthorization,
         },
         multisig::AddSignerMultiSig,
     },
@@ -320,7 +320,7 @@ decl_module! {
         pub fn add_claim(
             origin,
             did: IdentityId,
-            claim_key: ClaimKey,
+            claim_key: Vec<u8>,
             did_issuer: IdentityId,
             expiry: <T as pallet_timestamp::Trait>::Moment,
             claim_value: ClaimValue
@@ -337,7 +337,7 @@ decl_module! {
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
-                claim_key,
+                claim_key: claim_key,
                 claim_issuer: did_issuer,
             };
 
@@ -452,7 +452,7 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked
-        pub fn revoke_claim(origin, claim_key: ClaimKey, did_issuer: IdentityId) -> DispatchResult {
+        pub fn revoke_claim(origin, claim_key: Vec<u8>, did_issuer: IdentityId) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Self>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
@@ -462,7 +462,7 @@ decl_module! {
             ensure!(Self::is_signer_authorized(did_issuer, &sender), "Sender must hold a claim issuer's signing key");
 
             let claim_meta_data = ClaimMetaData {
-                claim_key,
+                claim_key: claim_key,
                 claim_issuer: did_issuer,
             };
 
@@ -1128,7 +1128,7 @@ impl<T: Trait> Module<T> {
 
     pub fn fetch_claim_value(
         did: IdentityId,
-        claim_key: ClaimKey,
+        claim_key: Vec<u8>,
         claim_issuer: IdentityId,
     ) -> Option<ClaimValue> {
         let claim_meta_data = ClaimMetaData {
@@ -1147,7 +1147,7 @@ impl<T: Trait> Module<T> {
 
     pub fn fetch_claim_value_multiple_issuers(
         did: IdentityId,
-        claim_key: ClaimKey,
+        claim_key: Vec<u8>,
         claim_issuers: Vec<IdentityId>,
     ) -> Option<ClaimValue> {
         for claim_issuer in claim_issuers {
@@ -1168,7 +1168,7 @@ impl<T: Trait> Module<T> {
             for trusted_kyc_provider in trusted_kyc_providers {
                 if let Some(claim) = Self::fetch_claim_value(
                     claim_for,
-                    KYC_EXPIRY_CLAIM_KEY.into(),
+                    KYC_EXPIRY_CLAIM_KEY.to_vec(),
                     trusted_kyc_provider,
                 ) {
                     if let Ok(value) = claim.value.as_slice().try_into() {
