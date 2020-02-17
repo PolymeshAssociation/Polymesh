@@ -415,7 +415,7 @@ decl_module! {
 
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
-            ensure!(name.0.len() <= 64, "token name cannot exceed 64 bytes");
+            ensure!(name.as_slice().len() <= 64, "token name cannot exceed 64 bytes");
 
             let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
 
