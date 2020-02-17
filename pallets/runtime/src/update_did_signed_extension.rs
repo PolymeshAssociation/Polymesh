@@ -1,7 +1,7 @@
 use crate::{runtime, Runtime};
 
 use polymesh_primitives::{AccountKey, IdentityId, TransactionError};
-use polymesh_runtime_common::identity::LinkedKeyInfo;
+use polymesh_runtime_common::{identity::LinkedKeyInfo, Context};
 use polymesh_runtime_identity as identity;
 
 use sp_runtime::{
@@ -66,7 +66,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
 
     /// It ensures that transaction caller account has an associated identity and
     /// that identity has been validated by any KYC.
-    /// The current identity will be accesible through `Identity::current_did`.
+    /// The current identity will be accesible through `Identity::current_identity`.
     ///
     /// Only the following methods can be called with no identity:
     ///     - `identity::register_did`
@@ -91,7 +91,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
                 let id_opt = Self::identity_from_key(who);
                 if let Some(id) = id_opt.clone() {
                     if Identity::has_valid_kyc(id) {
-                        Identity::set_current_did(id_opt);
+                        Context::set_current_identity::<Identity>(id_opt);
                         Ok(ValidTransaction::default())
                     } else {
                         Err(InvalidTransaction::Custom(TransactionError::RequiredKYC as u8).into())
@@ -104,9 +104,9 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
         }
     }
 
-    /// It clears the `Identity::current_did` after transaction.
+    /// It clears the `Identity::current_identity` after transaction.
     fn post_dispatch(_pre: Self::Pre, _info: Self::DispatchInfo, _len: usize) {
-        Identity::set_current_did(None);
+        Context::set_current_identity::<Identity>(None);
     }
 }
 
@@ -123,6 +123,7 @@ mod tests {
     };
 
     use polymesh_primitives::TransactionError;
+    use polymesh_runtime_common::Context;
     use polymesh_runtime_identity as identity;
 
     use core::default::Default;
@@ -156,28 +157,28 @@ mod tests {
 
         let valid_transaction_ok = Ok(ValidTransaction::default());
 
-        // `Identity::register_did` does not need an DID associated and check `current_did` is
+        // `Identity::register_did` does not need an DID associated and check `current_identity` is
         // none.
         let register_did_call_1 = Call::Identity(IdentityCall::register_did(vec![]));
         assert_eq!(
             update_did_se.validate(&alice_signed, &register_did_call_1, dispatch_info, 0usize),
             valid_transaction_ok
         );
-        assert_eq!(Identity::current_did(), None);
+        assert_eq!(Context::current_identity::<Identity>(), None);
 
         // `Identity::add_signing_items` needs DID. `validate` updates `current_did` and
         // `post_dispatch` clears it.
-        let add_signing_items_1 = Call::Identity(IdentityCall::add_signing_items(alice_id, vec![]));
+        let add_signing_items_1 = Call::Identity(IdentityCall::add_signing_items(vec![]));
         assert_eq!(
             update_did_se.validate(&alice_signed, &add_signing_items_1, dispatch_info, 0),
             valid_transaction_ok
         );
-        assert_eq!(Identity::current_did(), Some(alice_id));
+        assert_eq!(Context::current_identity::<Identity>(), Some(alice_id));
         <UpdateDid<TestStorage>>::post_dispatch((), dispatch_info, 0);
-        assert_eq!(Identity::current_did(), None);
+        assert_eq!(Context::current_identity::<Identity>(), None);
 
         // `Identity::freeze_signing_keys` fails because `c_acc` account has not a DID.
-        let freeze_call1 = Call::Identity(IdentityCall::freeze_signing_keys(alice_id));
+        let freeze_call1 = Call::Identity(IdentityCall::freeze_signing_keys());
         assert_eq!(
             update_did_se.validate(&charlie_signed, &freeze_call1, dispatch_info, 0usize),
             Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())

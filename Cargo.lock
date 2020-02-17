@@ -3492,6 +3492,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "hex-literal",
  "lazy_static",
  "log",
  "pallet-authority-discovery",
