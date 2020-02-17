@@ -32,11 +32,11 @@ async function main() {
  
   if (reqImports["fail_count"] > 0) {
     console.log("Failed");
-    process.exit();
+    process.exitCode = 1;
+  } else {
+    console.log("Passed");
   }
   
-  console.log("Passed");
-
   process.exit();
 }
 

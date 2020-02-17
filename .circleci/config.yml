@@ -86,10 +86,10 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
-            - debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - debug-cache-{{ checksum "./rust.version" }}
-            - debug-cache
+            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - release-cache-{{ checksum "./rust.version" }}
+            - release-cache
       - run:
           name: Build release
           command: cargo build -j 1 --release
@@ -97,12 +97,12 @@ jobs:
       - run:
           name: cli node instance 
           command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
-          working_directory: ./target/release
+          working_directory: ./polymesh
           no_output_timeout: 10m
       - run:
           name: cli scripts test
           command: npm test
-          working_directory: ./
+          working_directory: ./scripts/cli
           no_output_timeout: 30m
       - save_cache:
           key: debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
