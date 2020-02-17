@@ -71,10 +71,11 @@ pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substr
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+ink_primitives = { git = "https://github.com/paritytech/ink", package = "ink_primitives", default-features = false }
+hex-literal = "0.2.1"
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-hex-literal = "0.2.1"
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421"}
@@ -130,5 +131,6 @@ std = [
 	"polymesh-runtime-common/std",
 	"polymesh-runtime-balances/std",
 	"polymesh-runtime-group/std",
-	"polymesh-runtime-identity/std"
+	"polymesh-runtime-identity/std",
+	"ink_primitives/std"
 ]

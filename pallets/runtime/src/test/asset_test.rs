@@ -14,16 +14,20 @@ use polymesh_primitives::{
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_identity as identity;
 
+use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
     assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
 };
-use sp_runtime::AnySignature;
-use test_client::AccountKeyring;
-
-use chrono::prelude::Utc;
+use hex_literal::hex;
+use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
-use std::{convert::TryFrom, mem};
+use sp_runtime::AnySignature;
+use std::{
+    convert::{TryFrom, TryInto},
+    mem,
+};
+use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -33,6 +37,20 @@ type GeneralTM = general_tm::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 
 type OffChainSignature = AnySignature;
+
+#[test]
+fn check_the_test_hex() {
+    ExtBuilder::default().build().execute_with(|| {
+        let function_hex: &'static str = "verifyTransfer";
+        let selector: [u8; 4] = (FunctionSelectorHasher::keccak256("verify_transfer".as_bytes())
+            [0..4])
+            .try_into()
+            .unwrap();
+        println!("{:#X}", u32::from_be_bytes(selector));
+        let data = hex!("D9386E41");
+        println!("{:?}", data);
+    });
+}
 
 #[test]
 fn issuers_can_create_and_rename_tokens() {

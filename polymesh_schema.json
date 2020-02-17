@@ -302,5 +302,12 @@
             "Individual": "",
             "Global": "u32"
         }
+    },
+    "RestrictionResult": {
+        "_enum": [
+            "Valid",
+            "Invalid",
+            "ForceValid"
+        ]
     }
 }

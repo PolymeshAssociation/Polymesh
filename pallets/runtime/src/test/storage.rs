@@ -35,6 +35,7 @@ impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
         multisig::MultiSig,
+        pallet_contracts::Contracts,
     }
 }
 
@@ -174,6 +175,54 @@ impl AcceptTransfer for TestStorage {
     }
 }
 
+parameter_types! {
+    pub const SignedClaimHandicap: u64 = 2;
+    pub const TombstoneDeposit: u64 = 16;
+    pub const StorageSizeOffset: u32 = 8;
+    pub const RentByteFee: u64 = 4;
+    pub const RentDepositOffset: u64 = 10_000;
+    pub const SurchargeReward: u64 = 150;
+    pub const ContractTransactionBaseFee: u64 = 2;
+    pub const ContractTransactionByteFee: u64 = 6;
+    pub const ContractFee: u64 = 21;
+    pub const CallBaseFee: u64 = 135;
+    pub const InstantiateBaseFee: u64 = 175;
+    pub const MaxDepth: u32 = 100;
+    pub const MaxValueSize: u32 = 16_384;
+    pub const ContractTransferFee: u64 = 50000;
+    pub const ContractCreationFee: u64 = 50;
+    pub const BlockGasLimit: u64 = 10000000;
+}
+
+impl pallet_contracts::Trait for TestStorage {
+    type Currency = Balances;
+    type Time = Timestamp;
+    type Randomness = Randomness;
+    type Call = Call;
+    type Event = Event;
+    type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminator<TestStorage>;
+    type ComputeDispatchFee = pallet_contracts::DefaultDispatchFeeComputor<TestStorage>;
+    type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
+    type GasPayment = ();
+    type RentPayment = ();
+    type SignedClaimHandicap = SignedClaimHandicap;
+    type TombstoneDeposit = TombstoneDeposit;
+    type StorageSizeOffset = StorageSizeOffset;
+    type RentByteFee = RentByteFee;
+    type RentDepositOffset = RentDepositOffset;
+    type SurchargeReward = SurchargeReward;
+    type TransferFee = ContractTransferFee;
+    type CreationFee = ContractCreationFee;
+    type TransactionBaseFee = ContractTransactionBaseFee;
+    type TransactionByteFee = ContractTransactionByteFee;
+    type ContractFee = ContractFee;
+    type CallBaseFee = CallBaseFee;
+    type InstantiateBaseFee = InstantiateBaseFee;
+    type MaxDepth = MaxDepth;
+    type MaxValueSize = MaxValueSize;
+    type BlockGasLimit = BlockGasLimit;
+}
+
 impl statistics::Trait for TestStorage {}
 
 impl percentage_tm::Trait for TestStorage {
@@ -251,6 +300,9 @@ pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
 pub type Asset = asset::Module<TestStorage>;
 pub type MultiSig = multisig::Module<TestStorage>;
+pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
+pub type Timestamp = pallet_timestamp::Module<TestStorage>;
+pub type Contracts = pallet_contracts::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
