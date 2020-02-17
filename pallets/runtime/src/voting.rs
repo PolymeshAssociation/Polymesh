@@ -717,7 +717,7 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -876,7 +876,7 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -966,7 +966,7 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: token_owner_did,
                 total_supply: 1000,
                 divisible: true,
