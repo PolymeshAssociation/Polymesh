@@ -1923,7 +1923,6 @@ fn slot_stake_is_least_staked_validator_and_exposure_defines_maximum_punishment(
 }
 
 #[test]
-#[ignore]
 fn on_free_balance_zero_stash_removes_validator() {
     // Tests that validator storage items are cleaned up when stash is empty
     // Tests that storage items are untouched when controller is empty
@@ -3191,7 +3190,7 @@ fn slash_in_old_span_does_not_deselect() {
 
         // or non-zero.
         assert_eq!(Staking::force_era(), Forcing::NotForcing);
-        assert!(<Validators<Test>>::exists(account_from(11)));
+        assert!(!<Validators<Test>>::exists(account_from(11)));
         assert_ledger_consistent(11);
     });
 }
