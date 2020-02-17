@@ -39,7 +39,7 @@ use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{identity::Trait as IdentityTrait, CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
@@ -54,8 +54,32 @@ pub trait Trait:
     type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
 
+/// A wrapper for a motion title.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MotionTitle(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for MotionTitle {
+    fn from(s: T) -> Self {
+        let mut v = Vec::new();
+        v.extend_from_slice(s.as_ref());
+        MotionTitle(v)
+    }
+}
+
+/// A wrapper for a motion info link.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MotionInfoLink(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for MotionInfoLink {
+    fn from(s: T) -> Self {
+        let mut v = Vec::new();
+        v.extend_from_slice(s.as_ref());
+        MotionInfoLink(v)
+    }
+}
+
 /// Details about ballots
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Ballot<V> {
     /// The user's historic balance at this checkpoint is used as maximum vote weight
     checkpoint_id: u64,
@@ -71,17 +95,17 @@ pub struct Ballot<V> {
 }
 
 /// Details about motions
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Motion {
     /// Title of the motion
-    title: Vec<u8>,
+    title: MotionTitle,
 
     /// Link from where more information about the motion can be fetched
-    info_link: Vec<u8>,
+    info_link: MotionInfoLink,
 
     /// Choices for the motion excluding abstain
     /// Voting power not used is considered abstained
-    choices: Vec<Vec<u8>>,
+    choices: Vec<MotionTitle>,
 }
 
 type Identity<T> = identity::Module<T>;
@@ -719,14 +743,14 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
-                title: vec![0x01],
-                info_link: vec![0x01],
-                choices: vec![vec![0x01], vec![0x02]],
+                title: vec![0x01].into(),
+                info_link: vec![0x01].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into()],
             };
             let motion2 = Motion {
-                title: vec![0x02],
-                info_link: vec![0x02],
-                choices: vec![vec![0x01], vec![0x02], vec![0x03]],
+                title: vec![0x02].into(),
+                info_link: vec![0x02].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into(), vec![0x03].into()],
             };
 
             let ballot_name = vec![0x01];
@@ -800,8 +824,8 @@ mod tests {
             );
 
             let empty_motion = Motion {
-                title: vec![0x02],
-                info_link: vec![0x02],
+                title: vec![0x02].into(),
+                info_link: vec![0x02].into(),
                 choices: vec![],
             };
 
@@ -878,14 +902,14 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
-                title: vec![0x01],
-                info_link: vec![0x01],
-                choices: vec![vec![0x01], vec![0x02]],
+                title: vec![0x01].into(),
+                info_link: vec![0x01].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into()],
             };
             let motion2 = Motion {
-                title: vec![0x02],
-                info_link: vec![0x02],
-                choices: vec![vec![0x01], vec![0x02], vec![0x03]],
+                title: vec![0x02].into(),
+                info_link: vec![0x02].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into(), vec![0x03].into()],
             };
 
             let ballot_name = vec![0x01];
@@ -985,14 +1009,14 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
-                title: vec![0x01],
-                info_link: vec![0x01],
-                choices: vec![vec![0x01], vec![0x02]],
+                title: vec![0x01].into(),
+                info_link: vec![0x01].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into()],
             };
             let motion2 = Motion {
-                title: vec![0x02],
-                info_link: vec![0x02],
-                choices: vec![vec![0x01], vec![0x02], vec![0x03]],
+                title: vec![0x02].into(),
+                info_link: vec![0x02].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into(), vec![0x03].into()],
             };
 
             let ballot_name = vec![0x01];
