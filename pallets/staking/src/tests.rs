@@ -3162,7 +3162,7 @@ fn slash_in_old_span_does_not_deselect() {
         assert!(<Validators<Test>>::exists(account_from(11)));
 
         start_era(3);
-    
+
         // this staker is in a new slashing span now, having re-registered after
         // their prior slash.
 
