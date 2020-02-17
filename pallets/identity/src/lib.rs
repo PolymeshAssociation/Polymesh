@@ -259,6 +259,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let signer = Signatory::from(sender_key);
             // When both authorizations are present... 
+            
             ensure!(<Authorizations<T>>::exists(signer, rotation_auth_id), "Invalid authorization from owner");
             ensure!(<Authorizations<T>>::exists(signer, kyc_auth_id), "Invalid authorization from KYC service provider");
 
