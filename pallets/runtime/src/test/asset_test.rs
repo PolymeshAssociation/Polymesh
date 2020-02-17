@@ -835,7 +835,6 @@ fn transfer_ticker() {
 
         let old_ticker = Asset::ticker_registration(ticker);
         let old_ticker_link =
-
             Identity::get_link(Signatory::from(old_ticker.owner), old_ticker.link_id);
         assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
 
@@ -1179,7 +1178,6 @@ fn adding_removing_documents() {
             ticker,
             vec![
                 (
-
                     doc1.link_id,
                     Document {
                         name: b"C".to_vec(),
@@ -1188,7 +1186,6 @@ fn adding_removing_documents() {
                     }
                 ),
                 (
-
                     doc2.link_id,
                     Document {
                         name: b"D".to_vec(),

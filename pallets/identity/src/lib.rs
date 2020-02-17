@@ -259,8 +259,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let signer = Signatory::from(sender_key);
 
-            // When both authorizations are present...
-         
+            // When both authorizations are present... 
             ensure!(<Authorizations<T>>::exists(signer, rotation_auth_id), "Invalid authorization from owner");
             ensure!(<Authorizations<T>>::exists(signer, kyc_auth_id), "Invalid authorization from KYC service provider");
 
@@ -949,7 +948,6 @@ impl<T: Trait> Module<T> {
         target: Signatory,
         authorization_data: AuthorizationData,
         expiry: Option<T::Moment>,
-
     ) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
         <MultiPurposeNonce>::put(&new_nonce);
@@ -964,7 +962,6 @@ impl<T: Trait> Module<T> {
         <Authorizations<T>>::insert(target, new_nonce, auth);
         <AuthorizationsGiven>::insert(from, new_nonce, target);
 
-
         Self::deposit_event(RawEvent::NewAuthorization(
             new_nonce,
             from,
@@ -974,7 +971,6 @@ impl<T: Trait> Module<T> {
         ));
 
         new_nonce
-
     }
 
     /// Remove any authorization. No questions asked.
@@ -990,7 +986,6 @@ impl<T: Trait> Module<T> {
     /// Consumes an authorization.
     /// Checks if the auth has not expired and the caller is authorized to consume this auth.
     pub fn consume_auth(from: Signatory, target: Signatory, auth_id: u64) -> DispatchResult {
-
         if !<Authorizations<T>>::exists(target, auth_id) {
             // Auth does not exist
             return Err(AuthorizationError::Invalid.into());
@@ -1041,7 +1036,6 @@ impl<T: Trait> Module<T> {
     /// Remove a link (if it exists) from a key or identity
     /// NB: Please do all the required checks before calling this function.
     pub fn remove_link(target: Signatory, link_id: u64) {
-
         if <Links<T>>::exists(target, link_id) {
             <Links<T>>::remove(target, link_id);
             Self::deposit_event(RawEvent::LinkRemoved(link_id, target));
@@ -1051,7 +1045,6 @@ impl<T: Trait> Module<T> {
     /// Update link data (if it exists) from a key or identity
     /// NB: Please do all the required checks before calling this function.
     pub fn update_link(target: Signatory, link_id: u64, link_data: LinkData) {
-
         if <Links<T>>::exists(target, link_id) {
             <Links<T>>::mutate(target, link_id, |link| link.link_data = link_data);
             Self::deposit_event(RawEvent::LinkUpdated(link_id, target));

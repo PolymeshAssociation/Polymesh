@@ -799,7 +799,6 @@ fn adding_authorizations() {
 #[test]
 fn removing_authorizations() {
     ExtBuilder::default().build().execute_with(|| {
-
         let alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
