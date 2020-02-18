@@ -3,6 +3,7 @@ use frame_support::{
     traits::{Get, LockIdentifier, WithdrawReasons},
     Parameter,
 };
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_arithmetic::traits::{CheckedSub, Saturating, SimpleArithmetic};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;
@@ -14,11 +15,6 @@ pub struct BalanceLock<Balance, BlockNumber> {
     pub amount: Balance,
     pub until: BlockNumber,
     pub reasons: WithdrawReasons,
-}
-
-pub trait BlockRewardsReserveTrait<B> {
-    fn drop_positive_imbalance(amount: B);
-    fn drop_negative_imbalance(amount: B);
 }
 
 pub trait CommonTrait: frame_system::Trait {
@@ -41,7 +37,7 @@ pub trait CommonTrait: frame_system::Trait {
 
     type AcceptTransferTarget: asset::AcceptTransfer;
 
-    type BlockRewardsReserve: BlockRewardsReserveTrait<Self::Balance>;
+    type BlockRewardsReserve: BlockRewardsReserveCurrency<Self::Balance, NegativeImbalance<Self>>;
 }
 
 pub mod imbalances;

@@ -1,11 +1,12 @@
+use crate::{AccountKey, IdentityId};
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     prelude::Vec,
     vec,
 };
-
-use crate::{AccountKey, IdentityId};
 
 // use crate::entity::IgnoredCaseString;
 
@@ -43,6 +44,7 @@ impl Default for SignatoryType {
 
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Signatory {
     Identity(IdentityId),

@@ -39,7 +39,7 @@ use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{identity::Trait as IdentityTrait, CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
@@ -51,11 +51,37 @@ pub trait Trait:
     pallet_timestamp::Trait + frame_system::Trait + utils::Trait + IdentityTrait
 {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::Balance>;
+    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
+}
+
+/// A wrapper for a motion title.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MotionTitle(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for MotionTitle {
+    fn from(s: T) -> Self {
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
+        MotionTitle(v)
+    }
+}
+
+/// A wrapper for a motion info link.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MotionInfoLink(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for MotionInfoLink {
+    fn from(s: T) -> Self {
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
+        MotionInfoLink(v)
+    }
 }
 
 /// Details about ballots
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Ballot<V> {
     /// The user's historic balance at this checkpoint is used as maximum vote weight
     checkpoint_id: u64,
@@ -71,17 +97,17 @@ pub struct Ballot<V> {
 }
 
 /// Details about motions
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Motion {
     /// Title of the motion
-    title: Vec<u8>,
+    title: MotionTitle,
 
     /// Link from where more information about the motion can be fetched
-    info_link: Vec<u8>,
+    info_link: MotionInfoLink,
 
     /// Choices for the motion excluding abstain
     /// Voting power not used is considered abstained
-    choices: Vec<Vec<u8>>,
+    choices: Vec<MotionTitle>,
 }
 
 type Identity<T> = identity::Module<T>;
@@ -350,7 +376,8 @@ mod tests {
     use chrono::prelude::*;
     use frame_support::traits::Currency;
     use frame_support::{
-        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types,
+        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
+        parameter_types,
     };
     use frame_system::EnsureSignedBy;
     use sp_core::{crypto::key_types, H256};
@@ -377,6 +404,13 @@ mod tests {
 
     impl_outer_origin! {
         pub enum Origin for Test {}
+    }
+
+    impl_outer_dispatch! {
+        pub enum Call for Test where origin: Origin {
+            pallet_contracts::Contracts,
+            identity::Identity,
+        }
     }
 
     // For testing the module, we construct most of a mock runtime. This means
@@ -541,7 +575,7 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = Call<Test>;
+        type Proposal = Call;
         type AddSignerMultiSigTarget = Test;
         type KycServiceProviders = Test;
         type Balances = balances::Module<Test>;
@@ -589,11 +623,62 @@ mod tests {
         type Asset = asset::Module<Test>;
     }
 
+    parameter_types! {
+        pub const SignedClaimHandicap: u64 = 2;
+        pub const TombstoneDeposit: u64 = 16;
+        pub const StorageSizeOffset: u32 = 8;
+        pub const RentByteFee: u64 = 4;
+        pub const RentDepositOffset: u64 = 10_000;
+        pub const SurchargeReward: u64 = 150;
+        pub const ContractTransactionBaseFee: u64 = 2;
+        pub const ContractTransactionByteFee: u64 = 6;
+        pub const ContractFee: u64 = 21;
+        pub const CallBaseFee: u64 = 135;
+        pub const InstantiateBaseFee: u64 = 175;
+        pub const MaxDepth: u32 = 100;
+        pub const MaxValueSize: u32 = 16_384;
+        pub const ContractTransferFee: u64 = 50000;
+        pub const ContractCreationFee: u64 = 50;
+        pub const BlockGasLimit: u64 = 10000000;
+    }
+
+    impl pallet_contracts::Trait for Test {
+        type Currency = Balances;
+        type Time = Timestamp;
+        type Randomness = Randomness;
+        type Call = Call;
+        type Event = ();
+        type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminator<Test>;
+        type ComputeDispatchFee = pallet_contracts::DefaultDispatchFeeComputor<Test>;
+        type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Test>;
+        type GasPayment = ();
+        type RentPayment = ();
+        type SignedClaimHandicap = SignedClaimHandicap;
+        type TombstoneDeposit = TombstoneDeposit;
+        type StorageSizeOffset = StorageSizeOffset;
+        type RentByteFee = RentByteFee;
+        type RentDepositOffset = RentDepositOffset;
+        type SurchargeReward = SurchargeReward;
+        type TransferFee = ContractTransferFee;
+        type CreationFee = ContractCreationFee;
+        type TransactionBaseFee = ContractTransactionBaseFee;
+        type TransactionByteFee = ContractTransactionByteFee;
+        type ContractFee = ContractFee;
+        type CallBaseFee = CallBaseFee;
+        type InstantiateBaseFee = InstantiateBaseFee;
+        type MaxDepth = MaxDepth;
+        type MaxValueSize = MaxValueSize;
+        type BlockGasLimit = BlockGasLimit;
+    }
+
     type Identity = identity::Module<Test>;
     type GeneralTM = general_tm::Module<Test>;
     type Voting = Module<Test>;
     type Balances = balances::Module<Test>;
     type Asset = asset::Module<Test>;
+    type Timestamp = pallet_timestamp::Module<Test>;
+    pub type Randomness = pallet_randomness_collective_flip::Module<Test>;
+    type Contracts = pallet_contracts::Module<Test>;
 
     /// Create externalities
     fn build_ext() -> TestExternalities {
@@ -634,7 +719,7 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -660,14 +745,14 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
-                title: vec![0x01],
-                info_link: vec![0x01],
-                choices: vec![vec![0x01], vec![0x02]],
+                title: vec![0x01].into(),
+                info_link: vec![0x01].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into()],
             };
             let motion2 = Motion {
-                title: vec![0x02],
-                info_link: vec![0x02],
-                choices: vec![vec![0x01], vec![0x02], vec![0x03]],
+                title: vec![0x02].into(),
+                info_link: vec![0x02].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into(), vec![0x03].into()],
             };
 
             let ballot_name = vec![0x01];
@@ -741,8 +826,8 @@ mod tests {
             );
 
             let empty_motion = Motion {
-                title: vec![0x02],
-                info_link: vec![0x02],
+                title: vec![0x02].into(),
+                info_link: vec![0x02].into(),
                 choices: vec![],
             };
 
@@ -793,7 +878,7 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -819,14 +904,14 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
-                title: vec![0x01],
-                info_link: vec![0x01],
-                choices: vec![vec![0x01], vec![0x02]],
+                title: vec![0x01].into(),
+                info_link: vec![0x01].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into()],
             };
             let motion2 = Motion {
-                title: vec![0x02],
-                info_link: vec![0x02],
-                choices: vec![vec![0x01], vec![0x02], vec![0x03]],
+                title: vec![0x02].into(),
+                info_link: vec![0x02].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into(), vec![0x03].into()],
             };
 
             let ballot_name = vec![0x01];
@@ -883,7 +968,7 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: token_owner_did,
                 total_supply: 1000,
                 divisible: true,
@@ -926,14 +1011,14 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now);
 
             let motion1 = Motion {
-                title: vec![0x01],
-                info_link: vec![0x01],
-                choices: vec![vec![0x01], vec![0x02]],
+                title: vec![0x01].into(),
+                info_link: vec![0x01].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into()],
             };
             let motion2 = Motion {
-                title: vec![0x02],
-                info_link: vec![0x02],
-                choices: vec![vec![0x01], vec![0x02], vec![0x03]],
+                title: vec![0x02].into(),
+                info_link: vec![0x02].into(),
+                choices: vec![vec![0x01].into(), vec![0x02].into(), vec![0x03].into()],
             };
 
             let ballot_name = vec![0x01];

@@ -1,5 +1,5 @@
 use crate::{
-    asset::{self, AssetType, IdentifierType, SecurityToken, SignData},
+    asset::{self, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData},
     general_tm,
     test::{
         storage::{make_account, TestStorage},
@@ -14,16 +14,20 @@ use polymesh_primitives::{
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_identity as identity;
 
+use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
     assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
 };
-use sp_runtime::AnySignature;
-use test_client::AccountKeyring;
-
-use chrono::prelude::Utc;
+use hex_literal::hex;
+use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
-use std::{convert::TryFrom, mem};
+use sp_runtime::AnySignature;
+use std::{
+    convert::{TryFrom, TryInto},
+    mem,
+};
+use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -35,13 +39,27 @@ type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 
 #[test]
+fn check_the_test_hex() {
+    ExtBuilder::default().build().execute_with(|| {
+        let function_hex: &'static str = "verifyTransfer";
+        let selector: [u8; 4] = (FunctionSelectorHasher::keccak256("verify_transfer".as_bytes())
+            [0..4])
+            .try_into()
+            .unwrap();
+        println!("{:#X}", u32::from_be_bytes(selector));
+        let data = hex!("D9386E41");
+        println!("{:?}", data);
+    });
+}
+
+#[test]
 fn issuers_can_create_and_rename_tokens() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
-        let funding_round_name = b"round1".to_vec();
+        let funding_round_name: FundingRoundName = b"round1".into();
         // Expected token entry
         let mut token = SecurityToken {
-            name: vec![0x01],
+            name: vec![0x01].into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -52,7 +70,7 @@ fn issuers_can_create_and_rename_tokens() {
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
+        let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
         let ticker = Ticker::from_slice(token.name.as_slice());
         assert_err!(
             Asset::create_token(
@@ -105,14 +123,14 @@ fn issuers_can_create_and_rename_tokens() {
         // Unauthorized identities cannot rename the token.
         let (eve_signed, _eve_did) = make_account(AccountKeyring::Eve.public()).unwrap();
         assert_err!(
-            Asset::rename_token(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef]),
+            Asset::rename_token(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
             "sender must be a signing key for the token owner DID"
         );
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token);
         // Rename the token and check storage has been updated.
         let renamed_token = SecurityToken {
-            name: vec![0x42],
+            name: vec![0x42].into(),
             owner_did: token.owner_did,
             total_supply: token.total_supply,
             divisible: token.divisible,
@@ -141,7 +159,7 @@ fn non_issuers_cant_create_tokens() {
 
         // Expected token entry
         let _ = SecurityToken {
-            name: vec![0x01],
+            name: vec![0x01].into(),
             owner_did: owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -166,7 +184,7 @@ fn valid_transfers_pass() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: vec![0x01],
+            name: vec![0x01].into(),
             owner_did: owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -220,7 +238,7 @@ fn valid_custodian_allowance() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: vec![0x01],
+            name: vec![0x01].into(),
             owner_did: owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -262,7 +280,7 @@ fn valid_custodian_allowance() {
             ticker,
             asset_rule
         ));
-        let funding_round1 = b"Round One".to_vec();
+        let funding_round1: FundingRoundName = b"Round One".into();
         assert_ok!(Asset::set_funding_round(
             owner_signed.clone(),
             ticker,
@@ -283,11 +301,9 @@ fn valid_custodian_allowance() {
             num_tokens1
         );
         // Check the expected default behaviour of the map.
-        assert_eq!(
-            Asset::issued_in_funding_round((ticker, b"No such round".to_vec())),
-            0
-        );
-        assert_eq!(Asset::balance_of((ticker, investor1_did)), num_tokens1,);
+        let no_such_round: FundingRoundName = b"No such round".into();
+        assert_eq!(Asset::issued_in_funding_round((ticker, no_such_round)), 0);
+        assert_eq!(Asset::balance_of((ticker, investor1_did)), num_tokens1);
 
         // Failed to add custodian because of insufficient balance
         assert_noop!(
@@ -405,7 +421,7 @@ fn valid_custodian_allowance_of() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: vec![0x01],
+            name: vec![0x01].into(),
             owner_did: owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -602,7 +618,7 @@ fn checkpoints_fuzz_test() {
 
             // Expected token entry
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -704,14 +720,14 @@ fn register_ticker() {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let token = SecurityToken {
-            name: vec![0x01],
+            name: vec![0x01].into(),
             owner_did: owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let identifiers = vec![(IdentifierType::Custom(b"check".to_vec()), b"me".to_vec())];
+        let identifiers = vec![(IdentifierType::Custom(b"check".to_vec()), b"me".into())];
         let ticker = Ticker::from_slice(token.name.as_slice());
         // Issuance is successful
         assert_ok!(Asset::create_token(
@@ -890,7 +906,7 @@ fn transfer_token_ownership() {
         let ticker = Ticker::from_slice(token_name.as_slice());
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            token_name.clone(),
+            token_name.into(),
             ticker,
             1_000_000,
             true,
@@ -1014,7 +1030,7 @@ fn update_identifiers() {
 
         // Expected token entry
         let mut token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1026,7 +1042,7 @@ fn update_identifiers() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token.name.clone(),
@@ -1043,12 +1059,12 @@ fn update_identifiers() {
         assert_eq!(Asset::token_details(ticker), token);
         assert_eq!(
             Asset::identifiers((ticker, IdentifierType::Cusip)),
-            identifier_value1.to_vec()
+            identifier_value1.into()
         );
         let identifier_value2 = b"XYZ555";
         let updated_identifiers = vec![
             (IdentifierType::Cusip, Default::default()),
-            (IdentifierType::Isin, identifier_value2.to_vec()),
+            (IdentifierType::Isin, identifier_value2.into()),
         ];
         assert_ok!(Asset::update_identifiers(
             owner_signed.clone(),
@@ -1067,7 +1083,7 @@ fn adding_removing_documents() {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let token = SecurityToken {
-            name: vec![0x01],
+            name: vec![0x01].into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1081,7 +1097,7 @@ fn adding_removing_documents() {
             Identity::get_token_did(&ticker).unwrap()
         ));
 
-        let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
+        let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
         let ticker = Ticker::from_slice(token.name.as_slice());
         let ticker_did = Identity::get_token_did(&ticker).unwrap();
 
@@ -1099,14 +1115,14 @@ fn adding_removing_documents() {
 
         let documents = vec![
             Document {
-                name: b"A".to_vec(),
-                uri: b"www.a.com".to_vec(),
-                hash: b"0x1".to_vec(),
+                name: b"A".into(),
+                uri: b"www.a.com".into(),
+                hash: b"0x1".into(),
             },
             Document {
-                name: b"B".to_vec(),
-                uri: b"www.b.com".to_vec(),
-                hash: b"0x2".to_vec(),
+                name: b"B".into(),
+                uri: b"www.b.com".into(),
+                hash: b"0x2".into(),
             },
         ];
 
@@ -1126,9 +1142,9 @@ fn adding_removing_documents() {
         assert_eq!(
             doc1.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"A".to_vec(),
-                uri: b"www.a.com".to_vec(),
-                hash: b"0x1".to_vec(),
+                name: b"A".into(),
+                uri: b"www.a.com".into(),
+                hash: b"0x1".into(),
             })
         );
         assert_eq!(doc1.expiry, None);
@@ -1136,9 +1152,9 @@ fn adding_removing_documents() {
         assert_eq!(
             doc2.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"B".to_vec(),
-                uri: b"www.b.com".to_vec(),
-                hash: b"0x2".to_vec()
+                name: b"B".into(),
+                uri: b"www.b.com".into(),
+                hash: b"0x2".into()
             })
         );
         assert_eq!(doc2.expiry, None);
@@ -1150,17 +1166,17 @@ fn adding_removing_documents() {
                 (
                     doc1.link_id,
                     Document {
-                        name: b"C".to_vec(),
-                        uri: b"www.c.com".to_vec(),
-                        hash: b"0x3".to_vec(),
+                        name: b"C".into(),
+                        uri: b"www.c.com".into(),
+                        hash: b"0x3".into(),
                     }
                 ),
                 (
                     doc2.link_id,
                     Document {
-                        name: b"D".to_vec(),
-                        uri: b"www.d.com".to_vec(),
-                        hash: b"0x4".to_vec(),
+                        name: b"D".into(),
+                        uri: b"www.d.com".into(),
+                        hash: b"0x4".into(),
                     }
                 ),
             ]
@@ -1176,9 +1192,9 @@ fn adding_removing_documents() {
         assert_eq!(
             doc1.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"C".to_vec(),
-                uri: b"www.c.com".to_vec(),
-                hash: b"0x3".to_vec(),
+                name: b"C".into(),
+                uri: b"www.c.com".into(),
+                hash: b"0x3".into(),
             })
         );
         assert_eq!(doc1.expiry, None);
@@ -1186,9 +1202,9 @@ fn adding_removing_documents() {
         assert_eq!(
             doc2.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"D".to_vec(),
-                uri: b"www.d.com".to_vec(),
-                hash: b"0x4".to_vec(),
+                name: b"D".into(),
+                uri: b"www.d.com".into(),
+                hash: b"0x4".into(),
             })
         );
         assert_eq!(doc2.expiry, None);
@@ -1202,7 +1218,7 @@ fn add_extension_successfully() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -1214,7 +1230,7 @@ fn add_extension_successfully() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token.name.clone(),
@@ -1227,12 +1243,12 @@ fn add_extension_successfully() {
         ));
 
         // Add smart extension
-        let extension_name = b"PTM";
+        let extension_name = b"PTM".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::TransferManager,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1266,7 +1282,7 @@ fn add_same_extension_should_fail() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1279,7 +1295,7 @@ fn add_same_extension_should_fail() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token.name.clone(),
@@ -1292,12 +1308,12 @@ fn add_same_extension_should_fail() {
         ));
 
         // Add smart extension
-        let extension_name = b"PTM";
+        let extension_name = b"PTM".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::TransferManager,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1336,7 +1352,7 @@ fn should_successfully_archive_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1349,7 +1365,7 @@ fn should_successfully_archive_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token.name.clone(),
@@ -1361,12 +1377,12 @@ fn should_successfully_archive_extension() {
             None
         ));
         // Add smart extension
-        let extension_name = b"STO";
+        let extension_name = b"STO".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1411,7 +1427,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1424,7 +1440,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token.name.clone(),
@@ -1436,12 +1452,12 @@ fn should_fail_to_archive_an_already_archived_extension() {
             None
         ));
         // Add smart extension
-        let extension_name = b"STO";
+        let extension_name = b"STO".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1491,7 +1507,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1504,7 +1520,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token.name.clone(),
@@ -1532,7 +1548,7 @@ fn should_successfuly_unarchive_an_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1545,7 +1561,7 @@ fn should_successfuly_unarchive_an_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token.name.clone(),
@@ -1557,12 +1573,12 @@ fn should_successfuly_unarchive_an_extension() {
             None
         ));
         // Add smart extension
-        let extension_name = b"STO";
+        let extension_name = b"STO".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1617,7 +1633,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1630,7 +1646,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token.name.clone(),
@@ -1642,12 +1658,12 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             None
         ));
         // Add smart extension
-        let extension_name = b"STO";
+        let extension_name = b"STO".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1711,7 +1727,7 @@ fn freeze_unfreeze_asset() {
         let ticker = Ticker::from_slice(token_name);
         assert_ok!(Asset::create_token(
             alice_signed.clone(),
-            token_name.to_vec(),
+            token_name.into(),
             ticker,
             1_000_000,
             true,
