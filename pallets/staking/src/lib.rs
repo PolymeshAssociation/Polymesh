@@ -266,7 +266,10 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::{historical::OnSessionEnding, SelectInitialValidators};
+use polymesh_runtime_common::identity::Trait as IdentityTrait;
+use polymesh_runtime_identity as identity;
 use primitives::traits::BlockRewardsReserveCurrency;
+use primitives::AccountKey;
 use sp_phragmen::{ExtendedBalance, PhragmenStakedAssignment};
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -282,8 +285,8 @@ use sp_staking::{
     offence::{Offence, OffenceDetails, OnOffenceHandler, ReportOffence},
     SessionIndex,
 };
-use sp_std::{prelude::*, result, vec};
-//use crate::identity;
+use sp_std::{convert::TryFrom, prelude::*, result, vec};
+
 use pallet_babe;
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
@@ -619,8 +622,7 @@ where
     }
 }
 
-//pub trait Trait: frame_system::Trait + identity::Trait + pallet_babe::Trait {
-pub trait Trait: frame_system::Trait + pallet_babe::Trait {
+pub trait Trait: frame_system::Trait + pallet_babe::Trait + IdentityTrait {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>
         + BlockRewardsReserveCurrency<BalanceOf<Self>, NegativeImbalanceOf<Self>>;
@@ -858,32 +860,32 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Trait>::AccountId {
-		/// All validators have been rewarded by the first balance; the second is the remainder
-		/// from the maximum amount of reward.
-		Reward(Balance, Balance),
-		/// One validator (and its nominators) has been slashed by the given amount.
-		Slash(AccountId, Balance),
-		/// An old slashing report from a prior era was discarded because it could
-		/// not be processed.
-		OldSlashingReportDiscarded(SessionIndex),
-		/// An entity has issued a candidacy. See the transaction for who.
-		PermissionedValidatorAdded(AccountId),
-		/// The given member was removed. See the transaction for who.
-		PermissionedValidatorRemoved(AccountId),
-		/// The given member was removed. See the transaction for who.
-		PermissionedValidatorStatusChanged(AccountId),
+    pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Trait>::AccountId {
+        /// All validators have been rewarded by the first balance; the second is the remainder
+        /// from the maximum amount of reward.
+        Reward(Balance, Balance),
+        /// One validator (and its nominators) has been slashed by the given amount.
+        Slash(AccountId, Balance),
+        /// An old slashing report from a prior era was discarded because it could
+        /// not be processed.
+        OldSlashingReportDiscarded(SessionIndex),
+        /// An entity has issued a candidacy. See the transaction for who.
+        PermissionedValidatorAdded(AccountId),
+        /// The given member was removed. See the transaction for who.
+        PermissionedValidatorRemoved(AccountId),
+        /// The given member was removed. See the transaction for who.
+        PermissionedValidatorStatusChanged(AccountId),
         /// Remove the nominators from the valid nominators when there KYC expired
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(AccountId, Vec<AccountId>),
-		/// Individual commisions are enabled.
-		IndividualCommissionInEffect,
-		/// When changes to commision are made and global commission is in effect
-		/// (old value, new value)
-		GlobalCommissionInEffect(Perbill, Perbill),
+        /// Individual commisions are enabled.
+        IndividualCommissionInEffect,
+        /// When changes to commision are made and global commission is in effect
+        /// (old value, new value)
+        GlobalCommissionInEffect(Perbill, Perbill),
         /// Min bond threshold was updated (new value)
         MinimumBondThreshold(Balance),
-	}
+    }
 );
 
 decl_error! {
@@ -981,6 +983,7 @@ decl_module! {
             }
 
             // reject a bond which is considered to be _dust_.
+            // Not needed this check as we removes the Exestential deposit concept
             if value < T::Currency::minimum_balance() {
                 Err(Error::<T>::InsufficientValue)?
             }
@@ -1152,9 +1155,9 @@ decl_module! {
             // any key value will be greater than the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then it break the loop and the given nominator in the nominator pool.
 
-            // if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(stash.encode())?)) {
-            //     let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, Self::get_bonding_duration_period());
-            //     if is_kyced {
+            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(stash.encode())?)) {
+                let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, Self::get_bonding_duration_period());
+                if is_kyced {
                     let targets = targets.into_iter()
                     .take(MAX_NOMINATIONS)
                     .map(|t| T::Lookup::lookup(t))
@@ -1168,8 +1171,8 @@ decl_module! {
 
                     <Validators<T>>::remove(stash);
                     <Nominators<T>>::insert(stash, &nominations);
-                //}
-            //}
+                }
+            }
         }
 
         /// Declare no desire to either validate or nominate.
@@ -1336,15 +1339,15 @@ decl_module! {
             for target in targets.iter() {
                 // Check whether given nominator is vouching for someone or not
 
-                //--if !(Self::nominators(target)).is_empty() {
+                if let Some(_) = Self::nominators(target) {
                     // Access the identity of the nominator
-                    //--if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(target.encode())?)) {
+                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(target.encode())?)) {
                         // Fetch all the claim values provided by the trusted service providers
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                         // valid KYC otherwise it will be removed from the pool of the nominators.
-                       // -- let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, 0_u64);
-                        //--if !is_kyced {
+                        let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, 0_u64);
+                        if !is_kyced {
                             // Unbonding the balance that bonded with the controller account of a Stash account
                             // This unbonded amount only be accessible after completion of the BondingDuration
                             // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
@@ -1359,10 +1362,10 @@ decl_module! {
                                 // Free the nominator from the valid nominator list
                                 <Nominators<T>>::remove(target);
                             }
-                        //--}
+                        }
 
-                    //--}
-                //--}
+                    }
+                }
             }
             Self::deposit_event(RawEvent::InvalidatedNominators(caller, expired_nominators));
         }
@@ -2247,974 +2250,3 @@ where
         }
     }
 }
-
-// /// Tests for this module
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::constants::KYC_EXPIRY_CLAIM_KEY;
-//     use crate::{
-//         balances, group, identity, staking,
-//         test::storage::{account_from, make_account, make_account_with_balance},
-//     };
-//     use pallet_babe;
-//     use identity::{ClaimMetaData, ClaimValue, DataTypes};
-//     use std::{
-//         cell::RefCell,
-//         collections::{HashMap, HashSet},
-//     };
-//     use system::EnsureSignedBy;
-
-//     use chrono::prelude::*;
-//     use primitives::{IdentityId, Key};
-//     use sr_io::{with_externalities, TestExternalities};
-//     use sr_primitives::{
-//         testing::{sr25519::Public, Header, UintAuthorityId},
-//         traits::{
-//             BlakeTwo256, Block as BlockT, Convert, ConvertInto, IdentityLookup, OnInitialize,
-//             OpaqueKeys, SaturatedConversion, Verify,
-//         },
-//         AnySignature, BuildStorage, Perbill,
-//     };
-//     use srml_support::{
-//         assert_ok,
-//         dispatch::{DispatchError, DispatchResult},
-//         impl_outer_origin, parameter_types,
-//         traits::{ChangeMembers, FindAuthor, InitializeMembers},
-//     };
-//     use substrate_primitives::{Blake2Hasher, H256};
-//     use test_client::AccountKeyring;
-
-//     /// Mock types for testing
-//     /// The AccountId alias in this test module.
-//     type AccountId = <AnySignature as Verify>::Signer;
-//     pub type BlockNumber = u64;
-//     pub type Balance = u128;
-
-//     pub struct CurrencyToVoteHandler;
-//     impl Convert<u64, u64> for CurrencyToVoteHandler {
-//         fn convert(x: u64) -> u64 {
-//             x
-//         }
-//     }
-//     impl Convert<u128, u64> for CurrencyToVoteHandler {
-//         fn convert(x: u128) -> u64 {
-//             x.saturated_into()
-//         }
-//     }
-//     impl Convert<u128, u128> for CurrencyToVoteHandler {
-//         fn convert(x: u128) -> u128 {
-//             x
-//         }
-//     }
-
-//     thread_local! {
-//         static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
-//         static EXISTENTIAL_DEPOSIT: RefCell<u64> = RefCell::new(0);
-//     }
-
-//     pub struct TestSessionHandler;
-//     impl session::SessionHandler<AccountId> for TestSessionHandler {
-//         fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
-
-//         fn on_new_session<Ks: OpaqueKeys>(
-//             _changed: bool,
-//             validators: &[(AccountId, Ks)],
-//             _queued_validators: &[(AccountId, Ks)],
-//         ) {
-//             SESSION.with(|x| {
-//                 *x.borrow_mut() = (
-//                     validators.iter().map(|x| x.0.clone()).collect(),
-//                     HashSet::new(),
-//                 )
-//             });
-//         }
-
-//         fn on_disabled(validator_index: usize) {
-//             SESSION.with(|d| {
-//                 let mut d = d.borrow_mut();
-//                 let value = d.0[validator_index].clone();
-//                 d.1.insert(value);
-//             })
-//         }
-//     }
-
-//     impl_outer_origin! {
-//         pub enum Origin for Test {}
-//     }
-
-//     /// Author of block is always 11
-//     pub struct Author11;
-//     impl FindAuthor<AccountId> for Author11 {
-//         fn find_author<'a, I>(_digests: I) -> Option<AccountId>
-//         where
-//             I: 'a + IntoIterator<Item = (srml_support::ConsensusEngineId, &'a [u8])>,
-//         {
-//             // Some(11)
-//             Some(AccountKeyring::Alice.into())
-//         }
-//     }
-
-//     // For testing the module, we construct most of a mock runtime. This means
-//     // first constructing a configuration type (`Test`) which `impl`s each of the
-//     // configuration traits of modules we want to use.
-//     #[derive(Clone, Eq, PartialEq)]
-//     pub struct Test;
-//     parameter_types! {
-//         pub const BlockHashCount: u64 = 250;
-//         pub const MaximumBlockWeight: u32 = 1024;
-//         pub const MaximumBlockLength: u32 = 2 * 1024;
-//         pub const AvailableBlockRatio: Perbill = Perbill::one();
-//     }
-
-//     impl system::Trait for Test {
-//         type Origin = Origin;
-//         type Call = ();
-//         type Index = u64;
-//         type BlockNumber = BlockNumber;
-//         type Hash = H256;
-//         type Hashing = BlakeTwo256;
-//         type AccountId = AccountId;
-//         type Lookup = IdentityLookup<Self::AccountId>;
-//         type Header = Header;
-//         type WeightMultiplierUpdate = ();
-//         type Event = ();
-//         type BlockHashCount = BlockHashCount;
-//         type MaximumBlockWeight = MaximumBlockWeight;
-//         type MaximumBlockLength = MaximumBlockLength;
-//         type AvailableBlockRatio = AvailableBlockRatio;
-//         type Version = ();
-//     }
-
-//     parameter_types! {
-//         pub const ExistentialDeposit: u64 = 0;
-//         pub const TransferFee: u64 = 0;
-//         pub const CreationFee: u64 = 0;
-//         pub const TransactionBaseFee: u64 = 0;
-//         pub const TransactionByteFee: u64 = 0;
-//     }
-
-//     impl balances::Trait for Test {
-//         type Balance = u128;
-//         type OnFreeBalanceZero = ();
-//         type OnNewAccount = ();
-//         type Event = ();
-//         type TransactionPayment = ();
-//         type DustRemoval = ();
-//         type TransferPayment = ();
-
-//         type ExistentialDeposit = ExistentialDeposit;
-//         type TransferFee = TransferFee;
-//         type CreationFee = CreationFee;
-//         type TransactionBaseFee = TransactionBaseFee;
-//         type TransactionByteFee = TransactionByteFee;
-//         type WeightToFee = ConvertInto;
-//         type Identity = identity::Module<Test>;
-//     }
-
-//     #[derive(codec::Encode, codec::Decode, Debug, Clone, Eq, PartialEq)]
-//     pub struct IdentityProposal {
-//         pub dummy: u8,
-//     }
-
-//     impl sr_primitives::traits::Dispatchable for IdentityProposal {
-//         type Origin = Origin;
-//         type Trait = Test;
-//         type Error = DispatchError;
-
-//         fn dispatch(self, _origin: Self::Origin) -> DispatchResult<Self::Error> {
-//             Ok(())
-//         }
-//     }
-
-//     thread_local! {
-//         static MEMBERS: RefCell<Vec<IdentityId>> = RefCell::new(vec![]);
-//     }
-
-//     pub struct TestChangeMembers;
-//     impl ChangeMembers<IdentityId> for TestChangeMembers {
-//         fn change_members_sorted(
-//             incoming: &[IdentityId],
-//             outgoing: &[IdentityId],
-//             new: &[IdentityId],
-//         ) {
-//             let mut old_plus_incoming = MEMBERS.with(|m| m.borrow().to_vec());
-//             old_plus_incoming.extend_from_slice(incoming);
-//             old_plus_incoming.sort();
-//             let mut new_plus_outgoing = new.to_vec();
-//             new_plus_outgoing.extend_from_slice(outgoing);
-//             new_plus_outgoing.sort();
-//             assert_eq!(old_plus_incoming, new_plus_outgoing);
-
-//             MEMBERS.with(|m| *m.borrow_mut() = new.to_vec());
-//         }
-//     }
-//     impl InitializeMembers<IdentityId> for TestChangeMembers {
-//         fn initialize_members(members: &[IdentityId]) {
-//             MEMBERS.with(|m| *m.borrow_mut() = members.to_vec());
-//         }
-//     }
-
-//     parameter_types! {
-//         pub const One1: AccountId = AccountId::from(AccountKeyring::Dave);
-//         pub const Two2: AccountId = AccountId::from(AccountKeyring::Dave);
-//         pub const Three3: AccountId = AccountId::from(AccountKeyring::Dave);
-//         pub const Four4: AccountId = AccountId::from(AccountKeyring::Dave);
-//         pub const Five5: AccountId = AccountId::from(AccountKeyring::Dave);
-//     }
-
-//     impl group::Trait<group::Instance1> for Test {
-//         type Event = ();
-//         type AddOrigin = EnsureSignedBy<One1, AccountId>;
-//         type RemoveOrigin = EnsureSignedBy<Two2, AccountId>;
-//         type SwapOrigin = EnsureSignedBy<Three3, AccountId>;
-//         type ResetOrigin = EnsureSignedBy<Four4, AccountId>;
-//         type MembershipInitialized = TestChangeMembers;
-//         type MembershipChanged = TestChangeMembers;
-//     }
-
-//     impl identity::Trait for Test {
-//         type Event = ();
-//         type Proposal = IdentityProposal;
-//         type AcceptTransferTarget = Test;
-//     }
-//     impl crate::asset::AcceptTransfer for Test {
-//         fn accept_ticker_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
-//             unimplemented!()
-//         }
-//         fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> Result<(), &'static str> {
-//             unimplemented!()
-//         }
-//     }
-
-//     parameter_types! {
-//         pub const Period: BlockNumber = 1;
-//         pub const Offset: BlockNumber = 0;
-//         pub const UncleGenerations: u64 = 0;
-//         pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
-//     }
-
-//     impl session::Trait for Test {
-//         type OnSessionEnding = session::historical::NoteHistoricalRoot<Test, Staking>;
-//         type Keys = UintAuthorityId;
-//         type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
-//         type SessionHandler = TestSessionHandler;
-//         type Event = ();
-//         type ValidatorId = AccountId;
-//         type ValidatorIdOf = self::StashOf<Test>;
-//         type SelectInitialValidators = Staking;
-//         type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
-//     }
-
-//     impl session::historical::Trait for Test {
-//         type FullIdentification = crate::staking::Exposure<AccountId, Balance>;
-//         type FullIdentificationOf = crate::staking::ExposureOf<Test>;
-//     }
-
-//     impl authorship::Trait for Test {
-//         type FindAuthor = Author11;
-//         type UncleGenerations = UncleGenerations;
-//         type FilterUncle = ();
-//         type EventHandler = Module<Test>;
-//     }
-
-//     parameter_types! {
-//         pub const MinimumPeriod: u64 = 3;
-//     }
-
-//     impl timestamp::Trait for Test {
-//         type Moment = u64;
-//         type OnTimestampSet = ();
-//         type MinimumPeriod = MinimumPeriod;
-//     }
-
-//     parameter_types! {
-//         pub const EpochDuration: u64 =  20 as u64;
-//         pub const ExpectedBlockTime: u64 = 6000;
-//     }
-
-//     impl pallet_babe::Trait for Test {
-//         type EpochDuration = EpochDuration;
-//         type ExpectedBlockTime = ExpectedBlockTime;
-//     }
-
-//     srml_staking_reward_curve::build! {
-//         const I_NPOS: PiecewiseLinear<'static> = curve!(
-//             min_inflation: 0_025_000,
-//             max_inflation: 0_100_000,
-//             ideal_stake: 0_500_000,
-//             falloff: 0_050_000,
-//             max_piece_count: 40,
-//             test_precision: 0_005_000,
-//         );
-//     }
-
-//     parameter_types! {
-//         pub const SessionsPerEra: SessionIndex = 3;
-//         pub const BondingDuration: EraIndex = 3;
-//         pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
-//         // pub const One: u64 = 1;
-//         pub const One: Public = AccountKeyring::Alice.public();
-//         // pub const Two: u64 = 2;
-//         pub const Two: Public = AccountKeyring::Bob.public();
-//         // pub const Three: u64 = 3;
-//         pub const Three: Public = AccountKeyring::Charlie.public();
-//         pub const Four: u64 = 4;
-//         pub const Five: u64 = 5;
-//     }
-
-//     impl super::Trait for Test {
-//         type Currency = balances::Module<Self>;
-//         type Time = timestamp::Module<Self>;
-//         type CurrencyToVote = CurrencyToVoteHandler;
-//         type OnRewardMinted = ();
-//         type Event = ();
-//         type Slash = ();
-//         type Reward = ();
-//         type SessionsPerEra = SessionsPerEra;
-//         type BondingDuration = BondingDuration;
-//         type SessionInterface = Self;
-//         type RewardCurve = RewardCurve;
-
-//         /// Required origin for adding a potential validator (can always be Root).
-//         //type AddOrigin: EnsureOrigin<Self::Origin>;
-//         type RequiredAddOrigin = EnsureSignedBy<One, Self::AccountId>;
-
-//         /// Required origin for removing a validator (can always be Root).
-//         // type RemoveOrigin: EnsureOrigin<Self::Origin>;
-//         type RequiredRemoveOrigin = EnsureSignedBy<Two, Self::AccountId>;
-
-//         /// Required origin for changing compliance status (can always be Root).
-//         // type ComplianceOrigin: EnsureOrigin<Self::Origin>;
-//         type RequiredComplianceOrigin = EnsureSignedBy<Three, Self::AccountId>;
-//     }
-
-//     pub type Staking = super::Module<Test>;
-//     pub type System = system::Module<Test>;
-//     pub type Session = session::Module<Test>;
-//     pub type Timestamp = timestamp::Module<Test>;
-//     pub type Identity = identity::Module<Test>;
-//     pub type Babe = pallet_babe::Module<Test>;
-//     pub type Group = group::Module<Test, group::Instance1>;
-
-//     pub struct ExtBuilder {
-//         existential_deposit: u64,
-//         validator_pool: bool,
-//         nominate: bool,
-//         validator_count: u32,
-//         minimum_validator_count: u32,
-//         fair: bool,
-//         num_validators: Option<u32>,
-//         invulnerables: Vec<AccountId>,
-//     }
-
-//     impl Default for ExtBuilder {
-//         fn default() -> Self {
-//             Self {
-//                 existential_deposit: 0,
-//                 validator_pool: false,
-//                 nominate: true,
-//                 validator_count: 2,
-//                 minimum_validator_count: 0,
-//                 fair: true,
-//                 num_validators: None,
-//                 invulnerables: vec![],
-//             }
-//         }
-//     }
-
-//     impl ExtBuilder {
-//         pub fn existential_deposit(mut self, existential_deposit: u64) -> Self {
-//             self.existential_deposit = existential_deposit;
-//             self
-//         }
-//         pub fn validator_pool(mut self, validator_pool: bool) -> Self {
-//             self.validator_pool = validator_pool;
-//             self
-//         }
-//         pub fn nominate(mut self, nominate: bool) -> Self {
-//             self.nominate = nominate;
-//             self
-//         }
-//         pub fn validator_count(mut self, count: u32) -> Self {
-//             self.validator_count = count;
-//             self
-//         }
-//         pub fn minimum_validator_count(mut self, count: u32) -> Self {
-//             self.minimum_validator_count = count;
-//             self
-//         }
-//         pub fn fair(mut self, is_fair: bool) -> Self {
-//             self.fair = is_fair;
-//             self
-//         }
-//         pub fn num_validators(mut self, num_validators: u32) -> Self {
-//             self.num_validators = Some(num_validators);
-//             self
-//         }
-//         pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-//             self.invulnerables = invulnerables;
-//             self
-//         }
-//         pub fn set_associated_consts(&self) {
-//             EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
-//         }
-//         pub fn build(self) -> TestExternalities<Blake2Hasher> {
-//             self.set_associated_consts();
-//             let mut storage = system::GenesisConfig::default()
-//                 .build_storage::<Test>()
-//                 .unwrap();
-//             let balance_factor = if self.existential_deposit > 0 { 256 } else { 1 };
-
-//             let num_validators = self.num_validators.unwrap_or(self.validator_count);
-//             let validators = (0..num_validators)
-//                 .map(|x| ((x + 1) * 10 + 1) as u64)
-//                 .collect::<Vec<_>>();
-
-//             let account_key_ring: HashMap<u64, Public> =
-//                 [10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999]
-//                     .into_iter()
-//                     .map(|id| (*id, account_from(*id)))
-//                     .collect();
-
-//             let _ = balances::GenesisConfig::<Test> {
-//                 balances: vec![
-//                     (AccountKeyring::Alice.public(), 10 * balance_factor),
-//                     (AccountKeyring::Bob.public(), 20 * balance_factor),
-//                     (AccountKeyring::Charlie.public(), 300 * balance_factor),
-//                     (AccountKeyring::Dave.public(), 400 * balance_factor),
-//                     (account_key_ring.get(&10).unwrap().clone(), balance_factor),
-//                     (
-//                         account_key_ring.get(&11).unwrap().clone(),
-//                         balance_factor * 1000,
-//                     ),
-//                     (account_key_ring.get(&20).unwrap().clone(), balance_factor),
-//                     (
-//                         account_key_ring.get(&21).unwrap().clone(),
-//                         balance_factor * 2000,
-//                     ),
-//                     (account_key_ring.get(&30).unwrap().clone(), balance_factor),
-//                     (
-//                         account_key_ring.get(&31).unwrap().clone(),
-//                         balance_factor * 2000,
-//                     ),
-//                     (account_key_ring.get(&40).unwrap().clone(), balance_factor),
-//                     (
-//                         account_key_ring.get(&41).unwrap().clone(),
-//                         balance_factor * 2000,
-//                     ),
-//                     (
-//                         account_key_ring.get(&100).unwrap().clone(),
-//                         2000 * balance_factor,
-//                     ),
-//                     (
-//                         account_key_ring.get(&101).unwrap().clone(),
-//                         2000 * balance_factor,
-//                     ),
-//                     // This allow us to have a total_payout different from 0.
-//                     (
-//                         account_key_ring.get(&999).unwrap().clone(),
-//                         1_000_000_000_000,
-//                     ),
-//                 ],
-//                 vesting: vec![],
-//             }
-//             .assimilate_storage(&mut storage);
-
-//             let stake_21 = if self.fair { 1000 } else { 2000 };
-//             let stake_31 = if self.validator_pool {
-//                 balance_factor * 1000
-//             } else {
-//                 1
-//             };
-//             let status_41 = if self.validator_pool {
-//                 StakerStatus::<AccountId>::Validator
-//             } else {
-//                 StakerStatus::<AccountId>::Idle
-//             };
-//             let nominated = if self.nominate {
-//                 vec![
-//                     account_key_ring.get(&11).unwrap().clone(),
-//                     account_key_ring.get(&21).unwrap().clone(),
-//                 ]
-//             } else {
-//                 vec![]
-//             };
-//             let _ = staking::GenesisConfig::<Test> {
-//                 current_era: 0,
-//                 stakers: vec![
-//                     // (stash, controller, staked_amount, status)
-//                     (
-//                         account_key_ring.get(&11).unwrap().clone(),
-//                         account_key_ring.get(&10).unwrap().clone(),
-//                         balance_factor * 1000,
-//                         StakerStatus::<AccountId>::Validator,
-//                     ),
-//                     (
-//                         account_key_ring.get(&21).unwrap().clone(),
-//                         account_key_ring.get(&20).unwrap().clone(),
-//                         stake_21,
-//                         StakerStatus::<AccountId>::Validator,
-//                     ),
-//                     (
-//                         account_key_ring.get(&31).unwrap().clone(),
-//                         account_key_ring.get(&30).unwrap().clone(),
-//                         stake_31,
-//                         StakerStatus::<AccountId>::Validator,
-//                     ),
-//                     (
-//                         account_key_ring.get(&41).unwrap().clone(),
-//                         account_key_ring.get(&40).unwrap().clone(),
-//                         balance_factor * 1000,
-//                         status_41,
-//                     ),
-//                     // nominator
-//                     (
-//                         account_key_ring.get(&101).unwrap().clone(),
-//                         account_key_ring.get(&100).unwrap().clone(),
-//                         balance_factor * 500,
-//                         StakerStatus::<AccountId>::Nominator(nominated),
-//                     ),
-//                 ],
-//                 validator_count: self.validator_count,
-//                 minimum_validator_count: self.minimum_validator_count,
-//                 invulnerables: self.invulnerables,
-//                 slash_reward_fraction: Perbill::from_percent(10),
-//                 ..Default::default()
-//             }
-//             .assimilate_storage(&mut storage);
-
-//             let _ = session::GenesisConfig::<Test> {
-//                 keys: validators
-//                     .iter()
-//                     .map(|x| {
-//                         let acc_pub = account_key_ring.get(x).unwrap().clone();
-//                         let uint_auth_id = UintAuthorityId(*x);
-//                         (acc_pub, uint_auth_id)
-//                     })
-//                     .collect(),
-//             }
-//             .assimilate_storage(&mut storage);
-
-//             let _ = identity::GenesisConfig::<Test> {
-//                 owner: AccountKeyring::Alice.public().into(),
-//                 did_creation_fee: 250,
-//             }
-//             .assimilate_storage(&mut storage);
-
-//             let mut ext = storage.into();
-//             with_externalities(&mut ext, || {
-//                 let validators = Session::validators();
-//                 SESSION.with(|x| *x.borrow_mut() = (validators.clone(), HashSet::new()));
-//             });
-//             ext
-//         }
-//     }
-
-//     pub fn start_era(era_index: EraIndex) {
-//         start_session((era_index * 3).into());
-//         assert_eq!(Staking::current_era(), era_index);
-//     }
-
-//     pub fn start_session(session_index: SessionIndex) {
-//         // Compensate for session delay
-//         let session_index = session_index + 1;
-//         for i in Session::current_index()..session_index {
-//             System::set_block_number((i + 1).into());
-//             Timestamp::set_timestamp(System::block_number() * 1000);
-//             Session::on_initialize(System::block_number());
-//         }
-
-//         assert_eq!(Session::current_index(), session_index);
-//     }
-
-//     fn add_nominator_claim(
-//         claim_issuer: IdentityId,
-//         idendity_id: IdentityId,
-//         claim_issuer_account_id: AccountId,
-//         account_id: AccountId,
-//         claim_value: ClaimValue,
-//     ) -> Result<(), &'static str> {
-//         let signed_id = Origin::signed(account_id.clone());
-//         //Identity::add_claim_issuer(signed_id, idendity_id, claim_issuer);
-//         let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id.clone());
-//         let now = Utc::now();
-//         Identity::add_claim(
-//             signed_claim_issuer_id,
-//             idendity_id,
-//             KYC_EXPIRY_CLAIM_KEY.to_vec(),
-//             claim_issuer,
-//             (now.timestamp() as u64 + 1000_u64).into(),
-//             claim_value,
-//         );
-//         Ok(())
-//     }
-
-//     fn add_trusted_kyc_provider(kyc_sp: IdentityId) -> Result<(), &'static str> {
-//         let signed_id = Origin::signed(AccountId::from(AccountKeyring::Dave));
-//         Group::add_member(signed_id, kyc_sp)
-//     }
-
-//     #[test]
-//     fn should_initialize_stakers_and_validators() {
-//         // Verifies initial conditions of mock
-//         with_externalities(&mut ExtBuilder::default().build(), || {
-//             assert_eq!(Staking::bonded(&account_from(11)), Some(account_from(10))); // Account 11 is stashed and locked, and account 10 is the controller
-//             assert_eq!(Staking::bonded(&account_from(21)), Some(account_from(20))); // Account 21 is stashed and locked, and account 20 is the controller
-//             assert_eq!(Staking::bonded(&AccountKeyring::Alice.public()), None); // Account 1 is not a stashed
-
-//             // Account 10 controls the stash from account 11, which is 100 * balance_factor units
-//             assert_eq!(
-//                 Staking::ledger(&account_from(10)),
-//                 Some(StakingLedger {
-//                     stash: account_from(11),
-//                     total: 1000,
-//                     active: 1000,
-//                     unlocking: vec![]
-//                 })
-//             );
-//             // Account 20 controls the stash from account 21, which is 200 * balance_factor units
-//             assert_eq!(
-//                 Staking::ledger(&account_from(20)),
-//                 Some(StakingLedger {
-//                     stash: account_from(21),
-//                     total: 1000,
-//                     active: 1000,
-//                     unlocking: vec![]
-//                 })
-//             );
-//             // Account 1 does not control any stash
-//             assert_eq!(Staking::ledger(&AccountKeyring::Alice.public()), None);
-//         });
-//     }
-
-//     #[test]
-//     fn should_add_potential_validators() {
-//         with_externalities(
-//             &mut ExtBuilder::default()
-//                 .minimum_validator_count(2)
-//                 .validator_count(2)
-//                 .num_validators(2)
-//                 .validator_pool(true)
-//                 .nominate(false)
-//                 .build(),
-//             || {
-//                 let alice_signed = Origin::signed(AccountKeyring::Alice.public());
-//                 let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
-//                 let acc_10 = account_from(10);
-//                 let acc_20 = account_from(20);
-
-//                 assert_ok!(Staking::add_potential_validator(
-//                     alice_signed.clone(),
-//                     acc_10.clone()
-//                 ));
-//                 assert_ok!(Staking::add_potential_validator(
-//                     alice_signed,
-//                     acc_20.clone()
-//                 ));
-
-//                 assert_ok!(Staking::compliance_failed(charlie_signed, acc_20.clone()));
-
-//                 assert_eq!(Staking::is_controller_eligible(&acc_10), true);
-//                 assert_eq!(Staking::is_controller_eligible(&acc_20), false);
-//             },
-//         );
-//     }
-
-//     #[test]
-//     fn should_remove_validators() {
-//         with_externalities(
-//             &mut ExtBuilder::default()
-//                 .minimum_validator_count(2)
-//                 .validator_count(2)
-//                 .num_validators(2)
-//                 .validator_pool(true)
-//                 .nominate(false)
-//                 .build(),
-//             || {
-//                 let alice_signed = Origin::signed(AccountKeyring::Alice.public());
-//                 let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
-//                 let bob_signed = Origin::signed(AccountKeyring::Bob.public());
-//                 let acc_10 = account_from(10);
-//                 let acc_20 = account_from(20);
-//                 let acc_30 = account_from(30);
-
-//                 assert_ok!(Staking::add_potential_validator(
-//                     alice_signed.clone(),
-//                     acc_10.clone()
-//                 ));
-//                 assert_ok!(Staking::add_potential_validator(
-//                     alice_signed,
-//                     acc_20.clone()
-//                 ));
-
-//                 assert_ok!(Staking::compliance_failed(charlie_signed, acc_20.clone()));
-
-//                 assert_ok!(Staking::remove_validator(bob_signed, acc_20.clone()));
-
-//                 assert_eq!(
-//                     Staking::permissioned_validators(&acc_10),
-//                     Some(PermissionedValidator {
-//                         compliance: Compliance::Active
-//                     })
-//                 );
-//                 assert_eq!(Staking::permissioned_validators(&acc_20), None);
-
-//                 assert_eq!(Staking::permissioned_validators(&acc_30), None);
-//             },
-//         );
-//     }
-
-//     #[test]
-//     // #[ignore]
-//     fn add_nominator_with_invalid_expiry() {
-//         with_externalities(
-//             &mut ExtBuilder::default()
-//                 .minimum_validator_count(2)
-//                 .validator_count(2)
-//                 .num_validators(2)
-//                 .validator_pool(true)
-//                 .nominate(true)
-//                 .build(),
-//             || {
-//                 let account_alice = AccountId::from(AccountKeyring::Alice);
-//                 let (alice_signed, alice_did) =
-//                     make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
-//                 let account_alice_controller = AccountId::from(AccountKeyring::Dave);
-//                 let controller_signed = Origin::signed(account_alice_controller.clone());
-
-//                 // For valid trusted KYC service providers
-//                 let account_bob = AccountId::from(AccountKeyring::Bob);
-//                 let (bob_signed, bob_did) = make_account(account_bob.clone()).unwrap();
-//                 add_trusted_kyc_provider(bob_did).unwrap();
-
-//                 let now = Utc::now();
-//                 // Add nominator claim
-//                 let claim = ClaimValue {
-//                     data_type: DataTypes::U64,
-//                     value: (now.timestamp() as u64).to_be_bytes().to_vec(),
-//                 };
-
-//                 add_nominator_claim(
-//                     bob_did,
-//                     alice_did,
-//                     account_bob.clone(),
-//                     account_alice.clone(),
-//                     claim,
-//                 );
-
-//                 // bond
-//                 assert_ok!(Staking::bond(
-//                     Origin::signed(account_alice.clone()),
-//                     account_alice_controller,
-//                     1000,
-//                     RewardDestination::Stash
-//                 ));
-
-//                 let now = Utc::now();
-//                 <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
-//                 let validators = vec![account_from(10), account_from(20), account_from(30)];
-//                 assert_ok!(Staking::nominate(controller_signed.clone(), validators));
-//                 assert_eq!(Staking::nominators(&account_alice).is_empty(), true);
-//             },
-//         );
-//     }
-
-//     #[test]
-//     fn add_valid_nominator_with_multiple_claims() {
-//         with_externalities(
-//             &mut ExtBuilder::default()
-//                 .minimum_validator_count(2)
-//                 .validator_count(2)
-//                 .num_validators(2)
-//                 .validator_pool(true)
-//                 .nominate(true)
-//                 .build(),
-//             || {
-//                 let account_alice = AccountId::from(AccountKeyring::Alice);
-//                 let (alice_signed, alice_did) =
-//                     make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
-
-//                 let account_alice_controller = AccountId::from(AccountKeyring::Dave);
-//                 let controller_signed = Origin::signed(account_alice_controller.clone());
-
-//                 let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
-//                 let (claim_issuer_1_signed, claim_issuer_1_did) =
-//                     make_account(claim_issuer_1.clone()).unwrap();
-//                 add_trusted_kyc_provider(claim_issuer_1_did).unwrap();
-
-//                 let now = Utc::now();
-//                 // Add nominator claim
-//                 let claim = ClaimValue {
-//                     data_type: DataTypes::U64,
-//                     value: (now.timestamp() as u64).to_be_bytes().to_vec(),
-//                 };
-
-//                 add_nominator_claim(
-//                     claim_issuer_1_did,
-//                     alice_did,
-//                     claim_issuer_1.clone(),
-//                     account_alice.clone(),
-//                     claim,
-//                 );
-//                 // assert_eq!(
-//                 //     Identity::is_claim_issuer(alice_did, claim_issuer_1_did),
-//                 //     true
-//                 // );
-
-//                 // add one more claim issuer
-//                 let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
-//                 let (claim_issuer_2_signed, claim_issuer_2_did) =
-//                     make_account(claim_issuer_2.clone()).unwrap();
-//                 add_trusted_kyc_provider(claim_issuer_2_did).unwrap();
-
-//                 let claim = ClaimValue {
-//                     data_type: DataTypes::U64,
-//                     value: ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec(),
-//                 };
-
-//                 // add claim by claim issuer
-//                 add_nominator_claim(
-//                     claim_issuer_2_did,
-//                     alice_did,
-//                     claim_issuer_2.clone(),
-//                     account_alice.clone(),
-//                     claim,
-//                 );
-//                 // let claim_issuers = Identity::claim_issuers(alice_did);
-//                 // assert_eq!(claim_issuers.len(), 2);
-
-//                 // bond
-//                 assert_ok!(Staking::bond(
-//                     Origin::signed(account_alice.clone()),
-//                     account_alice_controller,
-//                     1000,
-//                     RewardDestination::Stash
-//                 ));
-
-//                 <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
-//                 let validators = vec![account_from(10), account_from(20), account_from(30)];
-
-//                 assert_ok!(Staking::nominate(controller_signed.clone(), validators));
-//                 assert_eq!(Staking::nominators(&account_alice).is_empty(), false);
-//             },
-//         );
-//     }
-
-//     #[test]
-//     fn validate_nominators_with_valid_kyc() {
-//         with_externalities(
-//             &mut ExtBuilder::default()
-//                 .minimum_validator_count(2)
-//                 .validator_count(2)
-//                 .num_validators(2)
-//                 .validator_pool(true)
-//                 .nominate(true)
-//                 .build(),
-//             || {
-//                 let account_alice = AccountId::from(AccountKeyring::Alice);
-//                 let (alice_signed, alice_did) =
-//                     make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
-
-//                 let account_alice_controller = AccountId::from(AccountKeyring::Dave);
-//                 let controller_signed_alice = Origin::signed(account_alice_controller.clone());
-
-//                 let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
-//                 let (claim_issuer_1_signed, claim_issuer_1_did) =
-//                     make_account(claim_issuer_1.clone()).unwrap();
-//                 add_trusted_kyc_provider(claim_issuer_1_did).unwrap();
-
-//                 let account_eve = AccountId::from(AccountKeyring::Eve);
-//                 let (eve_signed, eve_did) =
-//                     make_account_with_balance(account_eve.clone(), 1_000_000).unwrap();
-
-//                 let account_eve_controller = AccountId::from(AccountKeyring::Ferdie);
-//                 let controller_signed_eve = Origin::signed(account_eve_controller.clone());
-
-//                 let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
-//                 let (claim_issuer_2_signed, claim_issuer_2_did) =
-//                     make_account(claim_issuer_2.clone()).unwrap();
-//                 add_trusted_kyc_provider(claim_issuer_2_did).unwrap();
-
-//                 let now = Utc::now();
-//                 // Add nominator claim
-//                 let claim = ClaimValue {
-//                     data_type: DataTypes::U64,
-//                     value: ((now.timestamp() as u64) + 500_u64).to_be_bytes().to_vec(),
-//                 };
-
-//                 add_nominator_claim(
-//                     claim_issuer_1_did,
-//                     alice_did,
-//                     claim_issuer_1.clone(),
-//                     account_alice.clone(),
-//                     claim,
-//                 );
-
-//                 // let mut claim_issuers = Identity::claim_issuers(alice_did);
-//                 // assert_eq!(claim_issuers.len(), 1);
-
-//                 let claim = ClaimValue {
-//                     data_type: DataTypes::U64,
-//                     value: ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec(),
-//                 };
-//                 // add claim by claim issuer
-//                 add_nominator_claim(
-//                     claim_issuer_2_did,
-//                     eve_did,
-//                     claim_issuer_2.clone(),
-//                     account_eve.clone(),
-//                     claim,
-//                 );
-
-//                 // claim_issuers = Identity::claim_issuers(eve_did);
-//                 // assert_eq!(claim_issuers.len(), 1);
-
-//                 // bond
-//                 assert_ok!(Staking::bond(
-//                     Origin::signed(account_alice.clone()),
-//                     account_alice_controller.clone(),
-//                     1000,
-//                     RewardDestination::Stash
-//                 ));
-
-//                 // bond
-//                 assert_ok!(Staking::bond(
-//                     Origin::signed(account_eve.clone()),
-//                     account_eve_controller,
-//                     1000,
-//                     RewardDestination::Stash
-//                 ));
-
-//                 <timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
-//                 let validators_1 = vec![account_from(10), account_from(20), account_from(30)];
-//                 assert_ok!(Staking::nominate(
-//                     controller_signed_alice.clone(),
-//                     validators_1
-//                 ));
-//                 assert_eq!(Staking::nominators(&account_alice).is_empty(), false);
-
-//                 let validators_2 = vec![account_from(11), account_from(21), account_from(31)];
-//                 assert_ok!(Staking::nominate(
-//                     controller_signed_eve.clone(),
-//                     validators_2
-//                 ));
-//                 assert_eq!(Staking::nominators(&account_eve).is_empty(), false);
-
-//                 <timestamp::Module<Test>>::set_timestamp((now.timestamp() as u64) + 800_u64);
-//                 let claimed_nominator = vec![account_alice.clone(), account_eve.clone()];
-
-//                 assert_ok!(Staking::validate_kyc_expiry_nominators(
-//                     Origin::signed(claim_issuer_1),
-//                     claimed_nominator
-//                 ));
-//                 assert_eq!(Staking::nominators(&account_alice).is_empty(), true);
-//                 assert_eq!(Staking::nominators(&account_eve).is_empty(), false);
-
-//                 let ledger_data = Staking::ledger(&account_alice_controller).unwrap();
-//                 assert_eq!(ledger_data.active, 0);
-//                 assert_eq!(ledger_data.unlocking.len(), 1);
-//             },
-//         );
-//     }
-// }
