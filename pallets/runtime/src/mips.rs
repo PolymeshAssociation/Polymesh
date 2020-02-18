@@ -77,7 +77,7 @@ pub struct MipsMetadata<BlockNumber: Parameter, Hash: Parameter> {
     /// The proposal being voted on.
     proposal_hash: Hash,
     /// The proposal url for proposal discussion.
-    url: Vec<u8>
+    url: Vec<u8>,
 }
 
 /// For keeping track of proposal being voted on.
@@ -770,7 +770,12 @@ mod tests {
 
             // Error when min deposit requirements are not met
             assert_err!(
-                Mips::propose(Origin::signed(6), Box::new(proposal.clone()), 40, b"www.abc.com".to_vec()),
+                Mips::propose(
+                    Origin::signed(6),
+                    Box::new(proposal.clone()),
+                    40,
+                    b"www.abc.com".to_vec()
+                ),
                 "deposit is less than minimum required to start a proposal"
             );
 
