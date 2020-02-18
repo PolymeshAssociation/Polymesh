@@ -3020,12 +3020,21 @@ dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
+ "pallet-staking-rpc-runtime-api",
  "parity-scale-codec",
  "serde",
  "sp-blockchain",
  "sp-rpc",
  "sp-runtime",
- "staking-rpc-runtime-api",
+]
+
+[[package]]
+name = "pallet-staking-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -3527,6 +3536,7 @@ dependencies = [
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",
+ "pallet-staking-rpc-runtime-api",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -5592,13 +5602,6 @@ name = "stable_deref_trait"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
-
-[[package]]
-name = "staking-rpc-runtime-api"
-version = "2.0.0"
-dependencies = [
- "sp-api",
-]
 
 [[package]]
 name = "static_assertions"

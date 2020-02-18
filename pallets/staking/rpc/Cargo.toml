@@ -14,4 +14,4 @@ sp-rpc = { rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421', git = 'https://gith
 sp-runtime = { rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421', git = 'https://github.com/paritytech/substrate.git', default_features = false}
 sp-blockchain = { rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421', git = 'https://github.com/paritytech/substrate.git', default_features = false}
 
-staking-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
+pallet-staking-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }

@@ -142,6 +142,11 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "bitmask"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "bitvec"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -519,6 +524,69 @@ dependencies = [
 name = "fnv"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "frame-metadata"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
+dependencies = [
+ "parity-scale-codec 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "sp-std 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+]
+
+[[package]]
+name = "frame-support"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
+dependencies = [
+ "bitmask 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frame-metadata 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "frame-support-procedural 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "impl-trait-for-tuples 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-scale-codec 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "paste 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-arithmetic 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "sp-core 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "sp-inherents 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "sp-io 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "sp-runtime 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "sp-std 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+]
+
+[[package]]
+name = "frame-support-procedural"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
+dependencies = [
+ "frame-support-procedural-tools 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "proc-macro2 1.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "frame-support-procedural-tools"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
+dependencies = [
+ "frame-support-procedural-tools-derive 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "proc-macro-crate 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 1.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "frame-support-procedural-tools-derive"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
+dependencies = [
+ "proc-macro2 1.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "fuchsia-cprng"
@@ -1571,12 +1639,21 @@ dependencies = [
  "jsonrpc-core 14.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client 14.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-derive 14.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pallet-staking-rpc-runtime-api 2.0.0",
  "parity-scale-codec 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-blockchain 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
  "sp-rpc 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
  "sp-runtime 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
- "staking-rpc-runtime-api 2.0.0",
+]
+
+[[package]]
+name = "pallet-staking-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "sp-api 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "sp-runtime 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
 ]
 
 [[package]]
@@ -2567,13 +2644,6 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "staking-rpc-runtime-api"
-version = "2.0.0"
-dependencies = [
- "sp-api 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
-]
-
-[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3233,6 +3303,7 @@ dependencies = [
 "checksum backtrace-sys 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)" = "5d6575f128516de27e3ce99689419835fce9643a9b215a14d2b5b685be018491"
 "checksum base58 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5024ee8015f02155eee35c711107ddd9a9bf3cb689cf2a9089c97e79b6e1ae83"
 "checksum bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
+"checksum bitmask 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5da9b3d9f6f585199287a473f4f8dfab6566cf827d15c00c219f53c645687ead"
 "checksum bitvec 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)" = "a993f74b4c99c1908d156b8d2e0fb6277736b0ecbd833982fd1241d39b2766a6"
 "checksum blake2 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "94cb07b0da6a73955f8fb85d24c466778e70cda767a568229b104f0264089330"
 "checksum blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)" = "5d6d530bdd2d52966a6d03b7a964add7ae1a288d25214066fd4b600f0f796400"
@@ -3281,6 +3352,11 @@ dependencies = [
 "checksum fixed-hash 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "3367952ceb191f4ab95dd5685dc163ac539e36202f9fcfd0cb22f9f9c542fefc"
 "checksum flate2 1.0.13 (registry+https://github.com/rust-lang/crates.io-index)" = "6bd6d6f4752952feb71363cffc9ebac9411b75b87c6ab6058c40c8900cf43c0f"
 "checksum fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
+"checksum frame-metadata 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)" = "<none>"
+"checksum frame-support 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)" = "<none>"
+"checksum frame-support-procedural 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)" = "<none>"
+"checksum frame-support-procedural-tools 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)" = "<none>"
+"checksum frame-support-procedural-tools-derive 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)" = "<none>"
 "checksum fuchsia-cprng 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 "checksum fuchsia-zircon 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2e9763c69ebaae630ba35f74888db465e49e259ba1bc0eda7d06f4a067615d82"
 "checksum fuchsia-zircon-sys 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3dcaa9ae7725d12cdb85b3ad99a434db70b468c09ded17e012d86b5c1010f7a7"
