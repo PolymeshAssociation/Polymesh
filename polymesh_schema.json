@@ -302,5 +302,33 @@
             "Individual": "",
             "Global": "u32"
         }
+    },
+    "RestrictionResult": {
+        "_enum": [
+            "Valid",
+            "Invalid",
+            "ForceValid"
+        ]
+    },
+    "Document": {
+        "name": "Vec<u8>",
+        "uri": "Vec<u8>",
+        "hash": "Vec<u8>"
+    },
+    "IssueRecipient": {
+        "_enum": {
+            "Account": "AccountKey",
+            "Identity": "IdentityId"
+        }
+    },
+    "BridgeTx": {
+        "nonce": "u64",
+        "recipient": "IssueRecipient",
+        "value": "u128",
+        "tx_hash": "H256"
+    },
+    "PendingTx": {
+        "did": "IdentityId",
+        "bridge_tx": "BridgeTx"
     }
 }

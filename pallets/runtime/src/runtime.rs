@@ -1,5 +1,5 @@
 use crate::{
-    asset, committee, contracts_wrapper, dividend, exemption, general_tm,
+    asset, bridge, committee, contracts_wrapper, dividend, exemption, general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
     mips, multisig, percentage_tm, simple_token, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
@@ -467,6 +467,11 @@ impl multisig::Trait for Runtime {
     type Event = Event;
 }
 
+impl bridge::Trait for Runtime {
+    type Event = Event;
+    type Proposal = Call;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
@@ -579,6 +584,7 @@ construct_runtime!(
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
+        Bridge: bridge::{Module, Call, Storage, Config, Event<T>},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event},
