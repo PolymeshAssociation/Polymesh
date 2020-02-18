@@ -116,24 +116,24 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T, I=DefaultInstance> where
-		<T as frame_system::Trait>::Hash,
-	{
-		/// A motion (given hash) has been proposed (by given account) with a threshold (given
-		/// `MemberCount`).
-		Proposed(IdentityId, ProposalIndex, Hash),
-		/// A motion (given hash) has been voted on by given account, leaving
-		/// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-		Voted(IdentityId, Hash, bool, MemberCount, MemberCount, MemberCount),
-		/// A motion was approved by the required threshold with the following
-		/// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-		Approved(Hash, MemberCount, MemberCount, MemberCount),
-		/// A motion was rejected by the required threshold with the following
-		/// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-		Rejected(Hash, MemberCount, MemberCount, MemberCount),
-		/// A motion was executed; `bool` is true if returned without error.
-		Executed(Hash, bool),
-	}
+    pub enum Event<T, I=DefaultInstance> where
+        <T as frame_system::Trait>::Hash,
+    {
+        /// A motion (given hash) has been proposed (by given account) with a threshold (given
+        /// `MemberCount`).
+        Proposed(IdentityId, ProposalIndex, Hash),
+        /// A motion (given hash) has been voted on by given account, leaving
+        /// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
+        Voted(IdentityId, Hash, bool, MemberCount, MemberCount, MemberCount),
+        /// A motion was approved by the required threshold with the following
+        /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
+        Approved(Hash, MemberCount, MemberCount, MemberCount),
+        /// A motion was rejected by the required threshold with the following
+        /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
+        Rejected(Hash, MemberCount, MemberCount, MemberCount),
+        /// A motion was executed; `bool` is true if returned without error.
+        Executed(Hash, bool),
+    }
 );
 
 decl_error!(
@@ -563,16 +563,16 @@ mod tests {
     pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
 
     frame_support::construct_runtime!(
-		pub enum Test where
-			Block = Block,
-			NodeBlock = Block,
-			UncheckedExtrinsic = UncheckedExtrinsic
-		{
-			System: frame_system::{Module, Call, Event},
-			Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
-			DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
-		}
-	);
+        pub enum Test where
+            Block = Block,
+            NodeBlock = Block,
+            UncheckedExtrinsic = UncheckedExtrinsic
+        {
+            System: frame_system::{Module, Call, Event},
+            Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
+            DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
+        }
+    );
 
     fn make_ext() -> sp_io::TestExternalities {
         GenesisConfig {
