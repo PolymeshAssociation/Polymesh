@@ -509,7 +509,7 @@ impl<T: Trait> Module<T> {
         // assert!(!Self::total_balance(who).is_zero());
         <FreeBalance<T>>::insert(who, balance);
 
-        if balance <= 0u128.into() {
+        if balance <= Zero::zero() {
             T::OnFreeBalanceZero::on_free_balance_zero(who);
         }
 

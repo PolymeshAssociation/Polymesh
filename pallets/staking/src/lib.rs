@@ -860,32 +860,32 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Trait>::AccountId {
-		/// All validators have been rewarded by the first balance; the second is the remainder
-		/// from the maximum amount of reward.
-		Reward(Balance, Balance),
-		/// One validator (and its nominators) has been slashed by the given amount.
-		Slash(AccountId, Balance),
-		/// An old slashing report from a prior era was discarded because it could
-		/// not be processed.
-		OldSlashingReportDiscarded(SessionIndex),
-		/// An entity has issued a candidacy. See the transaction for who.
-		PermissionedValidatorAdded(AccountId),
-		/// The given member was removed. See the transaction for who.
-		PermissionedValidatorRemoved(AccountId),
-		/// The given member was removed. See the transaction for who.
-		PermissionedValidatorStatusChanged(AccountId),
+    pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Trait>::AccountId {
+        /// All validators have been rewarded by the first balance; the second is the remainder
+        /// from the maximum amount of reward.
+        Reward(Balance, Balance),
+        /// One validator (and its nominators) has been slashed by the given amount.
+        Slash(AccountId, Balance),
+        /// An old slashing report from a prior era was discarded because it could
+        /// not be processed.
+        OldSlashingReportDiscarded(SessionIndex),
+        /// An entity has issued a candidacy. See the transaction for who.
+        PermissionedValidatorAdded(AccountId),
+        /// The given member was removed. See the transaction for who.
+        PermissionedValidatorRemoved(AccountId),
+        /// The given member was removed. See the transaction for who.
+        PermissionedValidatorStatusChanged(AccountId),
         /// Remove the nominators from the valid nominators when there KYC expired
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(AccountId, Vec<AccountId>),
-		/// Individual commisions are enabled.
-		IndividualCommissionInEffect,
-		/// When changes to commision are made and global commission is in effect
-		/// (old value, new value)
-		GlobalCommissionInEffect(Perbill, Perbill),
+        /// Individual commisions are enabled.
+        IndividualCommissionInEffect,
+        /// When changes to commision are made and global commission is in effect
+        /// (old value, new value)
+        GlobalCommissionInEffect(Perbill, Perbill),
         /// Min bond threshold was updated (new value)
         MinimumBondThreshold(Balance),
-	}
+    }
 );
 
 decl_error! {

@@ -63,7 +63,7 @@ use sp_staking::{
 };
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     convert::TryFrom,
 };
 use test_client::AccountKeyring;
@@ -435,7 +435,7 @@ impl ExtBuilder {
             .map(|x| ((x + 1) * 10 + 1) as u64)
             .collect::<Vec<_>>();
 
-        let account_key_ring: HashMap<u64, Public> =
+        let account_key_ring: BTreeMap<u64, Public> =
             [10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999]
                 .iter()
                 .map(|id| (*id, account_from(*id)))
@@ -658,7 +658,7 @@ pub fn assert_ledger_consistent(stash_acc: u64) {
 }
 
 pub fn get_account_key_ring(acc: u64) -> Public {
-    let account_key_ring: HashMap<u64, Public> = [10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999]
+    let account_key_ring: BTreeMap<u64, Public> = [10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999]
         .iter()
         .map(|id| (*id, account_from(*id)))
         .collect();
