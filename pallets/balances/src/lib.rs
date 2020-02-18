@@ -161,12 +161,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 use polymesh_primitives::{
-    traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signatory,
+    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
+    AccountKey, IdentityId, Permission, Signatory,
 };
 use polymesh_runtime_common::traits::{
     balances::{BalancesTrait, RawEvent},
     identity::IdentityTrait,
-    BlockRewardsReserveTrait, NegativeImbalance, PositiveImbalance,
+    NegativeImbalance, PositiveImbalance,
 };
 
 use codec::{Decode, Encode};
@@ -533,7 +534,7 @@ where
     }
 }
 
-impl<T: Trait> BlockRewardsReserveTrait<T::Balance> for Module<T> {
+impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for Module<T> {
     fn drop_positive_imbalance(mut amount: T::Balance) {
         let brr = <BlockRewardsReserve<T>>::get();
         let brr_balance = <FreeBalance<T>>::get(&brr);
@@ -547,6 +548,25 @@ impl<T: Trait> BlockRewardsReserveTrait<T::Balance> for Module<T> {
 
     fn drop_negative_imbalance(amount: T::Balance) {
         <TotalIssuance<T>>::mutate(|v| *v = v.saturating_sub(amount));
+    }
+
+    fn issue_using_block_rewards_reserve(mut amount: T::Balance) -> NegativeImbalance<T> {
+        let brr = <BlockRewardsReserve<T>>::get();
+        let brr_balance = <FreeBalance<T>>::get(&brr);
+        let amount_to_mint = if brr_balance > Zero::zero() {
+            let new_brr_balance = brr_balance.saturating_sub(amount);
+            <FreeBalance<T>>::insert(&brr, new_brr_balance);
+            amount - (brr_balance - new_brr_balance)
+        } else {
+            amount
+        };
+        <TotalIssuance<T>>::mutate(|issued| {
+            *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
+                amount = T::Balance::max_value() - *issued;
+                T::Balance::max_value()
+            })
+        });
+        NegativeImbalance::new(amount)
     }
 }
 
@@ -589,18 +609,11 @@ where
     }
 
     fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
-        let brr = <BlockRewardsReserve<T>>::get();
-        let brr_balance = <FreeBalance<T>>::get(&brr);
-        let amount_to_mint;
-        if brr_balance > Zero::zero() {
-            let new_brr_balance = brr_balance.saturating_sub(amount);
-            amount_to_mint = amount - (brr_balance - new_brr_balance);
-            <FreeBalance<T>>::insert(&brr, new_brr_balance);
-        } else {
-            amount_to_mint = amount;
+        if amount.is_zero() {
+            return NegativeImbalance::zero();
         }
         <TotalIssuance<T>>::mutate(|issued| {
-            *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
+            *issued = issued.checked_add(&amount).unwrap_or_else(|| {
                 amount = Self::Balance::max_value() - *issued;
                 Self::Balance::max_value()
             })
@@ -797,6 +810,32 @@ where
             }
         }
         return None;
+    }
+
+    fn deposit_into_existing_identity(
+        who: &IdentityId,
+        value: Self::Balance,
+    ) -> result::Result<Self::PositiveImbalance, DispatchError> {
+        if value.is_zero() {
+            return Ok(PositiveImbalance::zero());
+        }
+        if let Some(new_balance) = Self::identity_balance(who).checked_add(&value) {
+            <IdentityBalance<T>>::insert(who, new_balance);
+            Ok(PositiveImbalance::new(value))
+        } else {
+            Err(Error::<T>::Overflow)?
+        }
+    }
+
+    fn resolve_into_existing_identity(
+        who: &IdentityId,
+        value: Self::NegativeImbalance,
+    ) -> result::Result<(), Self::NegativeImbalance> {
+        let v = value.peek();
+        match Self::deposit_into_existing_identity(who, v) {
+            Ok(opposite) => Ok(drop(value.offset(opposite))),
+            _ => Err(value),
+        }
     }
 }
 
