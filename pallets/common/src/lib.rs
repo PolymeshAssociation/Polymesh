@@ -5,5 +5,8 @@ pub mod constants;
 pub mod traits;
 pub use traits::{asset, balances, group, identity, multisig, CommonTrait};
 
+pub mod context;
+pub use context::Context;
+
 pub mod batch_dispatch_info;
 pub use batch_dispatch_info::BatchDispatchInfo;

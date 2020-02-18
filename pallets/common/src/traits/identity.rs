@@ -201,6 +201,9 @@ decl_event!(
 
 pub trait IdentityTrait {
     fn get_identity(key: &AccountKey) -> Option<IdentityId>;
+    fn current_identity() -> Option<IdentityId>;
+    fn set_current_identity(id: Option<IdentityId>);
+
     fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool;
     fn is_signer_authorized_with_permissions(
         did: IdentityId,

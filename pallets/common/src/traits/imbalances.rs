@@ -1,6 +1,6 @@
-use crate::traits::{BlockRewardsReserveTrait, CommonTrait};
-
+use crate::traits::CommonTrait;
 use frame_support::traits::{Imbalance, TryDrop};
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_std::{mem, result};
 

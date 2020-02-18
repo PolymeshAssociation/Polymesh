@@ -268,6 +268,7 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::{historical::OnSessionEnding, SelectInitialValidators};
 use polymesh_runtime_common::identity::Trait as IdentityTrait;
 use polymesh_runtime_identity as identity;
+use primitives::traits::BlockRewardsReserveCurrency;
 use primitives::AccountKey;
 use sp_phragmen::{ExtendedBalance, PhragmenStakedAssignment};
 use sp_runtime::{
@@ -623,7 +624,8 @@ where
 
 pub trait Trait: frame_system::Trait + pallet_babe::Trait + IdentityTrait {
     /// The staking balance.
-    type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+    type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>
+        + BlockRewardsReserveCurrency<BalanceOf<Self>, NegativeImbalanceOf<Self>>;
 
     /// Time used for computing era duration.
     type Time: Time;
@@ -882,7 +884,7 @@ decl_event!(
 		/// (old value, new value)
 		GlobalCommissionInEffect(Perbill, Perbill),
         /// Min bond threshold was updated (new value)
-        MinimumBondThreshold(Balance),		
+        MinimumBondThreshold(Balance),
 	}
 );
 
@@ -1674,7 +1676,7 @@ impl<T: Trait> Module<T> {
             Self::deposit_event(RawEvent::Reward(total_payout, rest));
 
             T::Reward::on_unbalanced(total_imbalance);
-            T::RewardRemainder::on_unbalanced(T::Currency::issue(rest));
+            T::RewardRemainder::on_unbalanced(T::Currency::issue_using_block_rewards_reserve(rest));
         }
 
         // Increment current era.
