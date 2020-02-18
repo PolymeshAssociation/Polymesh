@@ -114,6 +114,7 @@ std = [
 	"pallet-finality-tracker/std",
 	"pallet-contracts-rpc-runtime-api/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-staking-rpc-runtime-api/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
 	"pallet-indices/std",
