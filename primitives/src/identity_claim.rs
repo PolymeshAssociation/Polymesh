@@ -34,7 +34,7 @@ impl Default for IdentityClaimData {
 pub struct IdentityClaim {
     pub claim_issuer: IdentityId,
     pub issuance_date: Moment,
+    pub last_update_date: Moment,
     pub expiry: Moment,
     pub claim: IdentityClaimData,
-    // pub claim_label: vec<u8>
 }
