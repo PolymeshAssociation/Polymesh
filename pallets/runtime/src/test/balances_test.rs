@@ -7,6 +7,7 @@ use crate::{
     Runtime,
 };
 use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::traits::balances::Memo;
 use polymesh_runtime_identity as identity;
 
 use frame_support::{
@@ -19,6 +20,8 @@ use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
+pub type System = frame_system::Module<TestStorage>;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
@@ -269,4 +272,37 @@ fn should_charge_identity() {
             assert_eq!(Balances::free_balance(&dave_pub), 295);
             assert_eq!(Balances::identity_balance(acc_did), 35);
         });
+}
+
+#[test]
+fn transfer_with_memo() {
+    ExtBuilder::default()
+        .existential_deposit(1_000)
+        .monied(true)
+        .build()
+        .execute_with(transfer_with_memo_we);
+}
+
+fn transfer_with_memo_we() {
+    let alice = AccountKeyring::Alice.public();
+    let bob = AccountKeyring::Bob.public();
+
+    let memo_1 = Some(Memo([7u8; 32]));
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        100,
+        memo_1.clone()
+    ));
+    assert_eq!(Balances::memo((1, 0)), memo_1.unwrap());
+
+    System::set_block_number(2);
+    let memo_2 = Some(Memo([42u8; 32]));
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        200,
+        memo_2.clone()
+    ));
+    assert_eq!(Balances::memo((2, 0)), memo_2.unwrap());
 }

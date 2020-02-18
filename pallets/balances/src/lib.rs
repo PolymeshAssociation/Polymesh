@@ -164,7 +164,7 @@ use polymesh_primitives::{
     traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signatory,
 };
 use polymesh_runtime_common::traits::{
-    balances::{BalancesTrait, RawEvent},
+    balances::{BalancesTrait, Memo, RawEvent},
     identity::IdentityTrait,
     BlockRewardsReserveTrait, NegativeImbalance, PositiveImbalance,
 };
@@ -321,6 +321,8 @@ decl_storage! {
             let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
             T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
         }): T::AccountId;
+
+        pub TxMemo get(memo): map (T::BlockNumber, u32) => Memo
     }
     add_extra_genesis {
         config(balances): Vec<(T::AccountId, T::Balance)>;
@@ -368,11 +370,34 @@ decl_module! {
         pub fn transfer(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
-            #[compact] value: T::Balance
-        ) {
+            #[compact] value: T::Balance,
+        ) ->  DispatchResult {
+            Self::transfer_with_memo( origin, dest, value, None)
+        }
+
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        pub fn transfer_with_memo(
+            origin,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] value: T::Balance,
+            memo: Option<Memo>
+        )  -> DispatchResult {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            <Self as Currency<_>>::transfer(&transactor, &dest, value, ExistenceRequirement::AllowDeath)?;
+
+            <Self as Currency<_>>::transfer(
+                &transactor, &dest, value, ExistenceRequirement::AllowDeath)?;
+
+            if let Some(memo) = memo {
+                let tx = (
+                    <frame_system::Module<T>>::block_number(),
+                    <frame_system::Module<T>>::extrinsic_index().unwrap_or_default());
+                <TxMemo<T>>::insert( &tx, memo.clone());
+
+                Self::deposit_event(RawEvent::MemoAdded(tx.0, tx.1, memo));
+            }
+
+            Ok(())
         }
 
         /// Move some poly from balance of self to balance of an identity.

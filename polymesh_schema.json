@@ -309,5 +309,6 @@
             "Invalid",
             "ForceValid"
         ]
-    }
+    },
+    "Memo": "[u8;32]"
 }

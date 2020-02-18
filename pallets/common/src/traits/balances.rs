@@ -1,16 +1,28 @@
 use crate::traits::{identity::IdentityTrait, CommonTrait, NegativeImbalance};
 
+use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
     dispatch::DispatchError,
     traits::{ExistenceRequirement, Get, OnFreeBalanceZero, OnUnbalanced, WithdrawReasons},
 };
 use frame_system::{self as system, OnNewAccount};
+use sp_runtime::RuntimeDebug;
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+pub struct Memo(pub [u8; 32]);
+
+impl Default for Memo {
+    fn default() -> Self {
+        Memo([0u8; 32])
+    }
+}
 
 decl_event!(
     pub enum Event<T> where
     <T as system::Trait>::AccountId,
-    <T as CommonTrait>::Balance
+    <T as CommonTrait>::Balance,
+    <T as system::Trait>::BlockNumber,
     {
         /// A new account was created.
         NewAccount(AccountId, Balance),
@@ -18,6 +30,9 @@ decl_event!(
         ReapedAccount(AccountId),
         /// Transfer succeeded (from, to, value, fees).
         Transfer(AccountId, AccountId, Balance, Balance),
+        /// Memo added to transaction: source account, target account, balance, block, extrinsic
+        /// idx, memo.
+        MemoAdded(BlockNumber, u32, Memo),
     }
 );
 
