@@ -9,8 +9,9 @@ pub struct DocumentName(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for DocumentName {
     fn from(s: T) -> Self {
-        let mut v = Vec::new();
-        v.extend_from_slice(s.as_ref());
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
         DocumentName(v)
     }
 }
@@ -21,8 +22,9 @@ pub struct DocumentUri(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for DocumentUri {
     fn from(s: T) -> Self {
-        let mut v = Vec::new();
-        v.extend_from_slice(s.as_ref());
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
         DocumentUri(v)
     }
 }
@@ -33,8 +35,9 @@ pub struct DocumentHash(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for DocumentHash {
     fn from(s: T) -> Self {
-        let mut v = Vec::new();
-        v.extend_from_slice(s.as_ref());
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
         DocumentHash(v)
     }
 }

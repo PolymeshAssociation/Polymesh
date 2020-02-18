@@ -60,8 +60,9 @@ pub struct MotionTitle(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for MotionTitle {
     fn from(s: T) -> Self {
-        let mut v = Vec::new();
-        v.extend_from_slice(s.as_ref());
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
         MotionTitle(v)
     }
 }
@@ -72,8 +73,9 @@ pub struct MotionInfoLink(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for MotionInfoLink {
     fn from(s: T) -> Self {
-        let mut v = Vec::new();
-        v.extend_from_slice(s.as_ref());
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
         MotionInfoLink(v)
     }
 }

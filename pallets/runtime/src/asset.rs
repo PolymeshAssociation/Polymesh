@@ -143,8 +143,9 @@ pub struct TokenName(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for TokenName {
     fn from(s: T) -> Self {
-        let mut v = Vec::new();
-        v.extend_from_slice(s.as_ref());
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
         TokenName(v)
     }
 }
@@ -162,8 +163,9 @@ pub struct AssetId(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for AssetId {
     fn from(s: T) -> Self {
-        let mut v = Vec::new();
-        v.extend_from_slice(s.as_ref());
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
         AssetId(v)
     }
 }
@@ -174,8 +176,9 @@ pub struct FundingRoundName(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for FundingRoundName {
     fn from(s: T) -> Self {
-        let mut v = Vec::new();
-        v.extend_from_slice(s.as_ref());
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
         FundingRoundName(v)
     }
 }
