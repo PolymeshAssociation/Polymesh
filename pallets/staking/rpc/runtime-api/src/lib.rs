@@ -1,4 +1,4 @@
-//! Runtime API definition for transaction payment module.
+//! Runtime API definition for staking module.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
