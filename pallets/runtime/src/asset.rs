@@ -59,8 +59,9 @@
 use crate::{general_tm, percentage_tm, statistics, utils};
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signatory,
-    SmartExtension, SmartExtensionType, Ticker,
+    AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
+    DocumentUri, IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionName,
+    SmartExtensionType, Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
@@ -107,7 +108,7 @@ pub trait Trait:
 }
 
 /// The type of an asset represented by a token.
-#[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
     Equity,
     Debt,
@@ -123,7 +124,7 @@ impl Default for AssetType {
 }
 
 /// The type of an identifier associated with a token.
-#[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum IdentifierType {
     Isin,
     Cusip,
@@ -136,10 +137,56 @@ impl Default for IdentifierType {
     }
 }
 
+/// A wrapper for a token name.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TokenName(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for TokenName {
+    fn from(s: T) -> Self {
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
+        TokenName(v)
+    }
+}
+
+impl TokenName {
+    /// Returns a reference to the token name.
+    pub fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
+
+/// A wrapper for an asset ID.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AssetId(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for AssetId {
+    fn from(s: T) -> Self {
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
+        AssetId(v)
+    }
+}
+
+/// A wrapper for a funding round name.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FundingRoundName(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for FundingRoundName {
+    fn from(s: T) -> Self {
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
+        FundingRoundName(v)
+    }
+}
+
 /// struct to store the token details
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U> {
-    pub name: Vec<u8>,
+    pub name: TokenName,
     pub total_supply: U,
     pub owner_did: IdentityId,
     pub divisible: bool,
@@ -148,7 +195,7 @@ pub struct SecurityToken<U> {
 }
 
 /// struct to store the signed data
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SignData<U> {
     pub custodian_did: IdentityId,
     pub holder_did: IdentityId,
@@ -158,7 +205,7 @@ pub struct SignData<U> {
 }
 
 /// struct to store the ticker registration details
-#[derive(codec::Encode, codec::Decode, Clone, Default, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistration<U> {
     pub owner: IdentityId,
     pub expiry: Option<U>,
@@ -167,14 +214,14 @@ pub struct TickerRegistration<U> {
 
 /// struct to store the ticker registration config
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Clone, Default, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistrationConfig<U> {
     pub max_ticker_length: u8,
     pub registration_length: Option<U>,
 }
 
 /// Enum that represents the current status of a ticker
-#[derive(codec::Encode, codec::Decode, Clone, Eq, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub enum TickerRegistrationStatus {
     RegisteredByOther,
     Available,
@@ -182,7 +229,7 @@ pub enum TickerRegistrationStatus {
 }
 
 /// Enum that uses as the return type for the restriction verification
-#[derive(codec::Encode, codec::Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RestrictionResult {
     Valid,
     Invalid,
@@ -211,9 +258,8 @@ decl_storage! {
         /// Used to store the securityToken balance corresponds to ticker and Identity
         /// (ticker, DID) -> balance
         pub BalanceOf get(fn balance_of): map (Ticker, IdentityId) => T::Balance;
-        /// A map of asset identifiers whose keys are pairs of a ticker name and an `IdentifierType`
-        /// and whose values are byte vectors.
-        pub Identifiers get(fn identifiers): map (Ticker, IdentifierType) => Vec<u8>;
+        /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
+        pub Identifiers get(fn identifiers): map (Ticker, IdentifierType) => AssetId;
         /// (ticker, sender (DID), spender(DID)) -> allowance amount
         Allowance get(fn allowance): map (Ticker, IdentityId, IdentityId) => T::Balance;
         /// cost in base currency to create a token
@@ -243,10 +289,10 @@ decl_storage! {
         AuthenticationNonce get(fn authentication_nonce): map(Ticker, IdentityId, u16) => bool;
         /// The name of the current funding round.
         /// ticker -> funding round
-        FundingRound get(fn funding_round): map Ticker => Vec<u8>;
+        FundingRound get(fn funding_round): map Ticker => FundingRoundName;
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
-        IssuedInFundingRound get(fn issued_in_funding_round): map (Ticker, Vec<u8>) => T::Balance;
+        IssuedInFundingRound get(fn issued_in_funding_round): map (Ticker, FundingRoundName) => T::Balance;
         /// List of Smart extension added for the given tokens
         /// ticker, AccountId (SE address) -> SmartExtension detail
         pub ExtensionDetails get(fn extension_details): map (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
@@ -348,13 +394,13 @@ decl_module! {
         /// * `funding_round` - name of the funding round
         pub fn create_token(
             origin,
-            name: Vec<u8>,
+            name: TokenName,
             ticker: Ticker,
             total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<(IdentifierType, Vec<u8>)>,
-            funding_round: Option<Vec<u8>>
+            identifiers: Vec<(IdentifierType, AssetId)>,
+            funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -372,7 +418,7 @@ decl_module! {
 
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
-            ensure!(name.len() <= 64, "token name cannot exceed 64 bytes");
+            ensure!(name.as_slice().len() <= 64, "token name cannot exceed 64 bytes");
 
             let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
 
@@ -491,7 +537,7 @@ decl_module! {
         /// * `origin` - the signing key of the sender
         /// * `ticker` - the ticker of the token
         /// * `name` - the new name of the token
-        pub fn rename_token(origin, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
+        pub fn rename_token(origin, ticker: Ticker, name: TokenName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
             ticker.canonize();
@@ -1210,7 +1256,9 @@ decl_module! {
         /// * `origin` - the signing key of the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
-        pub fn set_funding_round(origin, ticker: Ticker, name: Vec<u8>) -> DispatchResult {
+        pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) ->
+            DispatchResult
+        {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::AccountKey(sender_key);
@@ -1230,11 +1278,11 @@ decl_module! {
         /// * `origin` - the signing key of the token owner
         /// * `ticker` - the ticker of the token
         /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
-        ///    of `IdentifierType` and `Vec<u8>` value.
+        ///    of `IdentifierType` and `AssetId` value.
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
-            identifiers: Vec<(IdentifierType, Vec<u8>)>
+            identifiers: Vec<(IdentifierType, AssetId)>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -1333,7 +1381,7 @@ decl_event! {
         Approval(Ticker, IdentityId, IdentityId, Balance),
         /// emit when tokens get issued
         /// ticker, beneficiary DID, value, funding round, total issued in this funding round
-        Issued(Ticker, IdentityId, Balance, Vec<u8>, Balance),
+        Issued(Ticker, IdentityId, Balance, FundingRoundName, Balance),
         /// emit when tokens get redeemed
         /// ticker, DID, value
         Redeemed(Ticker, IdentityId, Balance),
@@ -1348,7 +1396,7 @@ decl_event! {
         IssuedToken(Ticker, Balance, IdentityId, bool, AssetType),
         /// Event emitted when a token identifiers are updated.
         /// ticker, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(Ticker, Vec<(IdentifierType, Vec<u8>)>),
+        IdentifiersUpdated(Ticker, Vec<(IdentifierType, AssetId)>),
         /// Event for change in divisibility
         /// ticker, divisibility
         DivisibilityChanged(Ticker, bool),
@@ -1366,7 +1414,7 @@ decl_event! {
         IsIssuable(Ticker, bool),
         /// get_document() output
         /// ticker, name, uri, hash, last modification date
-        GetDocument(Ticker, Vec<u8>, Vec<u8>, Vec<u8>, Moment),
+        GetDocument(Ticker, DocumentName, DocumentUri, DocumentHash, Moment),
         /// emit when tokens transferred by the custodian
         /// ticker, custodian did, holder/from did, to did, amount
         CustodyTransfer(Ticker, IdentityId, IdentityId, IdentityId, Balance),
@@ -1396,13 +1444,13 @@ decl_event! {
         Unfrozen(Ticker),
         /// An event emitted when a token is renamed.
         /// Parameters: ticker, new token name.
-        TokenRenamed(Ticker, Vec<u8>),
+        TokenRenamed(Ticker, TokenName),
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: ticker, funding round name.
-        FundingRound(Ticker, Vec<u8>),
+        FundingRound(Ticker, FundingRoundName),
         /// Emitted when extension is added successfully
         /// ticker, extension AccountId, extension name, type of smart Extension
-        ExtensionAdded(Ticker, AccountId, Vec<u8>, SmartExtensionType),
+        ExtensionAdded(Ticker, AccountId, SmartExtensionName, SmartExtensionType),
         /// Emitted when extension get archived
         /// ticker, AccountId
         ExtensionArchived(Ticker, AccountId),
