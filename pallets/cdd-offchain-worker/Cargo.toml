@@ -14,6 +14,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-offchain = { package = "sp-offchain", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 polymesh-runtime-common = {pacakge = "polymesh-runtime-common", path = "../common", default-features = false}
+pallet-staking = {package = "pallet-staking", path = "../staking", default-features = false }
 
 [features]
 equalize = []
@@ -27,4 +28,5 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
     "polymesh-runtime-common/std",
+	"pallet-staking/std",
 ]

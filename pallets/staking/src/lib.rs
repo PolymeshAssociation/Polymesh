@@ -1517,6 +1517,22 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // PUBLIC IMMUTABLES
 
+    pub fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
+        let invalid_nominators = <Nominators<T>>::enumerate()
+            .into_iter()
+            .filter_map(|n| {
+                if let Some(nominate_identity) =
+                    <identity::Module<T>>::get_identity(&(AccountKey::try_from(n.encode())?))
+                {
+                    let (is_kyced, _) =
+                        <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, buffer);
+                    return !is_kyced;
+                }
+            })
+            .collect();
+        return invalid_nominators;
+    }
+
     /// The total balance that can be slashed from a stash account as of right now.
     pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
         Self::bonded(stash)
