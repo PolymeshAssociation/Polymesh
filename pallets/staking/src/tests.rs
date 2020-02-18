@@ -2664,7 +2664,7 @@ fn phragmen_linear_worse_case_equalize() {
                 vec![account_from(40), account_from(30)]
             );
             assert_ok!(Staking::set_validator_count(Origin::ROOT, 7));
-            //fix_nominator_genesis_problem(2250);
+            fix_nominator_genesis_problem(2250);
             start_era(1);
 
             assert_eq_uvec!(
@@ -3152,15 +3152,14 @@ fn slash_in_old_span_does_not_deselect() {
             }],
             &[Perbill::from_percent(0)],
         );
+
         assert_eq!(Staking::force_era(), Forcing::ForceNew);
         assert!(!<Validators<Test>>::exists(account_from(11)));
-
         start_era(2);
 
         Staking::validate(Origin::signed(account_from(10)), Default::default()).unwrap();
         assert_eq!(Staking::force_era(), Forcing::NotForcing);
         assert!(<Validators<Test>>::exists(account_from(11)));
-
         start_era(3);
 
         // this staker is in a new slashing span now, having re-registered after
@@ -3174,7 +3173,6 @@ fn slash_in_old_span_does_not_deselect() {
             &[Perbill::from_percent(0)],
             1,
         );
-
         // not for zero-slash.
         assert_eq!(Staking::force_era(), Forcing::NotForcing);
         assert!(<Validators<Test>>::exists(account_from(11)));
@@ -3189,10 +3187,12 @@ fn slash_in_old_span_does_not_deselect() {
         );
         // or non-zero.
         assert_eq!(Staking::force_era(), Forcing::NotForcing);
+        // Check that account 11 is a validator
+        assert!(Staking::current_elected().contains(&account_from(11)));
         assert!(!<Validators<Test>>::exists(account_from(11)));
-        // It should fail in the previous code but somehow it was passing
-        // As 100% balance of 11 account get slashed so it should be removed
-        // from the ledger. IMO this is wrong statement that substrate developer write
+        // Commented the below check as we change the condition of reaping
+        // to <= 0 (i.e hard coded existential deposit) so that condition
+        // will remove the account 11 from the staking storage.
         //assert_ledger_consistent(11);
     });
 }

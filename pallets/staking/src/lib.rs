@@ -982,9 +982,9 @@ decl_module! {
 
             // reject a bond which is considered to be _dust_.
             // Not needed this check as we removes the Exestential deposit concept
-            // if value < T::Currency::minimum_balance() {
-            //     Err(Error::<T>::InsufficientValue)?
-            // }
+            if value < T::Currency::minimum_balance() {
+                Err(Error::<T>::InsufficientValue)?
+            }
 
             // You're auto-bonded forever, here. We might improve this by only bonding when
             // you actually validate/nominate and remove once you unbond __everything__.
