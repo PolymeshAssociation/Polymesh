@@ -876,7 +876,7 @@ fn removing_links() {
 fn changing_master_key() {
     ExtBuilder::default()
         .monied(true)
-        .kyc_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(|| changing_master_key_we());
 }
@@ -927,8 +927,9 @@ fn changing_master_key_we() {
 #[test]
 fn cdd_register_did_test() {
     ExtBuilder::default()
+        .existential_deposit(1_000)
         .monied(true)
-        .kyc_providers(vec![
+        .cdd_providers(vec![
             AccountKeyring::Eve.public(),
             AccountKeyring::Ferdie.public(),
         ])

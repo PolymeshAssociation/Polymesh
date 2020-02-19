@@ -51,6 +51,12 @@ use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, prelude::*};
 
+/// Either the ID of a successfully created multisig account or an error.
+pub type CreateMultisigAccountResult<T> =
+    sp_std::result::Result<<T as frame_system::Trait>::AccountId, DispatchError>;
+/// Either the ID of a successfully created proposal or an error.
+pub type CreateProposalResult = sp_std::result::Result<u64, DispatchError>;
+
 pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -99,24 +105,12 @@ decl_module! {
             ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
                 "Sigs required out of bounds"
             );
-            let new_nonce = Self::ms_nonce().checked_add(1).ok_or("overflow in calculating nonce")?;
-            <MultiSigNonce>::put(new_nonce);
-
-            let wallet_id = Self::get_multisig_address(sender.clone(), new_nonce).map_err(|_| Error::<T>::DecodingError)?;
-
-            for signer in signers.clone() {
-                <identity::Module<T>>::add_auth(
-                    Signatory::from(AccountKey::try_from(wallet_id.encode())?),
-                    signer,
-                    AuthorizationData::AddMultiSigSigner,
-                    None
-                );
-            }
-
-            <MultiSigSignsRequired<T>>::insert(&wallet_id, &sigs_required);
-
-            Self::deposit_event(RawEvent::MultiSigCreated(wallet_id, sender, signers, sigs_required));
-
+            let account_id = Self::create_multisig_account(
+                sender.clone(),
+                signers.as_slice(),
+                sigs_required
+            )?;
+            Self::deposit_event(RawEvent::MultiSigCreated(account_id, sender, signers, sigs_required));
             Ok(())
         }
 
@@ -132,7 +126,8 @@ decl_module! {
             let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
             let sender_signer = Signatory::from(signer_did);
-            Self::create_proposal(multisig, sender_signer, proposal)
+            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Ok(())
         }
 
         /// Creates a multisig proposal
@@ -144,7 +139,8 @@ decl_module! {
         pub fn create_proposal_as_key(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::create_proposal(multisig, sender_signer, proposal)
+            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Ok(())
         }
 
         /// Approves a multisig proposal using caller's identity
@@ -281,12 +277,34 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Creates a multisig account without precondition checks or emitting an event.
+    pub fn create_multisig_account(
+        sender: T::AccountId,
+        signers: &[Signatory],
+        sigs_required: u64,
+    ) -> CreateMultisigAccountResult<T> {
+        let new_nonce = Self::ms_nonce().checked_add(1).ok_or("nonce overflow")?;
+        <MultiSigNonce>::put(new_nonce);
+        let account_id =
+            Self::get_multisig_address(sender, new_nonce).map_err(|_| Error::<T>::DecodingError)?;
+        for signer in signers {
+            <identity::Module<T>>::add_auth(
+                Signatory::from(AccountKey::try_from(account_id.encode())?),
+                *signer,
+                AuthorizationData::AddMultiSigSigner,
+                None,
+            );
+        }
+        <MultiSigSignsRequired<T>>::insert(&account_id, &sigs_required);
+        Ok(account_id)
+    }
+
     /// Creates a new proposal
     pub fn create_proposal(
         multisig: T::AccountId,
         sender_signer: Signatory,
         proposal: Box<T::Proposal>,
-    ) -> DispatchResult {
+    ) -> CreateProposalResult {
         ensure!(
             <MultiSigSigners<T>>::exists(&multisig, &sender_signer),
             "not a signer"
@@ -297,7 +315,8 @@ impl<T: Trait> Module<T> {
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
         Self::deposit_event(RawEvent::ProposalAdded(multisig.clone(), proposal_id));
-        Self::approve_for(multisig, sender_signer, proposal_id)
+        Self::approve_for(multisig, sender_signer, proposal_id)?;
+        Ok(proposal_id)
     }
 
     /// Approves a multisig transaction and executes the proposal if enough sigs have been received
@@ -360,13 +379,14 @@ impl<T: Trait> Module<T> {
             "Not a multi sig signer auth"
         );
 
-        let wallet_id;
-        if let Signatory::AccountKey(multisig_key) = auth.authorized_by {
-            wallet_id = T::AccountId::decode(&mut &multisig_key.as_slice()[..])
-                .map_err(|_| Error::<T>::DecodingError)?;
-        } else {
-            return Err(Error::<T>::DecodingError.into());
-        }
+        let wallet_id = {
+            if let Signatory::AccountKey(multisig_key) = auth.authorized_by {
+                T::AccountId::decode(&mut &multisig_key.as_slice()[..])
+                    .map_err(|_| Error::<T>::DecodingError)
+            } else {
+                Err(Error::<T>::DecodingError.into())
+            }
+        }?;
 
         ensure!(
             <MultiSigSignsRequired<T>>::exists(&wallet_id),

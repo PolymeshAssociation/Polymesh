@@ -13,6 +13,7 @@ pub mod committee;
 #[cfg(feature = "std")]
 pub use pallet_staking::{Commission, StakerStatus};
 
+mod bridge;
 mod contracts_wrapper;
 mod dividend;
 mod exemption;
@@ -27,7 +28,7 @@ mod sto_capped;
 mod utils;
 mod voting;
 pub use runtime::{
-    api, Asset, Authorship, AvailableBlockRatio, Balances, Contracts, MaximumBlockWeight,
+    api, Asset, Authorship, AvailableBlockRatio, Balances, Bridge, Contracts, MaximumBlockWeight,
     NegativeImbalance, Runtime, RuntimeApi, SessionKeys, System, TargetBlockFullness,
     TransactionPayment,
 };
@@ -42,6 +43,7 @@ pub mod config {
 
     pub type AssetConfig = crate::asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
+    pub type BridgeConfig = crate::bridge::GenesisConfig;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;

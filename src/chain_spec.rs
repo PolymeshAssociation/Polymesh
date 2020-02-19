@@ -5,8 +5,9 @@ use polymesh_runtime::{
     asset::TickerRegistrationConfig,
     committee::ProportionMatch,
     config::{
-        AssetConfig, BalancesConfig, ContractsConfig, GenesisConfig, IdentityConfig, IndicesConfig,
-        MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig, SystemConfig,
+        AssetConfig, BalancesConfig, BridgeConfig, ContractsConfig, GenesisConfig, IdentityConfig,
+        IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig,
+        SystemConfig,
     },
     runtime::{CommitteeMembershipConfig, KycServiceProvidersConfig, PolymeshCommitteeConfig},
     Commission, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
@@ -222,6 +223,9 @@ fn testnet_genesis(
                 registration_length: Some(5184000000),
             },
             fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
+        }),
+        bridge: Some(BridgeConfig {
+            ..Default::default()
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),

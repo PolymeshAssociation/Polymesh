@@ -165,13 +165,19 @@ decl_module! {
         /// - `target_account` (master key of the new Identity) can be linked to just one and only
         /// one identity.
         /// - External signing keys can be linked to just one identity.
+        ///
+        /// # TODO
+        /// - Imbalance: Since we are not handling the imbalance here, this will leave a hold in
+        ///     the total supply. We are reducing someone's balance but not increasing anyone's
+        ///     else balance or decreasing total supply. This will mean that the sum of all
+        ///     balances will become less than the total supply.
         pub fn cdd_register_did(
             origin,
             target_account: T::AccountId,
-            kyc_claim_expiry: T::Moment,
-            kyc_claim: ClaimValue,
-            signing_items: Vec<SigningItem>) -> DispatchResult {
-
+            cdd_claim_expiry: T::Moment,
+            cdd_claim: ClaimValue,
+            signing_items: Vec<SigningItem>
+        ) -> DispatchResult {
             // Sender has to be part of KYCProviders
             let cdd_sender = ensure_signed(origin)?;
             let cdd_key = AccountKey::try_from(cdd_sender.encode())?;
@@ -181,17 +187,9 @@ decl_module! {
             ensure!( kyc_providers.into_iter().any( |kyc_id| kyc_id == cdd_id),
                 Error::<T>::UnAuthorizedKYCProvider);
 
-            // Subtract fee from target: It will need an authoriztion from `target_account`.
-            let _imbalance = <T::Balances>::withdraw(
-                &cdd_sender,
-                Self::did_creation_fee(),
-                WithdrawReason::Fee.into(),
-                ExistenceRequirement::KeepAlive,
-            )?;
-
             // Register Identity and add claim.
             let new_id = Self::_register_did(target_account, signing_items)?;
-            Self::unsafe_add_claim(new_id, KYC_EXPIRY_CLAIM_KEY.to_vec(), cdd_id, kyc_claim_expiry, kyc_claim)
+            Self::unsafe_add_claim(new_id, KYC_EXPIRY_CLAIM_KEY.to_vec(), cdd_id, cdd_claim_expiry, cdd_claim)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.

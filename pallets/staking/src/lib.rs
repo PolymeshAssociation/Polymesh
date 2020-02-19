@@ -266,6 +266,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_session::{historical::OnSessionEnding, SelectInitialValidators};
+use primitives::traits::BlockRewardsReserveCurrency;
 use sp_phragmen::{ExtendedBalance, PhragmenStakedAssignment};
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -282,7 +283,6 @@ use sp_staking::{
     SessionIndex,
 };
 use sp_std::{prelude::*, result, vec};
-
 //use crate::identity;
 use pallet_babe;
 
@@ -622,7 +622,8 @@ where
 //pub trait Trait: frame_system::Trait + identity::Trait + pallet_babe::Trait {
 pub trait Trait: frame_system::Trait + pallet_babe::Trait {
     /// The staking balance.
-    type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+    type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>
+        + BlockRewardsReserveCurrency<BalanceOf<Self>, NegativeImbalanceOf<Self>>;
 
     /// Time used for computing era duration.
     type Time: Time;
@@ -1672,7 +1673,7 @@ impl<T: Trait> Module<T> {
             Self::deposit_event(RawEvent::Reward(total_payout, rest));
 
             T::Reward::on_unbalanced(total_imbalance);
-            T::RewardRemainder::on_unbalanced(T::Currency::issue(rest));
+            T::RewardRemainder::on_unbalanced(T::Currency::issue_using_block_rewards_reserve(rest));
         }
 
         // Increment current era.

@@ -25,7 +25,7 @@ pub struct ExtBuilder {
     creation_fee: u128,
     monied: bool,
     vesting: bool,
-    kyc_providers: Vec<Public>,
+    cdd_providers: Vec<Public>,
 }
 
 thread_local! {
@@ -64,9 +64,9 @@ impl ExtBuilder {
         self
     }
 
-    /// It sets `providers` as KYC providers.
-    pub fn kyc_providers(mut self, providers: Vec<Public>) -> Self {
-        self.kyc_providers = providers;
+    /// It sets `providers` as CDD providers.
+    pub fn cdd_providers(mut self, providers: Vec<Public>) -> Self {
+        self.cdd_providers = providers;
         self
     }
 
@@ -92,7 +92,7 @@ impl ExtBuilder {
                     30 * self.existential_deposit,
                 ),
                 (AccountKeyring::Dave.public(), 40 * self.existential_deposit),
-                // KYC Accounts
+                // CDD Accounts
                 (AccountKeyring::Eve.public(), 1_000_000),
                 (AccountKeyring::Ferdie.public(), 1_000_000),
             ]
@@ -117,18 +117,18 @@ impl ExtBuilder {
         }
     }
 
-    /// It generates, based on kyc providers, a pair of vectors whose contain:
+    /// It generates, based on CDD providers, a pair of vectors whose contain:
     ///  - mapping between DID and Identity info.
     ///  - mapping between an account key and its DID.
     /// Please note that generated DIDs start from 1.
-    fn make_kyc_identities(
+    fn make_cdd_identities(
         &self,
     ) -> (
         Vec<(IdentityId, Identity)>,
         Vec<(AccountKey, LinkedKeyInfo)>,
     ) {
         let keys = self
-            .kyc_providers
+            .cdd_providers
             .iter()
             .map(|p| AccountKey::from(p.clone().0))
             .collect::<Vec<_>>();
@@ -158,25 +158,27 @@ impl ExtBuilder {
 
     /// Create externalities.
     ///
-    /// For each `kyc_providers`:
+    /// For each `cdd_providers`:
     ///     1. A new `IdentityId` is generated (from 1 to n),
-    ///     2. KYC provider's account key is linked to its new Identity ID.
-    ///     3. That Identity ID is added as member of KYC provider group.
+    ///     2. CDD provider's account key is linked to its new Identity ID.
+    ///     3. That Identity ID is added as member of CDD provider group.
     pub fn build(self) -> TestExternalities {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<TestStorage>()
             .unwrap();
 
+        let root = AccountKeyring::Alice.public();
+
         // Define KYC providers.
-        let (kyc_identities, kyc_links) = self.make_kyc_identities();
-        let kyc_ids: Vec<IdentityId> = kyc_identities.iter().map(|(id, _)| id.clone()).collect();
+        let (cdd_identities, cdd_links) = self.make_cdd_identities();
+        let cdd_ids: Vec<IdentityId> = cdd_identities.iter().map(|(id, _)| id.clone()).collect();
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
-            owner: AccountKeyring::Alice.public().into(),
+            owner: root.clone().into(),
             did_creation_fee: 250,
-            did_records: kyc_identities,
-            key_to_identity_ids: kyc_links,
+            did_records: cdd_identities,
+            key_to_identity_ids: cdd_links,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -204,7 +206,7 @@ impl ExtBuilder {
 
         // KYC Service providers.
         group::GenesisConfig::<TestStorage, group::Instance2> {
-            members: kyc_ids,
+            members: cdd_ids,
             ..Default::default()
         }
         .assimilate_storage(&mut storage)

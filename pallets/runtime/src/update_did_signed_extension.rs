@@ -89,7 +89,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
             // Other calls should be identified
             _ => {
                 let id_opt = Self::identity_from_key(who);
-                if let Some(id) = id_opt.clone() {
+                if let Some(_id) = id_opt.clone() {
                     // TODO KYC Claim validation is disable by now
                     // and it will enable later.
                     /*
@@ -147,7 +147,7 @@ mod tests {
     fn update_did_tests() {
         ExtBuilder::default()
             .monied(true)
-            .kyc_providers(vec![AccountKeyring::Eve.public()])
+            .cdd_providers(vec![AccountKeyring::Eve.public()])
             .build()
             .execute_with(&update_did_tests_with_externalities);
     }

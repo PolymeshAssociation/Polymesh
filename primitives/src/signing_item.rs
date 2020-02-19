@@ -1,3 +1,4 @@
+use crate::{AccountKey, IdentityId};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -6,8 +7,6 @@ use sp_std::{
     prelude::Vec,
     vec,
 };
-
-use crate::{AccountKey, IdentityId};
 
 // use crate::entity::IgnoredCaseString;
 

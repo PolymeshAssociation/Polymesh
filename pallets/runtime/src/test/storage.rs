@@ -1,9 +1,10 @@
-use crate::{asset, exemption, general_tm, multisig, percentage_tm, statistics, utils};
+use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics, utils};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
-    asset::AcceptTransfer, multisig::AddSignerMultiSig, CommonTrait,
+    asset::AcceptTransfer, group::GroupTrait, identity::ClaimValue, multisig::AddSignerMultiSig,
+    CommonTrait,
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
@@ -16,7 +17,7 @@ use frame_support::{
 use frame_system::{self as system, EnsureSignedBy};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
-    sr25519::Pair,
+    sr25519::{Pair, Public},
     H256,
 };
 use sp_runtime::{
@@ -35,6 +36,8 @@ impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
         multisig::MultiSig,
+        pallet_contracts::Contracts,
+        bridge::Bridge,
     }
 }
 
@@ -164,6 +167,54 @@ impl AcceptTransfer for TestStorage {
     }
 }
 
+parameter_types! {
+    pub const SignedClaimHandicap: u64 = 2;
+    pub const TombstoneDeposit: u64 = 16;
+    pub const StorageSizeOffset: u32 = 8;
+    pub const RentByteFee: u64 = 4;
+    pub const RentDepositOffset: u64 = 10_000;
+    pub const SurchargeReward: u64 = 150;
+    pub const ContractTransactionBaseFee: u64 = 2;
+    pub const ContractTransactionByteFee: u64 = 6;
+    pub const ContractFee: u64 = 21;
+    pub const CallBaseFee: u64 = 135;
+    pub const InstantiateBaseFee: u64 = 175;
+    pub const MaxDepth: u32 = 100;
+    pub const MaxValueSize: u32 = 16_384;
+    pub const ContractTransferFee: u64 = 50000;
+    pub const ContractCreationFee: u64 = 50;
+    pub const BlockGasLimit: u64 = 10000000;
+}
+
+impl pallet_contracts::Trait for TestStorage {
+    type Currency = Balances;
+    type Time = Timestamp;
+    type Randomness = Randomness;
+    type Call = Call;
+    type Event = Event;
+    type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminator<TestStorage>;
+    type ComputeDispatchFee = pallet_contracts::DefaultDispatchFeeComputor<TestStorage>;
+    type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
+    type GasPayment = ();
+    type RentPayment = ();
+    type SignedClaimHandicap = SignedClaimHandicap;
+    type TombstoneDeposit = TombstoneDeposit;
+    type StorageSizeOffset = StorageSizeOffset;
+    type RentByteFee = RentByteFee;
+    type RentDepositOffset = RentDepositOffset;
+    type SurchargeReward = SurchargeReward;
+    type TransferFee = ContractTransferFee;
+    type CreationFee = ContractCreationFee;
+    type TransactionBaseFee = ContractTransactionBaseFee;
+    type TransactionByteFee = ContractTransactionByteFee;
+    type ContractFee = ContractFee;
+    type CallBaseFee = CallBaseFee;
+    type InstantiateBaseFee = InstantiateBaseFee;
+    type MaxDepth = MaxDepth;
+    type MaxValueSize = MaxValueSize;
+    type BlockGasLimit = BlockGasLimit;
+}
+
 impl statistics::Trait for TestStorage {}
 
 impl percentage_tm::Trait for TestStorage {
@@ -178,6 +229,11 @@ impl general_tm::Trait for TestStorage {
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
+}
+
+impl bridge::Trait for TestStorage {
+    type Event = Event;
+    type Proposal = Call;
 }
 
 impl exemption::Trait for TestStorage {
@@ -241,6 +297,11 @@ pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
 pub type Asset = asset::Module<TestStorage>;
 pub type MultiSig = multisig::Module<TestStorage>;
+pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
+pub type Timestamp = pallet_timestamp::Module<TestStorage>;
+pub type Contracts = pallet_contracts::Module<TestStorage>;
+pub type Bridge = bridge::Module<TestStorage>;
+pub type CDDServieProvider = group::Module<TestStorage, group::Instance2>;
 
 pub fn make_account(
     id: AccountId,
@@ -256,7 +317,22 @@ pub fn make_account_with_balance(
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
-    Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
+    // If we have CDD providers, first of them executes the registration.
+    let cdd_providers = CDDServieProvider::get_members();
+    let did_registration = if let Some(cdd_provider) = cdd_providers.into_iter().nth(0) {
+        let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
+        Identity::cdd_register_did(
+            Origin::signed(cdd_acc),
+            id,
+            10,
+            ClaimValue::default(),
+            vec![],
+        )
+    } else {
+        Identity::register_did(signed_id.clone(), vec![])
+    };
+
+    let _ = did_registration.map_err(|_| "Register DID failed")?;
     let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
 
     Ok((signed_id, did))
@@ -270,17 +346,8 @@ pub fn register_keyring_account_with_balance(
     acc: AccountKeyring,
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<IdentityId, &'static str> {
-    Balances::make_free_balance_be(&acc.public(), balance);
-
     let acc_pub = acc.public();
-    Identity::register_did(Origin::signed(acc_pub.clone()), vec![])
-        .map_err(|_| "Register DID failed")?;
-
-    let acc_key = AccountKey::from(acc_pub.0);
-    let did =
-        Identity::get_identity(&acc_key).ok_or_else(|| "Key cannot be generated from account")?;
-
-    Ok(did)
+    make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
 }
 
 pub fn account_from(id: u64) -> AccountId {
