@@ -633,14 +633,14 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: token_owner_did.clone(),
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from_slice(token.name.0.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             // Share issuance is successful
@@ -715,14 +715,14 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: token_owner_did.clone(),
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from_slice(token.name.0.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             // Share issuance is successful
@@ -805,14 +805,14 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: vec![0x01],
+                name: vec![0x01].into(),
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from_slice(token.name.0.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             // Share issuance is successful

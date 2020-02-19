@@ -1,4 +1,4 @@
-use crate::{asset, exemption, general_tm, multisig, percentage_tm, statistics, utils};
+use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics, utils};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
@@ -36,6 +36,7 @@ impl_outer_dispatch! {
         identity::Identity,
         multisig::MultiSig,
         pallet_contracts::Contracts,
+        bridge::Bridge,
     }
 }
 
@@ -239,6 +240,11 @@ impl asset::Trait for TestStorage {
     type Currency = balances::Module<TestStorage>;
 }
 
+impl bridge::Trait for TestStorage {
+    type Event = Event;
+    type Proposal = Call;
+}
+
 impl exemption::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
@@ -303,6 +309,7 @@ pub type MultiSig = multisig::Module<TestStorage>;
 pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
 pub type Timestamp = pallet_timestamp::Module<TestStorage>;
 pub type Contracts = pallet_contracts::Module<TestStorage>;
+pub type Bridge = bridge::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
