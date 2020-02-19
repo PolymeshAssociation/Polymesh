@@ -267,7 +267,7 @@ decl_module! {
         /// * `deposit` minimum deposit value
         /// * `url` a link to a website for proposal discussion
         #[weight = SimpleDispatchInfo::FixedNormal(5_000_000)]
-        pub fn propose(origin, proposal: Box<T::Proposal>, deposit: BalanceOf<T>, Option<url: Vec<u8>>) -> DispatchResult {
+        pub fn propose(origin, proposal: Box<T::Proposal>, deposit: BalanceOf<T>, url: Option<Vec<u8>>) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
