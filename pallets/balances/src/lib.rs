@@ -176,8 +176,8 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
-        OnUnbalanced, ReservableCurrency, SignedImbalance, UpdateBalanceOutcome, VestingCurrency,
-        WithdrawReason, WithdrawReasons,
+        OnFreeBalanceZero, OnUnbalanced, ReservableCurrency, SignedImbalance, UpdateBalanceOutcome,
+        VestingCurrency, WithdrawReason, WithdrawReasons,
     },
     weights::SimpleDispatchInfo,
     StorageValue,
@@ -508,6 +508,11 @@ impl<T: Trait> Module<T> {
         // Commented out for now - but consider it instructive.
         // assert!(!Self::total_balance(who).is_zero());
         <FreeBalance<T>>::insert(who, balance);
+
+        if balance <= Zero::zero() {
+            T::OnFreeBalanceZero::on_free_balance_zero(who);
+        }
+
         UpdateBalanceOutcome::Updated
     }
 
