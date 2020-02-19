@@ -1650,11 +1650,10 @@ impl<T: Trait> Module<T> {
 
             let validator_len: BalanceOf<T> = (validators.len() as u32).into();
             let total_rewarded_stake = Self::slot_stake() * validator_len;
-
             let (total_payout, max_payout) = inflation::compute_total_payout(
                 &T::RewardCurve::get(),
                 total_rewarded_stake.clone(),
-                T::Currency::total_issuance(),
+                T::Currency::total_issuance() - T::Currency::block_rewards_reserve_balance(),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
                 era_duration.saturated_into::<u64>(),
             );

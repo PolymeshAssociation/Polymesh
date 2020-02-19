@@ -318,7 +318,7 @@ decl_storage! {
         pub ChargeDid get(charge_did): map AccountKey => bool;
 
         /// AccountId of the block rewards reserve
-        pub BlockRewardsReserve get(block_reward_reserve) build(|_| {
+        pub BlockRewardsReserve get(block_rewards_reserve) build(|_| {
             let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
             T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
         }): T::AccountId;
@@ -572,6 +572,11 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
             })
         });
         NegativeImbalance::new(amount)
+    }
+
+    fn block_rewards_reserve_balance() -> T::Balance {
+        let brr = Self::block_rewards_reserve();
+        Self::free_balance(&brr)
     }
 }
 
