@@ -17,8 +17,6 @@ pub trait StakingApi<BlockHash> {
 
 /// A struct that implements the [`StakingApi`].
 pub struct Staking<C, M> {
-    // If you have more generics, no need to Staking<C, M, N, P, ...>
-    // just use a tuple like Staking<C, (M, N, P, ...)>
     client: Arc<C>,
     _marker: std::marker::PhantomData<M>,
 }
