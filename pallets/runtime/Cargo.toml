@@ -14,6 +14,7 @@ polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../
 
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../transaction-payment/rpc/runtime-api", default-features = false  } 
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
+pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../staking/rpc/runtime-api", default-features = false  }
 pallet-staking = { package = "pallet-staking", path = "../staking", default-features = false  }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve", default-features = false  }
 
@@ -113,6 +114,7 @@ std = [
 	"pallet-finality-tracker/std",
 	"pallet-contracts-rpc-runtime-api/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-staking-rpc-runtime-api/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
 	"pallet-indices/std",

@@ -14,6 +14,7 @@ polymesh-primitives = { path = "primitives" }
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets/common", default-features = false }
 polymesh-runtime = { path = "pallets/runtime" }
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
+pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
 
 
 parking_lot = "0.9.0"
