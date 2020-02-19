@@ -32,14 +32,14 @@ fn investor_count_per_asset_with_ext() {
 
     // 1. Alice create an asset.
     let token = SecurityToken {
-        name: vec![0x01],
+        name: vec![0x01].into(),
         owner_did: alice_did,
         total_supply: 1_000_000,
         divisible: true,
         ..Default::default()
     };
 
-    let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
+    let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
     let ticker = Ticker::from_slice(token.name.as_slice());
     assert_ok!(Asset::create_token(
         alice_signed.clone(),
