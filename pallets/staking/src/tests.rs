@@ -4237,3 +4237,32 @@ fn should_remove_validators() {
             assert_eq!(Staking::permissioned_validators(&acc_30), None);
         });
 }
+
+#[test]
+fn new_era_pays_rewards() {
+    ExtBuilder::default()
+        .minimum_validator_count(2)
+        .validator_count(2)
+        .num_validators(2)
+        .validator_pool(true)
+        .nominate(false)
+        .build()
+        .execute_with(|| {
+            // initial validators
+            assert_eq_uvec!(
+                validator_controllers(),
+                vec![account_from(10), account_from(20)]
+            );
+
+            // trigger era
+            System::set_block_number(1);
+            Session::on_initialize(System::block_number());
+
+            assert_eq_uvec!(
+                validator_controllers(),
+                vec![account_from(10), account_from(20)]
+            );
+
+            // TODO: check the block rewards.
+        });
+}
