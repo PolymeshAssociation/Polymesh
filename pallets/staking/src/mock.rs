@@ -44,6 +44,7 @@ use polymesh_runtime_common::{
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity::{self as identity};
+use primitives::traits::BlockRewardsReserveCurrency;
 use primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -795,7 +796,7 @@ pub fn current_total_payout_for_duration(duration: u64) -> u128 {
     inflation::compute_total_payout(
         <Test as Trait>::RewardCurve::get(),
         <Module<Test>>::slot_stake() * 2,
-        Balances::total_issuance(),
+        Balances::total_issuance().saturating_sub(Balances::block_rewards_reserve_balance()),
         duration,
     )
     .0

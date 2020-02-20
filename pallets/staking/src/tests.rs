@@ -24,6 +24,7 @@ use frame_support::{
     traits::{Currency, ReservableCurrency},
 };
 use mock::*;
+use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{ClaimValue, DataTypes};
 use sp_runtime::{
     assert_eq_error_rate,
@@ -4241,28 +4242,71 @@ fn should_remove_validators() {
 #[test]
 fn new_era_pays_rewards() {
     ExtBuilder::default()
-        .minimum_validator_count(2)
-        .validator_count(2)
-        .num_validators(2)
-        .validator_pool(true)
         .nominate(false)
         .build()
         .execute_with(|| {
-            // initial validators
-            assert_eq_uvec!(
-                validator_controllers(),
-                vec![account_from(10), account_from(20)]
+            assert_eq!(<Module<Test>>::slot_stake(), 1000);
+            let total_issuance_0 = Balances::total_issuance();
+            let total_payout_0 = current_total_payout_for_duration(3000);
+            assert_eq!(total_payout_0, 2350);
+            let era_duration = 100_000u64; // now - previous_era_start;
+            let total_rewarded_stake = <Module<Test>>::slot_stake() * 2;
+            let (total_payout, max_payout) = inflation::compute_total_payout(
+                &<Test as Trait>::RewardCurve::get(),
+                total_rewarded_stake.clone(),
+                // Total unreserved issuance which is the total issuance less the block rewards
+                // reserve balance.
+                Balances::total_issuance()
+                    .saturating_sub(Balances::block_rewards_reserve_balance()),
+                // Duration of era; more than u64::MAX is rewarded as u64::MAX.
+                era_duration.saturated_into::<u64>(),
             );
-
-            // trigger era
-            System::set_block_number(1);
-            Session::on_initialize(System::block_number());
-
-            assert_eq_uvec!(
-                validator_controllers(),
-                vec![account_from(10), account_from(20)]
+            assert_eq!(total_payout, 79200);
+            // assert_eq!(Staking::current_era(), 0);
+            // // initial validators
+            // assert_eq_uvec!(
+            //     validator_controllers(),
+            //     vec![account_from(20), account_from(10)]
+            // );
+            // // <Module<Test>>::reward_by_ids(vec![(account_from(10), 0)]);
+            // // <Module<Test>>::reward_by_ids(vec![(account_from(20), 0)]);
+            let brr_account = Balances::block_rewards_reserve();
+            let brr_balance = || Balances::free_balance(brr_account);
+            assert_eq!(brr_balance(), 0);
+            // let total_payout_0 = current_total_payout_for_duration(3000);
+            // assert_eq!(total_payout_0, 2350);
+            let new_brr_balance = 100_000;
+            <balances::FreeBalance<Test>>::insert(brr_account, new_brr_balance);
+            assert_eq!(brr_balance(), new_brr_balance);
+            let (total_payout, max_payout) = inflation::compute_total_payout(
+                &<Test as Trait>::RewardCurve::get(),
+                total_rewarded_stake.clone(),
+                // Total unreserved issuance which is the total issuance less the block rewards
+                // reserve balance.
+                Balances::total_issuance()
+                    .saturating_sub(Balances::block_rewards_reserve_balance()),
+                // Duration of era; more than u64::MAX is rewarded as u64::MAX.
+                era_duration.saturated_into::<u64>(),
             );
-
-            // TODO: check the block rewards.
+            assert_eq!(total_payout, 79200 /* FIXME */);
+            // let total_payout_1 = current_total_payout_for_duration(3000);
+            // assert_eq!(total_payout_1, 2350);
+            // // trigger era
+            // start_era(1);
+            // assert_eq!(Staking::current_era(), 1);
+            // assert_eq!(Session::current_index(), 4);
+            // let total_payout_0 = current_total_payout_for_duration(3000);
+            // assert_eq!(total_payout_0, 2350);
+            // assert_eq!(
+            //     CurrentEraPointsEarned::get().individual,
+            //     vec![1, 20 + 2 * 3 + 1]
+            // );
+            // assert_eq!(CurrentEraPointsEarned::get().total, 28);
+            // // <Module<Test>>::reward_by_ids(vec![(account_from(10), 50)]);
+            // // <Module<Test>>::reward_by_ids(vec![(account_from(20), 50)]);
+            // assert_eq_uvec!(
+            //     validator_controllers(),
+            //     vec![account_from(20), account_from(10)]
+            // );
         });
 }
