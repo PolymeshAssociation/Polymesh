@@ -9,9 +9,6 @@ const colors = require("colors");
 const fs = require("fs");
 const path = require("path");
 
-// Helps track the size delta for
-let current_storage_size = 0;
-
 // Updated by the CLI option
 let STORAGE_DIR;
 let nonces = new Map();
@@ -122,21 +119,6 @@ const blockTillPoolEmpty = async function(api) {
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 };
-
-// Use the `du` command to obtain recursive directory size
-function duDirSize(dir) {
-  let cmd = `du -s ${dir}`;
-  let re = /(\d+)/;
-  let output = childProc.execSync(cmd).toString();
-  let results = output.match(re);
-  return new Number(results[1]);
-}
-
-// Updating storage size
-function updateStorageSize(dir) {
-  let new_storage_size = duDirSize(dir);
-  current_storage_size = new_storage_size;
-}
 
 // Create a new DID for each of accounts[]
 // precondition - accounts all have enough POLY
