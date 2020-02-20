@@ -100,6 +100,11 @@ jobs:
           background: true
           no_output_timeout: 10m
       - run:
+          name: cli scripts install
+          command: npm install
+          working_directory: ./scripts/cli
+          no_output_timeout: 30m                    
+      - run:
           name: cli scripts test
           command: npm test
           working_directory: ./scripts/cli
