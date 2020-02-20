@@ -21,8 +21,7 @@ impl Default for Memo {
 decl_event!(
     pub enum Event<T> where
     <T as system::Trait>::AccountId,
-    <T as CommonTrait>::Balance,
-    <T as system::Trait>::BlockNumber,
+    <T as CommonTrait>::Balance
     {
         /// A new account was created.
         NewAccount(AccountId, Balance),
@@ -30,9 +29,8 @@ decl_event!(
         ReapedAccount(AccountId),
         /// Transfer succeeded (from, to, value, fees).
         Transfer(AccountId, AccountId, Balance, Balance),
-        /// Memo added to transaction: source account, target account, balance, block, extrinsic
-        /// idx, memo.
-        MemoAdded(BlockNumber, u32, Memo),
+        /// Transfer succeded with a memo.
+        TransferWithMemo(AccountId, AccountId, Balance, Balance, Memo),
     }
 );
 

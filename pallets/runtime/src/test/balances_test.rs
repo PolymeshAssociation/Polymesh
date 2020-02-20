@@ -1,13 +1,13 @@
 use crate::{
     runtime,
     test::{
-        storage::{make_account, TestStorage},
+        storage::{make_account, EventTest, TestStorage},
         ExtBuilder,
     },
     Runtime,
 };
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::balances::Memo;
+use polymesh_runtime_common::traits::balances::{Memo, RawEvent as BalancesRawEvent};
 use polymesh_runtime_identity as identity;
 
 use frame_support::{
@@ -15,6 +15,7 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement},
     weights::{DispatchInfo, Weight},
 };
+use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::traits::SignedExtension;
@@ -289,21 +290,52 @@ fn transfer_with_memo_we() {
     let bob = AccountKeyring::Bob.public();
 
     let memo_1 = Some(Memo([7u8; 32]));
-    assert_ok!(Balances::transfer_with_memo(
+    assert_ok!(Balances::transfer(
         Origin::signed(alice),
         bob,
         100,
         memo_1.clone()
     ));
-    assert_eq!(Balances::memo((1, 0)), memo_1.unwrap());
 
     System::set_block_number(2);
     let memo_2 = Some(Memo([42u8; 32]));
-    assert_ok!(Balances::transfer_with_memo(
+    assert_ok!(Balances::transfer(
         Origin::signed(alice),
         bob,
         200,
         memo_2.clone()
     ));
-    assert_eq!(Balances::memo((2, 0)), memo_2.unwrap());
+
+    assert_ok!(Balances::transfer(Origin::signed(alice), bob, 300, None));
+
+    let expected_events = vec![
+        EventRecord {
+            phase: Phase::ApplyExtrinsic(0),
+            event: EventTest::balances(BalancesRawEvent::TransferWithMemo(
+                alice.clone(),
+                bob.clone(),
+                100,
+                0,
+                memo_1.unwrap(),
+            )),
+            topics: vec![],
+        },
+        EventRecord {
+            phase: Phase::ApplyExtrinsic(0),
+            event: EventTest::balances(BalancesRawEvent::TransferWithMemo(
+                alice,
+                bob,
+                200,
+                0,
+                memo_2.unwrap(),
+            )),
+            topics: vec![],
+        },
+        EventRecord {
+            phase: Phase::ApplyExtrinsic(0),
+            event: EventTest::balances(BalancesRawEvent::Transfer(alice, bob, 300, 0)),
+            topics: vec![],
+        },
+    ];
+    assert_eq!(System::events(), expected_events);
 }
