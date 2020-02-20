@@ -96,7 +96,7 @@ jobs:
           no_output_timeout: 4h
       - run:
           name: cli node instance 
-          command: /target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
+          command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
           background: true
           no_output_timeout: 10m
       - run:
