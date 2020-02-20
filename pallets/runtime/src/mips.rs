@@ -922,7 +922,7 @@ mod tests {
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50,
-                b"www.abc.com".to_vec()
+                Some(b"www.abc.com".to_vec())
             ));
 
             assert_ok!(Mips::vote(Origin::signed(5), hash, index, true, 50));
