@@ -3033,6 +3033,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-staking-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-staking-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "sp-api",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-sudo"
 version = "2.0.0"
 source = "git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
@@ -3454,6 +3478,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-im-online",
+ "pallet-staking-rpc",
  "pallet-transaction-payment-rpc",
  "parking_lot 0.9.0",
  "polymesh-primitives",
@@ -3532,6 +3557,7 @@ dependencies = [
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",
+ "pallet-staking-rpc-runtime-api",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",

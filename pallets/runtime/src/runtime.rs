@@ -778,4 +778,10 @@ impl_runtime_apis! {
             SessionKeys::generate(seed)
         }
     }
+
+    impl pallet_staking_rpc_runtime_api::StakingApi<Block> for Runtime {
+         fn get_curve() -> Vec<(Perbill, Perbill)> {
+            Staking::get_curve()
+        }
+    }
 }
