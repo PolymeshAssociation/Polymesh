@@ -42,9 +42,6 @@ let prepend = opts.prepend;
 let fast = opts.fast;
 
 const keyring = new Keyring({ type: "sr25519" });
-STORAGE_DIR = opts.dir;
-const initial_storage_size = duDirSize(STORAGE_DIR);
-current_storage_size = initial_storage_size;
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
