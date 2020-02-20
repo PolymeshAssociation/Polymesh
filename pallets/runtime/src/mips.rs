@@ -77,7 +77,7 @@ pub struct MipsMetadata<BlockNumber: Parameter, Hash: Parameter> {
     /// The proposal being voted on.
     proposal_hash: Hash,
     /// The proposal url for proposal discussion.
-    url: Vec<u8>,
+    url: Option<Vec<u8>>,
 }
 
 /// For keeping track of proposal being voted on.
@@ -774,7 +774,7 @@ mod tests {
                     Origin::signed(6),
                     Box::new(proposal.clone()),
                     40,
-                    b"www.abc.com".to_vec()
+                    Some(b"www.abc.com".to_vec())
                 ),
                 "deposit is less than minimum required to start a proposal"
             );
@@ -784,7 +784,7 @@ mod tests {
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50,
-                b"www.abc.com".to_vec()
+                Some(b"www.abc.com".to_vec())
             ));
 
             assert_eq!(Balances::free_balance(&6), 10);
@@ -813,7 +813,7 @@ mod tests {
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50,
-                b"www.abc.com".to_vec()
+                Some(b"www.abc.com".to_vec())
             ));
 
             assert_eq!(Balances::free_balance(&6), 10);
@@ -846,7 +846,7 @@ mod tests {
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50,
-                b"www.abc.com".to_vec()
+                Some(b"www.abc.com".to_vec())
             ));
 
             assert_ok!(Mips::vote(Origin::signed(5), hash, 0, true, 50));
@@ -883,7 +883,7 @@ mod tests {
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50,
-                b"www.abc.com".to_vec()
+                Some(b"www.abc.com".to_vec())
             ));
 
             assert_ok!(Mips::vote(Origin::signed(5), hash, 0, true, 50));
