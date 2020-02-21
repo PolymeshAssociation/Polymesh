@@ -22,13 +22,13 @@ use std::cell::RefCell;
 
 use crate::{Module, Trait};
 use frame_support::{impl_outer_dispatch, impl_outer_origin, parameter_types, weights::Weight};
+use frame_system::{self as system, EnsureSignedBy};
 use sp_core::H256;
 use sp_runtime::testing::{Header, TestXt, UintAuthorityId};
 use sp_runtime::traits::{BlakeTwo256, ConvertInto, IdentityLookup};
 use sp_runtime::Perbill;
 use sp_staking::{offence::ReportOffence, SessionIndex};
 
-use frame_system as system;
 impl_outer_origin! {
     pub enum Origin for Runtime {}
 }
@@ -159,6 +159,10 @@ impl pallet_authorship::Trait for Runtime {
     type EventHandler = ImOnline;
 }
 
+parameter_types! {
+    pub const OneThousand: u64 = 1000;
+}
+
 impl Trait for Runtime {
     type AuthorityId = UintAuthorityId;
     type Event = ();
@@ -166,6 +170,7 @@ impl Trait for Runtime {
     type SubmitTransaction = SubmitTransaction;
     type ReportUnresponsiveness = OffenceHandler;
     type SessionDuration = Period;
+    type RequiredCommitteeOrigin = EnsureSignedBy<OneThousand, Self::AccountId>;
 }
 
 /// Im Online module.

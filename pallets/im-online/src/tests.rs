@@ -20,7 +20,7 @@
 
 use super::*;
 use crate::mock::*;
-use frame_support::{assert_noop, dispatch};
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch};
 use sp_core::offchain::{
     testing::{TestOffchainExt, TestTransactionPoolExt},
     OffchainExt, OpaquePeerId, TransactionPoolExt,
@@ -30,6 +30,12 @@ use sp_runtime::testing::UintAuthorityId;
 #[test]
 fn test_unresponsiveness_slash_fraction() {
     new_test_ext().execute_with(|| {
+        SlashingParams::put(OfflineSlashingParams {
+            max_offline_percent: 10u32,
+            constant: 3u32,
+            max_slash_percent: 7u32,
+        });
+
         // A single case of unresponsiveness is not slashed.
         assert_eq!(
             UnresponsivenessOffence::<Runtime, u64>::slash_fraction(1, 50),
@@ -50,6 +56,96 @@ fn test_unresponsiveness_slash_fraction() {
         assert_eq!(
             UnresponsivenessOffence::<Runtime, u64>::slash_fraction(17, 50),
             Perbill::from_parts(46200000), // 4.62%
+        );
+
+        SlashingParams::put(OfflineSlashingParams {
+            max_offline_percent: 50u32,
+            constant: 3u32,
+            max_slash_percent: 19u32,
+        });
+
+        // Half are offline
+        assert_eq!(
+            UnresponsivenessOffence::<Runtime, u64>::slash_fraction(25, 50),
+            Perbill::from_percent(19),
+        );
+    });
+}
+
+#[test]
+fn test_change_slash_fraction() {
+    new_test_ext().execute_with(|| {
+        // 1 is not committee
+        assert_err!(
+            ImOnline::set_slashing_params(
+                Origin::signed(1),
+                OfflineSlashingParams {
+                    max_offline_percent: 10u32,
+                    constant: 3u32,
+                    max_slash_percent: 7u32,
+                }
+            ),
+            Error::<Runtime>::NotAuthorised
+        );
+
+        // catch division by zero errors
+        assert_err!(
+            ImOnline::set_slashing_params(
+                Origin::signed(1),
+                OfflineSlashingParams {
+                    max_offline_percent: 10u32,
+                    constant: 0u32,
+                    max_slash_percent: 7u32,
+                }
+            ),
+            Error::<Runtime>::InvalidSlashingParam
+        );
+        assert_err!(
+            ImOnline::set_slashing_params(
+                Origin::signed(1),
+                OfflineSlashingParams {
+                    max_offline_percent: 00u32,
+                    constant: 10u32,
+                    max_slash_percent: 7u32,
+                }
+            ),
+            Error::<Runtime>::InvalidSlashingParam
+        );
+
+        // 1000 should change storage
+        assert_ok!(ImOnline::set_slashing_params(
+            Origin::signed(1000),
+            OfflineSlashingParams {
+                max_offline_percent: 10u32,
+                constant: 3u32,
+                max_slash_percent: 7u32,
+            }
+        ));
+        assert_eq!(
+            SlashingParams::get(),
+            OfflineSlashingParams {
+                max_offline_percent: 10u32,
+                constant: 3u32,
+                max_slash_percent: 7u32,
+            }
+        );
+
+        // chage again
+        assert_ok!(ImOnline::set_slashing_params(
+            Origin::signed(1000),
+            OfflineSlashingParams {
+                max_offline_percent: 23u32,
+                constant: 3u32,
+                max_slash_percent: 19u32,
+            }
+        ));
+        assert_eq!(
+            SlashingParams::get(),
+            OfflineSlashingParams {
+                max_offline_percent: 23u32,
+                constant: 3u32,
+                max_slash_percent: 19u32,
+            }
         );
     });
 }
@@ -81,7 +177,7 @@ fn should_report_offline_validators() {
                     session_index: 2,
                     validator_set_count: 3,
                     offenders: vec![(1, 1), (2, 2), (3, 3),],
-                    _inner: sp_std::marker::PhantomData {},
+                    phantom: sp_std::marker::PhantomData {},
                 }
             )]
         );
@@ -102,7 +198,7 @@ fn should_report_offline_validators() {
                     session_index: 3,
                     validator_set_count: 6,
                     offenders: vec![(5, 5), (6, 6),],
-                    _inner: sp_std::marker::PhantomData {},
+                    phantom: sp_std::marker::PhantomData {},
                 }
             )]
         );

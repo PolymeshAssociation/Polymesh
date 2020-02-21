@@ -72,15 +72,16 @@ mod tests;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, print, traits::Get, Parameter,
+    debug, decl_error, decl_event, decl_module, decl_storage, ensure, print, traits::Get,
+    weights::SimpleDispatchInfo, Parameter,
 };
 use frame_system::offchain::SubmitUnsignedTransaction;
-use frame_system::{self as system, ensure_none};
+use frame_system::{self as system, ensure_none, ensure_root};
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::{OpaqueNetworkState, StorageKind};
 use sp_runtime::{
-    traits::{Convert, Member, Printable, Saturating},
+    traits::{Convert, EnsureOrigin, Member, Printable, Saturating},
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
     },
@@ -94,6 +95,7 @@ use sp_staking::{
 };
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
+use std::marker::PhantomData;
 
 pub mod sr25519 {
     mod app_sr25519 {
@@ -219,6 +221,9 @@ pub trait Trait: frame_system::Trait + pallet_session::historical::Trait {
         IdentificationTuple<Self>,
         UnresponsivenessOffence<Self, IdentificationTuple<Self>>,
     >;
+
+    /// Origin for changing slashing params.
+    type CommitteeOrigin: EnsureOrigin<Self::Origin>;
 }
 
 decl_event!(
@@ -232,6 +237,8 @@ decl_event!(
 		AllGood,
 		/// At the end of the session, at least once validator was found to be offline.
 		SomeOffline(Vec<IdentificationTuple>),
+		/// Newly updated slashing params.
+		SlashingParamsUpdated(OfflineSlashingParams),
 	}
 );
 
@@ -269,6 +276,10 @@ decl_error! {
         InvalidKey,
         /// Duplicated heartbeat.
         DuplicatedHeartbeat,
+        ///Invalid slashing params
+        InvalidSlashingParam,
+        /// Unauthorized origin
+        NotAuthorised
     }
 }
 
@@ -308,6 +319,23 @@ decl_module! {
             } else {
                 Err(Error::<T>::InvalidKey)?
             }
+        }
+
+        /// Set slashing params to be used in calculating `slash_fraction`
+        /// Only Governance committee is allowed to set these params.
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_slashing_params(origin, params: OfflineSlashingParams) {
+            ensure!(params.constant > 0, Error::<T>::InvalidSlashingParam);
+            ensure!(params.max_offline_percent > 0, Error::<T>::InvalidSlashingParam);
+
+            T::CommitteeOrigin::try_origin(origin)
+                .map(|_| ())
+                .or_else(ensure_root)
+                .map_err(|_| Error::<T>::NotAuthorised)?;
+
+            SlashingParams::put(&params);
+
+            Self::deposit_event(RawEvent::SlashingParamsUpdated(params));
         }
 
         // Runs after every block.
@@ -597,7 +625,7 @@ impl<T: Trait> pallet_session::OneSessionHandler<T::AccountId> for Module<T> {
                 session_index,
                 validator_set_count,
                 offenders,
-                _inner: sp_std::marker::PhantomData {},
+                phantom: PhantomData {},
             };
             T::ReportUnresponsiveness::report_offence(vec![], offence);
         }
@@ -669,7 +697,7 @@ pub struct UnresponsivenessOffence<T, Offender> {
     /// Authorities that were unresponsive during the current era.
     offenders: Vec<Offender>,
     /// To accept T
-    _inner: sp_std::marker::PhantomData<T>,
+    phantom: PhantomData<T>,
 }
 
 impl<T: Trait, Offender: Clone> Offence<Offender> for UnresponsivenessOffence<T, Offender> {
@@ -692,14 +720,19 @@ impl<T: Trait, Offender: Clone> Offence<Offender> for UnresponsivenessOffence<T,
         self.session_index
     }
 
+    /// min((constant * (k - (n / max_offline_percent + 1))) / n, 1) * (max_slash_percent / 100)
+    /// basically, `max_offline_percent`% can be offline with no slash, but after that, it linearly
+    /// climbs up to `max_slash_percent`%
     fn slash_fraction(offenders: u32, validator_set_count: u32) -> Perbill {
-        // the formula is min((3 * (k - (n / 10 + 1))) / n, 1) * 0.07
-        // basically, 10% can be offline with no slash, but after that, it linearly climbs up to 7%
-        // when 13/30 are offline (around 5% when 1/3 are offline).
         let params: OfflineSlashingParams = <Module<T>>::slashing_params();
-        if let Some(threshold) = offenders.checked_sub(validator_set_count / 10 + 1) {
-            let x = Perbill::from_rational_approximation(3 * threshold, validator_set_count);
-            x.saturating_mul(Perbill::from_percent(7))
+        if let Some(threshold) =
+            offenders.checked_sub(validator_set_count / params.max_offline_percent + 1)
+        {
+            let x = Perbill::from_rational_approximation(
+                params.constant * threshold,
+                validator_set_count,
+            );
+            x.saturating_mul(Perbill::from_percent(params.max_slash_percent))
         } else {
             Perbill::default()
         }
