@@ -18,9 +18,9 @@ use std::time::Duration;
 
 // Our native executor instance.
 native_executor_instance!(
-	pub Executor,
-	polymesh_runtime::api::dispatch,
-	polymesh_runtime::native_version,
+    pub Executor,
+    polymesh_runtime::api::dispatch,
+    polymesh_runtime::native_version,
 );
 
 construct_simple_protocol! {

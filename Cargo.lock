@@ -3012,6 +3012,8 @@ dependencies = [
  "pallet-session",
  "parity-scale-codec",
  "polymesh-primitives",
+ "polymesh-runtime-common",
+ "polymesh-runtime-identity",
  "safe-mix",
  "serde",
  "sp-io",
