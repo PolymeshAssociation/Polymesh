@@ -265,6 +265,7 @@ decl_module! {
 
             // Accept authorization from the owner
             let rotation_auth = <Authorizations<T>>::get(signer, rotation_auth_id);
+
             if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
                 // Ensure the request was made by the owner of master key
                 match rotation_auth.authorized_by {
@@ -276,7 +277,9 @@ decl_module! {
                 };
 
                 // Aceept authorization from KYC service provider
+
                 let kyc_auth = <Authorizations<T>>::get(signer, kyc_auth_id);
+
                 if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
                     // Attestor must be a KYC service provider
                     let kyc_provider_did = match kyc_auth.authorized_by {
@@ -603,7 +606,9 @@ decl_module! {
         pub fn batch_remove_authorization(
             origin,
             // Vec<(target_did, auth_id)>
+
             auth_identifiers: Vec<AuthIdentifier>
+
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did = Context::current_identity_or::<Self>(&sender_key)?;
@@ -621,6 +626,7 @@ decl_module! {
             for i in 0..auth_identifiers.len() {
                 let auth_identifier = &auth_identifiers[i];
                 Self::remove_auth(auth_identifier.0, auth_identifier.1, auths[i].authorized_by);
+
             }
 
             Ok(())
@@ -678,8 +684,10 @@ decl_module! {
                     for auth_id in auth_ids {
                         // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                         // It will just skip that particular authorization.
+
                         if <Authorizations<T>>::exists(signer, auth_id) {
                             let auth = <Authorizations<T>>::get(signer, auth_id);
+
                             // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::TransferTicker(_) =>
@@ -697,8 +705,10 @@ decl_module! {
                     for auth_id in auth_ids {
                         // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                         // It will just skip that particular authorization.
+
                         if <Authorizations<T>>::exists(signer, auth_id) {
                             let auth = <Authorizations<T>>::get(signer, auth_id);
+
                             //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::AddMultiSigSigner =>
@@ -959,14 +969,17 @@ impl<T: Trait> Module<T> {
             authorization_data,
             expiry,
         ));
+
         new_nonce
     }
 
     /// Remove any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
+
     pub fn remove_auth(target: Signatory, auth_id: u64, authorizer: Signatory) {
         <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven>::remove(authorizer, auth_id);
+
         Self::deposit_event(RawEvent::AuthorizationRemoved(auth_id, target));
     }
 
@@ -978,6 +991,7 @@ impl<T: Trait> Module<T> {
             return Err(AuthorizationError::Invalid.into());
         }
         let auth = <Authorizations<T>>::get(target, auth_id);
+
         if auth.authorized_by != from {
             // Not authorized to revoke this authorization
             return Err(AuthorizationError::Unauthorized.into());
@@ -988,6 +1002,7 @@ impl<T: Trait> Module<T> {
                 return Err(AuthorizationError::Expired.into());
             }
         }
+
         Self::remove_auth(target, auth_id, auth.authorized_by);
         Ok(())
     }
@@ -1032,7 +1047,6 @@ impl<T: Trait> Module<T> {
     pub fn update_link(target: Signatory, link_id: u64, link_data: LinkData) {
         if <Links<T>>::exists(target, link_id) {
             <Links<T>>::mutate(target, link_id, |link| link.link_data = link_data);
-
             Self::deposit_event(RawEvent::LinkUpdated(link_id, target));
         }
     }
