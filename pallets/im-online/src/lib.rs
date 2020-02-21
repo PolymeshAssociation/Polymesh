@@ -93,9 +93,7 @@ use sp_staking::{
     offence::{Kind, Offence, ReportOffence},
     SessionIndex,
 };
-use sp_std::convert::TryInto;
-use sp_std::prelude::*;
-use std::marker::PhantomData;
+use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 
 pub mod sr25519 {
     mod app_sr25519 {
@@ -227,19 +225,19 @@ pub trait Trait: frame_system::Trait + pallet_session::historical::Trait {
 }
 
 decl_event!(
-	pub enum Event<T> where
-		<T as Trait>::AuthorityId,
-		IdentificationTuple = IdentificationTuple<T>,
-	{
-		/// A new heartbeat was received from `AuthorityId`
-		HeartbeatReceived(AuthorityId),
-		/// At the end of the session, no offence was committed.
-		AllGood,
-		/// At the end of the session, at least once validator was found to be offline.
-		SomeOffline(Vec<IdentificationTuple>),
-		/// Newly updated slashing params.
-		SlashingParamsUpdated(OfflineSlashingParams),
-	}
+    pub enum Event<T> where
+        <T as Trait>::AuthorityId,
+        IdentificationTuple = IdentificationTuple<T>,
+    {
+        /// A new heartbeat was received from `AuthorityId`
+        HeartbeatReceived(AuthorityId),
+        /// At the end of the session, no offence was committed.
+        AllGood,
+        /// At the end of the session, at least once validator was found to be offline.
+        SomeOffline(Vec<IdentificationTuple>),
+        /// Newly updated slashing params.
+        SlashingParamsUpdated(OfflineSlashingParams),
+    }
 );
 
 decl_storage! {
