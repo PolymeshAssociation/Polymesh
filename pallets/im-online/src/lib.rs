@@ -672,7 +672,7 @@ pub struct UnresponsivenessOffence<T, Offender> {
     _inner: sp_std::marker::PhantomData<T>,
 }
 
-impl<T, Offender: Clone> Offence<Offender> for UnresponsivenessOffence<T, Offender> {
+impl<T: Trait, Offender: Clone> Offence<Offender> for UnresponsivenessOffence<T, Offender> {
     const ID: Kind = *b"im-online:offlin";
     type TimeSlot = SessionIndex;
 
@@ -696,7 +696,7 @@ impl<T, Offender: Clone> Offence<Offender> for UnresponsivenessOffence<T, Offend
         // the formula is min((3 * (k - (n / 10 + 1))) / n, 1) * 0.07
         // basically, 10% can be offline with no slash, but after that, it linearly climbs up to 7%
         // when 13/30 are offline (around 5% when 1/3 are offline).
-        let params: OfflineSlashingParams = <SlashingParams>::get();
+        let params: OfflineSlashingParams = <Module<T>>::slashing_params();
         if let Some(threshold) = offenders.checked_sub(validator_set_count / 10 + 1) {
             let x = Perbill::from_rational_approximation(3 * threshold, validator_set_count);
             x.saturating_mul(Perbill::from_percent(7))

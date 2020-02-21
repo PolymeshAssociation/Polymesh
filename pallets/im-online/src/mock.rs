@@ -71,7 +71,7 @@ impl pallet_session::historical::OnSessionEnding<u64, u64> for TestOnSessionEndi
 pub type Extrinsic = TestXt<Call, ()>;
 type SubmitTransaction = frame_system::offchain::TransactionSubmitter<(), Call, Extrinsic>;
 type IdentificationTuple = (u64, u64);
-type Offence = crate::UnresponsivenessOffence<ImOnline, IdentificationTuple>;
+type Offence = crate::UnresponsivenessOffence<Runtime, IdentificationTuple>;
 
 thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<u64>, Offence)>> = RefCell::new(vec![]);
