@@ -306,7 +306,12 @@ fn transfer_with_memo_we() {
         memo_2.clone()
     ));
 
-    assert_ok!(Balances::transfer_with_memo(Origin::signed(alice), bob, 300, None));
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        300,
+        None
+    ));
 
     let expected_events = vec![
         EventRecord {
