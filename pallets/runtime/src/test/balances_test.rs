@@ -290,7 +290,7 @@ fn transfer_with_memo_we() {
     let bob = AccountKeyring::Bob.public();
 
     let memo_1 = Some(Memo([7u8; 32]));
-    assert_ok!(Balances::transfer(
+    assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
         100,
@@ -299,14 +299,14 @@ fn transfer_with_memo_we() {
 
     System::set_block_number(2);
     let memo_2 = Some(Memo([42u8; 32]));
-    assert_ok!(Balances::transfer(
+    assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
         200,
         memo_2.clone()
     ));
 
-    assert_ok!(Balances::transfer(Origin::signed(alice), bob, 300, None));
+    assert_ok!(Balances::transfer_with_memo(Origin::signed(alice), bob, 300, None));
 
     let expected_events = vec![
         EventRecord {

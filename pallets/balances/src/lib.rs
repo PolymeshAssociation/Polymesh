@@ -369,6 +369,19 @@ decl_module! {
         pub fn transfer(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] value: T::Balance
+        )  -> DispatchResult {
+            let transactor = ensure_signed(origin)?;
+            let dest = T::Lookup::lookup(dest)?;
+            let fee = Self::transfer_core( &transactor, &dest, value)?;
+            Self::deposit_event(RawEvent::Transfer(
+                    transactor, dest, value, fee));
+            Ok(())
+        }
+
+        pub fn transfer_with_memo(
+            origin,
+            dest: <T::Lookup as StaticLookup>::Source,
             #[compact] value: T::Balance,
             memo: Option<Memo>
         )  -> DispatchResult {
