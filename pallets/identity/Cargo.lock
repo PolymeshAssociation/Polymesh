@@ -1014,25 +1014,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ink_prelude"
-version = "0.1.0"
-source = "git+https://github.com/paritytech/ink#321fe03a5c1cfc5b71e4d41ea9f09109d534cfee"
-dependencies = [
- "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "ink_primitives"
-version = "0.1.0"
-source = "git+https://github.com/paritytech/ink#321fe03a5c1cfc5b71e4d41ea9f09109d534cfee"
-dependencies = [
- "ink_prelude 0.1.0 (git+https://github.com/paritytech/ink)",
- "parity-scale-codec 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "tiny-keccak 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "type-metadata 0.1.0 (git+https://github.com/type-metadata/type-metadata.git)",
-]
-
-[[package]]
 name = "integer-sqrt"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2032,6 +2013,7 @@ dependencies = [
  "pallet-timestamp 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
  "parity-scale-codec 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "polymesh-primitives 0.6.0",
+ "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-api 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
  "sp-arithmetic 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
  "sp-core 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
@@ -3707,26 +3689,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "type-metadata"
-version = "0.1.0"
-source = "git+https://github.com/type-metadata/type-metadata.git#02eae9f35c40c943b56af5b60616219f2b72b47d"
-dependencies = [
- "derive_more 0.99.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
- "type-metadata-derive 0.1.0 (git+https://github.com/type-metadata/type-metadata.git)",
-]
-
-[[package]]
-name = "type-metadata-derive"
-version = "0.1.0"
-source = "git+https://github.com/type-metadata/type-metadata.git#02eae9f35c40c943b56af5b60616219f2b72b47d"
-dependencies = [
- "proc-macro2 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "syn 1.0.13 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "typenum"
 version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4180,8 +4142,6 @@ dependencies = [
 "checksum impl-serde 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "58e3cae7e99c7ff5a995da2cf78dd0a5383740eda71d98cf7b1910c301ac69b8"
 "checksum impl-serde 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5bbe9ea9b182f0fb1cabbd61f4ff9b7b7b9197955e95a7e4c27de5055eb29ff8"
 "checksum impl-trait-for-tuples 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "7ef5550a42e3740a0e71f909d4c861056a284060af885ae7aa6242820f920d9d"
-"checksum ink_prelude 0.1.0 (git+https://github.com/paritytech/ink)" = "<none>"
-"checksum ink_primitives 0.1.0 (git+https://github.com/paritytech/ink)" = "<none>"
 "checksum integer-sqrt 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "ea155abb3ba6f382a75f1418988c05fe82959ed9ce727de427f9cfd425b0c903"
 "checksum iovec 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "b2b3ea6ff95e175473f8ffe6a7eb7c00d054240321b84c57051175fe3c1e075e"
 "checksum ipnet 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f2f4b06b21db0228860c8dfd17d2106c49c7c6bd07477a4036985347d84def04"
@@ -4414,8 +4374,6 @@ dependencies = [
 "checksum trie-root 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0b779f7c1c8fe9276365d9d5be5c4b5adeacf545117bb3f64c974305789c5c0b"
 "checksum twofish 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "712d261e83e727c8e2dbb75dacac67c36e35db36a958ee504f2164fc052434e1"
 "checksum twox-hash 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3bfd5b7557925ce778ff9b9ef90e3ade34c524b5ff10e239c69a42d546d2af56"
-"checksum type-metadata 0.1.0 (git+https://github.com/type-metadata/type-metadata.git)" = "<none>"
-"checksum type-metadata-derive 0.1.0 (git+https://github.com/type-metadata/type-metadata.git)" = "<none>"
 "checksum typenum 1.11.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6d2783fe2d6b8c1101136184eb41be8b1ad379e4657050b8aaff0c79ee7575f9"
 "checksum uint 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e75a4cdd7b87b28840dba13c483b9a88ee6bbf16ba5c951ee1ecfcf723078e0d"
 "checksum unicode-bidi 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "49f2bd0c6468a8230e1db229cff8029217cf623c767ea5d60bfbd42729ea54d5"

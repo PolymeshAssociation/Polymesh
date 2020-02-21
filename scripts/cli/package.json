@@ -4,7 +4,16 @@
   "description": "Polymesh stats collector",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    
+    "0-create-identities": "node ./tests/0_create_identities.js",
+    "1-poly-transfer": "node ./tests/1_poly_transfer.js",
+    "2-key-management": "node ./tests/2_key_management.js",
+    "3-auth-join-did": "node ./tests/3_auth_join_to_did.js",
+    "4-permission-management": "node ./tests/4_permission_management.js",
+    "5-claim-management": "node ./tests/5_claim_management.js",
+    "6-create-assets": "node ./tests/6_create_assets.js",
+    "test": "npm run -s 0-create-identities && npm run -s 1-poly-transfer && npm run -s 2-key-management && npm run -s 3-auth-join-did && npm run -s 4-permission-management && npm run -s 5-claim-management && npm run -s 6-create-assets"
+  
   },
   "author": "Polymath Network",
   "license": "UNLICENSED",
