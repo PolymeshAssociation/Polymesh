@@ -66,12 +66,12 @@ fn issuers_can_create_and_rename_tokens() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert_err!(
             Asset::create_token(
                 owner_signed.clone(),
@@ -191,7 +191,7 @@ fn valid_transfers_pass() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
 
         let (_, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
 
@@ -245,7 +245,7 @@ fn valid_custodian_allowance() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
 
         let (investor1_signed, investor1_did) = make_account(AccountKeyring::Bob.public()).unwrap();
         let (investor2_signed, investor2_did) =
@@ -428,7 +428,7 @@ fn valid_custodian_allowance_of() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
 
         let (investor1_signed, investor1_did) = make_account(AccountKeyring::Bob.public()).unwrap();
         let (investor2_signed, investor2_did) =
@@ -625,7 +625,7 @@ fn checkpoints_fuzz_test() {
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from(token.name.as_slice());
             let (_, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
             // Issuance is successful
@@ -728,7 +728,7 @@ fn register_ticker() {
             ..Default::default()
         };
         let identifiers = vec![(IdentifierType::Custom(b"check".to_vec()), b"me".into())];
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
@@ -750,19 +750,19 @@ fn register_ticker() {
         }
 
         assert_err!(
-            Asset::register_ticker(owner_signed.clone(), Ticker::from_slice(&[0x01])),
+            Asset::register_ticker(owner_signed.clone(), Ticker::from(&[0x01][..])),
             "token already created"
         );
 
         assert_err!(
             Asset::register_ticker(
                 owner_signed.clone(),
-                Ticker::from_slice(&[0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01])
+                Ticker::from(&[0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01][..])
             ),
             "ticker length over the limit"
         );
 
-        let ticker = Ticker::from_slice(&[0x01, 0x01]);
+        let ticker = Ticker::from(&[0x01, 0x01][..]);
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
 
@@ -801,7 +801,7 @@ fn transfer_ticker() {
         let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
         let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
-        let ticker = Ticker::from_slice(&[0x01, 0x01]);
+        let ticker = Ticker::from(&[0x01, 0x01][..]);
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
@@ -903,7 +903,7 @@ fn transfer_token_ownership() {
         let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
         let token_name = vec![0x01, 0x01];
-        let ticker = Ticker::from_slice(token_name.as_slice());
+        let ticker = Ticker::from(token_name.as_slice());
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token_name.into(),
@@ -1001,7 +1001,7 @@ fn transfer_token_ownership() {
         auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
-            AuthorizationData::TransferTokenOwnership(Ticker::from_slice(&[0x50])),
+            AuthorizationData::TransferTokenOwnership(Ticker::from(&[0x50][..])),
             Some(now.timestamp() as u64 + 100),
         );
         assert_err!(
@@ -1037,7 +1037,7 @@ fn update_identifiers() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
@@ -1091,14 +1091,14 @@ fn adding_removing_documents() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
 
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
 
         let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         let ticker_did = Identity::get_token_did(&ticker).unwrap();
 
         // Issuance is successful
@@ -1225,7 +1225,7 @@ fn add_extension_successfully() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
@@ -1290,7 +1290,7 @@ fn add_same_extension_should_fail() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
@@ -1360,7 +1360,7 @@ fn should_successfully_archive_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
@@ -1435,7 +1435,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
@@ -1515,7 +1515,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
@@ -1556,7 +1556,7 @@ fn should_successfuly_unarchive_an_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
@@ -1641,7 +1641,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
         assert!(!<identity::DidRecords>::exists(
             Identity::get_token_did(&ticker).unwrap()
         ));
@@ -1724,7 +1724,7 @@ fn freeze_unfreeze_asset() {
         let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
         let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
         let token_name = b"COOL";
-        let ticker = Ticker::from_slice(token_name);
+        let ticker = Ticker::from(&token_name[..]);
         assert_ok!(Asset::create_token(
             alice_signed.clone(),
             token_name.into(),
