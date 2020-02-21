@@ -109,6 +109,7 @@ fn issuers_can_create_and_rename_tokens() {
             Signatory::from(owner_did),
             Asset::ticker_registration(ticker).link_id,
         );
+
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
         assert_eq!(ticker_link.expiry, None);
 
@@ -772,6 +773,7 @@ fn register_ticker() {
             Signatory::from(owner_did),
             Asset::ticker_registration(ticker).link_id,
         );
+
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
 
         let (alice_signed, _) = make_account(AccountKeyring::Alice.public()).unwrap();
@@ -861,6 +863,7 @@ fn transfer_ticker() {
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 - 100),
         );
+
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
             "Authorization expired"
@@ -872,6 +875,7 @@ fn transfer_ticker() {
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
         );
+
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
             AssetError::NoTickerTransferAuth
@@ -883,6 +887,7 @@ fn transfer_ticker() {
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 + 100),
         );
+
         assert_ok!(Asset::accept_ticker_transfer(bob_signed.clone(), auth_id));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
@@ -939,11 +944,13 @@ fn transfer_token_ownership() {
         let old_ticker = Asset::ticker_registration(ticker);
         let old_ticker_link =
             Identity::get_link(Signatory::from(old_ticker.owner), old_ticker.link_id);
+
         assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
 
         let old_token = Asset::token_details(ticker);
         let old_token_link =
             Identity::get_link(Signatory::from(old_token.owner_did), old_token.link_id);
+
         assert_eq!(old_token_link.link_data, LinkData::TokenOwned(ticker));
 
         assert_ok!(Asset::accept_token_ownership_transfer(
@@ -982,6 +989,7 @@ fn transfer_token_ownership() {
             AuthorizationData::TransferTokenOwnership(ticker),
             Some(now.timestamp() as u64 - 100),
         );
+
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             "Authorization expired"
@@ -993,6 +1001,7 @@ fn transfer_token_ownership() {
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
         );
+
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             AssetError::NotTickerOwnershipTransferAuth
@@ -1004,6 +1013,7 @@ fn transfer_token_ownership() {
             AuthorizationData::TransferTokenOwnership(Ticker::from_slice(&[0x50])),
             Some(now.timestamp() as u64 + 100),
         );
+
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             "Token does not exist"
@@ -1015,6 +1025,7 @@ fn transfer_token_ownership() {
             AuthorizationData::TransferTokenOwnership(ticker),
             Some(now.timestamp() as u64 + 100),
         );
+
         assert_ok!(Asset::accept_token_ownership_transfer(
             bob_signed.clone(),
             auth_id
@@ -1157,6 +1168,7 @@ fn adding_removing_documents() {
                 hash: b"0x2".into()
             })
         );
+
         assert_eq!(doc2.expiry, None);
 
         assert_ok!(Asset::update_documents(
@@ -1197,6 +1209,7 @@ fn adding_removing_documents() {
                 hash: b"0x3".into(),
             })
         );
+
         assert_eq!(doc1.expiry, None);
 
         assert_eq!(
@@ -1758,6 +1771,7 @@ fn freeze_unfreeze_asset() {
             Asset::freeze(alice_signed.clone(), ticker),
             "asset must not already be frozen"
         );
+
         // Attempt to mint tokens.
         assert_err!(
             Asset::issue(alice_signed.clone(), ticker, bob_did, 1, vec![]),
@@ -1774,10 +1788,12 @@ fn freeze_unfreeze_asset() {
             AuthorizationData::TransferTokenOwnership(ticker),
             None,
         );
+
         assert_ok!(Asset::accept_token_ownership_transfer(
             bob_signed.clone(),
             auth_id
         ));
+
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
             Asset::batch_issue(bob_signed.clone(), ticker, vec![bob_did], vec![1]),

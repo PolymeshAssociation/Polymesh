@@ -16,7 +16,6 @@ use polymesh_runtime_identity::{self as identity, Error};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
-
 use sp_core::H512;
 use test_client::AccountKeyring;
 
