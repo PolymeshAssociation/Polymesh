@@ -2210,6 +2210,8 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
+ "serde",
+ "serde_derive",
  "sp-api",
  "sp-arithmetic",
  "sp-core",

@@ -19,6 +19,8 @@ use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use sp_core::H512;
 use test_client::AccountKeyring;
 
+use std::convert::TryFrom;
+
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
@@ -871,45 +873,118 @@ fn removing_links() {
 
 #[test]
 fn changing_master_key() {
-    ExtBuilder::default().build().execute_with(|| {
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let alice_key = AccountKey::from(AccountKeyring::Alice.public().0);
+    ExtBuilder::default()
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .build()
+        .execute_with(|| changing_master_key_we());
+}
 
-        let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let new_key = AccountKey::from(AccountKeyring::Bob.public().0);
-        let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
+fn changing_master_key_we() {
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice_key = AccountKey::from(AccountKeyring::Alice.public().0);
 
-        let kyc_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let new_key = AccountKey::from(AccountKeyring::Bob.public().0);
+    let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
 
-        // Master key matches Alice's key
-        assert_eq!(Identity::did_records(alice_did).master_key, alice_key);
+    let kyc_acc = AccountKey::from(AccountKeyring::Eve.public().0);
+    let kyc_did = Identity::get_identity(&kyc_acc).unwrap();
 
-        // Alice triggers change of master key
-        let owner_auth_id = Identity::add_auth(
-            Signatory::AccountKey(alice_key),
-            Signatory::AccountKey(new_key),
-            AuthorizationData::RotateMasterKey(alice_did),
-            None,
-        );
+    // Master key matches Alice's key
+    assert_eq!(Identity::did_records(alice_did).master_key, alice_key);
 
-        let kyc_auth_id = Identity::add_auth(
-            Signatory::Identity(kyc_did),
-            Signatory::AccountKey(new_key),
-            AuthorizationData::AttestMasterKeyRotation(alice_did),
-            None,
-        );
+    // Alice triggers change of master key
+    let owner_auth_id = Identity::add_auth(
+        Signatory::AccountKey(alice_key),
+        Signatory::AccountKey(new_key),
+        AuthorizationData::RotateMasterKey(alice_did),
+        None,
+    );
 
-        // Accept the authorization with the new key
-        assert_ok!(Identity::accept_master_key(
-            new_key_origin.clone(),
-            owner_auth_id.clone(),
-            kyc_auth_id.clone()
-        ));
+    let kyc_auth_id = Identity::add_auth(
+        Signatory::Identity(kyc_did),
+        Signatory::AccountKey(new_key),
+        AuthorizationData::AttestMasterKeyRotation(alice_did),
+        None,
+    );
 
-        // Alice's master key is now Bob's
-        assert_eq!(
-            Identity::did_records(alice_did).master_key,
-            AccountKey::from(AccountKeyring::Bob.public().0)
-        );
-    });
+    // Accept the authorization with the new key
+    assert_ok!(Identity::accept_master_key(
+        new_key_origin.clone(),
+        owner_auth_id.clone(),
+        kyc_auth_id.clone()
+    ));
+
+    // Alice's master key is now Bob's
+    assert_eq!(
+        Identity::did_records(alice_did).master_key,
+        AccountKey::from(AccountKeyring::Bob.public().0)
+    );
+}
+
+#[test]
+fn cdd_register_did_test() {
+    ExtBuilder::default()
+        .existential_deposit(1_000)
+        .monied(true)
+        .cdd_providers(vec![
+            AccountKeyring::Eve.public(),
+            AccountKeyring::Ferdie.public(),
+        ])
+        .build()
+        .execute_with(|| cdd_register_did_test_we());
+}
+
+fn cdd_register_did_test_we() {
+    let kyc_1_acc = AccountKeyring::Eve.public();
+    let kyc_1_key = AccountKey::try_from(kyc_1_acc.0).unwrap();
+    let kyc_2_acc = AccountKeyring::Ferdie.public();
+    let kyc_2_key = AccountKey::try_from(kyc_2_acc.0).unwrap();
+    let non_id = Origin::signed(AccountKeyring::Charlie.public());
+
+    let alice_acc = AccountKeyring::Alice.public();
+    let alice_key = AccountKey::try_from(alice_acc.0).unwrap();
+    let bob_acc = AccountKeyring::Bob.public();
+    let bob_key = AccountKey::try_from(bob_acc.0).unwrap();
+
+    // KYC 1 registers correctly the Alice's ID.
+    assert_ok!(Identity::cdd_register_did(
+        Origin::signed(kyc_1_acc),
+        alice_acc,
+        10,
+        ClaimValue::default(),
+        vec![]
+    ));
+
+    // Check that Alice's ID is attested by KYC 1.
+    let alice_id = Identity::get_identity(&alice_key).unwrap();
+    let kyc_1_id = Identity::get_identity(&kyc_1_key).unwrap();
+    assert_eq!(Identity::has_valid_kyc(alice_id), Some(kyc_1_id));
+
+    // Error case: Try account without ID.
+    assert!(
+        Identity::cdd_register_did(non_id, bob_acc, 10, ClaimValue::default(), vec![]).is_err(),
+    );
+    // Error case: Try account with ID but it is not part of KYC providers.
+    assert!(Identity::cdd_register_did(
+        Origin::signed(alice_acc),
+        bob_acc,
+        10,
+        ClaimValue::default(),
+        vec![]
+    )
+    .is_err());
+
+    // KYC 2 registers properly Bob's ID.
+    assert_ok!(Identity::cdd_register_did(
+        Origin::signed(kyc_2_acc),
+        bob_acc,
+        10,
+        ClaimValue::default(),
+        vec![]
+    ));
+    let bob_id = Identity::get_identity(&bob_key).unwrap();
+    let kyc_2_id = Identity::get_identity(&kyc_2_key).unwrap();
+    assert_eq!(Identity::has_valid_kyc(bob_id), Some(kyc_2_id));
 }
