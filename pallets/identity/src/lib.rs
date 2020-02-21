@@ -32,8 +32,6 @@
 //! see [freeze_signing_keys](./struct.Module.html#method.freeze_signing_keys)
 //! see [unfreeze_signing_keys](./struct.Module.html#method.unfreeze_signing_keys)
 //!
-//! # TODO
-//!  - KYC is mocked: see [has_valid_kyc](./struct.Module.html#method.has_valid_kyc)
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -94,7 +92,7 @@ decl_storage! {
         Owner get(fn owner) config(): T::AccountId;
 
         /// DID -> identity info
-        pub DidRecords get(fn did_records): map IdentityId => DidRecord;
+        pub DidRecords get(fn did_records) config(): map IdentityId => DidRecord;
 
         /// DID -> bool that indicates if signing keys are frozen.
         pub IsDidFrozen get(fn is_did_frozen): map IdentityId => bool;
@@ -109,13 +107,10 @@ decl_storage! {
         pub ClaimKeys get(fn claim_keys): map IdentityId => Vec<ClaimMetaData>;
 
         // Account => DID
-        pub KeyToIdentityIds get(fn key_to_identity_ids): map AccountKey => Option<LinkedKeyInfo>;
+        pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map AccountKey => Option<LinkedKeyInfo>;
 
         /// How much does creating a DID cost
         pub DidCreationFee get(fn did_creation_fee) config(): T::Balance;
-
-        /// It stores validated identities by any KYC.
-        pub KYCValidation get(fn has_valid_kyc): map IdentityId => bool;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
@@ -149,15 +144,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
-
-        /// Register signing keys for a new DID. Uses origin key as the master key.
-        ///
-        /// # TODO
-        /// Signing keys should authorize its use in this identity.
-        ///
-        /// # Failure
-        /// - Master key (administrator) can be linked to just one identity.
-        /// - External signing keys can be linked to just one identity.
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             // TODO: Subtract proper fee.
@@ -167,7 +153,43 @@ decl_module! {
                 WithdrawReason::Fee.into(),
                 ExistenceRequirement::KeepAlive,
             )?;
-            Self::_register_did(sender, signing_items)
+
+            let _new_id = Self::_register_did(sender, signing_items)?;
+            Ok(())
+        }
+
+        /// Register `target_account` with a new Identity.
+        ///
+        /// # Failure
+        /// - `origin` has to be a trusted KYC provider.
+        /// - `target_account` (master key of the new Identity) can be linked to just one and only
+        /// one identity.
+        /// - External signing keys can be linked to just one identity.
+        ///
+        /// # TODO
+        /// - Imbalance: Since we are not handling the imbalance here, this will leave a hold in
+        ///     the total supply. We are reducing someone's balance but not increasing anyone's
+        ///     else balance or decreasing total supply. This will mean that the sum of all
+        ///     balances will become less than the total supply.
+        pub fn cdd_register_did(
+            origin,
+            target_account: T::AccountId,
+            cdd_claim_expiry: T::Moment,
+            cdd_claim: ClaimValue,
+            signing_items: Vec<SigningItem>
+        ) -> DispatchResult {
+            // Sender has to be part of KYCProviders
+            let cdd_sender = ensure_signed(origin)?;
+            let cdd_key = AccountKey::try_from(cdd_sender.encode())?;
+            let cdd_id = Context::current_identity_or::<Self>(&cdd_key)?;
+
+            let kyc_providers = T::KycServiceProviders::get_members();
+            ensure!( kyc_providers.into_iter().any( |kyc_id| kyc_id == cdd_id),
+                Error::<T>::UnAuthorizedKYCProvider);
+
+            // Register Identity and add claim.
+            let new_id = Self::_register_did(target_account, signing_items)?;
+            Self::unsafe_add_claim(new_id, KYC_EXPIRY_CLAIM_KEY.to_vec(), cdd_id, cdd_claim_expiry, cdd_claim)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -265,6 +287,7 @@ decl_module! {
 
             // Accept authorization from the owner
             let rotation_auth = <Authorizations<T>>::get(signer, rotation_auth_id);
+
             if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
                 // Ensure the request was made by the owner of master key
                 match rotation_auth.authorized_by {
@@ -276,7 +299,9 @@ decl_module! {
                 };
 
                 // Aceept authorization from KYC service provider
+
                 let kyc_auth = <Authorizations<T>>::get(signer, kyc_auth_id);
+
                 if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
                     // Attestor must be a KYC service provider
                     let kyc_provider_did = match kyc_auth.authorized_by {
@@ -336,30 +361,7 @@ decl_module! {
             let sender_signer = Signatory::AccountKey(sender_key);
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
 
-            let claim_meta_data = ClaimMetaData {
-                claim_key: claim_key,
-                claim_issuer: did_issuer,
-            };
-
-            let now = <pallet_timestamp::Module<T>>::get();
-
-            let claim = Claim {
-                issuance_date: now,
-                expiry: expiry,
-                claim_value: claim_value,
-            };
-
-            <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
-
-            <ClaimKeys>::mutate(&did, |old_claim_data| {
-                if !old_claim_data.contains(&claim_meta_data) {
-                    old_claim_data.push(claim_meta_data.clone());
-                }
-            });
-
-            Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
-
-            Ok(())
+            Self::unsafe_add_claim( did, claim_key, did_issuer, expiry, claim_value)
         }
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
@@ -430,7 +432,7 @@ decl_module! {
             // Please keep in mind that `current_did` is double-checked:
             //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
             //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
-            ensure!(Self::has_valid_kyc(target_did), "Invalid KYC validation on target did");
+            ensure!(Self::has_valid_kyc(target_did).is_some(), "Invalid KYC validation on target did");
 
             // 2. Actions
             Context::set_current_identity::<Self>(Some(target_did));
@@ -603,7 +605,9 @@ decl_module! {
         pub fn batch_remove_authorization(
             origin,
             // Vec<(target_did, auth_id)>
+
             auth_identifiers: Vec<AuthIdentifier>
+
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did = Context::current_identity_or::<Self>(&sender_key)?;
@@ -621,6 +625,7 @@ decl_module! {
             for i in 0..auth_identifiers.len() {
                 let auth_identifier = &auth_identifiers[i];
                 Self::remove_auth(auth_identifier.0, auth_identifier.1, auths[i].authorized_by);
+
             }
 
             Ok(())
@@ -678,8 +683,10 @@ decl_module! {
                     for auth_id in auth_ids {
                         // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                         // It will just skip that particular authorization.
+
                         if <Authorizations<T>>::exists(signer, auth_id) {
                             let auth = <Authorizations<T>>::get(signer, auth_id);
+
                             // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::TransferTicker(_) =>
@@ -697,8 +704,10 @@ decl_module! {
                     for auth_id in auth_ids {
                         // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
                         // It will just skip that particular authorization.
+
                         if <Authorizations<T>>::exists(signer, auth_id) {
                             let auth = <Authorizations<T>>::get(signer, auth_id);
+
                             //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::AddMultiSigSigner =>
@@ -929,6 +938,8 @@ decl_error! {
         UnknownAuthorization,
         /// Account Id cannot be extracted from signer
         InvalidAccountKey,
+        /// Only KYC service providers are allowed.
+        UnAuthorizedKYCProvider,
     }
 }
 
@@ -959,14 +970,17 @@ impl<T: Trait> Module<T> {
             authorization_data,
             expiry,
         ));
+
         new_nonce
     }
 
     /// Remove any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
+
     pub fn remove_auth(target: Signatory, auth_id: u64, authorizer: Signatory) {
         <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven>::remove(authorizer, auth_id);
+
         Self::deposit_event(RawEvent::AuthorizationRemoved(auth_id, target));
     }
 
@@ -978,6 +992,7 @@ impl<T: Trait> Module<T> {
             return Err(AuthorizationError::Invalid.into());
         }
         let auth = <Authorizations<T>>::get(target, auth_id);
+
         if auth.authorized_by != from {
             // Not authorized to revoke this authorization
             return Err(AuthorizationError::Unauthorized.into());
@@ -988,6 +1003,7 @@ impl<T: Trait> Module<T> {
                 return Err(AuthorizationError::Expired.into());
             }
         }
+
         Self::remove_auth(target, auth_id, auth.authorized_by);
         Ok(())
     }
@@ -1032,7 +1048,6 @@ impl<T: Trait> Module<T> {
     pub fn update_link(target: Signatory, link_id: u64, link_data: LinkData) {
         if <Links<T>>::exists(target, link_id) {
             <Links<T>>::mutate(target, link_id, |link| link.link_data = link_data);
-
             Self::deposit_event(RawEvent::LinkUpdated(link_id, target));
         }
     }
@@ -1156,6 +1171,21 @@ impl<T: Trait> Module<T> {
                 return claim_value;
             }
         }
+        None
+    }
+
+    pub fn has_valid_kyc(claim_for: IdentityId) -> Option<IdentityId> {
+        let trusted_kyc_providers = T::KycServiceProviders::get_members();
+        for trusted_kyc_provider in trusted_kyc_providers {
+            if let Some(_claim) = Self::fetch_claim_value(
+                claim_for,
+                KYC_EXPIRY_CLAIM_KEY.to_vec(),
+                trusted_kyc_provider,
+            ) {
+                return Some(trusted_kyc_provider);
+            }
+        }
+
         None
     }
 
@@ -1341,7 +1371,10 @@ impl<T: Trait> Module<T> {
         IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
     }
 
-    pub fn _register_did(sender: T::AccountId, signing_items: Vec<SigningItem>) -> DispatchResult {
+    pub fn _register_did(
+        sender: T::AccountId,
+        signing_items: Vec<SigningItem>,
+    ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
         // NB: this does not guarantee randomness
         let new_nonce =
@@ -1391,12 +1424,41 @@ impl<T: Trait> Module<T> {
             master_key,
             ..Default::default()
         };
-        <DidRecords>::insert(did, record);
+        <DidRecords>::insert(&did, record);
 
-        // TODO KYC is valid by default.
-        KYCValidation::insert(did, true);
+        Self::deposit_event(RawEvent::NewDid(did.clone(), sender, signing_items));
+        Ok(did)
+    }
 
-        Self::deposit_event(RawEvent::NewDid(did, sender, signing_items));
+    /// It adds a new claim without any previous security check.
+    fn unsafe_add_claim(
+        target_did: IdentityId,
+        claim_key: Vec<u8>,
+        did_issuer: IdentityId,
+        expiry: <T as pallet_timestamp::Trait>::Moment,
+        claim_value: ClaimValue,
+    ) -> DispatchResult {
+        let claim_meta_data = ClaimMetaData {
+            claim_key: claim_key,
+            claim_issuer: did_issuer,
+        };
+
+        let claim = Claim {
+            issuance_date: <pallet_timestamp::Module<T>>::get(),
+            expiry: expiry,
+            claim_value: claim_value,
+        };
+
+        <Claims<T>>::insert((target_did.clone(), claim_meta_data.clone()), claim.clone());
+
+        <ClaimKeys>::mutate(&target_did, |old_claim_data| {
+            if !old_claim_data.contains(&claim_meta_data) {
+                old_claim_data.push(claim_meta_data.clone());
+            }
+        });
+
+        Self::deposit_event(RawEvent::NewClaims(target_did, claim_meta_data, claim));
+
         Ok(())
     }
 }

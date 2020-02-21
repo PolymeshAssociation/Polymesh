@@ -89,13 +89,18 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
             // Other calls should be identified
             _ => {
                 let id_opt = Self::identity_from_key(who);
-                if let Some(id) = id_opt.clone() {
-                    if Identity::has_valid_kyc(id) {
+                if let Some(_id) = id_opt.clone() {
+                    // TODO KYC Claim validation is disable by now
+                    // and it will enable later.
+                    /*
+                    if Identity::has_valid_kyc(id).is_some() {
                         Context::set_current_identity::<Identity>(id_opt);
                         Ok(ValidTransaction::default())
                     } else {
                         Err(InvalidTransaction::Custom(TransactionError::RequiredKYC as u8).into())
-                    }
+                    }*/
+                    Context::set_current_identity::<Identity>(id_opt);
+                    Ok(ValidTransaction::default())
                 } else {
                     sp_runtime::print("ERROR: This transaction requires an Identity");
                     Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
@@ -116,18 +121,18 @@ mod tests {
     use crate::{
         runtime,
         test::{
-            storage::{register_keyring_account_with_balance, Identity, TestStorage},
+            storage::{Identity, TestStorage},
             ExtBuilder,
         },
         Runtime,
     };
 
-    use polymesh_primitives::TransactionError;
-    use polymesh_runtime_common::Context;
+    use polymesh_primitives::{AccountKey, TransactionError};
+    use polymesh_runtime_common::{traits::identity::ClaimValue, Context};
     use polymesh_runtime_identity as identity;
 
     use core::default::Default;
-    use frame_support::dispatch::DispatchInfo;
+    use frame_support::{assert_ok, dispatch::DispatchInfo};
     use sp_runtime::{
         traits::SignedExtension,
         transaction_validity::{InvalidTransaction, ValidTransaction},
@@ -136,10 +141,13 @@ mod tests {
 
     type Call = runtime::Call;
     type IdentityCall = identity::Call<Runtime>;
+    type Origin = <TestStorage as frame_system::Trait>::Origin;
 
     #[test]
     fn update_did_tests() {
         ExtBuilder::default()
+            .monied(true)
+            .cdd_providers(vec![AccountKeyring::Eve.public()])
             .build()
             .execute_with(&update_did_tests_with_externalities);
     }
@@ -148,9 +156,7 @@ mod tests {
         let update_did_se = <UpdateDid<TestStorage>>::new();
         let dispatch_info = DispatchInfo::default();
 
-        let alice_signed = AccountKeyring::Alice.public();
-        let alice_id =
-            register_keyring_account_with_balance(AccountKeyring::Alice, 10_000).unwrap();
+        let alice_acc = AccountKeyring::Alice.public();
 
         // let bob_id = register_keyring_account_with_balance( AccountKeyring::Bob, 5_000).unwrap();
         let charlie_signed = AccountKeyring::Charlie.public();
@@ -161,16 +167,27 @@ mod tests {
         // none.
         let register_did_call_1 = Call::Identity(IdentityCall::register_did(vec![]));
         assert_eq!(
-            update_did_se.validate(&alice_signed, &register_did_call_1, dispatch_info, 0usize),
+            update_did_se.validate(&alice_acc, &register_did_call_1, dispatch_info, 0usize),
             valid_transaction_ok
         );
         assert_eq!(Context::current_identity::<Identity>(), None);
+
+        // Identity Id needs to be registered by a KYC provider.
+        assert_ok!(Identity::cdd_register_did(
+            Origin::signed(AccountKeyring::Eve.public()),
+            alice_acc,
+            10,
+            ClaimValue::default(),
+            vec![]
+        ));
+        let alice_key = AccountKey::from(AccountKeyring::Alice.public().0);
+        let alice_id = Identity::get_identity(&alice_key).unwrap();
 
         // `Identity::add_signing_items` needs DID. `validate` updates `current_did` and
         // `post_dispatch` clears it.
         let add_signing_items_1 = Call::Identity(IdentityCall::add_signing_items(vec![]));
         assert_eq!(
-            update_did_se.validate(&alice_signed, &add_signing_items_1, dispatch_info, 0),
+            update_did_se.validate(&alice_acc, &add_signing_items_1, dispatch_info, 0),
             valid_transaction_ok
         );
         assert_eq!(Context::current_identity::<Identity>(), Some(alice_id));

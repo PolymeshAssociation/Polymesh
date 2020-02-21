@@ -32,97 +32,110 @@ macro_rules! assert_tx_approvals {
 
 #[test]
 fn can_issue_to_identity() {
-    ExtBuilder::default().build().execute_with(|| {
-        let alice_did =
-            register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
-        let bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
-        let charlie_did =
-            register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
-        let alice = Origin::signed(AccountKeyring::Alice.public());
-        let bob = Origin::signed(AccountKeyring::Bob.public());
-        let charlie = Origin::signed(AccountKeyring::Charlie.public());
-        assert_ok!(Balances::top_up_identity_balance(
-            alice.clone(),
-            alice_did,
-            555
-        ));
-        assert_ok!(Balances::top_up_identity_balance(bob.clone(), bob_did, 555));
-        assert_ok!(Balances::top_up_identity_balance(
-            charlie.clone(),
-            charlie_did,
-            555
-        ));
-        let relayers = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
-        assert_ok!(MultiSig::create_multisig(
-            alice.clone(),
-            vec![
-                Signatory::from(alice_did),
-                Signatory::from(bob_did),
-                Signatory::from(charlie_did)
-            ],
-            2,
-        ));
-        assert_ok!(Identity::_register_did(relayers.clone(), vec![]));
-        assert_eq!(MultiSig::ms_signs_required(relayers), 2);
-        let last_authorization = |did: IdentityId| {
-            <Authorizations>::iter_prefix(Signatory::from(did))
-                .next()
-                .unwrap()
-                .auth_id
-        };
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
-            alice.clone(),
-            last_authorization(alice_did)
-        ));
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
-            bob.clone(),
-            last_authorization(bob_did)
-        ));
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
-            charlie.clone(),
-            last_authorization(charlie_did)
-        ));
-        assert_eq!(
-            MultiSig::ms_signers(relayers, Signatory::from(alice_did)),
-            true
-        );
-        assert_eq!(
-            MultiSig::ms_signers(relayers, Signatory::from(bob_did)),
-            true
-        );
-        assert_eq!(
-            MultiSig::ms_signers(relayers, Signatory::from(charlie_did)),
-            true
-        );
-        assert_ok!(Bridge::change_relayers(
-            Origin::system(frame_system::RawOrigin::Root),
-            relayers
-        ));
-        assert_eq!(Bridge::relayers(), relayers);
-        let amount = 1_000_000_000_000_000_000_000;
-        let bridge_tx = BridgeTx {
-            nonce: 1,
-            recipient: IssueRecipient::Identity(bob_did),
-            amount,
-            tx_hash: Default::default(),
-        };
-        assert_eq!(Bridge::relayers(), relayers);
-        let proposal_id = || Bridge::bridge_tx_proposals(&bridge_tx);
-        assert_eq!(proposal_id(), None);
-        assert_tx_approvals!(relayers, 0, 0);
-        assert_tx_approvals!(relayers, 1, 0);
-        assert_ok!(Bridge::propose_bridge_tx(bob, bridge_tx.clone()));
-        assert_tx_approvals!(relayers, 0, 1);
-        assert_tx_approvals!(relayers, 1, 0);
-        let bobs_balance = Balances::identity_balance(bob_did);
-        assert_eq!(proposal_id(), Some(0));
-        assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
-        assert_tx_approvals!(relayers, 0, 2);
-        assert_tx_approvals!(relayers, 1, 0);
-        assert_eq!(proposal_id(), Some(0));
-        let new_bobs_balance = Balances::identity_balance(bob_did);
-        assert_eq!(new_bobs_balance, bobs_balance + amount);
-    });
+    ExtBuilder::default()
+        .existential_deposit(1_000)
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .build()
+        .execute_with(can_issue_to_identity_we);
+}
+
+fn can_issue_to_identity_we() {
+    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+    let charlie_did =
+        register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        555
+    ));
+    assert_ok!(Balances::top_up_identity_balance(bob.clone(), bob_did, 555));
+    assert_ok!(Balances::top_up_identity_balance(
+        charlie.clone(),
+        charlie_did,
+        555
+    ));
+    let relayers = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
+            Signatory::from(charlie_did)
+        ],
+        2,
+    ));
+    assert_eq!(
+        Identity::_register_did(relayers.clone(), vec![]).is_ok(),
+        true
+    );
+    assert_eq!(MultiSig::ms_signs_required(relayers), 2);
+    let last_authorization = |did: IdentityId| {
+        <Authorizations>::iter_prefix(Signatory::from(did))
+            .next()
+            .unwrap()
+            .auth_id
+    };
+    assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        alice.clone(),
+        last_authorization(alice_did)
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        bob.clone(),
+        last_authorization(bob_did)
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        charlie.clone(),
+        last_authorization(charlie_did)
+    ));
+    assert_eq!(
+        MultiSig::ms_signers(relayers, Signatory::from(alice_did)),
+        true
+    );
+    assert_eq!(
+        MultiSig::ms_signers(relayers, Signatory::from(bob_did)),
+        true
+    );
+    assert_eq!(
+        MultiSig::ms_signers(relayers, Signatory::from(charlie_did)),
+        true
+    );
+    assert_ok!(Bridge::change_relayers(
+        Origin::system(frame_system::RawOrigin::Root),
+        relayers
+    ));
+    assert_eq!(Bridge::relayers(), relayers);
+    let amount = 1_000_000_000_000_000_000_000;
+    let bridge_tx = BridgeTx {
+        nonce: 1,
+        recipient: IssueRecipient::Identity(bob_did),
+        amount,
+        tx_hash: Default::default(),
+    };
+    assert_eq!(Bridge::relayers(), relayers);
+    assert_eq!(Bridge::bridge_tx_proposals(&bridge_tx), None);
+    assert_tx_approvals!(relayers, 0, 0);
+    assert_tx_approvals!(relayers, 1, 0);
+
+    assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
+    assert_tx_approvals!(relayers, 0, 1);
+    assert_tx_approvals!(relayers, 1, 0);
+    let bobs_balance = Balances::identity_balance(bob_did);
+
+    assert_eq!(Bridge::bridge_tx_proposals(&bridge_tx), Some(0));
+    assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
+    assert_eq!(MultiSig::tx_approvals(&(relayers, 0)), 2);
+    assert_eq!(MultiSig::tx_approvals(&(relayers, 1)), 0);
+
+    assert_eq!(Bridge::bridge_tx_proposals(&bridge_tx), Some(0));
+    assert_ok!(Bridge::finalize_pending(bob, bob_did));
+
+    let new_bobs_balance = Balances::identity_balance(bob_did);
+    assert_eq!(new_bobs_balance, bobs_balance + amount);
 }
 
 #[test]
@@ -158,7 +171,10 @@ fn can_change_relayers() {
             ],
             2,
         ));
-        assert_ok!(Identity::_register_did(relayers.clone(), vec![]));
+        assert_eq!(
+            Identity::_register_did(relayers.clone(), vec![]).is_ok(),
+            true
+        );
         assert_eq!(MultiSig::ms_signs_required(relayers), 2);
         let last_authorization = |did: IdentityId| {
             <Authorizations>::iter_prefix(Signatory::from(did))
@@ -201,7 +217,10 @@ fn can_change_relayers() {
             vec![Signatory::from(bob_did), Signatory::from(charlie_did)],
             1,
         ));
-        assert_ok!(Identity::_register_did(new_relayers.clone(), vec![]));
+        assert_eq!(
+            Identity::_register_did(new_relayers.clone(), vec![]).is_ok(),
+            true
+        );
         assert_eq!(MultiSig::ms_signs_required(new_relayers), 1);
         let call = Box::new(Call::Bridge(bridge::Call::handle_relayers(new_relayers)));
         assert_tx_approvals!(relayers, 0, 0);
