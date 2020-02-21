@@ -581,7 +581,7 @@ dependencies = [
  "crossbeam-utils",
  "lazy_static",
  "memoffset",
- "scopeguard 1.0.0",
+ "scopeguard 1.1.0",
 ]
 
 [[package]]
@@ -642,9 +642,9 @@ dependencies = [
 
 [[package]]
 name = "ctrlc"
-version = "3.1.3"
+version = "3.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7dfd2d8b4c82121dfdff120f818e09fc4380b0b7e17a742081a89b94853e87f"
+checksum = "7a4ba686dff9fa4c1c9636ce1010b0cf98ceb421361b0bb3d6faeec43bd217a7"
 dependencies = [
  "nix",
  "winapi 0.3.8",
@@ -1391,9 +1391,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eff2656d88f158ce120947499e971d743c05dbcbed62e5bd2f38f1698bbc3772"
+checksum = "e2c55f143919fbc0bc77e427fe2d74cf23786d7c1875666f2fde3ac3c659bb67"
 dependencies = [
  "libc",
 ]
@@ -1645,7 +1645,7 @@ dependencies = [
 [[package]]
 name = "ink_prelude"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/ink#3f83a7c4770b3466931277f330e4ab2c93b030e2"
+source = "git+https://github.com/paritytech/ink#2aabc9b6308fa76bf96c6730a6917193a315059d"
 dependencies = [
  "cfg-if",
 ]
@@ -1653,7 +1653,7 @@ dependencies = [
 [[package]]
 name = "ink_primitives"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/ink#3f83a7c4770b3466931277f330e4ab2c93b030e2"
+source = "git+https://github.com/paritytech/ink#2aabc9b6308fa76bf96c6730a6917193a315059d"
 dependencies = [
  "ink_prelude",
  "parity-scale-codec",
@@ -1948,7 +1948,7 @@ dependencies = [
  "libp2p-websocket",
  "libp2p-yamux",
  "parity-multiaddr 0.6.0",
- "parity-multihash 0.2.2",
+ "parity-multihash 0.2.3",
  "parking_lot 0.9.0",
  "smallvec 0.6.13",
  "tokio-codec",
@@ -1975,7 +1975,7 @@ dependencies = [
  "log",
  "multistream-select",
  "parity-multiaddr 0.6.0",
- "parity-multihash 0.2.2",
+ "parity-multihash 0.2.3",
  "parking_lot 0.9.0",
  "protobuf",
  "quick-error",
@@ -2081,7 +2081,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "parity-multiaddr 0.6.0",
- "parity-multihash 0.2.2",
+ "parity-multihash 0.2.3",
  "protobuf",
  "rand 0.7.3",
  "sha2",
@@ -2379,7 +2379,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed946d4529956a20f2d63ebe1b69996d5a2137c91913fe3ebbeff957f5bca7ff"
 dependencies = [
- "scopeguard 1.0.0",
+ "scopeguard 1.1.0",
 ]
 
 [[package]]
@@ -2388,7 +2388,7 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79b2de95ecb4691949fea4716ca53cdbcfccb2c612e19644a8bad05edcf9f47b"
 dependencies = [
- "scopeguard 1.0.0",
+ "scopeguard 1.1.0",
 ]
 
 [[package]]
@@ -2591,9 +2591,9 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.14.1"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c722bee1037d430d0f8e687bbdbf222f27cc6e4e68d5caf630857bb2b6dbdce"
+checksum = "50e4785f2c3b7589a0d0c1dd60285e1188adac4006e8abd6dd578e1567027363"
 dependencies = [
  "bitflags",
  "cc",
@@ -3178,7 +3178,7 @@ dependencies = [
  "byteorder 1.3.4",
  "bytes 0.4.12",
  "data-encoding",
- "parity-multihash 0.2.2",
+ "parity-multihash 0.2.3",
  "percent-encoding 2.1.0",
  "serde",
  "unsigned-varint 0.2.3",
@@ -3202,9 +3202,9 @@ dependencies = [
 
 [[package]]
 name = "parity-multihash"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b11f42bbd3a021c5061b77154bd3334d5a57e1a03eb162de0b962681cc25800d"
+checksum = "7a1cd2ba02391b81367bec529fb209019d718684fdc8ad6a712c2b536e46f775"
 dependencies = [
  "blake2",
  "bytes 0.5.4",
@@ -3212,7 +3212,7 @@ dependencies = [
  "sha-1",
  "sha2",
  "sha3",
- "unsigned-varint 0.3.0",
+ "unsigned-varint 0.3.1",
 ]
 
 [[package]]
@@ -3707,9 +3707,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-error"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "875077759af22fa20b610ad4471d8155b321c89c3f2785526c9839b099be4e0a"
+checksum = "052b3c9af39c7e5e94245f820530487d19eb285faedcb40e0c3275132293f242"
 dependencies = [
  "proc-macro-error-attr",
  "proc-macro2 1.0.8",
@@ -3720,9 +3720,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-error-attr"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5717d9fa2664351a01ed73ba5ef6df09c01a521cb42cb65a061432a826f3c7a"
+checksum = "d175bef481c7902e63e3165627123fff3502f06ac043d3ef42d08c1246da9253"
 dependencies = [
  "proc-macro2 1.0.8",
  "quote 1.0.2",
@@ -4905,9 +4905,9 @@ checksum = "94258f53601af11e6a49f722422f6e3425c52b06245a5cf9bc09908b174f5e27"
 
 [[package]]
 name = "scopeguard"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b42e15e59b18a828bbf5c58ea01debb36b9b096346de35d941dcb89009f24a0d"
+checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "sct"
@@ -6345,9 +6345,9 @@ dependencies = [
 
 [[package]]
 name = "unsigned-varint"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c689459fbaeb50e56c6749275f084decfd02194ac5852e6617d95d0d3cf02eaf"
+checksum = "3b7ffb36714206d2f5f05d61a2bc350415c642f2c54433f0ebf829afbe41d570"
 
 [[package]]
 name = "untrusted"
