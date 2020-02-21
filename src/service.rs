@@ -88,13 +88,15 @@ macro_rules! new_full_start {
         })?
         .with_rpc_extensions(|client, _pool, _backend, _, _| -> Result<RpcExtension, _> {
             use contracts_rpc::{Contracts, ContractsApi};
+            use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
             // register contracts RPC extension
             let mut io = jsonrpc_core::IoHandler::default();
             io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
             io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
-                client,
+                client.clone(),
             )));
+            io.extend_with(StakingApi::to_delegate(Staking::new(client)));
             Ok(io)
         })?;
 

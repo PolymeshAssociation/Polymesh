@@ -2001,6 +2001,16 @@ impl<T: Trait> Module<T> {
         true
     }
 
+    /// Return reward curve points
+    pub fn get_curve() -> Vec<(Perbill, Perbill)> {
+        let curve = &T::RewardCurve::get();
+        let mut points: Vec<(Perbill, Perbill)> = Vec::new();
+        for pair in curve.points {
+            points.push(*pair)
+        }
+        points
+    }
+
     /// Ensures that at the end of the current session there will be a new era.
     fn ensure_new_era() {
         match ForceEra::get() {
