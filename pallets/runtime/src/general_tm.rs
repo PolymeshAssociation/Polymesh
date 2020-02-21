@@ -194,12 +194,18 @@ decl_module! {
 
         /// It pauses the verification of rules for `ticker` during transfers.
         pub fn pause_asset_rules(origin, ticker: Ticker) -> DispatchResult {
-            Self::pause_resume_rules(origin, ticker, true)
+            Self::pause_resume_rules(origin, ticker, true)?;
+
+            Self::deposit_event(Event::PauseAssetRules(ticker));
+            Ok(())
         }
 
         /// It resumes the verification of rules for `ticker` during transfers.
         pub fn resume_asset_rules(origin, ticker: Ticker) -> DispatchResult {
-            Self::pause_resume_rules(origin, ticker, false)
+            Self::pause_resume_rules(origin, ticker, false)?;
+
+            Self::deposit_event(Event::ResumeAssetRules(ticker));
+            Ok(())
         }
     }
 }
