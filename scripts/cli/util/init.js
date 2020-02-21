@@ -169,7 +169,7 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
     };
   
       const unsub = await api.tx.identity
-      .addSigningItems(dids[i], [signing_item])
+      .addSigningItems([signing_item])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     

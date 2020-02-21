@@ -59,7 +59,7 @@ async function addSigningKeyRoles(api, accounts, dids, signing_accounts) {
       let signer = {  AccountKey: signing_accounts[i].publicKey };
       
         const unsub = await api.tx.identity
-        .setPermissionToSigner(dids[i], signer, reqImports["sk_roles"][i%reqImports["sk_roles"].length])
+        .setPermissionToSigner(signer, reqImports["sk_roles"][i%reqImports["sk_roles"].length])
         .signAndSend(accounts[i],
           { nonce: reqImports["nonces"].get(accounts[i].address) },
           ({ events = [], status }) => {

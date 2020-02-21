@@ -57,7 +57,7 @@ async function issueTokenPerDid(api, accounts, dids, prepend) {
       const ticker = `token${prepend}${i}`;
      
         const unsub = await api.tx.asset
-        .createToken(dids[i], ticker, ticker, 1000000, true, 0, [], "abc")
+        .createToken(ticker, ticker, 1000000, true, 0, [], "abc")
         .signAndSend(accounts[i],
           { nonce: reqImports["nonces"].get(accounts[i].address) },
           ({ events = [], status }) => {
