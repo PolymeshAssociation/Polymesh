@@ -88,8 +88,6 @@ jobs:
             - cli-cache-{{ checksum "./rust.version" }}
             - release-cache-{{ checksum "./rust.version" }}
       - run:
-          command: echo $CARGO_HOME
-      - run:
           name: Build release
           command: cargo build -j 1 --release
           no_output_timeout: 4h
