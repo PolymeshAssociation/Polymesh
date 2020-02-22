@@ -64,7 +64,7 @@ jobs:
           command: cargo test
           working_directory: ./pallets/runtime
           no_output_timeout: 60m
-      - testing_dir:
+      - run:
           command: pwd
       - save_cache:
           key: debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
