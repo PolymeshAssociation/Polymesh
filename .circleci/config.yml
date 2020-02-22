@@ -28,7 +28,6 @@ jobs:
             - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
             - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - release-cache-{{ checksum "./rust.version" }}
-            - release-cache
       - run:
           name: Build release
           command: cargo build -j 1 --release
@@ -39,7 +38,6 @@ jobs:
             - "~/.cargo"
             - "./target"
             - "./pallets/runtime/target"
-            - "./pallets/runtime/wasm/target"
   test:
     docker:
       - image: maxsam4/rust
@@ -55,24 +53,20 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
-            - debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - debug-cache-{{ checksum "./rust.version" }}
-            - debug-cache
+            - test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+            - test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - test-cache-{{ checksum "./rust.version" }}
       - run:
           name: runtime tests
           command: cargo test
           working_directory: ./pallets/runtime
           no_output_timeout: 60m
-      - run:
-          command: pwd
       - save_cache:
-          key: debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+          key: test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
             - "./pallets/runtime/target"
-            - "./pallets/runtime/wasm/target"
   cli:
     docker:
       - image: maxsam4/rust
@@ -88,10 +82,13 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
-            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
+            - cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+            - cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - cli-cache-{{ checksum "./rust.version" }}
             - release-cache-{{ checksum "./rust.version" }}
-            - release-cache
+      - run:
+          command: echo $CARGO_HOME
       - run:
           name: Build release
           command: cargo build -j 1 --release
@@ -100,7 +97,6 @@ jobs:
           name: cli node instance
           command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
           background: true
-          no_output_timeout: 10m
       - run:
           name: cli scripts install
           command: npm install
@@ -112,18 +108,17 @@ jobs:
           working_directory: ./scripts/cli
           no_output_timeout: 30m
       - save_cache:
-          key: debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+          key: cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
           paths:
             - "~/.cargo"
             - "./target"
             - "./pallets/runtime/target"
-            - "./pallets/runtime/wasm/target"
+            - "./scripts/cli/node_modules"
 workflows:
   version: 2
   commit:
     jobs:
       - lint
-      - build
       - test
       - cli
   daily-builds:
