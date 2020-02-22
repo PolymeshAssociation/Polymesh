@@ -64,6 +64,8 @@ jobs:
           command: cargo test
           working_directory: ./pallets/runtime
           no_output_timeout: 60m
+      - testing_dir:
+          command: pwd
       - save_cache:
           key: debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
           paths:
@@ -95,7 +97,7 @@ jobs:
           command: cargo build -j 1 --release
           no_output_timeout: 4h
       - run:
-          name: cli node instance 
+          name: cli node instance
           command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
           background: true
           no_output_timeout: 10m
@@ -103,7 +105,7 @@ jobs:
           name: cli scripts install
           command: npm install
           working_directory: ./scripts/cli
-          no_output_timeout: 30m                    
+          no_output_timeout: 30m
       - run:
           name: cli scripts test
           command: npm test
