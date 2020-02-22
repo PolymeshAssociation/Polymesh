@@ -18,14 +18,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Build concatenated lock file for caching
-          command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
-      - run:
           name: Store rust version in an environment var for cache key
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
             - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - release-cache-{{ checksum "./rust.version" }}
       - run:
@@ -33,11 +29,10 @@ jobs:
           command: cargo build -j 1 --release
           no_output_timeout: 4h
       - save_cache:
-          key: release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+          key: release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
-            - "./pallets/runtime/target"
   test:
     docker:
       - image: maxsam4/rust
@@ -46,14 +41,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Build concatenated lock file for caching
-          command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
-      - run:
           name: Store rust version in a file for cache key
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
             - test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - test-cache-{{ checksum "./rust.version" }}
       - run:
@@ -62,10 +53,9 @@ jobs:
           working_directory: ./pallets/runtime
           no_output_timeout: 60m
       - save_cache:
-          key: test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+          key: test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
-            - "./target"
             - "./pallets/runtime/target"
   cli:
     docker:
@@ -75,15 +65,11 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Build concatenated lock file for caching
-          command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
-      - run:
           name: Store rust version in a file for cache key
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
-            - cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+            - cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
             - cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - cli-cache-{{ checksum "./rust.version" }}
             - release-cache-{{ checksum "./rust.version" }}
@@ -106,11 +92,10 @@ jobs:
           working_directory: ./scripts/cli
           no_output_timeout: 30m
       - save_cache:
-          key: cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
+          key: cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
           paths:
             - "~/.cargo"
             - "./target"
-            - "./pallets/runtime/target"
             - "./scripts/cli/node_modules"
 workflows:
   version: 2
