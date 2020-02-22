@@ -1,11 +1,15 @@
 use codec::{Decode, Encode};
-use sp_std::prelude::Vec;
+use sp_core::sr25519::Public;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+use sp_std::{convert::From, prelude::Vec};
 
 use crate::{AccountKey, IdentityRole, Signatory, SigningItem};
 
 /// Identity information.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Identity {
     pub roles: Vec<IdentityRole>,
     pub master_key: AccountKey,
@@ -38,5 +42,23 @@ impl Identity {
         });
 
         self
+    }
+}
+
+impl From<AccountKey> for Identity {
+    fn from(acc: AccountKey) -> Self {
+        Identity {
+            master_key: acc,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Public> for Identity {
+    fn from(p: Public) -> Self {
+        Identity {
+            master_key: AccountKey::from(p.0),
+            ..Default::default()
+        }
     }
 }

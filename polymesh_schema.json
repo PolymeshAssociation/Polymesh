@@ -225,7 +225,8 @@
     "MipsMetadata": {
         "index": "u32",
         "end": "u64",
-        "proposal_hash": "Hash"
+        "proposal_hash": "Hash",
+        "url": "Vec<u8>"
     },
     "PolymeshVotes": {
         "index": "u32",

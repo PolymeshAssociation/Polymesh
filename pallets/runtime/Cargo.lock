@@ -2645,6 +2645,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
+ "serde",
  "sp-api",
  "sp-arithmetic",
  "sp-core",
