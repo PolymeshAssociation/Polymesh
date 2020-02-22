@@ -22,14 +22,15 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - release-cache-{{ checksum "./rust.version" }}
+            - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
+            - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v2-release-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
           command: cargo build -j 1 --release
           no_output_timeout: 4h
       - save_cache:
-          key: release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -45,15 +46,15 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - test-cache-{{ checksum "./rust.version" }}
+            - v2-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v2-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: runtime tests
           command: cargo test
           working_directory: ./pallets/runtime
           no_output_timeout: 60m
       - save_cache:
-          key: test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: v2-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./pallets/runtime/target"
@@ -69,10 +70,13 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
-            - cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - cli-cache-{{ checksum "./rust.version" }}
-            - release-cache-{{ checksum "./rust.version" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
+            - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}
+            - v2-release-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
           command: cargo build -j 1 --release
@@ -92,7 +96,7 @@ jobs:
           working_directory: ./scripts/cli
           no_output_timeout: 30m
       - save_cache:
-          key: cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
+          key: v2-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
           paths:
             - "~/.cargo"
             - "./target"
