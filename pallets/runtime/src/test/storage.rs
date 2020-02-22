@@ -11,8 +11,8 @@ use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::{
-    dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin, parameter_types,
-    traits::Currency,
+    dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
+    parameter_types, traits::Currency,
 };
 use frame_system::{self as system, EnsureSignedBy};
 use sp_core::{
@@ -41,6 +41,27 @@ impl_outer_dispatch! {
     }
 }
 
+impl_outer_event! {
+    pub enum EventTest for TestStorage {
+        identity<T>,
+        balances<T>,
+        multisig<T>,
+        percentage_tm<T>,
+        bridge<T>,
+        asset<T>,
+        pallet_contracts<T>,
+        pallet_session,
+        general_tm,
+        exemption,
+    }
+}
+
+impl From<()> for EventTest {
+    fn from(_: ()) -> Self {
+        unimplemented!()
+    }
+}
+
 // For testing the module, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
 // configuration traits of modules we want to use.
@@ -56,7 +77,7 @@ type Lookup = IdentityLookup<AccountId>;
 type OffChainSignature = AnySignature;
 type SessionIndex = u32;
 type AuthorityId = <AnySignature as Verify>::Signer;
-type Event = ();
+type Event = EventTest;
 type Version = ();
 
 parameter_types! {
@@ -123,7 +144,7 @@ impl pallet_timestamp::Trait for TestStorage {
 }
 
 impl multisig::Trait for TestStorage {
-    type Event = ();
+    type Event = Event;
 }
 
 parameter_types! {
