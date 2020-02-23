@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
+// Modified by Polymath Inc - 23rd Febuary 2020
+// Added ability to update slashing parameters
+
 //! # I'm online Module
 //!
 //! If the local node is a validator (i.e. contains an authority key), this module
@@ -38,6 +41,7 @@
 //! ### Public Functions
 //!
 //! - `is_online` - True if the validator sent a heartbeat in the current session.
+//! - 
 //!
 //! ## Usage
 //!
