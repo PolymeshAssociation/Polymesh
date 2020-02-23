@@ -41,7 +41,6 @@
 //! ### Public Functions
 //!
 //! - `is_online` - True if the validator sent a heartbeat in the current session.
-//! - 
 //!
 //! ## Usage
 //!
