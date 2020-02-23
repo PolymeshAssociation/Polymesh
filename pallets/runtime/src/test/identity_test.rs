@@ -760,7 +760,7 @@ fn adding_authorizations() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
-        let ticker50 = Ticker::from_slice(&[0x50]);
+        let ticker50 = Ticker::from(&[0x50][..]);
         let mut auth_id = Identity::add_auth(
             alice_did,
             bob_did,
@@ -804,7 +804,7 @@ fn removing_authorizations() {
         let alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
-        let ticker50 = Ticker::from_slice(&[0x50]);
+        let ticker50 = Ticker::from(&[0x50][..]);
         let auth_id = Identity::add_auth(
             alice_did,
             bob_did,
@@ -836,8 +836,8 @@ fn removing_authorizations() {
 fn adding_links() {
     ExtBuilder::default().build().execute_with(|| {
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
-        let ticker50 = Ticker::from_slice(&[0x50]);
-        let ticker51 = Ticker::from_slice(&[0x51]);
+        let ticker50 = Ticker::from(&[0x50][..]);
+        let ticker51 = Ticker::from(&[0x51][..]);
         let mut link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
         let mut link = Identity::get_link(bob_did, link_id);
         assert_eq!(link.expiry, None);
@@ -861,7 +861,7 @@ fn adding_links() {
 fn removing_links() {
     ExtBuilder::default().build().execute_with(|| {
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
-        let ticker50 = Ticker::from_slice(&[0x50]);
+        let ticker50 = Ticker::from(&[0x50][..]);
         let link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
         let link = Identity::get_link(bob_did, link_id);
         assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));

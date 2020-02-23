@@ -40,7 +40,7 @@ fn investor_count_per_asset_with_ext() {
     };
 
     let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
-    let ticker = Ticker::from_slice(token.name.as_slice());
+    let ticker = Ticker::from(token.name.as_slice());
     assert_ok!(Asset::create_token(
         alice_signed.clone(),
         token.name.clone(),
@@ -58,7 +58,7 @@ fn investor_count_per_asset_with_ext() {
         receiver_rules: vec![],
     };
 
-    let ticker = Ticker::from_slice(token.name.as_slice());
+    let ticker = Ticker::from(token.name.as_slice());
     assert_ok!(GeneralTM::add_active_rule(
         alice_signed.clone(),
         ticker,

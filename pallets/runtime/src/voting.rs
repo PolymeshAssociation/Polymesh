@@ -156,7 +156,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), Error::<T>::InvalidOwner);
 
             // This avoids cloning the variables to make the same tupple again and again.
@@ -210,7 +209,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
-            ticker.canonize();
 
             // This avoids cloning the variables to make the same tupple again and again
             let ticker_ballot_name = (ticker, ballot_name.clone());
@@ -281,7 +279,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), Error::<T>::InvalidOwner);
 
             // This avoids cloning the variables to make the same tupple again and again
@@ -726,7 +723,7 @@ mod tests {
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from(token.name.as_slice());
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
@@ -885,7 +882,7 @@ mod tests {
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from(token.name.as_slice());
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
@@ -975,7 +972,7 @@ mod tests {
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from(token.name.as_slice());
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_acc.clone(),
