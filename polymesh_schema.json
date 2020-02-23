@@ -320,6 +320,7 @@
             "ForceValid"
         ]
     },
+    "Memo": "[u8;32]",
     "IssueRecipient": {
         "_enum": {
             "Account": "AccountKey",
