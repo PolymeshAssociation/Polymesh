@@ -99,6 +99,12 @@ pub struct AssetRule {
     pub receiver_rules: Vec<RuleData>,
 }
 
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct AssetRules {
+    pub is_paused: bool,
+    pub rules: Vec<AssetRule>,
+}
+
 /// Details about individual rules
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct RuleData {
@@ -122,7 +128,7 @@ type Identity<T> = identity::Module<T>;
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
         /// List of active rules for a ticker (Ticker -> Array of AssetRules)
-        pub ActiveRules get(fn active_rules): map Ticker => Vec<AssetRule>;
+        pub AssetRulesMap get(fn asset_rules): map Ticker => AssetRules;
     }
 }
 
@@ -139,12 +145,11 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
-            <ActiveRules>::mutate(ticker, |old_asset_rules| {
-                if !old_asset_rules.contains(&asset_rule) {
-                    old_asset_rules.push(asset_rule.clone());
+            <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
+                if !old_asset_rules.rules.contains(&asset_rule) {
+                    old_asset_rules.rules.push(asset_rule.clone());
                 }
             });
 
@@ -160,15 +165,10 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
-            <ActiveRules>::mutate(ticker, |old_asset_rules| {
-                *old_asset_rules = old_asset_rules
-                    .iter()
-                    .cloned()
-                    .filter(|an_asset_rule| *an_asset_rule != asset_rule)
-                    .collect();
+            <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
+                old_asset_rules.rules.retain( |rule| { *rule != asset_rule });
             });
 
             Self::deposit_event(Event::RemoveAssetRule(ticker, asset_rule));
@@ -183,13 +183,28 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
-            <ActiveRules>::remove(ticker);
+            <AssetRulesMap>::remove(ticker);
 
             Self::deposit_event(Event::ResetAssetRules(ticker));
 
+            Ok(())
+        }
+
+        /// It pauses the verification of rules for `ticker` during transfers.
+        pub fn pause_asset_rules(origin, ticker: Ticker) -> DispatchResult {
+            Self::pause_resume_rules(origin, ticker, true)?;
+
+            Self::deposit_event(Event::PauseAssetRules(ticker));
+            Ok(())
+        }
+
+        /// It resumes the verification of rules for `ticker` during transfers.
+        pub fn resume_asset_rules(origin, ticker: Ticker) -> DispatchResult {
+            Self::pause_resume_rules(origin, ticker, false)?;
+
+            Self::deposit_event(Event::ResumeAssetRules(ticker));
             Ok(())
         }
     }
@@ -200,6 +215,8 @@ decl_event!(
         NewAssetRule(Ticker, AssetRule),
         RemoveAssetRule(Ticker, AssetRule),
         ResetAssetRules(Ticker),
+        ResumeAssetRules(Ticker),
+        PauseAssetRules(Ticker),
     }
 );
 
@@ -224,8 +241,12 @@ impl<T: Trait> Module<T> {
         _value: T::Balance,
     ) -> StdResult<u8, &'static str> {
         // Transfer is valid if All reciever and sender rules of any asset rule are valid.
-        let active_rules = Self::active_rules(ticker);
-        for active_rule in active_rules {
+        let asset_rules = Self::asset_rules(ticker);
+        if asset_rules.is_paused {
+            return Ok(ERC1400_TRANSFER_SUCCESS);
+        }
+
+        for active_rule in asset_rules.rules {
             let mut rule_broken = false;
 
             if let Some(from_did) = from_did_opt {
@@ -283,6 +304,24 @@ impl<T: Trait> Module<T> {
         sp_runtime::print("Identity TM restrictions not satisfied");
         Ok(ERC1400_TRANSFER_FAILURE)
     }
+
+    pub fn pause_resume_rules(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
+        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        let sender = Signatory::AccountKey(sender_key);
+
+        ensure!(
+            <identity::Module<T>>::is_signer_authorized(did, &sender),
+            "sender must be a signing key for DID"
+        );
+        ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+
+        <AssetRulesMap>::mutate(&ticker, |asset_rules| {
+            asset_rules.is_paused = pause;
+        });
+
+        Ok(())
+    }
 }
 
 /// tests for this module
@@ -292,7 +331,7 @@ mod tests {
     use chrono::prelude::*;
     use frame_support::traits::Currency;
     use frame_support::{
-        assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
+        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
         parameter_types,
     };
     use frame_system::EnsureSignedBy;
@@ -641,7 +680,7 @@ mod tests {
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.0.as_slice());
+            let ticker = Ticker::from(token.name.0.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             // Share issuance is successful
@@ -723,7 +762,7 @@ mod tests {
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.0.as_slice());
+            let ticker = Ticker::from(token.name.0.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             // Share issuance is successful
@@ -813,7 +852,7 @@ mod tests {
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.0.as_slice());
+            let ticker = Ticker::from(token.name.0.as_slice());
             Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
             // Share issuance is successful
@@ -839,16 +878,129 @@ mod tests {
                 asset_rule
             ));
 
-            let asset_rules = GeneralTM::active_rules(ticker);
-            assert_eq!(asset_rules.len(), 1);
+            let asset_rules = GeneralTM::asset_rules(ticker);
+            assert_eq!(asset_rules.rules.len(), 1);
 
             assert_ok!(GeneralTM::reset_active_rules(
                 token_owner_signed.clone(),
                 ticker
             ));
 
-            let asset_rules_new = GeneralTM::active_rules(ticker);
-            assert_eq!(asset_rules_new.len(), 0);
+            let asset_rules_new = GeneralTM::asset_rules(ticker);
+            assert_eq!(asset_rules_new.rules.len(), 0);
         });
+    }
+
+    #[test]
+    fn pause_resume_asset_rules() {
+        identity_owned_by_alice().execute_with(pause_resume_asset_rules_we);
+    }
+
+    fn pause_resume_asset_rules_we() {
+        // 0. Create accounts
+        let token_owner_acc = AccountId::from(AccountKeyring::Alice);
+        let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
+        let receiver_acc = AccountId::from(AccountKeyring::Charlie);
+        let (receiver_signed, receiver_did) = make_account(&receiver_acc.clone()).unwrap();
+
+        Balances::make_free_balance_be(&receiver_acc, 1_000_000);
+
+        // 1. A token representing 1M shares
+        let token = SecurityToken {
+            name: vec![0x01].into(),
+            owner_did: token_owner_did.clone(),
+            total_supply: 1_000_000,
+            divisible: true,
+            asset_type: AssetType::default(),
+            ..Default::default()
+        };
+        let ticker = Ticker::from(token.name.0.as_slice());
+        Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+
+        // 2. Share issuance is successful
+        assert_ok!(Asset::create_token(
+            token_owner_signed.clone(),
+            token.name.clone(),
+            ticker,
+            token.total_supply,
+            true,
+            token.asset_type.clone(),
+            vec![],
+            None
+        ));
+
+        // 3. Add claim to receiver.
+        let claim_value = ClaimValue {
+            data_type: DataTypes::U8,
+            value: 50u8.encode(),
+        };
+        let claim_key = b"some_key".to_vec();
+        assert_ok!(Identity::add_claim(
+            receiver_signed.clone(),
+            receiver_did.clone(),
+            claim_key.clone(),
+            receiver_did.clone(),
+            99999999999999999u64,
+            claim_value.clone()
+        ));
+        let now = Utc::now();
+        <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+        // 4. Define rules
+        let receiver_rules = vec![RuleData {
+            key: claim_key,
+            value: 15u8.encode(),
+            trusted_issuers: vec![receiver_did],
+            operator: Operators::LessThan,
+        }];
+
+        let asset_rule = AssetRule {
+            sender_rules: vec![],
+            receiver_rules,
+        };
+        assert_ok!(GeneralTM::add_active_rule(
+            token_owner_signed.clone(),
+            ticker,
+            asset_rule
+        ));
+
+        // 5. Verify pause/resume mechanism.
+        // 5.1. Transfer should be cancelled.
+        assert_err!(
+            Asset::transfer(
+                token_owner_signed.clone(),
+                ticker,
+                token_owner_did.clone(),
+                10
+            ),
+            "Transfer restrictions failed"
+        );
+
+        // 5.2. Pause asset rules, and run the transaction.
+        assert_ok!(GeneralTM::pause_asset_rules(
+            token_owner_signed.clone(),
+            ticker
+        ));
+        assert_ok!(Asset::transfer(
+            token_owner_signed.clone(),
+            ticker,
+            token_owner_did.clone(),
+            10
+        ));
+
+        // 5.3. Resume asset rules, and new transfer should fail again.
+        assert_ok!(GeneralTM::resume_asset_rules(
+            token_owner_signed.clone(),
+            ticker
+        ));
+        assert_err!(
+            Asset::transfer(
+                token_owner_signed.clone(),
+                ticker,
+                token_owner_did.clone(),
+                10
+            ),
+            "Transfer restrictions failed"
+        );
     }
 }

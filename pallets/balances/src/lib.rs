@@ -165,7 +165,7 @@ use polymesh_primitives::{
     AccountKey, IdentityId, Permission, Signatory,
 };
 use polymesh_runtime_common::traits::{
-    balances::{BalancesTrait, RawEvent},
+    balances::{BalancesTrait, Memo, RawEvent},
     identity::IdentityTrait,
     NegativeImbalance, PositiveImbalance,
 };
@@ -370,10 +370,34 @@ decl_module! {
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
             #[compact] value: T::Balance
-        ) {
+        )  -> DispatchResult {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            <Self as Currency<_>>::transfer(&transactor, &dest, value, ExistenceRequirement::AllowDeath)?;
+            let fee = Self::transfer_core( &transactor, &dest, value)?;
+            Self::deposit_event(RawEvent::Transfer(
+                    transactor, dest, value, fee));
+            Ok(())
+        }
+
+        pub fn transfer_with_memo(
+            origin,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] value: T::Balance,
+            memo: Option<Memo>
+        )  -> DispatchResult {
+            let transactor = ensure_signed(origin)?;
+            let dest = T::Lookup::lookup(dest)?;
+            let fee = Self::transfer_core( &transactor, &dest, value)?;
+
+            if let Some(memo) = memo {
+                Self::deposit_event(RawEvent::TransferWithMemo(
+                    transactor, dest, value, fee, memo));
+            } else {
+                Self::deposit_event(RawEvent::Transfer(
+                        transactor, dest, value, fee));
+            }
+
+            Ok(())
         }
 
         /// Move some poly from balance of self to balance of an identity.
@@ -523,6 +547,53 @@ impl<T: Trait> Module<T> {
         T::OnNewAccount::on_new_account(&who);
         Self::deposit_event(RawEvent::NewAccount(who.clone(), balance));
     }
+
+    /// Common funtionality for transfers.
+    /// It does not emit any event.
+    ///
+    /// # Return
+    /// On sucess, It will return the applied feed.
+    fn transfer_core(
+        transactor: &T::AccountId,
+        dest: &T::AccountId,
+        value: T::Balance,
+    ) -> Result<T::Balance, DispatchError> {
+        let from_balance = Self::free_balance(transactor);
+        let to_balance = Self::free_balance(dest);
+        let would_create = to_balance.is_zero();
+        let fee = if would_create {
+            T::CreationFee::get()
+        } else {
+            T::TransferFee::get()
+        };
+        let liability = value.checked_add(&fee).ok_or(Error::<T>::Overflow)?;
+        let new_from_balance = from_balance
+            .checked_sub(&liability)
+            .ok_or(Error::<T>::InsufficientBalance)?;
+
+        Self::ensure_can_withdraw(
+            transactor,
+            value,
+            WithdrawReason::Transfer.into(),
+            new_from_balance,
+        )?;
+
+        // NOTE: total stake being stored in the same type means that this could never overflow
+        // but better to be safe than sorry.
+        let new_to_balance = to_balance.checked_add(&value).ok_or(Error::<T>::Overflow)?;
+
+        if transactor != dest {
+            Self::set_free_balance(transactor, new_from_balance);
+            if !<FreeBalance<T>>::exists(dest) {
+                Self::new_account(dest, new_to_balance);
+            }
+
+            Self::set_free_balance(dest, new_to_balance);
+            T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
+        }
+
+        Ok(fee)
+    }
 }
 
 impl<T> BalancesTrait<T::AccountId, T::Balance, NegativeImbalance<T>> for Module<T>
@@ -663,39 +734,9 @@ where
         value: Self::Balance,
         _existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        let from_balance = Self::free_balance(transactor);
-        let to_balance = Self::free_balance(dest);
-        let would_create = to_balance.is_zero();
-        let fee = if would_create {
-            T::CreationFee::get()
-        } else {
-            T::TransferFee::get()
-        };
-        let liability = value.checked_add(&fee).ok_or(Error::<T>::Overflow)?;
-        let new_from_balance = from_balance
-            .checked_sub(&liability)
-            .ok_or(Error::<T>::InsufficientBalance)?;
-
-        Self::ensure_can_withdraw(
-            transactor,
-            value,
-            WithdrawReason::Transfer.into(),
-            new_from_balance,
-        )?;
-
-        // NOTE: total stake being stored in the same type means that this could never overflow
-        // but better to be safe than sorry.
-        let new_to_balance = to_balance.checked_add(&value).ok_or(Error::<T>::Overflow)?;
+        let fee = Self::transfer_core(transactor, dest, value)?;
 
         if transactor != dest {
-            Self::set_free_balance(transactor, new_from_balance);
-            if !<FreeBalance<T>>::exists(dest) {
-                Self::new_account(dest, new_to_balance);
-            }
-
-            Self::set_free_balance(dest, new_to_balance);
-            T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
-
             Self::deposit_event(RawEvent::Transfer(
                 transactor.clone(),
                 dest.clone(),

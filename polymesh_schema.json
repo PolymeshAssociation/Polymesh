@@ -320,6 +320,7 @@
             "ForceValid"
         ]
     },
+    "Memo": "[u8;32]",
     "IssueRecipient": {
         "_enum": {
             "Account": "AccountKey",
@@ -340,5 +341,9 @@
         "max_offline_percent": "u32",
         "constant": "u32",
         "max_slash_percent": "u32"
+    },
+    "AssetRules": {
+        "is_paused": "bool",
+        "rules": "Vec<AssetRule>"
     }
 }
