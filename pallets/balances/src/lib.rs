@@ -161,12 +161,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 use polymesh_primitives::{
-    traits::IdentityCurrency, AccountKey, IdentityId, Permission, Signatory,
+    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
+    AccountKey, IdentityId, Permission, Signatory,
 };
 use polymesh_runtime_common::traits::{
-    balances::{BalancesTrait, RawEvent},
+    balances::{BalancesTrait, Memo, RawEvent},
     identity::IdentityTrait,
-    BlockRewardsReserveTrait, NegativeImbalance, PositiveImbalance,
+    NegativeImbalance, PositiveImbalance,
 };
 
 use codec::{Decode, Encode};
@@ -175,8 +176,8 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
-        OnUnbalanced, ReservableCurrency, SignedImbalance, UpdateBalanceOutcome, VestingCurrency,
-        WithdrawReason, WithdrawReasons,
+        OnFreeBalanceZero, OnUnbalanced, ReservableCurrency, SignedImbalance, UpdateBalanceOutcome,
+        VestingCurrency, WithdrawReason, WithdrawReasons,
     },
     weights::SimpleDispatchInfo,
     StorageValue,
@@ -317,7 +318,7 @@ decl_storage! {
         pub ChargeDid get(charge_did): map AccountKey => bool;
 
         /// AccountId of the block rewards reserve
-        pub BlockRewardsReserve get(block_reward_reserve) build(|_| {
+        pub BlockRewardsReserve get(block_rewards_reserve) build(|_| {
             let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
             T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
         }): T::AccountId;
@@ -369,10 +370,34 @@ decl_module! {
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
             #[compact] value: T::Balance
-        ) {
+        )  -> DispatchResult {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            <Self as Currency<_>>::transfer(&transactor, &dest, value, ExistenceRequirement::AllowDeath)?;
+            let fee = Self::transfer_core( &transactor, &dest, value)?;
+            Self::deposit_event(RawEvent::Transfer(
+                    transactor, dest, value, fee));
+            Ok(())
+        }
+
+        pub fn transfer_with_memo(
+            origin,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] value: T::Balance,
+            memo: Option<Memo>
+        )  -> DispatchResult {
+            let transactor = ensure_signed(origin)?;
+            let dest = T::Lookup::lookup(dest)?;
+            let fee = Self::transfer_core( &transactor, &dest, value)?;
+
+            if let Some(memo) = memo {
+                Self::deposit_event(RawEvent::TransferWithMemo(
+                    transactor, dest, value, fee, memo));
+            } else {
+                Self::deposit_event(RawEvent::Transfer(
+                        transactor, dest, value, fee));
+            }
+
+            Ok(())
         }
 
         /// Move some poly from balance of self to balance of an identity.
@@ -507,6 +532,11 @@ impl<T: Trait> Module<T> {
         // Commented out for now - but consider it instructive.
         // assert!(!Self::total_balance(who).is_zero());
         <FreeBalance<T>>::insert(who, balance);
+
+        if balance <= Zero::zero() {
+            T::OnFreeBalanceZero::on_free_balance_zero(who);
+        }
+
         UpdateBalanceOutcome::Updated
     }
 
@@ -516,6 +546,53 @@ impl<T: Trait> Module<T> {
     fn new_account(who: &T::AccountId, balance: T::Balance) {
         T::OnNewAccount::on_new_account(&who);
         Self::deposit_event(RawEvent::NewAccount(who.clone(), balance));
+    }
+
+    /// Common funtionality for transfers.
+    /// It does not emit any event.
+    ///
+    /// # Return
+    /// On sucess, It will return the applied feed.
+    fn transfer_core(
+        transactor: &T::AccountId,
+        dest: &T::AccountId,
+        value: T::Balance,
+    ) -> Result<T::Balance, DispatchError> {
+        let from_balance = Self::free_balance(transactor);
+        let to_balance = Self::free_balance(dest);
+        let would_create = to_balance.is_zero();
+        let fee = if would_create {
+            T::CreationFee::get()
+        } else {
+            T::TransferFee::get()
+        };
+        let liability = value.checked_add(&fee).ok_or(Error::<T>::Overflow)?;
+        let new_from_balance = from_balance
+            .checked_sub(&liability)
+            .ok_or(Error::<T>::InsufficientBalance)?;
+
+        Self::ensure_can_withdraw(
+            transactor,
+            value,
+            WithdrawReason::Transfer.into(),
+            new_from_balance,
+        )?;
+
+        // NOTE: total stake being stored in the same type means that this could never overflow
+        // but better to be safe than sorry.
+        let new_to_balance = to_balance.checked_add(&value).ok_or(Error::<T>::Overflow)?;
+
+        if transactor != dest {
+            Self::set_free_balance(transactor, new_from_balance);
+            if !<FreeBalance<T>>::exists(dest) {
+                Self::new_account(dest, new_to_balance);
+            }
+
+            Self::set_free_balance(dest, new_to_balance);
+            T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
+        }
+
+        Ok(fee)
     }
 }
 
@@ -533,7 +610,7 @@ where
     }
 }
 
-impl<T: Trait> BlockRewardsReserveTrait<T::Balance> for Module<T> {
+impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for Module<T> {
     fn drop_positive_imbalance(mut amount: T::Balance) {
         let brr = <BlockRewardsReserve<T>>::get();
         let brr_balance = <FreeBalance<T>>::get(&brr);
@@ -547,6 +624,30 @@ impl<T: Trait> BlockRewardsReserveTrait<T::Balance> for Module<T> {
 
     fn drop_negative_imbalance(amount: T::Balance) {
         <TotalIssuance<T>>::mutate(|v| *v = v.saturating_sub(amount));
+    }
+
+    fn issue_using_block_rewards_reserve(mut amount: T::Balance) -> NegativeImbalance<T> {
+        let brr = <BlockRewardsReserve<T>>::get();
+        let brr_balance = <FreeBalance<T>>::get(&brr);
+        let amount_to_mint = if brr_balance > Zero::zero() {
+            let new_brr_balance = brr_balance.saturating_sub(amount);
+            <FreeBalance<T>>::insert(&brr, new_brr_balance);
+            amount - (brr_balance - new_brr_balance)
+        } else {
+            amount
+        };
+        <TotalIssuance<T>>::mutate(|issued| {
+            *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
+                amount = T::Balance::max_value() - *issued;
+                T::Balance::max_value()
+            })
+        });
+        NegativeImbalance::new(amount)
+    }
+
+    fn block_rewards_reserve_balance() -> T::Balance {
+        let brr = Self::block_rewards_reserve();
+        Self::free_balance(&brr)
     }
 }
 
@@ -589,18 +690,11 @@ where
     }
 
     fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
-        let brr = <BlockRewardsReserve<T>>::get();
-        let brr_balance = <FreeBalance<T>>::get(&brr);
-        let amount_to_mint;
-        if brr_balance > Zero::zero() {
-            let new_brr_balance = brr_balance.saturating_sub(amount);
-            amount_to_mint = amount - (brr_balance - new_brr_balance);
-            <FreeBalance<T>>::insert(&brr, new_brr_balance);
-        } else {
-            amount_to_mint = amount;
+        if amount.is_zero() {
+            return NegativeImbalance::zero();
         }
         <TotalIssuance<T>>::mutate(|issued| {
-            *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
+            *issued = issued.checked_add(&amount).unwrap_or_else(|| {
                 amount = Self::Balance::max_value() - *issued;
                 Self::Balance::max_value()
             })
@@ -645,39 +739,9 @@ where
         value: Self::Balance,
         _existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        let from_balance = Self::free_balance(transactor);
-        let to_balance = Self::free_balance(dest);
-        let would_create = to_balance.is_zero();
-        let fee = if would_create {
-            T::CreationFee::get()
-        } else {
-            T::TransferFee::get()
-        };
-        let liability = value.checked_add(&fee).ok_or(Error::<T>::Overflow)?;
-        let new_from_balance = from_balance
-            .checked_sub(&liability)
-            .ok_or(Error::<T>::InsufficientBalance)?;
-
-        Self::ensure_can_withdraw(
-            transactor,
-            value,
-            WithdrawReason::Transfer.into(),
-            new_from_balance,
-        )?;
-
-        // NOTE: total stake being stored in the same type means that this could never overflow
-        // but better to be safe than sorry.
-        let new_to_balance = to_balance.checked_add(&value).ok_or(Error::<T>::Overflow)?;
+        let fee = Self::transfer_core(transactor, dest, value)?;
 
         if transactor != dest {
-            Self::set_free_balance(transactor, new_from_balance);
-            if !<FreeBalance<T>>::exists(dest) {
-                Self::new_account(dest, new_to_balance);
-            }
-
-            Self::set_free_balance(dest, new_to_balance);
-            T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
-
             Self::deposit_event(RawEvent::Transfer(
                 transactor.clone(),
                 dest.clone(),
@@ -797,6 +861,32 @@ where
             }
         }
         return None;
+    }
+
+    fn deposit_into_existing_identity(
+        who: &IdentityId,
+        value: Self::Balance,
+    ) -> result::Result<Self::PositiveImbalance, DispatchError> {
+        if value.is_zero() {
+            return Ok(PositiveImbalance::zero());
+        }
+        if let Some(new_balance) = Self::identity_balance(who).checked_add(&value) {
+            <IdentityBalance<T>>::insert(who, new_balance);
+            Ok(PositiveImbalance::new(value))
+        } else {
+            Err(Error::<T>::Overflow)?
+        }
+    }
+
+    fn resolve_into_existing_identity(
+        who: &IdentityId,
+        value: Self::NegativeImbalance,
+    ) -> result::Result<(), Self::NegativeImbalance> {
+        let v = value.peek();
+        match Self::deposit_into_existing_identity(who, v) {
+            Ok(opposite) => Ok(drop(value.offset(opposite))),
+            _ => Err(value),
+        }
     }
 }
 

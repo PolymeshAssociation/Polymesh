@@ -34,7 +34,7 @@
 use crate::{asset, simple_token, utils};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait};
+use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
@@ -90,6 +90,8 @@ decl_storage! {
     }
 }
 
+type Identity<T> = identity::Module<T>;
+
 // The module's dispatchable functions.
 decl_module! {
     /// The module declaration.
@@ -102,7 +104,6 @@ decl_module! {
 
         /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
         pub fn new(origin,
-            did: IdentityId,
             amount: T::Balance,
             ticker: Ticker,
             matures_at: T::Moment,
@@ -110,10 +111,12 @@ decl_module! {
             payout_ticker: Ticker,
             checkpoint_id: u64
         ) -> DispatchResult {
-            let sender = Signatory::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
+
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -181,12 +184,13 @@ decl_module! {
         }
 
         /// Lets the owner cancel a dividend before start/maturity date
-        pub fn cancel(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender = Signatory::AccountKey( AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn cancel(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -222,12 +226,13 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        pub fn claim(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn claim(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check if sender wasn't already paid their share
             ensure!(!<UserPayoutCompleted>::get((did, ticker, dividend_id)), "User was already paid their share");
 
@@ -289,12 +294,13 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
-        pub fn claim_unclaimed(origin, did: IdentityId, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender = Signatory::AccountKey( AccountKey::try_from( ensure_signed(origin)?.encode())?);
+        pub fn claim_unclaimed(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -401,7 +407,10 @@ mod tests {
     use chrono::{prelude::*, Duration};
     use core::result::Result as StdResult;
     use frame_support::traits::Currency;
-    use frame_support::{assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types};
+    use frame_support::{
+        assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
+        parameter_types,
+    };
     use lazy_static::lazy_static;
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
@@ -464,6 +473,13 @@ mod tests {
 
     impl_outer_origin! {
         pub enum Origin for Test {}
+    }
+
+    impl_outer_dispatch! {
+        pub enum Call for Test where origin: Origin {
+            pallet_contracts::Contracts,
+            identity::Identity,
+        }
     }
 
     // For testing the module, we construct most of a mock runtime. This means
@@ -598,7 +614,7 @@ mod tests {
 
     impl identity::Trait for Test {
         type Event = ();
-        type Proposal = Call<Test>;
+        type Proposal = Call;
         type AddSignerMultiSigTarget = Test;
         type KycServiceProviders = Test;
         type Balances = balances::Module<Test>;
@@ -635,6 +651,54 @@ mod tests {
     }
 
     parameter_types! {
+        pub const SignedClaimHandicap: u64 = 2;
+        pub const TombstoneDeposit: u64 = 16;
+        pub const StorageSizeOffset: u32 = 8;
+        pub const RentByteFee: u64 = 4;
+        pub const RentDepositOffset: u64 = 10_000;
+        pub const SurchargeReward: u64 = 150;
+        pub const ContractTransactionBaseFee: u64 = 2;
+        pub const ContractTransactionByteFee: u64 = 6;
+        pub const ContractFee: u64 = 21;
+        pub const CallBaseFee: u64 = 135;
+        pub const InstantiateBaseFee: u64 = 175;
+        pub const MaxDepth: u32 = 100;
+        pub const MaxValueSize: u32 = 16_384;
+        pub const ContractTransferFee: u64 = 50000;
+        pub const ContractCreationFee: u64 = 50;
+        pub const BlockGasLimit: u64 = 10000000;
+    }
+
+    impl pallet_contracts::Trait for Test {
+        type Currency = Balances;
+        type Time = Timestamp;
+        type Randomness = Randomness;
+        type Call = Call;
+        type Event = ();
+        type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminator<Test>;
+        type ComputeDispatchFee = pallet_contracts::DefaultDispatchFeeComputor<Test>;
+        type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Test>;
+        type GasPayment = ();
+        type RentPayment = ();
+        type SignedClaimHandicap = SignedClaimHandicap;
+        type TombstoneDeposit = TombstoneDeposit;
+        type StorageSizeOffset = StorageSizeOffset;
+        type RentByteFee = RentByteFee;
+        type RentDepositOffset = RentDepositOffset;
+        type SurchargeReward = SurchargeReward;
+        type TransferFee = ContractTransferFee;
+        type CreationFee = ContractCreationFee;
+        type TransactionBaseFee = ContractTransactionBaseFee;
+        type TransactionByteFee = ContractTransactionByteFee;
+        type ContractFee = ContractFee;
+        type CallBaseFee = CallBaseFee;
+        type InstantiateBaseFee = InstantiateBaseFee;
+        type MaxDepth = MaxDepth;
+        type MaxValueSize = MaxValueSize;
+        type BlockGasLimit = BlockGasLimit;
+    }
+
+    parameter_types! {
         pub const MinimumPeriod: u64 = 3;
     }
 
@@ -658,7 +722,7 @@ mod tests {
         type Event = ();
     }
 
-    impl asset::AssetTrait<<Test as CommonTrait>::Balance> for Module<Test> {
+    impl asset::AssetTrait<<Test as CommonTrait>::Balance, AccountId> for Module<Test> {
         fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
             if let Some(token) = TOKEN_MAP.lock().unwrap().get(ticker) {
                 token.owner_did == sender_did
@@ -669,6 +733,7 @@ mod tests {
 
         fn _mint_from_sto(
             _ticker: &Ticker,
+            _caller: AccountId,
             _sender_did: IdentityId,
             _tokens_purchased: <Test as CommonTrait>::Balance,
         ) -> DispatchResult {
@@ -715,6 +780,9 @@ mod tests {
     type GeneralTM = general_tm::Module<Test>;
     type SimpleToken = simple_token::Module<Test>;
     type Identity = identity::Module<Test>;
+    type Timestamp = pallet_timestamp::Module<Test>;
+    type Randomness = pallet_randomness_collective_flip::Module<Test>;
+    type Contracts = pallet_contracts::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
     fn identity_owned_by_1() -> sp_io::TestExternalities {
@@ -724,6 +792,7 @@ mod tests {
         identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
+            ..Default::default()
         }
         .assimilate_storage(&mut t)
         .unwrap();
@@ -762,17 +831,17 @@ mod tests {
 
             // A token representing 1M shares
             let token = SecurityToken {
-                name: [b'A'; 12].to_vec(),
+                name: [b'A'; 12].into(),
                 owner_did: token_owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from(token.name.as_slice());
             // A token used for payout
             let payout_token = SimpleTokenRecord {
-                ticker: Ticker::from_slice(&[b'B'; 12]),
+                ticker: Ticker::from(&[b'B'; 12][..]),
                 owner_did: payout_owner_did,
                 total_supply: 200_000_000,
             };
@@ -783,7 +852,6 @@ mod tests {
             // Share issuance is successful
             assert_ok!(Asset::create_token(
                 token_owner_signed.clone(),
-                token_owner_did,
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -796,7 +864,6 @@ mod tests {
             // Issuance for payout token is successful
             assert_ok!(SimpleToken::create_token(
                 payout_owner_signed.clone(),
-                payout_owner_did,
                 payout_token.ticker,
                 payout_token.total_supply
             ));
@@ -829,7 +896,6 @@ mod tests {
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 asset_rule
             ));
@@ -837,18 +903,13 @@ mod tests {
             // Transfer tokens to investor
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
-                token_owner_did,
                 ticker,
                 investor_did,
                 amount_invested
             ));
 
             // Create checkpoint for token
-            assert_ok!(Asset::create_checkpoint(
-                token_owner_signed.clone(),
-                token_owner_did,
-                ticker
-            ));
+            assert_ok!(Asset::create_checkpoint(token_owner_signed.clone(), ticker));
 
             // Checkpoints are 1-indexed
             let checkpoint_id = 1;
@@ -866,7 +927,6 @@ mod tests {
             // Transfer payout tokens to asset owner
             assert_ok!(SimpleToken::transfer(
                 payout_owner_signed.clone(),
-                payout_owner_did,
                 payout_token.ticker,
                 token_owner_did,
                 dividend.amount
@@ -875,7 +935,6 @@ mod tests {
             // Create the dividend for asset
             assert_ok!(DividendModule::new(
                 token_owner_signed.clone(),
-                token_owner_did,
                 dividend.amount,
                 ticker,
                 dividend.matures_at.clone().unwrap(),
@@ -891,12 +950,7 @@ mod tests {
             );
 
             // Claim investor's share
-            assert_ok!(DividendModule::claim(
-                investor_signed.clone(),
-                investor_did,
-                ticker,
-                0,
-            ));
+            assert_ok!(DividendModule::claim(investor_signed.clone(), ticker, 0,));
 
             // Check if the correct amount was added to investor balance
             let share = dividend.amount * amount_invested / token.total_supply;

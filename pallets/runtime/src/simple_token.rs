@@ -36,7 +36,7 @@ use crate::utils;
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::currency::MAX_SUPPLY,
-    identity::Trait as IdentityTrait, CommonTrait,
+    identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -74,6 +74,8 @@ decl_storage! {
     }
 }
 
+type Identity<T> = identity::Module<T>;
+
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -81,12 +83,13 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Create a new token and mint a balance to the issuing identity
-        pub fn create_token(origin, did: IdentityId, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn create_token(origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
             ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
@@ -115,9 +118,11 @@ decl_module! {
         }
 
         /// Approve another identity to transfer tokens on behalf of the caller
-        fn approve(origin, did: IdentityId, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
-            ticker.canonize();
+        fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
+
             let ticker_did = (ticker, did.clone());
             ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
 
@@ -135,9 +140,10 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity
-        pub fn transfer(origin, did: IdentityId, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
-            ticker.canonize();
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
@@ -146,12 +152,13 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity using the approval mechanic
-        fn transfer_from(origin, did: IdentityId, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
-            let spender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let spender = Signatory::AccountKey(sender_key);
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "spender must be a signing key for DID");
-            ticker.canonize();
             let ticker_from_did_did = (ticker, from_did, did);
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist.");
             let allowance = Self::allowance(&ticker_from_did_did);
@@ -262,6 +269,7 @@ mod tests {
     use frame_support::{
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types,
     };
+
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
@@ -463,13 +471,12 @@ mod tests {
             let owner_acc = AccountId::from(AccountKeyring::Alice);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
-            let ticker = Ticker::from_slice(&[0x01]);
+            let ticker = Ticker::from(&[0x01][..]);
             let total_supply = 1_000_000;
 
             // Issuance is successful
             assert_ok!(SimpleToken::create_token(
                 owner_signed.clone(),
-                owner_did,
                 ticker,
                 total_supply
             ));
@@ -484,22 +491,21 @@ mod tests {
             );
 
             assert_err!(
-                SimpleToken::create_token(owner_signed.clone(), owner_did, ticker, total_supply),
+                SimpleToken::create_token(owner_signed.clone(), ticker, total_supply),
                 "Ticker with this name already exists"
             );
 
             assert_ok!(SimpleToken::create_token(
                 owner_signed.clone(),
-                owner_did,
-                Ticker::from_slice("1234567890123456789012345678901234567890".as_bytes()),
+                Ticker::from("1234567890123456789012345678901234567890".as_bytes()),
                 total_supply,
             ));
             assert_eq!(
-                SimpleToken::tokens(Ticker::from_slice(
+                SimpleToken::tokens(Ticker::from(
                     "1234567890123456789012345678901234567890".as_bytes()
                 )),
                 SimpleTokenRecord {
-                    ticker: Ticker::from_slice("123456789012".as_bytes()),
+                    ticker: Ticker::from("123456789012".as_bytes()),
                     total_supply,
                     owner_did
                 }
@@ -508,8 +514,7 @@ mod tests {
             assert_err!(
                 SimpleToken::create_token(
                     owner_signed.clone(),
-                    owner_did,
-                    Ticker::from_slice(&[0x02]),
+                    Ticker::from(&[0x02][..]),
                     MAX_SUPPLY + 1
                 ),
                 "Total supply above the limit"
@@ -526,26 +531,24 @@ mod tests {
             let spender_acc = AccountId::from(AccountKeyring::Bob);
             let (spender_signed, spender_did) = make_account(&spender_acc).unwrap();
 
-            let ticker = Ticker::from_slice(&[0x01]);
+            let ticker = Ticker::from(&[0x01][..]);
             let total_supply = 1_000_000;
 
             // Issuance is successful
             assert_ok!(SimpleToken::create_token(
                 owner_signed.clone(),
-                owner_did,
                 ticker,
                 total_supply
             ));
 
             let gift = 1000u128;
             assert_err!(
-                SimpleToken::transfer(spender_signed.clone(), spender_did, ticker, owner_did, gift),
+                SimpleToken::transfer(spender_signed.clone(), ticker, owner_did, gift),
                 "Sender doesn't own this token"
             );
 
             assert_ok!(SimpleToken::transfer(
                 owner_signed.clone(),
-                owner_did,
                 ticker,
                 spender_did,
                 gift
@@ -568,15 +571,14 @@ mod tests {
             let (spender_signed, spender_did) = make_account(&spender_acc).unwrap();
 
             let agent_acc = AccountId::from(AccountKeyring::Bob);
-            let (agent_signed, agent_did) = make_account(&agent_acc).unwrap();
+            let (agent_signed, _) = make_account(&agent_acc).unwrap();
 
-            let ticker = Ticker::from_slice(&[0x01]);
+            let ticker = Ticker::from(&[0x01][..]);
             let total_supply = 1_000_000;
 
             // Issuance is successful
             assert_ok!(SimpleToken::create_token(
                 owner_signed.clone(),
-                owner_did,
                 ticker,
                 total_supply
             ));
@@ -584,19 +586,12 @@ mod tests {
             let allowance = 1000u128;
 
             assert_err!(
-                SimpleToken::approve(
-                    spender_signed.clone(),
-                    spender_did,
-                    ticker,
-                    spender_did,
-                    allowance
-                ),
+                SimpleToken::approve(spender_signed.clone(), ticker, spender_did, allowance),
                 "Account does not own this token"
             );
 
             assert_ok!(SimpleToken::approve(
                 owner_signed.clone(),
-                owner_did,
                 ticker,
                 spender_did,
                 allowance
@@ -607,20 +602,13 @@ mod tests {
             );
 
             assert_err!(
-                SimpleToken::approve(
-                    owner_signed.clone(),
-                    owner_did,
-                    ticker,
-                    spender_did,
-                    std::u128::MAX
-                ),
+                SimpleToken::approve(owner_signed.clone(), ticker, spender_did, std::u128::MAX),
                 "overflow in calculating allowance"
             );
 
             assert_err!(
                 SimpleToken::transfer_from(
                     agent_signed.clone(),
-                    agent_did,
                     ticker,
                     owner_did,
                     spender_did,
@@ -631,7 +619,6 @@ mod tests {
 
             assert_ok!(SimpleToken::transfer_from(
                 agent_signed.clone(),
-                agent_did,
                 ticker,
                 owner_did,
                 spender_did,

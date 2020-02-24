@@ -16,6 +16,7 @@ use sp_std::vec::Vec;
 /// Master key or external type signing key are restricted to be linked to just one identity.
 /// Other types of signing key could be associated with more than one identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum LinkedKeyInfo {
     Unique(IdentityId),
     Group(Vec<IdentityId>),
@@ -156,6 +157,9 @@ decl_event!(
 
 pub trait IdentityTrait {
     fn get_identity(key: &AccountKey) -> Option<IdentityId>;
+    fn current_identity() -> Option<IdentityId>;
+    fn set_current_identity(id: Option<IdentityId>);
+
     fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool;
     fn is_signer_authorized_with_permissions(
         did: IdentityId,

@@ -109,11 +109,10 @@ pub use ticker::Ticker;
 
 /// This module defines types used by smart extensions
 pub mod smart_extension;
-pub use smart_extension::SmartExtension;
-pub use smart_extension::SmartExtensionType;
+pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType};
 
 pub mod document;
-pub use document::Document;
+pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
 /// Represents custom transaction errors.
 #[repr(u8)]

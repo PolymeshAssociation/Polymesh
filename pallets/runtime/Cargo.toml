@@ -14,6 +14,7 @@ polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../
 
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../transaction-payment/rpc/runtime-api", default-features = false  } 
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
+pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../staking/rpc/runtime-api", default-features = false  }
 pallet-staking = { package = "pallet-staking", path = "../staking", default-features = false  }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve", default-features = false  }
 
@@ -71,10 +72,11 @@ pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substr
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+ink_primitives = { git = "https://github.com/paritytech/ink", package = "ink_primitives", default-features = false }
+hex-literal = "0.2.1"
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-hex-literal = "0.2.1"
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421"}
@@ -112,6 +114,7 @@ std = [
 	"pallet-finality-tracker/std",
 	"pallet-contracts-rpc-runtime-api/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-staking-rpc-runtime-api/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
 	"pallet-indices/std",
@@ -130,5 +133,6 @@ std = [
 	"polymesh-runtime-common/std",
 	"polymesh-runtime-balances/std",
 	"polymesh-runtime-group/std",
-	"polymesh-runtime-identity/std"
+	"polymesh-runtime-identity/std",
+	"ink_primitives/std"
 ]

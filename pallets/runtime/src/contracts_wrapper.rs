@@ -14,7 +14,7 @@
 //!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
-use polymesh_runtime_common::identity::Trait as IdentityTrait;
+use polymesh_runtime_common::{identity::Trait as IdentityTrait, Context};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
@@ -39,6 +39,8 @@ decl_storage! {
     }
 }
 
+type Identity<T> = identity::Module<T>;
+
 decl_module! {
     // Wrap dispatchable functions for contracts so that we can add additional gating logic
     // TODO: Figure out how to remove dispatchable calls from the underlying contracts module
@@ -52,12 +54,13 @@ decl_module! {
         // Simply forwards to the `put_code` function in the Contract module.
         pub fn put_code(
             origin,
-            did: IdentityId,
             #[compact] gas_limit: Gas,
             code: Vec<u8>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signatory::AccountKey( AccountKey::try_from(sender.encode())?);
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");

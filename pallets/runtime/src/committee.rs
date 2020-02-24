@@ -20,7 +20,7 @@
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
 //!
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
-use polymesh_runtime_common::identity::Trait as IdentityTrait;
+use polymesh_runtime_common::{identity::Trait as IdentityTrait, Context};
 use polymesh_runtime_identity as identity;
 
 use sp_runtime::traits::{EnsureOrigin, Hash};
@@ -116,24 +116,24 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T, I=DefaultInstance> where
-		<T as frame_system::Trait>::Hash,
-	{
-		/// A motion (given hash) has been proposed (by given account) with a threshold (given
-		/// `MemberCount`).
-		Proposed(IdentityId, ProposalIndex, Hash),
-		/// A motion (given hash) has been voted on by given account, leaving
-		/// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-		Voted(IdentityId, Hash, bool, MemberCount, MemberCount, MemberCount),
-		/// A motion was approved by the required threshold with the following
-		/// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-		Approved(Hash, MemberCount, MemberCount, MemberCount),
-		/// A motion was rejected by the required threshold with the following
-		/// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-		Rejected(Hash, MemberCount, MemberCount, MemberCount),
-		/// A motion was executed; `bool` is true if returned without error.
-		Executed(Hash, bool),
-	}
+    pub enum Event<T, I=DefaultInstance> where
+        <T as frame_system::Trait>::Hash,
+    {
+        /// A motion (given hash) has been proposed (by given account) with a threshold (given
+        /// `MemberCount`).
+        Proposed(IdentityId, ProposalIndex, Hash),
+        /// A motion (given hash) has been voted on by given account, leaving
+        /// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
+        Voted(IdentityId, Hash, bool, MemberCount, MemberCount, MemberCount),
+        /// A motion was approved by the required threshold with the following
+        /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
+        Approved(Hash, MemberCount, MemberCount, MemberCount),
+        /// A motion was rejected by the required threshold with the following
+        /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
+        Rejected(Hash, MemberCount, MemberCount, MemberCount),
+        /// A motion was executed; `bool` is true if returned without error.
+        Executed(Hash, bool),
+    }
 );
 
 decl_error!(
@@ -142,6 +142,8 @@ decl_error!(
         DuplicateVote,
     }
 );
+
+type Identity<T> = identity::Module<T>;
 
 decl_module! {
     pub struct Module<T: Trait<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as frame_system::Trait>::Origin {
@@ -187,12 +189,12 @@ decl_module! {
         /// Any committee member proposes a dispatchable.
         ///
         /// # Arguments
-        /// * `did` Identity of the proposer
         /// * `proposal` A dispatchable call
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
-        fn propose(origin, did: IdentityId, proposal: Box<<T as Trait<I>>::Proposal>) {
-            let who = ensure_signed(origin)?;
-            let signer = Signatory::AccountKey(AccountKey::try_from(who.encode())?);
+        fn propose(origin, proposal: Box<<T as Trait<I>>::Proposal>) {
+            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            let signer = Signatory::AccountKey(who_key);
 
             // Ensure sender can sign for the given identity
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -218,14 +220,14 @@ decl_module! {
         /// Member casts a vote.
         ///
         /// # Arguments
-        /// * `did` Identity of the proposer
         /// * `proposal` Hash of proposal to be voted on
         /// * `index` Proposal index
         /// * `approve` Represents a `for` or `against` vote
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        fn vote(origin, did: IdentityId, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
-            let who = ensure_signed(origin)?;
-            let signer = Signatory::AccountKey(AccountKey::try_from(who.encode())?);
+        fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
+            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            let signer = Signatory::AccountKey(who_key);
 
             // Ensure sender can sign for the given identity
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
@@ -561,16 +563,16 @@ mod tests {
     pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
 
     frame_support::construct_runtime!(
-		pub enum Test where
-			Block = Block,
-			NodeBlock = Block,
-			UncheckedExtrinsic = UncheckedExtrinsic
-		{
-			System: frame_system::{Module, Call, Event},
-			Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
-			DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
-		}
-	);
+        pub enum Test where
+            Block = Block,
+            NodeBlock = Block,
+            UncheckedExtrinsic = UncheckedExtrinsic
+        {
+            System: frame_system::{Module, Call, Event},
+            Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
+            DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
+        }
+    );
 
     fn make_ext() -> sp_io::TestExternalities {
         GenesisConfig {
@@ -633,7 +635,6 @@ mod tests {
             let hash = proposal.blake2_256().into();
             assert_ok!(Committee::propose(
                 alice_signer.clone(),
-                alice_did,
                 Box::new(proposal.clone())
             ));
             assert_eq!(Committee::proposals(), vec![hash]);
@@ -655,11 +656,11 @@ mod tests {
             System::set_block_number(1);
 
             let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
+            let (alice_signer, _) = make_account(&alice_acc).unwrap();
 
             let proposal = make_proposal(42);
             assert_noop!(
-                Committee::propose(alice_signer.clone(), alice_did, Box::new(proposal.clone())),
+                Committee::propose(alice_signer.clone(), Box::new(proposal.clone())),
                 "proposer is not a member"
             );
         });
@@ -674,7 +675,7 @@ mod tests {
             let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
 
             let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
+            let (bob_signer, _) = make_account(&bob_acc).unwrap();
 
             Committee::set_members(Origin::ROOT, vec![alice_did]).unwrap();
 
@@ -682,11 +683,10 @@ mod tests {
             let hash: H256 = proposal.blake2_256().into();
             assert_ok!(Committee::propose(
                 alice_signer.clone(),
-                alice_did,
                 Box::new(proposal.clone())
             ));
             assert_noop!(
-                Committee::vote(bob_signer, bob_did, hash.clone(), 0, true),
+                Committee::vote(bob_signer, hash.clone(), 0, true),
                 "voter is not a member"
             );
         });
@@ -709,11 +709,10 @@ mod tests {
             let hash: H256 = proposal.blake2_256().into();
             assert_ok!(Committee::propose(
                 alice_signer.clone(),
-                alice_did,
                 Box::new(proposal.clone())
             ));
             assert_noop!(
-                Committee::vote(bob_signer, bob_did, hash.clone(), 1, true),
+                Committee::vote(bob_signer, hash.clone(), 1, true),
                 "mismatched index"
             );
         });
@@ -739,7 +738,6 @@ mod tests {
             let hash: H256 = proposal.blake2_256().into();
             assert_ok!(Committee::propose(
                 alice_signer.clone(),
-                alice_did,
                 Box::new(proposal.clone())
             ));
             assert_eq!(
@@ -751,12 +749,11 @@ mod tests {
                 })
             );
             assert_noop!(
-                Committee::vote(alice_signer.clone(), alice_did, hash.clone(), 0, true),
+                Committee::vote(alice_signer.clone(), hash.clone(), 0, true),
                 Error::<Test, Instance1>::DuplicateVote
             );
             assert_ok!(Committee::vote(
                 alice_signer.clone(),
-                alice_did,
                 hash.clone(),
                 0,
                 false
@@ -770,7 +767,7 @@ mod tests {
                 })
             );
             assert_noop!(
-                Committee::vote(alice_signer.clone(), alice_did, hash.clone(), 0, false),
+                Committee::vote(alice_signer.clone(), hash.clone(), 0, false),
                 Error::<Test, Instance1>::DuplicateVote
             );
         });
@@ -796,16 +793,9 @@ mod tests {
             let hash = BlakeTwo256::hash_of(&proposal);
             assert_ok!(Committee::propose(
                 charlie_signer.clone(),
-                charlie_did,
                 Box::new(proposal.clone())
             ));
-            assert_ok!(Committee::vote(
-                bob_signer.clone(),
-                bob_did,
-                hash.clone(),
-                0,
-                false
-            ));
+            assert_ok!(Committee::vote(bob_signer.clone(), hash.clone(), 0, false));
             assert_eq!(
                 Committee::voting(&hash),
                 Some(PolymeshVotes {

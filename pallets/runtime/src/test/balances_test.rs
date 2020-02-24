@@ -1,12 +1,13 @@
 use crate::{
     runtime,
     test::{
-        storage::{make_account, TestStorage},
+        storage::{make_account, EventTest, TestStorage},
         ExtBuilder,
     },
     Runtime,
 };
 use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::traits::balances::{Memo, RawEvent as BalancesRawEvent};
 use polymesh_runtime_identity as identity;
 
 use frame_support::{
@@ -14,11 +15,15 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement},
     weights::{DispatchInfo, Weight},
 };
+use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
+pub type System = frame_system::Module<TestStorage>;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
@@ -94,7 +99,7 @@ fn tipping_fails() {
 #[test]
 fn mint_subsidy_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let brr = Balances::block_reward_reserve();
+        let brr = Balances::block_rewards_reserve();
         assert_eq!(Balances::free_balance(&brr), 0);
         let mut ti = Balances::total_issuance();
         let alice = AccountKeyring::Alice.public();
@@ -151,14 +156,14 @@ fn issue_must_work() {
         drop(imbalance);
         assert_eq!(Balances::total_issuance(), init_total_issuance);
 
-        let brr = Balances::block_reward_reserve();
+        let brr = Balances::block_rewards_reserve();
         assert_eq!(Balances::free_balance(&brr), 0);
         let mut ti = Balances::total_issuance();
         let _alice = AccountKeyring::Alice.public();
 
         // When there is no balance in BRR, issuance should increase total supply
         // NOTE: dropping negative imbalance is equivalent to burning. It will decrease total supply.
-        let imbalance = Balances::issue(10);
+        let imbalance = Balances::issue_using_block_rewards_reserve(10);
         assert_eq!(Balances::total_issuance(), ti + 10);
         drop(imbalance);
         assert_eq!(Balances::total_issuance(), ti);
@@ -175,7 +180,7 @@ fn issue_must_work() {
         assert_eq!(Balances::total_issuance(), ti);
 
         // When BRR has enough funds to subsidize a mint fully, it should subsidize it.
-        let imbalance2 = Balances::issue(100);
+        let imbalance2 = Balances::issue_using_block_rewards_reserve(100);
         assert_eq!(Balances::total_issuance(), ti);
         assert_eq!(Balances::free_balance(&brr), 400);
         drop(imbalance2);
@@ -183,7 +188,7 @@ fn issue_must_work() {
         ti = ti - 100;
 
         // When BRR has funds to subsidize a mint partially, it should subsidize it and rest should be minted.
-        let imbalance3 = Balances::issue(1000);
+        let imbalance3 = Balances::issue_using_block_rewards_reserve(1000);
         assert_eq!(Balances::total_issuance(), ti + 600);
         assert_eq!(Balances::free_balance(&brr), 0);
         drop(imbalance3);
@@ -193,7 +198,7 @@ fn issue_must_work() {
         ti = ti - 400;
 
         // When BRR has no funds to subsidize a mint, it should be fully minted.
-        let imbalance4 = Balances::issue(100);
+        let imbalance4 = Balances::issue_using_block_rewards_reserve(100);
         assert_eq!(Balances::total_issuance(), ti + 100);
         drop(imbalance4);
         assert_eq!(Balances::total_issuance(), ti);
@@ -269,4 +274,73 @@ fn should_charge_identity() {
             assert_eq!(Balances::free_balance(&dave_pub), 295);
             assert_eq!(Balances::identity_balance(acc_did), 35);
         });
+}
+
+#[test]
+fn transfer_with_memo() {
+    ExtBuilder::default()
+        .existential_deposit(1_000)
+        .monied(true)
+        .build()
+        .execute_with(transfer_with_memo_we);
+}
+
+fn transfer_with_memo_we() {
+    let alice = AccountKeyring::Alice.public();
+    let bob = AccountKeyring::Bob.public();
+
+    let memo_1 = Some(Memo([7u8; 32]));
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        100,
+        memo_1.clone()
+    ));
+
+    System::set_block_number(2);
+    let memo_2 = Some(Memo([42u8; 32]));
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        200,
+        memo_2.clone()
+    ));
+
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        300,
+        None
+    ));
+
+    let expected_events = vec![
+        EventRecord {
+            phase: Phase::ApplyExtrinsic(0),
+            event: EventTest::balances(BalancesRawEvent::TransferWithMemo(
+                alice.clone(),
+                bob.clone(),
+                100,
+                0,
+                memo_1.unwrap(),
+            )),
+            topics: vec![],
+        },
+        EventRecord {
+            phase: Phase::ApplyExtrinsic(0),
+            event: EventTest::balances(BalancesRawEvent::TransferWithMemo(
+                alice,
+                bob,
+                200,
+                0,
+                memo_2.unwrap(),
+            )),
+            topics: vec![],
+        },
+        EventRecord {
+            phase: Phase::ApplyExtrinsic(0),
+            event: EventTest::balances(BalancesRawEvent::Transfer(alice, bob, 300, 0)),
+            topics: vec![],
+        },
+    ];
+    assert_eq!(System::events(), expected_events);
 }
