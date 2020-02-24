@@ -5,6 +5,7 @@ use sp_runtime::{Deserialize, Serialize};
 
 /// All possible claims in polymesh
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum IdentityClaimData {
     /// User is Accredited
     Accredited,
@@ -34,6 +35,7 @@ impl Default for IdentityClaimData {
 
 /// A wrapper for Jurisdiction name.
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct JurisdictionName(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for JurisdictionName {
@@ -47,7 +49,6 @@ impl<T: AsRef<[u8]>> From<T> for JurisdictionName {
 
 /// All information of a particular claim
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,
