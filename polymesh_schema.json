@@ -320,6 +320,7 @@
             "ForceValid"
         ]
     },
+    "Memo": "[u8;32]",
     "IssueRecipient": {
         "_enum": {
             "Account": "AccountKey",
@@ -335,5 +336,9 @@
     "PendingTx": {
         "did": "IdentityId",
         "bridge_tx": "BridgeTx"
+    },
+    "AssetRules": {
+        "is_paused": "bool",
+        "rules": "Vec<AssetRule>"
     }
 }

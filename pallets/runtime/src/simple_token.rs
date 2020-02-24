@@ -90,7 +90,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
             ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
             ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
@@ -124,7 +123,6 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
 
-            ticker.canonize();
             let ticker_did = (ticker, did.clone());
             ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
 
@@ -143,7 +141,6 @@ decl_module! {
 
         /// Transfer tokens to another identity
         pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
-            ticker.canonize();
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
@@ -162,7 +159,6 @@ decl_module! {
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "spender must be a signing key for DID");
-            ticker.canonize();
             let ticker_from_did_did = (ticker, from_did, did);
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist.");
             let allowance = Self::allowance(&ticker_from_did_did);
@@ -475,7 +471,7 @@ mod tests {
             let owner_acc = AccountId::from(AccountKeyring::Alice);
             let (owner_signed, owner_did) = make_account(&owner_acc).unwrap();
 
-            let ticker = Ticker::from_slice(&[0x01]);
+            let ticker = Ticker::from(&[0x01][..]);
             let total_supply = 1_000_000;
 
             // Issuance is successful
@@ -501,15 +497,15 @@ mod tests {
 
             assert_ok!(SimpleToken::create_token(
                 owner_signed.clone(),
-                Ticker::from_slice("1234567890123456789012345678901234567890".as_bytes()),
+                Ticker::from("1234567890123456789012345678901234567890".as_bytes()),
                 total_supply,
             ));
             assert_eq!(
-                SimpleToken::tokens(Ticker::from_slice(
+                SimpleToken::tokens(Ticker::from(
                     "1234567890123456789012345678901234567890".as_bytes()
                 )),
                 SimpleTokenRecord {
-                    ticker: Ticker::from_slice("123456789012".as_bytes()),
+                    ticker: Ticker::from("123456789012".as_bytes()),
                     total_supply,
                     owner_did
                 }
@@ -518,7 +514,7 @@ mod tests {
             assert_err!(
                 SimpleToken::create_token(
                     owner_signed.clone(),
-                    Ticker::from_slice(&[0x02]),
+                    Ticker::from(&[0x02][..]),
                     MAX_SUPPLY + 1
                 ),
                 "Total supply above the limit"
@@ -535,7 +531,7 @@ mod tests {
             let spender_acc = AccountId::from(AccountKeyring::Bob);
             let (spender_signed, spender_did) = make_account(&spender_acc).unwrap();
 
-            let ticker = Ticker::from_slice(&[0x01]);
+            let ticker = Ticker::from(&[0x01][..]);
             let total_supply = 1_000_000;
 
             // Issuance is successful
@@ -577,7 +573,7 @@ mod tests {
             let agent_acc = AccountId::from(AccountKeyring::Bob);
             let (agent_signed, _) = make_account(&agent_acc).unwrap();
 
-            let ticker = Ticker::from_slice(&[0x01]);
+            let ticker = Ticker::from(&[0x01][..]);
             let total_supply = 1_000_000;
 
             // Issuance is successful
