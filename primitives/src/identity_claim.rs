@@ -1,6 +1,7 @@
 use crate::{identity_id::IdentityId, Moment};
 use sp_std::prelude::Vec;
 use codec::{Decode, Encode};
+use sp_runtime::{Deserialize, Serialize};
 
 /// All possible claims in polymesh
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -46,6 +47,7 @@ impl<T: AsRef<[u8]>> From<T> for JurisdictionName {
 
 /// All information of a particular claim
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,
@@ -61,4 +63,5 @@ pub struct IdentityClaim {
 
 /// Information required to fetch a claim of a particular did. (Claim_data, claim_issuer)
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct ClaimIdentifier(IdentityClaimData, IdentityId);
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct ClaimIdentifier(pub IdentityClaimData, pub IdentityId);

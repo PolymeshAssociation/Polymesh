@@ -101,7 +101,7 @@ decl_storage! {
         pub CurrentDid: Option<IdentityId>;
 
         /// (DID, claim_data, claim_issuer) -> Associated claims
-        pub Claims: double_map hasher(blake2_256) IdentityId, blake2_256(ClaimMetaData) => IdentityClaim;
+        pub Claims: double_map hasher(blake2_256) IdentityId, blake2_256(ClaimIdentifier) => IdentityClaim;
 
         // Account => DID
         pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map AccountKey => Option<LinkedKeyInfo>;
@@ -172,7 +172,6 @@ decl_module! {
             origin,
             target_account: T::AccountId,
             cdd_claim_expiry: T::Moment,
-            cdd_claim: ClaimValue,
             signing_items: Vec<SigningItem>
         ) -> DispatchResult {
             // Sender has to be part of KYCProviders
@@ -186,7 +185,7 @@ decl_module! {
 
             // Register Identity and add claim.
             let new_id = Self::_register_did(target_account, signing_items)?;
-            Self::unsafe_add_claim(new_id, KYC_EXPIRY_CLAIM_KEY.to_vec(), cdd_id, cdd_claim_expiry, cdd_claim)
+            Self::unsafe_add_claim(new_id, cdd_id, cdd_claim_expiry, IdentityClaimData::CustomerDueDiligence)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -342,23 +341,22 @@ decl_module! {
         pub fn add_claim(
             origin,
             did: IdentityId,
-            claim_key: Vec<u8>,
-            did_issuer: IdentityId,
-            expiry: <T as pallet_timestamp::Trait>::Moment,
-            claim_value: ClaimValue
+            claim_data: IdentityClaimData,
+            expiry: T::Moment,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
             ensure!(<DidRecords>::exists(did), "DID must already exist");
             ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
-
-            let sender_key = AccountKey::try_from(sender.encode())?;
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_signer = Signatory::AccountKey(sender_key);
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
 
-            Self::unsafe_add_claim( did, claim_key, did_issuer, expiry, claim_value)
+            Self::unsafe_add_claim(did, claim_data, did_issuer, expiry);
+            Ok(())
         }
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
@@ -366,48 +364,29 @@ decl_module! {
         #[weight = BatchDispatchInfo::new_normal(3_000, 10_000)]
         pub fn add_claims_batch(
             origin,
-            did_issuer: IdentityId,
-            claims: Vec<ClaimRecord<<T as pallet_timestamp::Trait>::Moment>>
+            // Vec(did_of_claim_receiver, claim_expiry, claim_data)
+            claims: Vec<(IdentityId, T::Moment, IdentityClaimData)>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
             let sender_key = AccountKey::try_from(sender.encode())?;
+            let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
+
+            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
+
             // Verify that sender key is one of did_issuer's signing keys
             let sender_signer = Signatory::AccountKey(sender_key);
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer),
                     "Sender must hold a claim issuer's signing key");
+
             // Claims that successfully passed all required checks. Unless all claims pass those
             // checks, the whole operation fails.
             let mut checked_claims = Vec::new();
             // Check input claims.
-            for ClaimRecord {
-                did,
-                claim_key,
-                expiry,
-                claim_value,
-            } in claims {
+            for (did, _, _) in claims {
                 ensure!(<DidRecords>::exists(did), "DID must already exist");
-                let claim_meta_data = ClaimMetaData {
-                    claim_key: claim_key.clone(),
-                    claim_issuer: did_issuer.clone(),
-                };
-                let now = <pallet_timestamp::Module<T>>::get();
-                let claim = Claim {
-                    issuance_date: now,
-                    expiry: expiry.clone(),
-                    claim_value: claim_value.clone(),
-                };
-                checked_claims.push((did.clone(), claim_meta_data, claim));
             }
-            // Register the claims.
-            for (did, claim_meta_data, claim) in checked_claims {
-                <Claims<T>>::insert((did.clone(), claim_meta_data.clone()), claim.clone());
-                <ClaimKeys>::mutate(&did, |old_claim_data| {
-                    if !old_claim_data.contains(&claim_meta_data) {
-                        old_claim_data.push(claim_meta_data.clone());
-                    }
-                });
-                Self::deposit_event(RawEvent::NewClaims(did, claim_meta_data, claim));
+            for (did, expiry, claim_data) in claims {
+                Self::unsafe_add_claim(did, claim_data, did_issuer, expiry);
             }
             Ok(())
         }
@@ -451,29 +430,18 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked
-        pub fn revoke_claim(origin, claim_key: Vec<u8>, did_issuer: IdentityId) -> DispatchResult {
+        pub fn revoke_claim(origin, did: IdentityId, claim_data: IdentityClaimData) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Self>(&sender_key)?;
+            let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
 
             ensure!(<DidRecords>::exists(&did_issuer), "claim issuer DID must already exist");
             // Verify that sender key is one of did_issuer's signing keys
             ensure!(Self::is_signer_authorized(did_issuer, &sender), "Sender must hold a claim issuer's signing key");
 
-            let claim_meta_data = ClaimMetaData {
-                claim_key: claim_key,
-                claim_issuer: did_issuer,
-            };
+            let claim_meta_data = ClaimIdentifier(claim_data, did_issuer);
 
-            <Claims<T>>::remove((did, claim_meta_data.clone()));
-
-            <ClaimKeys>::mutate(&did, |old_claim_metadata| {
-                *old_claim_metadata = old_claim_metadata
-                    .iter()
-                    .filter(|&metadata| *metadata != claim_meta_data)
-                    .cloned()
-                    .collect();
-            });
+            <Claims<T>>::remove(&did, &claim_meta_data);
 
             Self::deposit_event(RawEvent::RevokedClaim(did, claim_meta_data));
 
@@ -1138,52 +1106,67 @@ impl<T: Trait> Module<T> {
         key == &<DidRecords>::get(did).master_key
     }
 
-    pub fn fetch_claim_value(
+    pub fn is_claim_valid(
         did: IdentityId,
-        claim_key: Vec<u8>,
+        claim_data: IdentityClaimData,
         claim_issuer: IdentityId,
-    ) -> Option<ClaimValue> {
-        let claim_meta_data = ClaimMetaData {
-            claim_key,
-            claim_issuer,
-        };
-        if <Claims<T>>::exists((did, claim_meta_data.clone())) {
+    ) -> bool {
+        let claim_meta_data = ClaimIdentifier(claim_data, claim_issuer);
+        if <Claims<T>>::exists(did, claim_meta_data) {
             let now = <pallet_timestamp::Module<T>>::get();
-            let claim = <Claims<T>>::get((did, claim_meta_data));
+            let claim = <Claims<T>>::get(did, claim_meta_data);
             if claim.expiry > now {
-                return Some(claim.claim_value);
+                return true;
             }
         }
-        None
+        false
     }
 
-    pub fn fetch_claim_value_multiple_issuers(
+    pub fn is_any_claim_valid(
         did: IdentityId,
-        claim_key: Vec<u8>,
+        claim_data: IdentityClaimData,
         claim_issuers: Vec<IdentityId>,
-    ) -> Option<ClaimValue> {
+    ) -> bool {
         for claim_issuer in claim_issuers {
-            let claim_value = Self::fetch_claim_value(did, claim_key.clone(), claim_issuer);
-            if claim_value.is_some() {
-                return claim_value;
+            if Self::is_claim_valid(did, claim_data, claim_issuer) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn fetch_valid_claim(
+        did: IdentityId,
+        claim_data: IdentityClaimData,
+        claim_issuer: IdentityId,
+    ) -> Option<IdentityClaim> {
+        let claim_meta_data = ClaimIdentifier(claim_data, claim_issuer);
+        if <Claims<T>>::exists(did, claim_meta_data) {
+            let now = <pallet_timestamp::Module<T>>::get();
+            let claim = <Claims<T>>::get(did, claim_meta_data);
+            if claim.expiry > now {
+                return Some(claim);
             }
         }
         None
     }
 
-    pub fn has_valid_kyc(claim_for: IdentityId) -> Option<IdentityId> {
-        let trusted_kyc_providers = T::KycServiceProviders::get_members();
-        for trusted_kyc_provider in trusted_kyc_providers {
-            if let Some(_claim) = Self::fetch_claim_value(
-                claim_for,
-                KYC_EXPIRY_CLAIM_KEY.to_vec(),
-                trusted_kyc_provider,
-            ) {
-                return Some(trusted_kyc_provider);
+    pub fn fetch_any_valid_claim(
+        did: IdentityId,
+        claim_data: IdentityClaimData,
+        claim_issuers: Vec<IdentityId>,
+    ) -> Option<IdentityClaim> {
+        for claim_issuer in claim_issuers {
+            if let Some(claim) = Self::fetch_valid_claim(did, claim_data, claim_issuer) {
+                return Some(claim);
             }
         }
-
         None
+    }
+
+    pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
+        let trusted_kyc_providers = T::KycServiceProviders::get_members();
+        Self::is_any_claim_valid(claim_for, IdentityClaimData::CustomerDueDiligence, trusted_kyc_providers)
     }
 
     pub fn is_identity_has_valid_kyc(
@@ -1191,22 +1174,15 @@ impl<T: Trait> Module<T> {
         buffer: u64,
     ) -> (bool, Option<IdentityId>) {
         let trusted_kyc_providers = T::KycServiceProviders::get_members();
-        if trusted_kyc_providers.len() > 0 {
+        if let Some(threshold) = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>().checked_add(buffer) {
             for trusted_kyc_provider in trusted_kyc_providers {
-                if let Some(claim) = Self::fetch_claim_value(
+                if let Some(claim) = Self::fetch_valid_claim(
                     claim_for,
-                    KYC_EXPIRY_CLAIM_KEY.to_vec(),
+                    IdentityClaimData::CustomerDueDiligence,
                     trusted_kyc_provider,
                 ) {
-                    if let Ok(value) = claim.value.as_slice().try_into() {
-                        if let Some(threshold) = ((<pallet_timestamp::Module<T>>::get())
-                            .saturated_into::<u64>())
-                        .checked_add(buffer)
-                        {
-                            if u64::from_be_bytes(value) > threshold {
-                                return (true, Some(trusted_kyc_provider));
-                            }
-                        }
+                    if claim.expiry > threshold {
+                        return (true, Some(trusted_kyc_provider));
                     }
                 }
             }
@@ -1430,33 +1406,31 @@ impl<T: Trait> Module<T> {
     /// It adds a new claim without any previous security check.
     fn unsafe_add_claim(
         target_did: IdentityId,
-        claim_key: Vec<u8>,
+        claim_data: IdentityClaimData,
         did_issuer: IdentityId,
-        expiry: <T as pallet_timestamp::Trait>::Moment,
-        claim_value: ClaimValue,
-    ) -> DispatchResult {
-        let claim_meta_data = ClaimMetaData {
-            claim_key: claim_key,
+        expiry: T::Moment,
+    ) {
+        let claim_meta_data = ClaimIdentifier(claim_data, did_issuer);
+
+        let last_update_date = <pallet_timestamp::Module<T>>::get();
+
+        let issuance_date = if <Claims<T>>::exists(&target_did, &claim_meta_data) {
+            <Claims<T>>::get(&target_did, &claim_meta_data).issuance_date;
+        } else {
+            last_update_date
+        };
+
+        let claim = IdentityClaim {
             claim_issuer: did_issuer,
-        };
-
-        let claim = Claim {
-            issuance_date: <pallet_timestamp::Module<T>>::get(),
+            issuance_date: issuance_date,
+            last_update_date: last_update_date,
             expiry: expiry,
-            claim_value: claim_value,
+            claim: claim_data,
         };
 
-        <Claims<T>>::insert((target_did.clone(), claim_meta_data.clone()), claim.clone());
-
-        <ClaimKeys>::mutate(&target_did, |old_claim_data| {
-            if !old_claim_data.contains(&claim_meta_data) {
-                old_claim_data.push(claim_meta_data.clone());
-            }
-        });
+        <Claims<T>>::insert(&target_did, &claim_meta_data, claim.clone());
 
         Self::deposit_event(RawEvent::NewClaims(target_did, claim_meta_data, claim));
-
-        Ok(())
     }
 }
 
