@@ -133,7 +133,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), &'static str> {
         use frame_system::offchain::SubmitSignedTransaction;
         // First we validate whether any accounts is present in the local storage or not.
-        if !T::SubmitSignedTransaction::can_sign() {
+        if !T::SubmitSignedTransaction::can_sign() && sp_io::offchain::is_validator() {
             return Err(Error::<T>::NoLocalAccountAvailable.into());
         }
         // Retrieve value of invalidate nominators get passed to the `validate_kyc_expiry_nominators`
