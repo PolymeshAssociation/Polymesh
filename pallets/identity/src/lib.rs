@@ -35,6 +35,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+// Fixes an issue related to https://github.com/rust-lang/rust/issues/48214.
+#![feature(trivial_bounds)]
 
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError,
