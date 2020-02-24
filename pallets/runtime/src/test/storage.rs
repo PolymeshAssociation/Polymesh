@@ -3,20 +3,21 @@ use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, stati
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
-    asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
+    asset::AcceptTransfer, group::GroupTrait, identity::ClaimValue, multisig::AddSignerMultiSig,
+    CommonTrait,
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::{
-    dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin, parameter_types,
-    traits::Currency,
+    dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
+    parameter_types, traits::Currency,
 };
 use frame_system::{self as system, EnsureSignedBy};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
-    sr25519::Pair,
+    sr25519::{Pair, Public},
     H256,
 };
 use sp_runtime::{
@@ -40,6 +41,27 @@ impl_outer_dispatch! {
     }
 }
 
+impl_outer_event! {
+    pub enum EventTest for TestStorage {
+        identity<T>,
+        balances<T>,
+        multisig<T>,
+        percentage_tm<T>,
+        bridge<T>,
+        asset<T>,
+        pallet_contracts<T>,
+        pallet_session,
+        general_tm,
+        exemption,
+    }
+}
+
+impl From<()> for EventTest {
+    fn from(_: ()) -> Self {
+        unimplemented!()
+    }
+}
+
 // For testing the module, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
 // configuration traits of modules we want to use.
@@ -55,7 +77,7 @@ type Lookup = IdentityLookup<AccountId>;
 type OffChainSignature = AnySignature;
 type SessionIndex = u32;
 type AuthorityId = <AnySignature as Verify>::Signer;
-type Event = ();
+type Event = EventTest;
 type Version = ();
 
 parameter_types! {
@@ -122,7 +144,7 @@ impl pallet_timestamp::Trait for TestStorage {
 }
 
 impl multisig::Trait for TestStorage {
-    type Event = ();
+    type Event = Event;
 }
 
 parameter_types! {
@@ -133,7 +155,7 @@ parameter_types! {
     pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
 }
 
-impl group::Trait<group::Instance1> for TestStorage {
+impl group::Trait<group::Instance2> for TestStorage {
     type Event = ();
     type AddOrigin = EnsureSignedBy<One, AccountId>;
     type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
@@ -147,18 +169,8 @@ impl identity::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = TestStorage;
-    type KycServiceProviders = TestStorage;
+    type KycServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
-}
-
-impl GroupTrait for TestStorage {
-    fn get_members() -> Vec<IdentityId> {
-        unimplemented!()
-    }
-
-    fn is_member(_did: &IdentityId) -> bool {
-        true
-    }
 }
 
 impl AddSignerMultiSig for TestStorage {
@@ -310,6 +322,7 @@ pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
 pub type Timestamp = pallet_timestamp::Module<TestStorage>;
 pub type Contracts = pallet_contracts::Module<TestStorage>;
 pub type Bridge = bridge::Module<TestStorage>;
+pub type CDDServieProvider = group::Module<TestStorage, group::Instance2>;
 
 pub fn make_account(
     id: AccountId,
@@ -325,7 +338,22 @@ pub fn make_account_with_balance(
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
-    Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
+    // If we have CDD providers, first of them executes the registration.
+    let cdd_providers = CDDServieProvider::get_members();
+    let did_registration = if let Some(cdd_provider) = cdd_providers.into_iter().nth(0) {
+        let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
+        Identity::cdd_register_did(
+            Origin::signed(cdd_acc),
+            id,
+            10,
+            ClaimValue::default(),
+            vec![],
+        )
+    } else {
+        Identity::register_did(signed_id.clone(), vec![])
+    };
+
+    let _ = did_registration.map_err(|_| "Register DID failed")?;
     let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
 
     Ok((signed_id, did))
@@ -339,17 +367,8 @@ pub fn register_keyring_account_with_balance(
     acc: AccountKeyring,
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<IdentityId, &'static str> {
-    Balances::make_free_balance_be(&acc.public(), balance);
-
     let acc_pub = acc.public();
-    Identity::register_did(Origin::signed(acc_pub.clone()), vec![])
-        .map_err(|_| "Register DID failed")?;
-
-    let acc_key = AccountKey::from(acc_pub.0);
-    let did =
-        Identity::get_identity(&acc_key).ok_or_else(|| "Key cannot be generated from account")?;
-
-    Ok(did)
+    make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
 }
 
 pub fn account_from(id: u64) -> AccountId {

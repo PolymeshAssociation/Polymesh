@@ -5,6 +5,7 @@ use crate::{
         ExtBuilder,
     },
 };
+
 use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
@@ -16,7 +17,6 @@ use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
-
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
@@ -34,7 +34,7 @@ fn create_multisig() {
             1,
         ));
 
-        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
 
@@ -81,7 +81,7 @@ fn join_multisig() {
             1,
         ));
 
-        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         assert_eq!(
             MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
@@ -143,7 +143,7 @@ fn change_multisig_sigs_required() {
             2,
         ));
 
-        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
@@ -215,7 +215,7 @@ fn remove_multisig_signer() {
             1,
         ));
 
-        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 0);
 
@@ -313,7 +313,7 @@ fn add_multisig_signer() {
             1,
         ));
 
-        assert_ok!(Identity::_register_did(musig_address.clone(), vec![],));
+        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))

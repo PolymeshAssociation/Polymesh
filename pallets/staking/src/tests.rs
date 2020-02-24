@@ -24,6 +24,7 @@ use frame_support::{
     traits::{Currency, ReservableCurrency},
 };
 use mock::*;
+use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{ClaimValue, DataTypes};
 use sp_runtime::{
     assert_eq_error_rate,
@@ -4236,4 +4237,50 @@ fn should_remove_validators() {
 
             assert_eq!(Staking::permissioned_validators(&acc_30), None);
         });
+}
+
+#[test]
+fn new_era_respects_block_rewards_reserve() {
+    ExtBuilder::default().build().execute_with(|| {
+        let brr_account = Balances::block_rewards_reserve();
+        let brr_balance = || Balances::free_balance(brr_account);
+        let total_available_issuance =
+            || Balances::total_issuance().saturating_sub(Balances::block_rewards_reserve_balance());
+        // Check the initial block rewards reserve balance.
+        assert_eq!(brr_balance(), 0);
+        assert_eq!(total_available_issuance(), Balances::total_issuance());
+        // Initial config
+        let stash_initial_balance = Balances::total_balance(&account_from(11));
+        // Check the balance of a validator accounts.
+        assert_eq!(Balances::total_balance(&account_from(10)), 1);
+        // Check the balance of a validator's stash accounts.
+        assert_eq!(
+            Balances::total_balance(&account_from(11)),
+            stash_initial_balance
+        );
+        // First compute the estimated total payout without the block rewards reserve.
+        let total_payout0 = current_total_payout_for_duration(3000);
+        assert!(total_payout0 > 100);
+        // Set up the block rewards reserve.
+        let new_brr_balance = 1_000_000_000;
+        <balances::FreeBalance<Test>>::insert(brr_account, new_brr_balance);
+        assert_eq!(brr_balance(), new_brr_balance);
+        assert_eq!(
+            total_available_issuance(),
+            Balances::total_issuance().saturating_sub(new_brr_balance)
+        );
+        // Compute the total payout as almost above except for the increased BRR.
+        let total_payout_brr = current_total_payout_for_duration(3000);
+        assert!(total_payout_brr > 100);
+        // Check that increasing the BRR decreases the total payout.
+        assert!(total_payout0 > total_payout_brr);
+        <Module<Test>>::reward_by_ids(vec![(account_from(11), 1)]);
+        start_era(1);
+        // Validator's payee is the stake account 11. Rewards are paid there.
+        let balance1 = Balances::total_balance(&account_from(11));
+        // Check the validator's payee account balance.
+        assert_eq!(balance1, stash_initial_balance + total_payout_brr);
+        // Controller account does not receive rewards.
+        assert_eq!(Balances::total_balance(&account_from(10)), 1);
+    });
 }

@@ -117,7 +117,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -192,7 +191,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -235,7 +233,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check if sender wasn't already paid their share
             ensure!(!<UserPayoutCompleted>::get((did, ticker, dividend_id)), "User was already paid their share");
 
@@ -304,7 +301,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
 
@@ -796,6 +792,7 @@ mod tests {
         identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
+            ..Default::default()
         }
         .assimilate_storage(&mut t)
         .unwrap();
@@ -841,10 +838,10 @@ mod tests {
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from(token.name.as_slice());
             // A token used for payout
             let payout_token = SimpleTokenRecord {
-                ticker: Ticker::from_slice(&[b'B'; 12]),
+                ticker: Ticker::from(&[b'B'; 12][..]),
                 owner_did: payout_owner_did,
                 total_supply: 200_000_000,
             };

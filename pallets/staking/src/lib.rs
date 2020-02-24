@@ -1672,11 +1672,13 @@ impl<T: Trait> Module<T> {
 
             let validator_len: BalanceOf<T> = (validators.len() as u32).into();
             let total_rewarded_stake = Self::slot_stake() * validator_len;
-
             let (total_payout, max_payout) = inflation::compute_total_payout(
                 &T::RewardCurve::get(),
                 total_rewarded_stake.clone(),
-                T::Currency::total_issuance(),
+                // Total available issuance which is the total issuance less the block rewards
+                // reserve balance.
+                T::Currency::total_issuance()
+                    .saturating_sub(T::Currency::block_rewards_reserve_balance()),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
                 era_duration.saturated_into::<u64>(),
             );
@@ -2021,6 +2023,16 @@ impl<T: Trait> Module<T> {
     pub fn is_validator_compliant(_controller: &T::AccountId) -> bool {
         //TODO: Get DID associated with controller and check they have a KYB attestation etc.
         true
+    }
+
+    /// Return reward curve points
+    pub fn get_curve() -> Vec<(Perbill, Perbill)> {
+        let curve = &T::RewardCurve::get();
+        let mut points: Vec<(Perbill, Perbill)> = Vec::new();
+        for pair in curve.points {
+            points.push(*pair)
+        }
+        points
     }
 
     /// Ensures that at the end of the current session there will be a new era.

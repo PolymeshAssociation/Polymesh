@@ -41,7 +41,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn modify_exemption_list(origin, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
-            ticker.canonize();
 
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
