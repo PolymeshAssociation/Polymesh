@@ -1,8 +1,8 @@
 //! Tests for the module.
 
 use crate::*;
-use codec::{Decode, Encode};
 use chrono::prelude::Utc;
+use codec::{Decode, Encode};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mock::*;
 use sp_core::{
@@ -56,4 +56,3 @@ fn should_submit_signed_transaction_on_chain() {
         assert_eq!(tx.call, Call::remove_nominator(invalid_nominators.clone()));
     });
 }
-

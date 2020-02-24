@@ -163,12 +163,10 @@ impl<T: Trait> Module<T> {
             match last_block_checked {
                 // If we already have a value in storage and the block number is recent enough
                 // we avoid sending another transaction at this time.
-                Some(Some(block)) if block + T::CoolingInterval::get() < block => {
-                    Err(())
-                },
+                Some(Some(block)) if block + T::CoolingInterval::get() < block => Err(()),
                 // In every other case we attempt to acquire the lock and send a transaction.
-                _ => Ok(block_number)
-            } 
+                _ => Ok(block_number),
+            }
         });
 
         //checked whether the `res` value is set to block_number or not
