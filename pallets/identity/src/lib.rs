@@ -40,8 +40,8 @@
 
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError,
-    Identity as DidRecord, IdentityId, Link, LinkData, Permission, PreAuthorizedKeyInfo, Signatory,
-    SignatoryType, SigningItem, Ticker,
+    Identity as DidRecord, ClaimIdentifier, IdentityId, IdentityClaim, IdentityClaimData, Link, LinkData,
+    Permission, PreAuthorizedKeyInfo, Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
     constants::{
@@ -53,7 +53,7 @@ use polymesh_runtime_common::{
         balances::BalancesTrait,
         group::GroupTrait,
         identity::{
-            AuthorizationNonce, Claim, ClaimMetaData, ClaimRecord, ClaimValue, LinkedKeyInfo,
+            AuthorizationNonce, LinkedKeyInfo,
             RawEvent, SigningItemWithAuth, TargetIdAuthorization,
         },
         multisig::AddSignerMultiSig,
@@ -102,11 +102,8 @@ decl_storage! {
         /// It stores the current identity for current transaction.
         pub CurrentDid get(fn current_did): Option<IdentityId>;
 
-        /// (DID, claim_key, claim_issuer) -> Associated claims
-        pub Claims get(fn claims): map(IdentityId, ClaimMetaData) => Claim<T::Moment>;
-
-        /// DID -> array of (claim_key and claim_issuer)
-        pub ClaimKeys get(fn claim_keys): map IdentityId => Vec<ClaimMetaData>;
+        /// (DID, claim_data, claim_issuer) -> Associated claims
+        pub Claims: double_map hasher(blake2_256) IdentityId, blake2_256(ClaimMetaData) => IdentityClaim;
 
         // Account => DID
         pub KeyToIdentityIds get(fn key_to_identity_ids): map AccountKey => Option<LinkedKeyInfo>;

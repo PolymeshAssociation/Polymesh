@@ -76,6 +76,7 @@ pub use identity::Identity;
 pub mod identity_claim;
 pub use identity_claim::IdentityClaimData;
 pub use identity_claim::IdentityClaim;
+pub use identity_claim::ClaimIdentifier;
 
 /// Key is strong type which stores bytes representing the key.
 pub mod account_key;
@@ -106,6 +107,7 @@ pub use link::LinkData;
 pub mod ticker;
 pub use ticker::Ticker;
 
+/// This module defines types used by smart extensions
 pub mod smart_extension;
 pub use smart_extension::SmartExtension;
 pub use smart_extension::SmartExtensionType;

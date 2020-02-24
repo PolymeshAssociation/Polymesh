@@ -2,6 +2,7 @@ use codec::{Decode, Encode};
 use sp_std::prelude::Vec;
 
 /// Smart Extension types
+#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum SmartExtensionType {
     TransferManager,
