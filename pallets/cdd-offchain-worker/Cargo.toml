@@ -7,14 +7,20 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = { version = "1.0.104", optional = true }
 codec = { package = "parity-scale-codec", version = "1.1.2", default-features = false, features = ["derive"] }
-frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-offchain = { package = "sp-offchain", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", default-features = false, rev = "3cc0973aff3f5b507c8ed1a13934bd35697b251f" }
+frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "3cc0973aff3f5b507c8ed1a13934bd35697b251f" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3cc0973aff3f5b507c8ed1a13934bd35697b251f" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3cc0973aff3f5b507c8ed1a13934bd35697b251f" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3cc0973aff3f5b507c8ed1a13934bd35697b251f" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3cc0973aff3f5b507c8ed1a13934bd35697b251f" }
 polymesh-runtime-common = {pacakge = "polymesh-runtime-common", path = "../common", default-features = false}
 pallet-staking = {package = "pallet-staking", path = "../staking", default-features = false }
+
+[dev-dependencies]
+test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "3cc0973aff3f5b507c8ed1a13934bd35697b251f" }
+chrono = { version = "0.4.10", default-features = false }
 
 [features]
 equalize = []
@@ -22,9 +28,11 @@ default = ["std"]
 no_std = []
 only-staking = []
 std = [ 
-	"sp-offchain/std",
+	"serde",
+	"sp-io/std",
+	"sp-std/std",
+	"sp-core/std",
 	"sp-runtime/std",
-	"pallet-timestamp/std",
 	"frame-support/std",
 	"frame-system/std",
     "polymesh-runtime-common/std",

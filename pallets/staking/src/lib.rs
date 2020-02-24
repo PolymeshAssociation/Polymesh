@@ -1331,7 +1331,7 @@ decl_module! {
         /// - Depends on the no. of claim issuers an accountId has for the KYC expiry
         /// #</weight>
         #[weight = SimpleDispatchInfo::FixedNormal(950_000)]
-        fn validate_kyc_expiry_nominators(origin, targets: Vec<T::AccountId>) {
+        pub fn validate_kyc_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -1524,16 +1524,22 @@ impl<T: Trait> Module<T> {
     pub fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
         let invalid_nominators = <Nominators<T>>::enumerate()
             .into_iter()
-            .filter_map(|n| {
-                if let Some(nominate_identity) =
-                    <identity::Module<T>>::get_identity(&(AccountKey::try_from(n.encode())?))
-                {
-                    let (is_kyced, _) =
-                        <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, buffer);
-                    return !is_kyced;
+            .filter_map(|(nominator_stash_key, _nominations)| {
+                if let Ok(key_id) = AccountKey::try_from(nominator_stash_key.encode()) {
+                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(key_id))
+                    {
+                        let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(
+                            nominate_identity,
+                            buffer,
+                        );
+                        if !is_kyced {
+                            return Some(nominator_stash_key);
+                        }
+                    }
                 }
+                return None;
             })
-            .collect();
+            .collect::<Vec<T::AccountId>>();
         return invalid_nominators;
     }
 

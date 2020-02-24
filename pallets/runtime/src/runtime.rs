@@ -27,7 +27,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::u32_trait::{_1, _2, _3, _4};
 use sp_offchain;
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::transaction_validity::{TransactionValidity, ValidateUnsigned};
+use sp_runtime::transaction_validity::{TransactionValidity};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Permill,
 };
@@ -541,21 +541,32 @@ impl group::Trait<group::Instance2> for Runtime {
 
 impl statistics::Trait for Runtime {}
 
+//TODO: Only need to uncomment this when substrate get upgraded to latest master
 // Define the transaction signer using the key definition
-type SubmitTransaction = frame_system::offchain::TransactionSubmitter<
-    pallet_cdd_offchain_worker::crypto::Public,
-    Runtime,
-    UncheckedExtrinsic,
->;
+// type SubmitTransaction = frame_system::offchain::TransactionSubmitter<
+//     pallet_cdd_offchain_worker::crypto::Public,
+//     Runtime,
+//     UncheckedExtrinsic,
+// >;
 
-impl pallet_cdd_offchain_worker::Trait for Runtime {
-    type Event = Event;
-    type Call = Call;
-    // To use signed transactions in runtime
-    type SubmitSignedTransaction = SubmitTransaction;
-    // To use unsigned transactions in runtime
-    type SubmitUnsignedTransaction = SubmitTransaction;
+parameter_types! {
+    pub const CoolingInterval: BlockNumber = 3;
+    pub const BufferInterval: BlockNumber = 5;
 }
+
+//TODO: Only need to uncomment this when substrate get upgraded to latest master
+// impl pallet_cdd_offchain_worker::Trait for Runtime {
+//     /// The overarching event type.
+//     type Event = Event;
+//     /// The overarching dispatch call type
+//     type Call = Call;
+//     /// No. of blocks delayed to execute the offchain worker
+//     type CoolingInterval = CoolingInterval;
+//     /// Buffer given to check the validity of the cdd claim. It is in block numbers.
+//     type BufferInterval = BufferInterval;
+//     /// The type to sign and submit transactions.
+//     type SubmitSignedTransaction = SubmitTransaction;
+// }
 
 impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtime {
     type Public = <Signature as Verify>::Signer;
@@ -573,7 +584,7 @@ impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for 
         <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
     )> {
         let period = 1 << 8;
-        let current_block = System::block_number().saturated_into::<u64>();
+        let current_block = System::block_number().into();
         let tip = 0;
         let extra: SignedExtra = (
             frame_system::CheckVersion::<Runtime>::new(),
@@ -581,8 +592,9 @@ impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for 
             frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
             frame_system::CheckNonce::<Runtime>::from(index),
             frame_system::CheckWeight::<Runtime>::new(),
-            transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-            // TODO: Add Contract & Identity signed extension
+            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+            Default::default(),
+            UpdateDid::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra).ok()?;
         let signature = TSigner::sign(public, &raw_payload)?;
@@ -646,7 +658,7 @@ construct_runtime!(
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
         KycServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage },
-        CddOffChainWorker: pallet_cdd_offchain_worker::{ Module, Call, Storage, Event<T>, ValidateUnsigned}
+        // CddOffChainWorker: pallet_cdd_offchain_worker::{ Module, Call, Storage, Event<T>}
     }
 );
 
@@ -673,6 +685,8 @@ pub type SignedExtra = (
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+/// The payload being signed in transactions.
+pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.

@@ -16,7 +16,7 @@ pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-pay
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
 pallet-staking = { package = "pallet-staking", path = "../staking", default-features = false  }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve", default-features = false  }
-pallet-cdd-offchain-worker = {package = "pallet-cdd-offchain-worker", path = "../cdd-offchain-worker", default-features = false}
+#pallet-cdd-offchain-worker = {package = "pallet-cdd-offchain-worker", path = "../cdd-offchain-worker", default-features = false}
 
 chrono = { version = "0.4.10", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
@@ -125,7 +125,7 @@ std = [
 	"pallet-treasury/std",
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
-	"pallet-cdd-offchain-worker/std",
+	#"pallet-cdd-offchain-worker/std",
 	"frame-support/std",
 	"frame-system/std",
 	"frame-system-rpc-runtime-api/std",
