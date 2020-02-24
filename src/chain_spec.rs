@@ -6,11 +6,11 @@ use polymesh_runtime::{
     committee::ProportionMatch,
     config::{
         AssetConfig, BalancesConfig, BridgeConfig, ContractsConfig, GenesisConfig, IdentityConfig,
-        IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig, SudoConfig,
-        SystemConfig,
+        ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
+        SudoConfig, SystemConfig,
     },
     runtime::{CommitteeMembershipConfig, KycServiceProvidersConfig, PolymeshCommitteeConfig},
-    Commission, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
+    Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
 use sc_service::Properties;
@@ -277,7 +277,14 @@ fn testnet_genesis(
             quorum_threshold: 100000,
             proposal_duration: 50,
         }),
-        pallet_im_online: Some(Default::default()),
+        pallet_im_online: Some(ImOnlineConfig {
+            slashing_params: OfflineSlashingParams {
+                max_offline_percent: 10u32,
+                constant: 3u32,
+                max_slash_percent: 7u32,
+            },
+            ..Default::default()
+        }),
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(Default::default()),
