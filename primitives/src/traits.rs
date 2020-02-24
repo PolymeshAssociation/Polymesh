@@ -36,4 +36,6 @@ pub trait BlockRewardsReserveCurrency<Balance, NegativeImbalance> {
     fn drop_negative_imbalance(amount: Balance);
     /// Issues a given amount of currency from the block rewards reserve if possible.
     fn issue_using_block_rewards_reserve(amount: Balance) -> NegativeImbalance;
+    /// Returns the balance of the block rewards reserve.
+    fn block_rewards_reserve_balance() -> Balance;
 }
