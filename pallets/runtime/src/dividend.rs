@@ -42,7 +42,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{Zero, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
