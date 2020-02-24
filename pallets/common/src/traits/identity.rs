@@ -11,6 +11,7 @@ use frame_system;
 use sp_core::H512;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
+use sp_runtime::{Deserialize, Serialize};
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or external type signing key are restricted to be linked to just one identity.

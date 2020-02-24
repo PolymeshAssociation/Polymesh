@@ -35,8 +35,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-// Fixes an issue related to https://github.com/rust-lang/rust/issues/48214.
-#![feature(trivial_bounds)]
 
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError,
@@ -187,7 +185,8 @@ decl_module! {
 
             // Register Identity and add claim.
             let new_id = Self::_register_did(target_account, signing_items)?;
-            Self::unsafe_add_claim(new_id, cdd_id, cdd_claim_expiry, IdentityClaimData::CustomerDueDiligence)
+            Self::unsafe_add_claim(new_id, IdentityClaimData::CustomerDueDiligence, cdd_id, cdd_claim_expiry);
+            Ok(())
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -363,7 +362,7 @@ decl_module! {
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
         /// `did_issuer`'s signing key.
-        #[weight = BatchDispatchInfo::new_normal(3_000, 10_000)]
+        // TODO: fix #[weight = BatchDispatchInfo::new_normal(3_000, 10_000)]
         pub fn add_claims_batch(
             origin,
             // Vec(did_of_claim_receiver, claim_expiry, claim_data)
@@ -380,11 +379,8 @@ decl_module! {
             ensure!(Self::is_signer_authorized(did_issuer, &sender_signer),
                     "Sender must hold a claim issuer's signing key");
 
-            // Claims that successfully passed all required checks. Unless all claims pass those
-            // checks, the whole operation fails.
-            let mut checked_claims = Vec::new();
             // Check input claims.
-            for (did, _, _) in claims {
+            for (did, _, _) in &claims {
                 ensure!(<DidRecords>::exists(did), "DID must already exist");
             }
             for (did, expiry, claim_data) in claims {
@@ -410,7 +406,7 @@ decl_module! {
             // Please keep in mind that `current_did` is double-checked:
             //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
             //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
-            ensure!(Self::has_valid_kyc(target_did).is_some(), "Invalid KYC validation on target did");
+            ensure!(Self::has_valid_cdd(target_did), "Invalid KYC validation on target did");
 
             // 2. Actions
             Context::set_current_identity::<Self>(Some(target_did));
@@ -443,7 +439,7 @@ decl_module! {
 
             let claim_meta_data = ClaimIdentifier(claim_data, did_issuer);
 
-            <Claims<T>>::remove(&did, &claim_meta_data);
+            <Claims>::remove(&did, &claim_meta_data);
 
             Self::deposit_event(RawEvent::RevokedClaim(did, claim_meta_data));
 
@@ -1114,10 +1110,10 @@ impl<T: Trait> Module<T> {
         claim_issuer: IdentityId,
     ) -> bool {
         let claim_meta_data = ClaimIdentifier(claim_data, claim_issuer);
-        if <Claims<T>>::exists(did, claim_meta_data) {
+        if <Claims>::exists(&did, &claim_meta_data) {
             let now = <pallet_timestamp::Module<T>>::get();
-            let claim = <Claims<T>>::get(did, claim_meta_data);
-            if claim.expiry > now {
+            let claim = <Claims>::get(&did, &claim_meta_data);
+            if claim.expiry > now.saturated_into::<u64>() {
                 return true;
             }
         }
@@ -1130,7 +1126,7 @@ impl<T: Trait> Module<T> {
         claim_issuers: Vec<IdentityId>,
     ) -> bool {
         for claim_issuer in claim_issuers {
-            if Self::is_claim_valid(did, claim_data, claim_issuer) {
+            if Self::is_claim_valid(did, claim_data.clone(), claim_issuer) {
                 return true;
             }
         }
@@ -1143,10 +1139,10 @@ impl<T: Trait> Module<T> {
         claim_issuer: IdentityId,
     ) -> Option<IdentityClaim> {
         let claim_meta_data = ClaimIdentifier(claim_data, claim_issuer);
-        if <Claims<T>>::exists(did, claim_meta_data) {
+        if <Claims>::exists(&did, &claim_meta_data) {
             let now = <pallet_timestamp::Module<T>>::get();
-            let claim = <Claims<T>>::get(did, claim_meta_data);
-            if claim.expiry > now {
+            let claim = <Claims>::get(&did, &claim_meta_data);
+            if claim.expiry > now.saturated_into::<u64>()  {
                 return Some(claim);
             }
         }
@@ -1159,7 +1155,7 @@ impl<T: Trait> Module<T> {
         claim_issuers: Vec<IdentityId>,
     ) -> Option<IdentityClaim> {
         for claim_issuer in claim_issuers {
-            if let Some(claim) = Self::fetch_valid_claim(did, claim_data, claim_issuer) {
+            if let Some(claim) = Self::fetch_valid_claim(did, claim_data.clone(), claim_issuer) {
                 return Some(claim);
             }
         }
@@ -1412,12 +1408,12 @@ impl<T: Trait> Module<T> {
         did_issuer: IdentityId,
         expiry: T::Moment,
     ) {
-        let claim_meta_data = ClaimIdentifier(claim_data, did_issuer);
+        let claim_meta_data = ClaimIdentifier(claim_data.clone(), did_issuer);
 
-        let last_update_date = <pallet_timestamp::Module<T>>::get();
+        let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
 
-        let issuance_date = if <Claims<T>>::exists(&target_did, &claim_meta_data) {
-            <Claims<T>>::get(&target_did, &claim_meta_data).issuance_date;
+        let issuance_date = if <Claims>::exists(&target_did, &claim_meta_data) {
+            <Claims>::get(&target_did, &claim_meta_data).issuance_date
         } else {
             last_update_date
         };
@@ -1426,11 +1422,11 @@ impl<T: Trait> Module<T> {
             claim_issuer: did_issuer,
             issuance_date: issuance_date,
             last_update_date: last_update_date,
-            expiry: expiry,
+            expiry: expiry.saturated_into::<u64>(),
             claim: claim_data,
         };
 
-        <Claims<T>>::insert(&target_did, &claim_meta_data, claim.clone());
+        <Claims>::insert(&target_did, &claim_meta_data, claim.clone());
 
         Self::deposit_event(RawEvent::NewClaims(target_did, claim_meta_data, claim));
     }
