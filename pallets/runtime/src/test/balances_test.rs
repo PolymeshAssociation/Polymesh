@@ -99,7 +99,7 @@ fn tipping_fails() {
 #[test]
 fn mint_subsidy_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let brr = Balances::block_reward_reserve();
+        let brr = Balances::block_rewards_reserve();
         assert_eq!(Balances::free_balance(&brr), 0);
         let mut ti = Balances::total_issuance();
         let alice = AccountKeyring::Alice.public();
@@ -156,7 +156,7 @@ fn issue_must_work() {
         drop(imbalance);
         assert_eq!(Balances::total_issuance(), init_total_issuance);
 
-        let brr = Balances::block_reward_reserve();
+        let brr = Balances::block_rewards_reserve();
         assert_eq!(Balances::free_balance(&brr), 0);
         let mut ti = Balances::total_issuance();
         let _alice = AccountKeyring::Alice.public();
