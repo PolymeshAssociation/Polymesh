@@ -137,7 +137,6 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
 
-            ticker.canonize();
             let sold:T::Balance = 0.into();
             ensure!(Self::is_owner(&ticker, did),"Sender must be the token owner");
 
@@ -193,7 +192,6 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
 
-            ticker.canonize();
             let mut selected_sto = Self::stos_by_token((ticker, sto_id));
             // Pre validation checks
             ensure!(Self::_pre_validation(&ticker, did, selected_sto.clone()).is_ok(), "Invalidate investment");
@@ -230,7 +228,7 @@ decl_module! {
                 did.clone(),
                 token_amount_value.1,
                 token_amount_value.0,
-                Ticker::from_slice(&[0]),
+                Ticker::default(),
                 0.into(),
                 selected_sto.clone()
             )?;
@@ -254,7 +252,6 @@ decl_module! {
 
             /// Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             let selected_sto = Self::stos_by_token((ticker, sto_id));
             let now = <pallet_timestamp::Module<T>>::get();
             // Right now we are only allowing the issuer to change the configuration only before the STO start not after the start
@@ -306,7 +303,6 @@ decl_module! {
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check whether given token is allowed as investment currency or not
             ensure!(Self::token_index_for_sto((ticker, sto_id, simple_token_ticker)) != None, "Given token is not a permitted investment currency");
             let mut selected_sto = Self::stos_by_token((ticker, sto_id));
@@ -362,7 +358,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check valid STO id
             ensure!(Self::sto_count(ticker) >= sto_id, "Invalid sto id");
             // Access the STO data
@@ -390,7 +385,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check valid STO id
             ensure!(Self::sto_count(ticker) >= sto_id, "Invalid sto id");
             // Access the STO data

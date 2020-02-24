@@ -336,5 +336,9 @@
     "PendingTx": {
         "did": "IdentityId",
         "bridge_tx": "BridgeTx"
+    },
+    "AssetRules": {
+        "is_paused": "bool",
+        "rules": "Vec<AssetRule>"
     }
 }
