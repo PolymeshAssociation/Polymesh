@@ -11,6 +11,9 @@ use sp_core::H512;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
 
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Claim<U> {
     pub issuance_date: U,
@@ -61,6 +64,7 @@ impl Default for DataTypes {
 /// Master key or external type signing key are restricted to be linked to just one identity.
 /// Other types of signing key could be associated with more than one identity.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum LinkedKeyInfo {
     Unique(IdentityId),
     Group(Vec<IdentityId>),

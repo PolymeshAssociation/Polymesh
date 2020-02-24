@@ -328,7 +328,6 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key.clone());
             let to_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
-            ticker.canonize();
             ensure!(<identity::Module<T>>::is_signer_authorized(to_did, &signer), "sender must be a signing key for DID");
 
             ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
@@ -409,7 +408,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
 
             let ticker_config = Self::ticker_registration_config();
@@ -499,7 +497,6 @@ decl_module! {
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ticker.canonize();
             ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
@@ -519,7 +516,6 @@ decl_module! {
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ticker.canonize();
             ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
@@ -540,7 +536,6 @@ decl_module! {
         pub fn rename_token(origin, ticker: Ticker, name: TokenName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ticker.canonize();
             ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
@@ -565,7 +560,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ticker.canonize();
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
             ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
@@ -591,7 +585,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
             Self::_transfer(&ticker, from_did, to_did, value.clone())?;
@@ -615,7 +608,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(<BalanceOf<T>>::exists((ticker, did)), "Account does not own this token");
             let allowance = Self::allowance((ticker, did, spender_did));
             let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
@@ -642,7 +634,6 @@ decl_module! {
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "sender must be a signing key for DID");
-            ticker.canonize();
             let ticker_from_did_did = (ticker, from_did, did);
             ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist");
             let allowance = Self::allowance(&ticker_from_did_did);
@@ -675,7 +666,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
             Self::_create_checkpoint(&ticker)
         }
@@ -696,7 +686,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
             Self::_mint(&ticker, sender, to_did, value)
         }
@@ -719,7 +708,6 @@ decl_module! {
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
             ensure!(investor_dids.len() > 0, "list of investors is empty");
             ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
 
             // A helper vec for calculated new investor balances
@@ -795,7 +783,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ticker.canonize();
             // Granularity check
             ensure!(
                 Self::check_granularity(&ticker, value),
@@ -849,7 +836,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ticker.canonize();
             // Granularity check
             ensure!(
                 Self::check_granularity(&ticker, value),
@@ -908,7 +894,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not token owner");
             // Granularity check
             ensure!(
@@ -952,7 +937,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
             // Read the token details
             let mut token = Self::token_details(&ticker);
@@ -975,7 +959,6 @@ decl_module! {
         /// * `data` Off chain data blob to validate the transfer.
         pub fn can_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) {
             let sender = ensure_signed(origin)?;
-            ticker.canonize();
             let mut current_balance: T::Balance = Self::balance_of((ticker, from_did));
             if current_balance < value {
                 current_balance = 0.into();
@@ -1016,7 +999,6 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
-            ticker.canonize();
             Self::transfer(origin, ticker, to_did, value)?;
 
             Self::deposit_event(RawEvent::TransferWithData(ticker, did, to_did, value, data));
@@ -1035,7 +1017,6 @@ decl_module! {
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
         pub fn transfer_from_with_data(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
-            ticker.canonize();
             Self::transfer_from(origin, ticker, from_did,  to_did, value)?;
 
             Self::deposit_event(RawEvent::TransferWithData(ticker, from_did, to_did, value, data));
@@ -1048,7 +1029,6 @@ decl_module! {
         /// * `_origin` Signing key
         /// * `ticker` Ticker of the token whose issuance status need to know
         pub fn is_issuable(_origin, ticker:Ticker) {
-            ticker.canonize();
             Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
 
@@ -1065,7 +1045,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
@@ -1090,7 +1069,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
@@ -1115,7 +1093,6 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
@@ -1149,7 +1126,6 @@ decl_module! {
                 <identity::Module<T>>::is_signer_authorized(holder_did, &sender_signer),
                 "sender must be a signing key for DID"
             );
-            ticker.canonize();
             Self::_increase_custody_allowance(ticker, holder_did, custodian_did, value)?;
             Ok(())
         }
@@ -1178,7 +1154,6 @@ decl_module! {
             signature: T::OffChainSignature
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ticker.canonize();
             ensure!(!Self::authentication_nonce((ticker, holder_did, nonce)), "Signature already used");
 
             let msg = SignData {
@@ -1230,7 +1205,6 @@ decl_module! {
                 <identity::Module<T>>::is_signer_authorized(custodian_did, &sender_signer),
                 "sender must be a signing key for DID"
             );
-            ticker.canonize();
             let mut custodian_allowance = Self::custodian_allowance((ticker, holder_did, custodian_did));
             // Check whether the custodian has enough allowance or not
             ensure!(custodian_allowance >= value, "Insufficient allowance");
@@ -1265,7 +1239,6 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer),
                     "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "DID is not of the asset owner");
             <FundingRound>::insert(ticker, name.clone());
             Self::deposit_event(RawEvent::FundingRound(ticker, name));
@@ -1289,7 +1262,6 @@ decl_module! {
             let sender_signer = Signatory::AccountKey(sender_key);
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer),
                     "sender must be a signing key for DID");
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, did), "user is not authorized");
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
@@ -1309,7 +1281,6 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
 
             // Verify the details of smart extension & store it
@@ -1333,7 +1304,6 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did =  Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
             ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
             // Mutate the extension details
@@ -1354,7 +1324,6 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
-            ticker.canonize();
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
             ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
             // Mutate the extension details
@@ -1651,18 +1620,15 @@ impl<T: Trait> Module<T> {
 
     /// Get the asset `id` balance of `who`.
     pub fn balance(ticker: Ticker, did: IdentityId) -> T::Balance {
-        ticker.canonize();
         Self::balance_of((ticker, did))
     }
 
     // Get the total supply of an asset `id`
     pub fn total_supply(ticker: Ticker) -> T::Balance {
-        ticker.canonize();
         Self::token_details(ticker).total_supply
     }
 
     pub fn get_balance_at(ticker: Ticker, did: IdentityId, at: u64) -> T::Balance {
-        ticker.canonize();
         let ticker_did = (ticker, did);
         if !<TotalCheckpoints>::exists(ticker) ||
             at == 0 || //checkpoints start from 1
@@ -1986,10 +1952,7 @@ impl<T: Trait> Module<T> {
         let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
 
         let ticker = match auth.authorization_data {
-            AuthorizationData::TransferTicker(ticker) => {
-                ticker.canonize();
-                ticker
-            }
+            AuthorizationData::TransferTicker(ticker) => ticker,
             _ => return Err(Error::<T>::NoTickerTransferAuth.into()),
         };
 
@@ -2037,10 +2000,7 @@ impl<T: Trait> Module<T> {
         let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
 
         let ticker = match auth.authorization_data {
-            AuthorizationData::TransferTokenOwnership(ticker) => {
-                ticker.canonize();
-                ticker
-            }
+            AuthorizationData::TransferTokenOwnership(ticker) => ticker,
             _ => return Err(Error::<T>::NotTickerOwnershipTransferAuth.into()),
         };
 
