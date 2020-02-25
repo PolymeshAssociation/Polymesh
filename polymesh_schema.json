@@ -1,9 +1,9 @@
 {
     "IdentityId":"H256",
     "Ticker": "[u8; 12]",
-    "DocumentName": "Vec<u8>",
-    "DocumentUri": "Vec<u8>",
-    "DocumentHash": "Vec<u8>",
+    "DocumentName": "Text",
+    "DocumentUri": "Text",
+    "DocumentHash": "Text",
     "Document": {
         "name": "DocumentName",
         "uri": "DocumentUri",
@@ -25,9 +25,9 @@
             "Custom": "Vec<u8>"
         }
     },
-    "TokenName": "Vec<u8>",
-    "AssetId": "Vec<u8>",
-    "FundingRoundName": "Vec<u8>",
+    "TokenName": "Text",
+    "AssetId": "Text",
+    "FundingRoundName": "Text",
     "SecurityToken": {
         "name": "TokenName",
         "total_supply": "Balance",
@@ -209,8 +209,8 @@
         "value": "Balance",
         "nonce": "u16"
     },
-    "MotionTitle": "Vec<u8>",
-    "MotionInfoLink": "Vec<u8>",
+    "MotionTitle": "Text",
+    "MotionInfoLink": "Text",
     "Motion": {
         "title": "MotionTitle",
         "info_link": "MotionInfoLink",
@@ -226,7 +226,7 @@
         "index": "u32",
         "end": "u64",
         "proposal_hash": "Hash",
-        "url": "Vec<u8>"
+        "url": "Text"
     },
     "PolymeshVotes": {
         "index": "u32",
@@ -292,7 +292,7 @@
             "Custom": "Vec<u8>"
         }
     },
-    "SmartExtensionName": "Vec<u8>",
+    "SmartExtensionName": "Text",
     "SmartExtension": {
         "extension_type": "SmartExtensionType",
         "extension_name": "SmartExtensionName",
@@ -336,6 +336,11 @@
     "PendingTx": {
         "did": "IdentityId",
         "bridge_tx": "BridgeTx"
+    },
+    "OfflineSlashingParams": {
+        "max_offline_percent": "u32",
+        "constant": "u32",
+        "max_slash_percent": "u32"
     },
     "AssetRules": {
         "is_paused": "bool",

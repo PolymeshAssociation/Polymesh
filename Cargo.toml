@@ -16,6 +16,7 @@ polymesh-runtime = { path = "pallets/runtime" }
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
 pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
 polymesh-runtime-identity-rpc = { package = "polymesh-runtime-identity-rpc", path = "pallets/identity/rpc", default-features = false }
+im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
 
 parking_lot = "0.9.0"
 tokio = "0.1.22"
@@ -46,7 +47,6 @@ sc-telemetry = { package = "sc-telemetry", git = "https://github.com/paritytech/
 sc-transaction-pool = { package = "sc-transaction-pool", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sc-keystore = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-im-online = { package = "pallet-im-online", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sc-consensus-babe = { package = "sc-consensus-babe", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-consensus-babe = { package = "sp-consensus-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sc-basic-authority = { package = "sc-basic-authority", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
