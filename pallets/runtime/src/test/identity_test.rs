@@ -4,8 +4,8 @@ use crate::test::{
 };
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, ClaimIdentifier, IdentityClaim, IdentityClaimData, LinkData,
-    Permission, Signatory, SignatoryType, SigningItem, Ticker,
+    AccountKey, AuthorizationData, IdentityClaimData, LinkData, Permission, Signatory,
+    SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{SigningItemWithAuth, TargetIdAuthorization};

@@ -653,9 +653,8 @@ mod tests {
             let (claim_issuer_signed, claim_issuer_did) =
                 make_account(&claim_issuer_acc.clone()).unwrap();
 
-            let claim_key = b"some_key".to_vec();
             assert_ok!(Identity::add_claim(
-                claim_issuer_signed,
+                claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::Accredited,
                 99999999999999999u64,
@@ -704,7 +703,7 @@ mod tests {
                     token_owner_did.clone(),
                     token.total_supply
                 ),
-                "dfs"
+                "Transfer restrictions failed"
             );
 
             assert_ok!(Identity::add_claim(
@@ -735,7 +734,7 @@ mod tests {
                     token_owner_did.clone(),
                     token.total_supply
                 ),
-                "dfs"
+                "Transfer restrictions failed"
             );
         });
     }
@@ -863,12 +862,7 @@ mod tests {
         // 5. Verify pause/resume mechanism.
         // 5.1. Transfer should be cancelled.
         assert_err!(
-            Asset::transfer(
-                token_owner_signed.clone(),
-                ticker,
-                token_owner_did.clone(),
-                10
-            ),
+            Asset::transfer(token_owner_signed.clone(), ticker, receiver_did, 10),
             "Transfer restrictions failed"
         );
 
@@ -880,7 +874,7 @@ mod tests {
         assert_ok!(Asset::transfer(
             token_owner_signed.clone(),
             ticker,
-            token_owner_did.clone(),
+            receiver_did,
             10
         ));
 
@@ -890,12 +884,7 @@ mod tests {
             ticker
         ));
         assert_err!(
-            Asset::transfer(
-                token_owner_signed.clone(),
-                ticker,
-                token_owner_did.clone(),
-                10
-            ),
+            Asset::transfer(token_owner_signed.clone(), ticker, receiver_did, 10),
             "Transfer restrictions failed"
         );
     }
