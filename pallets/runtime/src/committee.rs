@@ -31,7 +31,7 @@ use sp_std::{convert::TryFrom, prelude::*, vec};
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{Dispatchable, Parameter},
+    dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter},
     ensure,
     traits::{ChangeMembers, InitializeMembers},
     weights::SimpleDispatchInfo,
@@ -140,6 +140,12 @@ decl_error!(
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Duplicate vote ignored
         DuplicateVote,
+        /// Only master key of the identity is allowed.
+        OnlyMasterKeyAllowed,
+        /// Sender Identity is not part of the committee.
+        MemberNotFound,
+        /// Last member of the committee can not quit.
+        LastMemberCannotQuit,
     }
 );
 
@@ -184,6 +190,32 @@ decl_module! {
             <Members<I>>::mutate(|m| {
                 *m = new_members;
             });
+        }
+
+
+        /// It allows a caller governance committee member to unilaterally quit without this being
+        /// subject to a GC vote.
+        ///
+        /// # Arguments
+        /// * `origin` Member of committee who wants to quit.
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn rage_quit_as_member(origin) -> DispatchResult {
+            let who = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&who)?;
+
+            ensure!(<Identity<T>>::is_master_key(did, &who),
+                Error::<T,I>::OnlyMasterKeyAllowed);
+
+            let members = Self::members();
+            ensure!(members.contains(&did),
+                Error::<T,I>::MemberNotFound);
+            ensure!( members.len() > 1,
+                Error::<T,I>::LastMemberCannotQuit);
+
+            <Members<I>>::mutate( |members| {
+                members.retain(|m| *m != did);
+            });
+            Ok(())
         }
 
         /// Any committee member proposes a dispatchable.
@@ -414,7 +446,7 @@ mod tests {
     use crate::committee;
     use core::result::Result as StdResult;
     use frame_support::{
-        assert_noop, assert_ok, dispatch::DispatchResult, parameter_types, Hashable,
+        assert_err, assert_noop, assert_ok, dispatch::DispatchResult, parameter_types, Hashable,
     };
     use frame_system::EnsureSignedBy;
     use sp_core::H256;
@@ -825,5 +857,42 @@ mod tests {
                 (ProportionMatch::AtLeast, 4, 17)
             );
         });
+    }
+
+    #[test]
+    fn rage_quit() {
+        make_ext().execute_with(rage_quit_we);
+    }
+
+    fn rage_quit_we() {
+        // 1. Add members to committee
+        let alice_acc = AccountId::from(AccountKeyring::Alice);
+        let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
+
+        let bob_acc = AccountId::from(AccountKeyring::Bob);
+        let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
+
+        let charlie_acc = AccountId::from(AccountKeyring::Charlie);
+        let (charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
+        Committee::set_members(Origin::ROOT, vec![alice_did, bob_did]).unwrap();
+        // Charlie is NOT a member
+        assert_eq!(Committee::is_member(&charlie_did), false);
+        assert_err!(
+            Committee::rage_quit_as_member(charlie_signer),
+            Error::<Test, Instance1>::MemberNotFound
+        );
+
+        // Bob quits
+        assert_eq!(Committee::is_member(&bob_did), true);
+        assert_ok!(Committee::rage_quit_as_member(bob_signer));
+        assert_eq!(Committee::is_member(&bob_did), false);
+
+        // Alice should not quit because she is the last member.
+        assert_eq!(Committee::is_member(&alice_did), true);
+        assert_err!(
+            Committee::rage_quit_as_member(alice_signer),
+            Error::<Test, Instance1>::LastMemberCannotQuit
+        );
+        assert_eq!(Committee::is_member(&alice_did), true);
     }
 }
