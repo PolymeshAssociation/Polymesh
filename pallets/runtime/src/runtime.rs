@@ -1,7 +1,7 @@
 use crate::{
     asset, bridge, committee, contracts_wrapper, dividend, exemption, general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    mips, multisig, percentage_tm, simple_token, statistics, sto_capped,
+    multisig, percentage_tm, simple_token, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
@@ -326,7 +326,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type MembershipChanged = PolymeshCommittee;
 }
 
-impl mips::Trait for Runtime {
+impl pallet_mips::Trait for Runtime {
     type Currency = Balances;
     type Proposal = Call;
     type CommitteeOrigin =
@@ -582,7 +582,7 @@ construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Storage, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-        Mips: mips::{Module, Call, Storage, Event<T>, Config<T>},
+        Mips: pallet_mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},

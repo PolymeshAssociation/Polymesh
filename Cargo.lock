@@ -2954,6 +2954,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-mips"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-balances",
+ "polymesh-runtime-common",
+ "polymesh-runtime-group",
+ "polymesh-runtime-identity",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+]
+
+[[package]]
 name = "pallet-offences"
 version = "2.0.0"
 source = "git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
@@ -3553,6 +3577,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-membership",
+ "pallet-mips",
  "pallet-offences",
  "pallet-randomness-collective-flip",
  "pallet-session",
