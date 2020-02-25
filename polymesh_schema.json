@@ -109,55 +109,45 @@
         "master_key": "AccountKey",
         "signing_items": "Vec<SigningItem>"
     },
-    "Claim": {
+    "JurisdictionName": "Text",
+    "IdentityClaimData": {
+        "_enum": {
+            "Accredited": "",
+            "Affiliate": "",
+            "BuyLockup": "",
+            "SellLockup": "",
+            "CustomerDueDiligence": "",
+            "KnowYourCustomer": "",
+            "Jurisdiction": "JurisdictionName",
+            "Whitelisted": "",
+            "NoData": ""
+        }
+    },
+    "IdentityClaim": {
+        "claim_issuer": "IdentityId",
         "issuance_date": "Moment",
+        "last_update_date": "Moment",
         "expiry": "Moment",
-        "claim_value": "ClaimValue"
+        "claim": "IdentityClaimData"
     },
-    "ClaimMetaData": {
-        "claim_key": "Vec<u8>",
+    "ClaimIdentifier": {
+        "claim": "IdentityClaimData",
         "claim_issuer": "IdentityId"
-    },
-    "ClaimValue": {
-        "data_type": "DataTypes",
-        "value": "Vec<u8>"
-    },
-    "ClaimRecord": {
-        "did": "IdentityId",
-        "claim_key": "Vec<u8>",
-        "expiry": "Moment",
-        "claim_value": "ClaimValue"
-    },
-    "DataTypes": {
-        "_enum": [
-            "U8",
-            "U16",
-            "U32",
-            "U64",
-            "U128",
-            "Bool",
-            "VecU8"
-        ]
     },
     "AssetRule": {
         "sender_rules": "Vec<RuleData>",
         "receiver_rules":"Vec<RuleData>"
     },
-    "Operators": {
+    "RuleType": {
         "_enum": [
-            "EqualTo",
-            "NotEqualTo",
-            "LessThan",
-            "GreaterThan",
-            "LessOrEqualTo",
-            "GreaterOrEqualTo"
+            "ClaimIsPresent",
+            "ClaimIsAbsent"
         ]
     },
     "RuleData": {
-        "key": "Vec<u8>",
-        "value": "Vec<u8>",
+        "claim": "IdentityClaimData",
         "trusted_issuers": "Vec<IdentityId>",
-        "operator": "Operators"
+        "rule_rype": "RuleType"
     },
     "STO": {
         "beneficiary_did": "IdentityId",
