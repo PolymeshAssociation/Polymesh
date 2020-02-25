@@ -44,6 +44,7 @@
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
 use crate::{
+    predicates::{ Operator, RationalOperator, RuleData },
     asset::{self, AssetTrait},
     utils,
 };
@@ -63,22 +64,7 @@ use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchRes
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*};
 
-/// Type of operators that a rule can have
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum Operators {
-    EqualTo,
-    NotEqualTo,
-    LessThan,
-    GreaterThan,
-    LessOrEqualTo,
-    GreaterOrEqualTo,
-}
 
-impl Default for Operators {
-    fn default() -> Self {
-        Operators::EqualTo
-    }
-}
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -103,24 +89,6 @@ pub struct AssetRule {
 pub struct AssetRules {
     pub is_paused: bool,
     pub rules: Vec<AssetRule>,
-}
-
-/// Details about individual rules
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct RuleData {
-    /// Claim key
-    key: Vec<u8>,
-
-    /// Claim target value. (RHS of operatior)
-    value: Vec<u8>,
-
-    /// Array of trusted claim issuers
-    trusted_issuers: Vec<IdentityId>,
-
-    /// Operator. The rule is "Actual claim value" Operator "Rule value defined in this struct"
-    /// Example: If the actual claim value is 5, value defined here is 10 and operator is NotEqualTo
-    /// Then the rule will be resolved as 5 != 10 which is true and hence the rule will pass
-    operator: Operators,
 }
 
 type Identity<T> = identity::Module<T>;
@@ -720,7 +688,7 @@ mod tests {
                 key: "some_key".as_bytes().to_vec(),
                 value: "some_value".as_bytes().to_vec(),
                 trusted_issuers: vec![claim_issuer_did],
-                operator: Operators::EqualTo,
+                operator: Operator::Rational(RationalOperator::EqualTo),
             };
 
             let x = vec![sender_rule];
@@ -803,14 +771,14 @@ mod tests {
                 key: "some_key".as_bytes().to_vec(),
                 value: 5u8.encode(),
                 trusted_issuers: vec![claim_issuer_did],
-                operator: Operators::GreaterThan,
+                operator: Operator::Rational(RationalOperator::GreaterThan),
             };
 
             let receiver_rule = RuleData {
                 key: "some_key".as_bytes().to_vec(),
                 value: 15u8.encode(),
                 trusted_issuers: vec![claim_issuer_did],
-                operator: Operators::LessThan,
+                operator: Operator::Rational(RationalOperator::LessThan),
             };
 
             let x = vec![sender_rule];
@@ -951,7 +919,7 @@ mod tests {
             key: claim_key,
             value: 15u8.encode(),
             trusted_issuers: vec![receiver_did],
-            operator: Operators::LessThan,
+            operator: Operator::Rational(RationalOperator::LessThan),
         }];
 
         let asset_rule = AssetRule {

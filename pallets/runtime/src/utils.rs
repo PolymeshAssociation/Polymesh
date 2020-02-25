@@ -1,6 +1,9 @@
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, identity::DataTypes};
+use polymesh_runtime_common::{
+    balances::Trait as BalancesTrait,
+    identity::DataTypes
+};
 
-use crate::general_tm::Operators;
+use crate::predicates::Operator;
 use codec::{Decode, Encode};
 use frame_system;
 use pallet_session;
@@ -20,9 +23,10 @@ pub fn is_rule_broken(
     rule_data: Vec<u8>,
     identity_data: Vec<u8>,
     data_type: DataTypes,
-    operator: Operators,
+    operator: Operator,
 ) -> bool {
     let mut rule_broken = false;
+    /*
     match data_type {
         DataTypes::U8 => {
             let rule_value_result = u8::decode(&mut &rule_data[..]);
@@ -33,32 +37,32 @@ pub fn is_rule_broken(
             let rule_value = rule_value_result.unwrap_or_default();
             let identity_value = identity_value_result.unwrap_or_default();
             match operator {
-                Operators::EqualTo => {
+                Operator::EqualTo => {
                     if rule_value != identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::NotEqualTo => {
+                Operator::NotEqualTo => {
                     if rule_value == identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessThan => {
+                Operator::LessThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterThan => {
+                Operator::GreaterThan => {
                     if rule_value >= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessOrEqualTo => {
+                Operator::LessOrEqualTo => {
                     if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterOrEqualTo => {
+                Operator::GreaterOrEqualTo => {
                     if rule_value > identity_value {
                         rule_broken = true;
                     }
@@ -74,32 +78,32 @@ pub fn is_rule_broken(
             let rule_value = rule_value_result.unwrap_or_default();
             let identity_value = identity_value_result.unwrap_or_default();
             match operator {
-                Operators::EqualTo => {
+                Operator::EqualTo => {
                     if rule_value != identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::NotEqualTo => {
+                Operator::NotEqualTo => {
                     if rule_value == identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessThan => {
+                Operator::LessThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterThan => {
+                Operator::GreaterThan => {
                     if rule_value >= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessOrEqualTo => {
+                Operator::LessOrEqualTo => {
                     if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterOrEqualTo => {
+                Operator::GreaterOrEqualTo => {
                     if rule_value > identity_value {
                         rule_broken = true;
                     }
@@ -115,32 +119,32 @@ pub fn is_rule_broken(
             let rule_value = rule_value_result.unwrap_or_default();
             let identity_value = identity_value_result.unwrap_or_default();
             match operator {
-                Operators::EqualTo => {
+                Operator::EqualTo => {
                     if rule_value != identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::NotEqualTo => {
+                Operator::NotEqualTo => {
                     if rule_value == identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessThan => {
+                Operator::LessThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterThan => {
+                Operator::GreaterThan => {
                     if rule_value >= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessOrEqualTo => {
+                Operator::LessOrEqualTo => {
                     if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterOrEqualTo => {
+                Operator::GreaterOrEqualTo => {
                     if rule_value > identity_value {
                         rule_broken = true;
                     }
@@ -156,32 +160,32 @@ pub fn is_rule_broken(
             let rule_value = rule_value_result.unwrap_or_default();
             let identity_value = identity_value_result.unwrap_or_default();
             match operator {
-                Operators::EqualTo => {
+                Operator::EqualTo => {
                     if rule_value != identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::NotEqualTo => {
+                Operator::NotEqualTo => {
                     if rule_value == identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessThan => {
+                Operator::LessThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterThan => {
+                Operator::GreaterThan => {
                     if rule_value >= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessOrEqualTo => {
+                Operator::LessOrEqualTo => {
                     if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterOrEqualTo => {
+                Operator::GreaterOrEqualTo => {
                     if rule_value > identity_value {
                         rule_broken = true;
                     }
@@ -197,32 +201,32 @@ pub fn is_rule_broken(
             let rule_value = rule_value_result.unwrap_or_default();
             let identity_value = identity_value_result.unwrap_or_default();
             match operator {
-                Operators::EqualTo => {
+                Operator::EqualTo => {
                     if rule_value != identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::NotEqualTo => {
+                Operator::NotEqualTo => {
                     if rule_value == identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessThan => {
+                Operator::LessThan => {
                     if rule_value <= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterThan => {
+                Operator::GreaterThan => {
                     if rule_value >= identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::LessOrEqualTo => {
+                Operator::LessOrEqualTo => {
                     if rule_value < identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::GreaterOrEqualTo => {
+                Operator::GreaterOrEqualTo => {
                     if rule_value > identity_value {
                         rule_broken = true;
                     }
@@ -238,12 +242,12 @@ pub fn is_rule_broken(
             let rule_value = rule_value_result.unwrap_or_default();
             let identity_value = identity_value_result.unwrap_or_default();
             match operator {
-                Operators::EqualTo => {
+                Operator::EqualTo => {
                     if rule_value != identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::NotEqualTo => {
+                Operator::NotEqualTo => {
                     if rule_value == identity_value {
                         rule_broken = true;
                     }
@@ -257,12 +261,12 @@ pub fn is_rule_broken(
             let rule_value = rule_data;
             let identity_value = identity_data;
             match operator {
-                Operators::EqualTo => {
+                Operator::EqualTo => {
                     if rule_value != identity_value {
                         rule_broken = true;
                     }
                 }
-                Operators::NotEqualTo => {
+                Operator::NotEqualTo => {
                     if rule_value == identity_value {
                         rule_broken = true;
                     }
@@ -272,6 +276,6 @@ pub fn is_rule_broken(
                 }
             }
         }
-    }
+    }*/
     return rule_broken;
 }

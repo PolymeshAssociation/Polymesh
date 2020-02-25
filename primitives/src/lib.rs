@@ -106,6 +106,12 @@ pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType
 pub mod document;
 pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
+pub mod claim;
+pub use claim::{ DataTypes, ClaimValue };
+
+pub mod predicates;
+pub use predicates::{ RationalOperator, CollectionOperator, Operator, RuleData };
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

@@ -28,12 +28,6 @@ pub struct ClaimMetaData {
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct ClaimValue {
-    pub data_type: DataTypes,
-    pub value: Vec<u8>,
-}
-
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 /// A structure for passing claims to `add_claims_batch`. The type argument is required to be
 /// `timestamp::Trait::Moment`.
 pub struct ClaimRecord<U> {
@@ -41,23 +35,6 @@ pub struct ClaimRecord<U> {
     pub claim_key: Vec<u8>,
     pub expiry: U,
     pub claim_value: ClaimValue,
-}
-
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum DataTypes {
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
-    Bool,
-    VecU8,
-}
-
-impl Default for DataTypes {
-    fn default() -> Self {
-        DataTypes::VecU8
-    }
 }
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
