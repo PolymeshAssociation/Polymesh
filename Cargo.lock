@@ -2978,6 +2978,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-mips-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-mips-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-mips-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "sp-api",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-offences"
 version = "2.0.0"
 source = "git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
@@ -3503,6 +3527,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-im-online",
+ "pallet-mips-rpc",
  "pallet-staking-rpc",
  "pallet-transaction-payment-rpc",
  "parking_lot 0.9.0",
@@ -3578,6 +3603,7 @@ dependencies = [
  "pallet-indices",
  "pallet-membership",
  "pallet-mips",
+ "pallet-mips-rpc-runtime-api",
  "pallet-offences",
  "pallet-randomness-collective-flip",
  "pallet-session",

@@ -786,4 +786,10 @@ impl_runtime_apis! {
             Staking::get_curve()
         }
     }
+
+    impl pallet_mips_rpc_runtime_api::MipsApi<Block> for Runtime {
+         fn get_votes() -> Vec<u32> {
+            Mips::get_votes()
+        }
+    }
 }

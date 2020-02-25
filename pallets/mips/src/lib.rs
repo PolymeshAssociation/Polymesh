@@ -461,6 +461,14 @@ impl<T: Trait> Module<T> {
             .collect()
     }
 
+    /// Retrieve votes for a proposal represented by MipsIndex `index`.
+    pub fn get_votes() -> Vec<u32> {
+        let mut vec = Vec::new();
+        vec.push(31);
+        vec.push(15);
+        vec
+    }
+
     // Private functions
 
     /// Runs the following procedure:
