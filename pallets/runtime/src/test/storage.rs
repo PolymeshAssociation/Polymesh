@@ -3,7 +3,7 @@ use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, stati
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
-    asset::AcceptTransfer, group::GroupTrait, identity::ClaimValue, multisig::AddSignerMultiSig,
+    asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig,
     CommonTrait,
 };
 use polymesh_runtime_group as group;
@@ -346,7 +346,6 @@ pub fn make_account_with_balance(
             Origin::signed(cdd_acc),
             id,
             10,
-            ClaimValue::default(),
             vec![],
         )
     } else {

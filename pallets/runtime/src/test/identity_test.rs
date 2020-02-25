@@ -9,7 +9,7 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{
-    Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, SigningItemWithAuth,
+    Claim, SigningItemWithAuth,
     TargetIdAuthorization,
 };
 use polymesh_runtime_identity::{self as identity, Error};

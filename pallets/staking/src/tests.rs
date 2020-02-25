@@ -25,7 +25,6 @@ use frame_support::{
 };
 use mock::*;
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::identity::{ClaimValue, DataTypes};
 use sp_runtime::{
     assert_eq_error_rate,
     traits::{BadOrigin, OnInitialize},

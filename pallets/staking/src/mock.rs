@@ -37,7 +37,6 @@ use polymesh_runtime_common::{
     traits::{
         asset::AcceptTransfer,
         group::GroupTrait,
-        identity::{ClaimValue, DataTypes},
         multisig::AddSignerMultiSig,
         CommonTrait,
     },
@@ -704,7 +703,6 @@ pub fn add_nominator_claim(
     idendity_id: IdentityId,
     claim_issuer_account_id: AccountId,
     account_id: AccountId,
-    claim_value: ClaimValue,
 ) {
     let signed_id = Origin::signed(account_id.clone());
     let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id.clone());

@@ -302,7 +302,7 @@ mod tests {
     use polymesh_primitives::IdentityId;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
-        asset::AcceptTransfer, group::GroupTrait, identity::DataTypes, multisig::AddSignerMultiSig,
+        asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig,
         CommonTrait,
     };
     use polymesh_runtime_group as group;
@@ -651,125 +651,40 @@ mod tests {
             ));
             let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
             Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-            let (_claim_issuer, claim_issuer_did) =
-                make_account(&claim_issuer_acc.clone()).unwrap();
-
-            let claim_value = ClaimValue {
-                data_type: DataTypes::VecU8,
-                value: "some_value".as_bytes().to_vec(),
-            };
-
-            assert_ok!(Identity::add_claim(
-                Origin::signed(claim_issuer_acc.clone()),
-                token_owner_did,
-                "some_key".as_bytes().to_vec(),
-                claim_issuer_did,
-                99999999999999999u64,
-                claim_value.clone()
-            ));
-
-            let now = Utc::now();
-            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
-
-            let sender_rule = RuleData {
-                key: "some_key".as_bytes().to_vec(),
-                value: "some_value".as_bytes().to_vec(),
-                trusted_issuers: vec![claim_issuer_did],
-                operator: Operators::EqualTo,
-            };
-
-            let x = vec![sender_rule];
-
-            let asset_rule = AssetRule {
-                sender_rules: x,
-                receiver_rules: vec![],
-            };
-
-            // Allow all transfers
-            assert_ok!(GeneralTM::add_active_rule(
-                token_owner_signed.clone(),
-                ticker,
-                asset_rule
-            ));
-
-            //Transfer tokens to investor
-            assert_ok!(Asset::transfer(
-                token_owner_signed.clone(),
-                ticker,
-                token_owner_did,
-                token.total_supply
-            ));
-        });
-    }
-
-    #[test]
-    fn should_add_and_verify_complex_assetrule() {
-        identity_owned_by_alice().execute_with(|| {
-            let token_owner_acc = AccountId::from(AccountKeyring::Alice);
-            let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
-
-            // A token representing 1M shares
-            let token = SecurityToken {
-                name: vec![0x01].into(),
-                owner_did: token_owner_did.clone(),
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-            let ticker = Ticker::from(token.name.0.as_slice());
-            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
-
-            // Share issuance is successful
-            assert_ok!(Asset::create_token(
-                token_owner_signed.clone(),
-                token.name.clone(),
-                ticker,
-                token.total_supply,
-                true,
-                token.asset_type.clone(),
-                vec![],
-                None
-            ));
-            let claim_issuer_acc = AccountId::from(AccountKeyring::Bob);
-            Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
             let (claim_issuer_signed, claim_issuer_did) =
                 make_account(&claim_issuer_acc.clone()).unwrap();
-
-            let claim_value = ClaimValue {
-                data_type: DataTypes::U8,
-                value: 10u8.encode(),
-            };
 
             let claim_key = b"some_key".to_vec();
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed,
                 token_owner_did,
-                claim_key.clone(),
-                claim_issuer_did,
+                IdentityClaimData::Accredited,
                 99999999999999999u64,
-                claim_value.clone()
             ));
 
             let now = Utc::now();
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = RuleData {
-                key: "some_key".as_bytes().to_vec(),
-                value: 5u8.encode(),
+                claim: IdentityClaimData::Accredited,
                 trusted_issuers: vec![claim_issuer_did],
-                operator: Operators::GreaterThan,
+                rule_type: RuleType::ClaimIsPresent,
             };
 
-            let receiver_rule = RuleData {
-                key: "some_key".as_bytes().to_vec(),
-                value: 15u8.encode(),
+            let receiver_rule1 = RuleData {
+                claim: IdentityClaimData::Affiliate,
                 trusted_issuers: vec![claim_issuer_did],
-                operator: Operators::LessThan,
+                rule_type: RuleType::ClaimIsAbsent,
+            };
+
+            let receiver_rule2 = RuleData {
+                claim: IdentityClaimData::KnowYourCustomer,
+                trusted_issuers: vec![claim_issuer_did],
+                rule_type: RuleType::ClaimIsPresent,
             };
 
             let x = vec![sender_rule];
-            let y = vec![receiver_rule];
+            let y = vec![receiver_rule1, receiver_rule2];
 
             let asset_rule = AssetRule {
                 sender_rules: x,
@@ -783,12 +698,40 @@ mod tests {
             ));
 
             //Transfer tokens to investor
+            assert_err!(Asset::transfer(
+                token_owner_signed.clone(),
+                ticker,
+                token_owner_did.clone(),
+                token.total_supply
+            ), "dfs");
+
+            assert_ok!(Identity::add_claim(
+                claim_issuer_signed,
+                token_owner_did,
+                IdentityClaimData::KnowYourCustomer,
+                99999999999999999u64,
+            ));
+
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
                 ticker,
                 token_owner_did.clone(),
                 token.total_supply
             ));
+
+            assert_ok!(Identity::add_claim(
+                claim_issuer_signed,
+                token_owner_did,
+                IdentityClaimData::Affiliate,
+                99999999999999999u64,
+            ));
+
+            assert_err!(Asset::transfer(
+                token_owner_signed.clone(),
+                ticker,
+                token_owner_did.clone(),
+                token.total_supply
+            ), "dfs");
         });
     }
 
@@ -884,35 +827,28 @@ mod tests {
             None
         ));
 
-        // 3. Add claim to receiver.
-        let claim_value = ClaimValue {
-            data_type: DataTypes::U8,
-            value: 50u8.encode(),
-        };
-        let claim_key = b"some_key".to_vec();
         assert_ok!(Identity::add_claim(
             receiver_signed.clone(),
             receiver_did.clone(),
-            claim_key.clone(),
-            receiver_did.clone(),
+            IdentityClaimData::Accredited,
             99999999999999999u64,
-            claim_value.clone()
         ));
+
         let now = Utc::now();
         <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
         // 4. Define rules
         let receiver_rules = vec![RuleData {
-            key: claim_key,
-            value: 15u8.encode(),
+            claim: IdentityClaimData::Accredited,
             trusted_issuers: vec![receiver_did],
-            operator: Operators::LessThan,
+            rule_type: RuleType::ClaimIsAbsent,
         }];
 
         let asset_rule = AssetRule {
             sender_rules: vec![],
             receiver_rules,
         };
+
         assert_ok!(GeneralTM::add_active_rule(
             token_owner_signed.clone(),
             ticker,
