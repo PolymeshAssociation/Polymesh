@@ -376,7 +376,7 @@ mod tests {
     use polymesh_runtime_identity as identity;
 
     use crate::{
-        asset::{AssetType, SecurityToken, TickerRegistrationConfig},
+        asset::{AssetType, Error as AssetError, SecurityToken, TickerRegistrationConfig},
         exemption, percentage_tm, statistics,
     };
 
@@ -995,7 +995,7 @@ mod tests {
                 token_owner_did.clone(),
                 10
             ),
-            "Transfer restrictions failed"
+            AssetError::<Test>::InvalidTransfer
         );
 
         // 5.2. Pause asset rules, and run the transaction.
@@ -1022,7 +1022,7 @@ mod tests {
                 token_owner_did.clone(),
                 10
             ),
-            "Transfer restrictions failed"
+            AssetError::<Test>::InvalidTransfer
         );
     }
 }
