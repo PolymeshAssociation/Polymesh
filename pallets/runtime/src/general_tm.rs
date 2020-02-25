@@ -105,7 +105,7 @@ pub struct RuleData {
     trusted_issuers: Vec<IdentityId>,
 
     /// Defines if it is a whitelist based rule or a blacklist based rule
-    rule_rype: RuleType,
+    rule_type: RuleType,
 }
 
 type Identity<T> = identity::Module<T>;
@@ -214,8 +214,8 @@ impl<T: Trait> Module<T> {
         for rule in rules {
             let is_valid_claim_present =
                 <identity::Module<T>>::is_any_claim_valid(did, rule.claim, rule.trusted_issuers);
-            if rule.rule_rype == RuleType::ClaimIsPresent && !is_valid_claim_present
-                || rule.rule_rype == RuleType::ClaimIsAbsent && is_valid_claim_present
+            if rule.rule_type == RuleType::ClaimIsPresent && !is_valid_claim_present
+                || rule.rule_type == RuleType::ClaimIsAbsent && is_valid_claim_present
             {
                 return true;
             }
@@ -302,15 +302,14 @@ mod tests {
     use polymesh_primitives::IdentityId;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
-        asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig,
-        CommonTrait,
+        asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
     };
     use polymesh_runtime_group as group;
     use polymesh_runtime_identity as identity;
 
     use crate::{
         asset::{AssetType, SecurityToken, TickerRegistrationConfig},
-        exemption, percentage_tm, statistics,
+        exemption, percentage_tm, statistics, utils,
     };
 
     impl_outer_origin! {
@@ -698,15 +697,18 @@ mod tests {
             ));
 
             //Transfer tokens to investor
-            assert_err!(Asset::transfer(
-                token_owner_signed.clone(),
-                ticker,
-                token_owner_did.clone(),
-                token.total_supply
-            ), "dfs");
+            assert_err!(
+                Asset::transfer(
+                    token_owner_signed.clone(),
+                    ticker,
+                    token_owner_did.clone(),
+                    token.total_supply
+                ),
+                "dfs"
+            );
 
             assert_ok!(Identity::add_claim(
-                claim_issuer_signed,
+                claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::KnowYourCustomer,
                 99999999999999999u64,
@@ -720,18 +722,21 @@ mod tests {
             ));
 
             assert_ok!(Identity::add_claim(
-                claim_issuer_signed,
+                claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::Affiliate,
                 99999999999999999u64,
             ));
 
-            assert_err!(Asset::transfer(
-                token_owner_signed.clone(),
-                ticker,
-                token_owner_did.clone(),
-                token.total_supply
-            ), "dfs");
+            assert_err!(
+                Asset::transfer(
+                    token_owner_signed.clone(),
+                    ticker,
+                    token_owner_did.clone(),
+                    token.total_supply
+                ),
+                "dfs"
+            );
         });
     }
 

@@ -34,12 +34,7 @@ use frame_system::{self as system, EnsureSignedBy};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     constants::KYC_EXPIRY_CLAIM_KEY,
-    traits::{
-        asset::AcceptTransfer,
-        group::GroupTrait,
-        multisig::AddSignerMultiSig,
-        CommonTrait,
-    },
+    traits::{asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait},
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity::{self as identity};

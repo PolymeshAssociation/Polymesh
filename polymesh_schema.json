@@ -147,7 +147,7 @@
     "RuleData": {
         "claim": "IdentityClaimData",
         "trusted_issuers": "Vec<IdentityId>",
-        "rule_rype": "RuleType"
+        "rule_type": "RuleType"
     },
     "STO": {
         "beneficiary_did": "IdentityId",
