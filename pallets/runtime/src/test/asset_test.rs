@@ -1128,12 +1128,12 @@ fn adding_removing_documents() {
             Document {
                 name: b"A".into(),
                 uri: b"www.a.com".into(),
-                hash: b"0x1".into(),
+                content_hash: b"0x1".into(),
             },
             Document {
                 name: b"B".into(),
                 uri: b"www.b.com".into(),
-                hash: b"0x2".into(),
+                content_hash: b"0x2".into(),
             },
         ];
 
@@ -1155,7 +1155,7 @@ fn adding_removing_documents() {
             LinkData::DocumentOwned(Document {
                 name: b"A".into(),
                 uri: b"www.a.com".into(),
-                hash: b"0x1".into(),
+                content_hash: b"0x1".into(),
             })
         );
         assert_eq!(doc1.expiry, None);
@@ -1165,7 +1165,7 @@ fn adding_removing_documents() {
             LinkData::DocumentOwned(Document {
                 name: b"B".into(),
                 uri: b"www.b.com".into(),
-                hash: b"0x2".into()
+                content_hash: b"0x2".into()
             })
         );
 
@@ -1180,7 +1180,7 @@ fn adding_removing_documents() {
                     Document {
                         name: b"C".into(),
                         uri: b"www.c.com".into(),
-                        hash: b"0x3".into(),
+                        content_hash: b"0x3".into(),
                     }
                 ),
                 (
@@ -1188,7 +1188,7 @@ fn adding_removing_documents() {
                     Document {
                         name: b"D".into(),
                         uri: b"www.d.com".into(),
-                        hash: b"0x4".into(),
+                        content_hash: b"0x4".into(),
                     }
                 ),
             ]
@@ -1206,7 +1206,7 @@ fn adding_removing_documents() {
             LinkData::DocumentOwned(Document {
                 name: b"C".into(),
                 uri: b"www.c.com".into(),
-                hash: b"0x3".into(),
+                content_hash: b"0x3".into(),
             })
         );
 
@@ -1217,7 +1217,7 @@ fn adding_removing_documents() {
             LinkData::DocumentOwned(Document {
                 name: b"D".into(),
                 uri: b"www.d.com".into(),
-                hash: b"0x4".into(),
+                content_hash: b"0x4".into(),
             })
         );
         assert_eq!(doc2.expiry, None);

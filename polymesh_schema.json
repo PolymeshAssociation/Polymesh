@@ -7,7 +7,7 @@
     "Document": {
         "name": "DocumentName",
         "uri": "DocumentUri",
-        "hash": "DocumentHash"
+        "content_hash": "DocumentHash"
     },
     "AssetType": {
         "_enum": {
