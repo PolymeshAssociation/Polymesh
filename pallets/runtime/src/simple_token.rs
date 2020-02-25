@@ -96,6 +96,8 @@ decl_error! {
         BalanceUnderflow,
         /// Recipient balance overflow.
         BalanceOverflow,
+        /// Insufficient balance.
+        InsufficientBalance,
     }
 }
 
@@ -270,7 +272,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::NotAnOwner
         );
         let from_balance = Self::balance_of(&ticker_from_did);
-        ensure!(from_balance >= amount, "Insufficient balance");
+        ensure!(from_balance >= amount, Error::<T>::InsufficientBalance);
 
         let new_from_balance = from_balance
             .checked_sub(&amount)
