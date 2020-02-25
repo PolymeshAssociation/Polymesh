@@ -960,7 +960,7 @@ fn cdd_register_did_test_we() {
     // Check that Alice's ID is attested by KYC 1.
     let alice_id = Identity::get_identity(&alice_key).unwrap();
     let kyc_1_id = Identity::get_identity(&kyc_1_key).unwrap();
-    assert_eq!(Identity::has_valid_kyc(alice_id), Some(kyc_1_id));
+    assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Error case: Try account without ID.
     assert!(
@@ -986,5 +986,5 @@ fn cdd_register_did_test_we() {
     ));
     let bob_id = Identity::get_identity(&bob_key).unwrap();
     let kyc_2_id = Identity::get_identity(&kyc_2_key).unwrap();
-    assert_eq!(Identity::has_valid_kyc(bob_id), Some(kyc_2_id));
+    assert_eq!(Identity::has_valid_cdd(bob_id), true);
 }

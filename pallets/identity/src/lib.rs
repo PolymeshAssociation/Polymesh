@@ -44,7 +44,6 @@ use polymesh_primitives::{
 use polymesh_runtime_common::{
     constants::{
         did::{SECURITY_TOKEN, USER},
-        KYC_EXPIRY_CLAIM_KEY,
     },
     traits::{
         asset::AcceptTransfer,
@@ -56,7 +55,7 @@ use polymesh_runtime_common::{
         },
         multisig::AddSignerMultiSig,
     },
-    BatchDispatchInfo, Context,
+    Context,
 };
 
 use codec::Encode;

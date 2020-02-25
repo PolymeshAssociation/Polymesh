@@ -2,7 +2,7 @@ use crate::traits::{
     balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, ClaimIdentifier, IdentityId, IdentityClaim, IdentityClaimData,
+    AccountKey, AuthorizationData, ClaimIdentifier, IdentityId, IdentityClaim,
     LinkData, Permission, Signatory, SigningItem, Ticker,
 };
 
@@ -11,6 +11,7 @@ use frame_system;
 use sp_core::H512;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
+#[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.

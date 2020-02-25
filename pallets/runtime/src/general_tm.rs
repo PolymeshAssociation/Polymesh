@@ -43,16 +43,13 @@
 //!
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
-use crate::{
-    asset::{self, AssetTrait},
-    utils,
-};
+use crate::asset::{self, AssetTrait};
 
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{AccountKey, IdentityClaimData, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait,
     constants::*,
-    identity::{ClaimValue, Trait as IdentityTrait},
+    identity::Trait as IdentityTrait,
     Context,
 };
 use polymesh_runtime_identity as identity;
@@ -68,10 +65,6 @@ use sp_std::{convert::TryFrom, prelude::*};
 pub enum Operators {
     EqualTo,
     NotEqualTo,
-    LessThan,
-    GreaterThan,
-    LessOrEqualTo,
-    GreaterOrEqualTo,
 }
 
 impl Default for Operators {
@@ -82,7 +75,7 @@ impl Default for Operators {
 
 /// The module's configuration trait.
 pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + utils::Trait + IdentityTrait
+    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + IdentityTrait
 {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
@@ -109,10 +102,7 @@ pub struct AssetRules {
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct RuleData {
     /// Claim key
-    key: Vec<u8>,
-
-    /// Claim target value. (RHS of operatior)
-    value: Vec<u8>,
+    claim: IdentityClaimData,
 
     /// Array of trusted claim issuers
     trusted_issuers: Vec<IdentityId>,
@@ -225,12 +215,23 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker, sender_did)
     }
 
-    fn fetch_value(
+    fn is_any_rule_broken(
         did: IdentityId,
-        key: Vec<u8>,
-        trusted_issuers: Vec<IdentityId>,
-    ) -> Option<ClaimValue> {
-        <identity::Module<T>>::fetch_claim_value_multiple_issuers(did, key, trusted_issuers)
+        rules: Vec<RuleData>,
+    ) -> bool {
+        for rule in rules {
+            let is_valid_claim_present = <identity::Module<T>>::is_any_claim_valid(
+                did,
+                rule.claim,
+                rule.trusted_issuers
+            );
+            if rule.operator == Operators::EqualTo && !is_valid_claim_present
+                || rule.operator == Operators::NotEqualTo && is_valid_claim_present
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     ///  Sender restriction verification
@@ -240,7 +241,7 @@ impl<T: Trait> Module<T> {
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        // Transfer is valid if All reciever and sender rules of any asset rule are valid.
+        // Transfer is valid if ALL reciever AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
         if asset_rules.is_paused {
             return Ok(ERC1400_TRANSFER_SUCCESS);
@@ -250,50 +251,15 @@ impl<T: Trait> Module<T> {
             let mut rule_broken = false;
 
             if let Some(from_did) = from_did_opt {
-                for sender_rule in active_rule.sender_rules {
-                    let identity_value = Self::fetch_value(
-                        from_did.clone(),
-                        sender_rule.key,
-                        sender_rule.trusted_issuers,
-                    );
-                    rule_broken = match identity_value {
-                        None => true,
-                        Some(x) => utils::is_rule_broken(
-                            sender_rule.value,
-                            x.value,
-                            x.data_type,
-                            sender_rule.operator,
-                        ),
-                    };
-                    if rule_broken {
-                        break;
-                    }
-                }
+                rule_broken = Self::is_any_rule_broken(from_did, active_rule.sender_rules)
                 if rule_broken {
+                    // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
                 }
             }
 
             if let Some(to_did) = to_did_opt {
-                for receiver_rule in active_rule.receiver_rules {
-                    let identity_value = Self::fetch_value(
-                        to_did.clone(),
-                        receiver_rule.key,
-                        receiver_rule.trusted_issuers,
-                    );
-                    rule_broken = match identity_value {
-                        None => true,
-                        Some(x) => utils::is_rule_broken(
-                            receiver_rule.value,
-                            x.value,
-                            x.data_type,
-                            receiver_rule.operator,
-                        ),
-                    };
-                    if rule_broken {
-                        break;
-                    }
-                }
+                rule_broken = Self::is_any_rule_broken(from_did, active_rule.receiver_rules)
             }
 
             if !rule_broken {
