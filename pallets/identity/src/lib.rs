@@ -38,20 +38,17 @@
 
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError,
-    Identity as DidRecord, ClaimIdentifier, IdentityId, IdentityClaim, IdentityClaimData, Link, LinkData,
-    Permission, PreAuthorizedKeyInfo, Signatory, SignatoryType, SigningItem, Ticker,
+    ClaimIdentifier, Identity as DidRecord, IdentityClaim, IdentityClaimData, IdentityId, Link,
+    LinkData, Permission, PreAuthorizedKeyInfo, Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
-    constants::{
-        did::{SECURITY_TOKEN, USER},
-    },
+    constants::did::{SECURITY_TOKEN, USER},
     traits::{
         asset::AcceptTransfer,
         balances::BalancesTrait,
         group::GroupTrait,
         identity::{
-            AuthorizationNonce, LinkedKeyInfo,
-            RawEvent, SigningItemWithAuth, TargetIdAuthorization,
+            AuthorizationNonce, LinkedKeyInfo, RawEvent, SigningItemWithAuth, TargetIdAuthorization,
         },
         multisig::AddSignerMultiSig,
     },
@@ -1141,7 +1138,7 @@ impl<T: Trait> Module<T> {
         if <Claims>::exists(&did, &claim_meta_data) {
             let now = <pallet_timestamp::Module<T>>::get();
             let claim = <Claims>::get(&did, &claim_meta_data);
-            if claim.expiry > now.saturated_into::<u64>()  {
+            if claim.expiry > now.saturated_into::<u64>() {
                 return Some(claim);
             }
         }
@@ -1163,7 +1160,11 @@ impl<T: Trait> Module<T> {
 
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
         let trusted_kyc_providers = T::KycServiceProviders::get_members();
-        Self::is_any_claim_valid(claim_for, IdentityClaimData::CustomerDueDiligence, trusted_kyc_providers)
+        Self::is_any_claim_valid(
+            claim_for,
+            IdentityClaimData::CustomerDueDiligence,
+            trusted_kyc_providers,
+        )
     }
 
     pub fn is_identity_has_valid_kyc(
@@ -1171,7 +1172,10 @@ impl<T: Trait> Module<T> {
         buffer: u64,
     ) -> (bool, Option<IdentityId>) {
         let trusted_kyc_providers = T::KycServiceProviders::get_members();
-        if let Some(threshold) = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>().checked_add(buffer) {
+        if let Some(threshold) = <pallet_timestamp::Module<T>>::get()
+            .saturated_into::<u64>()
+            .checked_add(buffer)
+        {
             for trusted_kyc_provider in trusted_kyc_providers {
                 if let Some(claim) = Self::fetch_valid_claim(
                     claim_for,

@@ -1,6 +1,5 @@
 use polymesh_runtime_common::balances::Trait as BalancesTrait;
 
-use crate::general_tm::Operators;
 use codec::{Decode, Encode};
 use frame_system;
 use pallet_session;

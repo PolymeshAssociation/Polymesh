@@ -1,6 +1,6 @@
 use crate::{identity_id::IdentityId, Moment};
-use sp_std::prelude::Vec;
 use codec::{Decode, Encode};
+use sp_std::prelude::Vec;
 
 /// All possible claims in polymesh
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]

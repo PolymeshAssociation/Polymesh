@@ -2,17 +2,17 @@ use crate::traits::{
     balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, ClaimIdentifier, IdentityId, IdentityClaim,
-    LinkData, Permission, Signatory, SigningItem, Ticker,
+    AccountKey, AuthorizationData, ClaimIdentifier, IdentityClaim, IdentityId, LinkData,
+    Permission, Signatory, SigningItem, Ticker,
 };
 
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
 use frame_system;
 use sp_core::H512;
 use sp_runtime::traits::Dispatchable;
-use sp_std::vec::Vec;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
+use sp_std::vec::Vec;
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or external type signing key are restricted to be linked to just one identity.

@@ -47,10 +47,7 @@ use crate::asset::{self, AssetTrait};
 
 use polymesh_primitives::{AccountKey, IdentityClaimData, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
-    balances::Trait as BalancesTrait,
-    constants::*,
-    identity::Trait as IdentityTrait,
-    Context,
+    balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait, Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -60,16 +57,16 @@ use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchRes
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*};
 
-/// Type of operators that a rule can have
+/// Type of claim requirements that a rule can have
 #[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum Operators {
-    EqualTo,
-    NotEqualTo,
+pub enum RuleType {
+    ClaimIsPresent,
+    ClaimIsAbsent,
 }
 
-impl Default for Operators {
+impl Default for RuleType {
     fn default() -> Self {
-        Operators::EqualTo
+        RuleType::ClaimIsPresent
     }
 }
 
@@ -107,10 +104,8 @@ pub struct RuleData {
     /// Array of trusted claim issuers
     trusted_issuers: Vec<IdentityId>,
 
-    /// Operator. The rule is "Actual claim value" Operator "Rule value defined in this struct"
-    /// Example: If the actual claim value is 5, value defined here is 10 and operator is NotEqualTo
-    /// Then the rule will be resolved as 5 != 10 which is true and hence the rule will pass
-    operator: Operators,
+    /// Defines if it is a whitelist based rule or a blacklist based rule
+    rule_rype: RuleType,
 }
 
 type Identity<T> = identity::Module<T>;
@@ -215,18 +210,12 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker, sender_did)
     }
 
-    fn is_any_rule_broken(
-        did: IdentityId,
-        rules: Vec<RuleData>,
-    ) -> bool {
+    fn is_any_rule_broken(did: IdentityId, rules: Vec<RuleData>) -> bool {
         for rule in rules {
-            let is_valid_claim_present = <identity::Module<T>>::is_any_claim_valid(
-                did,
-                rule.claim,
-                rule.trusted_issuers
-            );
-            if rule.operator == Operators::EqualTo && !is_valid_claim_present
-                || rule.operator == Operators::NotEqualTo && is_valid_claim_present
+            let is_valid_claim_present =
+                <identity::Module<T>>::is_any_claim_valid(did, rule.claim, rule.trusted_issuers);
+            if rule.rule_rype == RuleType::ClaimIsPresent && !is_valid_claim_present
+                || rule.rule_rype == RuleType::ClaimIsAbsent && is_valid_claim_present
             {
                 return true;
             }
@@ -251,7 +240,7 @@ impl<T: Trait> Module<T> {
             let mut rule_broken = false;
 
             if let Some(from_did) = from_did_opt {
-                rule_broken = Self::is_any_rule_broken(from_did, active_rule.sender_rules)
+                rule_broken = Self::is_any_rule_broken(from_did, active_rule.sender_rules);
                 if rule_broken {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
@@ -259,7 +248,7 @@ impl<T: Trait> Module<T> {
             }
 
             if let Some(to_did) = to_did_opt {
-                rule_broken = Self::is_any_rule_broken(from_did, active_rule.receiver_rules)
+                rule_broken = Self::is_any_rule_broken(to_did, active_rule.receiver_rules)
             }
 
             if !rule_broken {
