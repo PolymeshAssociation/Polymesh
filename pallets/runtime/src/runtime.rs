@@ -435,6 +435,8 @@ impl pallet_im_online::Trait for Runtime {
     type SubmitTransaction = SubmitTransaction;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
+    type CommitteeOrigin =
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
 }
 
 impl pallet_grandpa::Trait for Runtime {

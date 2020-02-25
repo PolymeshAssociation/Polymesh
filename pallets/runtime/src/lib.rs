@@ -13,6 +13,8 @@ pub mod committee;
 #[cfg(feature = "std")]
 pub use pallet_staking::{Commission, StakerStatus};
 
+pub use pallet_im_online::OfflineSlashingParams;
+
 mod bridge;
 mod contracts_wrapper;
 mod dividend;
@@ -52,6 +54,7 @@ pub mod config {
     pub type MipsConfig = crate::mips::GenesisConfig<crate::Runtime>;
     pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;
+    pub type ImOnlineConfig = pallet_im_online::GenesisConfig<crate::Runtime>;
     pub type SudoConfig = pallet_sudo::GenesisConfig<crate::Runtime>;
     pub type SystemConfig = frame_system::GenesisConfig;
     pub type GenesisConfig = crate::runtime::GenesisConfig;

@@ -18,7 +18,6 @@ pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", p
 pallet-staking = { package = "pallet-staking", path = "../staking", default-features = false  }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve", default-features = false  }
 
-
 chrono = { version = "0.4.10", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 lazy_static = { version = "1.4.0", default-features = false }
@@ -56,7 +55,7 @@ pallet-democracy = { package = "pallet-democracy", git = "https://github.com/par
 pallet-executive = { package = "frame-executive", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 pallet-finality-tracker = { package = "pallet-finality-tracker", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 pallet-grandpa = { package = "pallet-grandpa", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-pallet-im-online = { package = "pallet-im-online", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-im-online = { package = "pallet-im-online",  path = "../im-online", default-features = false }
 pallet-indices = { package = "pallet-indices", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 pallet-membership = { package = "pallet-membership", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 pallet-offences = { package = "pallet-offences", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
