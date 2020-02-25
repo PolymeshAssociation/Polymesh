@@ -159,14 +159,14 @@ impl TokenName {
 
 /// A wrapper for an asset ID.
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct AssetId(pub Vec<u8>);
+pub struct AssetIdentifier(pub Vec<u8>);
 
-impl<T: AsRef<[u8]>> From<T> for AssetId {
+impl<T: AsRef<[u8]>> From<T> for AssetIdentifier {
     fn from(s: T) -> Self {
         let s = s.as_ref();
         let mut v = Vec::with_capacity(s.len());
         v.extend_from_slice(s);
-        AssetId(v)
+        AssetIdentifier(v)
     }
 }
 
@@ -259,7 +259,7 @@ decl_storage! {
         /// (ticker, DID) -> balance
         pub BalanceOf get(fn balance_of): map (Ticker, IdentityId) => T::Balance;
         /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
-        pub Identifiers get(fn identifiers): map (Ticker, IdentifierType) => AssetId;
+        pub Identifiers get(fn identifiers): map (Ticker, IdentifierType) => AssetIdentifier;
         /// (ticker, sender (DID), spender(DID)) -> allowance amount
         Allowance get(fn allowance): map (Ticker, IdentityId, IdentityId) => T::Balance;
         /// cost in base currency to create a token
@@ -398,7 +398,7 @@ decl_module! {
             total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<(IdentifierType, AssetId)>,
+            identifiers: Vec<(IdentifierType, AssetIdentifier)>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -1251,11 +1251,11 @@ decl_module! {
         /// * `origin` - the signing key of the token owner
         /// * `ticker` - the ticker of the token
         /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
-        ///    of `IdentifierType` and `AssetId` value.
+        ///    of `IdentifierType` and `AssetIdentifier` value.
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
-            identifiers: Vec<(IdentifierType, AssetId)>
+            identifiers: Vec<(IdentifierType, AssetIdentifier)>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -1365,7 +1365,7 @@ decl_event! {
         IssuedToken(Ticker, Balance, IdentityId, bool, AssetType),
         /// Event emitted when a token identifiers are updated.
         /// ticker, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(Ticker, Vec<(IdentifierType, AssetId)>),
+        IdentifiersUpdated(Ticker, Vec<(IdentifierType, AssetIdentifier)>),
         /// Event for change in divisibility
         /// ticker, divisibility
         DivisibilityChanged(Ticker, bool),
