@@ -352,7 +352,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         is_id_removed.is_some()
     }
 
-    /// It double check
+    /// It accepts/rejects the proposal if its threshold is satisfied.
     fn check_proposal_threshold(proposal: T::Hash) {
         if let Some(voting) = Self::voting(&proposal) {
             let seats = Self::members().len() as MemberCount;
