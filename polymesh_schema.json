@@ -212,11 +212,12 @@
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
     },
+    "Url": "Text",
     "MipsMetadata": {
         "index": "u32",
         "end": "u64",
         "proposal_hash": "Hash",
-        "url": "Text"
+        "url": "Option<Url>"
     },
     "PolymeshVotes": {
         "index": "u32",
