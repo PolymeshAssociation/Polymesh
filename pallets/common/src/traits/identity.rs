@@ -166,9 +166,6 @@ decl_event!(
         /// Asset DID queried
         AssetDid(Ticker, IdentityId),
 
-        /// To query the status of DID
-        MyKycStatus(IdentityId, bool, Option<IdentityId>),
-
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
         NewAuthorization(
             u64,

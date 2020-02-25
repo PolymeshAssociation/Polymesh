@@ -525,14 +525,6 @@ decl_module! {
             Ok(())
         }
 
-        pub fn get_asset_did(origin, ticker: Ticker) -> DispatchResult {
-            ensure_signed(origin)?;
-            let did = Self::get_token_did(&ticker)?;
-            Self::deposit_event(RawEvent::AssetDid(ticker, did));
-            sp_runtime::print(did);
-            Ok(())
-        }
-
         // Manage generic authorizations
         /// Adds an authorization
         pub fn add_authorization(
@@ -904,21 +896,6 @@ decl_module! {
             <RevokeOffChainAuthorization<T>>::insert( (signer,auth), true);
             Ok(())
         }
-
-        /// Query whether given signer identity has valid KYC or not
-        ///
-        /// # Arguments
-        /// * `origin` Signatory whose identity get checked
-        /// * `buffer_time` Buffer time corresponds to which kyc expiry need to check
-        pub fn is_my_identity_has_valid_kyc(origin, buffer_time: u64) ->  DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did = Context::current_identity_or::<Self>(&sender_key)?;
-
-            let (is_kyced, kyc_provider) = Self::is_identity_has_valid_kyc(my_did, buffer_time);
-            Self::deposit_event(RawEvent::MyKycStatus(my_did, is_kyced, kyc_provider));
-            Ok(())
-        }
     }
 }
 
@@ -1189,6 +1166,8 @@ impl<T: Trait> Module<T> {
         None
     }
 
+    /// IMPORTANT: No state change is allowed in this function
+    /// because this function is used within the RPC calls
     pub fn is_identity_has_valid_kyc(
         claim_for: IdentityId,
         buffer: u64,
@@ -1363,6 +1342,8 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// IMPORTANT: No state change is allowed in this function
+    /// because this function is used within the RPC calls
     /// It is a helper function that can be used to get did for any asset
     pub fn get_token_did(ticker: &Ticker) -> StdResult<IdentityId, &'static str> {
         let mut buf = Vec::new();
@@ -1460,6 +1441,28 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::NewClaims(target_did, claim_meta_data, claim));
 
         Ok(())
+    }
+}
+
+impl<T: Trait> Module<T> {
+    /// RPC call to know whether the given did has valid cdd claim or not
+    pub fn is_identity_has_valid_cdd(
+        did: IdentityId,
+        buffer_time: Option<u64>,
+    ) -> (bool, Option<IdentityId>) {
+        let buffer = match buffer_time {
+            Some(time) => time,
+            None => 0u64,
+        };
+        Self::is_identity_has_valid_kyc(did, buffer)
+    }
+
+    /// RPC call to query the given ticker did
+    pub fn get_asset_did(ticker: Ticker) -> Option<IdentityId> {
+        if let Ok(did) = Self::get_token_did(&ticker) {
+            return Some(did);
+        }
+        return None;
     }
 }
 

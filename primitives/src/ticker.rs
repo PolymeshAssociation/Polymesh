@@ -1,5 +1,7 @@
 //! Ticker symbol
 use codec::{Decode, Encode, Error, Input};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::cmp::min;
 
 const TICKER_LEN: usize = 12;
@@ -10,6 +12,7 @@ const TICKER_LEN: usize = 12;
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
 #[derive(Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Ticker([u8; TICKER_LEN]);
 
 impl Default for Ticker {

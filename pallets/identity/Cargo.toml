@@ -8,6 +8,7 @@ edition = "2018"
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
+polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -47,4 +48,8 @@ std = [
 	"frame-system/std",
 	"frame-support/std",
 	"pallet-timestamp/std",
+	"polymesh-runtime-common/std",
+	"polymesh-primitives/std",
+	"polymesh-runtime-group/std",
+	"polymesh-runtime-identity-rpc-runtime-api/std",
 ]

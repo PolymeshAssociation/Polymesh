@@ -7,7 +7,8 @@ use crate::{
 };
 
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, Moment, Signature,
+    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Moment, Signature,
+    Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
@@ -780,8 +781,21 @@ impl_runtime_apis! {
     }
 
     impl pallet_staking_rpc_runtime_api::StakingApi<Block> for Runtime {
-         fn get_curve() -> Vec<(Perbill, Perbill)> {
+        fn get_curve() -> Vec<(Perbill, Perbill)> {
             Staking::get_curve()
         }
     }
+
+    impl polymesh_runtime_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker> for Runtime {
+        /// RPC call to know whether the given did has valid cdd claim or not
+        fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> (bool, Option<IdentityId>) {
+            Identity::is_identity_has_valid_cdd(did, buffer_time)
+        }
+
+        /// RPC call to query the given ticker did
+        fn get_asset_did(ticker: Ticker) -> Option<IdentityId> {
+            Identity::get_asset_did(ticker)
+        }
+    }
+
 }
