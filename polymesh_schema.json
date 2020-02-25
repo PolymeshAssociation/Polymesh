@@ -26,7 +26,7 @@
         }
     },
     "TokenName": "Text",
-    "AssetId": "Text",
+    "AssetIdentifier": "Text",
     "FundingRoundName": "Text",
     "SecurityToken": {
         "name": "TokenName",
