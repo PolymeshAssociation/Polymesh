@@ -1884,9 +1884,15 @@ impl<T: Trait> Module<T> {
         value: T::Balance,
     ) -> DispatchResult {
         // Granularity check
-        ensure!(Self::check_granularity(ticker, value), Error::<T>::InvalidGranularity);
+        ensure!(
+            Self::check_granularity(ticker, value),
+            Error::<T>::InvalidGranularity
+        );
         let ticker_from_did = (*ticker, from_did);
-        ensure!(<BalanceOf<T>>::exists(&ticker_from_did), Error::<T>::NotATokenHolder);
+        ensure!(
+            <BalanceOf<T>>::exists(&ticker_from_did),
+            Error::<T>::NotATokenHolder
+        );
         let sender_balance = Self::balance_of(&ticker_from_did);
         ensure!(sender_balance >= value, Error::<T>::InsufficientBalance);
 
@@ -1964,7 +1970,10 @@ impl<T: Trait> Module<T> {
         value: T::Balance,
     ) -> DispatchResult {
         // Granularity check
-        ensure!(Self::check_granularity(ticker, value), Error::<T>::InvalidGranularity);
+        ensure!(
+            Self::check_granularity(ticker, value),
+            Error::<T>::InvalidGranularity
+        );
         //Increase receiver balance
         let ticker_to_did = (*ticker, to_did);
         let current_to_balance = Self::balance_of(&ticker_to_did);
@@ -2087,7 +2096,10 @@ impl<T: Trait> Module<T> {
             _ => return Err(Error::<T>::NoTickerTransferAuth.into()),
         };
 
-        ensure!(!<Tokens<T>>::exists(&ticker), Error::<T>::TokenAlreadyCreated);
+        ensure!(
+            !<Tokens<T>>::exists(&ticker),
+            Error::<T>::TokenAlreadyCreated
+        );
         let ticker_details = Self::ticker_registration(&ticker);
 
         <identity::Module<T>>::consume_auth(

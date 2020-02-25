@@ -307,7 +307,9 @@ impl<T: Trait> Module<T> {
         signers: &[Signatory],
         sigs_required: u64,
     ) -> CreateMultisigAccountResult<T> {
-        let new_nonce = Self::ms_nonce().checked_add(1).ok_or(Error::<T>::NonceOverflow)?;
+        let new_nonce = Self::ms_nonce()
+            .checked_add(1)
+            .ok_or(Error::<T>::NonceOverflow)?;
         <MultiSigNonce>::put(new_nonce);
         let account_id =
             Self::get_multisig_address(sender, new_nonce).map_err(|_| Error::<T>::DecodingError)?;
@@ -329,7 +331,10 @@ impl<T: Trait> Module<T> {
         sender_signer: Signatory,
         proposal: Box<T::Proposal>,
     ) -> CreateProposalResult {
-        ensure!(<MultiSigSigners<T>>::exists(&multisig, &sender_signer), Error::<T>::NotASigner);
+        ensure!(
+            <MultiSigSigners<T>>::exists(&multisig, &sender_signer),
+            Error::<T>::NotASigner
+        );
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal);
         // Since proposal_ids are always only incremented by 1, they can not overflow.
@@ -344,7 +349,10 @@ impl<T: Trait> Module<T> {
     fn approve_for(multisig: T::AccountId, signer: Signatory, proposal_id: u64) -> DispatchResult {
         let multisig_signer_proposal = (multisig.clone(), signer, proposal_id);
         let multisig_proposal = (multisig.clone(), proposal_id);
-        ensure!(!Self::votes(&multisig_signer_proposal), Error::<T>::AlreadyApproved);
+        ensure!(
+            !Self::votes(&multisig_signer_proposal),
+            Error::<T>::AlreadyApproved
+        );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
             Self::charge_fee(multisig.clone(), proposal.get_dispatch_info().weight)?;
             <Votes<T>>::insert(&multisig_signer_proposal, true);
