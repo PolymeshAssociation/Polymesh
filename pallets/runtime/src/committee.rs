@@ -215,6 +215,7 @@ decl_module! {
             <Members<I>>::mutate( |members| {
                 members.retain(|m| *m != did);
             });
+            Self::remove_all_votes_for(did);
             Ok(())
         }
 
@@ -256,7 +257,7 @@ decl_module! {
         /// * `index` Proposal index
         /// * `approve` Represents a `for` or `against` vote
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
+        fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) -> DispatchResult {
             let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
             let signer = Signatory::AccountKey(who_key);
@@ -274,29 +275,89 @@ decl_module! {
             let position_no = voting.nays.iter().position(|a| a == &did);
 
             if approve {
-                if position_yes.is_none() {
-                    voting.ayes.push(did.clone());
-                } else {
-                    return Err(Error::<T, I>::DuplicateVote.into())
-                }
+                ensure!( position_yes.is_none(), Error::<T, I>::DuplicateVote);
+                voting.ayes.push(did.clone());
+
                 if let Some(pos) = position_no {
                     voting.nays.swap_remove(pos);
                 }
             } else {
-                if position_no.is_none() {
-                    voting.nays.push(did.clone());
-                } else {
-                    return Err(Error::<T, I>::DuplicateVote.into())
-                }
+                ensure!( position_no.is_none(),  Error::<T, I>::DuplicateVote);
+                voting.nays.push(did.clone());
+
                 if let Some(pos) = position_yes {
                     voting.ayes.swap_remove(pos);
                 }
             }
 
+            <Voting<T, I>>::insert(&proposal, voting);
+            Self::check_proposal_threshold(proposal);
+            Ok(())
+        }
+    }
+}
+
+impl<T: Trait<I>, I: Instance> Module<T, I> {
+    /// Returns true if given did is contained in `Members` set. `false`, otherwise.
+    pub fn is_member(who: &IdentityId) -> bool {
+        Self::members().contains(who)
+    }
+
+    /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
+    /// in relation to the threshold proporion `n`/`d`.
+    fn is_threshold_satisfied(
+        votes: u32,
+        total: u32,
+        (threshold, n, d): (ProportionMatch, u32, u32),
+    ) -> bool {
+        match threshold {
+            ProportionMatch::AtLeast => votes * d >= n * total,
+            ProportionMatch::MoreThan => votes * d > n * total,
+        }
+    }
+
+    /// It removes all votes from `id` on the current active proposal.
+    /// Under certains circumstances, some proposal could be affected and
+    /// it also evaluates the threshold of updated proposals.
+    fn remove_all_votes_for(id: IdentityId) {
+        Self::proposals()
+            .into_iter()
+            .filter(|proposal| Self::remove_vote_from(id, *proposal))
+            .for_each(|update_proposal| Self::check_proposal_threshold(update_proposal));
+    }
+
+    /// It removes the `id`'s vote from `proposal` if it exists.
+    ///
+    /// # Return
+    /// It returns true if vote was removed.
+    fn remove_vote_from(id: IdentityId, proposal: T::Hash) -> bool {
+        let mut is_id_removed = None;
+        if let Some(mut voting) = Self::voting(&proposal) {
+            // If any element is removed, we have to update `voting`.
+            is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
+                Some(voting.ayes.swap_remove(idx))
+            } else {
+                if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
+                    Some(voting.nays.swap_remove(idx))
+                } else {
+                    None
+                }
+            };
+
+            if is_id_removed.is_some() {
+                <Voting<T, I>>::insert(&proposal, voting);
+            }
+        }
+
+        is_id_removed.is_some()
+    }
+
+    /// It double check
+    fn check_proposal_threshold(proposal: T::Hash) {
+        if let Some(voting) = Self::voting(&proposal) {
             let seats = Self::members().len() as MemberCount;
             let yes_votes = voting.ayes.len() as MemberCount;
             let no_votes = voting.nays.len() as MemberCount;
-            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes, seats));
 
             let threshold = <VoteThreshold<I>>::get();
 
@@ -321,30 +382,7 @@ decl_module! {
                 // remove vote
                 <Voting<T, I>>::remove(&proposal);
                 <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
-            } else {
-                // update voting
-                <Voting<T, I>>::insert(&proposal, voting);
             }
-        }
-    }
-}
-
-impl<T: Trait<I>, I: Instance> Module<T, I> {
-    /// Returns true if given did is contained in `Members` set. `false`, otherwise.
-    pub fn is_member(who: &IdentityId) -> bool {
-        Self::members().contains(who)
-    }
-
-    /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
-    /// in relation to the threshold proporion `n`/`d`.
-    fn is_threshold_satisfied(
-        votes: u32,
-        total: u32,
-        (threshold, n, d): (ProportionMatch, u32, u32),
-    ) -> bool {
-        match threshold {
-            ProportionMatch::AtLeast => votes * d >= n * total,
-            ProportionMatch::MoreThan => votes * d > n * total,
         }
     }
 }
@@ -868,26 +906,90 @@ mod tests {
         // 1. Add members to committee
         let alice_acc = AccountId::from(AccountKeyring::Alice);
         let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
-
         let bob_acc = AccountId::from(AccountKeyring::Bob);
         let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
-
         let charlie_acc = AccountId::from(AccountKeyring::Charlie);
         let (charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
-        Committee::set_members(Origin::ROOT, vec![alice_did, bob_did]).unwrap();
-        // Charlie is NOT a member
-        assert_eq!(Committee::is_member(&charlie_did), false);
+        let dave_acc = AccountId::from(AccountKeyring::Dave);
+        let (dave_signer, dave_did) = make_account(&dave_acc).unwrap();
+        let ferdie_acc = AccountId::from(AccountKeyring::Ferdie);
+        let (ferdie_signer, ferdie_did) = make_account(&ferdie_acc).unwrap();
+
+        // 0. Threshold is 2/3
+        Committee::set_members(
+            Origin::ROOT,
+            vec![alice_did, bob_did, charlie_did, dave_did],
+        )
+        .unwrap();
+        assert_ok!(Committee::set_vote_threshold(
+            alice_signer.clone(),
+            ProportionMatch::AtLeast,
+            2,
+            3
+        ));
+
+        // Ferdie is NOT a member
+        assert_eq!(Committee::is_member(&ferdie_did), false);
         assert_err!(
-            Committee::rage_quit_as_member(charlie_signer),
+            Committee::rage_quit_as_member(ferdie_signer),
             Error::<Test, Instance1>::MemberNotFound
         );
 
-        // Bob quits
+        // Make a proposal... only Alice & Bob approve it.
+        let proposal = make_proposal(42);
+        let proposal_hash = BlakeTwo256::hash_of(&proposal);
+        assert_ok!(Committee::propose(alice_signer.clone(), Box::new(proposal)));
+        assert_ok!(Committee::vote(bob_signer.clone(), proposal_hash, 0, true));
+        assert_ok!(Committee::vote(
+            charlie_signer.clone(),
+            proposal_hash,
+            0,
+            false
+        ));
+        assert_eq!(
+            Committee::voting(&proposal_hash),
+            Some(PolymeshVotes {
+                index: 0,
+                ayes: vec![alice_did, bob_did],
+                nays: vec![charlie_did]
+            })
+        );
+
+        // Bob quits, its vote should be removed.
         assert_eq!(Committee::is_member(&bob_did), true);
-        assert_ok!(Committee::rage_quit_as_member(bob_signer));
+        assert_ok!(Committee::rage_quit_as_member(bob_signer.clone()));
         assert_eq!(Committee::is_member(&bob_did), false);
+        assert_eq!(
+            Committee::voting(&proposal_hash),
+            Some(PolymeshVotes {
+                index: 0,
+                ayes: vec![alice_did],
+                nays: vec![charlie_did]
+            })
+        );
+
+        // Charlie quits, its vote should be removed and
+        // propose should be accepted.
+        assert_eq!(Committee::is_member(&charlie_did), true);
+        assert_ok!(Committee::rage_quit_as_member(charlie_signer.clone()));
+        assert_eq!(Committee::is_member(&charlie_did), false);
+        // TODO: Only one member, voting should be approved.
+        assert_eq!(
+            Committee::voting(&proposal_hash),
+            Some(PolymeshVotes {
+                index: 0,
+                ayes: vec![alice_did],
+                nays: vec![]
+            })
+        );
+
+        Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]).unwrap();
+        assert_ok!(Committee::vote(bob_signer.clone(), proposal_hash, 0, true));
+        assert_eq!(Committee::voting(&proposal_hash), None);
 
         // Alice should not quit because she is the last member.
+        assert_ok!(Committee::rage_quit_as_member(charlie_signer));
+        assert_ok!(Committee::rage_quit_as_member(bob_signer));
         assert_eq!(Committee::is_member(&alice_did), true);
         assert_err!(
             Committee::rage_quit_as_member(alice_signer),
