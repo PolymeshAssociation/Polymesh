@@ -50,5 +50,5 @@ pub struct Document {
     /// Document URI
     pub uri: DocumentUri,
     /// Document hash
-    pub hash: DocumentHash,
+    pub content_hash: DocumentHash,
 }
