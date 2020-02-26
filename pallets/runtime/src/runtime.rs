@@ -791,10 +791,9 @@ impl_runtime_apis! {
 
     impl polymesh_runtime_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker> for Runtime {
         /// RPC call to know whether the given did has valid cdd claim or not
-        fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus<IdentityId> {
+        fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus {
             match Identity::is_identity_has_valid_cdd(did, buffer_time) {
                 Some(provider) => CddStatus::Success {
-                    status: true,
                     cdd_claim_provider: provider
                 },
                 None => CddStatus::Error,
@@ -802,7 +801,7 @@ impl_runtime_apis! {
         }
 
         /// RPC call to query the given ticker did
-        fn get_asset_did(ticker: Ticker) -> AssetDidResult<IdentityId> {
+        fn get_asset_did(ticker: Ticker) -> AssetDidResult {
             match Identity::get_asset_did(ticker) {
                 Ok(did) => AssetDidResult::Success{ asset_did: did },
                 Err(_) => AssetDidResult::Error,

@@ -8,10 +8,8 @@ use sp_runtime::RuntimeDebug;
 
 /// Data structure returned to provide the cdd status
 #[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug)]
-pub enum CddStatus<IdentityId> {
+pub enum CddStatus {
     Success {
-        /// Is cdd expired or not
-        status: bool,
         /// Cdd claim provider
         cdd_claim_provider: IdentityId,
     },
@@ -20,7 +18,7 @@ pub enum CddStatus<IdentityId> {
 
 /// Data structure returned to provide the cdd status
 #[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug)]
-pub enum AssetDidResult<IdentityId> {
+pub enum AssetDidResult {
     Success {
         /// asset DID
         asset_did: IdentityId,
@@ -33,7 +31,7 @@ sp_api::decl_runtime_apis! {
         IdentityId: Codec,
         Ticker: Codec,
     {
-        fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus<IdentityId>;
-        fn get_asset_did(ticker: Ticker) -> AssetDidResult<IdentityId>;
+        fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus;
+        fn get_asset_did(ticker: Ticker) -> AssetDidResult;
     }
 }

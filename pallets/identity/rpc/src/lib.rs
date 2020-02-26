@@ -3,7 +3,7 @@ use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_runtime_identity_rpc_runtime_api::{
-    self as runtime_api, AssetDidResult, CddStatus, IdentityApi as IdentityRuntimeApi,
+    AssetDidResult, CddStatus, IdentityApi as IdentityRuntimeApi,
 };
 use serde::{Deserialize, Serialize};
 use sp_blockchain::HeaderBackend;
@@ -16,10 +16,8 @@ use std::sync::Arc;
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub enum RpcCddStatus<IdentityId> {
+pub enum RpcCddStatus {
     Success {
-        /// Is cdd expired or not
-        status: bool,
         /// Cdd claim provider
         cdd_claim_provider: IdentityId,
     },
@@ -29,7 +27,7 @@ pub enum RpcCddStatus<IdentityId> {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub enum RpcAssetDidResult<IdentityId> {
+pub enum RpcAssetDidResult {
     Success {
         /// asset DID
         asset_did: IdentityId,
@@ -37,17 +35,13 @@ pub enum RpcAssetDidResult<IdentityId> {
     Error(Vec<u8>),
 }
 
-/// Conversion 
-impl From<CddStatus<IdentityId>> for RpcCddStatus<IdentityId> {
-    fn from(r: CddStatus<IdentityId>) -> Self {
+/// Conversion
+impl From<CddStatus> for RpcCddStatus {
+    fn from(r: CddStatus) -> Self {
         match r {
-            CddStatus::Success {
-                status,
-                cdd_claim_provider,
-            } => RpcCddStatus::Success {
-                status,
-                cdd_claim_provider,
-            },
+            CddStatus::Success { cdd_claim_provider } => {
+                RpcCddStatus::Success { cdd_claim_provider }
+            }
             CddStatus::Error => RpcCddStatus::Error(
                 "Either cdd claim is expired or not yet provided to give identity".into(),
             ),
@@ -55,8 +49,8 @@ impl From<CddStatus<IdentityId>> for RpcCddStatus<IdentityId> {
     }
 }
 
-impl From<AssetDidResult<IdentityId>> for RpcAssetDidResult<IdentityId> {
-    fn from(r: AssetDidResult<IdentityId>) -> Self {
+impl From<AssetDidResult> for RpcAssetDidResult {
+    fn from(r: AssetDidResult) -> Self {
         match r {
             AssetDidResult::Success { asset_did } => RpcAssetDidResult::Success { asset_did },
             AssetDidResult::Error => {
@@ -76,15 +70,11 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker> {
         did: IdentityId,
         buffer_time: Option<u64>,
         at: Option<BlockHash>,
-    ) -> Result<RpcCddStatus<IdentityId>>;
+    ) -> Result<RpcCddStatus>;
 
     /// Below function is used to query the given ticker DID.
     #[rpc(name = "identity_getAssetDid")]
-    fn get_asset_did(
-        &self,
-        ticker: Ticker,
-        at: Option<BlockHash>,
-    ) -> Result<RpcAssetDidResult<IdentityId>>;
+    fn get_asset_did(&self, ticker: Ticker, at: Option<BlockHash>) -> Result<RpcAssetDidResult>;
 }
 
 /// A struct that implements the [`IdentityApi`].
@@ -111,15 +101,6 @@ pub enum Error {
     RuntimeError,
 }
 
-impl From<Error> for i64 {
-    fn from(e: Error) -> i64 {
-        match e {
-            Error::RuntimeError => 1,
-            Error::DecodeError => 2,
-        }
-    }
-}
-
 impl<C, Block, IdentityId, Ticker> IdentityApi<<Block as BlockT>::Hash, IdentityId, Ticker>
     for Identity<C, Block>
 where
@@ -136,7 +117,7 @@ where
         did: IdentityId,
         buffer_time: Option<u64>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RpcCddStatus<IdentityId>> {
+    ) -> Result<RpcCddStatus> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -144,7 +125,7 @@ where
         let result = api
             .is_identity_has_valid_cdd(&at, did, buffer_time)
             .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                code: ErrorCode::ServerError(Error::RuntimeError as i64),
                 message: "Either cdd claim not exist or Identity.".into(),
                 data: Some(format!("{:?}", e).into()),
             })?;
@@ -155,13 +136,13 @@ where
         &self,
         ticker: Ticker,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RpcAssetDidResult<IdentityId>> {
+    ) -> Result<RpcAssetDidResult> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         let result = api.get_asset_did(&at, ticker).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            code: ErrorCode::ServerError(Error::RuntimeError as i64),
             message: "Unable to fetch did of the given ticker".into(),
             data: Some(format!("{:?}", e).into()),
         })?;

@@ -917,8 +917,6 @@ decl_error! {
         InvalidAccountKey,
         /// Only KYC service providers are allowed.
         UnAuthorizedKYCProvider,
-        /// When Asset Did not able to processed
-        UnableToProvideDid,
     }
 }
 
@@ -1464,11 +1462,8 @@ impl<T: Trait> Module<T> {
     }
 
     /// RPC call to query the given ticker did
-    pub fn get_asset_did(ticker: Ticker) -> Result<IdentityId, DispatchError> {
-        match Self::get_token_did(&ticker) {
-            Ok(did) => Ok(did),
-            Err(_) => Err(Error::<T>::UnableToProvideDid.into()),
-        }
+    pub fn get_asset_did(ticker: Ticker) -> Result<IdentityId, &'static str> {
+        Self::get_token_did(&ticker)
     }
 }
 
