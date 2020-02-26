@@ -8,7 +8,7 @@ edition = "2018"
 codec = { package = "parity-scale-codec", version = "1.1.2", default-features = false, features = ["derive"] }
 sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421'}
 polymesh-primitives = { package = "polymesh-primitives", path = "../../../../primitives", default-features = false }
-sp-runtime = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421'}
+frame-support = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421'}
 
 [dev-dependencies]
 serde_json = "1.0.41"
@@ -20,4 +20,5 @@ std = [
 	"codec/std",
 	"polymesh-primitives/std",
 	"sp-runtime/std",
+	"frame-support/std",
 ]

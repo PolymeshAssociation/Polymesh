@@ -2,29 +2,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Codec, Decode, Encode};
+use codec::Codec;
 use polymesh_primitives::{IdentityId, Ticker};
-use sp_runtime::RuntimeDebug;
+use frame_support::dispatch::Vec;
 
-/// Data structure returned to provide the cdd status
-#[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug)]
-pub enum CddStatus {
-    Success {
-        /// Cdd claim provider
-        cdd_claim_provider: IdentityId,
-    },
-    Error,
-}
-
-/// Data structure returned to provide the cdd status
-#[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug)]
-pub enum AssetDidResult {
-    Success {
-        /// asset DID
-        asset_did: IdentityId,
-    },
-    Error,
-}
+pub type Error = Vec<u8>;
+pub type CddStatus = Result<IdentityId, Error>;
+pub type AssetDidResult = Result<IdentityId, Error>;
 
 sp_api::decl_runtime_apis! {
     pub trait IdentityApi<IdentityId, Ticker> where
@@ -35,3 +19,4 @@ sp_api::decl_runtime_apis! {
         fn get_asset_did(ticker: Ticker) -> AssetDidResult;
     }
 }
+

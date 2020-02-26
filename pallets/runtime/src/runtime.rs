@@ -793,18 +793,16 @@ impl_runtime_apis! {
         /// RPC call to know whether the given did has valid cdd claim or not
         fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus {
             match Identity::is_identity_has_valid_cdd(did, buffer_time) {
-                Some(provider) => CddStatus::Success {
-                    cdd_claim_provider: provider
-                },
-                None => CddStatus::Error,
+                Some(provider) => Ok(provider),
+                None => Err("Either cdd claim is expired or not yet provided to give identity".into()),
             }
         }
 
         /// RPC call to query the given ticker did
         fn get_asset_did(ticker: Ticker) -> AssetDidResult {
             match Identity::get_asset_did(ticker) {
-                Ok(did) => AssetDidResult::Success{ asset_did: did },
-                Err(_) => AssetDidResult::Error,
+                Ok(did) => Ok(did),
+                Err(_) => Err("Error in computing the given ticker error".into()),
             }
         }
     }
