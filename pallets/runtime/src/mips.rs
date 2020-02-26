@@ -217,6 +217,12 @@ decl_error! {
         InsufficientDeposit,
         /// when voter vote gain
         DuplicateVote,
+        /// Duplicate proposal.
+        DuplicateProposal,
+        /// The proposal does not exist.
+        NoSuchProposal,
+        /// Mismatched proposal index.
+        MismatchedProposalIndex,
     }
 }
 
@@ -224,7 +230,6 @@ decl_error! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -285,9 +290,9 @@ decl_module! {
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Pre conditions: caller must have min balance
-            ensure!(deposit >= Self::min_proposal_deposit(), "deposit is less than minimum required to start a proposal");
+            ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::InsufficientDeposit);
             // Proposal must be new
-            ensure!(!<Proposals<T>>::exists(proposal_hash), "duplicate proposals are not allowed");
+            ensure!(!<Proposals<T>>::exists(proposal_hash), Error::<T>::DuplicateProposal);
 
             // Reserve the minimum deposit
             T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
@@ -334,8 +339,8 @@ decl_module! {
         pub fn vote(origin, proposal_hash: T::Hash, index: MipsIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
 
-            let mut voting = Self::voting(&proposal_hash).ok_or("proposal does not exist")?;
-            ensure!(voting.index == index, "mismatched proposal index");
+            let mut voting = Self::voting(&proposal_hash).ok_or(Error::<T>::NoSuchProposal)?;
+            ensure!(voting.index == index, Error::<T>::MismatchedProposalIndex);
 
             let position_yes = voting.ayes.iter().position(|(a, _)| a == &proposer);
             let position_no = voting.nays.iter().position(|(a, _)| a == &proposer);
@@ -369,8 +374,8 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| Error::<T>::BadOrigin)?;
 
-            let mip = Self::proposals(&proposal_hash).ok_or("proposal does not exist")?;
-            ensure!(mip.index == index, "mismatched proposal index");
+            let mip = Self::proposals(&proposal_hash).ok_or(Error::<T>::NoSuchProposal)?;
+            ensure!(mip.index == index, Error::<T>::MismatchedProposalIndex);
 
             Self::close_proposal(index, proposal_hash);
         }
@@ -385,7 +390,7 @@ decl_module! {
                 .map_err(|_| "bad origin")?;
 
             let mip = Self::proposals(&proposal_hash).ok_or("proposal does not exist")?;
-            ensure!(mip.index == index, "mismatched proposal index");
+            ensure!(mip.index == index, Error::<T>::MismatchedProposalIndex);
 
             Self::create_referendum(
                 index,
@@ -415,7 +420,7 @@ decl_module! {
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Proposal must be new
-            ensure!(!<Proposals<T>>::exists(proposal_hash), "proposal from committee already exists");
+            ensure!(!<Proposals<T>>::exists(proposal_hash), Error::<T>::DuplicateProposal);
 
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
@@ -790,7 +795,7 @@ mod tests {
                     40,
                     Some(proposal_url.clone())
                 ),
-                "deposit is less than minimum required to start a proposal"
+                Error::<Test>::InsufficientDeposit
             );
 
             // Account 6 starts a proposal with min deposit

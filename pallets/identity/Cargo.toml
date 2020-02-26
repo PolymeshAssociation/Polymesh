@@ -34,7 +34,7 @@ equalize = []
 default = ["std", "equalize"]
 no_std = []
 only-staking = []
-std = [ 
+std = [
 	"serde_derive",
 	"serde/std",
 	"codec/std",
@@ -47,4 +47,7 @@ std = [
 	"frame-system/std",
 	"frame-support/std",
 	"pallet-timestamp/std",
+        "polymesh-runtime-common/std",
+        "polymesh-primitives/std",
+        "polymesh-runtime-group/std",
 ]

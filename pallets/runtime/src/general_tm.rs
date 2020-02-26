@@ -59,7 +59,9 @@ use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use core::result::Result as StdResult;
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*};
 
@@ -132,9 +134,20 @@ decl_storage! {
     }
 }
 
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// The sender must be a signing key for the DID.
+        SenderMustBeSigningKeyForDid,
+        /// User is not authorized.
+        Unauthorized,
+    }
+}
+
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = Error<T>;
+
         fn deposit_event() = default;
 
         /// Adds an asset rule to active rules for a ticker
@@ -144,8 +157,11 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
                 if !old_asset_rules.rules.contains(&asset_rule) {
@@ -164,8 +180,11 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
 
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
                 old_asset_rules.rules.retain( |rule| { *rule != asset_rule });
@@ -182,8 +201,11 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
 
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             <AssetRulesMap>::remove(ticker);
 
@@ -312,9 +334,9 @@ impl<T: Trait> Module<T> {
 
         ensure!(
             <identity::Module<T>>::is_signer_authorized(did, &sender),
-            "sender must be a signing key for DID"
+            Error::<T>::SenderMustBeSigningKeyForDid
         );
-        ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
         <AssetRulesMap>::mutate(&ticker, |asset_rules| {
             asset_rules.is_paused = pause;
@@ -354,7 +376,7 @@ mod tests {
     use polymesh_runtime_identity as identity;
 
     use crate::{
-        asset::{AssetType, SecurityToken, TickerRegistrationConfig},
+        asset::{AssetType, Error as AssetError, SecurityToken, TickerRegistrationConfig},
         exemption, percentage_tm, statistics,
     };
 
@@ -973,7 +995,7 @@ mod tests {
                 token_owner_did.clone(),
                 10
             ),
-            "Transfer restrictions failed"
+            AssetError::<Test>::InvalidTransfer
         );
 
         // 5.2. Pause asset rules, and run the transaction.
@@ -1000,7 +1022,7 @@ mod tests {
                 token_owner_did.clone(),
                 10
             ),
-            "Transfer restrictions failed"
+            AssetError::<Test>::InvalidTransfer
         );
     }
 }
