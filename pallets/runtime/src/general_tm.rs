@@ -725,7 +725,7 @@ mod tests {
                     token_owner_did.clone(),
                     token.total_supply
                 ),
-                "Transfer restrictions failed"
+                AssetError::<Test>::InvalidTransfer
             );
 
             assert_ok!(Identity::add_claim(
@@ -756,7 +756,7 @@ mod tests {
                     token_owner_did.clone(),
                     token.total_supply
                 ),
-                "Transfer restrictions failed"
+                AssetError::<Test>::InvalidTransfer
             );
         });
     }
