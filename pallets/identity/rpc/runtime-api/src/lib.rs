@@ -3,8 +3,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
-use polymesh_primitives::{IdentityId, Ticker};
 use frame_support::dispatch::Vec;
+use polymesh_primitives::{IdentityId, Ticker};
 
 pub type Error = Vec<u8>;
 pub type CddStatus = Result<IdentityId, Error>;
@@ -19,4 +19,3 @@ sp_api::decl_runtime_apis! {
         fn get_asset_did(ticker: Ticker) -> AssetDidResult;
     }
 }
-

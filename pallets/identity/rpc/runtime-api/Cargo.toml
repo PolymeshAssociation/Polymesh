@@ -19,6 +19,5 @@ std = [
 	"sp-api/std",
 	"codec/std",
 	"polymesh-primitives/std",
-	"sp-runtime/std",
 	"frame-support/std",
 ]
