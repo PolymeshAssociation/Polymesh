@@ -2074,6 +2074,7 @@ dependencies = [
  "parity-scale-codec 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "polymesh-primitives 0.6.0",
  "sp-api 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
+ "sp-runtime 2.0.0 (git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421)",
 ]
 
 [[package]]

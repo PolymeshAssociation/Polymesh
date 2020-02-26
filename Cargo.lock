@@ -3692,7 +3692,9 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime-identity-rpc-runtime-api",
  "serde",
+ "sp-api",
  "sp-blockchain",
+ "sp-core",
  "sp-rpc",
  "sp-runtime",
 ]
@@ -3704,6 +3706,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]

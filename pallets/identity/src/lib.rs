@@ -917,6 +917,8 @@ decl_error! {
         InvalidAccountKey,
         /// Only KYC service providers are allowed.
         UnAuthorizedKYCProvider,
+        /// When Asset Did not able to processed
+        UnableToProvideDid,
     }
 }
 
@@ -1449,20 +1451,24 @@ impl<T: Trait> Module<T> {
     pub fn is_identity_has_valid_cdd(
         did: IdentityId,
         buffer_time: Option<u64>,
-    ) -> (bool, Option<IdentityId>) {
+    ) -> Option<IdentityId> {
         let buffer = match buffer_time {
             Some(time) => time,
             None => 0u64,
         };
-        Self::is_identity_has_valid_kyc(did, buffer)
+        let (status, provider) = Self::is_identity_has_valid_kyc(did, buffer);
+        if status {
+            return provider;
+        }
+        None
     }
 
     /// RPC call to query the given ticker did
-    pub fn get_asset_did(ticker: Ticker) -> Option<IdentityId> {
-        if let Ok(did) = Self::get_token_did(&ticker) {
-            return Some(did);
+    pub fn get_asset_did(ticker: Ticker) -> Result<IdentityId, DispatchError> {
+        match Self::get_token_did(&ticker) {
+            Ok(did) => Ok(did),
+            Err(_) => Err(Error::<T>::UnableToProvideDid.into()),
         }
-        return None;
     }
 }
 
