@@ -46,18 +46,31 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v2-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v3-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v3-test-cache-{{ checksum "./rust.version" }}
             - v2-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: runtime tests
           command: cargo test
           working_directory: ./pallets/runtime
           no_output_timeout: 60m
+      - run:
+          name: staking tests
+          command: cargo test
+          working_directory: ./pallets/staking
+          no_output_timeout: 60m
+      - run:
+          name: group tests
+          command: cargo test
+          working_directory: ./pallets/group
+          no_output_timeout: 60m
       - save_cache:
-          key: v2-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: v3-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./pallets/runtime/target"
+            - "./pallets/staking/target"
+            - "./pallets/group/target"
   cli:
     docker:
       - image: maxsam4/rust
