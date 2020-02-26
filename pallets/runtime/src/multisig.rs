@@ -66,7 +66,6 @@ decl_storage! {
     trait Store for Module<T: Trait> as MultiSig {
         /// Nonce to ensure unique MultiSig addresses are generated. starts from 1.
         pub MultiSigNonce get(ms_nonce) build(|_| 1u64): u64;
-
         /// Signers of a multisig. (mulisig, signer) => signer.
         pub MultiSigSigners: double_map hasher(blake2_256) T::AccountId, blake2_256(Signatory) => Signatory;
         /// Number of approved/accepted signers of a multisig.
@@ -75,11 +74,11 @@ decl_storage! {
         pub MultiSigSignsRequired get(ms_signs_required): map T::AccountId => u64;
         /// Number of transactions proposed in a multisig. Used as tx id. starts from 0
         pub MultiSigTxDone get(ms_tx_done): map T::AccountId => u64;
-
         /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<proposal>.
-        /// It is deleted after proposal is processed
         pub Proposals get(proposals): map (T::AccountId, u64) => Option<T::Proposal>;
-
+        /// A mapping of proposals to their IDs.
+        pub ProposalIds get(proposal_ids):
+            double_map hasher(blake2_256) T::AccountId, blake2_256(T::Proposal) => Option<u64>;
         /// Number of votes in favor of a tx. Mapping from (multisig, tx id) => no. of approvals.
         pub TxApprovals get(tx_approvals): map (T::AccountId, u64) => u64;
         /// Individual multisig signer votes. (multi sig, signer, )
@@ -112,6 +111,40 @@ decl_module! {
             )?;
             Self::deposit_event(RawEvent::MultiSigCreated(account_id, sender, signers, sigs_required));
             Ok(())
+        }
+
+        /// Creates a multisig proposal if it hasn't been created or approves it if it has.
+        ///
+        /// # Arguments
+        /// * `multisig` - MultiSig address.
+        /// * `proposal` - Proposal to be voted on.
+        /// If this is 1 of m multisig, the proposal will be immediately executed.
+        pub fn create_or_approve_proposal_as_identity(
+            origin,
+            multisig: T::AccountId,
+            proposal: Box<T::Proposal>
+        ) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let sender_signer = Signatory::from(signer_did);
+            Self::create_or_approve_proposal(multisig, sender_signer, proposal)
+        }
+
+        /// Creates a multisig proposal if it hasn't been created or approves it if it has.
+        ///
+        /// # Arguments
+        /// * `multisig` - MultiSig address.
+        /// * `proposal` - Proposal to be voted on.
+        /// If this is 1 of m multisig, the proposal will be immediately executed.
+        pub fn create_or_approve_proposal_as_key(
+            origin,
+            multisig: T::AccountId,
+            proposal: Box<T::Proposal>
+        ) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+            Self::create_or_approve_proposal(multisig, sender_signer, proposal)
         }
 
         /// Creates a multisig proposal
@@ -153,9 +186,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
-
             let signer = Signatory::from(signer_did);
-            ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), Error::<T>::NotASigner);
             Self::approve_for(multisig, signer, proposal_id)
         }
 
@@ -168,7 +199,6 @@ decl_module! {
         pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), Error::<T>::NotASigner);
             Self::approve_for(multisig, signer, proposal_id)
         }
 
@@ -336,7 +366,8 @@ impl<T: Trait> Module<T> {
             Error::<T>::NotASigner
         );
         let proposal_id = Self::ms_tx_done(multisig.clone());
-        <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal);
+        <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());
+        <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
         // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
@@ -345,8 +376,32 @@ impl<T: Trait> Module<T> {
         Ok(proposal_id)
     }
 
+    /// Creates or approves a multisig proposal
+    pub fn create_or_approve_proposal(
+        multisig: T::AccountId,
+        sender_signer: Signatory,
+        proposal: Box<T::Proposal>,
+    ) -> DispatchResult {
+        if let Some(proposal_id) = Self::proposal_ids(&multisig, &*proposal) {
+            // This is an existing proposal.
+            Self::approve_for(multisig, sender_signer, proposal_id)?;
+        } else {
+            // The proposal is new.
+            Self::create_proposal(multisig, sender_signer, proposal)?;
+        }
+        Ok(())
+    }
+
     /// Approves a multisig transaction and executes the proposal if enough sigs have been received
-    fn approve_for(multisig: T::AccountId, signer: Signatory, proposal_id: u64) -> DispatchResult {
+    pub fn approve_for(
+        multisig: T::AccountId,
+        signer: Signatory,
+        proposal_id: u64,
+    ) -> DispatchResult {
+        ensure!(
+            <MultiSigSigners<T>>::exists(&multisig, &signer),
+            Error::<T>::NotASigner
+        );
         let multisig_signer_proposal = (multisig.clone(), signer, proposal_id);
         let multisig_proposal = (multisig.clone(), proposal_id);
         ensure!(
