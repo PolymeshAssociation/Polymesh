@@ -247,6 +247,30 @@ decl_module! {
             Ok(())
         }
 
+        /// Freezes the entire operation of the bridge module if it is not already frozen. The only
+        /// available operations in the frozen state are the following admin methods:
+        ///
+        /// * `change_relayers`,
+        /// * `unfreeze`,
+        /// * `freeze_bridge_tx`,
+        /// * `unfreeze_bridge_tx`.
+        pub fn freeze(origin) -> DispatchResult {
+            Self::is_root_or_admin(origin)?;
+            ensure!(!Self::frozen(), Error::<T>::Frozen);
+            <Frozen>::put(true);
+            Self::deposit_event(RawEvent::Frozen);
+            Ok(())
+        }
+
+        /// Unfreezes the operation of the bridge module if it is frozen.
+        pub fn unfreeze(origin) -> DispatchResult {
+            Self::is_root_or_admin(origin)?;
+            ensure!(Self::frozen(), Error::<T>::NotFrozen);
+            <Frozen>::put(false);
+            Self::deposit_event(RawEvent::Unfrozen);
+            Ok(())
+        }
+
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
         /// bridge transaction if the transaction is new or approving an existing proposal if the
         /// transaction has already been proposed.
@@ -319,6 +343,9 @@ decl_module! {
                 }
                 return Ok(());
             }
+            let sender = ensure_signed(origin.clone())?;
+            ensure!(sender == Self::relayers(), Error::<T>::BadCaller);
+            ensure!(!Self::handled_proposals(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
             if let Some(PendingTx {
                 did,
                 bridge_tx,
