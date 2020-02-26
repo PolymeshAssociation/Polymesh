@@ -36,7 +36,11 @@ fn add_claims_batch() {
 
         let claim_records = vec![
             (claim_issuer_did.clone(), 100u64, IdentityClaimData::NoData),
-            (claim_issuer_did.clone(), 200u64, IdentityClaimData::NoData),
+            (
+                claim_issuer_did.clone(),
+                200u64,
+                IdentityClaimData::CustomerDueDiligence,
+            ),
         ];
         assert_ok!(Identity::add_claims_batch(
             Origin::signed(claim_issuer.clone()),
@@ -51,7 +55,7 @@ fn add_claims_batch() {
         .unwrap();
         let claim2 = Identity::fetch_valid_claim(
             claim_issuer_did,
-            IdentityClaimData::NoData,
+            IdentityClaimData::CustomerDueDiligence,
             claim_issuer_did,
         )
         .unwrap();
@@ -61,7 +65,7 @@ fn add_claims_batch() {
 
         assert_eq!(claim1.claim, IdentityClaimData::NoData);
 
-        assert_eq!(claim2.claim, IdentityClaimData::NoData);
+        assert_eq!(claim2.claim, IdentityClaimData::CustomerDueDiligence);
     });
 }
 

@@ -692,13 +692,13 @@ mod tests {
             };
 
             let receiver_rule1 = RuleData {
-                claim: IdentityClaimData::NoData,
+                claim: IdentityClaimData::CustomerDueDiligence,
                 trusted_issuers: vec![claim_issuer_did],
                 rule_type: RuleType::ClaimIsAbsent,
             };
 
             let receiver_rule2 = RuleData {
-                claim: IdentityClaimData::NoData,
+                claim: IdentityClaimData::Accredited(token_owner_did),
                 trusted_issuers: vec![claim_issuer_did],
                 rule_type: RuleType::ClaimIsPresent,
             };
@@ -717,6 +717,13 @@ mod tests {
                 asset_rule
             ));
 
+            assert_ok!(Identity::add_claim(
+                claim_issuer_signed.clone(),
+                token_owner_did,
+                IdentityClaimData::Accredited(claim_issuer_did),
+                99999999999999999u64,
+            ));
+
             //Transfer tokens to investor
             assert_err!(
                 Asset::transfer(
@@ -731,7 +738,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                IdentityClaimData::NoData,
+                IdentityClaimData::Accredited(token_owner_did),
                 99999999999999999u64,
             ));
 
@@ -745,7 +752,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                IdentityClaimData::NoData,
+                IdentityClaimData::CustomerDueDiligence,
                 99999999999999999u64,
             ));
 
