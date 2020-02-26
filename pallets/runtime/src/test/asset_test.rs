@@ -41,7 +41,6 @@ type OffChainSignature = AnySignature;
 #[test]
 fn check_the_test_hex() {
     ExtBuilder::default().build().execute_with(|| {
-        let function_hex: &'static str = "verifyTransfer";
         let selector: [u8; 4] = (FunctionSelectorHasher::keccak256("verify_transfer".as_bytes())
             [0..4])
             .try_into()
@@ -83,7 +82,7 @@ fn issuers_can_create_and_rename_tokens() {
                 identifiers.clone(),
                 Some(funding_round_name.clone())
             ),
-            "Total supply above the limit"
+            AssetError::TotalSupplyAboveLimit
         );
 
         // Issuance is successful
@@ -125,7 +124,7 @@ fn issuers_can_create_and_rename_tokens() {
         let (eve_signed, _eve_did) = make_account(AccountKeyring::Eve.public()).unwrap();
         assert_err!(
             Asset::rename_token(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
-            "sender must be a signing key for the token owner DID"
+            AssetError::SenderMustBeSigningKeyForDid
         );
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token);
@@ -315,7 +314,7 @@ fn valid_custodian_allowance() {
                 custodian_did,
                 250_00_00 as u128
             ),
-            "Insufficient balance of holder did"
+            AssetError::InsufficientBalance
         );
 
         // Failed to add/increase the custodian allowance because of Invalid custodian did
@@ -328,7 +327,7 @@ fn valid_custodian_allowance() {
                 custodian_did_not_register,
                 50_00_00 as u128
             ),
-            "Invalid custodian DID"
+            AssetError::InvalidCustodianDid
         );
 
         // Add custodian
@@ -371,7 +370,7 @@ fn valid_custodian_allowance() {
                 investor2_did,
                 50_00_00 as u128
             ),
-            "Insufficient balance for transfer"
+            AssetError::InsufficientBalance
         );
 
         // Should fail to transfer the token by the custodian because of invalid signing key
@@ -384,7 +383,7 @@ fn valid_custodian_allowance() {
                 investor2_did,
                 45_00_00 as u128
             ),
-            "sender must be a signing key for DID"
+            AssetError::SenderMustBeSigningKeyForDid
         );
 
         // Should fail to transfer the token by the custodian because of insufficient allowance
@@ -397,7 +396,7 @@ fn valid_custodian_allowance() {
                 investor2_did,
                 55_00_00 as u128
             ),
-            "Insufficient allowance"
+            AssetError::InsufficientAllowance
         );
 
         // Successfully transfer by the custodian
@@ -525,7 +524,7 @@ fn valid_custodian_allowance_of() {
                 1,
                 OffChainSignature::from(investor1_key.sign(&msg.encode()))
             ),
-            "Signature already used"
+            AssetError::SignatureAlreadyUsed
         );
 
         // use the same signature with the different nonce should fail
@@ -541,7 +540,7 @@ fn valid_custodian_allowance_of() {
                 3,
                 OffChainSignature::from(investor1_key.sign(&msg.encode()))
             ),
-            "Invalid signature"
+            AssetError::InvalidSignature
         );
 
         // Transfer the token upto the limit
@@ -565,7 +564,7 @@ fn valid_custodian_allowance_of() {
                 investor2_did,
                 50_00_00 as u128
             ),
-            "Insufficient balance for transfer"
+            AssetError::InsufficientBalance
         );
 
         // Should fail to transfer the token by the custodian because of invalid signing key
@@ -578,7 +577,7 @@ fn valid_custodian_allowance_of() {
                 investor2_did,
                 45_00_00 as u128
             ),
-            "sender must be a signing key for DID"
+            AssetError::SenderMustBeSigningKeyForDid
         );
 
         // Should fail to transfer the token by the custodian because of insufficient allowance
@@ -591,7 +590,7 @@ fn valid_custodian_allowance_of() {
                 investor2_did,
                 55_00_00 as u128
             ),
-            "Insufficient allowance"
+            AssetError::InsufficientAllowance
         );
 
         // Successfully transfer by the custodian
@@ -752,7 +751,7 @@ fn register_ticker() {
 
         assert_err!(
             Asset::register_ticker(owner_signed.clone(), Ticker::from(&[0x01][..])),
-            "token already created"
+            AssetError::TokenAlreadyCreated
         );
 
         assert_err!(
@@ -760,7 +759,7 @@ fn register_ticker() {
                 owner_signed.clone(),
                 Ticker::from(&[0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01][..])
             ),
-            "ticker length over the limit"
+            AssetError::TickerTooLong
         );
 
         let ticker = Ticker::from(&[0x01, 0x01][..]);
@@ -780,7 +779,7 @@ fn register_ticker() {
 
         assert_err!(
             Asset::register_ticker(alice_signed.clone(), ticker),
-            "ticker registered to someone else"
+            AssetError::TickerAlreadyRegistered
         );
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
@@ -1016,7 +1015,7 @@ fn transfer_token_ownership() {
 
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
-            "Token does not exist"
+            AssetError::NoSuchToken
         );
 
         auth_id = Identity::add_auth(
@@ -1549,7 +1548,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
 
         assert_err!(
             Asset::archive_extension(owner_signed.clone(), ticker, extension_id),
-            "Smart extension not exists"
+            AssetError::NoSuchSmartExtension
         );
     });
 }
@@ -1760,26 +1759,26 @@ fn freeze_unfreeze_asset() {
         ));
         assert_err!(
             Asset::freeze(bob_signed.clone(), ticker),
-            "sender must be a signing key for the token owner DID"
+            AssetError::SenderMustBeSigningKeyForDid
         );
         assert_err!(
             Asset::unfreeze(alice_signed.clone(), ticker),
-            "asset must be frozen"
+            AssetError::NotFrozen
         );
         assert_ok!(Asset::freeze(alice_signed.clone(), ticker));
         assert_err!(
             Asset::freeze(alice_signed.clone(), ticker),
-            "asset must not already be frozen"
+            AssetError::AlreadyFrozen
         );
 
         // Attempt to mint tokens.
         assert_err!(
             Asset::issue(alice_signed.clone(), ticker, bob_did, 1, vec![]),
-            "asset is frozen"
+            "Frozen"
         );
         assert_err!(
             Asset::transfer(alice_signed.clone(), ticker, bob_did, 1),
-            "asset is frozen"
+            "Frozen"
         );
         // Attempt to transfer token ownership.
         let auth_id = Identity::add_auth(
@@ -1797,17 +1796,17 @@ fn freeze_unfreeze_asset() {
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
             Asset::batch_issue(bob_signed.clone(), ticker, vec![bob_did], vec![1]),
-            "asset is frozen"
+            "Frozen"
         );
         // `batch_issue` fails with the empty vector of investors with a different error message.
         assert_err!(
             Asset::batch_issue(bob_signed.clone(), ticker, vec![], vec![]),
-            "list of investors is empty"
+            AssetError::NoInvestors
         );
         assert_ok!(Asset::unfreeze(bob_signed.clone(), ticker));
         assert_err!(
             Asset::unfreeze(bob_signed.clone(), ticker),
-            "asset must be frozen"
+            AssetError::NotFrozen
         );
         // Transfer some balance.
         assert_ok!(Asset::transfer(alice_signed.clone(), ticker, bob_did, 1));

@@ -184,8 +184,10 @@ decl_module! {
             let cdd_id = Context::current_identity_or::<Self>(&cdd_key)?;
 
             let kyc_providers = T::KycServiceProviders::get_members();
-            ensure!( kyc_providers.into_iter().any( |kyc_id| kyc_id == cdd_id),
-                Error::<T>::UnAuthorizedKYCProvider);
+            ensure!(
+                kyc_providers.into_iter().any(|kyc_id| kyc_id == cdd_id),
+                Error::<T>::UnAuthorizedKYCProvider
+            );
 
             // Register Identity and add claim.
             let new_id = Self::_register_did(target_account, signing_items)?;
@@ -206,9 +208,10 @@ decl_module! {
             // Check constraint 1-to-1 in relation key-identity.
             for s_item in &signing_items{
                 if let Signatory::AccountKey(ref key) = s_item.signer {
-                    if !Self::can_key_be_linked_to_did( key, s_item.signer_type) {
-                        return Err(Error::<T>::AlreadyLinked.into());
-                    }
+                    ensure!(
+                        Self::can_key_be_linked_to_did(key, s_item.signer_type),
+                        Error::<T>::AlreadyLinked
+                    );
                 }
             }
 
@@ -258,7 +261,10 @@ decl_module! {
             let did = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
-            ensure!( Self::can_key_be_linked_to_did(&new_key, SignatoryType::External), "Master key can only belong to one DID");
+            ensure!(
+                Self::can_key_be_linked_to_did(&new_key, SignatoryType::External),
+                Error::<T>::AlreadyLinked
+            );
 
             <DidRecords>::mutate(did,
             |record| {
@@ -282,8 +288,14 @@ decl_module! {
             let signer = Signatory::from(sender_key);
 
             // When both authorizations are present...
-            ensure!(<Authorizations<T>>::exists(signer, rotation_auth_id), "Invalid authorization from owner");
-            ensure!(<Authorizations<T>>::exists(signer, kyc_auth_id), "Invalid authorization from KYC service provider");
+            ensure!(
+                <Authorizations<T>>::exists(signer, rotation_auth_id),
+                Error::<T>::InvalidAuthorizationFromOwner
+            );
+            ensure!(
+                <Authorizations<T>>::exists(signer, kyc_auth_id),
+                Error::<T>::InvalidAuthorizationFromCddProvider
+            );
 
             // Accept authorization from the owner
             let rotation_auth = <Authorizations<T>>::get(signer, rotation_auth_id);
@@ -293,7 +305,7 @@ decl_module! {
                 match rotation_auth.authorized_by {
                     Signatory::AccountKey(key) =>  {
                         let master_key = <DidRecords>::get(rotation_for_did).master_key;
-                        ensure!(key == master_key, "Authorization to change key was not from the owner of master key");
+                        ensure!(key == master_key, Error::<T>::KeyChangeUnauthorized);
                     },
                     _ => return Err(Error::<T>::UnknownAuthorization.into())
                 };
@@ -310,13 +322,19 @@ decl_module! {
                     };
 
                     if let Some(id) = kyc_provider_did {
-                        ensure!(T::KycServiceProviders::is_member(&id), "Attestation was not by a KYC service provider");
+                        ensure!(
+                            T::KycServiceProviders::is_member(&id),
+                            Error::<T>::NotCddProviderAttestation
+                        );
                     } else {
                         return Err(Error::<T>::NoDIDFound.into());
                     }
 
                     // Make sure authorizations are for the same DID
-                    ensure!(rotation_for_did == attestation_for_did, "Authorizations are not for the same DID");
+                    ensure!(
+                        rotation_for_did == attestation_for_did,
+                        Error::<T>::AuthorizationsNotForSameDids
+                    );
 
                     // remove owner's authorization
                     Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
@@ -352,14 +370,17 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            ensure!(<DidRecords>::exists(did), "DID must already exist");
-            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords>::exists(did), Error::<T>::DidMustAlreadyExist);
+            ensure!(<DidRecords>::exists(did_issuer), Error::<T>::ClaimIssuerDidMustAlreadyExist);
 
             let sender_key = AccountKey::try_from(sender.encode())?;
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_signer = Signatory::AccountKey(sender_key);
-            ensure!(Self::is_signer_authorized(did_issuer, &sender_signer), "Sender must hold a claim issuer's signing key");
+            ensure!(
+                Self::is_signer_authorized(did_issuer, &sender_signer),
+                Error::<T>::SenderMustHoldClaimIssuerKey
+            );
 
             Self::unsafe_add_claim( did, claim_key, did_issuer, expiry, claim_value)
         }
@@ -373,12 +394,17 @@ decl_module! {
             claims: Vec<ClaimRecord<<T as pallet_timestamp::Trait>::Moment>>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
+            ensure!(
+                <DidRecords>::exists(did_issuer),
+                Error::<T>::ClaimIssuerDidMustAlreadyExist
+            );
             let sender_key = AccountKey::try_from(sender.encode())?;
             // Verify that sender key is one of did_issuer's signing keys
             let sender_signer = Signatory::AccountKey(sender_key);
-            ensure!(Self::is_signer_authorized(did_issuer, &sender_signer),
-                    "Sender must hold a claim issuer's signing key");
+            ensure!(
+                Self::is_signer_authorized(did_issuer, &sender_signer),
+                Error::<T>::SenderMustHoldClaimIssuerKey
+            );
             // Claims that successfully passed all required checks. Unless all claims pass those
             // checks, the whole operation fails.
             let mut checked_claims = Vec::new();
@@ -389,7 +415,10 @@ decl_module! {
                 expiry,
                 claim_value,
             } in claims {
-                ensure!(<DidRecords>::exists(did), "DID must already exist");
+                ensure!(
+                    <DidRecords>::exists(did),
+                    Error::<T>::DidMustAlreadyExist
+                );
                 let claim_meta_data = ClaimMetaData {
                     claim_key: claim_key.clone(),
                     claim_issuer: did_issuer.clone(),
@@ -422,8 +451,10 @@ decl_module! {
             // 1.1. A valid current identity.
             if let Some(current_did) = Context::current_identity::<Self>() {
                 // 1.2. Check that current_did is a signing key of target_did
-                ensure!( Self::is_signer_authorized(current_did, &Signatory::Identity(target_did)),
-                    "Current identity cannot be forwarded, it is not a signing key of target identity");
+                ensure!(
+                    Self::is_signer_authorized(current_did, &Signatory::Identity(target_did)),
+                    Error::<T>::CurrentIdentityCannotBeForwarded
+                );
             } else {
                 return Err(Error::<T>::MissingCurrentIdentity.into());
             }
@@ -432,8 +463,7 @@ decl_module! {
             // Please keep in mind that `current_did` is double-checked:
             //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
             //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
-            ensure!(Self::has_valid_kyc(target_did).is_some(), "Invalid KYC validation on target did");
-
+            ensure!(Self::has_valid_kyc(target_did).is_some(), Error::<T>::TargetHasNoCdd);
             // 2. Actions
             Context::set_current_identity::<Self>(Some(target_did));
 
@@ -455,13 +485,16 @@ decl_module! {
 
         /// Marks the specified claim as revoked
         pub fn revoke_claim(origin, claim_key: Vec<u8>, did_issuer: IdentityId) -> DispatchResult {
-            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Self>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
 
-            ensure!(<DidRecords>::exists(&did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords>::exists(&did_issuer), Error::<T>::ClaimIssuerDidMustAlreadyExist);
             // Verify that sender key is one of did_issuer's signing keys
-            ensure!(Self::is_signer_authorized(did_issuer, &sender), "Sender must hold a claim issuer's signing key");
+            ensure!(
+                Self::is_signer_authorized(did_issuer, &sender),
+                Error::<T>::SenderMustHoldClaimIssuerKey
+            );
 
             let claim_meta_data = ClaimMetaData {
                 claim_key: claim_key,
@@ -510,11 +543,11 @@ decl_module! {
         /// # Errors
         ///
         pub fn freeze_signing_keys(origin) -> DispatchResult {
-            Self::set_frozen_signing_key_flags( origin, true)
+            Self::set_frozen_signing_key_flags(origin, true)
         }
 
         pub fn unfreeze_signing_keys(origin) -> DispatchResult {
-            Self::set_frozen_signing_key_flags( origin, false)
+            Self::set_frozen_signing_key_flags(origin, false)
         }
 
         pub fn get_my_did(origin) -> DispatchResult {
@@ -582,12 +615,16 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
-            ensure!(<Authorizations<T>>::exists(target, auth_id), "Invalid auth");
-
+            ensure!(
+                <Authorizations<T>>::exists(target, auth_id),
+                Error::<T>::AuthorizationDoesNotExist
+            );
             let auth = <Authorizations<T>>::get(target, auth_id);
-
-            ensure!(auth.authorized_by.eq_either(&from_did, &sender_key) || target.eq_either(&from_did, &sender_key) , "Unauthorized");
-
+            ensure!(
+                auth.authorized_by.eq_either(&from_did, &sender_key) ||
+                    target.eq_either(&from_did, &sender_key),
+                Error::<T>::Unauthorized
+            );
             Self::remove_auth(target, auth_id, auth.authorized_by);
 
             Ok(())
@@ -596,22 +633,23 @@ decl_module! {
         /// Removes an array of authorizations
         pub fn batch_remove_authorization(
             origin,
-            // Vec<(target_did, auth_id)>
-
             auth_identifiers: Vec<AuthIdentifier>
-
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did = Context::current_identity_or::<Self>(&sender_key)?;
-
-
             let mut auths = Vec::with_capacity(auth_identifiers.len());
             for i in 0..auth_identifiers.len() {
                 let auth_identifier = &auth_identifiers[i];
-                ensure!(<Authorizations<T>>::exists(&auth_identifier.0, &auth_identifier.1), "Invalid auth");
-
+                ensure!(
+                    <Authorizations<T>>::exists(&auth_identifier.0, &auth_identifier.1),
+                    Error::<T>::AuthorizationDoesNotExist
+                );
                 auths.push(<Authorizations<T>>::get(&auth_identifier.0, &auth_identifier.1));
-                ensure!(auths[i].authorized_by.eq_either(&from_did, &sender_key) || auth_identifier.0.eq_either(&from_did, &sender_key) , "Unauthorized");
+                ensure!(
+                    auths[i].authorized_by.eq_either(&from_did, &sender_key) ||
+                        auth_identifier.0.eq_either(&from_did, &sender_key),
+                    Error::<T>::Unauthorized
+                );
             }
 
             for i in 0..auth_identifiers.len() {
@@ -633,10 +671,11 @@ decl_module! {
                 .map_or_else(
                     |_error| Signatory::from(sender_key),
                     |did| Signatory::from(did));
-
-            ensure!(<Authorizations<T>>::exists(signer, auth_id), "Invalid auth");
+            ensure!(
+                <Authorizations<T>>::exists(signer, auth_id),
+                Error::<T>::AuthorizationDoesNotExist
+            );
             let auth = <Authorizations<T>>::get(signer, auth_id);
-
             match signer {
                 Signatory::Identity(did) => {
                     match auth.authorization_data {
@@ -732,14 +771,12 @@ decl_module! {
             let valid_signer = if <PreAuthorizedJoinDid>::exists(&signer_from_key) {
                 // Sender key is valid.
                 // Verify 1-to-1 relation between key and identity.
-                if signer_id_found.is_some() {
-                    return Err(Error::<T>::AlreadyLinked.into());
-                }
-                Some( signer_from_key)
+                ensure!(signer_id_found.is_none(), Error::<T>::AlreadyLinked);
+                Some(signer_from_key)
             } else {
                 // Otherwise, sender's identity (only master key) should be pre-authorize.
                 match signer_id_found {
-                    Some( LinkedKeyInfo::Unique(sender_id)) if Self::is_master_key(sender_id, &sender_key) => {
+                    Some(LinkedKeyInfo::Unique(sender_id)) if Self::is_master_key(sender_id, &sender_key) => {
                         let signer_from_id = Signatory::Identity(sender_id);
                         if <PreAuthorizedJoinDid>::exists(&signer_from_id) {
                             Some(signer_from_id)
@@ -778,7 +815,7 @@ decl_module! {
         /// It only affects the authorization: if key accepted it previously, then this transaction
         /// shall have no effect.
         pub fn unauthorized_join_to_identity(origin, signer: Signatory, target_id: IdentityId) -> DispatchResult {
-            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
 
             let mut is_remove_allowed = Self::is_master_key( target_id, &sender_key);
 
@@ -820,7 +857,7 @@ decl_module! {
 
             // 0. Check expiration
             let now = <pallet_timestamp::Module<T>>::get();
-            ensure!( now < expires_at, "Offchain authorization has expired");
+            ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
             let authorization = TargetIdAuthorization {
                 target_id: id,
                 nonce: Self::offchain_authorization_nonce(id),
@@ -845,18 +882,23 @@ decl_module! {
                 if let Some(account_id) = account_id_found {
                     if let Signatory::AccountKey(ref key) = si.signer {
                         // 1.1. Constraint 1-to-1 account to DID
-                        ensure!( Self::can_key_be_linked_to_did( key, si.signer_type),
-                        "One signing key can only belong to one identity");
+                        ensure!(
+                            Self::can_key_be_linked_to_did(key, si.signer_type),
+                            Error::<T>::AlreadyLinked
+                        );
                     }
-
                     // 1.2. Offchain authorization is not revoked explicitly.
-                    ensure!( Self::is_offchain_authorization_revoked((si.signer.clone(), authorization.clone())) == false,
-                        "Authorization has been explicitly revoked");
-
+                    let si_signer_authorization = &(si.signer, authorization.clone());
+                    ensure!(
+                        !Self::is_offchain_authorization_revoked(si_signer_authorization),
+                        Error::<T>::AuthorizationHasBeenRevoked
+                    );
                     // 1.3. Verify the signature.
                     let signature = AnySignature::from( Signature::from_h512(si_with_auth.auth_signature));
-                    ensure!( signature.verify( auth_encoded.as_slice(), &account_id),
-                        "Invalid Authorization signature");
+                    ensure!(
+                        signature.verify(auth_encoded.as_slice(), &account_id),
+                        Error::<T>::InvalidAuthorizationSignature
+                    );
                 } else {
                     return Err(Error::<T>::InvalidAccountKey.into());
                 }
@@ -886,14 +928,18 @@ decl_module! {
         /// It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
         /// the authorized transaction is not yet executed.
         pub fn revoke_offchain_authorization(origin, signer: Signatory, auth: TargetIdAuthorization<T::Moment>) -> DispatchResult {
-            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
 
             match signer {
-                Signatory::AccountKey(ref key) => ensure!( sender_key == *key, "This key is not allowed to revoke this off-chain authorization"),
-                Signatory::Identity(id) => ensure!( Self::is_master_key(id, &sender_key), "Only master key is allowed to revoke an Identity Signatory off-chain authorization"),
+                Signatory::AccountKey(ref key) => {
+                    ensure!(sender_key == *key, Error::<T>::KeyNotAllowed);
+                }
+                Signatory::Identity(id) => {
+                    ensure!(Self::is_master_key(id, &sender_key), Error::<T>::NotMasterKey);
+                }
             }
 
-            <RevokeOffChainAuthorization<T>>::insert( (signer,auth), true);
+            <RevokeOffChainAuthorization<T>>::insert((signer,auth), true);
             Ok(())
         }
     }
@@ -917,6 +963,46 @@ decl_error! {
         InvalidAccountKey,
         /// Only KYC service providers are allowed.
         UnAuthorizedKYCProvider,
+        /// An invalid authorization from the owner.
+        InvalidAuthorizationFromOwner,
+        /// An invalid authorization from the CDD provider.
+        InvalidAuthorizationFromCddProvider,
+        /// The authorization to change the key was not from the owner of the master key.
+        KeyChangeUnauthorized,
+        /// Attestation was not by a CDD service provider.
+        NotCddProviderAttestation,
+        /// Authorizations are not for the same DID.
+        AuthorizationsNotForSameDids,
+        /// The DID must already exist.
+        DidMustAlreadyExist,
+        /// The Claim issuer DID must already exist.
+        ClaimIssuerDidMustAlreadyExist,
+        /// Sender must hold a claim issuer's signing key.
+        SenderMustHoldClaimIssuerKey,
+        /// Current identity cannot be forwarded, it is not a signing key of target identity.
+        CurrentIdentityCannotBeForwarded,
+        /// The authorization does not exist.
+        AuthorizationDoesNotExist,
+        /// The offchain authorization has expired.
+        AuthorizationExpired,
+        /// The master key is not linked to an identity.
+        MasterKeyNotLinked,
+        /// The target DID has no valid CDD.
+        TargetHasNoCdd,
+        /// Authorization has been explicitly revoked.
+        AuthorizationHasBeenRevoked,
+        /// An invalid authorization signature.
+        InvalidAuthorizationSignature,
+        /// This key is not allowed to execute a given operation.
+        KeyNotAllowed,
+        /// Only the master key is allowed to revoke an Identity Signatory off-chain authorization.
+        NotMasterKey,
+        /// The DID does not exist.
+        DidDoesNotExist,
+        /// The DID already exists.
+        DidAlreadyExists,
+        /// The signing keys contain the master key.
+        SigningKeysContainMasterKey,
     }
 }
 
@@ -964,21 +1050,15 @@ impl<T: Trait> Module<T> {
     /// Consumes an authorization.
     /// Checks if the auth has not expired and the caller is authorized to consume this auth.
     pub fn consume_auth(from: Signatory, target: Signatory, auth_id: u64) -> DispatchResult {
-        if !<Authorizations<T>>::exists(target, auth_id) {
-            // Auth does not exist
-            return Err(AuthorizationError::Invalid.into());
-        }
+        ensure!(
+            <Authorizations<T>>::exists(target, auth_id),
+            AuthorizationError::Invalid
+        );
         let auth = <Authorizations<T>>::get(target, auth_id);
-
-        if auth.authorized_by != from {
-            // Not authorized to revoke this authorization
-            return Err(AuthorizationError::Unauthorized.into());
-        }
+        ensure!(auth.authorized_by == from, AuthorizationError::Unauthorized);
         if let Some(expiry) = auth.expiry {
             let now = <pallet_timestamp::Module<T>>::get();
-            if expiry <= now {
-                return Err(AuthorizationError::Expired.into());
-            }
+            ensure!(expiry > now, AuthorizationError::Expired);
         }
 
         Self::remove_auth(target, auth_id, auth.authorized_by);
@@ -1203,14 +1283,10 @@ impl<T: Trait> Module<T> {
     pub fn grant_check_only_master_key(
         sender_key: &AccountKey,
         did: IdentityId,
-    ) -> sp_std::result::Result<DidRecord, &'static str> {
-        ensure!(<DidRecords>::exists(did), "DID does not exist");
+    ) -> sp_std::result::Result<DidRecord, Error<T>> {
+        ensure!(<DidRecords>::exists(did), Error::<T>::DidDoesNotExist);
         let record = <DidRecords>::get(did);
-        ensure!(
-            *sender_key == record.master_key,
-            "Only master key of an identity is able to execute this operation"
-        );
-
+        ensure!(*sender_key == record.master_key, Error::<T>::KeyNotAllowed);
         Ok(record)
     }
 
@@ -1337,7 +1413,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::AssetDid(*ticker, did));
         // Making sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
-        ensure!(!<DidRecords>::exists(did), "DID must be unique");
+        ensure!(!<DidRecords>::exists(did), Error::<T>::DidAlreadyExists);
         <DidRecords>::insert(did, DidRecord::default());
         Ok(())
     }
@@ -1369,12 +1445,12 @@ impl<T: Trait> Module<T> {
         // 1.1. Master key is not linked to any identity.
         ensure!(
             Self::can_key_be_linked_to_did(&master_key, SignatoryType::External),
-            "Master key already belong to one DID"
+            Error::<T>::MasterKeyNotLinked
         );
         // 1.2. Master key is not part of signing keys.
         ensure!(
             signing_items.iter().find(|sk| **sk == master_key).is_none(),
-            "Signing keys contains the master key"
+            Error::<T>::SigningKeysContainMasterKey
         );
 
         let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
@@ -1383,13 +1459,14 @@ impl<T: Trait> Module<T> {
 
         // 1.3. Make sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
-        ensure!(!<DidRecords>::exists(did), "DID must be unique");
+        ensure!(!<DidRecords>::exists(did), Error::<T>::DidAlreadyExists);
         // 1.4. Signing keys can be linked to the new identity.
         for s_item in &signing_items {
             if let Signatory::AccountKey(ref key) = s_item.signer {
-                if !Self::can_key_be_linked_to_did(key, s_item.signer_type) {
-                    return Err(Error::<T>::AlreadyLinked.into());
-                }
+                ensure!(
+                    Self::can_key_be_linked_to_did(key, s_item.signer_type),
+                    Error::<T>::AlreadyLinked
+                );
             }
         }
 

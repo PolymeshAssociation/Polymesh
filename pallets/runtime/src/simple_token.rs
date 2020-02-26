@@ -43,7 +43,9 @@ use polymesh_runtime_identity as identity;
 use codec::Encode;
 use sp_std::{convert::TryFrom, prelude::*};
 
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedSub};
 
@@ -74,6 +76,31 @@ decl_storage! {
     }
 }
 
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// The sender must be a signing key for the DID.
+        SenderMustBeSigningKeyForDid,
+        /// A ticker with this name already exists.
+        TickerAlreadyExists,
+        /// The total supply is above the limit.
+        TotalSupplyAboveLimit,
+        /// The sender is not a token owner.
+        NotAnOwner,
+        /// An overflow while calculating the allowance.
+        AllowanceOverflow,
+        /// No such allowance.
+        NoSuchAllowance,
+        /// Insufficient allowance.
+        InsufficientAllowance,
+        /// Sender balance underflow.
+        BalanceUnderflow,
+        /// Recipient balance overflow.
+        BalanceOverflow,
+        /// Insufficient balance.
+        InsufficientBalance,
+    }
+}
+
 type Identity<T> = identity::Module<T>;
 
 decl_module! {
@@ -89,10 +116,12 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ensure!(!<Tokens<T>>::exists(&ticker), "Ticker with this name already exists");
-            ensure!(ticker.len() <= 32, "token ticker cannot exceed 32 bytes");
-            ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(!<Tokens<T>>::exists(&ticker), Error::<T>::TickerAlreadyExists);
+            ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
 
             // TODO Charge proper fee
             // <identity::DidRecords<T>>::mutate( did, |record| -> Result {
@@ -124,14 +153,17 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             let ticker_did = (ticker, did.clone());
-            ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
+            ensure!(<BalanceOf<T>>::exists(&ticker_did), Error::<T>::NotAnOwner);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
 
             let ticker_did_spender_did = (ticker, did, spender_did);
             let allowance = Self::allowance(&ticker_did_spender_did);
-            let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
+            let updated_allowance = allowance.checked_add(&value).ok_or(Error::<T>::AllowanceOverflow)?;
             <Allowance<T>>::insert(&ticker_did_spender_did, updated_allowance);
 
             Self::deposit_event(RawEvent::Approval(ticker, did, spender_did, value));
@@ -146,7 +178,10 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
 
             Self::_transfer(&ticker, did, to_did, amount)
         }
@@ -158,17 +193,21 @@ decl_module! {
             let spender = Signatory::AccountKey(sender_key);
 
             // Check that spender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "spender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &spender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist.");
+            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
             let allowance = Self::allowance(&ticker_from_did_did);
-            ensure!(allowance >= amount, "Not enough allowance.");
+            ensure!(allowance >= amount, Error::<T>::InsufficientAllowance);
 
             // Needs to happen before allowance subtraction so that the from balance is checked in _transfer
             Self::_transfer(&ticker, from_did, to_did, amount)?;
 
             // using checked_sub (safe math) to avoid overflow
-            let updated_allowance = allowance.checked_sub(&amount).ok_or("overflow in calculating allowance")?;
+            let updated_allowance = allowance.checked_sub(&amount)
+                .ok_or(Error::<T>::AllowanceOverflow)?;
             <Allowance<T>>::insert((ticker, from_did.clone(), did.clone()), updated_allowance);
 
             Self::deposit_event(RawEvent::Approval(ticker, from_did, did, updated_allowance));
@@ -230,19 +269,19 @@ impl<T: Trait> Module<T> {
         let ticker_from_did = (*ticker, from_did.clone());
         ensure!(
             <BalanceOf<T>>::exists(&ticker_from_did),
-            "Sender doesn't own this token"
+            Error::<T>::NotAnOwner
         );
         let from_balance = Self::balance_of(&ticker_from_did);
-        ensure!(from_balance >= amount, "Insufficient balance");
+        ensure!(from_balance >= amount, Error::<T>::InsufficientBalance);
 
         let new_from_balance = from_balance
             .checked_sub(&amount)
-            .ok_or("overflow in calculating from balance")?;
+            .ok_or(Error::<T>::BalanceUnderflow)?;
         let ticker_to_did = (*ticker, to_did.clone());
         let to_balance = Self::balance_of(&ticker_to_did);
         let new_to_balance = to_balance
             .checked_add(&amount)
-            .ok_or("overflow in calculating to balanc")?;
+            .ok_or(Error::<T>::BalanceOverflow)?;
 
         <BalanceOf<T>>::insert(&ticker_from_did, new_from_balance);
         <BalanceOf<T>>::insert(&ticker_to_did, new_to_balance);
@@ -492,7 +531,7 @@ mod tests {
 
             assert_err!(
                 SimpleToken::create_token(owner_signed.clone(), ticker, total_supply),
-                "Ticker with this name already exists"
+                Error::<Test>::TickerAlreadyExists
             );
 
             assert_ok!(SimpleToken::create_token(
@@ -517,7 +556,7 @@ mod tests {
                     Ticker::from(&[0x02][..]),
                     MAX_SUPPLY + 1
                 ),
-                "Total supply above the limit"
+                Error::<Test>::TotalSupplyAboveLimit
             );
         });
     }
@@ -544,7 +583,7 @@ mod tests {
             let gift = 1000u128;
             assert_err!(
                 SimpleToken::transfer(spender_signed.clone(), ticker, owner_did, gift),
-                "Sender doesn't own this token"
+                Error::<Test>::NotAnOwner
             );
 
             assert_ok!(SimpleToken::transfer(
@@ -587,7 +626,7 @@ mod tests {
 
             assert_err!(
                 SimpleToken::approve(spender_signed.clone(), ticker, spender_did, allowance),
-                "Account does not own this token"
+                Error::<Test>::NotAnOwner
             );
 
             assert_ok!(SimpleToken::approve(
@@ -603,7 +642,7 @@ mod tests {
 
             assert_err!(
                 SimpleToken::approve(owner_signed.clone(), ticker, spender_did, std::u128::MAX),
-                "overflow in calculating allowance"
+                Error::<Test>::AllowanceOverflow
             );
 
             assert_err!(
@@ -614,7 +653,7 @@ mod tests {
                     spender_did,
                     allowance + 1u128
                 ),
-                "Not enough allowance."
+                Error::<Test>::InsufficientAllowance
             );
 
             assert_ok!(SimpleToken::transfer_from(
