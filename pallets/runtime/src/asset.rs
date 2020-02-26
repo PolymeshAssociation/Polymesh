@@ -1452,7 +1452,7 @@ decl_event! {
         /// ticker, return value (true if issuable)
         IsIssuable(Ticker, bool),
         /// get_document() output
-        /// ticker, name, uri, hash, last modification date
+        /// ticker, name, uri, content_hash, last modification date
         GetDocument(Ticker, DocumentName, DocumentUri, DocumentHash, Moment),
         /// emit when tokens transferred by the custodian
         /// ticker, custodian did, holder/from did, to did, amount
