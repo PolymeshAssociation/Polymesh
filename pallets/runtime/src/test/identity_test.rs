@@ -191,13 +191,13 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
             Signatory::AccountKey(bob_key),
             vec![Permission::Full]
         ),
-        "Only master key of an identity is able to execute this operation"
+        Error::<TestStorage>::KeyNotAllowed
     );
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.
     assert_err!(
         Identity::set_permission_to_signer(bob, Signatory::AccountKey(charlie_key), vec![]),
-        "Only master key of an identity is able to execute this operation"
+        Error::<TestStorage>::KeyNotAllowed
     );
 
     // Alice over-write some permissions.
@@ -298,7 +298,7 @@ fn freeze_signing_keys_with_externalities() {
     // Freeze signing keys: bob & charlie.
     assert_err!(
         Identity::freeze_signing_keys(bob.clone()),
-        "Only master key of an identity is able to execute this operation"
+        Error::<TestStorage>::KeyNotAllowed
     );
     assert_ok!(Identity::freeze_signing_keys(alice.clone()));
 
@@ -329,7 +329,7 @@ fn freeze_signing_keys_with_externalities() {
     // unfreeze all
     assert_err!(
         Identity::unfreeze_signing_keys(bob.clone()),
-        "Only master key of an identity is able to execute this operation"
+        Error::<TestStorage>::KeyNotAllowed
     );
     assert_ok!(Identity::unfreeze_signing_keys(alice.clone()));
 
@@ -653,7 +653,7 @@ fn one_step_join_id_with_ext() {
             expires_at,
             signing_items_with_auth[2..].to_owned()
         ),
-        "Invalid Authorization signature"
+        Error::<TestStorage>::InvalidAuthorizationSignature
     );
 
     // Check revoke off-chain authorization.
@@ -682,7 +682,7 @@ fn one_step_join_id_with_ext() {
             expires_at,
             vec![eve_signing_item_with_auth]
         ),
-        "Authorization has been explicitly revoked"
+        Error::<TestStorage>::AuthorizationHasBeenRevoked
     );
 
     // Check expire
@@ -707,7 +707,7 @@ fn one_step_join_id_with_ext() {
             expires_at,
             vec![ferdie_signing_item_with_auth]
         ),
-        "Offchain authorization has expired"
+        Error::<TestStorage>::AuthorizationExpired
     );
 }
 

@@ -42,7 +42,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
@@ -116,13 +116,16 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             // Check that sender owns the asset token
-            ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
+            ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             // Check if sender has enough funds in payout currency
             let balance = <simple_token::BalanceOf<T>>::get((payout_ticker, did));
-            ensure!(balance >= amount, "Insufficient funds for payout");
+            ensure!(balance >= amount, Error::<T>::InsufficientFunds);
 
             // Unpack the checkpoint ID, use the latest or create a new one, in that order
             let checkpoint_id = if checkpoint_id > 0 {
@@ -137,31 +140,32 @@ decl_module! {
                 }
             };
             // Check if checkpoint exists
-            ensure!(<asset::Module<T>>::total_checkpoints_of(&ticker) >= checkpoint_id,
-            "Checkpoint for dividend does not exist");
+            ensure!(
+                <asset::Module<T>>::total_checkpoints_of(&ticker) >= checkpoint_id,
+                Error::<T>::NoSuchCheckpoint
+            );
 
             let now = <pallet_timestamp::Module<T>>::get();
-            let zero_ts = now - now; // A 0 timestamp
-
+            let zero_ts = Zero::zero(); // A 0 timestamp
             // Check maturity/expiration dates
             match (&matures_at, &expires_at) {
                 (_start, end) if  end == &zero_ts => {
                 },
                 (start, end) if start == &zero_ts => {
                     // Ends in the future
-                    ensure!(end > &now, "Dividend payout must end in the future");
+                    ensure!(end > &now, Error::<T>::PayoutMustEndInFuture);
                 },
                 (start, end) if start == &zero_ts && end == &zero_ts => {}
                 (start, end) => {
                     // Ends in the future
-                    ensure!(end > &now, "Dividend payout should end in the future");
+                    ensure!(end > &now, Error::<T>::PayoutMustEndInFuture);
                     // Ends after start
-                    ensure!(end > start, "Dividend payout must end after it starts");
+                    ensure!(end > start, Error::<T>::PayoutMustEndAfterStart);
                 },
             }
 
             // Subtract the amount
-            let new_balance = balance.checked_sub(&amount).ok_or("Underflow calculating new owner balance")?;
+            let new_balance = balance.checked_sub(&amount).ok_or(Error::<T>::BalanceUnderflow)?;
             <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
 
             // Insert dividend entry into storage
@@ -190,21 +194,21 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             // Check that sender owns the asset token
-            ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
+            ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             // Check that the dividend has not started yet
-            let entry: Dividend<_, _> = Self::get_dividend(&ticker, dividend_id).ok_or("Dividend not found")?;
+            let entry: Dividend<_, _> = Self::get_dividend(&ticker, dividend_id)
+                .ok_or(Error::<T>::NoSuchDividend)?;
             let now = <pallet_timestamp::Module<T>>::get();
-
-            let starts_in_future = if let Some(ref start) = entry.matures_at {
-                (*start) > now
-            } else {
-                false
-            };
-
-            ensure!(starts_in_future, "Cancellable dividend must mature in the future");
+            ensure!(
+                entry.matures_at.map_or(false, |ref start| *start > now),
+                Error::<T>::MustMatureInFuture
+            );
 
             // Pay amount back to owner
             <simple_token::BalanceOf<T>>::mutate(
@@ -212,7 +216,7 @@ decl_module! {
                 |balance: &mut T::Balance| -> DispatchResult {
                     *balance  = balance
                         .checked_add(&entry.amount)
-                        .ok_or("Could not add amount back to asset owner account")?;
+                        .ok_or(Error::<T>::FailedToPayBackToOwner)?;
                     Ok(())
                 }
             )?;
@@ -232,45 +236,52 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             // Check if sender wasn't already paid their share
-            ensure!(!<UserPayoutCompleted>::get((did, ticker, dividend_id)), "User was already paid their share");
+            ensure!(
+                !<UserPayoutCompleted>::get((did, ticker, dividend_id)),
+                Error::<T>::HasAlreadyBeenPaid
+            );
 
             // Look dividend entry up
-            let dividend = Self::get_dividend(&ticker, dividend_id).ok_or("Dividend not found")?;
+            let dividend = Self::get_dividend(&ticker, dividend_id).ok_or(Error::<T>::NoSuchDividend)?;
 
             let balance_at_checkpoint =
                 <asset::Module<T>>::get_balance_at(ticker, did, dividend.checkpoint_id);
 
             // Check if the owner hadn't yanked the remaining amount out
-            ensure!(!dividend.remaining_claimed, "The remaining payout funds were already claimed");
+            ensure!(!dividend.remaining_claimed, Error::<T>::RemainingFundsAlreadyClaimed);
 
             let now = <pallet_timestamp::Module<T>>::get();
 
             // Check if the current time is within maturity/expiration bounds
             if let Some(start) = dividend.matures_at.as_ref() {
-                ensure!(now > *start, "Attempted payout before maturity");
+                ensure!(now > *start, Error::<T>::CannotPayBeforeMaturity);
             }
 
             if let Some(end) = dividend.expires_at.as_ref() {
-                ensure!(*end > now, "Attempted payout after expiration");
+                ensure!(*end > now, Error::<T>::CannotPayAfterExpiration);
             }
 
             // Compute the share
-            ensure!(<asset::Tokens<T>>::exists(&ticker), "Dividend token entry not found");
+            ensure!(<asset::Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
             let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker, dividend.checkpoint_id));
 
             let balance_amount_product = balance_at_checkpoint
                 .checked_mul(&dividend.amount)
-                .ok_or("multiplying balance and total payout amount failed")?;
+                .ok_or(Error::<T>::BalanceAmountProductOverflowed)?;
 
             let share = balance_amount_product
                 .checked_div(&supply_at_checkpoint)
-                .ok_or("balance_amount_product division failed")?;
+                .ok_or(Error::<T>::BalanceAmountProductSupplyDivisionFailed)?;
 
             // Adjust the paid_out amount
             <Dividends<T>>::mutate((ticker, dividend_id), |entry| -> DispatchResult {
-                entry.amount_left = entry.amount_left.checked_sub(&share).ok_or("Could not increase paid_out")?;
+                entry.amount_left = entry.amount_left.checked_sub(&share)
+                    .ok_or(Error::<T>::CouldNotIncreaseAmount)?;
                 Ok(())
             })?;
 
@@ -278,9 +289,7 @@ decl_module! {
             <simple_token::BalanceOf<T>>::mutate(
                 (dividend.payout_currency, did),
                 |balance| -> DispatchResult {
-                    *balance = balance
-                        .checked_add(&share)
-                        .ok_or("Could not add share to sender balance")?;
+                    *balance = balance.checked_add(&share).ok_or(Error::<T>::CouldNotAddShare)?;
                     Ok(())
                 }
             )?;
@@ -300,28 +309,25 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             // Check that sender owns the asset token
-            ensure!(<asset::Module<T>>::_is_owner(&ticker, did), "User is not the owner of the asset");
+            ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
-            let entry = Self::get_dividend(&ticker, dividend_id).ok_or("Could not retrieve dividend")?;
+            let entry = Self::get_dividend(&ticker, dividend_id).ok_or(Error::<T>::NoSuchDividend)?;
 
             // Check that the expiry date had passed
             let now = <pallet_timestamp::Module<T>>::get();
-
-            if let Some(ref end) = entry.expires_at {
-                ensure!(*end < now, "Dividend not finished for returning unclaimed payout");
-            } else {
-                return Err(Error::<T>::NotEnded.into());
-            }
-
+            ensure!(entry.expires_at.map_or(false, |ref end| *end < now), Error::<T>::NotEnded);
             // Transfer the computed amount
             <simple_token::BalanceOf<T>>::mutate(
                 (entry.payout_currency, did),
                 |balance: &mut T::Balance| -> DispatchResult {
                     *balance = balance
                         .checked_add(&entry.amount_left)
-                        .ok_or("Could not add amount back to asset owner DID")?;
+                        .ok_or(Error::<T>::FailedToPayBackToOwner)?;
                     Ok(())
                 }
             )?;
@@ -363,6 +369,44 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Claiming unclaimed payouts requires an end date
         NotEnded,
+        /// The sender must be a signing key for the DID.
+        SenderMustBeSigningKeyForDid,
+        /// The dividend was not found.
+        NoSuchDividend,
+        /// The user is not an owner of the asset.
+        NotAnOwner,
+        /// Insufficient funds.
+        InsufficientFunds,
+        /// The checkpoint for the dividend does not exist.
+        NoSuchCheckpoint,
+        /// Dividend payout must end in the future.
+        PayoutMustEndInFuture,
+        /// Dividend payout must end after it starts.
+        PayoutMustEndAfterStart,
+        /// Underflow while calculating the new value for balance.
+        BalanceUnderflow,
+        /// Dividend must mature in the future.
+        MustMatureInFuture,
+        /// Failed to pay back to the owner account.
+        FailedToPayBackToOwner,
+        /// The user has already been paid their share.
+        HasAlreadyBeenPaid,
+        /// The remaining payout funds were already claimed.
+        RemainingFundsAlreadyClaimed,
+        /// Attempted to pay out before maturity.
+        CannotPayBeforeMaturity,
+        /// Attempted to pay out after expiration.
+        CannotPayAfterExpiration,
+        /// The dividend token entry was not found.
+        NoSuchToken,
+        /// Multiplication of the balance with the total payout amount overflowed.
+        BalanceAmountProductOverflowed,
+        /// A failed division of the balance amount product by the total supply.
+        BalanceAmountProductSupplyDivisionFailed,
+        /// Could not increase the paid out amount.
+        CouldNotIncreaseAmount,
+        /// Could not add the share to sender's balance.
+        CouldNotAddShare,
     }
 }
 
