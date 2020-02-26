@@ -64,6 +64,11 @@ jobs:
           command: cargo test
           working_directory: ./pallets/group
           no_output_timeout: 60m
+      - run:
+          name: im-online tests
+          command: cargo test
+          working_directory: ./pallets/im-online
+          no_output_timeout: 60m
       - save_cache:
           key: v3-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
@@ -71,6 +76,7 @@ jobs:
             - "./pallets/runtime/target"
             - "./pallets/staking/target"
             - "./pallets/group/target"
+            - "./pallets/im-online/target"
   cli:
     docker:
       - image: maxsam4/rust
