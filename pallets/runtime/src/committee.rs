@@ -199,7 +199,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Member of committee who wants to quit.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn rage_quit_as_member(origin) -> DispatchResult {
+        fn abdicate_membership(origin) -> DispatchResult {
             let who = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&who)?;
 
@@ -931,7 +931,7 @@ mod tests {
         // Ferdie is NOT a member
         assert_eq!(Committee::is_member(&ferdie_did), false);
         assert_err!(
-            Committee::rage_quit_as_member(ferdie_signer),
+            Committee::abdicate_membership(ferdie_signer),
             Error::<Test, Instance1>::MemberNotFound
         );
 
@@ -957,7 +957,7 @@ mod tests {
 
         // Bob quits, its vote should be removed.
         assert_eq!(Committee::is_member(&bob_did), true);
-        assert_ok!(Committee::rage_quit_as_member(bob_signer.clone()));
+        assert_ok!(Committee::abdicate_membership(bob_signer.clone()));
         assert_eq!(Committee::is_member(&bob_did), false);
         assert_eq!(
             Committee::voting(&proposal_hash),
@@ -971,7 +971,7 @@ mod tests {
         // Charlie quits, its vote should be removed and
         // propose should be accepted.
         assert_eq!(Committee::is_member(&charlie_did), true);
-        assert_ok!(Committee::rage_quit_as_member(charlie_signer.clone()));
+        assert_ok!(Committee::abdicate_membership(charlie_signer.clone()));
         assert_eq!(Committee::is_member(&charlie_did), false);
         // TODO: Only one member, voting should be approved.
         assert_eq!(
@@ -988,11 +988,11 @@ mod tests {
         assert_eq!(Committee::voting(&proposal_hash), None);
 
         // Alice should not quit because she is the last member.
-        assert_ok!(Committee::rage_quit_as_member(charlie_signer));
-        assert_ok!(Committee::rage_quit_as_member(bob_signer));
+        assert_ok!(Committee::abdicate_membership(charlie_signer));
+        assert_ok!(Committee::abdicate_membership(bob_signer));
         assert_eq!(Committee::is_member(&alice_did), true);
         assert_err!(
-            Committee::rage_quit_as_member(alice_signer),
+            Committee::abdicate_membership(alice_signer),
             Error::<Test, Instance1>::LastMemberCannotQuit
         );
         assert_eq!(Committee::is_member(&alice_did), true);
