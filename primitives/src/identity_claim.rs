@@ -6,21 +6,21 @@ use sp_std::prelude::Vec;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum IdentityClaimData {
     /// User is Accredited
-    Accredited,
+    Accredited(IdentityId),
     /// User is Accredited
-    Affiliate,
+    Affiliate(IdentityId),
     /// User has an active BuyLockup (end date defined in claim expiry)
-    BuyLockup,
+    BuyLockup(IdentityId),
     /// User has an active SellLockup (date defined in claim expiry)
-    SellLockup,
+    SellLockup(IdentityId),
     /// User has passed CDD
     CustomerDueDiligence,
     /// User is KYC'd
-    KnowYourCustomer,
+    KnowYourCustomer(IdentityId),
     /// This claim contains a string that represents the jurisdiction of the user
-    Jurisdiction(JurisdictionName),
+    Jurisdiction(JurisdictionName, IdentityId),
     /// User is whitelisted
-    Whitelisted,
+    Whitelisted(IdentityId),
     /// Empty claim
     NoData,
 }
