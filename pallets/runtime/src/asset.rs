@@ -328,18 +328,21 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key.clone());
             let to_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
-            ensure!(<identity::Module<T>>::is_signer_authorized(to_did, &signer), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(to_did, &signer), Error::<T>::SenderMustBeSigningKeyForDid);
 
-            ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
+            ensure!(!<Tokens<T>>::exists(&ticker), Error::<T>::TokenAlreadyCreated);
 
             let ticker_config = Self::ticker_registration_config();
 
-            ensure!(ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(), "ticker length over the limit");
+            ensure!(
+                ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
+                Error::<T>::TickerTooLong
+            );
 
             // Ensure that the ticker is not registered by someone else
             ensure!(
                 Self::is_ticker_available_or_registered_to(&ticker, to_did) != TickerRegistrationStatus::RegisteredByOther,
-                "ticker registered to someone else"
+                Error::<T>::TickerAlreadyRegistered
             );
 
             let now = <pallet_timestamp::Module<T>>::get();
@@ -407,26 +410,32 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), Error::<T>::SenderMustBeSigningKeyForDid);
+            ensure!(!<Tokens<T>>::exists(&ticker), Error::<T>::TokenAlreadyCreated);
 
             let ticker_config = Self::ticker_registration_config();
 
-            ensure!(ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(), "ticker length over the limit");
+            ensure!(
+                ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
+                Error::<T>::TickerTooLong
+            );
 
             // checking max size for name and ticker
             // byte arrays (vecs) with no max size should be avoided
-            ensure!(name.as_slice().len() <= 64, "token name cannot exceed 64 bytes");
+            ensure!(name.as_slice().len() <= 64, Error::<T>::TokenNameTooLong);
 
             let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
 
-            ensure!(is_ticker_available_or_registered_to != TickerRegistrationStatus::RegisteredByOther, "Ticker registered to someone else");
+            ensure!(
+                is_ticker_available_or_registered_to != TickerRegistrationStatus::RegisteredByOther,
+                Error::<T>::TickerAlreadyRegistered
+            );
 
             if !divisible {
-                ensure!(total_supply % ONE_UNIT.into() == 0.into(), "Invalid Total supply");
+                ensure!(total_supply % ONE_UNIT.into() == 0.into(), Error::<T>::InvalidTotalSupply);
             }
 
-            ensure!(total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
+            ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
 
             // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
             let validators = <pallet_session::Module<T>>::validators();
@@ -497,12 +506,14 @@ decl_module! {
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
+            ensure!(<Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer),
-                    "sender must be a signing key for the token owner DID");
-            ensure!(!Self::frozen(&ticker), "asset must not already be frozen");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(token.owner_did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(!Self::frozen(&ticker), Error::<T>::AlreadyFrozen);
             <Frozen>::insert(&ticker, true);
             Self::deposit_event(RawEvent::Frozen(ticker));
             Ok(())
@@ -516,12 +527,14 @@ decl_module! {
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
+            ensure!(<Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer),
-                    "sender must be a signing key for the token owner DID");
-            ensure!(Self::frozen(&ticker), "asset must be frozen");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(token.owner_did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::frozen(&ticker), Error::<T>::NotFrozen);
             <Frozen>::insert(&ticker, false);
             Self::deposit_event(RawEvent::Unfrozen(ticker));
             Ok(())
@@ -536,10 +549,13 @@ decl_module! {
         pub fn rename_token(origin, ticker: Ticker, name: TokenName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ensure!(<Tokens<T>>::exists(&ticker), "token doesn't exist");
+            ensure!(<Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(token.owner_did, &signer), "sender must be a signing key for the token owner DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(token.owner_did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
             Self::deposit_event(RawEvent::TokenRenamed(ticker, name));
             Ok(())
@@ -559,10 +575,16 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
-            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(
+                Self::_is_valid_transfer(&ticker, sender.clone(), Some(did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS,
+                Error::<T>::InvalidTransfer
+            );
 
             Self::_transfer(&ticker, did, to_did, value)
         }
@@ -584,8 +606,11 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             Self::_transfer(&ticker, from_did, to_did, value.clone())?;
 
@@ -607,10 +632,14 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ensure!(<BalanceOf<T>>::exists((ticker, did)), "Account does not own this token");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(<BalanceOf<T>>::exists((ticker, did)), Error::<T>::NotAnOwner);
             let allowance = Self::allowance((ticker, did, spender_did));
-            let updated_allowance = allowance.checked_add(&value).ok_or("overflow in calculating allowance")?;
+            let updated_allowance = allowance.checked_add(&value)
+                .ok_or(Error::<T>::AllowanceOverflow)?;
             <Allowance<T>>::insert((ticker, did, spender_did), updated_allowance);
 
             Self::deposit_event(RawEvent::Approval(ticker, did, spender_did, value));
@@ -633,18 +662,25 @@ decl_module! {
             let spender = Signatory::AccountKey(sender_key);
 
             // Check that spender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &spender), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &spender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist");
+            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
             let allowance = Self::allowance(&ticker_from_did_did);
-            ensure!(allowance >= value, "Not enough allowance");
+            ensure!(allowance >= value, Error::<T>::InsufficientAllowance);
 
             // using checked_sub (safe math) to avoid overflow
-            let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
+            let updated_allowance = allowance.checked_sub(&value)
+                .ok_or(Error::<T>::AllowanceOverflow)?;
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, from_did, value)?;
 
-            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(
+                Self::_is_valid_transfer(&ticker, sender.clone(), Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS,
+                Error::<T>::InvalidTransfer
+            );
             Self::_transfer(&ticker, from_did, to_did, value)?;
 
             // Change allowance afterwards
@@ -665,8 +701,11 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             Self::_create_checkpoint(&ticker)
         }
 
@@ -685,8 +724,11 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             Self::_mint(&ticker, sender, to_did, value)
         }
 
@@ -705,10 +747,13 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ensure!(investor_dids.len() > 0, "list of investors is empty");
-            ensure!(investor_dids.len() == values.len(), "Investor/amount list length inconsistent");
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(investor_dids.len() > 0, Error::<T>::NoInvestors);
+            ensure!(investor_dids.len() == values.len(), Error::<T>::InvestorListLengthInconsistent);
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             // A helper vec for calculated new investor balances
             let mut updated_balances = Vec::with_capacity(investor_dids.len());
@@ -721,21 +766,24 @@ decl_module! {
             for i in 0..investor_dids.len() {
                 ensure!(
                     Self::check_granularity(&ticker, values[i]),
-                    "Invalid granularity"
+                    Error::<T>::InvalidGranularity
                 );
                 let updated_total_supply = token
                     .total_supply
                     .checked_add(&values[i])
-                    .ok_or("overflow in calculating total supply")?;
-                ensure!(updated_total_supply <= MAX_SUPPLY.into(), "Total supply above the limit");
+                    .ok_or(Error::<T>::TotalSupplyOverflow)?;
+                ensure!(updated_total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
 
                 current_balances.push(Self::balance_of((ticker, investor_dids[i].clone())));
                 updated_balances.push(current_balances[i]
                     .checked_add(&values[i])
-                    .ok_or("overflow in calculating balance")?);
+                    .ok_or(Error::<T>::BalanceOverflow)?);
 
                 // verify transfer check
-                ensure!(Self::_is_valid_transfer(&ticker, sender.clone(),  None, Some(investor_dids[i]), values[i])? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+                ensure!(
+                    Self::_is_valid_transfer(&ticker, sender.clone(),  None, Some(investor_dids[i]), values[i])? == ERC1400_TRANSFER_SUCCESS,
+                    Error::<T>::InvalidTransfer
+                );
 
                 // New total supply must be valid
                 token.total_supply = updated_total_supply;
@@ -747,7 +795,7 @@ decl_module! {
             for v in &values {
                 issued_in_this_round = issued_in_this_round
                     .checked_add(v)
-                    .ok_or("current funding round total overflowed")?;
+                    .ok_or(Error::<T>::FundingRoundTotalOverflow)?;
             }
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
             // Update investor balances and emit events quoting the updated total token balance issued.
@@ -782,37 +830,37 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), Error::<T>::SenderMustBeSigningKeyForDid);
             // Granularity check
-            ensure!(
-                Self::check_granularity(&ticker, value),
-                "Invalid granularity"
-                );
+            ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             let ticker_did = (ticker, did);
-            ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
+            ensure!(<BalanceOf<T>>::exists(&ticker_did), Error::<T>::NotAnOwner);
             let burner_balance = Self::balance_of(&ticker_did);
-            ensure!(burner_balance >= value, "Not enough balance.");
+            ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
                 .checked_sub(&value)
-                .ok_or("overflow in calculating balance")?;
+                .ok_or(Error::<T>::BalanceOverflow)?;
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
 
             // verify transfer check
-            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(
+                Self::_is_valid_transfer(&ticker, sender.clone(), Some(did), None, value)? == ERC1400_TRANSFER_SUCCESS,
+                Error::<T>::InvalidTransfer
+            );
 
             //Decrease total supply
             let mut token = Self::token_details(&ticker);
-            token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
+            token.total_supply = token.total_supply.checked_sub(&value)
+                .ok_or(Error::<T>::BalanceOverflow)?;
 
             Self::_update_checkpoint(&ticker, did, burner_balance);
 
             <BalanceOf<T>>::insert((ticker, did), updated_burner_balance);
             <Tokens<T>>::insert(&ticker, token);
             <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
-
 
             Self::deposit_event(RawEvent::Redeemed(ticker, did, value));
 
@@ -835,35 +883,40 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            // Granularity check
             ensure!(
-                Self::check_granularity(&ticker, value),
-                "Invalid granularity"
-                );
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            // Granularity check
+            ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             let ticker_did = (ticker, did);
-            ensure!(<BalanceOf<T>>::exists(&ticker_did), "Account does not own this token");
+            ensure!(<BalanceOf<T>>::exists(&ticker_did), Error::<T>::NotAnOwner);
             let burner_balance = Self::balance_of(&ticker_did);
-            ensure!(burner_balance >= value, "Not enough balance.");
+            ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
                 .checked_sub(&value)
-                .ok_or("overflow in calculating balance")?;
+                .ok_or(Error::<T>::BalanceOverflow)?;
 
             let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), "Allowance does not exist");
+            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
             let allowance = Self::allowance(&ticker_from_did_did);
-            ensure!(allowance >= value, "Not enough allowance");
+            ensure!(allowance >= value, Error::<T>::InsufficientAllowance);
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
-            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(from_did), None, value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(
+                Self::_is_valid_transfer(&ticker, sender.clone(), Some(from_did), None, value)? == ERC1400_TRANSFER_SUCCESS,
+                Error::<T>::InvalidTransfer
+            );
 
-            let updated_allowance = allowance.checked_sub(&value).ok_or("overflow in calculating allowance")?;
+            let updated_allowance = allowance.checked_sub(&value)
+                .ok_or(Error::<T>::AllowanceOverflow)?;
 
             //Decrease total suply
             let mut token = Self::token_details(&ticker);
-            token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
+            token.total_supply = token.total_supply.checked_sub(&value)
+                .ok_or(Error::<T>::BalanceOverflow)?;
 
             Self::_update_checkpoint(&ticker, did, burner_balance);
 
@@ -893,26 +946,23 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "user is not token owner");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), Error::<T>::SenderMustBeSigningKeyForDid);
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             // Granularity check
-            ensure!(
-                Self::check_granularity(&ticker, value),
-                "Invalid granularity"
-                );
+            ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             let ticker_token_holder_did = (ticker, token_holder_did);
-            ensure!(<BalanceOf<T>>::exists(&ticker_token_holder_did), "Account does not own this token");
+            ensure!(<BalanceOf<T>>::exists(&ticker_token_holder_did), Error::<T>::NotATokenHolder);
             let burner_balance = Self::balance_of(&ticker_token_holder_did);
-            ensure!(burner_balance >= value, "Not enough balance.");
+            ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
                 .checked_sub(&value)
-                .ok_or("overflow in calculating balance")?;
+                .ok_or(Error::<T>::BalanceOverflow)?;
 
             //Decrease total suply
             let mut token = Self::token_details(&ticker);
-            token.total_supply = token.total_supply.checked_sub(&value).ok_or("overflow in calculating balance")?;
+            token.total_supply = token.total_supply.checked_sub(&value).ok_or(Error::<T>::BalanceOverflow)?;
 
             Self::_update_checkpoint(&ticker, token_holder_did, burner_balance);
 
@@ -936,11 +986,11 @@ decl_module! {
             let sender_signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), Error::<T>::SenderMustBeSigningKeyForDid);
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             // Read the token details
             let mut token = Self::token_details(&ticker);
-            ensure!(!token.divisible, "token already divisible");
+            ensure!(!token.divisible, Error::<T>::TokenAlreadyDivisible);
             token.divisible = true;
             <Tokens<T>>::insert(&ticker, token);
             Self::deposit_event(RawEvent::DivisibilityChanged(ticker, true));
@@ -1044,8 +1094,8 @@ decl_module! {
             let sender_signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), Error::<T>::SenderMustBeSigningKeyForDid);
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
@@ -1068,8 +1118,8 @@ decl_module! {
             let sender_signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), Error::<T>::SenderMustBeSigningKeyForDid);
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
@@ -1092,8 +1142,8 @@ decl_module! {
             let sender_signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "caller is not the owner of this asset");
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), Error::<T>::SenderMustBeSigningKeyForDid);
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
@@ -1124,7 +1174,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(holder_did, &sender_signer),
-                "sender must be a signing key for DID"
+                Error::<T>::SenderMustBeSigningKeyForDid
             );
             Self::_increase_custody_allowance(ticker, holder_did, custodian_did, value)?;
             Ok(())
@@ -1154,7 +1204,10 @@ decl_module! {
             signature: T::OffChainSignature
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure!(!Self::authentication_nonce((ticker, holder_did, nonce)), "Signature already used");
+            ensure!(
+                !Self::authentication_nonce((ticker, holder_did, nonce)),
+                Error::<T>::SignatureAlreadyUsed
+            );
 
             let msg = SignData {
                 custodian_did: custodian_did,
@@ -1164,17 +1217,20 @@ decl_module! {
                 nonce
             };
             // holder_account_id should be a part of the holder_did
-            ensure!(signature.verify(&msg.encode()[..], &holder_account_id), "Invalid signature");
+            ensure!(
+                signature.verify(&msg.encode()[..], &holder_account_id),
+                Error::<T>::InvalidSignature
+            );
             let sender_signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(caller_did, &sender_signer),
-                "sender must be a signing key for DID"
+                Error::<T>::SenderMustBeSigningKeyForDid
             );
             // Validate the holder signing key
             let holder_signer = Signatory::AccountKey(AccountKey::try_from(holder_account_id.encode())?);
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
-                "holder signing key must be a signing key for holder DID"
+                Error::<T>::HolderMustBeSigningKeyForHolderDid
             );
             Self::_increase_custody_allowance(ticker, holder_did, custodian_did, value)?;
             <AuthenticationNonce>::insert((ticker, holder_did, nonce), true);
@@ -1203,19 +1259,23 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(custodian_did, &sender_signer),
-                "sender must be a signing key for DID"
+                Error::<T>::SenderMustBeSigningKeyForDid
             );
             let mut custodian_allowance = Self::custodian_allowance((ticker, holder_did, custodian_did));
             // Check whether the custodian has enough allowance or not
-            ensure!(custodian_allowance >= value, "Insufficient allowance");
+            ensure!(custodian_allowance >= value, Error::<T>::InsufficientAllowance);
             // using checked_sub (safe math) to avoid underflow
-            custodian_allowance = custodian_allowance.checked_sub(&value).ok_or("underflow in calculating allowance")?;
+            custodian_allowance = custodian_allowance.checked_sub(&value)
+                .ok_or(Error::<T>::AllowanceUnderflow)?;
             // using checked_sub (safe math) to avoid underflow
             let new_total_allowance = Self::total_custody_allowance((ticker, holder_did))
                 .checked_sub(&value)
-                .ok_or("underflow in calculating the total allowance")?;
+                .ok_or(Error::<T>::TotalAllowanceUnderflow)?;
             // Validate the transfer
-            ensure!(Self::_is_valid_transfer(&ticker, sender.clone(), Some(holder_did), Some(receiver_did), value)? == ERC1400_TRANSFER_SUCCESS, "Transfer restrictions failed");
+            ensure!(
+                Self::_is_valid_transfer(&ticker, sender.clone(), Some(holder_did), Some(receiver_did), value)? == ERC1400_TRANSFER_SUCCESS,
+                Error::<T>::InvalidTransfer
+            );
             Self::_transfer(&ticker, holder_did, receiver_did, value)?;
             // Update Storage of allowance
             <CustodianAllowance<T>>::insert((ticker, custodian_did, holder_did), &custodian_allowance);
@@ -1237,9 +1297,11 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::AccountKey(sender_key);
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer),
-                    "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "DID is not of the asset owner");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             <FundingRound>::insert(ticker, name.clone());
             Self::deposit_event(RawEvent::FundingRound(ticker, name));
             Ok(())
@@ -1260,9 +1322,11 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender_signer = Signatory::AccountKey(sender_key);
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer),
-                    "sender must be a signing key for DID");
-            ensure!(Self::is_owner(&ticker, did), "user is not authorized");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender_signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
             }
@@ -1281,7 +1345,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
-            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
+            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
 
             // Verify the details of smart extension & store it
             ensure!(!<ExtensionDetails<T>>::exists((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
@@ -1304,8 +1368,11 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did =  Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
-            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
-            ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
+            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
+            ensure!(
+                <ExtensionDetails<T>>::exists((ticker, &extension_id)),
+                Error::<T>::NoSuchSmartExtension
+            );
             // Mutate the extension details
             ensure!(!(<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyArchived);
             <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = true; });
@@ -1324,8 +1391,11 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
-            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::UnAuthorized);
-            ensure!(<ExtensionDetails<T>>::exists((ticker, &extension_id)), "Smart extension not exists");
+            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
+            ensure!(
+                <ExtensionDetails<T>>::exists((ticker, &extension_id)),
+                Error::<T>::NoSuchSmartExtension
+            );
             // Mutate the extension details
             ensure!((<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyUnArchived);
             <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = false; });
@@ -1437,8 +1507,8 @@ decl_error! {
         NoTickerTransferAuth,
         /// Not a token ownership transfer auth
         NotTickerOwnershipTransferAuth,
-        /// Not authorized
-        UnAuthorized,
+        /// The user is not authorized.
+        Unauthorized,
         /// when extension already archived
         AlreadyArchived,
         /// when extension already unarchived
@@ -1446,7 +1516,77 @@ decl_error! {
         /// when extension is already added
         ExtensionAlreadyPresent,
         /// when smart extension failed to execute result
-        IncorrectResult
+        IncorrectResult,
+        /// The sender must be a signing key for the DID.
+        SenderMustBeSigningKeyForDid,
+        /// The sender must be a signing key for the DID.
+        HolderMustBeSigningKeyForHolderDid,
+        /// The token has already been created.
+        TokenAlreadyCreated,
+        /// The ticker length is over the limit.
+        TickerTooLong,
+        /// The ticker is already registered to someone else.
+        TickerAlreadyRegistered,
+        /// The token name cannot exceed 64 bytes.
+        TokenNameTooLong,
+        /// An invalid total supply.
+        InvalidTotalSupply,
+        /// The total supply is above the limit.
+        TotalSupplyAboveLimit,
+        /// No such token.
+        NoSuchToken,
+        /// The token is already frozen.
+        AlreadyFrozen,
+        /// Not an owner of the token.
+        NotAnOwner,
+        /// An overflow while calculating the balance.
+        BalanceOverflow,
+        /// An underflow while calculating the balance.
+        BalanceUnderflow,
+        /// An overflow while calculating the allowance.
+        AllowanceOverflow,
+        /// An underflow in calculating the allowance.
+        AllowanceUnderflow,
+        /// An overflow in calculating the total allowance.
+        TotalAllowanceOverflow,
+        /// An underflow in calculating the total allowance.
+        TotalAllowanceUnderflow,
+        /// An overflow while calculating the current funding round total.
+        FundingRoundTotalOverflow,
+        /// An overflow while calculating the checkpoint.
+        CheckpointOverflow,
+        /// An overflow while calculating the total supply.
+        TotalSupplyOverflow,
+        /// No such allowance.
+        NoSuchAllowance,
+        /// Insufficient allowance.
+        InsufficientAllowance,
+        /// The list of investors is empty.
+        NoInvestors,
+        /// The investor list length is inconsistent.
+        InvestorListLengthInconsistent,
+        /// An invalid granularity.
+        InvalidGranularity,
+        /// The account does not hold this token.
+        NotATokenHolder,
+        /// The asset must not be frozen.
+        Frozen,
+        /// The asset must be frozen.
+        NotFrozen,
+        /// No such smart extension.
+        NoSuchSmartExtension,
+        /// Transfer validation check failed.
+        InvalidTransfer,
+        /// The sender balance is not sufficient.
+        InsufficientBalance,
+        /// An invalid signature.
+        InvalidSignature,
+        /// The signature is already in use.
+        SignatureAlreadyUsed,
+        /// The token is already divisible.
+        TokenAlreadyDivisible,
+        /// An invalid custodian DID.
+        InvalidCustodianDid,
     }
 }
 
@@ -1694,7 +1834,7 @@ impl<T: Trait> Module<T> {
         to_did: Option<IdentityId>,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        ensure!(!Self::frozen(ticker), "asset is frozen");
+        ensure!(!Self::frozen(ticker), Error::<T>::Frozen);
         let general_status_code =
             <general_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
@@ -1746,24 +1886,24 @@ impl<T: Trait> Module<T> {
         // Granularity check
         ensure!(
             Self::check_granularity(ticker, value),
-            "Invalid granularity"
+            Error::<T>::InvalidGranularity
         );
         let ticker_from_did = (*ticker, from_did);
         ensure!(
             <BalanceOf<T>>::exists(&ticker_from_did),
-            "Account does not own this token"
+            Error::<T>::NotATokenHolder
         );
         let sender_balance = Self::balance_of(&ticker_from_did);
-        ensure!(sender_balance >= value, "Not enough balance.");
+        ensure!(sender_balance >= value, Error::<T>::InsufficientBalance);
 
         let updated_from_balance = sender_balance
             .checked_sub(&value)
-            .ok_or("overflow in calculating balance")?;
+            .ok_or(Error::<T>::BalanceOverflow)?;
         let ticker_to_did = (*ticker, to_did);
         let receiver_balance = Self::balance_of(ticker_to_did);
         let updated_to_balance = receiver_balance
             .checked_add(&value)
-            .ok_or("overflow in calculating balance")?;
+            .ok_or(Error::<T>::BalanceOverflow)?;
 
         Self::_update_checkpoint(ticker, from_did, sender_balance);
         Self::_update_checkpoint(ticker, to_did, receiver_balance);
@@ -1790,7 +1930,7 @@ impl<T: Trait> Module<T> {
             let mut checkpoint_count = Self::total_checkpoints_of(ticker);
             checkpoint_count = checkpoint_count
                 .checked_add(1)
-                .ok_or("overflow in adding checkpoint")?;
+                .ok_or(Error::<T>::CheckpointOverflow)?;
             <TotalCheckpoints>::insert(ticker, checkpoint_count);
             <CheckpointTotalSupply<T>>::insert(
                 &(*ticker, checkpoint_count),
@@ -1832,19 +1972,19 @@ impl<T: Trait> Module<T> {
         // Granularity check
         ensure!(
             Self::check_granularity(ticker, value),
-            "Invalid granularity"
+            Error::<T>::InvalidGranularity
         );
         //Increase receiver balance
         let ticker_to_did = (*ticker, to_did);
         let current_to_balance = Self::balance_of(&ticker_to_did);
         let updated_to_balance = current_to_balance
             .checked_add(&value)
-            .ok_or("overflow in calculating balance")?;
+            .ok_or(Error::<T>::BalanceOverflow)?;
         // verify transfer check
         ensure!(
             Self::_is_valid_transfer(ticker, caller, None, Some(to_did), value)?
                 == ERC1400_TRANSFER_SUCCESS,
-            "Transfer restrictions failed"
+            Error::<T>::InvalidTransfer
         );
 
         // Read the token details
@@ -1852,10 +1992,10 @@ impl<T: Trait> Module<T> {
         let updated_total_supply = token
             .total_supply
             .checked_add(&value)
-            .ok_or("overflow in calculating total supply")?;
+            .ok_or(Error::<T>::TotalSupplyOverflow)?;
         ensure!(
             updated_total_supply <= MAX_SUPPLY.into(),
-            "Total supply above the limit"
+            Error::<T>::TotalSupplyAboveLimit
         );
         //Increase total suply
         token.total_supply = updated_total_supply;
@@ -1868,7 +2008,7 @@ impl<T: Trait> Module<T> {
         let ticker_round = (*ticker, round.clone());
         let issued_in_this_round = Self::issued_in_funding_round(&ticker_round)
             .checked_add(&value)
-            .ok_or("current funding round total overflowed")?;
+            .ok_or(Error::<T>::FundingRoundTotalOverflow)?;
         <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
         Self::deposit_event(RawEvent::Issued(
             *ticker,
@@ -1894,10 +2034,10 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let remaining_balance = Self::balance_of(&(*ticker, holder_did))
             .checked_sub(&value)
-            .ok_or("underflow in balance deduction")?;
+            .ok_or(Error::<T>::BalanceUnderflow)?;
         ensure!(
             remaining_balance >= Self::total_custody_allowance(&(*ticker, holder_did)),
-            "Insufficient balance for transfer"
+            Error::<T>::InsufficientBalance
         );
         Ok(())
     }
@@ -1910,22 +2050,22 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let new_custody_allowance = Self::total_custody_allowance((ticker, holder_did))
             .checked_add(&value)
-            .ok_or("total custody allowance get overflowed")?;
+            .ok_or(Error::<T>::TotalAllowanceOverflow)?;
         // Ensure that balance of the token holder should greater than or equal to the total custody allowance + value
         ensure!(
             Self::balance_of((ticker, holder_did)) >= new_custody_allowance,
-            "Insufficient balance of holder did"
+            Error::<T>::InsufficientBalance
         );
         // Ensure the valid DID
         ensure!(
             <identity::DidRecords>::exists(custodian_did),
-            "Invalid custodian DID"
+            Error::<T>::InvalidCustodianDid
         );
 
         let old_allowance = Self::custodian_allowance((ticker, holder_did, custodian_did));
         let new_current_allowance = old_allowance
             .checked_add(&value)
-            .ok_or("allowance get overflowed")?;
+            .ok_or(Error::<T>::AllowanceOverflow)?;
         // Update Storage
         <CustodianAllowance<T>>::insert(
             (ticker, holder_did, custodian_did),
@@ -1956,7 +2096,10 @@ impl<T: Trait> Module<T> {
             _ => return Err(Error::<T>::NoTickerTransferAuth.into()),
         };
 
-        ensure!(!<Tokens<T>>::exists(&ticker), "token already created");
+        ensure!(
+            !<Tokens<T>>::exists(&ticker),
+            Error::<T>::TokenAlreadyCreated
+        );
         let ticker_details = Self::ticker_registration(&ticker);
 
         <identity::Module<T>>::consume_auth(
@@ -2004,7 +2147,7 @@ impl<T: Trait> Module<T> {
             _ => return Err(Error::<T>::NotTickerOwnershipTransferAuth.into()),
         };
 
-        ensure!(<Tokens<T>>::exists(&ticker), "Token does not exist");
+        ensure!(<Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
 
         let token_details = Self::token_details(&ticker);
         let ticker_details = Self::ticker_registration(&ticker);
