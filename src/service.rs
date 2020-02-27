@@ -91,6 +91,7 @@ macro_rules! new_full_start {
             use pallet_mips_rpc::{Mips, MipsApi};
             use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
+            use polymesh_runtime_identity_rpc::{Identity, IdentityApi};
             // register contracts RPC extension
             let mut io = jsonrpc_core::IoHandler::default();
             io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
@@ -98,7 +99,8 @@ macro_rules! new_full_start {
                 client.clone(),
             )));
             io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
-            io.extend_with(MipsApi::to_delegate(Mips::new(client)));
+            io.extend_with(MipsApi::to_delegate(Mips::new(client.clone())));
+            io.extend_with(IdentityApi::to_delegate(Identity::new(client)));
             Ok(io)
         })?;
 

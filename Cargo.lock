@@ -3539,6 +3539,7 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime",
  "polymesh-runtime-common",
+ "polymesh-runtime-identity-rpc",
  "sc-authority-discovery",
  "sc-basic-authority",
  "sc-cli",
@@ -3626,6 +3627,7 @@ dependencies = [
  "polymesh-runtime-common",
  "polymesh-runtime-group",
  "polymesh-runtime-identity",
+ "polymesh-runtime-identity-rpc-runtime-api",
  "rand 0.7.3",
  "rustc-hex",
  "safe-mix",
@@ -3723,6 +3725,7 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-group",
+ "polymesh-runtime-identity-rpc-runtime-api",
  "serde",
  "serde_derive",
  "sp-api",
@@ -3732,6 +3735,33 @@ dependencies = [
  "sp-serializer",
  "sp-std",
  "sp-version",
+]
+
+[[package]]
+name = "polymesh-runtime-identity-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-identity-rpc-runtime-api",
+ "serde",
+ "sp-blockchain",
+ "sp-core",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "polymesh-runtime-identity-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "sp-api",
 ]
 
 [[package]]
