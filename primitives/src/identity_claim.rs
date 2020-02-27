@@ -21,6 +21,8 @@ pub enum IdentityClaimData {
     Jurisdiction(JurisdictionName, IdentityId),
     /// User is whitelisted
     Whitelisted(IdentityId),
+    /// User is Blacklisted
+    Blacklisted(IdentityId),
     /// Empty claim
     NoData,
 }

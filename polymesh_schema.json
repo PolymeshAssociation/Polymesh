@@ -120,6 +120,7 @@
             "KnowYourCustomer": "IdentityId",
             "Jurisdiction": "(JurisdictionName, IdentityId)",
             "Whitelisted": "IdentityId",
+            "Blacklisted": "IdentityId",
             "NoData": ""
         }
     },

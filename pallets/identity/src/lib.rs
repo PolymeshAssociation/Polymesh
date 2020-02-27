@@ -389,16 +389,18 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
-            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords>::exists(did_issuer), Error::<T>::ClaimIssuerDidMustAlreadyExist);
 
             // Verify that sender key is one of did_issuer's signing keys
             let sender_signer = Signatory::AccountKey(sender_key);
-            ensure!(Self::is_signer_authorized(did_issuer, &sender_signer),
-                    "Sender must hold a claim issuer's signing key");
+            ensure!(
+                Self::is_signer_authorized(did_issuer, &sender_signer),
+                Error::<T>::SenderMustHoldClaimIssuerKey
+            );
 
             // Check input claims.
             for (did, _, _) in &claims {
-                ensure!(<DidRecords>::exists(did), "DID must already exist");
+                ensure!(<DidRecords>::exists(did), Error::<T>::DidMustAlreadyExist);
             }
             for (did, expiry, claim_data) in claims {
                 Self::unsafe_add_claim(did, claim_data, did_issuer, expiry);
