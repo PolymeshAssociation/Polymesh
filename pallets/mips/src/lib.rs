@@ -84,7 +84,9 @@ impl<T: AsRef<[u8]>> From<T> for Url {
 
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct MipsMetadata<BlockNumber: Parameter, Hash: Parameter> {
+pub struct MipsMetadata<AcccountId: Parameter, BlockNumber: Parameter, Hash: Parameter> {
+    /// The creator
+    proposer: AcccountId,
     /// The proposal's unique index.
     index: MipsIndex,
     /// When voting will end.
@@ -166,7 +168,7 @@ decl_storage! {
         pub ProposalCount get(fn proposal_count): u32;
 
         /// The hashes of the active proposals.
-        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::BlockNumber, T::Hash>>;
+        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::AccountId, T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
         /// proposal hash -> (deposit, proposer)
@@ -176,10 +178,6 @@ decl_storage! {
         /// proposal hash -> proposal
         pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
 
-        /// Track proposals by its creator
-        /// Account -> MIP index
-        pub Proposers get(fn proposed_by): map T::AccountId => Vec<MipsIndex>;
-
         /// Lookup proposal hash by a proposal's index
         /// MIP index -> proposal hash
         pub ProposalByIndex get(fn proposal_by_index): map MipsIndex => T::Hash;
@@ -187,10 +185,6 @@ decl_storage! {
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal hash -> vote count
         pub Voting get(fn voting): map T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
-
-        /// Track proposals by voters
-        /// Account -> MIP index
-        pub Voters get(fn voted_on): map T::AccountId => Vec<MipsIndex>;
 
         /// Active referendums.
         pub ReferendumMetadata get(fn referendum_meta): Vec<PolymeshReferendumInfo<T::Hash>>;
@@ -315,6 +309,7 @@ decl_module! {
             <ProposalCount>::mutate(|i| *i += 1);
 
             let proposal_meta = MipsMetadata {
+                proposer: proposer.clone(),
                 index,
                 end: <system::Module<T>>::block_number() + Self::proposal_duration(),
                 proposal_hash,
@@ -329,7 +324,6 @@ decl_module! {
                 proposal: *proposal
             };
             <Proposals<T>>::insert(proposal_hash, mip);
-            <Proposers<T>>::insert(proposer.clone(), vec![index]);
             <ProposalByIndex<T>>::insert(index, proposal_hash);
 
             let vote = PolymeshVotes {
@@ -375,7 +369,6 @@ decl_module! {
 
                 <Voting<T>>::remove(&proposal_hash);
                 <Voting<T>>::insert(&proposal_hash, voting);
-                <Voters<T>>::mutate(proposer.clone(), |indices| indices.push(index));
                 Self::deposit_event(RawEvent::Voted(proposer, index, proposal_hash, aye_or_nay));
             } else {
                 return Err(Error::<T>::DuplicateVote.into())
@@ -510,9 +503,27 @@ impl<T: Trait> Module<T> {
     }
 
     /// Retrieve proposals made by `address`.
-    pub fn get_proposals_by_account(address: T::AccountId) -> Vec<MipsIndex> {
-        let proposals = <Proposers<T>>::get(address);
-        proposals
+    pub fn proposed_by(address: T::AccountId) -> Vec<MipsIndex> {
+        Self::proposal_meta()
+            .into_iter()
+            .filter(|meta| meta.proposer == address)
+            .map(|meta| meta.index)
+            .collect()
+    }
+
+    /// Retrieve proposals `address` voted on
+    pub fn voted_on(address: T::AccountId) -> Vec<MipsIndex> {
+        let mut indices = Vec::new();
+        for meta in Self::proposal_meta().into_iter() {
+            if let Some(votes) = Self::voting(&meta.proposal_hash) {
+                if votes.ayes.iter().position(|(a, _)| a == &address).is_some()
+                    || votes.nays.iter().position(|(a, _)| a == &address).is_some()
+                {
+                    indices.push(votes.index);
+                }
+            }
+        }
+        indices
     }
 
     // Private functions
@@ -605,8 +616,7 @@ impl<T: Trait> Module<T> {
                 <ProposalMetadata<T>>::mutate(|metadata| {
                     metadata.retain(|m| m.proposal_hash != hash)
                 });
-                // <Proposers<T>>::mutate(|indices| indices.retain(|i| i != index));
-                // <Voters<T>>::mutate(|indices| indices.retain(|i| i != index));
+                <ProposalByIndex<T>>::remove(index);
 
                 Self::deposit_event(RawEvent::ProposalClosed(index, hash));
             }

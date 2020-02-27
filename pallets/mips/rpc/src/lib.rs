@@ -21,9 +21,13 @@ pub trait MipsApi<BlockHash, AccountId, Balance> {
     #[rpc(name = "mips_getVotes")]
     fn get_votes(&self, index: u32, at: Option<BlockHash>) -> Result<CappedVoteCount>;
 
-    /// Retrieevs proposals started by `address`
+    /// Retrieves proposal indices started by `address`
     #[rpc(name = "mips_proposedBy")]
     fn proposed_by(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
+
+    /// Retrieves proposal `address` indices voted on
+    #[rpc(name = "mips_votedOn")]
+    fn voted_on(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
 }
 
 /// An implementation of mips specific RPC methods.
@@ -96,6 +100,23 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let result = api.proposed_by(&at, address).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            message: "Unable to query dispatch info.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })?;
+
+        Ok(result.into())
+    }
+
+    fn voted_on(
+        &self,
+        address: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<u32>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let result = api.voted_on(&at, address).map_err(|e| RpcError {
             code: ErrorCode::ServerError(Error::RuntimeError.into()),
             message: "Unable to query dispatch info.".into(),
             data: Some(format!("{:?}", e).into()),

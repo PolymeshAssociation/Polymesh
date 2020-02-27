@@ -67,6 +67,9 @@ sp_api::decl_runtime_apis! {
 
         /// Retrieve proposals started by `address`.
         fn proposed_by(address: AccountId) -> Vec<u32>;
+
+        /// Retrieve proposals `address` voted on.
+        fn voted_on(address: AccountId) -> Vec<u32>;
     }
 }
 
