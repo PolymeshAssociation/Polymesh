@@ -796,7 +796,7 @@ impl_runtime_apis! {
 
         fn proposed_by(
             address: AccountId
-        ) -> u32 {
+        ) -> Vec<u32> {
             Mips::proposed_by(address)
         }
     }

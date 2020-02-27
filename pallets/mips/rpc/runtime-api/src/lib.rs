@@ -66,7 +66,7 @@ sp_api::decl_runtime_apis! {
         fn get_votes(mips_index: u32) -> VoteCount<Balance>;
 
         /// Retrieve proposals started by `address`.
-        fn proposed_by(address: AccountId) -> u32;
+        fn proposed_by(address: AccountId) -> Vec<u32>;
     }
 }
 

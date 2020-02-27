@@ -176,13 +176,21 @@ decl_storage! {
         /// proposal hash -> proposal
         pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
 
+        /// Track proposals by its creator
+        /// Account -> MIP index
+        pub Proposers get(fn proposed_by): map T::AccountId => Vec<MipsIndex>;
+
         /// Lookup proposal hash by a proposal's index
         /// MIP index -> proposal hash
         pub ProposalByIndex get(fn proposal_by_index): map MipsIndex => T::Hash;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        /// proposal hash -> voting info
+        /// proposal hash -> vote count
         pub Voting get(fn voting): map T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
+
+        /// Track proposals by voters
+        /// Account -> MIP index
+        pub Voters get(fn voted_on): map T::AccountId => Vec<MipsIndex>;
 
         /// Active referendums.
         pub ReferendumMetadata get(fn referendum_meta): Vec<PolymeshReferendumInfo<T::Hash>>;
@@ -316,6 +324,7 @@ decl_module! {
                 proposal: *proposal
             };
             <Proposals<T>>::insert(proposal_hash, mip);
+            <Proposers<T>>::insert(proposer.clone(), vec![index]);
             <ProposalByIndex<T>>::insert(index, proposal_hash);
 
             let vote = PolymeshVotes {
@@ -361,6 +370,7 @@ decl_module! {
 
                 <Voting<T>>::remove(&proposal_hash);
                 <Voting<T>>::insert(&proposal_hash, voting);
+                <Voters<T>>::mutate(proposer.clone(), |indices| indices.push(index));
                 Self::deposit_event(RawEvent::Voted(proposer, index, proposal_hash, aye_or_nay));
             } else {
                 return Err(Error::<T>::DuplicateVote.into())
@@ -495,8 +505,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// Retrieve proposals made by `address`.
-    pub fn proposed_by(_address: T::AccountId) -> u32 {
-        59
+    pub fn get_proposals_by_account(address: T::AccountId) -> Vec<MipsIndex> {
+        let proposals = <Proposers<T>>::get(address);
+        proposals
     }
 
     // Private functions
@@ -589,6 +600,8 @@ impl<T: Trait> Module<T> {
                 <ProposalMetadata<T>>::mutate(|metadata| {
                     metadata.retain(|m| m.proposal_hash != hash)
                 });
+                // <Proposers<T>>::mutate(|indices| indices.retain(|i| i != index));
+                // <Voters<T>>::mutate(|indices| indices.retain(|i| i != index));
 
                 Self::deposit_event(RawEvent::ProposalClosed(index, hash));
             }
@@ -831,6 +844,7 @@ mod tests {
                 ),
                 "deposit is less than minimum required to start a proposal"
             );
+            assert_eq!(Mips::proposed_by(&6), vec![]);
 
             // Account 6 starts a proposal with min deposit
             assert_ok!(Mips::propose(
@@ -842,6 +856,7 @@ mod tests {
 
             assert_eq!(Balances::free_balance(&6), 10);
 
+            assert_eq!(Mips::proposed_by(&6), vec![0]);
             assert_eq!(
                 Mips::voting(&hash),
                 Some(PolymeshVotes {

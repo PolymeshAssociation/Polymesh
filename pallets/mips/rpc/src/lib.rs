@@ -23,7 +23,7 @@ pub trait MipsApi<BlockHash, AccountId, Balance> {
 
     /// Retrieevs proposals started by `address`
     #[rpc(name = "mips_proposedBy")]
-    fn proposed_by(&self, address: AccountId, at: Option<BlockHash>) -> Result<u32>;
+    fn proposed_by(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
 }
 
 /// An implementation of mips specific RPC methods.
@@ -87,7 +87,11 @@ where
             .map(CappedVoteCount::new)
     }
 
-    fn proposed_by(&self, address: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<u32> {
+    fn proposed_by(
+        &self,
+        address: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<u32>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
