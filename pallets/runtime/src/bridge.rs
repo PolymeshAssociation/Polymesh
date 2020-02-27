@@ -128,8 +128,8 @@ decl_storage! {
         PendingTxs get(pending_txs): map IdentityId => Vec<BridgeTx<T::AccountId, T::Balance>>;
         /// Frozen transactions.
         FrozenTxs get(frozen_txs): map BridgeTx<T::AccountId, T::Balance> => bool;
-        /// Handled bridge transaction proposals.
-        HandledProposals get(handled_proposals): map BridgeTx<T::AccountId, T::Balance> => bool;
+        /// Handled bridge transactions.
+        HandledTxs get(handled_txs): map BridgeTx<T::AccountId, T::Balance> => bool;
         /// The admin key.
         AdminKey get(admin_key) config(): AccountKey;
         /// Whether or not the bridge operation is frozen.
@@ -289,20 +289,11 @@ decl_module! {
         {
             let sender = ensure_signed(origin.clone())?;
             ensure!(sender == Self::relayers(), Error::<T>::BadCaller);
-            ensure!(!Self::handled_proposals(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
+            ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
             if Self::frozen() {
-                // Move the transaction to the list of frozen transactions.
-                let mut needs_event = false;
-                <FrozenTxs<T>>::mutate(&bridge_tx, |b| {
-                    if !*b {
-                        needs_event = true;
-                        true
-                    } else {
-                        // The transaction is already frozen. No duplicate event is emitted.
-                        true
-                    }
-                });
-                if needs_event {
+                if !Self::frozen_txs(&bridge_tx) {
+                    // Move the transaction to the list of frozen transactions.
+                    <FrozenTxs<T>>::insert(&bridge_tx, true);
                     Self::deposit_event(RawEvent::FrozenTx(bridge_tx));
                 }
                 return Ok(());
@@ -317,7 +308,7 @@ decl_module! {
                     bridge_tx
                 }));
             } else {
-                <HandledProposals<T>>::insert(&bridge_tx, true);
+                <HandledTxs<T>>::insert(&bridge_tx, true);
                 Self::deposit_event(RawEvent::Bridged(bridge_tx));
             }
             Ok(())

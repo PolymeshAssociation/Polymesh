@@ -103,10 +103,8 @@ fn can_issue_to_identity_we() {
         MultiSig::ms_signers(relayers, Signatory::from(charlie_did)),
         true
     );
-    assert_ok!(Bridge::change_relayers(
-        Origin::system(frame_system::RawOrigin::Root),
-        relayers
-    ));
+    let admin = frame_system::RawOrigin::Signed(Default::default());
+    assert_ok!(Bridge::change_relayers(Origin::system(admin), relayers));
     assert_eq!(Bridge::relayers(), relayers);
     let amount = 1_000_000_000_000_000_000_000;
     let bridge_tx = BridgeTx {
@@ -133,8 +131,6 @@ fn can_issue_to_identity_we() {
     assert_eq!(MultiSig::tx_approvals(&(relayers, 1)), 0);
 
     assert_eq!(MultiSig::proposal_ids(&relayers, proposal), Some(0));
-    assert_ok!(Bridge::finalize_pending(bob, bob_did));
-
     let new_bobs_balance = Balances::identity_balance(bob_did);
     assert_eq!(new_bobs_balance, bobs_balance + amount);
 }
@@ -207,10 +203,8 @@ fn can_change_relayers() {
             MultiSig::ms_signers(relayers, Signatory::from(charlie_did)),
             true
         );
-        assert_ok!(Bridge::change_relayers(
-            Origin::system(frame_system::RawOrigin::Root),
-            relayers
-        ));
+        let admin = frame_system::RawOrigin::Signed(Default::default());
+        assert_ok!(Bridge::change_relayers(Origin::system(admin), relayers));
         assert_eq!(Bridge::relayers(), relayers);
         let new_relayers = MultiSig::get_next_multisig_address(AccountKeyring::Bob.public());
         assert_ok!(MultiSig::create_multisig(
@@ -279,4 +273,120 @@ fn cannot_call_bridge_callback_extrinsics() {
         };
         assert_err!(Bridge::handle_bridge_tx(alice, bridge_tx), Error::BadCaller);
     });
+}
+
+#[test]
+fn can_freeze_and_unfreeze_bridge() {
+    ExtBuilder::default()
+        .existential_deposit(1_000)
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .build()
+        .execute_with(do_freeze_and_unfreeze_bridge);
+}
+
+fn do_freeze_and_unfreeze_bridge() {
+    let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
+    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+    let charlie_did =
+        register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        555
+    ));
+    assert_ok!(Balances::top_up_identity_balance(bob.clone(), bob_did, 555));
+    assert_ok!(Balances::top_up_identity_balance(
+        charlie.clone(),
+        charlie_did,
+        555
+    ));
+    let relayers = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![
+            Signatory::from(alice_did),
+            Signatory::from(bob_did),
+            Signatory::from(charlie_did)
+        ],
+        2,
+    ));
+    assert_eq!(
+        Identity::_register_did(relayers.clone(), vec![]).is_ok(),
+        true
+    );
+    assert_eq!(MultiSig::ms_signs_required(relayers), 2);
+    let last_authorization = |did: IdentityId| {
+        <Authorizations>::iter_prefix(Signatory::from(did))
+            .next()
+            .unwrap()
+            .auth_id
+    };
+    assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        alice.clone(),
+        last_authorization(alice_did)
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        bob.clone(),
+        last_authorization(bob_did)
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        charlie.clone(),
+        last_authorization(charlie_did)
+    ));
+    assert_ok!(Bridge::change_relayers(admin.clone(), relayers));
+    assert_eq!(Bridge::relayers(), relayers);
+    let amount = 1_000_000_000_000_000_000_000;
+    let bridge_tx = BridgeTx {
+        nonce: 1,
+        recipient: IssueRecipient::Identity(bob_did),
+        amount,
+        tx_hash: Default::default(),
+    };
+    let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
+        bridge_tx.clone(),
+    )));
+    assert_eq!(MultiSig::proposal_ids(&relayers, proposal.clone()), None);
+    assert_tx_approvals!(relayers, 0, 0);
+    // First propose the transaction using the bridge API.
+    assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
+    // Freeze the bridge with the transaction still in flight.
+    assert_ok!(Bridge::freeze(admin.clone()));
+    assert!(Bridge::frozen());
+    assert_tx_approvals!(relayers, 0, 1);
+    let bobs_balance = || Balances::identity_balance(bob_did);
+    let starting_bobs_balance = bobs_balance();
+    assert_eq!(MultiSig::proposal_ids(&relayers, proposal.clone()), Some(0));
+    // Approve the transaction bypassing the bridge API. The transaction will be handled but will itself be
+    // frozen.
+    assert_ok!(MultiSig::approve_as_identity(charlie, relayers, 0));
+    assert_eq!(MultiSig::tx_approvals(&(relayers, 0)), 2);
+    assert_eq!(MultiSig::proposal_ids(&relayers, proposal), Some(0));
+    // The tokens were not issued because the transaction is frozen.
+    assert_eq!(bobs_balance(), starting_bobs_balance);
+    assert!(!Bridge::handled_txs(&bridge_tx));
+    assert!(Bridge::frozen_txs(&bridge_tx));
+    // Unfreeze the bridge.
+    assert_ok!(Bridge::unfreeze(admin.clone()));
+    assert!(!Bridge::frozen());
+    // Still no issue. The transaction needs to be unfrozen.
+    assert_eq!(bobs_balance(), starting_bobs_balance);
+    assert!(!Bridge::handled_txs(bridge_tx.clone()));
+    assert_ok!(Bridge::unfreeze_bridge_txs(
+        admin.clone(),
+        vec![bridge_tx.clone()]
+    ));
+    // Now the tokens are issued.
+    assert_eq!(bobs_balance(), starting_bobs_balance + amount);
+    assert!(!Bridge::frozen_txs(&bridge_tx));
+    assert!(!Bridge::pending_txs(bob_did).contains(&bridge_tx));
+    assert_err!(
+        Bridge::handle_bridge_tx(Origin::signed(relayers.clone()), bridge_tx.clone()),
+        Error::ProposalAlreadyHandled
+    );
+    assert!(Bridge::handled_txs(&bridge_tx));
 }
