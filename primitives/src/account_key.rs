@@ -14,8 +14,8 @@ const KEY_SIZE: usize = 32;
 
 /// It stores a simple key.
 /// It uses fixed size to avoid dynamic memory allocation.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Copy, Clone, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct AccountKey(pub [u8; KEY_SIZE]);
 
 impl AccountKey {
