@@ -141,7 +141,7 @@ decl_storage! {
                     ..Default::default()
                 };
                 <DidRecords>::insert(&did, record);
-                
+
                 // Add the claim data for the CustomerDueDiligence type claim
                 let current_timestamp = ((Utc::now()).timestamp() * 1000) as u64;
                 let claim_meta_data = ClaimIdentifier(IdentityClaimData::CustomerDueDiligence, did_issuer);
