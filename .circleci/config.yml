@@ -133,7 +133,6 @@ workflows:
       - lint
       - test
       - build
-      - cli
   daily-builds:
     triggers:
       - schedule:

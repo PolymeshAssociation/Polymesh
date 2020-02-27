@@ -678,7 +678,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                IdentityClaimData::Accredited,
+                IdentityClaimData::NoData,
                 99999999999999999u64,
             ));
 
@@ -686,19 +686,19 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = RuleData {
-                claim: IdentityClaimData::Accredited,
+                claim: IdentityClaimData::NoData,
                 trusted_issuers: vec![claim_issuer_did],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
             let receiver_rule1 = RuleData {
-                claim: IdentityClaimData::Affiliate,
+                claim: IdentityClaimData::CustomerDueDiligence,
                 trusted_issuers: vec![claim_issuer_did],
                 rule_type: RuleType::ClaimIsAbsent,
             };
 
             let receiver_rule2 = RuleData {
-                claim: IdentityClaimData::KnowYourCustomer,
+                claim: IdentityClaimData::Accredited(token_owner_did),
                 trusted_issuers: vec![claim_issuer_did],
                 rule_type: RuleType::ClaimIsPresent,
             };
@@ -717,6 +717,13 @@ mod tests {
                 asset_rule
             ));
 
+            assert_ok!(Identity::add_claim(
+                claim_issuer_signed.clone(),
+                token_owner_did,
+                IdentityClaimData::Accredited(claim_issuer_did),
+                99999999999999999u64,
+            ));
+
             //Transfer tokens to investor
             assert_err!(
                 Asset::transfer(
@@ -731,7 +738,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                IdentityClaimData::KnowYourCustomer,
+                IdentityClaimData::Accredited(token_owner_did),
                 99999999999999999u64,
             ));
 
@@ -745,7 +752,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                IdentityClaimData::Affiliate,
+                IdentityClaimData::CustomerDueDiligence,
                 99999999999999999u64,
             ));
 
@@ -856,7 +863,7 @@ mod tests {
         assert_ok!(Identity::add_claim(
             receiver_signed.clone(),
             receiver_did.clone(),
-            IdentityClaimData::Accredited,
+            IdentityClaimData::NoData,
             99999999999999999u64,
         ));
 
@@ -865,7 +872,7 @@ mod tests {
 
         // 4. Define rules
         let receiver_rules = vec![RuleData {
-            claim: IdentityClaimData::Accredited,
+            claim: IdentityClaimData::NoData,
             trusted_issuers: vec![receiver_did],
             rule_type: RuleType::ClaimIsAbsent,
         }];

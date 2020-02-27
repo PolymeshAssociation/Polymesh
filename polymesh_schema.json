@@ -7,7 +7,7 @@
     "Document": {
         "name": "DocumentName",
         "uri": "DocumentUri",
-        "hash": "DocumentHash"
+        "content_hash": "DocumentHash"
     },
     "AssetType": {
         "_enum": {
@@ -112,14 +112,14 @@
     "JurisdictionName": "Text",
     "IdentityClaimData": {
         "_enum": {
-            "Accredited": "",
-            "Affiliate": "",
-            "BuyLockup": "",
-            "SellLockup": "",
+            "Accredited": "IdentityId",
+            "Affiliate": "IdentityId",
+            "BuyLockup": "IdentityId",
+            "SellLockup": "IdentityId",
             "CustomerDueDiligence": "",
-            "KnowYourCustomer": "",
-            "Jurisdiction": "JurisdictionName",
-            "Whitelisted": "",
+            "KnowYourCustomer": "IdentityId",
+            "Jurisdiction": "(JurisdictionName, IdentityId)",
+            "Whitelisted": "IdentityId",
             "NoData": ""
         }
     },

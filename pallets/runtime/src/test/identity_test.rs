@@ -35,15 +35,11 @@ fn add_claims_batch() {
         let claim_issuer = AccountKeyring::Charlie.public();
 
         let claim_records = vec![
-            (
-                claim_issuer_did.clone(),
-                100u64,
-                IdentityClaimData::Accredited,
-            ),
+            (claim_issuer_did.clone(), 100u64, IdentityClaimData::NoData),
             (
                 claim_issuer_did.clone(),
                 200u64,
-                IdentityClaimData::Affiliate,
+                IdentityClaimData::CustomerDueDiligence,
             ),
         ];
         assert_ok!(Identity::add_claims_batch(
@@ -53,13 +49,13 @@ fn add_claims_batch() {
 
         let claim1 = Identity::fetch_valid_claim(
             claim_issuer_did,
-            IdentityClaimData::Accredited,
+            IdentityClaimData::NoData,
             claim_issuer_did,
         )
         .unwrap();
         let claim2 = Identity::fetch_valid_claim(
             claim_issuer_did,
-            IdentityClaimData::Affiliate,
+            IdentityClaimData::CustomerDueDiligence,
             claim_issuer_did,
         )
         .unwrap();
@@ -67,9 +63,9 @@ fn add_claims_batch() {
         assert_eq!(claim1.expiry, 100u64);
         assert_eq!(claim2.expiry, 200u64);
 
-        assert_eq!(claim1.claim, IdentityClaimData::Accredited);
+        assert_eq!(claim1.claim, IdentityClaimData::NoData);
 
-        assert_eq!(claim2.claim, IdentityClaimData::Affiliate);
+        assert_eq!(claim2.claim, IdentityClaimData::CustomerDueDiligence);
     });
 }
 
@@ -126,12 +122,12 @@ fn revoking_claims() {
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::Accredited,
+            IdentityClaimData::NoData,
             100u64,
         ));
         assert!(Identity::fetch_valid_claim(
             claim_issuer_did,
-            IdentityClaimData::Accredited,
+            IdentityClaimData::NoData,
             claim_issuer_did
         )
         .is_some());
@@ -139,11 +135,11 @@ fn revoking_claims() {
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::Accredited
+            IdentityClaimData::NoData
         ));
         assert!(Identity::fetch_valid_claim(
             claim_issuer_did,
-            IdentityClaimData::Accredited,
+            IdentityClaimData::NoData,
             claim_issuer_did
         )
         .is_none());
