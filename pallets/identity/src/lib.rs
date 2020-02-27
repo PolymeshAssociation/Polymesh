@@ -44,7 +44,7 @@ use polymesh_primitives::{
 use polymesh_runtime_common::{
     constants::{
         did::{SECURITY_TOKEN, USER},
-        KYC_EXPIRY_CLAIM_KEY,
+        CDD_EXPIRY_CLAIM_KEY,
     },
     traits::{
         asset::AcceptTransfer,
@@ -161,7 +161,7 @@ decl_module! {
         /// Register `target_account` with a new Identity.
         ///
         /// # Failure
-        /// - `origin` has to be a trusted KYC provider.
+        /// - `origin` has to be a trusted CDD provider.
         /// - `target_account` (master key of the new Identity) can be linked to just one and only
         /// one identity.
         /// - External signing keys can be linked to just one identity.
@@ -178,20 +178,20 @@ decl_module! {
             cdd_claim: ClaimValue,
             signing_items: Vec<SigningItem>
         ) -> DispatchResult {
-            // Sender has to be part of KYCProviders
+            // Sender has to be part of CDDProviders
             let cdd_sender = ensure_signed(origin)?;
             let cdd_key = AccountKey::try_from(cdd_sender.encode())?;
             let cdd_id = Context::current_identity_or::<Self>(&cdd_key)?;
 
-            let kyc_providers = T::KycServiceProviders::get_members();
+            let cdd_providers = T::CddServiceProviders::get_members();
             ensure!(
-                kyc_providers.into_iter().any(|kyc_id| kyc_id == cdd_id),
-                Error::<T>::UnAuthorizedKYCProvider
+                cdd_providers.into_iter().any(|cdd_id| cdd_id == cdd_id),
+                Error::<T>::UnAuthorizedCDDProvider
             );
 
             // Register Identity and add claim.
             let new_id = Self::_register_did(target_account, signing_items)?;
-            Self::unsafe_add_claim(new_id, KYC_EXPIRY_CLAIM_KEY.to_vec(), cdd_id, cdd_claim_expiry, cdd_claim)
+            Self::unsafe_add_claim(new_id, CDD_EXPIRY_CLAIM_KEY.to_vec(), cdd_id, cdd_claim_expiry, cdd_claim)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -276,13 +276,13 @@ decl_module! {
         }
 
         /// Call this with the new master key. By invoking this method, caller accepts authorization
-        /// with the new master key. If a KYC service provider approved this change, master key of
+        /// with the new master key. If a CDD service provider approved this change, master key of
         /// the DID is updated.
         ///
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
-        /// * `kyc_auth_id` Authorization from a KYC service provider
-        pub fn accept_master_key(origin, rotation_auth_id: u64, kyc_auth_id: u64) -> DispatchResult {
+        /// * `cdd_auth_id` Authorization from a CDD service provider
+        pub fn accept_master_key(origin, rotation_auth_id: u64, cdd_auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let signer = Signatory::from(sender_key);
@@ -293,7 +293,7 @@ decl_module! {
                 Error::<T>::InvalidAuthorizationFromOwner
             );
             ensure!(
-                <Authorizations<T>>::exists(signer, kyc_auth_id),
+                <Authorizations<T>>::exists(signer, cdd_auth_id),
                 Error::<T>::InvalidAuthorizationFromCddProvider
             );
 
@@ -310,20 +310,20 @@ decl_module! {
                     _ => return Err(Error::<T>::UnknownAuthorization.into())
                 };
 
-                // Aceept authorization from KYC service provider
+                // Aceept authorization from CDD service provider
 
-                let kyc_auth = <Authorizations<T>>::get(signer, kyc_auth_id);
+                let cdd_auth = <Authorizations<T>>::get(signer, cdd_auth_id);
 
-                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
-                    // Attestor must be a KYC service provider
-                    let kyc_provider_did = match kyc_auth.authorized_by {
+                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = cdd_auth.authorization_data {
+                    // Attestor must be a CDD service provider
+                    let cdd_provider_did = match cdd_auth.authorized_by {
                         Signatory::AccountKey(ref key) =>  Self::get_identity(key),
                         Signatory::Identity(id)  => Some(id),
                     };
 
-                    if let Some(id) = kyc_provider_did {
+                    if let Some(id) = cdd_provider_did {
                         ensure!(
-                            T::KycServiceProviders::is_member(&id),
+                            T::CddServiceProviders::is_member(&id),
                             Error::<T>::NotCddProviderAttestation
                         );
                     } else {
@@ -339,8 +339,8 @@ decl_module! {
                     // remove owner's authorization
                     Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
 
-                    // remove KYC service provider's authorization
-                    Self::consume_auth(kyc_auth.authorized_by, signer, kyc_auth_id)?;
+                    // remove CDD service provider's authorization
+                    Self::consume_auth(cdd_auth.authorized_by, signer, cdd_auth_id)?;
 
                     // Replace master key of the owner that initiated key rotation
                     <DidRecords>::mutate(rotation_for_did, |record| {
@@ -459,11 +459,11 @@ decl_module! {
                 return Err(Error::<T>::MissingCurrentIdentity.into());
             }
 
-            // 1.3. Check that target_did has a KYC.
+            // 1.3. Check that target_did has a CDD.
             // Please keep in mind that `current_did` is double-checked:
             //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
             //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
-            ensure!(Self::has_valid_kyc(target_did).is_some(), Error::<T>::TargetHasNoCdd);
+            ensure!(Self::has_valid_cdd(target_did).is_some(), Error::<T>::TargetHasNoCdd);
             // 2. Actions
             Context::set_current_identity::<Self>(Some(target_did));
 
@@ -951,18 +951,18 @@ decl_module! {
             Ok(())
         }
 
-        /// Query whether given signer identity has valid KYC or not
+        /// Query whether given signer identity has valid CDD or not
         ///
         /// # Arguments
         /// * `origin` Signatory whose identity get checked
-        /// * `buffer_time` Buffer time corresponds to which kyc expiry need to check
-        pub fn is_my_identity_has_valid_kyc(origin, buffer_time: u64) ->  DispatchResult {
+        /// * `buffer_time` Buffer time corresponds to which cdd expiry need to check
+        pub fn is_my_identity_has_valid_cdd(origin, buffer_time: u64) ->  DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let my_did = Context::current_identity_or::<Self>(&sender_key)?;
 
-            let (is_kyced, kyc_provider) = Self::is_identity_has_valid_kyc(my_did, buffer_time);
-            Self::deposit_event(RawEvent::MyKycStatus(my_did, is_kyced, kyc_provider));
+            let (is_cdded, cdd_provider) = Self::is_identity_has_valid_cdd(my_did, buffer_time);
+            Self::deposit_event(RawEvent::MyCddStatus(my_did, is_cdded, cdd_provider));
             Ok(())
         }
     }
@@ -984,8 +984,8 @@ decl_error! {
         UnknownAuthorization,
         /// Account Id cannot be extracted from signer
         InvalidAccountKey,
-        /// Only KYC service providers are allowed.
-        UnAuthorizedKYCProvider,
+        /// Only CDD service providers are allowed.
+        UnAuthorizedCDDProvider,
         /// An invalid authorization from the owner.
         InvalidAuthorizationFromOwner,
         /// An invalid authorization from the CDD provider.
@@ -1254,32 +1254,32 @@ impl<T: Trait> Module<T> {
         None
     }
 
-    pub fn has_valid_kyc(claim_for: IdentityId) -> Option<IdentityId> {
-        let trusted_kyc_providers = T::KycServiceProviders::get_members();
-        for trusted_kyc_provider in trusted_kyc_providers {
+    pub fn has_valid_cdd(claim_for: IdentityId) -> Option<IdentityId> {
+        let trusted_cdd_providers = T::CddServiceProviders::get_members();
+        for trusted_cdd_provider in trusted_cdd_providers {
             if let Some(_claim) = Self::fetch_claim_value(
                 claim_for,
-                KYC_EXPIRY_CLAIM_KEY.to_vec(),
-                trusted_kyc_provider,
+                CDD_EXPIRY_CLAIM_KEY.to_vec(),
+                trusted_cdd_provider,
             ) {
-                return Some(trusted_kyc_provider);
+                return Some(trusted_cdd_provider);
             }
         }
 
         None
     }
 
-    pub fn is_identity_has_valid_kyc(
+    pub fn is_identity_has_valid_cdd(
         claim_for: IdentityId,
         buffer: u64,
     ) -> (bool, Option<IdentityId>) {
-        let trusted_kyc_providers = T::KycServiceProviders::get_members();
-        if trusted_kyc_providers.len() > 0 {
-            for trusted_kyc_provider in trusted_kyc_providers {
+        let trusted_cdd_providers = T::CddServiceProviders::get_members();
+        if trusted_cdd_providers.len() > 0 {
+            for trusted_cdd_provider in trusted_cdd_providers {
                 if let Some(claim) = Self::fetch_claim_value(
                     claim_for,
-                    KYC_EXPIRY_CLAIM_KEY.to_vec(),
-                    trusted_kyc_provider,
+                    CDD_EXPIRY_CLAIM_KEY.to_vec(),
+                    trusted_cdd_provider,
                 ) {
                     if let Ok(value) = claim.value.as_slice().try_into() {
                         if let Some(threshold) = ((<pallet_timestamp::Module<T>>::get())
@@ -1287,7 +1287,7 @@ impl<T: Trait> Module<T> {
                         .checked_add(buffer)
                         {
                             if u64::from_be_bytes(value) > threshold {
-                                return (true, Some(trusted_kyc_provider));
+                                return (true, Some(trusted_cdd_provider));
                             }
                         }
                     }

@@ -70,4 +70,4 @@ pub const APP_BLACKLISTED_TX: u8 = 0xa6;
 pub const APP_FUNDS_LOCKED: u8 = 0xa7;
 pub const APP_INVALID_GRANULARITY: u8 = 0xa8;
 
-pub const KYC_EXPIRY_CLAIM_KEY: [u8; 18] = *b"KYCExpiryTimestamp";
+pub const CDD_EXPIRY_CLAIM_KEY: [u8; 18] = *b"CDDExpiryTimestamp";

@@ -10,7 +10,7 @@ contract! {
     struct GeneralTransferManager {
         // (transfer type, restriction type) => enabl. True signifies that the restricition is in force.
         // Transfer types are general(0), issuance(1) and redemption(2).
-        // Transfer restricitons are fromValidKYC(0), toValidKYC(1), fromRestricted(2), toRestricted(3).
+        // Transfer restricitons are fromValidCDD(0), toValidCDD(1), fromRestricted(2), toRestricted(3).
         // Not using enums as ink is not able to serialize and deserialze them. As a result,
         // enums can not be used in function parameters.
         transfer_restrictions: storage::HashMap<(u64, u64), bool>,

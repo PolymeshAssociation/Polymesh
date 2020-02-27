@@ -95,7 +95,7 @@
             "Investor",
             "NodeRunner",
             "PM",
-            "KYCAMLClaimIssuer",
+            "CDDAMLClaimIssuer",
             "AccreditedInvestorClaimIssuer",
             "VerifiedIdentityClaimIssuer"
         ]

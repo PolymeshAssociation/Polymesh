@@ -65,7 +65,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     }
 
     /// It ensures that transaction caller account has an associated identity and
-    /// that identity has been validated by any KYC.
+    /// that identity has been validated by any CDD.
     /// The current identity will be accesible through `Identity::current_identity`.
     ///
     /// Only the following methods can be called with no identity:
@@ -90,14 +90,14 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
             _ => {
                 let id_opt = Self::identity_from_key(who);
                 if let Some(_id) = id_opt.clone() {
-                    // TODO KYC Claim validation is disable by now
+                    // TODO CDD Claim validation is disable by now
                     // and it will enable later.
                     /*
-                    if Identity::has_valid_kyc(id).is_some() {
+                    if Identity::has_valid_cdd(id).is_some() {
                         Context::set_current_identity::<Identity>(id_opt);
                         Ok(ValidTransaction::default())
                     } else {
-                        Err(InvalidTransaction::Custom(TransactionError::RequiredKYC as u8).into())
+                        Err(InvalidTransaction::Custom(TransactionError::RequiredCDD as u8).into())
                     }*/
                     Context::set_current_identity::<Identity>(id_opt);
                     Ok(ValidTransaction::default())
@@ -172,7 +172,7 @@ mod tests {
         );
         assert_eq!(Context::current_identity::<Identity>(), None);
 
-        // Identity Id needs to be registered by a KYC provider.
+        // Identity Id needs to be registered by a CDD provider.
         assert_ok!(Identity::cdd_register_did(
             Origin::signed(AccountKeyring::Eve.public()),
             alice_acc,

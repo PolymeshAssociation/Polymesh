@@ -114,7 +114,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// MultiSig module
     type AddSignerMultiSigTarget: AddSignerMultiSig;
     /// Group module
-    type KycServiceProviders: GroupTrait;
+    type CddServiceProviders: GroupTrait;
 
     type Balances: balances::BalancesTrait<
         <Self as frame_system::Trait>::AccountId,
@@ -167,7 +167,7 @@ decl_event!(
         AssetDid(Ticker, IdentityId),
 
         /// To query the status of DID
-        MyKycStatus(IdentityId, bool, Option<IdentityId>),
+        MyCddStatus(IdentityId, bool, Option<IdentityId>),
 
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
         NewAuthorization(
