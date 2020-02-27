@@ -128,7 +128,7 @@ mod tests {
     };
 
     use polymesh_primitives::{AccountKey, TransactionError};
-    use polymesh_runtime_common::{traits::identity::ClaimValue, Context};
+    use polymesh_runtime_common::Context;
     use polymesh_runtime_identity as identity;
 
     use core::default::Default;
@@ -177,7 +177,6 @@ mod tests {
             Origin::signed(AccountKeyring::Eve.public()),
             alice_acc,
             10,
-            ClaimValue::default(),
             vec![]
         ));
         let alice_key = AccountKey::from(AccountKeyring::Alice.public().0);
