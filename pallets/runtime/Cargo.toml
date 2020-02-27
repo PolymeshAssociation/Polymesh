@@ -11,6 +11,7 @@ polymesh-primitives = { package = "polymesh-primitives", path = "../../primitive
 polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
+polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", path = "../identity/rpc/runtime-api", default-features = false }
 
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../transaction-payment/rpc/runtime-api", default-features = false  }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
@@ -113,6 +114,7 @@ std = [
 	"pallet-finality-tracker/std",
 	"pallet-contracts-rpc-runtime-api/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"polymesh-runtime-identity-rpc-runtime-api/std",
 	"pallet-staking-rpc-runtime-api/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
