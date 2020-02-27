@@ -2,63 +2,17 @@ use crate::traits::{
     balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, IdentityId, LinkData, Permission, Signatory, SigningItem, Ticker,
+    AccountKey, AuthorizationData, ClaimIdentifier, IdentityClaim, IdentityId, LinkData,
+    Permission, Signatory, SigningItem, Ticker,
 };
 
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
 use frame_system;
 use sp_core::H512;
 use sp_runtime::traits::Dispatchable;
-use sp_std::vec::Vec;
-
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct Claim<U> {
-    pub issuance_date: U,
-    pub expiry: U,
-    pub claim_value: ClaimValue,
-}
-
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct ClaimMetaData {
-    pub claim_key: Vec<u8>,
-    pub claim_issuer: IdentityId,
-}
-
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct ClaimValue {
-    pub data_type: DataTypes,
-    pub value: Vec<u8>,
-}
-
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-/// A structure for passing claims to `add_claims_batch`. The type argument is required to be
-/// `timestamp::Trait::Moment`.
-pub struct ClaimRecord<U> {
-    pub did: IdentityId,
-    pub claim_key: Vec<u8>,
-    pub expiry: U,
-    pub claim_value: ClaimValue,
-}
-
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum DataTypes {
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
-    Bool,
-    VecU8,
-}
-
-impl Default for DataTypes {
-    fn default() -> Self {
-        DataTypes::VecU8
-    }
-}
+use sp_std::vec::Vec;
 
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or external type signing key are restricted to be linked to just one identity.
@@ -152,10 +106,10 @@ decl_event!(
         RemovedClaimIssuer(IdentityId, IdentityId),
 
         /// DID, claim issuer DID, claims
-        NewClaims(IdentityId, ClaimMetaData, Claim<Moment>),
+        NewClaims(IdentityId, ClaimIdentifier, IdentityClaim),
 
         /// DID, claim issuer DID, claim
-        RevokedClaim(IdentityId, ClaimMetaData),
+        RevokedClaim(IdentityId, ClaimIdentifier),
 
         /// DID
         NewIssuer(IdentityId),

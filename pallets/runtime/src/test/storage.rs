@@ -3,8 +3,7 @@ use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, stati
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
-    asset::AcceptTransfer, group::GroupTrait, identity::ClaimValue, multisig::AddSignerMultiSig,
-    CommonTrait,
+    asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
@@ -342,13 +341,7 @@ pub fn make_account_with_balance(
     let cdd_providers = CDDServieProvider::get_members();
     let did_registration = if let Some(cdd_provider) = cdd_providers.into_iter().nth(0) {
         let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
-        Identity::cdd_register_did(
-            Origin::signed(cdd_acc),
-            id,
-            10,
-            ClaimValue::default(),
-            vec![],
-        )
+        Identity::cdd_register_did(Origin::signed(cdd_acc), id, 10, vec![])
     } else {
         Identity::register_did(signed_id.clone(), vec![])
     };

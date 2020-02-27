@@ -32,20 +32,13 @@ use frame_support::{
 };
 use frame_system::{self as system, EnsureSignedBy};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{
-    constants::KYC_EXPIRY_CLAIM_KEY,
-    traits::{
-        asset::AcceptTransfer,
-        group::GroupTrait,
-        identity::{ClaimValue, DataTypes},
-        multisig::AddSignerMultiSig,
-        CommonTrait,
-    },
+use polymesh_runtime_common::traits::{
+    asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity::{self as identity};
 use primitives::traits::BlockRewardsReserveCurrency;
-use primitives::{AccountKey, IdentityId, Signatory};
+use primitives::{AccountKey, IdentityClaimData, IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
@@ -564,6 +557,7 @@ impl ExtBuilder {
         let _ = identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
             did_creation_fee: 250,
+            ..Default::default()
         }
         .assimilate_storage(&mut storage);
 
@@ -703,19 +697,30 @@ pub fn add_nominator_claim(
     claim_issuer: IdentityId,
     idendity_id: IdentityId,
     claim_issuer_account_id: AccountId,
-    account_id: AccountId,
-    claim_value: ClaimValue,
 ) {
-    let signed_id = Origin::signed(account_id.clone());
     let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id.clone());
     let now = Utc::now();
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         idendity_id,
-        KYC_EXPIRY_CLAIM_KEY.to_vec(),
-        claim_issuer,
+        IdentityClaimData::CustomerDueDiligence,
         (now.timestamp() as u64 + 10000_u64).into(),
-        claim_value,
+    ));
+}
+
+pub fn add_nominator_claim_with_expiry(
+    claim_issuer: IdentityId,
+    idendity_id: IdentityId,
+    claim_issuer_account_id: AccountId,
+    expiry: u64,
+) {
+    let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id.clone());
+    let now = Utc::now();
+    assert_ok!(Identity::add_claim(
+        signed_claim_issuer_id,
+        idendity_id,
+        IdentityClaimData::CustomerDueDiligence,
+        expiry.into(),
     ));
 }
 
@@ -729,17 +734,7 @@ pub fn fix_nominator_genesis(kyc_sp: IdentityId, did: IdentityId, acc: u64) {
     let stash = account_from(acc + 1);
     let signed_id = Origin::signed(AccountId::from(AccountKeyring::Dave));
     let now = Utc::now();
-    let claim = ClaimValue {
-        data_type: DataTypes::U64,
-        value: (now.timestamp() as u64 + 500_u64).to_be_bytes().to_vec(),
-    };
-    add_nominator_claim(
-        kyc_sp,
-        did,
-        AccountId::from(AccountKeyring::Dave),
-        stash.clone(),
-        claim,
-    );
+    add_nominator_claim(kyc_sp, did, AccountId::from(AccountKeyring::Dave));
     assert_ok!(Staking::nominate(
         Origin::signed(controller),
         vec![account_from(11), account_from(21)]
@@ -888,15 +883,9 @@ pub fn add_claim_for_nominator(
     add_trusted_kyc_provider(service_provider_did);
 
     let now = Utc::now();
-    let claim = ClaimValue {
-        data_type: DataTypes::U64,
-        value: (now.timestamp() as u64 + 1000_u64).to_be_bytes().to_vec(),
-    };
     add_nominator_claim(
         service_provider_did,
         nominator_did,
         service_provider_account,
-        stash,
-        claim,
     );
 }

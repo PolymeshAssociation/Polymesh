@@ -136,12 +136,22 @@ decl_event!(
     }
 );
 
-decl_error!(
+decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Duplicate vote ignored
         DuplicateVote,
+        /// The sender must be a signing key for the DID.
+        SenderMustBeSigningKeyForDid,
+        /// The proposer or voter is not a committee member.
+        NotACommitteeMember,
+        /// No such proposal.
+        NoSuchProposal,
+        /// Duplicate proposal.
+        DuplicateProposal,
+        /// Mismatched voting index.
+        MismatchedVotingIndex,
     }
-);
+}
 
 type Identity<T> = identity::Module<T>;
 
@@ -197,14 +207,17 @@ decl_module! {
             let signer = Signatory::AccountKey(who_key);
 
             // Ensure sender can sign for the given identity
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T, I>::SenderMustBeSigningKeyForDid
+            );
 
             // Only committee members can propose
-            ensure!(Self::is_member(&did), "proposer is not a member");
+            ensure!(Self::is_member(&did), Error::<T, I>::NotACommitteeMember);
 
             // Reject duplicate proposals
             let proposal_hash = T::Hashing::hash_of(&proposal);
-            ensure!(!<ProposalOf<T, I>>::exists(proposal_hash), "duplicate proposals not allowed");
+            ensure!(!<ProposalOf<T, I>>::exists(proposal_hash), Error::<T, I>::DuplicateProposal);
 
             let index = Self::proposal_count();
             <ProposalCount<I>>::mutate(|i| *i += 1);
@@ -230,13 +243,16 @@ decl_module! {
             let signer = Signatory::AccountKey(who_key);
 
             // Ensure sender can sign for the given identity
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T, I>::SenderMustBeSigningKeyForDid
+            );
 
             // Only committee members can vote
-            ensure!(Self::is_member(&did), "voter is not a member");
+            ensure!(Self::is_member(&did), Error::<T, I>::NotACommitteeMember);
 
-            let mut voting = Self::voting(&proposal).ok_or("proposal must exist")?;
-            ensure!(voting.index == index, "mismatched index");
+            let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
+            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
 
             let position_yes = voting.ayes.iter().position(|a| a == &did);
             let position_no = voting.nays.iter().position(|a| a == &did);
@@ -661,7 +677,7 @@ mod tests {
             let proposal = make_proposal(42);
             assert_noop!(
                 Committee::propose(alice_signer.clone(), Box::new(proposal.clone())),
-                "proposer is not a member"
+                Error::<Test, Instance1>::NotACommitteeMember
             );
         });
     }
@@ -687,7 +703,7 @@ mod tests {
             ));
             assert_noop!(
                 Committee::vote(bob_signer, hash.clone(), 0, true),
-                "voter is not a member"
+                Error::<Test, Instance1>::NotACommitteeMember
             );
         });
     }
@@ -713,7 +729,7 @@ mod tests {
             ));
             assert_noop!(
                 Committee::vote(bob_signer, hash.clone(), 1, true),
-                "mismatched index"
+                Error::<Test, Instance1>::MismatchedVotingIndex
             );
         });
     }

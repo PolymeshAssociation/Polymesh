@@ -18,6 +18,7 @@ use test_client::AccountKeyring;
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Error = multisig::Error<TestStorage>;
 
 #[test]
 fn create_multisig() {
@@ -40,7 +41,7 @@ fn create_multisig() {
 
         assert_err!(
             MultiSig::create_multisig(alice.clone(), vec![], 10,),
-            "No signers provided"
+            Error::NoSigners
         );
 
         assert_err!(
@@ -49,7 +50,7 @@ fn create_multisig() {
                 vec![Signatory::from(alice_did), Signatory::from(bob_did)],
                 0,
             ),
-            "Sigs required out of bounds"
+            Error::RequiredSignaturesOutOfBounds
         );
 
         assert_err!(
@@ -58,7 +59,7 @@ fn create_multisig() {
                 vec![Signatory::from(alice_did), Signatory::from(bob_did)],
                 10,
             ),
-            "Sigs required out of bounds"
+            Error::RequiredSignaturesOutOfBounds
         );
     });
 }

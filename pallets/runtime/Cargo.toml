@@ -12,7 +12,7 @@ polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group"
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
 
-pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../transaction-payment/rpc/runtime-api", default-features = false  } 
+pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../transaction-payment/rpc/runtime-api", default-features = false  }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../staking/rpc/runtime-api", default-features = false  }
 pallet-staking = { package = "pallet-staking", path = "../staking", default-features = false  }
@@ -85,7 +85,7 @@ equalize = []
 default = ["std", "equalize"]
 no_std = []
 only-staking = []
-std = [ 
+std = [
 	"rustc-hex/std",
 	"serde_derive",
 	"rand/std",
