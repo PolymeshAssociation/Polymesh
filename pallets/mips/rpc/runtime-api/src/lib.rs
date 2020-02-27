@@ -77,8 +77,8 @@ mod tests {
     #[test]
     fn should_serialize_mips_votes() {
         let votes = MipsVotes::Success {
-            ayes: 3141u16,
-            nays: 5926u16,
+            ayes: 3141u64,
+            nays: 5926u64,
         };
 
         assert_eq!(

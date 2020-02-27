@@ -468,7 +468,11 @@ impl<T: Trait> Module<T> {
     }
 
     /// Retrieve votes for a proposal represented by MipsIndex `index`.
-    pub fn get_votes(index: MipsIndex) -> VoteCount<BalanceOf<T>> {
+    pub fn get_votes(index: MipsIndex) -> VoteCount<BalanceOf<T>>
+    where
+        T: Send + Sync,
+        BalanceOf<T>: Send + Sync,
+    {
         let proposal_hash: T::Hash = <ProposalByIndex<T>>::get(index);
         if let Some(voting) = <Voting<T>>::get(&proposal_hash) {
             let aye_stake = voting

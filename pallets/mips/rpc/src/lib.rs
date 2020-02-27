@@ -2,14 +2,14 @@ use codec::{Codec, Decode, Encode};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 pub use pallet_mips_rpc_runtime_api::{
-    self as runtime_api, CappedVoteCount, MipsApi as MipsRuntimeApi,
+    self as runtime_api, CappedVoteCount, MipsApi as MipsRuntimeApi, VoteCount,
 };
 use serde::{Deserialize, Serialize};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::RuntimeDebug;
 use sp_runtime::{
     generic::BlockId,
-    traits::{Block as BlockT, ProvideRuntimeApi},
+    traits::{Block as BlockT, ProvideRuntimeApi, UniqueSaturatedInto},
 };
 use sp_std::{prelude::*, vec::Vec};
 use std::sync::Arc;
@@ -68,7 +68,7 @@ where
     C: HeaderBackend<Block>,
     C::Api: MipsRuntimeApi<Block, AccountId, Balance>,
     AccountId: Codec,
-    Balance: Codec,
+    Balance: Codec + UniqueSaturatedInto<u64>,
 {
     fn get_votes(
         &self,
@@ -78,13 +78,13 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let result = api.get_votes(&at, index).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError.into()),
-            message: "Unable to query dispatch info.".into(),
-            data: Some(format!("{:?}", e).into()),
-        })?;
-
-        Ok(CappedVoteCount::Success { ayes: 10, nays: 90 })
+        api.get_votes(&at, index)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                message: "Unable to query dispatch info.".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
+            .map(CappedVoteCount::new)
     }
 
     fn proposed_by(&self, address: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<u32> {
