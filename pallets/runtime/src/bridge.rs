@@ -215,15 +215,23 @@ decl_module! {
             Ok(())
         }
 
+        /// Change the bridge admin key.
+        pub fn change_admin_key(origin, account_key: AccountKey) -> DispatchResult {
+            Self::check_admin(origin)?;
+            <AdminKey>::put(account_key);
+            Ok(())
+        }
+
         /// Freezes the entire operation of the bridge module if it is not already frozen. The only
         /// available operations in the frozen state are the following admin methods:
         ///
         /// * `change_relayers`,
+        /// * `change_admin_key`,
         /// * `unfreeze`,
-        /// * `freeze_bridge_tx`,
-        /// * `unfreeze_bridge_tx`.
+        /// * `freeze_bridge_txs`,
+        /// * `unfreeze_bridge_txs`.
         pub fn freeze(origin) -> DispatchResult {
-            Self::is_root_or_admin(origin)?;
+            Self::check_admin(origin)?;
             ensure!(!Self::frozen(), Error::<T>::Frozen);
             <Frozen>::put(true);
             Self::deposit_event(RawEvent::Frozen);
@@ -232,7 +240,7 @@ decl_module! {
 
         /// Unfreezes the operation of the bridge module if it is frozen.
         pub fn unfreeze(origin) -> DispatchResult {
-            Self::is_root_or_admin(origin)?;
+            Self::check_admin(origin)?;
             ensure!(Self::frozen(), Error::<T>::NotFrozen);
             <Frozen>::put(false);
             Self::deposit_event(RawEvent::Unfrozen);
@@ -311,9 +319,6 @@ decl_module! {
                 }
                 return Ok(());
             }
-            let sender = ensure_signed(origin.clone())?;
-            ensure!(sender == Self::relayers(), Error::<T>::BadCaller);
-            ensure!(!Self::handled_proposals(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
             if let Some(PendingTx {
                 did,
                 bridge_tx,
