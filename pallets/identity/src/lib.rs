@@ -126,6 +126,36 @@ decl_storage! {
         /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Signatory;
     }
+    add_extra_genesis {
+        config(identities): Vec<(T::AccountId, IdentityId, IdentityId, u64)>;
+        build(|config: &GenesisConfig<T>| {
+            for &(ref master_account_id, did_issuer, did, ref expiry) in &config.identities {
+                use chrono::prelude::Utc;
+                // Direct storage change for registering the DID and providing the claim
+                let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
+                assert!(!<DidRecords>::exists(did), "Identity already exist");
+                <MultiPurposeNonce>::mutate(|a| *a + 1_u64);
+                <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, did);
+                let record = DidRecord {
+                    master_key,
+                    ..Default::default()
+                };
+                <DidRecords>::insert(&did, record);
+
+                let current_timestamp = ((Utc::now()).timestamp() * 1000) as u64;
+                let claim_meta_data = ClaimIdentifier(IdentityClaimData::CustomerDueDiligence, did_issuer);
+                let claim_expiry = current_timestamp.checked_add(*expiry).unwrap_or_default();
+                let claim = IdentityClaim {
+                    claim_issuer: did_issuer,
+                    issuance_date: current_timestamp,
+                    last_update_date: current_timestamp,
+                    expiry: claim_expiry,
+                    claim: IdentityClaimData::CustomerDueDiligence,
+                };
+                <Claims>::insert(&did, &claim_meta_data, claim.clone());
+            }
+        });
+    }
 }
 
 decl_module! {

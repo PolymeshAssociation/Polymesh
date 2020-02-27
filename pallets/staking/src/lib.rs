@@ -1998,9 +1998,17 @@ impl<T: Trait> Module<T> {
     }
 
     /// Is the stash account one of the permissioned validators?
-    pub fn is_validator_compliant(_controller: &T::AccountId) -> bool {
-        //TODO: Get DID associated with controller and check they have a KYB attestation etc.
-        true
+    pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
+        if let Some(account_key) = AccountKey::try_from(stash.encode()).ok() {
+            if let Some(validator_identity) = <identity::Module<T>>::get_identity(&(account_key)) {
+                let (is_compliant, _) = <identity::Module<T>>::is_identity_has_valid_kyc(
+                    validator_identity,
+                    Zero::zero(),
+                );
+                return is_compliant;
+            }
+        }
+        false
     }
 
     /// Return reward curve points
