@@ -1979,7 +1979,7 @@ impl<T: Trait> Module<T> {
 
     /// Non-deterministic method that checks KYC status of each validator and persists
     /// any changes to compliance status.
-    fn refresh_compliance_statuses() {
+    pub fn refresh_compliance_statuses() {
         let accounts = <PermissionedValidators<T>>::enumerate()
             .map(|(who, _)| who)
             .collect::<Vec<T::AccountId>>();

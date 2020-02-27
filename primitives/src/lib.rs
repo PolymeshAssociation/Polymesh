@@ -100,6 +100,7 @@ pub use link::LinkData;
 pub mod ticker;
 pub use ticker::Ticker;
 
+/// add extenison hook
 pub mod smart_extension;
 pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType};
 
