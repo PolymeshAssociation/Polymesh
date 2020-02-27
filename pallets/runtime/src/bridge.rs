@@ -178,7 +178,7 @@ decl_module! {
         /// Finalizes pending bridge transactions following a receipt of a valid KYC by the
         /// recipient identity.
         pub fn finalize_pending(_origin, did: IdentityId) -> DispatchResult {
-            if <identity::Module<T>>::has_valid_kyc(did).is_none() {
+            if !<identity::Module<T>>::has_valid_cdd(did) {
                 return Err(Error::<T>::NoValidKyc.into());
             }
             let mut new_pending_txs: BTreeMap<_, Vec<BridgeTx<T::AccountId, T::Balance>>> =
@@ -277,7 +277,7 @@ impl<T: Trait> Module<T> {
         };
         if let Some(did) = did {
             // Issue to an identity or to an account associated with one.
-            if <identity::Module<T>>::has_valid_kyc(did).is_some() {
+            if <identity::Module<T>>::has_valid_cdd(did) {
                 let neg_imbalance = <balances::Module<T>>::issue(*amount);
                 let resolution = if let Some(account_id) = account_id {
                     <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)

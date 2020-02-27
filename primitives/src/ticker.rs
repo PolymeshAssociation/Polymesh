@@ -51,7 +51,7 @@ impl Ticker {
         }
         0
     }
-
+    /// returns ticker as raw array
     pub fn as_slice(&self) -> &[u8] {
         &self.0
     }

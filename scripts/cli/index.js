@@ -216,7 +216,7 @@ async function main() {
 
   let issuer_dids = await createIdentities(api, master_keys, init_bars[4], init_bars[5], fast);
 
-  
+
 
   await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7], fast);
   await authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys, init_bars[16], init_bars[17], fast);
@@ -442,7 +442,7 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
     // 1. Add Signing Item to identity.
     let signing_item = {
       signer: {
-          key: signing_accounts[i].publicKey 
+          key: signing_accounts[i].publicKey
       },
       signer_type: 0,
       roles: []
@@ -604,15 +604,15 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
 }
 
  // Takes in a number for the amount of claims to be produces
-// then creates a batch of claims based on that number. 
+// then creates a batch of claims based on that number.
 async function addClaimsBatchToDid(api, accounts, claim_did, n_claims) {
 
     // Holds the batch of claims
-    let claims = []; 
+    let claims = [];
 
     // Stores the value of each claim
-    let claim_record = {did: claim_did[0], claim_key: "test", expiry: 0, claim_value: {data_type: 0, value: "0"}};
-    
+    let claim_record = (claim_did[0], 0, 0);
+
     // This fills the claims array with claim_values up to n_claims amount
     for (let i = 0; i < n_claims; i++) {
       claims.push( claim_record );
@@ -627,7 +627,7 @@ async function addClaimsBatchToDid(api, accounts, claim_did, n_claims) {
 
 
       //unsub();
-    
+
 }
 
 async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, completeBar, fast) {
@@ -638,7 +638,6 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, compl
     ///pub struct ClaimValue {
     // pub data_type: DataTypes,
     // pub value: Vec<u8>,
-    let claim_value = {data_type: 0, value: "0"};
     // for (let j = 0; j < n_claims; j++) {
     //   claims.push({
     //     topic: 0,
@@ -649,13 +648,13 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, compl
 
     if (fast) {
       const unsub = await api.tx.identity
-      .addClaim(dids[i], 0, claim_dids[i%claim_dids.length], 0, claim_value)
+      .addClaim(dids[i], 0, 0)
       .signAndSend(accounts[i%claim_dids.length],
         { nonce: nonces.get(accounts[i%claim_dids.length].address) });
     } else {
 
       const unsub = await api.tx.identity
-      .addClaim(dids[i], 0, claim_dids[i%claim_dids.length], 0, claim_value)
+      .addClaim(dids[i], 0, 0)
       .signAndSend(accounts[i%claim_dids.length],
         { nonce: nonces.get(accounts[i%claim_dids.length].address) },
         ({ events = [], status }) => {
