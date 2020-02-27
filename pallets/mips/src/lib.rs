@@ -46,6 +46,7 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
+use pallet_mips_rpc_runtime_api::VoteCount;
 use sp_runtime::{
     traits::{Dispatchable, EnsureOrigin, Hash, Zero},
     DispatchError,
@@ -174,6 +175,10 @@ decl_storage! {
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
         pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
+
+        /// Lookup proposal hash by a proposal's index
+        /// MIP index -> proposal hash
+        pub ProposalByIndex get(fn proposal_by_index): map MipsIndex => T::Hash;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal hash -> voting info
@@ -311,6 +316,7 @@ decl_module! {
                 proposal: *proposal
             };
             <Proposals<T>>::insert(proposal_hash, mip);
+            <ProposalByIndex<T>>::insert(index, proposal_hash);
 
             let vote = PolymeshVotes {
                 index,
@@ -462,11 +468,31 @@ impl<T: Trait> Module<T> {
     }
 
     /// Retrieve votes for a proposal represented by MipsIndex `index`.
-    pub fn get_votes() -> Vec<u32> {
-        let mut vec = Vec::new();
-        vec.push(31);
-        vec.push(15);
-        vec
+    pub fn get_votes(index: MipsIndex) -> VoteCount<BalanceOf<T>> {
+        let proposal_hash: T::Hash = <ProposalByIndex<T>>::get(index);
+        if let Some(voting) = <Voting<T>>::get(&proposal_hash) {
+            let aye_stake = voting
+                .ayes
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, ayes| acc + ayes.1);
+
+            let nay_stake = voting
+                .nays
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, nays| acc + nays.1);
+
+            VoteCount::Success {
+                ayes: aye_stake,
+                nays: nay_stake,
+            }
+        } else {
+            VoteCount::ProposalNotFound
+        }
+    }
+
+    /// Retrieve proposals made by `address`.
+    pub fn proposed_by(_address: T::AccountId) -> u32 {
+        59
     }
 
     // Private functions

@@ -2959,6 +2959,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-mips-rpc-runtime-api",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
@@ -2990,6 +2991,7 @@ dependencies = [
  "sp-blockchain",
  "sp-rpc",
  "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2997,8 +2999,11 @@ name = "pallet-mips-rpc-runtime-api"
 version = "2.0.0"
 dependencies = [
  "frame-support",
+ "parity-scale-codec",
+ "serde",
  "sp-api",
  "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

@@ -1,30 +1,41 @@
+use codec::{Codec, Decode, Encode};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use pallet_mips_rpc_runtime_api::MipsApi as MipsRuntimeApi;
+pub use pallet_mips_rpc_runtime_api::{
+    self as runtime_api, CappedVoteCount, MipsApi as MipsRuntimeApi,
+};
+use serde::{Deserialize, Serialize};
 use sp_blockchain::HeaderBackend;
+use sp_runtime::RuntimeDebug;
 use sp_runtime::{
     generic::BlockId,
     traits::{Block as BlockT, ProvideRuntimeApi},
-    Perbill,
 };
+use sp_std::{prelude::*, vec::Vec};
 use std::sync::Arc;
 
+/// Mips RPC methods.
 #[rpc]
-pub trait MipsApi<BlockHash> {
+pub trait MipsApi<BlockHash, AccountId, Balance> {
+    /// Summary of votes of a proposal given by `index`
     #[rpc(name = "mips_getVotes")]
-    fn get_votes(&self, at: Option<BlockHash>) -> Result<Vec<u32>>;
+    fn get_votes(&self, index: u32, at: Option<BlockHash>) -> Result<CappedVoteCount>;
+
+    /// Retrieevs proposals started by `address`
+    #[rpc(name = "mips_proposedBy")]
+    fn proposed_by(&self, address: AccountId, at: Option<BlockHash>) -> Result<u32>;
 }
 
-/// A struct that implements the [`StakingApi`].
-pub struct Mips<C, M> {
-    client: Arc<C>,
-    _marker: std::marker::PhantomData<M>,
+/// An implementation of mips specific RPC methods.
+pub struct Mips<T, U> {
+    client: Arc<T>,
+    _marker: std::marker::PhantomData<U>,
 }
 
-impl<C, M> Mips<C, M> {
-    /// Create new `Mips` instance with the given reference to the client.
-    pub fn new(client: Arc<C>) -> Self {
-        Self {
+impl<T, U> Mips<T, U> {
+    /// Create new `Mips` with the given reference to the client.
+    pub fn new(client: Arc<T>) -> Self {
+        Mips {
             client,
             _marker: Default::default(),
         }
@@ -48,25 +59,44 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block> MipsApi<<Block as BlockT>::Hash> for Mips<C, Block>
+impl<C, Block, AccountId, Balance> MipsApi<<Block as BlockT>::Hash, AccountId, Balance>
+    for Mips<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi,
     C: HeaderBackend<Block>,
-    C::Api: MipsRuntimeApi<Block>,
+    C::Api: MipsRuntimeApi<Block, AccountId, Balance>,
+    AccountId: Codec,
+    Balance: Codec,
 {
-    fn get_votes(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<u32>> {
+    fn get_votes(
+        &self,
+        index: u32,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<CappedVoteCount> {
         let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let at = BlockId::hash(at.unwrap_or_else(||
-            // If the block hash is not supplied assume the best block.
-            self.client.info().best_hash));
-
-        api.get_votes(&at).map_err(|e| RpcError {
+        let result = api.get_votes(&at, index).map_err(|e| RpcError {
             code: ErrorCode::ServerError(Error::RuntimeError.into()),
             message: "Unable to query dispatch info.".into(),
             data: Some(format!("{:?}", e).into()),
-        })
+        })?;
+
+        Ok(CappedVoteCount::Success { ayes: 10, nays: 90 })
+    }
+
+    fn proposed_by(&self, address: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<u32> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let result = api.proposed_by(&at, address).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            message: "Unable to query dispatch info.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })?;
+
+        Ok(result.into())
     }
 }

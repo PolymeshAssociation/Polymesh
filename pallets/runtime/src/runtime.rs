@@ -787,9 +787,17 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_mips_rpc_runtime_api::MipsApi<Block> for Runtime {
-         fn get_votes() -> Vec<u32> {
-            Mips::get_votes()
+    impl pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance> for Runtime {
+        fn get_votes(
+            index: u32
+        ) -> pallet_mips_rpc_runtime_api::VoteCount<Balance> {
+            Mips::get_votes(index)
+        }
+
+        fn proposed_by(
+            address: AccountId
+        ) -> u32 {
+            Mips::proposed_by(address)
         }
     }
 }
