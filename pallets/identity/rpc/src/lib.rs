@@ -60,6 +60,15 @@ pub enum Error {
     RuntimeError,
 }
 
+impl From<Error> for i64 {
+    fn from(e: Error) -> i64 {
+        match e {
+            Error::RuntimeError => 1,
+            Error::DecodeError => 2,
+        }
+    }
+}
+
 impl<C, Block, IdentityId, Ticker, AccountKey, SigningItem>
     IdentityApi<<Block as BlockT>::Hash, IdentityId, Ticker, AccountKey, SigningItem>
     for Identity<C, Block>
@@ -86,7 +95,7 @@ where
             self.client.info().best_hash));
         api.is_identity_has_valid_cdd(&at, did, buffer_time)
             .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError as i64),
+                code: ErrorCode::ServerError(Error::RuntimeError.into()),
                 message: "Either cdd claim not exist or Identity.".into(),
                 data: Some(format!("{:?}", e).into()),
             })
@@ -102,7 +111,7 @@ where
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.get_asset_did(&at, ticker).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError as i64),
+            code: ErrorCode::ServerError(Error::RuntimeError.into()),
             message: "Unable to fetch did of the given ticker".into(),
             data: Some(format!("{:?}", e).into()),
         })
@@ -117,7 +126,7 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         api.get_did_records(&at, did).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError as i64),
+            code: ErrorCode::ServerError(Error::RuntimeError.into()),
             message: "Unable to fetch DID records".into(),
             data: Some(format!("{:?}", e).into()),
         })

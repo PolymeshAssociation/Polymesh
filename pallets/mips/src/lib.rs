@@ -467,63 +467,17 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Retrieve all proposals that need to be closed as of block `n`.
-    pub fn proposals_maturing_at(n: T::BlockNumber) -> Vec<(MipsIndex, T::Hash)> {
+    pub fn proposals_maturing_at(block: T::BlockNumber) -> Vec<(MipsIndex, T::Hash)> {
         Self::proposal_meta()
             .into_iter()
-            .filter(|meta| meta.end == n)
-            .map(|meta| (meta.index, meta.proposal_hash))
-            .collect()
-    }
-
-    /// Retrieve votes for a proposal represented by MipsIndex `index`.
-    pub fn get_votes(index: MipsIndex) -> VoteCount<BalanceOf<T>>
-    where
-        T: Send + Sync,
-        BalanceOf<T>: Send + Sync,
-    {
-        let proposal_hash: T::Hash = <ProposalByIndex<T>>::get(index);
-        if let Some(voting) = <Voting<T>>::get(&proposal_hash) {
-            let aye_stake = voting
-                .ayes
-                .iter()
-                .fold(<BalanceOf<T>>::zero(), |acc, ayes| acc + ayes.1);
-
-            let nay_stake = voting
-                .nays
-                .iter()
-                .fold(<BalanceOf<T>>::zero(), |acc, nays| acc + nays.1);
-
-            VoteCount::Success {
-                ayes: aye_stake,
-                nays: nay_stake,
-            }
-        } else {
-            VoteCount::ProposalNotFound
-        }
-    }
-
-    /// Retrieve proposals made by `address`.
-    pub fn proposed_by(address: T::AccountId) -> Vec<MipsIndex> {
-        Self::proposal_meta()
-            .into_iter()
-            .filter(|meta| meta.proposer == address)
-            .map(|meta| meta.index)
-            .collect()
-    }
-
-    /// Retrieve proposals `address` voted on
-    pub fn voted_on(address: T::AccountId) -> Vec<MipsIndex> {
-        let mut indices = Vec::new();
-        for meta in Self::proposal_meta().into_iter() {
-            if let Some(votes) = Self::voting(&meta.proposal_hash) {
-                if votes.ayes.iter().position(|(a, _)| a == &address).is_some()
-                    || votes.nays.iter().position(|(a, _)| a == &address).is_some()
-                {
-                    indices.push(votes.index);
+            .filter_map(|meta| {
+                if meta.end == block {
+                    Some((meta.index, meta.proposal_hash))
+                } else {
+                    None
                 }
-            }
-        }
-        indices
+            })
+            .collect()
     }
 
     // Private functions
@@ -635,6 +589,64 @@ impl<T: Trait> Module<T> {
             };
             Self::deposit_event(RawEvent::ReferendumEnacted(hash, result));
         }
+    }
+}
+
+impl<T: Trait> Module<T> {
+    /// Retrieve votes for a proposal represented by MipsIndex `index`.
+    pub fn get_votes(index: MipsIndex) -> VoteCount<BalanceOf<T>>
+    where
+        T: Send + Sync,
+        BalanceOf<T>: Send + Sync,
+    {
+        let proposal_hash: T::Hash = <ProposalByIndex<T>>::get(index);
+        if let Some(voting) = <Voting<T>>::get(&proposal_hash) {
+            let aye_stake = voting
+                .ayes
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, ayes| acc + ayes.1);
+
+            let nay_stake = voting
+                .nays
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, nays| acc + nays.1);
+
+            VoteCount::Success {
+                ayes: aye_stake,
+                nays: nay_stake,
+            }
+        } else {
+            VoteCount::ProposalNotFound
+        }
+    }
+
+    /// Retrieve proposals made by `address`.
+    pub fn proposed_by(address: T::AccountId) -> Vec<MipsIndex> {
+        Self::proposal_meta()
+            .into_iter()
+            .filter_map(|meta| {
+                if meta.proposer == address {
+                    Some(meta.index)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Retrieve proposals `address` voted on
+    pub fn voted_on(address: T::AccountId) -> Vec<MipsIndex> {
+        let mut indices = Vec::new();
+        for meta in Self::proposal_meta().into_iter() {
+            if let Some(votes) = Self::voting(&meta.proposal_hash) {
+                if votes.ayes.iter().position(|(a, _)| a == &address).is_some()
+                    || votes.nays.iter().position(|(a, _)| a == &address).is_some()
+                {
+                    indices.push(votes.index);
+                }
+            }
+        }
+        indices
     }
 }
 

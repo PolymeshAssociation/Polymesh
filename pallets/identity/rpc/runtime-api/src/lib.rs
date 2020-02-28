@@ -15,6 +15,7 @@ pub type AssetDidResult = Result<IdentityId, Error>;
 /// A result of execution of get_votes.
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum DidRecords<AccountKey, SigningItem> {
     /// Id was found and has the following master key and signing keys.
     Success {

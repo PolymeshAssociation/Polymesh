@@ -28,6 +28,7 @@ pub enum VoteCount<Balance> {
 /// The `Balance` is capped (or expanded) to `u64` to avoid serde issues with `u128`.
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum CappedVoteCount {
     /// Proposal was found and has the following votes.
     Success {
