@@ -70,6 +70,15 @@ pub struct PendingTx<AccountId, Balance> {
     pub bridge_tx: BridgeTx<AccountId, Balance>,
 }
 
+/// A time-locked bridge transaction with the block number in which it becomes unlocked.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct TimelockedTx<AccountId, Balance, BlockNumber> {
+    // A bridge transaction.
+    bridge_tx: BridgeTx<AccountId, Balance>,
+    // The block number when the transaction becomes unlocked.
+    unlock_block_number: BlockNumber,
+}
+
 /// Either a pending transaction or a `None` or an error.
 type IssueResult<T> = sp_std::result::Result<
     Option<PendingTx<<T as frame_system::Trait>::AccountId, <T as CommonTrait>::Balance>>,
@@ -134,6 +143,13 @@ decl_storage! {
         AdminKey get(admin_key) config(): AccountKey;
         /// Whether or not the bridge operation is frozen.
         Frozen get(frozen): bool;
+        /// The bridge transaction timelock period, in blocks, since the acceptance of the
+        /// transaction proposal during which the admin key can freeze the transaction.
+        Timelock get(timelock) config(): T::BlockNumber;
+        /// The list of timelocked transactions with the block numbers in which those transactions
+        /// become unlocked.
+        TimelockedTxs get(timelocked_txs):
+            Vec<TimelockedTx<T::AccountId, T::Balance, T::BlockNumber>>;
     }
     add_extra_genesis {
         /// The set of initial signers from which a multisig address is created at genesis time.
@@ -187,6 +203,13 @@ decl_module! {
         pub fn change_admin_key(origin, account_key: AccountKey) -> DispatchResult {
             Self::check_admin(origin)?;
             <AdminKey>::put(account_key);
+            Ok(())
+        }
+
+        /// Change the timelock period.
+        pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
+            Self::check_admin(origin)?;
+            <Timelock<T>>::put(timelock);
             Ok(())
         }
 
@@ -326,9 +349,6 @@ decl_module! {
         }
 
         /// Handles an approved bridge transaction proposal.
-        ///
-        /// NOTE: Extrinsics without `pub` are exported too. This function is declared as `pub` only
-        /// to test that it cannot be called from a wrong `origin`.
         pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
@@ -349,16 +369,46 @@ decl_module! {
             if let Some(PendingTx {
                 did,
                 bridge_tx,
-            }) = Self::issue(bridge_tx.clone())? {
-                <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
-                Self::deposit_event(RawEvent::Pending(PendingTx {
-                    did,
-                    bridge_tx
-                }));
-            } else {
-                <HandledTxs<T>>::insert(&bridge_tx, true);
-                Self::deposit_event(RawEvent::Bridged(bridge_tx));
+                unlock_block_number
+            }));
+            Ok(())
+        }
+
+        pub fn handle_timelocked_txs(origin) -> DispatchResult {
+            let sender = ensure_signed(origin.clone())?;
+            ensure!(sender == Self::relayers(), Error::<T>::BadCaller);
+	    let current_block_number = <system::Module<T>>::block_number();
+            let split_iter = Self::timelocked_txs().split(
+                |&TimelockedTx {
+                    bridge_tx: _,
+                    unlock_block_number
+                }| unlock_block_number <= current_block_number
+            );
+            // FIXME: splitting without cloning the vector. Also, splitting this way returns an even
+            // number of chunks in general.
+            let unready_txs = split_iter.next().unwrap();
+            let ready_txs = split_iter.next().unwrap();
+            for TimelockedTx {
+                bridge_tx,
+                unlock_block_number: _
+            } in ready_txs {
+                if !Self::handled_txs(bridge_tx) {
+                    if let Some(PendingTx {
+                        did,
+                        bridge_tx,
+                    }) = Self::issue(bridge_tx.clone())? {
+                        <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
+                        Self::deposit_event(RawEvent::Pending(PendingTx {
+                            did,
+                            bridge_tx
+                        }));
+                    } else {
+                        <HandledTxs<T>>::insert(bridge_tx, true);
+                        Self::deposit_event(RawEvent::Bridged(bridge_tx.clone()));
+                    }
+                }
             }
+            <TimelockedTxs<T>>::put(unready_txs.into_iter().collect());
             Ok(())
         }
 
