@@ -178,8 +178,8 @@ decl_module! {
 
             let cdd_providers = T::CddServiceProviders::get_members();
             ensure!(
-                cdd_providers.into_iter().any(|cdd_id| cdd_id == cdd_id),
-                Error::<T>::UnAuthorizedCDDProvider
+                cdd_providers.into_iter().any(|kyc_id| kyc_id == cdd_id),
+                Error::<T>::UnAuthorizedCddProvider
             );
 
             // Register Identity and add claim.
@@ -917,7 +917,7 @@ decl_error! {
         /// Account Id cannot be extracted from signer
         InvalidAccountKey,
         /// Only CDD service providers are allowed.
-        UnAuthorizedCDDProvider,
+        UnAuthorizedCddProvider,
         /// An invalid authorization from the owner.
         InvalidAuthorizationFromOwner,
         /// An invalid authorization from the CDD provider.
