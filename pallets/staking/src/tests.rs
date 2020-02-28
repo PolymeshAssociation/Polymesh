@@ -25,7 +25,6 @@ use frame_support::{
 };
 use mock::*;
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::identity::{ClaimValue, DataTypes};
 use sp_runtime::{
     assert_eq_error_rate,
     traits::{BadOrigin, OnInitialize},
@@ -667,16 +666,11 @@ fn nominating_and_rewards_should_work() {
             add_trusted_kyc_provider(service_provider_did);
 
             let now = Utc::now();
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: (now.timestamp() as u64 + 1000_u64).to_be_bytes().to_vec(),
-            };
+
             add_nominator_claim(
                 service_provider_did,
                 nominator_did,
                 service_provider_account,
-                account_from(1),
-                claim.clone(),
             );
 
             assert_ok!(Staking::nominate(
@@ -708,8 +702,6 @@ fn nominating_and_rewards_should_work() {
                 service_provider_did,
                 nominator_did_2,
                 service_provider_account,
-                account_from(3),
-                claim.clone(),
             );
 
             assert_ok!(Staking::nominate(
@@ -959,16 +951,11 @@ fn nominators_also_get_slashed() {
             add_trusted_kyc_provider(service_provider_did);
 
             let now = Utc::now();
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: (now.timestamp() as u64 + 1000_u64).to_be_bytes().to_vec(),
-            };
+
             add_nominator_claim(
                 service_provider_did,
                 nominator_did,
                 service_provider_account,
-                account_from(1),
-                claim.clone(),
             );
 
             assert_ok!(Staking::nominate(
@@ -2001,16 +1988,11 @@ fn on_free_balance_zero_stash_removes_nominator() {
             add_trusted_kyc_provider(service_provider_did);
 
             let now = Utc::now();
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: (now.timestamp() as u64 + 1000_u64).to_be_bytes().to_vec(),
-            };
+
             add_nominator_claim(
                 service_provider_did,
                 nominator_did,
                 service_provider_account,
-                account_from(11),
-                claim.clone(),
             );
 
             // Make 10 a nominator
@@ -2120,16 +2102,11 @@ fn switching_roles() {
             add_trusted_kyc_provider(service_provider_did);
 
             let now = Utc::now();
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: (now.timestamp() as u64 + 1000_u64).to_be_bytes().to_vec(),
-            };
+
             add_nominator_claim(
                 service_provider_did,
                 nominator_did,
                 service_provider_account,
-                account_from(1),
-                claim.clone(),
             );
 
             assert_ok!(Staking::nominate(
@@ -2154,8 +2131,6 @@ fn switching_roles() {
                 service_provider_did,
                 nominator_did,
                 service_provider_account,
-                account_from(3),
-                claim.clone(),
             );
 
             assert_ok!(Staking::nominate(
@@ -2420,16 +2395,11 @@ fn wrong_vote_is_null() {
             add_trusted_kyc_provider(service_provider_did);
 
             let now = Utc::now();
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: (now.timestamp() as u64 + 1000_u64).to_be_bytes().to_vec(),
-            };
+
             add_nominator_claim(
                 service_provider_did,
                 nominator_did,
                 service_provider_account,
-                account_from(1),
-                claim.clone(),
             );
 
             assert_ok!(Staking::nominate(
@@ -3920,18 +3890,12 @@ fn add_nominator_with_invalid_expiry() {
             add_trusted_kyc_provider(bob_did);
 
             let now = Utc::now();
-            // Add nominator claim
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: (now.timestamp() as u64).to_be_bytes().to_vec(),
-            };
 
-            add_nominator_claim(
+            add_nominator_claim_with_expiry(
                 bob_did,
                 alice_did,
                 account_bob.clone(),
-                account_alice.clone(),
-                claim,
+                now.timestamp() as u64,
             );
 
             // bond
@@ -3969,19 +3933,8 @@ fn add_valid_nominator_with_multiple_claims() {
             add_trusted_kyc_provider(claim_issuer_1_did);
 
             let now = Utc::now();
-            // Add nominator claim
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: (now.timestamp() as u64).to_be_bytes().to_vec(),
-            };
 
-            add_nominator_claim(
-                claim_issuer_1_did,
-                alice_did,
-                claim_issuer_1.clone(),
-                account_alice.clone(),
-                claim,
-            );
+            add_nominator_claim(claim_issuer_1_did, alice_did, claim_issuer_1.clone());
 
             // add one more claim issuer
             let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
@@ -3989,19 +3942,8 @@ fn add_valid_nominator_with_multiple_claims() {
                 make_account(claim_issuer_2.clone()).unwrap();
             add_trusted_kyc_provider(claim_issuer_2_did);
 
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec(),
-            };
-
             // add claim by claim issuer
-            add_nominator_claim(
-                claim_issuer_2_did,
-                alice_did,
-                claim_issuer_2.clone(),
-                account_alice.clone(),
-                claim,
-            );
+            add_nominator_claim(claim_issuer_2_did, alice_did, claim_issuer_2.clone());
 
             // bond
             assert_ok!(Staking::bond(
@@ -4050,31 +3992,20 @@ fn validate_nominators_with_valid_kyc() {
             add_trusted_kyc_provider(claim_issuer_2_did);
 
             let now = Utc::now();
-            // Add nominator claim
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: ((now.timestamp() as u64) + 500_u64).to_be_bytes().to_vec(),
-            };
 
-            add_nominator_claim(
+            add_nominator_claim_with_expiry(
                 claim_issuer_1_did,
                 alice_did,
                 claim_issuer_1.clone(),
-                account_alice.clone(),
-                claim,
+                now.timestamp() as u64 + 500u64,
             );
 
-            let claim = ClaimValue {
-                data_type: DataTypes::U64,
-                value: ((now.timestamp() as u64) + 7000_u64).to_be_bytes().to_vec(),
-            };
             // add claim by claim issuer
-            add_nominator_claim(
+            add_nominator_claim_with_expiry(
                 claim_issuer_2_did,
                 eve_did,
                 claim_issuer_2.clone(),
-                account_eve.clone(),
-                claim,
+                now.timestamp() as u64 + 7000u64,
             );
 
             // bond
