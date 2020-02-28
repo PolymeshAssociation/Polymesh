@@ -134,7 +134,7 @@ decl_storage! {
                 // Direct storage change for registering the DID and providing the claim
                 let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
                 assert!(!<DidRecords>::exists(did), "Identity already exist");
-                <MultiPurposeNonce>::mutate(|a| *a + 1_u64);
+                <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, did);
                 let record = DidRecord {
                     master_key,
