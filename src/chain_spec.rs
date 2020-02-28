@@ -231,7 +231,7 @@ fn testnet_genesis(
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             did_creation_fee: 250,
             identities: vec![
-                /// (master_account_id, issuer_identity, did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 /// Service providers
                 (
                     get_account_id_from_seed::<sr25519::Public>("service_provider_1"),
