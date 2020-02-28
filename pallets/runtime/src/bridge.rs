@@ -11,7 +11,7 @@ use frame_support::{decl_error, decl_event, decl_module, decl_storage};
 use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{traits::CommonTrait, Context};
+use polymesh_runtime_common::traits::CommonTrait;
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
 use sp_std::collections::btree_map::BTreeMap;
@@ -86,7 +86,7 @@ decl_storage! {
                 panic!("too many signatures required");
             }
             if config.signatures_required == 0 {
-                /// Default to the empty signer set.
+                // Default to the empty signer set.
                 return Default::default();
             }
             <multisig::Module<T>>::create_multisig_account(
@@ -95,8 +95,6 @@ decl_storage! {
                 config.signatures_required
             ).expect("cannot create the bridge multisig")
         }): T::AccountId;
-        /// Correspondence between bridge transaction proposals and multisig proposal IDs.
-        BridgeTxProposals get(bridge_tx_proposals): map BridgeTx<T::AccountId, T::Balance> => Option<u64>;
         /// Pending issuance transactions to identities.
         PendingTxs get(pending_txs): map IdentityId => Vec<BridgeTx<T::AccountId, T::Balance>>;
         /// Handled bridge transaction proposals.
@@ -148,31 +146,17 @@ decl_module! {
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
-            let sender = ensure_signed(origin.clone())?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
-            let sender_signer = Signatory::from(sender_did);
             let relayers = Self::relayers();
             if relayers == Default::default() {
                 return Err(Error::<T>::RelayersNotSet.into());
             }
-            if let Some(proposal_id) = Self::bridge_tx_proposals(&bridge_tx) {
-                // This is an existing proposal.
-                <multisig::Module<T>>::approve_as_identity(origin, relayers, proposal_id)?;
-            } else {
-                // The proposal is new.
-                let proposal = <T as Trait>::Proposal::from(
-                    Call::<T>::handle_bridge_tx(bridge_tx.clone())
-                );
-                let boxed_call = Box::new(proposal.into());
-                let proposal_id = <multisig::Module<T>>::create_proposal(
-                    relayers,
-                    sender_signer,
-                    boxed_call
-                )?;
-                <BridgeTxProposals<T>>::insert(bridge_tx, proposal_id);
-            }
-            Ok(())
+            let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
+            let boxed_proposal = Box::new(proposal.into());
+            <multisig::Module<T>>::create_or_approve_proposal_as_identity(
+                origin,
+                relayers,
+                boxed_proposal
+            )
         }
 
         /// Finalizes pending bridge transactions following a receipt of a valid KYC by the
