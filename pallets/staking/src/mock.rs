@@ -235,7 +235,7 @@ impl identity::Trait for Test {
     type Event = ();
     type Proposal = Call;
     type AddSignerMultiSigTarget = Test;
-    type KycServiceProviders = Test;
+    type CddServiceProviders = Test;
     type Balances = balances::Module<Test>;
 }
 
@@ -724,17 +724,17 @@ pub fn add_nominator_claim_with_expiry(
     ));
 }
 
-pub fn add_trusted_kyc_provider(kyc_sp: IdentityId) {
+pub fn add_trusted_cdd_provider(cdd_sp: IdentityId) {
     let signed_id = Origin::signed(AccountId::from(AccountKeyring::Dave));
-    assert_ok!(Group::add_member(signed_id, kyc_sp));
+    assert_ok!(Group::add_member(signed_id, cdd_sp));
 }
 
-pub fn fix_nominator_genesis(kyc_sp: IdentityId, did: IdentityId, acc: u64) {
+pub fn fix_nominator_genesis(cdd_sp: IdentityId, did: IdentityId, acc: u64) {
     let controller = account_from(acc);
     let stash = account_from(acc + 1);
     let signed_id = Origin::signed(AccountId::from(AccountKeyring::Dave));
     let now = Utc::now();
-    add_nominator_claim(kyc_sp, did, AccountId::from(AccountKeyring::Dave));
+    add_nominator_claim(cdd_sp, did, AccountId::from(AccountKeyring::Dave));
     assert_ok!(Staking::nominate(
         Origin::signed(controller),
         vec![account_from(11), account_from(21)]
@@ -862,7 +862,7 @@ pub fn fix_nominator_genesis_problem(value: u128) {
     let service_provider_account = AccountId::from(AccountKeyring::Dave);
     let (service_provider_signed, service_provider_did) =
         make_account(service_provider_account.clone()).unwrap();
-    add_trusted_kyc_provider(service_provider_did);
+    add_trusted_cdd_provider(service_provider_did);
 
     fix_nominator_genesis(
         service_provider_did,
@@ -880,7 +880,7 @@ pub fn add_claim_for_nominator(
 
     let (service_provider_signed, service_provider_did) =
         make_account(service_provider_account.clone()).unwrap();
-    add_trusted_kyc_provider(service_provider_did);
+    add_trusted_cdd_provider(service_provider_did);
 
     let now = Utc::now();
     add_nominator_claim(

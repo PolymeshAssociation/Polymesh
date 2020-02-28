@@ -16,7 +16,7 @@
 //! The rules can dictate various requirements like:
 //!
 //! - Only accredited investors should be able to trade
-//! - Only valid KYC holders should be able to trade
+//! - Only valid CDD holders should be able to trade
 //! - Only those with credit score of greater than 800 should be able to purchase this token
 //! - People from Wakanda should only be able to trade with people from Wakanda
 //! - People from Gryffindor should not be able to trade with people from Slytherin (But allowed to trade with anyone else)
@@ -518,7 +518,7 @@ mod tests {
         type Event = ();
         type Proposal = Call;
         type AddSignerMultiSigTarget = Test;
-        type KycServiceProviders = Test;
+        type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
     }
 

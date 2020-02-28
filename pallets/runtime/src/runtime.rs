@@ -7,7 +7,8 @@ use crate::{
 };
 
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, Moment, Signature,
+    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Moment, Signature,
+    Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
@@ -43,6 +44,7 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
+use polymesh_runtime_identity_rpc_runtime_api::{AssetDidResult, CddStatus};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
 use sp_core::OpaqueMetadata;
@@ -516,7 +518,7 @@ impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = MultiSig;
-    type KycServiceProviders = KycServiceProviders;
+    type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
 }
 
@@ -595,7 +597,7 @@ construct_runtime!(
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
-        KycServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
+        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage },
     }
 );
@@ -782,8 +784,27 @@ impl_runtime_apis! {
     }
 
     impl pallet_staking_rpc_runtime_api::StakingApi<Block> for Runtime {
-         fn get_curve() -> Vec<(Perbill, Perbill)> {
+        fn get_curve() -> Vec<(Perbill, Perbill)> {
             Staking::get_curve()
         }
     }
+
+    impl polymesh_runtime_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker> for Runtime {
+        /// RPC call to know whether the given did has valid cdd claim or not
+        fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus {
+            match Identity::is_identity_has_valid_cdd(did, buffer_time) {
+                Some(provider) => Ok(provider),
+                None => Err("Either cdd claim is expired or not yet provided to give identity".into()),
+            }
+        }
+
+        /// RPC call to query the given ticker did
+        fn get_asset_did(ticker: Ticker) -> AssetDidResult {
+            match Identity::get_asset_did(ticker) {
+                Ok(did) => Ok(did),
+                Err(_) => Err("Error in computing the given ticker error".into()),
+            }
+        }
+    }
+
 }
