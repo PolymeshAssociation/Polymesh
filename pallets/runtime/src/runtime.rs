@@ -7,8 +7,8 @@ use crate::{
 };
 
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Moment, Signature,
-    Ticker,
+    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
+    Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
@@ -44,7 +44,7 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-use polymesh_runtime_identity_rpc_runtime_api::{AssetDidResult, CddStatus};
+use polymesh_runtime_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
 use sp_core::OpaqueMetadata;
@@ -791,28 +791,30 @@ impl_runtime_apis! {
 
     impl pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance> for Runtime {
         /// Get vote count for a given proposal index
-        fn get_votes(
-            index: u32
-        ) -> pallet_mips_rpc_runtime_api::VoteCount<Balance> {
+        fn get_votes(index: u32) -> pallet_mips_rpc_runtime_api::VoteCount<Balance> {
             Mips::get_votes(index)
         }
 
         /// Proposals voted by `address`
-        fn proposed_by(
-            address: AccountId
-        ) -> Vec<u32> {
+        fn proposed_by(address: AccountId) -> Vec<u32> {
             Mips::proposed_by(address)
         }
 
         /// Proposals `address` voted on
-        fn voted_on(
-            address: AccountId
-        ) -> Vec<u32> {
+        fn voted_on(address: AccountId) -> Vec<u32> {
             Mips::voted_on(address)
         }
     }
 
-    impl polymesh_runtime_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker> for Runtime {
+    impl
+        polymesh_runtime_identity_rpc_runtime_api::IdentityApi<
+            Block,
+            IdentityId,
+            Ticker,
+            AccountKey,
+            SigningItem,
+        > for Runtime
+    {
         /// RPC call to know whether the given did has valid cdd claim or not
         fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus {
             match Identity::is_identity_has_valid_cdd(did, buffer_time) {
@@ -827,6 +829,11 @@ impl_runtime_apis! {
                 Ok(did) => Ok(did),
                 Err(_) => Err("Error in computing the given ticker error".into()),
             }
+        }
+
+        /// Retrieve master key and signing keys for a given IdentityId
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
+            Identity::get_did_records(did)
         }
     }
 }

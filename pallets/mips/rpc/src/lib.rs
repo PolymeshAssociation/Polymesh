@@ -1,12 +1,10 @@
-use codec::{Codec, Decode, Encode};
+use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 pub use pallet_mips_rpc_runtime_api::{
     self as runtime_api, CappedVoteCount, MipsApi as MipsRuntimeApi, VoteCount,
 };
-use serde::{Deserialize, Serialize};
 use sp_blockchain::HeaderBackend;
-use sp_runtime::RuntimeDebug;
 use sp_runtime::{
     generic::BlockId,
     traits::{Block as BlockT, ProvideRuntimeApi, UniqueSaturatedInto},
@@ -85,7 +83,7 @@ where
         api.get_votes(&at, index)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: "Unable to query dispatch info.".into(),
+                message: "Unable to query get_votes.".into(),
                 data: Some(format!("{:?}", e).into()),
             })
             .map(CappedVoteCount::new)
@@ -101,7 +99,7 @@ where
 
         let result = api.proposed_by(&at, address).map_err(|e| RpcError {
             code: ErrorCode::ServerError(Error::RuntimeError.into()),
-            message: "Unable to query dispatch info.".into(),
+            message: "Unable to query proposed_by.".into(),
             data: Some(format!("{:?}", e).into()),
         })?;
 
@@ -118,7 +116,7 @@ where
 
         let result = api.voted_on(&at, address).map_err(|e| RpcError {
             code: ErrorCode::ServerError(Error::RuntimeError.into()),
-            message: "Unable to query dispatch info.".into(),
+            message: "Unable to query voted_on.".into(),
             data: Some(format!("{:?}", e).into()),
         })?;
 

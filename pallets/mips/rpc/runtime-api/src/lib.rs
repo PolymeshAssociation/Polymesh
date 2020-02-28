@@ -6,7 +6,6 @@ use codec::{Codec, Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
-use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
 
 /// A result of execution of get_votes.
@@ -29,7 +28,6 @@ pub enum VoteCount<Balance> {
 /// The `Balance` is capped (or expanded) to `u64` to avoid serde issues with `u128`.
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum CappedVoteCount {
     /// Proposal was found and has the following votes.
     Success {
