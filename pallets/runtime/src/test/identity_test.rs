@@ -29,8 +29,8 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 fn add_claims_batch() {
     ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let issuer = AccountKeyring::Bob.public();
+        let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _issuer = AccountKeyring::Bob.public();
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = AccountKeyring::Charlie.public();
 
@@ -115,7 +115,7 @@ fn revoking_claims() {
     ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let issuer = Origin::signed(AccountKeyring::Bob.public());
+        let _issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
 
@@ -910,7 +910,7 @@ fn cdd_register_did_test_we() {
 
     // Check that Alice's ID is attested by CDD 1.
     let alice_id = Identity::get_identity(&alice_key).unwrap();
-    let cdd_1_id = Identity::get_identity(&cdd_1_key).unwrap();
+    let _cdd_1_id = Identity::get_identity(&cdd_1_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Error case: Try account without ID.
@@ -926,6 +926,6 @@ fn cdd_register_did_test_we() {
         vec![]
     ));
     let bob_id = Identity::get_identity(&bob_key).unwrap();
-    let cdd_2_id = Identity::get_identity(&cdd_2_key).unwrap();
+    let _cdd_2_id = Identity::get_identity(&cdd_2_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
 }

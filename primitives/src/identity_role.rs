@@ -20,7 +20,7 @@ pub enum IdentityRole {
     Investor,
     NodeRunner,
     PM,
-    CDDAMLClaimIssuer,
+    CddAMLClaimIssuer,
     AccreditedInvestorClaimIssuer,
     VerifiedIdentityClaimIssuer,
     Custom(u8),
