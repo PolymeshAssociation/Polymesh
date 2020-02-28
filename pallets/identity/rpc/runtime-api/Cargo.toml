@@ -1,0 +1,23 @@
+[package]
+name = "polymesh-runtime-identity-rpc-runtime-api"
+version = "0.1.0"
+authors = ["Polymath Inc. <satyam@polymath.network>"]
+edition = "2018"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.1.2", default-features = false, features = ["derive"] }
+sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421'}
+polymesh-primitives = { package = "polymesh-primitives", path = "../../../../primitives", default-features = false }
+frame-support = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421'}
+
+[dev-dependencies]
+serde_json = "1.0.41"
+
+[features]
+default = ["std"]
+std = [
+	"sp-api/std",
+	"codec/std",
+	"polymesh-primitives/std",
+	"frame-support/std",
+]
