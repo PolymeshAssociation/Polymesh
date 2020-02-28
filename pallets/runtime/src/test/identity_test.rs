@@ -4,14 +4,11 @@ use crate::test::{
 };
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, LinkData, Permission, Signatory, SignatoryType, SigningItem,
-    Ticker,
+    AccountKey, AuthorizationData, IdentityClaimData, LinkData, Permission, Signatory,
+    SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::identity::{
-    Claim, ClaimMetaData, ClaimRecord, ClaimValue, DataTypes, SigningItemWithAuth,
-    TargetIdAuthorization,
-};
+use polymesh_runtime_common::traits::identity::{SigningItemWithAuth, TargetIdAuthorization};
 use polymesh_runtime_identity::{self as identity, Error};
 
 use codec::Encode;
@@ -36,80 +33,39 @@ fn add_claims_batch() {
         let issuer = AccountKeyring::Bob.public();
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = AccountKeyring::Charlie.public();
-        let claim_key = "key".as_bytes();
+
         let claim_records = vec![
-            ClaimRecord {
-                did: claim_issuer_did.clone(),
-                claim_key: claim_key.to_vec(),
-                expiry: 100u64,
-                claim_value: ClaimValue {
-                    data_type: DataTypes::VecU8,
-                    value: "value 1".as_bytes().to_vec(),
-                },
-            },
-            ClaimRecord {
-                did: claim_issuer_did.clone(),
-                claim_key: claim_key.to_vec(),
-                expiry: 200u64,
-                claim_value: ClaimValue {
-                    data_type: DataTypes::VecU8,
-                    value: "value 2".as_bytes().to_vec(),
-                },
-            },
+            (claim_issuer_did.clone(), 100u64, IdentityClaimData::NoData),
+            (
+                claim_issuer_did.clone(),
+                200u64,
+                IdentityClaimData::CustomerDueDiligence,
+            ),
         ];
         assert_ok!(Identity::add_claims_batch(
             Origin::signed(claim_issuer.clone()),
-            claim_issuer_did.clone(),
             claim_records,
         ));
-        // Check that the last claim value was stored with `claim_key`.
-        let Claim {
-            issuance_date: _issuance_date,
-            expiry,
-            claim_value,
-        } = Identity::claims((
-            claim_issuer_did.clone(),
-            ClaimMetaData {
-                claim_key: claim_key.to_vec(),
-                claim_issuer: claim_issuer_did.clone(),
-            },
-        ));
-        assert_eq!(expiry, 200u64);
-        assert_eq!(
-            claim_value,
-            ClaimValue {
-                data_type: DataTypes::VecU8,
-                value: "value 2".as_bytes().to_vec(),
-            }
-        );
-        let claim_records_err2 = vec![ClaimRecord {
-            did: issuer_did.clone(),
-            claim_key: claim_key.to_vec(),
-            expiry: 400u64,
-            claim_value: ClaimValue {
-                data_type: DataTypes::VecU8,
-                value: "value 4".as_bytes().to_vec(),
-            },
-        }];
-        assert_err!(
-            Identity::add_claims_batch(
-                Origin::signed(issuer),
-                claim_issuer_did,
-                claim_records_err2,
-            ),
-            Error::<TestStorage>::SenderMustHoldClaimIssuerKey
-        );
-        // Check that no claim has been stored.
-        assert_eq!(
-            Identity::claims((
-                issuer_did.clone(),
-                ClaimMetaData {
-                    claim_key: claim_key.to_vec(),
-                    claim_issuer: claim_issuer_did.clone(),
-                },
-            )),
-            Claim::default(),
-        );
+
+        let claim1 = Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::NoData,
+            claim_issuer_did,
+        )
+        .unwrap();
+        let claim2 = Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::CustomerDueDiligence,
+            claim_issuer_did,
+        )
+        .unwrap();
+
+        assert_eq!(claim1.expiry, 100u64);
+        assert_eq!(claim2.expiry, 200u64);
+
+        assert_eq!(claim1.claim, IdentityClaimData::NoData);
+
+        assert_eq!(claim2.claim, IdentityClaimData::CustomerDueDiligence);
     });
 }
 
@@ -163,34 +119,30 @@ fn revoking_claims() {
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
 
-        let claim_value = ClaimValue {
-            data_type: DataTypes::VecU8,
-            value: "some_value".as_bytes().to_vec(),
-        };
-
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            "some_key".as_bytes().to_vec(),
-            claim_issuer_did,
+            IdentityClaimData::NoData,
             100u64,
-            claim_value.clone()
         ));
-
-        assert_err!(
-            Identity::revoke_claim(
-                issuer.clone(),
-                "some_key".as_bytes().to_vec(),
-                claim_issuer_did
-            ),
-            Error::<TestStorage>::SenderMustHoldClaimIssuerKey
-        );
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::NoData,
+            claim_issuer_did
+        )
+        .is_some());
 
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
-            "some_key".as_bytes().to_vec(),
-            claim_issuer_did
+            claim_issuer_did,
+            IdentityClaimData::NoData
         ));
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::NoData,
+            claim_issuer_did
+        )
+        .is_none());
     });
 }
 
@@ -953,38 +905,27 @@ fn cdd_register_did_test_we() {
         Origin::signed(kyc_1_acc),
         alice_acc,
         10,
-        ClaimValue::default(),
         vec![]
     ));
 
     // Check that Alice's ID is attested by KYC 1.
     let alice_id = Identity::get_identity(&alice_key).unwrap();
     let kyc_1_id = Identity::get_identity(&kyc_1_key).unwrap();
-    assert_eq!(Identity::has_valid_kyc(alice_id), Some(kyc_1_id));
+    assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Error case: Try account without ID.
-    assert!(
-        Identity::cdd_register_did(non_id, bob_acc, 10, ClaimValue::default(), vec![]).is_err(),
-    );
+    assert!(Identity::cdd_register_did(non_id, bob_acc, 10, vec![]).is_err(),);
     // Error case: Try account with ID but it is not part of KYC providers.
-    assert!(Identity::cdd_register_did(
-        Origin::signed(alice_acc),
-        bob_acc,
-        10,
-        ClaimValue::default(),
-        vec![]
-    )
-    .is_err());
+    assert!(Identity::cdd_register_did(Origin::signed(alice_acc), bob_acc, 10, vec![]).is_err());
 
     // KYC 2 registers properly Bob's ID.
     assert_ok!(Identity::cdd_register_did(
         Origin::signed(kyc_2_acc),
         bob_acc,
         10,
-        ClaimValue::default(),
         vec![]
     ));
     let bob_id = Identity::get_identity(&bob_key).unwrap();
     let kyc_2_id = Identity::get_identity(&kyc_2_key).unwrap();
-    assert_eq!(Identity::has_valid_kyc(bob_id), Some(kyc_2_id));
+    assert_eq!(Identity::has_valid_cdd(bob_id), true);
 }

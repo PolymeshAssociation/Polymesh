@@ -115,8 +115,10 @@ fn can_issue_to_identity_we() {
         amount,
         tx_hash: Default::default(),
     };
-    assert_eq!(Bridge::relayers(), relayers);
-    assert_eq!(Bridge::bridge_tx_proposals(&bridge_tx), None);
+    let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
+        bridge_tx.clone(),
+    )));
+    assert_eq!(MultiSig::proposal_ids(&relayers, proposal.clone()), None);
     assert_tx_approvals!(relayers, 0, 0);
     assert_tx_approvals!(relayers, 1, 0);
 
@@ -125,12 +127,12 @@ fn can_issue_to_identity_we() {
     assert_tx_approvals!(relayers, 1, 0);
     let bobs_balance = Balances::identity_balance(bob_did);
 
-    assert_eq!(Bridge::bridge_tx_proposals(&bridge_tx), Some(0));
+    assert_eq!(MultiSig::proposal_ids(&relayers, proposal.clone()), Some(0));
     assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
     assert_eq!(MultiSig::tx_approvals(&(relayers, 0)), 2);
     assert_eq!(MultiSig::tx_approvals(&(relayers, 1)), 0);
 
-    assert_eq!(Bridge::bridge_tx_proposals(&bridge_tx), Some(0));
+    assert_eq!(MultiSig::proposal_ids(&relayers, proposal), Some(0));
     assert_ok!(Bridge::finalize_pending(bob, bob_did));
 
     let new_bobs_balance = Balances::identity_balance(bob_did);
