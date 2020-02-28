@@ -56,10 +56,7 @@ use polymesh_runtime_common::{
 };
 
 use codec::Encode;
-use core::{
-    convert::{From, TryInto},
-    result::Result as StdResult,
-};
+use core::{convert::From, result::Result as StdResult};
 
 use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
@@ -77,6 +74,8 @@ use frame_support::{
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
+
+use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 
 pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
 pub type Event<T> = polymesh_runtime_common::traits::identity::Event<T>;
@@ -1508,6 +1507,19 @@ impl<T: Trait> Module<T> {
     /// RPC call to query the given ticker did
     pub fn get_asset_did(ticker: Ticker) -> Result<IdentityId, &'static str> {
         Self::get_token_did(&ticker)
+    }
+
+    /// Retrieve DidRecords for `did`
+    pub fn get_did_records(did: IdentityId) -> RpcDidRecords<AccountKey, SigningItem> {
+        if <DidRecords>::exists(did) {
+            let record = <DidRecords>::get(did);
+            RpcDidRecords::Success {
+                master_key: record.master_key,
+                signing_items: record.signing_items,
+            }
+        } else {
+            RpcDidRecords::IdNotFound
+        }
     }
 }
 
