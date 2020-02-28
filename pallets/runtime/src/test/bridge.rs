@@ -382,10 +382,7 @@ fn do_freeze_and_unfreeze_bridge() {
     // Still no issue. The transaction needs to be unfrozen.
     assert_eq!(bobs_balance(), starting_bobs_balance);
     assert!(!Bridge::handled_txs(bridge_tx.clone()));
-    assert_ok!(Bridge::unfreeze_txs(
-        admin.clone(),
-        vec![bridge_tx.clone()]
-    ));
+    assert_ok!(Bridge::unfreeze_txs(admin.clone(), vec![bridge_tx.clone()]));
     // Now the tokens are issued.
     assert_eq!(bobs_balance(), starting_bobs_balance + amount);
     assert!(!Bridge::frozen_txs(&bridge_tx));
