@@ -133,6 +133,12 @@ fn can_issue_to_identity_we() {
     assert_eq!(MultiSig::proposal_ids(&relayers, proposal), Some(0));
     let new_bobs_balance = Balances::identity_balance(bob_did);
     assert_eq!(new_bobs_balance, bobs_balance + amount);
+    // Attempt to handle the same transaction again.
+    assert!(Bridge::handled_txs(&bridge_tx.clone()));
+    assert_err!(
+        Bridge::handle_bridge_tx(Origin::signed(relayers), bridge_tx),
+        Error::ProposalAlreadyHandled
+    );
 }
 
 #[test]
@@ -376,7 +382,7 @@ fn do_freeze_and_unfreeze_bridge() {
     // Still no issue. The transaction needs to be unfrozen.
     assert_eq!(bobs_balance(), starting_bobs_balance);
     assert!(!Bridge::handled_txs(bridge_tx.clone()));
-    assert_ok!(Bridge::unfreeze_bridge_txs(
+    assert_ok!(Bridge::unfreeze_txs(
         admin.clone(),
         vec![bridge_tx.clone()]
     ));
@@ -384,9 +390,10 @@ fn do_freeze_and_unfreeze_bridge() {
     assert_eq!(bobs_balance(), starting_bobs_balance + amount);
     assert!(!Bridge::frozen_txs(&bridge_tx));
     assert!(!Bridge::pending_txs(bob_did).contains(&bridge_tx));
+    // Attempt to handle the same transaction again.
+    assert!(Bridge::handled_txs(&bridge_tx.clone()));
     assert_err!(
-        Bridge::handle_bridge_tx(Origin::signed(relayers.clone()), bridge_tx.clone()),
+        Bridge::handle_bridge_tx(Origin::signed(relayers), bridge_tx),
         Error::ProposalAlreadyHandled
     );
-    assert!(Bridge::handled_txs(&bridge_tx));
 }

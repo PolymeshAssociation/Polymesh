@@ -315,7 +315,7 @@ decl_module! {
         }
 
         /// Freezes given bridge transactions.
-        pub fn freeze_bridge_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             Self::check_admin(origin)?;
@@ -331,7 +331,7 @@ decl_module! {
         }
 
         /// Unfreezes given bridge transactions.
-        pub fn unfreeze_bridge_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             Self::check_admin(origin)?;
@@ -339,21 +339,21 @@ decl_module! {
                 ensure!(Self::frozen_txs(&bridge_tx), Error::<T>::NoSuchFrozenTx);
                 <FrozenTxs<T>>::remove(&bridge_tx);
                 Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
-                match Self::issue(bridge_tx.clone()) {
-                    Ok(None) => Self::deposit_event(RawEvent::Bridged(bridge_tx)),
-                    Ok(Some(PendingTx {
+                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
+                if let Some(PendingTx {
                         did,
                         bridge_tx,
-                    })) => {
-                        <PendingTxs<T>>::mutate(did, |pending_txs| {
-                            pending_txs.push(bridge_tx.clone())
-                        });
-                        Self::deposit_event(RawEvent::Pending(PendingTx {
-                            did,
-                            bridge_tx
-                        }));
-                    }
-                    Err(_) => Self::deposit_event(RawEvent::Failed(bridge_tx)),
+                }) = Self::issue(bridge_tx.clone())? {
+                    <PendingTxs<T>>::mutate(did, |pending_txs| {
+                        pending_txs.push(bridge_tx.clone())
+                    });
+                    Self::deposit_event(RawEvent::Pending(PendingTx {
+                        did,
+                        bridge_tx
+                    }));
+                } else {
+                    <HandledTxs<T>>::insert(&bridge_tx, true);
+                    Self::deposit_event(RawEvent::Bridged(bridge_tx));
                 }
             }
             Ok(())
