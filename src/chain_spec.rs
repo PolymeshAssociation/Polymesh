@@ -9,7 +9,7 @@ use polymesh_runtime::{
         ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
         SudoConfig, SystemConfig,
     },
-    runtime::{CommitteeMembershipConfig, CddServiceProvidersConfig, PolymeshCommitteeConfig},
+    runtime::{CddServiceProvidersConfig, CommitteeMembershipConfig, PolymeshCommitteeConfig},
     Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
