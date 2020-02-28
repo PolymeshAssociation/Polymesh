@@ -4,6 +4,7 @@
 
 use codec::Codec;
 use frame_support::dispatch::Vec;
+#[allow(unused_imports)]
 use polymesh_primitives::{IdentityId, Ticker};
 
 pub type Error = Vec<u8>;

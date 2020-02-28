@@ -4,6 +4,7 @@ use codec::{Decode, Encode};
 use frame_system;
 use pallet_session;
 use sp_runtime::traits::{IdentifyAccount, Member, Verify};
+#[allow(unused_imports)]
 use sp_std::prelude::*;
 
 /// The module's configuration trait.

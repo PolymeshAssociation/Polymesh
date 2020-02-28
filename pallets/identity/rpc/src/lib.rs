@@ -1,6 +1,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
+#[allow(unused_imports)]
 use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_runtime_identity_rpc_runtime_api::{
     AssetDidResult, CddStatus, IdentityApi as IdentityRuntimeApi,
