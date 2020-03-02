@@ -57,10 +57,7 @@ use polymesh_runtime_common::{
 
 use codec::Encode;
 
-use core::{
-    convert::{From},
-    result::Result as StdResult,
-};
+use core::{convert::From, result::Result as StdResult};
 
 use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
