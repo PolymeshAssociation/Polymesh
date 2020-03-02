@@ -15,6 +15,7 @@ use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::CommonTrait;
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
+use sp_runtime::traits::Zero;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::{convert::TryFrom, prelude::*};
 
@@ -68,15 +69,6 @@ pub struct PendingTx<AccountId, Balance> {
     pub did: IdentityId,
     /// The pending transaction.
     pub bridge_tx: BridgeTx<AccountId, Balance>,
-}
-
-/// A time-locked bridge transaction with the block number in which it becomes unlocked.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct TimelockedTx<AccountId, Balance, BlockNumber> {
-    // A bridge transaction.
-    bridge_tx: BridgeTx<AccountId, Balance>,
-    // The block number when the transaction becomes unlocked.
-    unlock_block_number: BlockNumber,
 }
 
 /// Either a pending transaction or a `None` or an error.
@@ -149,7 +141,7 @@ decl_storage! {
         /// The list of timelocked transactions with the block numbers in which those transactions
         /// become unlocked.
         TimelockedTxs get(timelocked_txs):
-            Vec<TimelockedTx<T::AccountId, T::Balance, T::BlockNumber>>;
+            linked_map T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
     }
     add_extra_genesis {
         /// The set of initial signers from which a multisig address is created at genesis time.
@@ -273,7 +265,7 @@ decl_module! {
         /// Freezes the entire operation of the bridge module if it is not already frozen. The only
         /// available operations in the frozen state are the following admin methods:
         ///
-        /// * `change_relayers`,
+        /// * `change_controller`,
         /// * `unfreeze`,
         /// * `freeze_bridge_tx`,
         /// * `unfreeze_bridge_tx`.
@@ -363,52 +355,32 @@ decl_module! {
                 }
                 return Ok(());
             }
-            let sender = ensure_signed(origin.clone())?;
-            ensure!(sender == Self::relayers(), Error::<T>::BadCaller);
-            ensure!(!Self::handled_proposals(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
-            if let Some(PendingTx {
-                did,
-                bridge_tx,
-                unlock_block_number
-            }));
-            Ok(())
+            let timelock = Self::timelock();
+            if timelock.is_zero() {
+                Self::handle_bridge_tx_now(bridge_tx)
+            } else {
+                Self::handle_bridge_tx_later(bridge_tx, timelock)
+            }
         }
 
+        /// Handles the timelocked transactions set to unlock at the current block number or
+        /// earlier.
         pub fn handle_timelocked_txs(origin) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
-            ensure!(sender == Self::relayers(), Error::<T>::BadCaller);
+            ensure!(sender == Self::controller(), Error::<T>::BadCaller);
 	    let current_block_number = <system::Module<T>>::block_number();
-            let split_iter = Self::timelocked_txs().split(
-                |&TimelockedTx {
-                    bridge_tx: _,
-                    unlock_block_number
-                }| unlock_block_number <= current_block_number
-            );
-            // FIXME: splitting without cloning the vector. Also, splitting this way returns an even
-            // number of chunks in general.
-            let unready_txs = split_iter.next().unwrap();
-            let ready_txs = split_iter.next().unwrap();
-            for TimelockedTx {
-                bridge_tx,
-                unlock_block_number: _
-            } in ready_txs {
-                if !Self::handled_txs(bridge_tx) {
-                    if let Some(PendingTx {
-                        did,
-                        bridge_tx,
-                    }) = Self::issue(bridge_tx.clone())? {
-                        <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
-                        Self::deposit_event(RawEvent::Pending(PendingTx {
-                            did,
-                            bridge_tx
-                        }));
-                    } else {
-                        <HandledTxs<T>>::insert(bridge_tx, true);
-                        Self::deposit_event(RawEvent::Bridged(bridge_tx.clone()));
-                    }
+            let mut reached_block_numbers = Vec::new();
+            for (block_number, txs) in <TimelockedTxs<T>>::enumerate()
+                .take_while(|(n, _)| n <= &current_block_number)
+            {
+                reached_block_numbers.push(block_number);
+                for tx in txs {
+                    let _ = Self::handle_bridge_tx_now(tx);
                 }
             }
-            <TimelockedTxs<T>>::put(unready_txs.into_iter().collect());
+            for block_number in reached_block_numbers {
+                <TimelockedTxs<T>>::remove(block_number);
+            }
             Ok(())
         }
 
@@ -499,5 +471,39 @@ impl<T: Trait> Module<T> {
                 .map_err(|_| Error::<T>::CannotCreditIdentity)?;
         }
         Ok(None)
+    }
+
+    /// Handles a bridge transaction proposal immediately.
+    fn handle_bridge_tx_now(bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
+        ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
+        if let Some(PendingTx {
+            did,
+            bridge_tx,
+        }) = Self::issue(bridge_tx.clone())? {
+            <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
+            Self::deposit_event(RawEvent::Pending(PendingTx {
+                did,
+                bridge_tx
+            }));
+        } else {
+            <HandledTxs<T>>::insert(&bridge_tx, true);
+            Self::deposit_event(RawEvent::Bridged(bridge_tx));
+        }
+        Ok(())
+    }
+
+
+    /// Handles a bridge transaction proposal after `timelock` blocks.
+    fn handle_bridge_tx_later(
+        bridge_tx: BridgeTx<T::AccountId, T::Balance>,
+        timelock: T::BlockNumber
+    ) -> DispatchResult {
+        ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
+	let current_block_number = <system::Module<T>>::block_number();
+        let unlock_block_number = current_block_number + timelock;
+        <TimelockedTxs<T>>::mutate(unlock_block_number, |txs| {
+            txs.push(bridge_tx);
+        });
+        Ok(())
     }
 }

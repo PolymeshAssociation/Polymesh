@@ -584,7 +584,7 @@ construct_runtime!(
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
-        Bridge: bridge::{Module, Call, Storage, Config, Event<T>},
+        Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         GeneralTM: general_tm::{Module, Call, Storage, Event},
