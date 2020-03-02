@@ -444,6 +444,17 @@ decl_module! {
             ensure!(account_key == Self::admin_key(), Error::<T>::Unauthorized);
             Ok(())
         }
+
+        /// Returns the timelocked balances of a given `IssueRecipient`. FIXME: return type.
+        pub fn get_timelocked_balances_of_recipient(
+            origin,
+            issue_recipient: IssueRecipient<T::AccountId>
+        ) -> DispatchResult {
+            ensure!(!Self::frozen(), Error::<T>::Frozen);
+            let sender = ensure_signed(origin.clone())?;
+            // TODO
+            Ok(())
+        }
     }
 }
 
@@ -485,6 +496,7 @@ impl<T: Trait> Module<T> {
             !Self::handled_txs(&bridge_tx),
             Error::<T>::ProposalAlreadyHandled
         );
+        ensure!(!Self::frozen_txs(&bridge_tx), Error::<T>::FrozenTx);
         if let Some(PendingTx { did, bridge_tx }) = Self::issue(bridge_tx.clone())? {
             <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
             Self::deposit_event(RawEvent::Pending(PendingTx { did, bridge_tx }));
@@ -523,6 +535,7 @@ impl<T: Trait> Module<T> {
                 }
             }
         }
+        // FIXME: Keep frozen transactions? `handle_bridge_tx_now` returns `FrozenTx` on them.
         for block_number in reached_block_numbers {
             <TimelockedTxs<T>>::remove(block_number);
         }
