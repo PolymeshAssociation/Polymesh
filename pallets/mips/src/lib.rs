@@ -467,16 +467,11 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Retrieve all proposals that need to be closed as of block `n`.
-    pub fn proposals_maturing_at(block: T::BlockNumber) -> Vec<(MipsIndex, T::Hash)> {
+    pub fn proposals_maturing_at(n: T::BlockNumber) -> Vec<(MipsIndex, T::Hash)> {
         Self::proposal_meta()
             .into_iter()
-            .filter_map(|meta| {
-                if meta.end == block {
-                    Some((meta.index, meta.proposal_hash))
-                } else {
-                    None
-                }
-            })
+            .filter(|meta| meta.end == n)
+            .map(|meta| (meta.index, meta.proposal_hash))
             .collect()
     }
 
@@ -624,13 +619,8 @@ impl<T: Trait> Module<T> {
     pub fn proposed_by(address: T::AccountId) -> Vec<MipsIndex> {
         Self::proposal_meta()
             .into_iter()
-            .filter_map(|meta| {
-                if meta.proposer == address {
-                    Some(meta.index)
-                } else {
-                    None
-                }
-            })
+            .filter(|meta| meta.proposer == address)
+            .map(|meta| meta.index)
             .collect()
     }
 
