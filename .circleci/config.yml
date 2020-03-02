@@ -154,6 +154,11 @@ jobs:
           working_directory: ./pallets/runtime
           no_output_timeout: 30m  
       - run:
+          name: adding WASM-GC in Runtime Folder
+          command: cargo install --git https://github.com/alexcrichton/wasm-gc --force   
+          working_directory: ./pallets/runtime
+          no_output_timeout: 30m  
+      - run:
           name: run Clippy in Runtime Folder
           command: cargo +nightly clippy
           working_directory: ./pallets/runtime
