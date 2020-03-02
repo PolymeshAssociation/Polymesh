@@ -147,7 +147,12 @@ jobs:
           name: run Clippy in Primitive Folder
           command: cargo +nightly clippy
           working_directory: ./primitives
-          no_output_timeout: 30m                    
+          no_output_timeout: 30m               
+      - run:
+          name: Updating WASM in Runtime Folder
+          command: rustup target add wasm32-unknown-unknown
+          working_directory: ./pallets/runtime
+          no_output_timeout: 30m  
       - run:
           name: run Clippy in Runtime Folder
           command: cargo +nightly clippy
