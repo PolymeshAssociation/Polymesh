@@ -1,5 +1,6 @@
 // Set options as a parameter, environment variable, or rc file.
 require = require("esm")(module /*, options*/);
+const assert = require('assert');
 module.exports = require("../util/init.js");
 
 let { reqImports } = require("../util/init.js");
@@ -54,7 +55,8 @@ async function issueTokenPerDid(api, accounts, dids, prepend) {
     
     for (let i = 0; i < dids.length; i++) {
   
-      const ticker = `token${prepend}${i}`;
+      const ticker = `token${prepend}${i}`.toUpperCase();
+      assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
      
         const unsub = await api.tx.asset
         .createToken(ticker, ticker, 1000000, true, 0, [], "abc")

@@ -131,8 +131,8 @@ workflows:
   commit:
     jobs:
       - lint
+      - cli
       - test
-      - build
   daily-builds:
     triggers:
       - schedule:
