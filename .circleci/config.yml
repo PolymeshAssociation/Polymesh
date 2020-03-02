@@ -116,6 +116,50 @@ jobs:
             - "./target"
             - "./pallets/runtime/target"
             - "./pallets/runtime/wasm/target"
+  clippy:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Build concatenated lock file for caching
+          command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - release-cache-{{ checksum "./rust.version" }}
+            - release-cache
+      - run:
+          name: Build release
+          command: cargo build -j 1 --release
+          no_output_timeout: 4h
+      - run:
+          name: install clippy
+          command: rustup component add clippy
+          no_output_timeout: 10m
+      - run:
+          name: run Clippy in Primitive Folder
+          command: cargo clippy
+          working_directory: ./primitives
+          no_output_timeout: 30m                    
+      - run:
+          name: run Clippy in Runtime Folder
+          command: cargo clippy
+          working_directory: ./pallets/runtime
+          no_output_timeout: 30m
+      - save_cache:
+          key: debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
+            - "./pallets/runtime/target"
+            - "./pallets/runtime/wasm/target"
 workflows:
   version: 2
   commit:
