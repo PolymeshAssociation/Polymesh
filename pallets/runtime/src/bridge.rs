@@ -99,6 +99,8 @@ decl_error! {
         Frozen,
         /// The bridge is not frozen.
         NotFrozen,
+        /// The transaction is frozen.
+        FrozenTx,
         /// There is no such frozen transaction.
         NoSuchFrozenTx,
         /// There is no proposal corresponding to a given bridge transaction.
@@ -155,7 +157,8 @@ decl_event! {
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Trait>::AccountId,
-        Balance = <T as CommonTrait>::Balance
+        Balance = <T as CommonTrait>::Balance,
+        BlockNumber = <T as frame_system::Trait>::BlockNumber,
     {
         /// Confirmation of a signer set change.
         ControllerChanged(AccountId),
@@ -175,6 +178,9 @@ decl_event! {
         FrozenTx(BridgeTx<AccountId, Balance>),
         /// Notification of unfreezing a transaction.
         UnfrozenTx(BridgeTx<AccountId, Balance>),
+        /// A vector of timelocked balances of a recipient, each with the number of the block in
+        /// which the balance gets unlocked.
+        TimelockedBalancesOfRecipient(Vec<(BlockNumber, Balance)>),
     }
 }
 
@@ -361,6 +367,11 @@ decl_module! {
                 }
                 return Ok(());
             }
+            ensure!(
+                !Self::handled_txs(&bridge_tx),
+                Error::<T>::ProposalAlreadyHandled
+            );
+            ensure!(!Self::frozen_txs(&bridge_tx), Error::<T>::FrozenTx);
             let timelock = Self::timelock();
             if timelock.is_zero() {
                 Self::handle_bridge_tx_now(bridge_tx)
@@ -417,20 +428,9 @@ decl_module! {
                 ensure!(Self::frozen_txs(&bridge_tx), Error::<T>::NoSuchFrozenTx);
                 <FrozenTxs<T>>::remove(&bridge_tx);
                 Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
-                if let Some(PendingTx {
-                        did,
-                        bridge_tx,
-                }) = Self::issue(bridge_tx.clone())? {
-                    <PendingTxs<T>>::mutate(did, |pending_txs| {
-                        pending_txs.push(bridge_tx.clone())
-                    });
-                    Self::deposit_event(RawEvent::Pending(PendingTx {
-                        did,
-                        bridge_tx
-                    }));
-                } else {
-                    <HandledTxs<T>>::insert(&bridge_tx, true);
-                    Self::deposit_event(RawEvent::Bridged(bridge_tx));
+                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
+                if let Err(e) = Self::handle_bridge_tx_now(bridge_tx) {
+                    sp_runtime::print(e);
                 }
             }
             Ok(())
@@ -445,14 +445,26 @@ decl_module! {
             Ok(())
         }
 
-        /// Returns the timelocked balances of a given `IssueRecipient`. FIXME: return type.
+        /// Emits an event containing the timelocked balances of a given `IssueRecipient`.
         pub fn get_timelocked_balances_of_recipient(
             origin,
             issue_recipient: IssueRecipient<T::AccountId>
         ) -> DispatchResult {
             ensure!(!Self::frozen(), Error::<T>::Frozen);
             let sender = ensure_signed(origin.clone())?;
-            // TODO
+            let mut timelocked_balances = Vec::new();
+            for (n, txs) in <TimelockedTxs<T>>::enumerate() {
+                let sum_balance = |accum, tx: &BridgeTx<_, _>| {
+                    if tx.recipient == issue_recipient {
+                        accum + tx.amount
+                    } else {
+                        accum
+                    }
+                };
+                let recipients_balance: T::Balance = txs.iter().fold(Zero::zero(), sum_balance);
+                timelocked_balances.push((n, recipients_balance));
+            }
+            Self::deposit_event(RawEvent::TimelockedBalancesOfRecipient(timelocked_balances));
             Ok(())
         }
     }
@@ -492,11 +504,6 @@ impl<T: Trait> Module<T> {
 
     /// Handles a bridge transaction proposal immediately.
     fn handle_bridge_tx_now(bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
-        ensure!(
-            !Self::handled_txs(&bridge_tx),
-            Error::<T>::ProposalAlreadyHandled
-        );
-        ensure!(!Self::frozen_txs(&bridge_tx), Error::<T>::FrozenTx);
         if let Some(PendingTx { did, bridge_tx }) = Self::issue(bridge_tx.clone())? {
             <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
             Self::deposit_event(RawEvent::Pending(PendingTx { did, bridge_tx }));
@@ -512,10 +519,6 @@ impl<T: Trait> Module<T> {
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
         timelock: T::BlockNumber,
     ) -> DispatchResult {
-        ensure!(
-            !Self::handled_txs(&bridge_tx),
-            Error::<T>::ProposalAlreadyHandled
-        );
         let current_block_number = <system::Module<T>>::block_number();
         let unlock_block_number = current_block_number + timelock;
         <TimelockedTxs<T>>::mutate(unlock_block_number, |txs| {
@@ -524,7 +527,8 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Handles the timelocked transactions set to unlock at the given block number or earlier.
+    /// Handles the timelocked transactions that are set to unlock at the given block number or
+    /// earlier.
     fn handle_timelocked_txs(block_number: T::BlockNumber) {
         let mut reached_block_numbers = Vec::new();
         for (n, txs) in <TimelockedTxs<T>>::enumerate().take_while(|(n, _)| n <= &block_number) {
@@ -535,7 +539,6 @@ impl<T: Trait> Module<T> {
                 }
             }
         }
-        // FIXME: Keep frozen transactions? `handle_bridge_tx_now` returns `FrozenTx` on them.
         for block_number in reached_block_numbers {
             <TimelockedTxs<T>>::remove(block_number);
         }
