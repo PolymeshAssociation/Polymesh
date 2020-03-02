@@ -15,7 +15,6 @@
 //! - Proposal automatically dispatches if it meets a vote threshold
 //!
 //! ### Dispatchable Functions
-//! - `set_members` - Initialize membership. Called by Root.
 //! - `propose` - Members can propose a new dispatchable
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
 //!
@@ -106,7 +105,7 @@ decl_storage! {
         /// Proposals so far.
         pub ProposalCount get(fn proposal_count): u32;
         /// The current members of the committee.
-        pub Members get(fn members) config(): Vec<IdentityId>;
+        pub Members get(fn members): Vec<IdentityId>;
         /// Vote threshold for an approval.
         pub VoteThreshold get(fn vote_threshold) config(): (ProportionMatch, u32, u32);
     }
@@ -177,23 +176,6 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
             <VoteThreshold<I>>::put((match_criteria, n, d));
-        }
-
-        /// Set the committee's membership manually to `new_members`.
-        /// Requires root origin.
-        ///
-        /// # Arguments
-        /// * `origin` Root
-        /// * `new_members` Members to be initialized as committee.
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn set_members(origin, new_members: Vec<IdentityId>) {
-            ensure_root(origin)?;
-
-            let mut new_members = new_members;
-            new_members.sort();
-            <Members<I>>::mutate(|m| {
-                *m = new_members;
-            });
         }
 
         /// Any committee member proposes a dispatchable.
@@ -593,11 +575,6 @@ mod tests {
     fn make_ext() -> sp_io::TestExternalities {
         GenesisConfig {
             committee_Instance1: Some(committee::GenesisConfig {
-                members: vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3),
-                ],
                 vote_threshold: (ProportionMatch::AtLeast, 1, 1),
                 phantom: Default::default(),
             }),
@@ -612,14 +589,7 @@ mod tests {
     fn motions_basic_environment_works() {
         make_ext().execute_with(|| {
             System::set_block_number(1);
-            assert_eq!(
-                Committee::members(),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3)
-                ]
-            );
+            assert_eq!(Committee::members(), vec![]);
             assert_eq!(Committee::proposals(), Vec::<H256>::new());
         });
     }
@@ -645,7 +615,7 @@ mod tests {
             let alice_acc = AccountId::from(AccountKeyring::Alice);
             let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did]).unwrap();
+            <Members<Instance1>>::put(vec![alice_did]);
 
             let proposal = make_proposal(42);
             let hash = proposal.blake2_256().into();
@@ -693,7 +663,7 @@ mod tests {
             let bob_acc = AccountId::from(AccountKeyring::Bob);
             let (bob_signer, _) = make_account(&bob_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did]).unwrap();
+            <Members<Instance1>>::put(vec![alice_did]);
 
             let proposal = make_proposal(42);
             let hash: H256 = proposal.blake2_256().into();
@@ -719,7 +689,7 @@ mod tests {
             let bob_acc = AccountId::from(AccountKeyring::Bob);
             let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did]).unwrap();
+            <Members<Instance1>>::put(vec![alice_did, bob_did]);
 
             let proposal = make_proposal(42);
             let hash: H256 = proposal.blake2_256().into();
@@ -748,7 +718,7 @@ mod tests {
             let charlie_acc = AccountId::from(AccountKeyring::Charlie);
             let (_charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]).unwrap();
+            <Members<Instance1>>::put(vec![alice_did, bob_did, charlie_did]);
 
             let proposal = make_proposal(42);
             let hash: H256 = proposal.blake2_256().into();
@@ -803,7 +773,7 @@ mod tests {
             let charlie_acc = AccountId::from(AccountKeyring::Charlie);
             let (charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
 
-            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]).unwrap();
+            <Members<Instance1>>::put(vec![alice_did, bob_did, charlie_did]);
 
             let proposal = make_proposal(69);
             let hash = BlakeTwo256::hash_of(&proposal);

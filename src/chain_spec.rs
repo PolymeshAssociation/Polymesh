@@ -300,7 +300,6 @@ fn testnet_genesis(
             phantom: Default::default(),
         }),
         committee_Instance1: Some(PolymeshCommitteeConfig {
-            members: vec![],
             vote_threshold: (ProportionMatch::AtLeast, 1, 2),
             phantom: Default::default(),
         }),
