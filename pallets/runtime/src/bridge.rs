@@ -475,16 +475,13 @@ impl<T: Trait> Module<T> {
 
     /// Handles a bridge transaction proposal immediately.
     fn handle_bridge_tx_now(bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
-        ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
-        if let Some(PendingTx {
-            did,
-            bridge_tx,
-        }) = Self::issue(bridge_tx.clone())? {
+        ensure!(
+            !Self::handled_txs(&bridge_tx),
+            Error::<T>::ProposalAlreadyHandled
+        );
+        if let Some(PendingTx { did, bridge_tx }) = Self::issue(bridge_tx.clone())? {
             <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
-            Self::deposit_event(RawEvent::Pending(PendingTx {
-                did,
-                bridge_tx
-            }));
+            Self::deposit_event(RawEvent::Pending(PendingTx { did, bridge_tx }));
         } else {
             <HandledTxs<T>>::insert(&bridge_tx, true);
             Self::deposit_event(RawEvent::Bridged(bridge_tx));
@@ -492,14 +489,16 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-
     /// Handles a bridge transaction proposal after `timelock` blocks.
     fn handle_bridge_tx_later(
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
-        timelock: T::BlockNumber
+        timelock: T::BlockNumber,
     ) -> DispatchResult {
-        ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
-	let current_block_number = <system::Module<T>>::block_number();
+        ensure!(
+            !Self::handled_txs(&bridge_tx),
+            Error::<T>::ProposalAlreadyHandled
+        );
+        let current_block_number = <system::Module<T>>::block_number();
         let unlock_block_number = current_block_number + timelock;
         <TimelockedTxs<T>>::mutate(unlock_block_number, |txs| {
             txs.push(bridge_tx);
