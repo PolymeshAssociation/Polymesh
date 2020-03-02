@@ -145,12 +145,12 @@ jobs:
           no_output_timeout: 10m
       - run:
           name: run Clippy in Primitive Folder
-          command: cargo clippy
+          command: cargo +nightly clippy
           working_directory: ./primitives
           no_output_timeout: 30m                    
       - run:
           name: run Clippy in Runtime Folder
-          command: cargo clippy
+          command: cargo +nightly clippy
           working_directory: ./pallets/runtime
           no_output_timeout: 30m
       - save_cache:
