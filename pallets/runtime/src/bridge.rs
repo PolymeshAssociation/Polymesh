@@ -184,6 +184,11 @@ decl_module! {
 
         fn deposit_event() = default;
 
+        /// Issue tokens in timelocked transactions.
+        fn on_initialize(block_number: T::BlockNumber) {
+            Self::handle_timelocked_txs(block_number);
+        }
+
         /// Change the controller account as admin.
         pub fn change_controller(origin, account_id: T::AccountId) -> DispatchResult {
             Self::check_admin(origin)?;
@@ -210,6 +215,7 @@ decl_module! {
         ///
         /// * `change_controller`,
         /// * `change_admin_key`,
+        /// * `change_timelock`,
         /// * `unfreeze`,
         /// * `freeze_bridge_txs`,
         /// * `unfreeze_bridge_txs`.
@@ -368,7 +374,7 @@ decl_module! {
         pub fn handle_timelocked_txs(origin) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             ensure!(sender == Self::controller(), Error::<T>::BadCaller);
-	    let current_block_number = <system::Module<T>>::block_number();
+            let current_block_number = <system::Module<T>>::block_number();
             let mut reached_block_numbers = Vec::new();
             for (block_number, txs) in <TimelockedTxs<T>>::enumerate()
                 .take_while(|(n, _)| n <= &current_block_number)
@@ -504,5 +510,21 @@ impl<T: Trait> Module<T> {
             txs.push(bridge_tx);
         });
         Ok(())
+    }
+
+    /// Handles the timelocked transactions set to unlock at the given block number or earlier.
+    fn handle_timelocked_txs(block_number: T::BlockNumber) {
+        let mut reached_block_numbers = Vec::new();
+        for (n, txs) in <TimelockedTxs<T>>::enumerate().take_while(|(n, _)| n <= &block_number) {
+            reached_block_numbers.push(n);
+            for tx in txs {
+                if let Err(e) = Self::handle_bridge_tx_now(tx) {
+                    sp_runtime::print(e);
+                }
+            }
+        }
+        for block_number in reached_block_numbers {
+            <TimelockedTxs<T>>::remove(block_number);
+        }
     }
 }
