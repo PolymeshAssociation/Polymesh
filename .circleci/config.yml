@@ -167,6 +167,7 @@ workflows:
       - lint
       - build
       - test
+      - clippy
   daily-builds:
     triggers:
       - schedule:
