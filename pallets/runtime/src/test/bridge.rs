@@ -155,7 +155,6 @@ fn can_change_controller() {
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
-        let dave = Origin::signed(AccountKeyring::Dave.public());
         assert_ok!(Balances::top_up_identity_balance(
             alice.clone(),
             alice_did,

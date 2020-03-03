@@ -112,7 +112,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
         /// The multisig account of the bridge controller. The genesis signers must accept their
         /// authorizations to be able to get their proposals delivered.
-        Controller get(controller) build(|config: &GenesisConfig| {
+        Controller get(controller) build(|config: &GenesisConfig<T>| {
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
                 panic!("too many signatures required");
@@ -402,11 +402,10 @@ decl_module! {
 
         /// Emits an event containing the timelocked balances of a given `IssueRecipient`.
         pub fn get_timelocked_balances_of_recipient(
-            origin,
+            _origin,
             issue_recipient: IssueRecipient<T::AccountId>
         ) -> DispatchResult {
             ensure!(!Self::frozen(), Error::<T>::Frozen);
-            let sender = ensure_signed(origin.clone())?;
             let mut timelocked_balances = Vec::new();
             for (n, txs) in <TimelockedTxs<T>>::enumerate() {
                 let sum_balance = |accum, tx: &BridgeTx<_, _>| {
@@ -482,20 +481,13 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Handles the timelocked transactions that are set to unlock at the given block number or
-    /// earlier.
+    /// Handles the timelocked transactions that are set to unlock at the given block number.
     fn handle_timelocked_txs(block_number: T::BlockNumber) {
-        let mut reached_block_numbers = Vec::new();
-        for (n, txs) in <TimelockedTxs<T>>::enumerate().take_while(|(n, _)| n <= &block_number) {
-            reached_block_numbers.push(n);
-            for tx in txs {
-                if let Err(e) = Self::handle_bridge_tx_now(tx) {
-                    sp_runtime::print(e);
-                }
+        let txs = <TimelockedTxs<T>>::take(block_number);
+        for tx in txs {
+            if let Err(e) = Self::handle_bridge_tx_now(tx) {
+                sp_runtime::print(e);
             }
-        }
-        for block_number in reached_block_numbers {
-            <TimelockedTxs<T>>::remove(block_number);
         }
     }
 }
