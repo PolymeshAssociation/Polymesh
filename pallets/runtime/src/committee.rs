@@ -136,6 +136,8 @@ decl_error! {
         DuplicateProposal,
         /// Mismatched voting index.
         MismatchedVotingIndex,
+        /// Proportion must be a rational number.
+        InvalidProportion,
     }
 }
 
@@ -159,6 +161,10 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_vote_threshold(origin, n: u32, d: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
+
+            // Proportion must be a nrational number
+            ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
+
             <VoteThreshold<I>>::put((n, d));
         }
 
@@ -401,7 +407,7 @@ mod tests {
     use crate::committee;
     use core::result::Result as StdResult;
     use frame_support::{
-        assert_noop, assert_ok, dispatch::DispatchResult, parameter_types, Hashable,
+        assert_err, assert_noop, assert_ok, dispatch::DispatchResult, parameter_types, Hashable,
     };
     use frame_system::EnsureSignedBy;
     use sp_core::H256;
@@ -792,6 +798,23 @@ mod tests {
                 17
             ));
             assert_eq!(Committee::vote_threshold(), (4, 17));
+
+            assert_noop!(
+                Committee::set_vote_threshold(
+                    Origin::signed(AccountId::from(AccountKeyring::Alice)),
+                    1,
+                    0
+                ),
+                Error::<Test, Instance1>::InvalidProportion
+            );
+            assert_noop!(
+                Committee::set_vote_threshold(
+                    Origin::signed(AccountId::from(AccountKeyring::Alice)),
+                    4,
+                    1
+                ),
+                Error::<Test, Instance1>::InvalidProportion
+            );
         });
     }
 }
