@@ -2335,6 +2335,7 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-group",
+ "polymesh-runtime-identity-rpc-runtime-api",
  "serde",
  "serde_derive",
  "sp-api",
@@ -2344,6 +2345,18 @@ dependencies = [
  "sp-serializer",
  "sp-std",
  "sp-version",
+]
+
+[[package]]
+name = "polymesh-runtime-identity-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "serde",
+ "sp-api",
+ "sp-std",
 ]
 
 [[package]]

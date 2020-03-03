@@ -82,6 +82,19 @@ impl<T: AsRef<[u8]>> From<T> for Url {
     }
 }
 
+/// A wrapper for a proposal description.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MipDescription(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for MipDescription {
+    fn from(s: T) -> Self {
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
+        MipDescription(v)
+    }
+}
+
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 pub struct MipsMetadata<AcccountId: Parameter, BlockNumber: Parameter, Hash: Parameter> {
@@ -95,6 +108,8 @@ pub struct MipsMetadata<AcccountId: Parameter, BlockNumber: Parameter, Hash: Par
     proposal_hash: Hash,
     /// The proposal url for proposal discussion.
     url: Option<Url>,
+    /// The proposal description.
+    description: Option<MipDescription>,
 }
 
 /// For keeping track of proposal being voted on.
@@ -249,10 +264,7 @@ decl_module! {
         /// * `deposit` the new min deposit required to start a proposal
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -264,10 +276,7 @@ decl_module! {
         /// * `threshold` the new quorum threshold amount value
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
             <QuorumThreshold<T>>::put(threshold);
         }
 
@@ -278,10 +287,7 @@ decl_module! {
         /// * `duration` proposal duration in blocks
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_proposal_duration(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
             <ProposalDuration<T>>::put(duration);
         }
 
@@ -293,14 +299,26 @@ decl_module! {
         /// * `deposit` minimum deposit value
         /// * `url` a link to a website for proposal discussion
         #[weight = SimpleDispatchInfo::FixedNormal(5_000_000)]
-        pub fn propose(origin, proposal: Box<T::Proposal>, deposit: BalanceOf<T>, url: Option<Url>) -> DispatchResult {
+        pub fn propose(
+            origin,
+            proposal: Box<T::Proposal>,
+            deposit: BalanceOf<T>,
+            url: Option<Url>,
+            description: Option<MipDescription>,
+        ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Pre conditions: caller must have min balance
-            ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::InsufficientDeposit);
+            ensure!(
+                deposit >= Self::min_proposal_deposit(),
+                Error::<T>::InsufficientDeposit
+            );
             // Proposal must be new
-            ensure!(!<Proposals<T>>::exists(proposal_hash), Error::<T>::DuplicateProposal);
+            ensure!(
+                !<Proposals<T>>::exists(proposal_hash),
+                Error::<T>::DuplicateProposal
+            );
 
             // Reserve the minimum deposit
             T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
@@ -313,7 +331,8 @@ decl_module! {
                 index,
                 end: <system::Module<T>>::block_number() + Self::proposal_duration(),
                 proposal_hash,
-                url
+                url,
+                description,
             };
             <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
 
@@ -321,7 +340,7 @@ decl_module! {
 
             let mip = MIP {
                 index,
-                proposal: *proposal
+                proposal: *proposal,
             };
             <Proposals<T>>::insert(proposal_hash, mip);
             <ProposalByIndex<T>>::insert(index, proposal_hash);
@@ -860,6 +879,7 @@ mod tests {
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
 
             // Error when min deposit requirements are not met
             assert_err!(
@@ -867,23 +887,25 @@ mod tests {
                     Origin::signed(6),
                     Box::new(proposal.clone()),
                     40,
-                    Some(proposal_url.clone())
+                    Some(proposal_url.clone()),
+                    Some(proposal_desc.clone())
                 ),
                 Error::<Test>::InsufficientDeposit
             );
-            assert_eq!(Mips::proposed_by(&6), vec![]);
+            assert_eq!(Mips::proposed_by(6), vec![]);
 
             // Account 6 starts a proposal with min deposit
             assert_ok!(Mips::propose(
                 Origin::signed(6),
-                Box::new(proposal.clone()),
+                Box::new(proposal),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url),
+                Some(proposal_desc)
             ));
 
             assert_eq!(Balances::free_balance(&6), 10);
 
-            assert_eq!(Mips::proposed_by(&6), vec![0]);
+            assert_eq!(Mips::proposed_by(6), vec![0]);
             assert_eq!(
                 Mips::voting(&hash),
                 Some(PolymeshVotes {
@@ -903,13 +925,15 @@ mod tests {
             let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
 
             // Account 6 starts a proposal with min deposit
             assert_ok!(Mips::propose(
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url.clone()),
+                Some(proposal_desc)
             ));
 
             assert_eq!(Balances::free_balance(&6), 10);
@@ -938,12 +962,14 @@ mod tests {
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
 
             assert_ok!(Mips::propose(
                 Origin::signed(6),
-                Box::new(proposal.clone()),
+                Box::new(proposal),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url),
+                Some(proposal_desc)
             ));
 
             assert_ok!(Mips::vote(Origin::signed(5), hash, 0, true, 50));
@@ -976,12 +1002,14 @@ mod tests {
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
 
             assert_ok!(Mips::propose(
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url.clone()),
+                Some(proposal_desc)
             ));
 
             assert_ok!(Mips::vote(Origin::signed(5), hash, 0, true, 50));
@@ -1016,12 +1044,14 @@ mod tests {
             let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
 
             assert_ok!(Mips::propose(
                 Origin::signed(6),
                 Box::new(proposal.clone()),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url.clone()),
+                Some(proposal_desc)
             ));
 
             assert_ok!(Mips::vote(Origin::signed(5), hash, index, true, 50));

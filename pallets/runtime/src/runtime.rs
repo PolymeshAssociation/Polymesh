@@ -293,20 +293,13 @@ impl pallet_staking::Trait for Runtime {
     type SessionsPerEra = SessionsPerEra;
     type BondingDuration = BondingDuration;
     type SlashDeferDuration = SlashDeferDuration;
-    /// A super-majority of the committee can cancel the slash.
-    type SlashCancelOrigin =
-        committee::EnsureProportionAtLeast<_3, _4, AccountId, GovernanceCommittee>;
+    type SlashCancelOrigin = frame_system::EnsureRoot<AccountId>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
-    type RequiredAddOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
-    type RequiredRemoveOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
-    type RequiredComplianceOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
-    /// A super-majority of the council can enforce global commission.
-    type RequiredCommissionOrigin =
-        committee::EnsureProportionAtLeast<_3, _4, AccountId, GovernanceCommittee>;
+    type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredRemoveOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 type GovernanceCommittee = committee::Instance1;
@@ -317,12 +310,13 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type Event = Event;
 }
 
+/// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
-    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
-    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
-    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
-    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type AddOrigin = frame_system::EnsureRoot<AccountId>;
+    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
 }
@@ -330,8 +324,7 @@ impl group::Trait<group::Instance1> for Runtime {
 impl pallet_mips::Trait for Runtime {
     type Currency = Balances;
     type Proposal = Call;
-    type CommitteeOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
 }
 
@@ -407,8 +400,8 @@ parameter_types! {
 
 impl pallet_treasury::Trait for Runtime {
     type Currency = Balances;
-    type ApproveOrigin = committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
-    type RejectOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
+    type RejectOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type ProposalRejection = ();
     type ProposalBond = ProposalBond;
@@ -436,8 +429,7 @@ impl pallet_im_online::Trait for Runtime {
     type SubmitTransaction = SubmitTransaction;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
-    type CommitteeOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 impl pallet_grandpa::Trait for Runtime {
@@ -532,12 +524,13 @@ impl dividend::Trait for Runtime {
     type Event = Event;
 }
 
+/// CddProviders asan instance of group
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
-    type AddOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
-    type RemoveOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
-    type SwapOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
-    type ResetOrigin = committee::EnsureProportionMoreThan<_1, _2, AccountId, GovernanceCommittee>;
+    type AddOrigin = frame_system::EnsureRoot<AccountId>;
+    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
 }

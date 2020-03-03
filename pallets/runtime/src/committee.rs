@@ -354,6 +354,24 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     }
 }
 
+// pub struct EnsureMember<IdentityId, I = DefaultInstance>(
+//     sp_std::marker::PhantomData<(IdentityId, I)>,
+// );
+// impl<
+//         O: Into<Result<RawOrigin<IdentityId, I>, O>> + From<RawOrigin<IdentityId, I>>,
+//         IdentityId,
+//         I,
+//     > EnsureOrigin<O> for EnsureMember<IdentityId, I>
+// {
+//     type Success = IdentityId;
+//     fn try_origin(o: O) -> Result<Self::Success, O> {
+//         o.into().and_then(|o| match o {
+//             RawOrigin::Member(id) => Ok(id),
+//             r => Err(O::from(r)),
+//         })
+//     }
+// }
+
 pub struct EnsureProportionMoreThan<N: U32, D: U32, AccountId, I = DefaultInstance>(
     sp_std::marker::PhantomData<(N, D, AccountId, I)>,
 );
