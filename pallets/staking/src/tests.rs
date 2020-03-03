@@ -654,7 +654,7 @@ fn nominating_and_rewards_should_work() {
                 RewardDestination::Controller
             ));
 
-            // Provide a valid kyc claim for
+            // Provide a valid cdd claim for
             // stash - 1
             // controller - 2
             let (nominator_signed, nominator_did) =
@@ -663,7 +663,7 @@ fn nominating_and_rewards_should_work() {
             let service_provider_account = AccountId::from(AccountKeyring::Bob);
             let (service_provider_signed, service_provider_did) =
                 make_account(service_provider_account.clone()).unwrap();
-            add_trusted_kyc_provider(service_provider_did);
+            add_trusted_cdd_provider(service_provider_did);
 
             let now = Utc::now();
 
@@ -691,7 +691,7 @@ fn nominating_and_rewards_should_work() {
                 RewardDestination::Controller
             ));
 
-            // Provide a valid kyc claim for
+            // Provide a valid cdd claim for
             // stash - 3
             // controller - 4
 
@@ -939,7 +939,7 @@ fn nominators_also_get_slashed() {
                 RewardDestination::default()
             ));
 
-            // Provide a valid kyc claim for
+            // Provide a valid cdd claim for
             // stash - 1
             // controller - 2
             let (nominator_signed, nominator_did) =
@@ -948,7 +948,7 @@ fn nominators_also_get_slashed() {
             let service_provider_account = AccountId::from(AccountKeyring::Bob);
             let (service_provider_signed, service_provider_did) =
                 make_account(service_provider_account.clone()).unwrap();
-            add_trusted_kyc_provider(service_provider_did);
+            add_trusted_cdd_provider(service_provider_did);
 
             let now = Utc::now();
 
@@ -1976,7 +1976,7 @@ fn on_free_balance_zero_stash_removes_nominator() {
         .existential_deposit(10)
         .build()
         .execute_with(|| {
-            // Provide a valid kyc claim for
+            // Provide a valid cdd claim for
             // stash - 11
             // controller - 10
             let (nominator_signed, nominator_did) =
@@ -1985,7 +1985,7 @@ fn on_free_balance_zero_stash_removes_nominator() {
             let service_provider_account = AccountId::from(AccountKeyring::Bob);
             let (service_provider_signed, service_provider_did) =
                 make_account(service_provider_account.clone()).unwrap();
-            add_trusted_kyc_provider(service_provider_did);
+            add_trusted_cdd_provider(service_provider_did);
 
             let now = Utc::now();
 
@@ -2090,7 +2090,7 @@ fn switching_roles() {
                 RewardDestination::Controller
             ));
 
-            // Provide a valid kyc claim for
+            // Provide a valid cdd claim for
             // stash - 1
             // controller - 2
             let (nominator_signed, nominator_did) =
@@ -2099,7 +2099,7 @@ fn switching_roles() {
             let service_provider_account = AccountId::from(AccountKeyring::Bob);
             let (service_provider_signed, service_provider_did) =
                 make_account(service_provider_account.clone()).unwrap();
-            add_trusted_kyc_provider(service_provider_did);
+            add_trusted_cdd_provider(service_provider_did);
 
             let now = Utc::now();
 
@@ -2121,7 +2121,7 @@ fn switching_roles() {
                 RewardDestination::Controller
             ));
 
-            // Provide a valid kyc claim for
+            // Provide a valid cdd claim for
             // stash - 3
             // controller - 4
             let (nominator_signed, nominator_did) =
@@ -2383,7 +2383,7 @@ fn wrong_vote_is_null() {
                 RewardDestination::default()
             ));
 
-            // Provide a valid kyc claim for
+            // Provide a valid cdd claim for
             // stash - 1
             // controller - 2
             let (nominator_signed, nominator_did) =
@@ -2392,7 +2392,7 @@ fn wrong_vote_is_null() {
             let service_provider_account = AccountId::from(AccountKeyring::Bob);
             let (service_provider_signed, service_provider_did) =
                 make_account(service_provider_account.clone()).unwrap();
-            add_trusted_kyc_provider(service_provider_did);
+            add_trusted_cdd_provider(service_provider_did);
 
             let now = Utc::now();
 
@@ -3884,10 +3884,10 @@ fn add_nominator_with_invalid_expiry() {
             let account_alice_controller = AccountId::from(AccountKeyring::Dave);
             let controller_signed = Origin::signed(account_alice_controller.clone());
 
-            // For valid trusted KYC service providers
+            // For valid trusted CDD service providers
             let account_bob = AccountId::from(AccountKeyring::Bob);
             let (bob_signed, bob_did) = make_account(account_bob.clone()).unwrap();
-            add_trusted_kyc_provider(bob_did);
+            add_trusted_cdd_provider(bob_did);
 
             let now = Utc::now();
 
@@ -3930,7 +3930,7 @@ fn add_valid_nominator_with_multiple_claims() {
             let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
             let (claim_issuer_1_signed, claim_issuer_1_did) =
                 make_account(claim_issuer_1.clone()).unwrap();
-            add_trusted_kyc_provider(claim_issuer_1_did);
+            add_trusted_cdd_provider(claim_issuer_1_did);
 
             let now = Utc::now();
 
@@ -3940,7 +3940,7 @@ fn add_valid_nominator_with_multiple_claims() {
             let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
             let (claim_issuer_2_signed, claim_issuer_2_did) =
                 make_account(claim_issuer_2.clone()).unwrap();
-            add_trusted_kyc_provider(claim_issuer_2_did);
+            add_trusted_cdd_provider(claim_issuer_2_did);
 
             // add claim by claim issuer
             add_nominator_claim(claim_issuer_2_did, alice_did, claim_issuer_2.clone());
@@ -3962,7 +3962,7 @@ fn add_valid_nominator_with_multiple_claims() {
 }
 
 #[test]
-fn validate_nominators_with_valid_kyc() {
+fn validate_nominators_with_valid_cdd() {
     ExtBuilder::default()
         .nominate(true)
         .build()
@@ -3977,7 +3977,7 @@ fn validate_nominators_with_valid_kyc() {
             let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
             let (claim_issuer_1_signed, claim_issuer_1_did) =
                 make_account(claim_issuer_1.clone()).unwrap();
-            add_trusted_kyc_provider(claim_issuer_1_did);
+            add_trusted_cdd_provider(claim_issuer_1_did);
 
             let account_eve = AccountId::from(AccountKeyring::Eve);
             let (eve_signed, eve_did) =
@@ -3989,7 +3989,7 @@ fn validate_nominators_with_valid_kyc() {
             let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
             let (claim_issuer_2_signed, claim_issuer_2_did) =
                 make_account(claim_issuer_2.clone()).unwrap();
-            add_trusted_kyc_provider(claim_issuer_2_did);
+            add_trusted_cdd_provider(claim_issuer_2_did);
 
             let now = Utc::now();
 
@@ -4042,7 +4042,7 @@ fn validate_nominators_with_valid_kyc() {
             Timestamp::set_timestamp((now.timestamp() as u64) + 800_u64);
             let claimed_nominator = vec![account_alice.clone(), account_eve.clone()];
 
-            assert_ok!(Staking::validate_kyc_expiry_nominators(
+            assert_ok!(Staking::validate_cdd_expiry_nominators(
                 Origin::signed(claim_issuer_1),
                 claimed_nominator
             ));

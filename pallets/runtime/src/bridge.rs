@@ -42,10 +42,10 @@ pub struct BridgeTx<AccountId, Balance> {
     pub tx_hash: H256,
 }
 
-/// A transaction that is pending a valid identity KYC.
+/// A transaction that is pending a valid identity CDD.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PendingTx<AccountId, Balance> {
-    /// The identity on which the KYC is pending.
+    /// The identity on which the CDD is pending.
     pub did: IdentityId,
     /// The pending transaction.
     pub bridge_tx: BridgeTx<AccountId, Balance>,
@@ -69,8 +69,8 @@ decl_error! {
         CannotCreditIdentity,
         /// The origin is not the relayer set multisig.
         BadCaller,
-        /// The recipient DID has no valid KYC.
-        NoValidKyc,
+        /// The recipient DID has no valid CDD.
+        NoValidCdd,
         /// The bridge transaction proposal has already been handled and the funds minted.
         ProposalAlreadyHandled,
     }
@@ -120,7 +120,7 @@ decl_event! {
         /// Ethereum.
         Bridged(BridgeTx<AccountId, Balance>),
         /// Notification of an approved transaction having moved to a pending state due to the
-        /// recipient identity either being non-existent or not having a valid KYC.
+        /// recipient identity either being non-existent or not having a valid CDD.
         Pending(PendingTx<AccountId, Balance>),
         /// Notification of a failure to finalize a pending transaction. The transaction is removed.
         Failed(BridgeTx<AccountId, Balance>),
@@ -159,11 +159,11 @@ decl_module! {
             )
         }
 
-        /// Finalizes pending bridge transactions following a receipt of a valid KYC by the
+        /// Finalizes pending bridge transactions following a receipt of a valid CDD by the
         /// recipient identity.
         pub fn finalize_pending(_origin, did: IdentityId) -> DispatchResult {
             if !<identity::Module<T>>::has_valid_cdd(did) {
-                return Err(Error::<T>::NoValidKyc.into());
+                return Err(Error::<T>::NoValidCdd.into());
             }
             let mut new_pending_txs: BTreeMap<_, Vec<BridgeTx<T::AccountId, T::Balance>>> =
                 BTreeMap::new();
