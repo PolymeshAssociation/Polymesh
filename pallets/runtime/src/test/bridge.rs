@@ -58,7 +58,7 @@ fn can_issue_to_identity_we() {
         charlie_did,
         555
     ));
-    let relayers = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+    let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
         vec![
@@ -69,10 +69,10 @@ fn can_issue_to_identity_we() {
         2,
     ));
     assert_eq!(
-        Identity::_register_did(relayers.clone(), vec![]).is_ok(),
+        Identity::_register_did(controller.clone(), vec![]).is_ok(),
         true
     );
-    assert_eq!(MultiSig::ms_signs_required(relayers), 2);
+    assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |did: IdentityId| {
         <Authorizations>::iter_prefix(Signatory::from(did))
             .next()
@@ -92,20 +92,20 @@ fn can_issue_to_identity_we() {
         last_authorization(charlie_did)
     ));
     assert_eq!(
-        MultiSig::ms_signers(relayers, Signatory::from(alice_did)),
+        MultiSig::ms_signers(controller, Signatory::from(alice_did)),
         true
     );
     assert_eq!(
-        MultiSig::ms_signers(relayers, Signatory::from(bob_did)),
+        MultiSig::ms_signers(controller, Signatory::from(bob_did)),
         true
     );
     assert_eq!(
-        MultiSig::ms_signers(relayers, Signatory::from(charlie_did)),
+        MultiSig::ms_signers(controller, Signatory::from(charlie_did)),
         true
     );
     let admin = frame_system::RawOrigin::Signed(Default::default());
-    assert_ok!(Bridge::change_relayers(Origin::system(admin), relayers));
-    assert_eq!(Bridge::relayers(), relayers);
+    assert_ok!(Bridge::change_controller(Origin::system(admin), controller));
+    assert_eq!(Bridge::controller(), controller);
     let amount = 1_000_000_000_000_000_000_000;
     let bridge_tx = BridgeTx {
         nonce: 1,
@@ -116,33 +116,36 @@ fn can_issue_to_identity_we() {
     let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
         bridge_tx.clone(),
     )));
-    assert_eq!(MultiSig::proposal_ids(&relayers, proposal.clone()), None);
-    assert_tx_approvals!(relayers, 0, 0);
-    assert_tx_approvals!(relayers, 1, 0);
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
+    assert_tx_approvals!(controller, 0, 0);
+    assert_tx_approvals!(controller, 1, 0);
 
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
-    assert_tx_approvals!(relayers, 0, 1);
-    assert_tx_approvals!(relayers, 1, 0);
+    assert_tx_approvals!(controller, 0, 1);
+    assert_tx_approvals!(controller, 1, 0);
     let bobs_balance = Balances::identity_balance(bob_did);
 
-    assert_eq!(MultiSig::proposal_ids(&relayers, proposal.clone()), Some(0));
+    assert_eq!(
+        MultiSig::proposal_ids(&controller, proposal.clone()),
+        Some(0)
+    );
     assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
-    assert_eq!(MultiSig::tx_approvals(&(relayers, 0)), 2);
-    assert_eq!(MultiSig::tx_approvals(&(relayers, 1)), 0);
+    assert_eq!(MultiSig::tx_approvals(&(controller, 0)), 2);
+    assert_eq!(MultiSig::tx_approvals(&(controller, 1)), 0);
 
-    assert_eq!(MultiSig::proposal_ids(&relayers, proposal), Some(0));
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
     let new_bobs_balance = Balances::identity_balance(bob_did);
     assert_eq!(new_bobs_balance, bobs_balance + amount);
     // Attempt to handle the same transaction again.
     assert!(Bridge::handled_txs(&bridge_tx.clone()));
     assert_err!(
-        Bridge::handle_bridge_tx(Origin::signed(relayers), bridge_tx),
+        Bridge::handle_bridge_tx(Origin::signed(controller), bridge_tx),
         Error::ProposalAlreadyHandled
     );
 }
 
 #[test]
-fn can_change_relayers() {
+fn can_change_controller() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did =
             register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
@@ -164,7 +167,7 @@ fn can_change_relayers() {
             charlie_did,
             555
         ));
-        let relayers = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+        let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![
@@ -175,10 +178,10 @@ fn can_change_relayers() {
             2,
         ));
         assert_eq!(
-            Identity::_register_did(relayers.clone(), vec![]).is_ok(),
+            Identity::_register_did(controller.clone(), vec![]).is_ok(),
             true
         );
-        assert_eq!(MultiSig::ms_signs_required(relayers), 2);
+        assert_eq!(MultiSig::ms_signs_required(controller), 2);
         let last_authorization = |did: IdentityId| {
             <Authorizations>::iter_prefix(Signatory::from(did))
                 .next()
@@ -198,53 +201,25 @@ fn can_change_relayers() {
             last_authorization(charlie_did)
         ));
         assert_eq!(
-            MultiSig::ms_signers(relayers, Signatory::from(alice_did)),
+            MultiSig::ms_signers(controller, Signatory::from(alice_did)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers(relayers, Signatory::from(bob_did)),
+            MultiSig::ms_signers(controller, Signatory::from(bob_did)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers(relayers, Signatory::from(charlie_did)),
+            MultiSig::ms_signers(controller, Signatory::from(charlie_did)),
             true
         );
         let admin = frame_system::RawOrigin::Signed(Default::default());
-        assert_ok!(Bridge::change_relayers(Origin::system(admin), relayers));
-        assert_eq!(Bridge::relayers(), relayers);
-        let new_relayers = MultiSig::get_next_multisig_address(AccountKeyring::Bob.public());
-        assert_ok!(MultiSig::create_multisig(
-            bob.clone(),
-            vec![Signatory::from(bob_did), Signatory::from(charlie_did)],
-            1,
-        ));
-        assert_eq!(
-            Identity::_register_did(new_relayers.clone(), vec![]).is_ok(),
-            true
-        );
-        assert_eq!(MultiSig::ms_signs_required(new_relayers), 1);
-        let call = Box::new(Call::Bridge(bridge::Call::handle_relayers(new_relayers)));
-        assert_tx_approvals!(relayers, 0, 0);
-        assert_tx_approvals!(new_relayers, 0, 0);
-        assert!(MultiSig::create_proposal(relayers, Signatory::from(bob_did), call).is_ok());
-        assert_tx_approvals!(relayers, 0, 1);
-        assert_tx_approvals!(new_relayers, 0, 0);
-        assert_eq!(Bridge::relayers(), relayers);
-        assert_err!(
-            MultiSig::approve_as_identity(dave.clone(), relayers, 0),
-            "Current identity is none and key is not linked to any identity"
-        );
-        assert_tx_approvals!(relayers, 0, 1);
-        assert_tx_approvals!(new_relayers, 0, 0);
-        assert_ok!(MultiSig::approve_as_identity(charlie.clone(), relayers, 0));
-        assert_tx_approvals!(relayers, 0, 2);
-        assert_tx_approvals!(new_relayers, 0, 0);
-        assert_eq!(Bridge::relayers(), new_relayers);
+        assert_ok!(Bridge::change_controller(Origin::system(admin), controller));
+        assert_eq!(Bridge::controller(), controller);
     });
 }
 
 #[test]
-fn cannot_propose_without_relayers() {
+fn cannot_propose_without_controller() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -257,7 +232,7 @@ fn cannot_propose_without_relayers() {
         };
         assert_err!(
             Bridge::propose_bridge_tx(alice, bridge_tx),
-            Error::RelayersNotSet,
+            Error::ControllerNotSet,
         );
     });
 }
@@ -268,8 +243,8 @@ fn cannot_call_bridge_callback_extrinsics() {
         let alice_account = AccountKeyring::Alice.public();
         let alice = Origin::signed(alice_account);
         assert_err!(
-            Bridge::handle_relayers(alice.clone(), alice_account),
-            Error::BadCaller,
+            Bridge::change_controller(alice.clone(), alice_account),
+            Error::Unauthorized,
         );
         let bridge_tx = BridgeTx {
             nonce: 1,
@@ -311,7 +286,7 @@ fn do_freeze_and_unfreeze_bridge() {
         charlie_did,
         555
     ));
-    let relayers = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+    let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
         vec![
@@ -322,10 +297,10 @@ fn do_freeze_and_unfreeze_bridge() {
         2,
     ));
     assert_eq!(
-        Identity::_register_did(relayers.clone(), vec![]).is_ok(),
+        Identity::_register_did(controller.clone(), vec![]).is_ok(),
         true
     );
-    assert_eq!(MultiSig::ms_signs_required(relayers), 2);
+    assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |did: IdentityId| {
         <Authorizations>::iter_prefix(Signatory::from(did))
             .next()
@@ -344,8 +319,8 @@ fn do_freeze_and_unfreeze_bridge() {
         charlie.clone(),
         last_authorization(charlie_did)
     ));
-    assert_ok!(Bridge::change_relayers(admin.clone(), relayers));
-    assert_eq!(Bridge::relayers(), relayers);
+    assert_ok!(Bridge::change_controller(admin.clone(), controller));
+    assert_eq!(Bridge::controller(), controller);
     let amount = 1_000_000_000_000_000_000_000;
     let bridge_tx = BridgeTx {
         nonce: 1,
@@ -356,22 +331,25 @@ fn do_freeze_and_unfreeze_bridge() {
     let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
         bridge_tx.clone(),
     )));
-    assert_eq!(MultiSig::proposal_ids(&relayers, proposal.clone()), None);
-    assert_tx_approvals!(relayers, 0, 0);
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
+    assert_tx_approvals!(controller, 0, 0);
     // First propose the transaction using the bridge API.
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
     // Freeze the bridge with the transaction still in flight.
     assert_ok!(Bridge::freeze(admin.clone()));
     assert!(Bridge::frozen());
-    assert_tx_approvals!(relayers, 0, 1);
+    assert_tx_approvals!(controller, 0, 1);
     let bobs_balance = || Balances::identity_balance(bob_did);
     let starting_bobs_balance = bobs_balance();
-    assert_eq!(MultiSig::proposal_ids(&relayers, proposal.clone()), Some(0));
+    assert_eq!(
+        MultiSig::proposal_ids(&controller, proposal.clone()),
+        Some(0)
+    );
     // Approve the transaction bypassing the bridge API. The transaction will be handled but will itself be
     // frozen.
-    assert_ok!(MultiSig::approve_as_identity(charlie, relayers, 0));
-    assert_eq!(MultiSig::tx_approvals(&(relayers, 0)), 2);
-    assert_eq!(MultiSig::proposal_ids(&relayers, proposal), Some(0));
+    assert_ok!(MultiSig::approve_as_identity(charlie, controller, 0));
+    assert_eq!(MultiSig::tx_approvals(&(controller, 0)), 2);
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
     // The tokens were not issued because the transaction is frozen.
     assert_eq!(bobs_balance(), starting_bobs_balance);
     assert!(!Bridge::handled_txs(&bridge_tx));
@@ -390,7 +368,7 @@ fn do_freeze_and_unfreeze_bridge() {
     // Attempt to handle the same transaction again.
     assert!(Bridge::handled_txs(&bridge_tx.clone()));
     assert_err!(
-        Bridge::handle_bridge_tx(Origin::signed(relayers), bridge_tx),
+        Bridge::handle_bridge_tx(Origin::signed(controller), bridge_tx),
         Error::ProposalAlreadyHandled
     );
 }

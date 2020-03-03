@@ -78,15 +78,15 @@ type IssueResult<T> = sp_std::result::Result<
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The bridge relayer set address is not set.
-        RelayersNotSet,
+        /// The bridge controller address is not set.
+        ControllerNotSet,
         /// The signer does not have an identity.
         IdentityMissing,
         /// Failure to credit the recipient account.
         CannotCreditAccount,
         /// Failure to credit the recipient identity.
         CannotCreditIdentity,
-        /// The origin is not the relayer set multisig.
+        /// The origin is not the controller address.
         BadCaller,
         /// The recipient DID has no valid CDD.
         NoValidCdd,
@@ -107,9 +107,9 @@ decl_error! {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
-        /// The multisig account of the bridge relayer set. The genesis signers must accept their
+        /// The multisig account of the bridge controller. The genesis signers must accept their
         /// authorizations to be able to get their proposals delivered.
-        Relayers get(relayers) build(|config: &GenesisConfig| {
+        Controller get(controller) build(|config: &GenesisConfig| {
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
                 panic!("too many signatures required");
@@ -150,7 +150,7 @@ decl_event! {
         Balance = <T as CommonTrait>::Balance
     {
         /// Confirmation of a signer set change.
-        RelayersChanged(AccountId),
+        ControllerChanged(AccountId),
         /// Confirmation of minting POLY on Polymesh in return for the locked ERC20 tokens on
         /// Ethereum.
         Bridged(BridgeTx<AccountId, Balance>),
@@ -176,10 +176,10 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Change the signer set account as admin.
-        pub fn change_relayers(origin, account_id: T::AccountId) -> DispatchResult {
+        /// Change the controller account as admin.
+        pub fn change_controller(origin, account_id: T::AccountId) -> DispatchResult {
             Self::check_admin(origin)?;
-            <Relayers<T>>::put(account_id);
+            <Controller<T>>::put(account_id);
             Ok(())
         }
 
@@ -193,7 +193,7 @@ decl_module! {
         /// Freezes the entire operation of the bridge module if it is not already frozen. The only
         /// available operations in the frozen state are the following admin methods:
         ///
-        /// * `change_relayers`,
+        /// * `change_controller`,
         /// * `change_admin_key`,
         /// * `unfreeze`,
         /// * `freeze_bridge_txs`,
@@ -222,13 +222,13 @@ decl_module! {
             DispatchResult
         {
             ensure!(!Self::frozen(), Error::<T>::Frozen);
-            let relayers = Self::relayers();
-            ensure!(relayers != Default::default(), Error::<T>::RelayersNotSet);
+            let controller = Self::controller();
+            ensure!(controller != Default::default(), Error::<T>::ControllerNotSet);
             let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
             let boxed_proposal = Box::new(proposal.into());
             <multisig::Module<T>>::create_or_approve_proposal_as_identity(
                 origin,
-                relayers,
+                controller,
                 boxed_proposal
             )
         }
@@ -269,17 +269,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Handles an approved signer set multisig account change proposal.
-        pub fn handle_relayers(origin, account_id: T::AccountId) -> DispatchResult {
-            ensure!(!Self::frozen(), Error::<T>::Frozen);
-            let sender = ensure_signed(origin.clone())?;
-            ensure!(sender == Self::relayers(), Error::<T>::BadCaller);
-            // Update the bridge signers.
-            <Relayers<T>>::put(account_id.clone());
-            Self::deposit_event(RawEvent::RelayersChanged(account_id));
-            Ok(())
-        }
-
         /// Handles an approved bridge transaction proposal.
         ///
         /// NOTE: Extrinsics without `pub` are exported too. This function is declared as `pub` only
@@ -288,7 +277,7 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin.clone())?;
-            ensure!(sender == Self::relayers(), Error::<T>::BadCaller);
+            ensure!(sender == Self::controller(), Error::<T>::BadCaller);
             ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
             if Self::frozen() {
                 if !Self::frozen_txs(&bridge_tx) {
@@ -322,8 +311,9 @@ decl_module! {
             for bridge_tx in bridge_txs {
                 let proposal =
                     <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx.clone())).into();
-                let proposal_id = <multisig::Module<T>>::proposal_ids(&Self::relayers(), &proposal);
+                let proposal_id = <multisig::Module<T>>::proposal_ids(&Self::controller(), &proposal);
                 ensure!(proposal_id.is_some(), Error::<T>::NoSuchProposal);
+                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
                 <FrozenTxs<T>>::insert(&bridge_tx, true);
                 Self::deposit_event(RawEvent::FrozenTx(bridge_tx));
             }
@@ -336,10 +326,10 @@ decl_module! {
         {
             Self::check_admin(origin)?;
             for bridge_tx in bridge_txs {
+                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
                 ensure!(Self::frozen_txs(&bridge_tx), Error::<T>::NoSuchFrozenTx);
                 <FrozenTxs<T>>::remove(&bridge_tx);
                 Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
-                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
                 if let Some(PendingTx {
                         did,
                         bridge_tx,
@@ -393,7 +383,7 @@ impl<T: Trait> Module<T> {
             } else {
                 return Ok(Some(PendingTx {
                     did,
-                    bridge_tx: bridge_tx,
+                    bridge_tx,
                 }));
             }
         } else if let Some(account_id) = account_id {
