@@ -225,7 +225,7 @@ decl_module! {
         /// Freezes the entire operation of the bridge module if it is not already frozen. The only
         /// available operations in the frozen state are the following admin methods:
         ///
-        /// * `change_relayers`,
+        /// * `change_controller`,
         /// * `change_admin_key`,
         /// * `unfreeze`,
         /// * `freeze_bridge_txs`,
