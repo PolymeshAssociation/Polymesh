@@ -1,3 +1,5 @@
+use crate::identity::Trait as IdentityTrait;
+
 use frame_support::{
     decl_event,
     traits::{ChangeMembers, InitializeMembers},
@@ -6,7 +8,7 @@ use polymesh_primitives::IdentityId;
 use sp_runtime::traits::EnsureOrigin;
 use sp_std::vec::Vec;
 
-pub trait Trait<I>: frame_system::Trait {
+pub trait Trait<I>: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -53,5 +55,7 @@ pub trait GroupTrait {
     fn get_members() -> Vec<IdentityId>;
 
     /// Is the given `MemberId` a valid member?
-    fn is_member(member_id: &IdentityId) -> bool;
+    fn is_member(member_id: &IdentityId) -> bool {
+        Self::get_members().contains(member_id)
+    }
 }

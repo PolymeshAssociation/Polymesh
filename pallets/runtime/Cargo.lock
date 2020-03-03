@@ -2660,9 +2660,11 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-runtime-identity",
  "serde",
  "serde_derive",
  "sp-api",
@@ -2684,7 +2686,6 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-runtime-common",
- "polymesh-runtime-group",
  "polymesh-runtime-identity-rpc-runtime-api",
  "serde",
  "serde_derive",
@@ -2705,7 +2706,6 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "sp-api",
- "sp-runtime",
 ]
 
 [[package]]

@@ -22,20 +22,28 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polymesh_primitives::IdentityId;
-pub use polymesh_runtime_common::group::{GroupTrait, RawEvent, Trait};
+use polymesh_primitives::{AccountKey, IdentityId};
+pub use polymesh_runtime_common::{
+    group::{GroupTrait, RawEvent, Trait},
+    Context,
+};
+use polymesh_runtime_identity as identity;
 
 use frame_support::{
-    decl_module, decl_storage,
+    codec::Encode,
+    decl_error, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
     traits::{ChangeMembers, InitializeMembers},
     weights::SimpleDispatchInfo,
     StorageValue,
 };
-use frame_system::{self as system, ensure_root};
+use frame_system::{self as system, ensure_root, ensure_signed};
 use sp_runtime::traits::EnsureOrigin;
-use sp_std::prelude::*;
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub type Event<T, I> = polymesh_runtime_common::group::Event<T, I>;
+type Identity<T> = identity::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
@@ -88,7 +96,7 @@ decl_module! {
         /// * `origin` Origin representing `RemoveOrigin` or root
         /// * `who` IdentityId to be removed from the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn remove_member(origin, who: IdentityId) {
+        pub fn remove_member(origin, who: IdentityId) {
             T::RemoveOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
@@ -112,7 +120,7 @@ decl_module! {
         /// * `remove` IdentityId to be removed from the group.
         /// * `add` IdentityId to be added in place of `remove`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn swap_member(origin, remove: IdentityId, add: IdentityId) {
+        pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
             T::SwapOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
@@ -145,7 +153,7 @@ decl_module! {
         /// * `origin` Origin representing `ResetOrigin` or root
         /// * `members` New set of identities
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn reset_members(origin, members: Vec<IdentityId>) {
+        pub fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
@@ -160,6 +168,51 @@ decl_module! {
 
             Self::deposit_event(RawEvent::MembersReset(members));
         }
+
+        /// It allows a caller member to unilaterally quit without this
+        /// being subject to a GC vote.
+        ///
+        /// # Arguments
+        /// * `origin` Member of committee who wants to quit.
+        /// # Error
+        /// * Only master key can abdicate.
+        /// * Last member of a group
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        pub fn abdicate_membership(origin) -> DispatchResult {
+            let who = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
+
+            ensure!(<Identity<T>>::is_master_key(remove_id, &who),
+                Error::<T,I>::OnlyMasterKeyAllowed);
+
+            let mut members = Self::members();
+            ensure!(members.contains(&remove_id),
+                Error::<T,I>::MemberNotFound);
+            ensure!( members.len() > 1,
+                Error::<T,I>::LastMemberCannotQuit);
+
+            members.retain( |id| *id != remove_id);
+            <Members<I>>::put(&members);
+
+            T::MembershipChanged::change_members_sorted(
+                &[],
+                &[remove_id],
+                &members[..],
+            );
+
+            Ok(())
+        }
+    }
+}
+
+decl_error! {
+    pub enum Error for Module<T: Trait<I>, I: Instance> {
+        /// Only master key of the identity is allowed.
+        OnlyMasterKeyAllowed,
+        /// Sender Identity is not part of the committee.
+        MemberNotFound,
+        /// Last member of the committee can not quit.
+        LastMemberCannotQuit,
     }
 }
 
@@ -172,269 +225,5 @@ impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
 
     fn is_member(did: &IdentityId) -> bool {
         Self::members().iter().any(|id| id == did)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use frame_support::{
-        assert_noop, assert_ok, impl_outer_origin, parameter_types, traits::InitializeMembers,
-    };
-    use frame_system::{self as system, EnsureSignedBy};
-    use sp_core::H256;
-    use sp_std::cell::RefCell;
-
-    use sp_runtime::{
-        testing::Header,
-        traits::{BlakeTwo256, IdentityLookup},
-        Perbill,
-    };
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
-
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub const MaximumBlockWeight: u32 = 1024;
-        pub const MaximumBlockLength: u32 = 2 * 1024;
-        pub const AvailableBlockRatio: Perbill = Perbill::one();
-    }
-
-    impl frame_system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Call = ();
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type BlockHashCount = BlockHashCount;
-        type MaximumBlockWeight = MaximumBlockWeight;
-        type MaximumBlockLength = MaximumBlockLength;
-        type AvailableBlockRatio = AvailableBlockRatio;
-        type Version = ();
-        type ModuleToIndex = ();
-    }
-    parameter_types! {
-        pub const One: u64 = 1;
-        pub const Two: u64 = 2;
-        pub const Three: u64 = 3;
-        pub const Four: u64 = 4;
-        pub const Five: u64 = 5;
-    }
-
-    thread_local! {
-        static MEMBERS: RefCell<Vec<IdentityId>> = RefCell::new(vec![]);
-    }
-
-    pub struct TestChangeMembers;
-    impl ChangeMembers<IdentityId> for TestChangeMembers {
-        fn change_members_sorted(
-            incoming: &[IdentityId],
-            outgoing: &[IdentityId],
-            new: &[IdentityId],
-        ) {
-            let mut old_plus_incoming = MEMBERS.with(|m| m.borrow().to_vec());
-            old_plus_incoming.extend_from_slice(incoming);
-            old_plus_incoming.sort();
-            let mut new_plus_outgoing = new.to_vec();
-            new_plus_outgoing.extend_from_slice(outgoing);
-            new_plus_outgoing.sort();
-            assert_eq!(old_plus_incoming, new_plus_outgoing);
-
-            MEMBERS.with(|m| *m.borrow_mut() = new.to_vec());
-        }
-    }
-    impl InitializeMembers<IdentityId> for TestChangeMembers {
-        fn initialize_members(members: &[IdentityId]) {
-            MEMBERS.with(|m| *m.borrow_mut() = members.to_vec());
-        }
-    }
-
-    impl Trait<DefaultInstance> for Test {
-        type Event = ();
-        type AddOrigin = EnsureSignedBy<One, u64>;
-        type RemoveOrigin = EnsureSignedBy<Two, u64>;
-        type SwapOrigin = EnsureSignedBy<Three, u64>;
-        type ResetOrigin = EnsureSignedBy<Four, u64>;
-        type MembershipInitialized = TestChangeMembers;
-        type MembershipChanged = TestChangeMembers;
-    }
-
-    type Group = Module<Test>;
-
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn new_test_ext() -> sp_io::TestExternalities {
-        let mut t = system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
-
-        // We use default for brevity, but you can configure as desired if needed.
-        GenesisConfig::<Test> {
-            members: vec![
-                IdentityId::from(1),
-                IdentityId::from(2),
-                IdentityId::from(3),
-            ],
-            ..Default::default()
-        }
-        .assimilate_storage(&mut t)
-        .unwrap();
-        t.into()
-    }
-
-    #[test]
-    fn query_membership_works() {
-        new_test_ext().execute_with(|| {
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3)
-                ]
-            );
-            assert_eq!(
-                MEMBERS.with(|m| m.borrow().clone()),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3)
-                ]
-            );
-        });
-    }
-
-    #[test]
-    fn add_member_works() {
-        new_test_ext().execute_with(|| {
-            assert_noop!(
-                Group::add_member(Origin::signed(5), IdentityId::from(3)),
-                "bad origin"
-            );
-            assert_noop!(
-                Group::add_member(Origin::signed(1), IdentityId::from(3)),
-                "already a member"
-            );
-            assert_ok!(Group::add_member(Origin::signed(1), IdentityId::from(4)));
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3),
-                    IdentityId::from(4)
-                ]
-            );
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
-        });
-    }
-
-    #[test]
-    fn remove_member_works() {
-        new_test_ext().execute_with(|| {
-            assert_noop!(
-                Group::remove_member(Origin::signed(5), IdentityId::from(3)),
-                "bad origin"
-            );
-            assert_noop!(
-                Group::remove_member(Origin::signed(2), IdentityId::from(5)),
-                "not a member"
-            );
-            assert_ok!(Group::remove_member(Origin::signed(2), IdentityId::from(3)));
-            assert_eq!(
-                Group::members(),
-                vec![IdentityId::from(1), IdentityId::from(2),]
-            );
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
-        });
-    }
-
-    #[test]
-    fn swap_member_works() {
-        new_test_ext().execute_with(|| {
-            assert_noop!(
-                Group::swap_member(Origin::signed(5), IdentityId::from(1), IdentityId::from(5)),
-                "bad origin"
-            );
-            assert_noop!(
-                Group::swap_member(Origin::signed(3), IdentityId::from(5), IdentityId::from(6)),
-                "not a member"
-            );
-            assert_noop!(
-                Group::swap_member(Origin::signed(3), IdentityId::from(1), IdentityId::from(3)),
-                "already a member"
-            );
-            assert_ok!(Group::swap_member(
-                Origin::signed(3),
-                IdentityId::from(2),
-                IdentityId::from(2)
-            ));
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3)
-                ]
-            );
-            assert_ok!(Group::swap_member(
-                Origin::signed(3),
-                IdentityId::from(1),
-                IdentityId::from(6)
-            ));
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(2),
-                    IdentityId::from(3),
-                    IdentityId::from(6),
-                ]
-            );
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
-        });
-    }
-
-    #[test]
-    fn reset_members_works() {
-        new_test_ext().execute_with(|| {
-            assert_noop!(
-                Group::reset_members(
-                    Origin::signed(1),
-                    vec![
-                        IdentityId::from(4),
-                        IdentityId::from(5),
-                        IdentityId::from(6),
-                    ]
-                ),
-                "bad origin"
-            );
-            assert_ok!(Group::reset_members(
-                Origin::signed(4),
-                vec![
-                    IdentityId::from(4),
-                    IdentityId::from(5),
-                    IdentityId::from(6),
-                ]
-            ));
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(4),
-                    IdentityId::from(5),
-                    IdentityId::from(6),
-                ]
-            );
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
-        });
     }
 }

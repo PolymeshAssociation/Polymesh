@@ -668,10 +668,6 @@ mod tests {
         fn get_members() -> Vec<IdentityId> {
             unimplemented!();
         }
-
-        fn is_member(_member_id: &IdentityId) -> bool {
-            unimplemented!();
-        }
     }
 
     impl AddSignerMultiSig for Test {

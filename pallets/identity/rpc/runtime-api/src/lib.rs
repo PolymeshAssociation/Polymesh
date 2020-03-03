@@ -4,7 +4,7 @@
 
 use codec::Codec;
 use frame_support::dispatch::Vec;
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::IdentityId;
 
 pub type Error = Vec<u8>;
 pub type CddStatus = Result<IdentityId, Error>;
