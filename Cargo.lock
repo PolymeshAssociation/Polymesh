@@ -2954,6 +2954,59 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-mips"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-mips-rpc-runtime-api",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-balances",
+ "polymesh-runtime-common",
+ "polymesh-runtime-group",
+ "polymesh-runtime-identity",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+]
+
+[[package]]
+name = "pallet-mips-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-mips-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-mips-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-offences"
 version = "2.0.0"
 source = "git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
@@ -3479,6 +3532,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-im-online",
+ "pallet-mips-rpc",
  "pallet-staking-rpc",
  "pallet-transaction-payment-rpc",
  "parking_lot 0.9.0",
@@ -3554,6 +3608,8 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-membership",
+ "pallet-mips",
+ "pallet-mips-rpc-runtime-api",
  "pallet-offences",
  "pallet-randomness-collective-flip",
  "pallet-session",
@@ -3705,8 +3761,9 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "polymesh-primitives",
+ "serde",
  "sp-api",
- "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

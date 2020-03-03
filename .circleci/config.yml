@@ -10,36 +10,6 @@ jobs:
       - run:
           name: Check formatting
           command: ./scripts/rustfmt.sh
-  build:
-    docker:
-      - image: maxsam4/rust
-    environment:
-      VERBOSE: "1"
-    steps:
-      - checkout
-      - run:
-          name: Build concatenated lock file for caching
-          command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
-      - run:
-          name: Store rust version in an environment var for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
-            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - release-cache-{{ checksum "./rust.version" }}
-            - release-cache
-      - run:
-          name: Build release
-          command: cargo build -j 1 --release
-          no_output_timeout: 4h
-      - save_cache:
-          key: release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
-          paths:
-            - "~/.cargo"
-            - "./target"
-            - "./pallets/runtime/target"
-            - "./pallets/runtime/wasm/target"
   test:
     docker:
       - image: maxsam4/rust
@@ -121,7 +91,7 @@ workflows:
   commit:
     jobs:
       - lint
-      - build
+      - cli
       - test
   daily-builds:
     triggers:
