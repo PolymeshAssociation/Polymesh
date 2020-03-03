@@ -381,10 +381,7 @@ impl<T: Trait> Module<T> {
                 };
                 resolution.map_err(|_| Error::<T>::CannotCreditAccount)?;
             } else {
-                return Ok(Some(PendingTx {
-                    did,
-                    bridge_tx,
-                }));
+                return Ok(Some(PendingTx { did, bridge_tx }));
             }
         } else if let Some(account_id) = account_id {
             // Issue to an account not associated with an identity.
