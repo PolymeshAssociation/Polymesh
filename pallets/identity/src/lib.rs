@@ -129,7 +129,6 @@ decl_storage! {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, u64)>;
         build(|config: &GenesisConfig<T>| {
             for &(ref master_account_id, did_issuer, did, ref expiry) in &config.identities {
-                use chrono::prelude::Utc;
                 // Direct storage change for registering the DID and providing the claim
                 let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
                 assert!(!<DidRecords>::exists(did), "Identity already exist");
@@ -142,7 +141,14 @@ decl_storage! {
                 <DidRecords>::insert(&did, record);
 
                 // Add the claim data for the CustomerDueDiligence type claim
-                let current_timestamp = ((Utc::now()).timestamp() * 1000) as u64;
+                use wasm_timer::SystemTime;
+
+                let now = SystemTime::now();
+                let current_time = match now.duration_since(SystemTime::UNIX_EPOCH) {
+                    Ok(time) => time,
+                    Err(_) => panic!("Current time is before unix epoch")
+                };
+                let current_timestamp = current_time.as_millis() as u64;
                 let claim_meta_data = ClaimIdentifier(IdentityClaimData::CustomerDueDiligence, did_issuer);
                 let claim_expiry = current_timestamp.checked_add(*expiry).unwrap_or_default();
                 let claim = IdentityClaim {
