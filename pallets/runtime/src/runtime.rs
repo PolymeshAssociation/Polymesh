@@ -313,8 +313,7 @@ type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
 }
 

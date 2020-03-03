@@ -58,19 +58,6 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum ProportionMatch {
-    AtLeast,
-    MoreThan,
-}
-
-impl Default for ProportionMatch {
-    fn default() -> Self {
-        ProportionMatch::MoreThan
-    }
-}
-
 /// Origin for the committee module.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum RawOrigin<AccountId, I> {
@@ -107,7 +94,7 @@ decl_storage! {
         /// The current members of the committee.
         pub Members get(fn members): Vec<IdentityId>;
         /// Vote threshold for an approval.
-        pub VoteThreshold get(fn vote_threshold) config(): (ProportionMatch, u32, u32);
+        pub VoteThreshold get(fn vote_threshold) config(): (u32, u32);
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -162,7 +149,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Change the vote threshold the determines the winning proposal. For e.g., for a simple
-        /// majority use (ProportionMatch.AtLeast, 1, 2) which represents the inequation ">= 1/2"
+        /// majority use (1, 2) which represents the inequation ">= 1/2"
         ///
         /// # Arguments
         /// * `match_criteria` One of {AtLeast, MoreThan}
@@ -170,12 +157,21 @@ decl_module! {
         /// * `d` Denominator of the fraction representing vote threshold
         /// * `match_criteria` One of {AtLeast, MoreThan}
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn set_vote_threshold(origin, match_criteria: ProportionMatch, n: u32, d: u32) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
-            <VoteThreshold<I>>::put((match_criteria, n, d));
+        fn set_vote_threshold(origin, n: u32, d: u32) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            <VoteThreshold<I>>::put((n, d));
+        }
+
+        /// TODO: REMOVE BEFORE MERGING!
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn set_members(origin, new_members: Vec<IdentityId>) {
+            ensure_root(origin)?;
+
+            let mut new_members = new_members;
+            new_members.sort();
+            <Members<I>>::mutate(|m| {
+                *m = new_members;
+            });
         }
 
         /// Any committee member proposes a dispatchable.
@@ -303,15 +299,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
     /// in relation to the threshold proporion `n`/`d`.
-    fn is_threshold_satisfied(
-        votes: u32,
-        total: u32,
-        (threshold, n, d): (ProportionMatch, u32, u32),
-    ) -> bool {
-        match threshold {
-            ProportionMatch::AtLeast => votes * d >= n * total,
-            ProportionMatch::MoreThan => votes * d > n * total,
-        }
+    fn is_threshold_satisfied(votes: u32, total: u32, (n, d): (u32, u32)) -> bool {
+        votes * d >= n * total
     }
 }
 
@@ -575,7 +564,7 @@ mod tests {
     fn make_ext() -> sp_io::TestExternalities {
         GenesisConfig {
             committee_Instance1: Some(committee::GenesisConfig {
-                vote_threshold: (ProportionMatch::AtLeast, 1, 1),
+                vote_threshold: (1, 1),
                 phantom: Default::default(),
             }),
             committee: None,
@@ -796,20 +785,13 @@ mod tests {
     #[test]
     fn changing_vote_threshold_works() {
         make_ext().execute_with(|| {
-            assert_eq!(
-                Committee::vote_threshold(),
-                (ProportionMatch::AtLeast, 1, 1)
-            );
+            assert_eq!(Committee::vote_threshold(), (1, 1));
             assert_ok!(Committee::set_vote_threshold(
                 Origin::signed(AccountId::from(AccountKeyring::Alice)),
-                ProportionMatch::AtLeast,
                 4,
                 17
             ));
-            assert_eq!(
-                Committee::vote_threshold(),
-                (ProportionMatch::AtLeast, 4, 17)
-            );
+            assert_eq!(Committee::vote_threshold(), (4, 17));
         });
     }
 }
