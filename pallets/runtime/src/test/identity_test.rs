@@ -923,6 +923,7 @@ fn changing_master_key_with_cdd_auth_we() {
     );
 }
 
+#[test]
 fn cdd_register_did_test() {
     ExtBuilder::default()
         .existential_deposit(1_000)
