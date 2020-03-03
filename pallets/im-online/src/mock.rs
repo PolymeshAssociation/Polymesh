@@ -170,7 +170,7 @@ impl Trait for Runtime {
     type SubmitTransaction = SubmitTransaction;
     type ReportUnresponsiveness = OffenceHandler;
     type SessionDuration = Period;
-    type RequiredCommitteeOrigin = EnsureSignedBy<OneThousand, Self::AccountId>;
+    type CommitteeOrigin = EnsureSignedBy<OneThousand, Self::AccountId>;
 }
 
 /// Im Online module.
