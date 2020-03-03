@@ -1,7 +1,7 @@
 //! # Group Module
 //!
 //! The Group module is used to manage a set of identities. A group of identities can be a
-//! collection of KYC providers, council members for governance and so on. This is an instantiable
+//! collection of CDD providers, council members for governance and so on. This is an instantiable
 //! module.
 //!
 //! ## Overview

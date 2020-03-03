@@ -26,7 +26,7 @@ pub enum LinkedKeyInfo {
 
 pub type AuthorizationNonce = u64;
 
-/// It represents an authorization that any account could sing to allow operations related with a
+/// It represents an authorization that any account could sign to allow operations related with a
 /// target identity.
 ///
 /// # Safety
@@ -68,7 +68,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// MultiSig module
     type AddSignerMultiSigTarget: AddSignerMultiSig;
     /// Group module
-    type KycServiceProviders: GroupTrait;
+    type CddServiceProviders: GroupTrait;
 
     type Balances: balances::BalancesTrait<
         <Self as frame_system::Trait>::AccountId,

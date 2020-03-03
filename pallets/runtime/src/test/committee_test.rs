@@ -289,7 +289,7 @@ fn rage_quit_we() {
     let charlie_acc = AccountKeyring::Charlie.public();
     let (charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
     let dave_acc = AccountKeyring::Dave.public();
-    let (dave_signer, dave_did) = make_account(dave_acc).unwrap();
+    let (_, dave_did) = make_account(dave_acc).unwrap();
     let ferdie_acc = AccountKeyring::Ferdie.public();
     let (ferdie_signer, ferdie_did) = make_account(ferdie_acc).unwrap();
     let committee = vec![alice_did, bob_did, charlie_did, dave_did];

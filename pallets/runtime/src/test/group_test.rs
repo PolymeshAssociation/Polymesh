@@ -173,7 +173,7 @@ fn rage_quit_we() {
 
     // 0. Threshold is 2/3
     let committee = vec![alice_did, bob_did, charlie_did];
-    CommitteeGroup::reset_members(root.clone(), committee);
+    assert_ok!(CommitteeGroup::reset_members(root.clone(), committee));
 
     // Ferdie is NOT a member
     assert_eq!(CommitteeGroup::is_member(&ferdie_did), false);

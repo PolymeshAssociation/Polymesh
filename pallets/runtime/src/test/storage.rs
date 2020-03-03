@@ -188,7 +188,7 @@ impl group::Trait<group::Instance2> for TestStorage {
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as system::Trait>::AccountId, I>;
 
 impl<I> From<CommitteeOrigin<TestStorage, I>> for Origin {
-    fn from(co: CommitteeOrigin<TestStorage, I>) -> Origin {
+    fn from(_co: CommitteeOrigin<TestStorage, I>) -> Origin {
         Origin::system(frame_system::RawOrigin::Root)
     }
 }
@@ -215,7 +215,7 @@ impl identity::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = TestStorage;
-    type KycServiceProviders = group::Module<TestStorage, group::Instance2>;
+    type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
 }
 
