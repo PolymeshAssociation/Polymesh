@@ -2001,11 +2001,7 @@ impl<T: Trait> Module<T> {
     pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
         if let Some(account_key) = AccountKey::try_from(stash.encode()).ok() {
             if let Some(validator_identity) = <identity::Module<T>>::get_identity(&(account_key)) {
-                let (is_compliant, _) = <identity::Module<T>>::is_identity_has_valid_kyc(
-                    validator_identity,
-                    Zero::zero(),
-                );
-                return is_compliant;
+                return <identity::Module<T>>::has_valid_cdd(validator_identity);
             }
         }
         false

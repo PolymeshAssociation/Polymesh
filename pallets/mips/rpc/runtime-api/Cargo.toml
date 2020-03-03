@@ -1,0 +1,26 @@
+[package]
+name = "pallet-mips-rpc-runtime-api"
+version = "2.0.0"
+authors = ["Anonymous"]
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0.101", optional = true, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+sp-api = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421'}
+sp-std = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421'}
+sp-runtime = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421'}
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = '93569d0d1af7aa5eb67b9de8b58d7fffde63b421'}
+
+[dev-dependencies]
+serde_json = "1.0.41"
+
+[features]
+default = ["std"]
+std = [
+    "serde",
+	"sp-api/std",
+	"codec/std",
+	"sp-std/std",
+	"sp-runtime/std",
+]

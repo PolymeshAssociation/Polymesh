@@ -20,7 +20,6 @@ mod contracts_wrapper;
 mod dividend;
 mod exemption;
 mod general_tm;
-mod mips;
 mod multisig;
 mod percentage_tm;
 mod simple_token;
@@ -51,7 +50,7 @@ pub mod config {
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type PolymeshCommitteeConfig =
         crate::committee::GenesisConfig<crate::Runtime, crate::committee::Instance1>;
-    pub type MipsConfig = crate::mips::GenesisConfig<crate::Runtime>;
+    pub type MipsConfig = pallet_mips::GenesisConfig<crate::Runtime>;
     pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;
     pub type ImOnlineConfig = pallet_im_online::GenesisConfig<crate::Runtime>;

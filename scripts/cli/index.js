@@ -442,19 +442,19 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
     // 1. Add Signing Item to identity.
     let signing_item = {
       signer: {
-          key: signing_accounts[i].publicKey
+          AccountKey: signing_accounts[i].publicKey 
       },
       signer_type: 0,
       roles: []
     }
     if (fast) {
       const unsub = await api.tx.identity
-      .addSigningItems(dids[i], [signing_item])
+      .addSigningItems([signing_item])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-        .addSigningItems(dids[i], [signing_item])
+        .addSigningItems([signing_item])
         .signAndSend(accounts[i],
           { nonce: nonces.get(accounts[i].address) },
           ({ events = [], status }) => {
@@ -526,15 +526,15 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, 
 async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
   fail_type["SET SIGNING KEY ROLES"] = 0;
   for (let i = 0; i < accounts.length; i++) {
-    let signer = { key: signing_accounts[i].publicKey };
+    let signer = { AccountKey: signing_accounts[i].publicKey };
     if (fast) {
       const unsub = await api.tx.identity
-      .setPermissionToSigner(dids[i], signer, sk_roles[i%sk_roles.length])
+      .setPermissionToSigner( signer, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-      .setPermissionToSigner(dids[i], signer, sk_roles[i%sk_roles.length])
+      .setPermissionToSigner( signer, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
@@ -571,12 +571,12 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
     const ticker = `token${prepend}${i}`;
     if (fast) {
       const unsub = await api.tx.asset
-      .createToken(dids[i], ticker, ticker, 1000000, true, 0, [])
+      .createToken( ticker, ticker, 1000000, true, 0, [])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.asset
-      .createToken(dids[i], ticker, ticker, 1000000, true, 0, [])
+      .createToken( ticker, ticker, 1000000, true, 0, [], "abc")
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
