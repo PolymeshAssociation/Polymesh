@@ -29,8 +29,8 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 fn add_claims_batch() {
     ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let issuer = AccountKeyring::Bob.public();
+        let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _issuer = AccountKeyring::Bob.public();
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = AccountKeyring::Charlie.public();
 
@@ -115,7 +115,7 @@ fn revoking_claims() {
     ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let issuer = Origin::signed(AccountKeyring::Bob.public());
+        let _issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
 
@@ -840,8 +840,8 @@ fn changing_master_key_we() {
     let new_key = AccountKey::from(AccountKeyring::Bob.public().0);
     let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
 
-    let kyc_acc = AccountKey::from(AccountKeyring::Eve.public().0);
-    let kyc_did = Identity::get_identity(&kyc_acc).unwrap();
+    let cdd_acc = AccountKey::from(AccountKeyring::Eve.public().0);
+    let cdd_did = Identity::get_identity(&cdd_acc).unwrap();
 
     // Master key matches Alice's key
     assert_eq!(Identity::did_records(alice_did).master_key, alice_key);
@@ -854,8 +854,8 @@ fn changing_master_key_we() {
         None,
     );
 
-    let kyc_auth_id = Identity::add_auth(
-        Signatory::Identity(kyc_did),
+    let cdd_auth_id = Identity::add_auth(
+        Signatory::Identity(cdd_did),
         Signatory::AccountKey(new_key),
         AuthorizationData::AttestMasterKeyRotation(alice_did),
         None,
@@ -865,7 +865,7 @@ fn changing_master_key_we() {
     assert_ok!(Identity::accept_master_key(
         new_key_origin.clone(),
         owner_auth_id.clone(),
-        kyc_auth_id.clone()
+        cdd_auth_id.clone()
     ));
 
     // Alice's master key is now Bob's
@@ -889,10 +889,10 @@ fn cdd_register_did_test() {
 }
 
 fn cdd_register_did_test_we() {
-    let kyc_1_acc = AccountKeyring::Eve.public();
-    let kyc_1_key = AccountKey::try_from(kyc_1_acc.0).unwrap();
-    let kyc_2_acc = AccountKeyring::Ferdie.public();
-    let kyc_2_key = AccountKey::try_from(kyc_2_acc.0).unwrap();
+    let cdd_1_acc = AccountKeyring::Eve.public();
+    let cdd_1_key = AccountKey::try_from(cdd_1_acc.0).unwrap();
+    let cdd_2_acc = AccountKeyring::Ferdie.public();
+    let cdd_2_key = AccountKey::try_from(cdd_2_acc.0).unwrap();
     let non_id = Origin::signed(AccountKeyring::Charlie.public());
 
     let alice_acc = AccountKeyring::Alice.public();
@@ -900,32 +900,32 @@ fn cdd_register_did_test_we() {
     let bob_acc = AccountKeyring::Bob.public();
     let bob_key = AccountKey::try_from(bob_acc.0).unwrap();
 
-    // KYC 1 registers correctly the Alice's ID.
+    // CDD 1 registers correctly the Alice's ID.
     assert_ok!(Identity::cdd_register_did(
-        Origin::signed(kyc_1_acc),
+        Origin::signed(cdd_1_acc),
         alice_acc,
         10,
         vec![]
     ));
 
-    // Check that Alice's ID is attested by KYC 1.
+    // Check that Alice's ID is attested by CDD 1.
     let alice_id = Identity::get_identity(&alice_key).unwrap();
-    let kyc_1_id = Identity::get_identity(&kyc_1_key).unwrap();
+    let _cdd_1_id = Identity::get_identity(&cdd_1_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Error case: Try account without ID.
     assert!(Identity::cdd_register_did(non_id, bob_acc, 10, vec![]).is_err(),);
-    // Error case: Try account with ID but it is not part of KYC providers.
+    // Error case: Try account with ID but it is not part of CDD providers.
     assert!(Identity::cdd_register_did(Origin::signed(alice_acc), bob_acc, 10, vec![]).is_err());
 
-    // KYC 2 registers properly Bob's ID.
+    // CDD 2 registers properly Bob's ID.
     assert_ok!(Identity::cdd_register_did(
-        Origin::signed(kyc_2_acc),
+        Origin::signed(cdd_2_acc),
         bob_acc,
         10,
         vec![]
     ));
     let bob_id = Identity::get_identity(&bob_key).unwrap();
-    let kyc_2_id = Identity::get_identity(&kyc_2_key).unwrap();
+    let _cdd_2_id = Identity::get_identity(&cdd_2_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
 }
