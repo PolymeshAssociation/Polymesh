@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{
     asset, bridge, committee, contracts_wrapper, dividend, exemption, general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
