@@ -274,30 +274,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Freezes the entire operation of the bridge module if it is not already frozen. The only
-        /// available operations in the frozen state are the following admin methods:
-        ///
-        /// * `change_controller`,
-        /// * `unfreeze`,
-        /// * `freeze_bridge_tx`,
-        /// * `unfreeze_bridge_tx`.
-        pub fn freeze(origin) -> DispatchResult {
-            Self::is_root_or_admin(origin)?;
-            ensure!(!Self::frozen(), Error::<T>::Frozen);
-            <Frozen>::put(true);
-            Self::deposit_event(RawEvent::Frozen);
-            Ok(())
-        }
-
-        /// Unfreezes the operation of the bridge module if it is frozen.
-        pub fn unfreeze(origin) -> DispatchResult {
-            Self::is_root_or_admin(origin)?;
-            ensure!(Self::frozen(), Error::<T>::NotFrozen);
-            <Frozen>::put(false);
-            Self::deposit_event(RawEvent::Unfrozen);
-            Ok(())
-        }
-
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
         /// bridge transaction if the transaction is new or approving an existing proposal if the
         /// transaction has already been proposed.
@@ -378,27 +354,6 @@ decl_module! {
             } else {
                 Self::handle_bridge_tx_later(bridge_tx, timelock)
             }
-        }
-
-        /// Handles the timelocked transactions set to unlock at the current block number or
-        /// earlier.
-        pub fn handle_timelocked_txs(origin) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            ensure!(sender == Self::controller(), Error::<T>::BadCaller);
-            let current_block_number = <system::Module<T>>::block_number();
-            let mut reached_block_numbers = Vec::new();
-            for (block_number, txs) in <TimelockedTxs<T>>::enumerate()
-                .take_while(|(n, _)| n <= &current_block_number)
-            {
-                reached_block_numbers.push(block_number);
-                for tx in txs {
-                    let _ = Self::handle_bridge_tx_now(tx);
-                }
-            }
-            for block_number in reached_block_numbers {
-                <TimelockedTxs<T>>::remove(block_number);
-            }
-            Ok(())
         }
 
         /// Freezes given bridge transactions.
