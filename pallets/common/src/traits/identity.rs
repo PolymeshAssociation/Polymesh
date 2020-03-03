@@ -26,7 +26,7 @@ pub enum LinkedKeyInfo {
 
 pub type AuthorizationNonce = u64;
 
-/// It represents an authorization that any account could sing to allow operations related with a
+/// It represents an authorization that any account could sign to allow operations related with a
 /// target identity.
 ///
 /// # Safety
