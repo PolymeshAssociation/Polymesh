@@ -1486,6 +1486,10 @@ impl<T: Trait> Module<T> {
 
         Self::deposit_event(RawEvent::NewClaims(target_did, claim_meta_data, claim));
     }
+
+    pub fn is_identity_exists(did: &IdentityId) -> bool {
+        <DidRecords>::exists(did)
+    }
 }
 
 impl<T: Trait> Module<T> {

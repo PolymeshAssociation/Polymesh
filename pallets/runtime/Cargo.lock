@@ -2705,7 +2705,6 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "sp-api",
- "sp-runtime",
 ]
 
 [[package]]
