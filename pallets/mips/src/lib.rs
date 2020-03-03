@@ -34,6 +34,7 @@
 //! ### Public Functions
 //!
 //! - `end_block` - Returns details of the token
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -45,6 +46,7 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
+use pallet_mips_rpc_runtime_api::VoteCount;
 use sp_runtime::{
     traits::{Dispatchable, EnsureOrigin, Hash, Zero},
     DispatchError,
@@ -82,7 +84,9 @@ impl<T: AsRef<[u8]>> From<T> for Url {
 
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct MipsMetadata<BlockNumber: Parameter, Hash: Parameter> {
+pub struct MipsMetadata<AcccountId: Parameter, BlockNumber: Parameter, Hash: Parameter> {
+    /// The creator
+    proposer: AcccountId,
     /// The proposal's unique index.
     index: MipsIndex,
     /// When voting will end.
@@ -164,7 +168,7 @@ decl_storage! {
         pub ProposalCount get(fn proposal_count): u32;
 
         /// The hashes of the active proposals.
-        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::BlockNumber, T::Hash>>;
+        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::AccountId, T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
         /// proposal hash -> (deposit, proposer)
@@ -174,8 +178,12 @@ decl_storage! {
         /// proposal hash -> proposal
         pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
 
+        /// Lookup proposal hash by a proposal's index
+        /// MIP index -> proposal hash
+        pub ProposalByIndex get(fn proposal_by_index): map MipsIndex => T::Hash;
+
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        /// proposal hash -> voting info
+        /// proposal hash -> vote count
         pub Voting get(fn voting): map T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
@@ -301,6 +309,7 @@ decl_module! {
             <ProposalCount>::mutate(|i| *i += 1);
 
             let proposal_meta = MipsMetadata {
+                proposer: proposer.clone(),
                 index,
                 end: <system::Module<T>>::block_number() + Self::proposal_duration(),
                 proposal_hash,
@@ -315,6 +324,7 @@ decl_module! {
                 proposal: *proposal
             };
             <Proposals<T>>::insert(proposal_hash, mip);
+            <ProposalByIndex<T>>::insert(index, proposal_hash);
 
             let vote = PolymeshVotes {
                 index,
@@ -555,6 +565,7 @@ impl<T: Trait> Module<T> {
                 <ProposalMetadata<T>>::mutate(|metadata| {
                     metadata.retain(|m| m.proposal_hash != hash)
                 });
+                <ProposalByIndex<T>>::remove(index);
 
                 Self::deposit_event(RawEvent::ProposalClosed(index, hash));
             }
@@ -573,6 +584,59 @@ impl<T: Trait> Module<T> {
             };
             Self::deposit_event(RawEvent::ReferendumEnacted(hash, result));
         }
+    }
+}
+
+impl<T: Trait> Module<T> {
+    /// Retrieve votes for a proposal represented by MipsIndex `index`.
+    pub fn get_votes(index: MipsIndex) -> VoteCount<BalanceOf<T>>
+    where
+        T: Send + Sync,
+        BalanceOf<T>: Send + Sync,
+    {
+        let proposal_hash: T::Hash = <ProposalByIndex<T>>::get(index);
+        if let Some(voting) = <Voting<T>>::get(&proposal_hash) {
+            let aye_stake = voting
+                .ayes
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, ayes| acc + ayes.1);
+
+            let nay_stake = voting
+                .nays
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, nays| acc + nays.1);
+
+            VoteCount::Success {
+                ayes: aye_stake,
+                nays: nay_stake,
+            }
+        } else {
+            VoteCount::ProposalNotFound
+        }
+    }
+
+    /// Retrieve proposals made by `address`.
+    pub fn proposed_by(address: T::AccountId) -> Vec<MipsIndex> {
+        Self::proposal_meta()
+            .into_iter()
+            .filter(|meta| meta.proposer == address)
+            .map(|meta| meta.index)
+            .collect()
+    }
+
+    /// Retrieve proposals `address` voted on
+    pub fn voted_on(address: T::AccountId) -> Vec<MipsIndex> {
+        let mut indices = Vec::new();
+        for meta in Self::proposal_meta().into_iter() {
+            if let Some(votes) = Self::voting(&meta.proposal_hash) {
+                if votes.ayes.iter().position(|(a, _)| a == &address).is_some()
+                    || votes.nays.iter().position(|(a, _)| a == &address).is_some()
+                {
+                    indices.push(votes.index);
+                }
+            }
+        }
+        indices
     }
 }
 
@@ -797,6 +861,7 @@ mod tests {
                 ),
                 Error::<Test>::InsufficientDeposit
             );
+            assert_eq!(Mips::proposed_by(&6), vec![]);
 
             // Account 6 starts a proposal with min deposit
             assert_ok!(Mips::propose(
@@ -808,6 +873,7 @@ mod tests {
 
             assert_eq!(Balances::free_balance(&6), 10);
 
+            assert_eq!(Mips::proposed_by(&6), vec![0]);
             assert_eq!(
                 Mips::voting(&hash),
                 Some(PolymeshVotes {

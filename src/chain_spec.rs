@@ -272,7 +272,7 @@ fn testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        mips: Some(MipsConfig {
+        pallet_mips: Some(MipsConfig {
             min_proposal_deposit: 5000,
             quorum_threshold: 100000,
             proposal_duration: 50,
