@@ -7,7 +7,7 @@ use frame_support::dispatch::DispatchError;
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationData {
-    /// KYC provider's attestation to change master key
+    /// CDD provider's attestation to change master key
     AttestMasterKeyRotation(IdentityId),
     /// Authorization to change master key
     RotateMasterKey(IdentityId),
