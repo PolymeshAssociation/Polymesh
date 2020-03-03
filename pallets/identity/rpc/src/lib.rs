@@ -1,9 +1,8 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_runtime_identity_rpc_runtime_api::{
-    AssetDidResult, CddStatus, IdentityApi as IdentityRuntimeApi,
+    AssetDidResult, CddStatus, DidRecords, IdentityApi as IdentityRuntimeApi,
 };
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -14,7 +13,7 @@ use std::sync::Arc;
 
 /// Identity RPC methods
 #[rpc]
-pub trait IdentityApi<BlockHash, IdentityId, Ticker> {
+pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountKey, SigningItem> {
     /// Below function use to tell whether the given did has valid cdd claim or not
     #[rpc(name = "identity_isIdentityHasValidCdd")]
     fn is_identity_has_valid_cdd(
@@ -27,6 +26,14 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker> {
     /// Below function is used to query the given ticker DID.
     #[rpc(name = "identity_getAssetDid")]
     fn get_asset_did(&self, ticker: Ticker, at: Option<BlockHash>) -> Result<AssetDidResult>;
+
+    /// DidRecords for a `did`
+    #[rpc(name = "identity_getDidRecords")]
+    fn get_did_records(
+        &self,
+        did: IdentityId,
+        at: Option<BlockHash>,
+    ) -> Result<DidRecords<AccountKey, SigningItem>>;
 }
 
 /// A struct that implements the [`IdentityApi`].
@@ -53,16 +60,19 @@ pub enum Error {
     RuntimeError,
 }
 
-impl<C, Block, IdentityId, Ticker> IdentityApi<<Block as BlockT>::Hash, IdentityId, Ticker>
+impl<C, Block, IdentityId, Ticker, AccountKey, SigningItem>
+    IdentityApi<<Block as BlockT>::Hash, IdentityId, Ticker, AccountKey, SigningItem>
     for Identity<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi,
     C: HeaderBackend<Block>,
-    C::Api: IdentityRuntimeApi<Block, IdentityId, Ticker>,
+    C::Api: IdentityRuntimeApi<Block, IdentityId, Ticker, AccountKey, SigningItem>,
     IdentityId: Codec,
     Ticker: Codec,
+    AccountKey: Codec,
+    SigningItem: Codec,
 {
     fn is_identity_has_valid_cdd(
         &self,
@@ -94,6 +104,21 @@ where
         api.get_asset_did(&at, ticker).map_err(|e| RpcError {
             code: ErrorCode::ServerError(Error::RuntimeError as i64),
             message: "Unable to fetch did of the given ticker".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_did_records(
+        &self,
+        did: IdentityId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<DidRecords<AccountKey, SigningItem>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.get_did_records(&at, did).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::RuntimeError as i64),
+            message: "Unable to fetch DID records".into(),
             data: Some(format!("{:?}", e).into()),
         })
     }

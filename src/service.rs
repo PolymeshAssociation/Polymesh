@@ -88,6 +88,7 @@ macro_rules! new_full_start {
         })?
         .with_rpc_extensions(|client, _pool, _backend, _, _| -> Result<RpcExtension, _> {
             use contracts_rpc::{Contracts, ContractsApi};
+            use pallet_mips_rpc::{Mips, MipsApi};
             use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
             use polymesh_runtime_identity_rpc::{Identity, IdentityApi};
@@ -98,6 +99,7 @@ macro_rules! new_full_start {
                 client.clone(),
             )));
             io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
+            io.extend_with(MipsApi::to_delegate(Mips::new(client.clone())));
             io.extend_with(IdentityApi::to_delegate(Identity::new(client)));
             Ok(io)
         })?;
