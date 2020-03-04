@@ -410,6 +410,10 @@ mod tests {
         fn is_member(_member_id: &IdentityId) -> bool {
             unimplemented!();
         }
+
+        fn member_count() -> usize {
+            unimplemented!()
+        }
     }
 
     impl balances::Trait for Test {

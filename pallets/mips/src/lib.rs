@@ -45,13 +45,18 @@ use frame_support::{
     weights::SimpleDispatchInfo,
     Parameter,
 };
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_signed};
 use pallet_mips_rpc_runtime_api::VoteCount;
+use polymesh_primitives::AccountKey;
+use polymesh_runtime_common::{
+    identity::Trait as IdentityTrait, traits::group::GroupTrait, Context,
+};
+use polymesh_runtime_identity as identity;
 use sp_runtime::{
     traits::{Dispatchable, EnsureOrigin, Hash, Zero},
     DispatchError,
 };
-use sp_std::{prelude::*, vec};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// Mesh Improvement Proposal index. Used offchain.
 pub type MipsIndex = u32;
@@ -151,17 +156,22 @@ pub struct PolymeshReferendumInfo<Hash: Parameter> {
     proposal_hash: Hash,
 }
 
+type Identity<T> = identity::Module<T>;
+
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Trait + IdentityTrait {
     /// Currency type for this module.
     type Currency: ReservableCurrency<Self::AccountId>
         + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 
-    /// A proposal is a dispatchable call
-    type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
+    // /// A proposal is a dispatchable call
+    // type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
 
     /// Required origin for enacting a referundum.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Committee
+    type GovernanceCommittee: GroupTrait;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -246,6 +256,8 @@ decl_error! {
         NoSuchProposal,
         /// Mismatched proposal index.
         MismatchedProposalIndex,
+        /// Not part of governance committee.
+        NotACommitteeMember,
     }
 }
 
@@ -398,10 +410,7 @@ decl_module! {
         /// a proposal at any time.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn kill_proposal(origin, index: MipsIndex, proposal_hash: T::Hash) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
 
             let mip = Self::proposals(&proposal_hash).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(mip.index == index, Error::<T>::MismatchedProposalIndex);
@@ -409,14 +418,17 @@ decl_module! {
             Self::close_proposal(index, proposal_hash);
         }
 
-        /// An emergency stop measure to kill a proposal. Governance committee can kill
-        /// a proposal at any time.
+        /// Any governance committee member can fast track a proposal and turn it into a referendum
+        /// that will be voted on by the committee.
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
         pub fn fast_track_proposal(origin, index: MipsIndex, proposal_hash: T::Hash) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+            ensure!(
+                T::GovernanceCommittee::is_member(&did),
+                Error::<T>::NotACommitteeMember
+            );
 
             let mip = Self::proposals(&proposal_hash).ok_or("proposal does not exist")?;
             ensure!(mip.index == index, Error::<T>::MismatchedProposalIndex);
@@ -436,15 +448,17 @@ decl_module! {
             Self::close_proposal(index, proposal_hash.clone());
         }
 
-        /// An emergency proposal that bypasses network voting process. Governance committee can make
-        /// a proposal that automatically becomes a referendum on which the committee can vote on.
+        /// Governance committee can make a proposal that automatically becomes a referendum on
+        /// which the committee can vote on.
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        pub fn emergency_referendum(origin, proposal: Box<T::Proposal>) {
-            // Proposal must originate from the committee
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+        pub fn submit_referendum(origin, proposal: Box<T::Proposal>) {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+            ensure!(
+                T::GovernanceCommittee::is_member(&did),
+                Error::<T>::NotACommitteeMember
+            );
 
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
@@ -465,10 +479,7 @@ decl_module! {
         /// Moves a referendum instance into dispatch queue.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn enact_referendum(origin, proposal_hash: T::Hash) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
 
             Self::prepare_to_dispatch(proposal_hash);
         }
@@ -546,8 +557,9 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Create a referendum object from a proposal.
-    /// Committee votes on this referendum instance
+    /// Create a referendum object from a proposal. If governance committee is composed of less
+    /// than 2 members, enact it immediately. Otherwise, committee votes on this referendum and
+    /// decides whether it should be enacted.
     fn create_referendum(
         index: MipsIndex,
         priority: MipsPriority,
@@ -568,6 +580,11 @@ impl<T: Trait> Module<T> {
             priority.clone(),
             proposal_hash.clone(),
         ));
+
+        // If committee size is too small, enact it.
+        if T::GovernanceCommittee::member_count() < 2 {
+            Self::prepare_to_dispatch(proposal_hash.clone());
+        }
     }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
@@ -769,15 +786,6 @@ mod tests {
         type Balances = balances::Module<Test>;
     }
 
-    impl group::GroupTrait for Test {
-        fn get_members() -> Vec<IdentityId> {
-            unimplemented!()
-        }
-        fn is_member(_did: &IdentityId) -> bool {
-            unimplemented!()
-        }
-    }
-
     impl AddSignerMultiSig for Test {
         fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
@@ -814,10 +822,22 @@ mod tests {
         pub const Five: u64 = 5;
     }
 
+    impl group::GroupTrait for Test {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
+        fn is_member(_did: &IdentityId) -> bool {
+            unimplemented!()
+        }
+        fn member_count() -> usize {
+            unimplemented!()
+        }
+    }
+
     impl Trait for Test {
         type Currency = balances::Module<Self>;
-        type Proposal = Call;
         type CommitteeOrigin = EnsureSignedBy<One, u64>;
+        type GovernanceCommittee = Test;
         type Event = ();
     }
 
@@ -873,7 +893,7 @@ mod tests {
     }
 
     #[test]
-    fn should_start_a_proposal() {
+    fn starting_a_proposal_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
@@ -918,7 +938,7 @@ mod tests {
     }
 
     #[test]
-    fn should_close_a_proposal() {
+    fn closing_a_proposal_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
@@ -956,7 +976,7 @@ mod tests {
     }
 
     #[test]
-    fn should_create_a_referendum() {
+    fn creating_a_referendum_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
@@ -966,7 +986,7 @@ mod tests {
 
             assert_ok!(Mips::propose(
                 Origin::signed(6),
-                Box::new(proposal),
+                Box::new(proposal.clone()),
                 50,
                 Some(proposal_url),
                 Some(proposal_desc)
@@ -996,7 +1016,7 @@ mod tests {
     }
 
     #[test]
-    fn should_enact_a_referendum() {
+    fn enacting_a_referendum_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
@@ -1037,7 +1057,7 @@ mod tests {
     }
 
     #[test]
-    fn should_fast_track_a_proposal() {
+    fn fast_tracking_a_proposal_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
@@ -1072,7 +1092,7 @@ mod tests {
     }
 
     #[test]
-    fn should_enact_an_emergency_referendum() {
+    fn submit_referendum_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
@@ -1080,11 +1100,11 @@ mod tests {
             let hash = BlakeTwo256::hash_of(&proposal);
 
             assert_err!(
-                Mips::emergency_referendum(Origin::signed(6), Box::new(proposal.clone())),
+                Mips::submit_referendum(Origin::signed(6), Box::new(proposal.clone())),
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(Mips::emergency_referendum(
+            assert_ok!(Mips::submit_referendum(
                 Origin::signed(1),
                 Box::new(proposal.clone())
             ));
@@ -1112,7 +1132,7 @@ mod tests {
     }
 
     #[test]
-    fn should_update_mips_variables() {
+    fn updating_mips_variables_works() {
         new_test_ext().execute_with(|| {
             assert_eq!(Mips::min_proposal_deposit(), 50);
             assert_ok!(Mips::set_min_proposal_deposit(Origin::signed(1), 10));

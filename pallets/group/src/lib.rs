@@ -167,11 +167,15 @@ decl_module! {
 /// Is the given `IdentityId` a valid member?
 impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
     fn get_members() -> Vec<IdentityId> {
-        return Self::members();
+        Self::members()
     }
 
     fn is_member(did: &IdentityId) -> bool {
         Self::members().iter().any(|id| id == did)
+    }
+
+    fn member_count() -> usize {
+        Self::members().len()
     }
 }
 

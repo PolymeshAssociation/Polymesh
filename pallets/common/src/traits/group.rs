@@ -50,8 +50,12 @@ decl_event!(
 );
 
 pub trait GroupTrait {
+    /// Retrieve members
     fn get_members() -> Vec<IdentityId>;
 
     /// Is the given `MemberId` a valid member?
     fn is_member(member_id: &IdentityId) -> bool;
+
+    /// Current set size
+    fn member_count() -> usize;
 }

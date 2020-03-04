@@ -18,15 +18,6 @@
 //! - `propose` - Members can propose a new dispatchable
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
 //!
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
-use polymesh_runtime_common::{identity::Trait as IdentityTrait, Context};
-use polymesh_runtime_identity as identity;
-
-use sp_runtime::traits::{EnsureOrigin, Hash};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*, vec};
-
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage,
@@ -36,7 +27,11 @@ use frame_support::{
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-use sp_core::u32_trait::Value as U32;
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_runtime_common::{group::GroupTrait, identity::Trait as IdentityTrait, Context};
+use polymesh_runtime_identity as identity;
+use sp_runtime::traits::{EnsureOrigin, Hash};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
@@ -298,15 +293,27 @@ decl_module! {
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
-    /// Returns true if given did is contained in `Members` set. `false`, otherwise.
-    pub fn is_member(who: &IdentityId) -> bool {
-        Self::members().contains(who)
-    }
-
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
     /// in relation to the threshold proporion `n`/`d`.
     fn is_threshold_satisfied(votes: u32, total: u32, (n, d): (u32, u32)) -> bool {
         votes * d >= n * total
+    }
+}
+
+impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
+    /// Retrieve all members of this committee
+    fn get_members() -> Vec<IdentityId> {
+        Self::members()
+    }
+
+    /// Returns true if given did is contained in `Members` set. `false`, otherwise.
+    fn is_member(who: &IdentityId) -> bool {
+        Self::members().contains(who)
+    }
+
+    /// Committee size
+    fn member_count() -> usize {
+        Self::members().len()
     }
 }
 
@@ -354,63 +361,45 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     }
 }
 
-// pub struct EnsureMember<IdentityId, I = DefaultInstance>(
-//     sp_std::marker::PhantomData<(IdentityId, I)>,
+// pub struct EnsureProportionMoreThan<N: U32, D: U32, AccountId, I = DefaultInstance>(
+//     sp_std::marker::PhantomData<(N, D, AccountId, I)>,
 // );
 // impl<
-//         O: Into<Result<RawOrigin<IdentityId, I>, O>> + From<RawOrigin<IdentityId, I>>,
-//         IdentityId,
+//         O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+//         N: U32,
+//         D: U32,
+//         AccountId,
 //         I,
-//     > EnsureOrigin<O> for EnsureMember<IdentityId, I>
+//     > EnsureOrigin<O> for EnsureProportionMoreThan<N, D, AccountId, I>
 // {
-//     type Success = IdentityId;
+//     type Success = ();
 //     fn try_origin(o: O) -> Result<Self::Success, O> {
 //         o.into().and_then(|o| match o {
-//             RawOrigin::Member(id) => Ok(id),
+//             RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
 //             r => Err(O::from(r)),
 //         })
 //     }
 // }
-
-pub struct EnsureProportionMoreThan<N: U32, D: U32, AccountId, I = DefaultInstance>(
-    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
-);
-impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        N: U32,
-        D: U32,
-        AccountId,
-        I,
-    > EnsureOrigin<O> for EnsureProportionMoreThan<N, D, AccountId, I>
-{
-    type Success = ();
-    fn try_origin(o: O) -> Result<Self::Success, O> {
-        o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
-            r => Err(O::from(r)),
-        })
-    }
-}
-
-pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
-    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
-);
-impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        N: U32,
-        D: U32,
-        AccountId,
-        I,
-    > EnsureOrigin<O> for EnsureProportionAtLeast<N, D, AccountId, I>
-{
-    type Success = ();
-    fn try_origin(o: O) -> Result<Self::Success, O> {
-        o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
-            r => Err(O::from(r)),
-        })
-    }
-}
+//
+// pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
+//     sp_std::marker::PhantomData<(N, D, AccountId, I)>,
+// );
+// impl<
+//         O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+//         N: U32,
+//         D: U32,
+//         AccountId,
+//         I,
+//     > EnsureOrigin<O> for EnsureProportionAtLeast<N, D, AccountId, I>
+// {
+//     type Success = ();
+//     fn try_origin(o: O) -> Result<Self::Success, O> {
+//         o.into().and_then(|o| match o {
+//             RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
+//             r => Err(O::from(r)),
+//         })
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -530,6 +519,9 @@ mod tests {
             unimplemented!()
         }
         fn is_member(_did: &IdentityId) -> bool {
+            unimplemented!()
+        }
+        fn member_count() -> usize {
             unimplemented!()
         }
     }
