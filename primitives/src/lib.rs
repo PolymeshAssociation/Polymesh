@@ -71,6 +71,11 @@ pub use identity_id::IdentityId;
 pub mod identity;
 pub use identity::Identity;
 
+/// Claim information.
+/// Each claim is associated with this kind of record.
+pub mod identity_claim;
+pub use identity_claim::{ClaimIdentifier, IdentityClaim, IdentityClaimData, JurisdictionName};
+
 /// Key is strong type which stores bytes representing the key.
 pub mod account_key;
 pub use account_key::AccountKey;
@@ -100,17 +105,15 @@ pub use link::LinkData;
 pub mod ticker;
 pub use ticker::Ticker;
 
+/// This module defines types used by smart extensions
 pub mod smart_extension;
 pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType};
 
 pub mod document;
 pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
-pub mod claim;
-pub use claim::{ DataTypes, ClaimValue };
-
-pub mod predicates;
-pub use predicates::{ RationalOperator, CollectionOperator, Operator, RuleData };
+/// Testing
+pub mod predicate;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

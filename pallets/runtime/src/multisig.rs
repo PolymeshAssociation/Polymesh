@@ -101,9 +101,9 @@ decl_module! {
         /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
         pub fn create_multisig(origin, signers: Vec<Signatory>, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure!(signers.len() > 0, "No signers provided");
+            ensure!(signers.len() > 0, Error::<T>::NoSigners);
             ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
-                "Sigs required out of bounds"
+                Error::<T>::RequiredSignaturesOutOfBounds
             );
             let account_id = Self::create_multisig_account(
                 sender.clone(),
@@ -155,7 +155,7 @@ decl_module! {
             let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
             let signer = Signatory::from(signer_did);
-            ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), "not a signer");
+            ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), Error::<T>::NotASigner);
             Self::approve_for(multisig, signer, proposal_id)
         }
 
@@ -168,7 +168,7 @@ decl_module! {
         pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), "not a signer");
+            ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), Error::<T>::NotASigner);
             Self::approve_for(multisig, signer, proposal_id)
         }
 
@@ -202,7 +202,7 @@ decl_module! {
         pub fn add_multisig_signer(origin, signer: Signatory) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
+            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), Error::<T>::NoSuchMultisig);
             <identity::Module<T>>::add_auth(
                 sender_signer,
                 signer,
@@ -219,9 +219,12 @@ decl_module! {
         /// * `signer` - Signatory to remove.
         pub fn remove_multisig_signer(origin, signer: Signatory) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
-            ensure!(<MultiSigSigners<T>>::exists(&sender, &signer), "not a multisig signer");
-            ensure!(<NumberOfSigners<T>>::get(&sender) > <MultiSigSignsRequired<T>>::get(&sender), "Not enough signers");
+            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), Error::<T>::NoSuchMultisig);
+            ensure!(<MultiSigSigners<T>>::exists(&sender, &signer), Error::<T>::NotASigner);
+            ensure!(
+                <NumberOfSigners<T>>::get(&sender) > <MultiSigSignsRequired<T>>::get(&sender),
+                Error::<T>::NotEnoughSigners
+            );
             <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - 1u64);
             <MultiSigSigners<T>>::remove(&sender, signer);
             Self::deposit_event(RawEvent::MultiSigSignerRemoved(sender, signer));
@@ -234,8 +237,11 @@ decl_module! {
         /// * `sigs_required` - New number of sigs required.
         pub fn change_sigs_required(origin, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), "Multi sig does not exist");
-            ensure!(<NumberOfSigners<T>>::get(&sender) >= sigs_required, "Not enough signers attached to the multisig");
+            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), Error::<T>::NoSuchMultisig);
+            ensure!(
+                <NumberOfSigners<T>>::get(&sender) >= sigs_required,
+                Error::<T>::NotEnoughSigners
+            );
             <MultiSigSignsRequired<T>>::insert(&sender, &sigs_required);
             Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(sender, sigs_required));
             Ok(())
@@ -273,6 +279,24 @@ decl_error! {
         ProposalMissing,
         /// MultiSig address
         DecodingError,
+        /// No signers.
+        NoSigners,
+        /// Too few or too many required signatures.
+        RequiredSignaturesOutOfBounds,
+        /// Not a signer.
+        NotASigner,
+        /// No such multisig.
+        NoSuchMultisig,
+        /// Not a multisig authorization.
+        NotAMultisigAuth,
+        /// Not enough signers.
+        NotEnoughSigners,
+        /// A nonce overflow.
+        NonceOverflow,
+        /// Already approved.
+        AlreadyApproved,
+        /// Already a signer.
+        AlreadyASigner,
     }
 }
 
@@ -283,7 +307,9 @@ impl<T: Trait> Module<T> {
         signers: &[Signatory],
         sigs_required: u64,
     ) -> CreateMultisigAccountResult<T> {
-        let new_nonce = Self::ms_nonce().checked_add(1).ok_or("nonce overflow")?;
+        let new_nonce = Self::ms_nonce()
+            .checked_add(1)
+            .ok_or(Error::<T>::NonceOverflow)?;
         <MultiSigNonce>::put(new_nonce);
         let account_id =
             Self::get_multisig_address(sender, new_nonce).map_err(|_| Error::<T>::DecodingError)?;
@@ -307,7 +333,7 @@ impl<T: Trait> Module<T> {
     ) -> CreateProposalResult {
         ensure!(
             <MultiSigSigners<T>>::exists(&multisig, &sender_signer),
-            "not a signer"
+            Error::<T>::NotASigner
         );
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal);
@@ -323,7 +349,10 @@ impl<T: Trait> Module<T> {
     fn approve_for(multisig: T::AccountId, signer: Signatory, proposal_id: u64) -> DispatchResult {
         let multisig_signer_proposal = (multisig.clone(), signer, proposal_id);
         let multisig_proposal = (multisig.clone(), proposal_id);
-        ensure!(!Self::votes(&multisig_signer_proposal), "Already approved");
+        ensure!(
+            !Self::votes(&multisig_signer_proposal),
+            Error::<T>::AlreadyApproved
+        );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
             Self::charge_fee(multisig.clone(), proposal.get_dispatch_info().weight)?;
             <Votes<T>>::insert(&multisig_signer_proposal, true);
@@ -376,7 +405,7 @@ impl<T: Trait> Module<T> {
 
         ensure!(
             auth.authorization_data == AuthorizationData::AddMultiSigSigner,
-            "Not a multi sig signer auth"
+            Error::<T>::NotAMultisigAuth
         );
 
         let wallet_id = {
@@ -390,11 +419,11 @@ impl<T: Trait> Module<T> {
 
         ensure!(
             <MultiSigSignsRequired<T>>::exists(&wallet_id),
-            "Multi sig does not exist"
+            Error::<T>::NoSuchMultisig
         );
         ensure!(
             !<MultiSigSigners<T>>::exists(&wallet_id, &signer),
-            "already a signer"
+            Error::<T>::AlreadyASigner
         );
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
         <identity::Module<T>>::consume_auth(wallet_signer, signer, auth_id)?;

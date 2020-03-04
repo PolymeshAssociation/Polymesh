@@ -18,7 +18,6 @@ type Balances = balances::Module<TestStorage>;
 type Authorizations = identity::Authorizations<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
-type MultiSigError = multisig::Error<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 macro_rules! assert_tx_approvals {

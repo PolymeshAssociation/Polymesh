@@ -1,13 +1,13 @@
 {
     "IdentityId":"H256",
     "Ticker": "[u8; 12]",
-    "DocumentName": "Vec<u8>",
-    "DocumentUri": "Vec<u8>",
-    "DocumentHash": "Vec<u8>",
+    "DocumentName": "Text",
+    "DocumentUri": "Text",
+    "DocumentHash": "Text",
     "Document": {
         "name": "DocumentName",
         "uri": "DocumentUri",
-        "hash": "DocumentHash"
+        "content_hash": "DocumentHash"
     },
     "AssetType": {
         "_enum": {
@@ -25,9 +25,9 @@
             "Custom": "Vec<u8>"
         }
     },
-    "TokenName": "Vec<u8>",
-    "AssetId": "Vec<u8>",
-    "FundingRoundName": "Vec<u8>",
+    "TokenName": "Text",
+    "AssetIdentifier": "Text",
+    "FundingRoundName": "Text",
     "SecurityToken": {
         "name": "TokenName",
         "total_supply": "Balance",
@@ -109,55 +109,45 @@
         "master_key": "AccountKey",
         "signing_items": "Vec<SigningItem>"
     },
-    "Claim": {
+    "JurisdictionName": "Text",
+    "IdentityClaimData": {
+        "_enum": {
+            "Accredited": "",
+            "Affiliate": "",
+            "BuyLockup": "",
+            "SellLockup": "",
+            "CustomerDueDiligence": "",
+            "KnowYourCustomer": "",
+            "Jurisdiction": "JurisdictionName",
+            "Whitelisted": "",
+            "NoData": ""
+        }
+    },
+    "IdentityClaim": {
+        "claim_issuer": "IdentityId",
         "issuance_date": "Moment",
+        "last_update_date": "Moment",
         "expiry": "Moment",
-        "claim_value": "ClaimValue"
+        "claim": "IdentityClaimData"
     },
-    "ClaimMetaData": {
-        "claim_key": "Vec<u8>",
+    "ClaimIdentifier": {
+        "claim": "IdentityClaimData",
         "claim_issuer": "IdentityId"
-    },
-    "ClaimValue": {
-        "data_type": "DataTypes",
-        "value": "Vec<u8>"
-    },
-    "ClaimRecord": {
-        "did": "IdentityId",
-        "claim_key": "Vec<u8>",
-        "expiry": "Moment",
-        "claim_value": "ClaimValue"
-    },
-    "DataTypes": {
-        "_enum": [
-            "U8",
-            "U16",
-            "U32",
-            "U64",
-            "U128",
-            "Bool",
-            "VecU8"
-        ]
     },
     "AssetRule": {
         "sender_rules": "Vec<RuleData>",
         "receiver_rules":"Vec<RuleData>"
     },
-    "Operators": {
+    "RuleType": {
         "_enum": [
-            "EqualTo",
-            "NotEqualTo",
-            "LessThan",
-            "GreaterThan",
-            "LessOrEqualTo",
-            "GreaterOrEqualTo"
+            "ClaimIsPresent",
+            "ClaimIsAbsent"
         ]
     },
     "RuleData": {
-        "key": "Vec<u8>",
-        "value": "Vec<u8>",
+        "claim": "IdentityClaimData",
         "trusted_issuers": "Vec<IdentityId>",
-        "operator": "Operators"
+        "rule_type": "RuleType"
     },
     "STO": {
         "beneficiary_did": "IdentityId",
@@ -209,8 +199,8 @@
         "value": "Balance",
         "nonce": "u16"
     },
-    "MotionTitle": "Vec<u8>",
-    "MotionInfoLink": "Vec<u8>",
+    "MotionTitle": "Text",
+    "MotionInfoLink": "Text",
     "Motion": {
         "title": "MotionTitle",
         "info_link": "MotionInfoLink",
@@ -222,11 +212,12 @@
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
     },
+    "Url": "Text",
     "MipsMetadata": {
         "index": "u32",
         "end": "u64",
         "proposal_hash": "Hash",
-        "url": "Vec<u8>"
+        "url": "Option<Url>"
     },
     "PolymeshVotes": {
         "index": "u32",
@@ -292,7 +283,7 @@
             "Custom": "Vec<u8>"
         }
     },
-    "SmartExtensionName": "Vec<u8>",
+    "SmartExtensionName": "Text",
     "SmartExtension": {
         "extension_type": "SmartExtensionType",
         "extension_name": "SmartExtensionName",
@@ -336,6 +327,11 @@
     "PendingTx": {
         "did": "IdentityId",
         "bridge_tx": "BridgeTx"
+    },
+    "OfflineSlashingParams": {
+        "max_offline_percent": "u32",
+        "constant": "u32",
+        "max_slash_percent": "u32"
     },
     "AssetRules": {
         "is_paused": "bool",
