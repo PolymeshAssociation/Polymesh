@@ -242,38 +242,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Change the bridge admin key.
-        pub fn change_admin_key(origin, account_key: AccountKey) -> DispatchResult {
-            Self::check_admin(origin)?;
-            <AdminKey>::put(account_key);
-            Ok(())
-        }
-
-        /// Freezes the entire operation of the bridge module if it is not already frozen. The only
-        /// available operations in the frozen state are the following admin methods:
-        ///
-        /// * `change_controller`,
-        /// * `change_admin_key`,
-        /// * `unfreeze`,
-        /// * `freeze_bridge_txs`,
-        /// * `unfreeze_bridge_txs`.
-        pub fn freeze(origin) -> DispatchResult {
-            Self::check_admin(origin)?;
-            ensure!(!Self::frozen(), Error::<T>::Frozen);
-            <Frozen>::put(true);
-            Self::deposit_event(RawEvent::Frozen);
-            Ok(())
-        }
-
-        /// Unfreezes the operation of the bridge module if it is frozen.
-        pub fn unfreeze(origin) -> DispatchResult {
-            Self::check_admin(origin)?;
-            ensure!(Self::frozen(), Error::<T>::NotFrozen);
-            <Frozen>::put(false);
-            Self::deposit_event(RawEvent::Unfrozen);
-            Ok(())
-        }
-
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
         /// bridge transaction if the transaction is new or approving an existing proposal if the
         /// transaction has already been proposed.
