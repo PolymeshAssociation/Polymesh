@@ -5,10 +5,11 @@
 
 use crate::multisig;
 use codec::{Decode, Encode};
+use core::result::Result as StdResult;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage};
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::CommonTrait;
@@ -27,6 +28,24 @@ pub trait Trait: multisig::Trait {
 pub enum IssueRecipient<AccountId> {
     Account(AccountId),
     Identity(IdentityId),
+}
+
+/// Converts an `IssueRecipient` to the identity and the account of the recipient. The returned
+/// error covers the case when there is a bug in the code and the account ID does not encode as
+/// bytes.
+fn identity_and_account<'a, T: 'a + Trait>(
+    recipient: &'a IssueRecipient<T::AccountId>,
+) -> StdResult<(Option<IdentityId>, Option<&'a T::AccountId>), &'static str> {
+    Ok(match recipient {
+        IssueRecipient::Account(account_id) => {
+            let to_key = AccountKey::try_from(account_id.encode())?;
+            (
+                <identity::Module<T>>::get_identity(&to_key),
+                Some(account_id),
+            )
+        }
+        IssueRecipient::Identity(did) => (Some(*did), None),
+    })
 }
 
 /// A unique lock-and-mint bridge transaction containing Ethereum transaction data and a bridge nonce.
@@ -59,28 +78,38 @@ type IssueResult<T> = sp_std::result::Result<
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The bridge relayer set address is not set.
-        RelayersNotSet,
+        /// The bridge controller address is not set.
+        ControllerNotSet,
         /// The signer does not have an identity.
         IdentityMissing,
         /// Failure to credit the recipient account.
         CannotCreditAccount,
         /// Failure to credit the recipient identity.
         CannotCreditIdentity,
-        /// The origin is not the relayer set multisig.
+        /// The origin is not the controller address.
         BadCaller,
         /// The recipient DID has no valid CDD.
         NoValidCdd,
         /// The bridge transaction proposal has already been handled and the funds minted.
         ProposalAlreadyHandled,
+        /// Unauthorized to perform an operation.
+        Unauthorized,
+        /// The bridge is already frozen.
+        Frozen,
+        /// The bridge is not frozen.
+        NotFrozen,
+        /// There is no such frozen transaction.
+        NoSuchFrozenTx,
+        /// There is no proposal corresponding to a given bridge transaction.
+        NoSuchProposal,
     }
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
-        /// The multisig account of the bridge relayer set. The genesis signers must accept their
+        /// The multisig account of the bridge controller. The genesis signers must accept their
         /// authorizations to be able to get their proposals delivered.
-        Relayers get(relayers) build(|config: &GenesisConfig| {
+        Controller get(controller) build(|config: &GenesisConfig| {
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
                 panic!("too many signatures required");
@@ -97,8 +126,14 @@ decl_storage! {
         }): T::AccountId;
         /// Pending issuance transactions to identities.
         PendingTxs get(pending_txs): map IdentityId => Vec<BridgeTx<T::AccountId, T::Balance>>;
-        /// Handled bridge transaction proposals.
-        HandledProposals get(handled_proposals): map BridgeTx<T::AccountId, T::Balance> => bool;
+        /// Frozen transactions.
+        FrozenTxs get(frozen_txs): map BridgeTx<T::AccountId, T::Balance> => bool;
+        /// Handled bridge transactions.
+        HandledTxs get(handled_txs): map BridgeTx<T::AccountId, T::Balance> => bool;
+        /// The admin key.
+        AdminKey get(admin_key) config(): AccountKey;
+        /// Whether or not the bridge operation is frozen.
+        Frozen get(frozen): bool;
     }
     add_extra_genesis {
         /// The set of initial signers from which a multisig address is created at genesis time.
@@ -115,7 +150,7 @@ decl_event! {
         Balance = <T as CommonTrait>::Balance
     {
         /// Confirmation of a signer set change.
-        RelayersChanged(AccountId),
+        ControllerChanged(AccountId),
         /// Confirmation of minting POLY on Polymesh in return for the locked ERC20 tokens on
         /// Ethereum.
         Bridged(BridgeTx<AccountId, Balance>),
@@ -124,6 +159,14 @@ decl_event! {
         Pending(PendingTx<AccountId, Balance>),
         /// Notification of a failure to finalize a pending transaction. The transaction is removed.
         Failed(BridgeTx<AccountId, Balance>),
+        /// Notification of freezing the bridge.
+        Frozen,
+        /// Notification of unfreezing the bridge.
+        Unfrozen,
+        /// Notification of freezing a transaction.
+        FrozenTx(BridgeTx<AccountId, Balance>),
+        /// Notification of unfreezing a transaction.
+        UnfrozenTx(BridgeTx<AccountId, Balance>),
     }
 }
 
@@ -133,10 +176,42 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Change the signer set account as root.
-        pub fn change_relayers(origin, account_id: T::AccountId) -> DispatchResult {
-            ensure_root(origin)?;
-            <Relayers<T>>::put(account_id);
+        /// Change the controller account as admin.
+        pub fn change_controller(origin, account_id: T::AccountId) -> DispatchResult {
+            Self::check_admin(origin)?;
+            <Controller<T>>::put(account_id);
+            Ok(())
+        }
+
+        /// Change the bridge admin key.
+        pub fn change_admin_key(origin, account_key: AccountKey) -> DispatchResult {
+            Self::check_admin(origin)?;
+            <AdminKey>::put(account_key);
+            Ok(())
+        }
+
+        /// Freezes the entire operation of the bridge module if it is not already frozen. The only
+        /// available operations in the frozen state are the following admin methods:
+        ///
+        /// * `change_controller`,
+        /// * `change_admin_key`,
+        /// * `unfreeze`,
+        /// * `freeze_bridge_txs`,
+        /// * `unfreeze_bridge_txs`.
+        pub fn freeze(origin) -> DispatchResult {
+            Self::check_admin(origin)?;
+            ensure!(!Self::frozen(), Error::<T>::Frozen);
+            <Frozen>::put(true);
+            Self::deposit_event(RawEvent::Frozen);
+            Ok(())
+        }
+
+        /// Unfreezes the operation of the bridge module if it is frozen.
+        pub fn unfreeze(origin) -> DispatchResult {
+            Self::check_admin(origin)?;
+            ensure!(Self::frozen(), Error::<T>::NotFrozen);
+            <Frozen>::put(false);
+            Self::deposit_event(RawEvent::Unfrozen);
             Ok(())
         }
 
@@ -146,15 +221,14 @@ decl_module! {
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
-            let relayers = Self::relayers();
-            if relayers == Default::default() {
-                return Err(Error::<T>::RelayersNotSet.into());
-            }
+            ensure!(!Self::frozen(), Error::<T>::Frozen);
+            let controller = Self::controller();
+            ensure!(controller != Default::default(), Error::<T>::ControllerNotSet);
             let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
             let boxed_proposal = Box::new(proposal.into());
             <multisig::Module<T>>::create_or_approve_proposal_as_identity(
                 origin,
-                relayers,
+                controller,
                 boxed_proposal
             )
         }
@@ -162,9 +236,8 @@ decl_module! {
         /// Finalizes pending bridge transactions following a receipt of a valid CDD by the
         /// recipient identity.
         pub fn finalize_pending(_origin, did: IdentityId) -> DispatchResult {
-            if !<identity::Module<T>>::has_valid_cdd(did) {
-                return Err(Error::<T>::NoValidCdd.into());
-            }
+            ensure!(!Self::frozen(), Error::<T>::Frozen);
+            ensure!(<identity::Module<T>>::has_valid_cdd(did), Error::<T>::NoValidCdd);
             let mut new_pending_txs: BTreeMap<_, Vec<BridgeTx<T::AccountId, T::Balance>>> =
                 BTreeMap::new();
             for bridge_tx in Self::pending_txs(&did) {
@@ -196,18 +269,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Handles an approved signer set multisig account change proposal.
-        pub fn handle_relayers(origin, account_id: T::AccountId) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            if sender != Self::relayers() {
-                return Err(Error::<T>::BadCaller.into());
-            }
-            // Update the bridge signers.
-            <Relayers<T>>::put(account_id.clone());
-            Self::deposit_event(RawEvent::RelayersChanged(account_id));
-            Ok(())
-        }
-
         /// Handles an approved bridge transaction proposal.
         ///
         /// NOTE: Extrinsics without `pub` are exported too. This function is declared as `pub` only
@@ -216,11 +277,15 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin.clone())?;
-            if sender != Self::relayers() {
-                return Err(Error::<T>::BadCaller.into());
-            }
-            if Self::handled_proposals(&bridge_tx) {
-                return Err(Error::<T>::ProposalAlreadyHandled.into());
+            ensure!(sender == Self::controller(), Error::<T>::BadCaller);
+            ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
+            if Self::frozen() {
+                if !Self::frozen_txs(&bridge_tx) {
+                    // Move the transaction to the list of frozen transactions.
+                    <FrozenTxs<T>>::insert(&bridge_tx, true);
+                    Self::deposit_event(RawEvent::FrozenTx(bridge_tx));
+                }
+                return Ok(());
             }
             if let Some(PendingTx {
                 did,
@@ -232,9 +297,64 @@ decl_module! {
                     bridge_tx
                 }));
             } else {
-                <HandledProposals<T>>::insert(&bridge_tx, true);
+                <HandledTxs<T>>::insert(&bridge_tx, true);
                 Self::deposit_event(RawEvent::Bridged(bridge_tx));
             }
+            Ok(())
+        }
+
+        /// Freezes given bridge transactions.
+        pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+            DispatchResult
+        {
+            Self::check_admin(origin)?;
+            for bridge_tx in bridge_txs {
+                let proposal =
+                    <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx.clone())).into();
+                let proposal_id = <multisig::Module<T>>::proposal_ids(&Self::controller(), &proposal);
+                ensure!(proposal_id.is_some(), Error::<T>::NoSuchProposal);
+                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
+                <FrozenTxs<T>>::insert(&bridge_tx, true);
+                Self::deposit_event(RawEvent::FrozenTx(bridge_tx));
+            }
+            Ok(())
+        }
+
+        /// Unfreezes given bridge transactions.
+        pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+            DispatchResult
+        {
+            Self::check_admin(origin)?;
+            for bridge_tx in bridge_txs {
+                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
+                ensure!(Self::frozen_txs(&bridge_tx), Error::<T>::NoSuchFrozenTx);
+                <FrozenTxs<T>>::remove(&bridge_tx);
+                Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
+                if let Some(PendingTx {
+                        did,
+                        bridge_tx,
+                }) = Self::issue(bridge_tx.clone())? {
+                    <PendingTxs<T>>::mutate(did, |pending_txs| {
+                        pending_txs.push(bridge_tx.clone())
+                    });
+                    Self::deposit_event(RawEvent::Pending(PendingTx {
+                        did,
+                        bridge_tx
+                    }));
+                } else {
+                    <HandledTxs<T>>::insert(&bridge_tx, true);
+                    Self::deposit_event(RawEvent::Bridged(bridge_tx));
+                }
+            }
+            Ok(())
+        }
+
+        /// Performs the admin authorization check. The check is successful iff the origin is the
+        /// bridge admin key.
+        pub fn check_admin(origin) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let account_key = AccountKey::try_from(sender.encode())?;
+            ensure!(account_key == Self::admin_key(), Error::<T>::Unauthorized);
             Ok(())
         }
     }
@@ -249,16 +369,7 @@ impl<T: Trait> Module<T> {
             amount,
             tx_hash: _,
         } = &bridge_tx;
-        let (did, account_id) = match recipient {
-            IssueRecipient::Account(account_id) => {
-                let to_key = AccountKey::try_from(account_id.clone().encode())?;
-                (
-                    <identity::Module<T>>::get_identity(&to_key),
-                    Some(account_id),
-                )
-            }
-            IssueRecipient::Identity(did) => (Some(*did), None),
-        };
+        let (did, account_id) = identity_and_account::<T>(recipient)?;
         if let Some(did) = did {
             // Issue to an identity or to an account associated with one.
             if <identity::Module<T>>::has_valid_cdd(did) {
@@ -270,10 +381,7 @@ impl<T: Trait> Module<T> {
                 };
                 resolution.map_err(|_| Error::<T>::CannotCreditAccount)?;
             } else {
-                return Ok(Some(PendingTx {
-                    did,
-                    bridge_tx: bridge_tx,
-                }));
+                return Ok(Some(PendingTx { did, bridge_tx }));
             }
         } else if let Some(account_id) = account_id {
             // Issue to an account not associated with an identity.
