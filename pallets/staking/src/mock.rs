@@ -247,6 +247,10 @@ impl GroupTrait for Test {
     fn is_member(_did: &IdentityId) -> bool {
         true
     }
+
+    fn member_count() -> usize {
+        Self::members().len()
+    }
 }
 
 impl AcceptTransfer for Test {

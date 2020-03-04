@@ -902,7 +902,7 @@ mod tests {
                 ),
                 Error::<Test>::InsufficientDeposit
             );
-            assert_eq!(Mips::proposed_by(&6), vec![]);
+            assert_eq!(Mips::proposed_by(6), vec![]);
 
             // Account 6 starts a proposal with min deposit
             assert_ok!(Mips::propose(
@@ -915,7 +915,7 @@ mod tests {
 
             assert_eq!(Balances::free_balance(&6), 10);
 
-            assert_eq!(Mips::proposed_by(&6), vec![0]);
+            assert_eq!(Mips::proposed_by(6), vec![0]);
             assert_eq!(
                 Mips::voting(&hash),
                 Some(PolymeshVotes {
