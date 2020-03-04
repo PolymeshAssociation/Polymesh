@@ -675,7 +675,7 @@ mod tests {
                 claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::NoData,
-                99999999999999999u64,
+                None,
             ));
 
             let now = Utc::now();
@@ -717,7 +717,7 @@ mod tests {
                 claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::Accredited(claim_issuer_did),
-                99999999999999999u64,
+                None,
             ));
 
             //Transfer tokens to investor
@@ -735,7 +735,7 @@ mod tests {
                 claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::Accredited(token_owner_did),
-                99999999999999999u64,
+                None,
             ));
 
             assert_ok!(Asset::transfer(
@@ -749,7 +749,7 @@ mod tests {
                 claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::CustomerDueDiligence,
-                99999999999999999u64,
+                None,
             ));
 
             assert_err!(
@@ -860,7 +860,7 @@ mod tests {
             receiver_signed.clone(),
             receiver_did.clone(),
             IdentityClaimData::NoData,
-            99999999999999999u64,
+            Some(99999999999999999u64),
         ));
 
         let now = Utc::now();
