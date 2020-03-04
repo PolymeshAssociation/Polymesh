@@ -168,7 +168,7 @@ impl identity::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = TestStorage;
-    type KycServiceProviders = group::Module<TestStorage, group::Instance2>;
+    type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
 }
 

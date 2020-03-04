@@ -590,7 +590,7 @@ decl_module! {
         }
 
         /// Forces a transfer between two DIDs & This can only be called by security token owner.
-        /// This function doesn't validate any type of restriction beside a valid KYC check
+        /// This function doesn't validate any type of restriction beside a valid CDD check
         ///
         /// # Arguments
         /// * `_origin` signing key of the token owner DID.
@@ -2265,7 +2265,7 @@ impl<T: Trait> Module<T> {
     pub fn call_extension(
         from: T::AccountId,
         dest: T::AccountId,
-        value: T::Balance,
+        _value: T::Balance,
         gas_limit: Gas,
         data: Vec<u8>,
     ) -> ExecReturnValue {

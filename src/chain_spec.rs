@@ -9,7 +9,7 @@ use polymesh_runtime::{
         ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
         SudoConfig, SystemConfig,
     },
-    runtime::{CommitteeMembershipConfig, KycServiceProvidersConfig, PolymeshCommitteeConfig},
+    runtime::{CddServiceProvidersConfig, CommitteeMembershipConfig, PolymeshCommitteeConfig},
     Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
@@ -362,7 +362,7 @@ fn testnet_genesis(
             vote_threshold: (ProportionMatch::AtLeast, 1, 2),
             phantom: Default::default(),
         }),
-        group_Instance2: Some(KycServiceProvidersConfig {
+        group_Instance2: Some(CddServiceProvidersConfig {
             members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }),

@@ -552,7 +552,7 @@ type MomentOf<T> = <<T as Trait>::Time as Time>::Moment;
 pub enum Compliance {
     /// Compliance requirements not met.
     Pending,
-    /// KYC compliant. Eligible to participate in validation.
+    /// CDD compliant. Eligible to participate in validation.
     Active,
 }
 
@@ -565,7 +565,7 @@ impl Default for Compliance {
 /// Represents a requirement that must be met to be eligible to become a validator
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug)]
 pub struct PermissionedValidator {
-    /// Indicates the status of KYC compliance
+    /// Indicates the status of CDD compliance
     pub compliance: Compliance,
 }
 
@@ -875,7 +875,7 @@ decl_event!(
         PermissionedValidatorRemoved(AccountId),
         /// The given member was removed. See the transaction for who.
         PermissionedValidatorStatusChanged(AccountId),
-        /// Remove the nominators from the valid nominators when there KYC expired
+        /// Remove the nominators from the valid nominators when there CDD expired
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(AccountId, Vec<AccountId>),
         /// Individual commisions are enabled.
@@ -1151,13 +1151,13 @@ decl_module! {
             let stash = &ledger.stash;
             ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
             // A Claim_key can have multiple claim value provided by different claim issuers.
-            // So here we iterate every claim value of the "KYCExpiryTimestamp" claim key. If
+            // So here we iterate every claim value of the "CDDExpiryTimestamp" claim key. If
             // any key value will be greater than the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then it break the loop and the given nominator in the nominator pool.
 
             if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(stash.encode())?)) {
-                let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, Self::get_bonding_duration_period());
-                if is_kyced {
+                let (is_cdded, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, Self::get_bonding_duration_period());
+                if is_cdded {
                     let targets = targets.into_iter()
                     .take(MAX_NOMINATIONS)
                     .map(|t| T::Lookup::lookup(t))
@@ -1320,18 +1320,18 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(validator));
         }
 
-        /// Validate the nominators KYC expiry time
+        /// Validate the nominators CDD expiry time
         ///
         /// If an account from a given set of address is nominating then
-        /// check the KYC expiry time of it and if it is expired
+        /// check the CDD expiry time of it and if it is expired
         /// then the account should be unbonded and removed from the nominating process.
         ///
         /// #<weight>
         /// - Depends on passed list of AccountId
-        /// - Depends on the no. of claim issuers an accountId has for the KYC expiry
+        /// - Depends on the no. of claim issuers an accountId has for the CDD expiry
         /// #</weight>
         #[weight = SimpleDispatchInfo::FixedNormal(950_000)]
-        fn validate_kyc_expiry_nominators(origin, targets: Vec<T::AccountId>) {
+        fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -1345,9 +1345,9 @@ decl_module! {
                         // Fetch all the claim values provided by the trusted service providers
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
-                        // valid KYC otherwise it will be removed from the pool of the nominators.
-                        let (is_kyced, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, 0_u64);
-                        if !is_kyced {
+                        // valid CDD otherwise it will be removed from the pool of the nominators.
+                        let (is_cdded, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, 0_u64);
+                        if !is_cdded {
                             // Unbonding the balance that bonded with the controller account of a Stash account
                             // This unbonded amount only be accessible after completion of the BondingDuration
                             // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
@@ -1751,7 +1751,7 @@ impl<T: Trait> Module<T> {
         let mut all_nominators: Vec<(T::AccountId, Vec<T::AccountId>)> = Vec::new();
         let all_validator_candidates = <Validators<T>>::enumerate()
             .filter(|(who, _prefs)| {
-                Self::is_active_balance_above_min_bond(who) && Self::is_validator_kyc_compliant(who)
+                Self::is_active_balance_above_min_bond(who) && Self::is_validator_cdd_compliant(who)
             })
             .collect::<Vec<(T::AccountId, ValidatorPrefs)>>();
         let all_validators = all_validator_candidates
@@ -1969,7 +1969,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Does the given account id have compliance status `Active`
-    pub fn is_validator_kyc_compliant(who: &T::AccountId) -> bool {
+    pub fn is_validator_cdd_compliant(who: &T::AccountId) -> bool {
         if let Some(validator) = Self::permissioned_validators(who) {
             validator.compliance == Compliance::Active
         } else {
@@ -1977,9 +1977,9 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Non-deterministic method that checks KYC status of each validator and persists
+    /// Non-deterministic method that checks CDD status of each validator and persists
     /// any changes to compliance status.
-    fn refresh_compliance_statuses() {
+    pub fn refresh_compliance_statuses() {
         let accounts = <PermissionedValidators<T>>::enumerate()
             .map(|(who, _)| who)
             .collect::<Vec<T::AccountId>>();
