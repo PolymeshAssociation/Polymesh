@@ -15,7 +15,6 @@
 //! - Proposal automatically dispatches if it meets a vote threshold
 //!
 //! ### Dispatchable Functions
-//! - `set_members` - Initialize membership. Called by Root.
 //! - `propose` - Members can propose a new dispatchable
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
 //!
@@ -183,23 +182,6 @@ decl_module! {
                 .or_else(ensure_root)
                 .map_err(|_| "bad origin")?;
             <VoteThreshold<I>>::put((match_criteria, n, d));
-        }
-
-        /// Set the committee's membership manually to `new_members`.
-        /// Requires root origin.
-        ///
-        /// # Arguments
-        /// * `origin` Root
-        /// * `new_members` Members to be initialized as committee.
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn set_members(origin, new_members: Vec<IdentityId>) {
-            ensure_root(origin)?;
-
-            let mut new_members = new_members;
-            new_members.sort();
-            <Members<I>>::mutate(|m| {
-                *m = new_members;
-            });
         }
 
         /// Any committee member proposes a dispatchable.

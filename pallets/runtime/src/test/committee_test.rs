@@ -54,7 +54,7 @@ fn propose_works_we() {
     let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
 
     let root = Origin::system(frame_system::RawOrigin::Root);
-    Committee::set_members(root, vec![alice_did]).unwrap();
+    CommitteeGroup::reset_members(root, vec![alice_did]).unwrap();
 
     let proposal = make_proposal(42);
     let hash = proposal.blake2_256().into();
@@ -110,7 +110,7 @@ fn preventing_voting_from_non_members_works_we() {
     let bob_acc = AccountKeyring::Bob.public();
     let (bob_signer, _) = make_account(bob_acc).unwrap();
 
-    Committee::set_members(root, vec![alice_did]).unwrap();
+    CommitteeGroup::reset_members(root, vec![alice_did]).unwrap();
 
     let proposal = make_proposal(42);
     let hash: H256 = proposal.blake2_256().into();
@@ -140,7 +140,7 @@ fn motions_ignoring_bad_index_vote_works_we() {
     let bob_acc = AccountKeyring::Bob.public();
     let (bob_signer, bob_did) = make_account(bob_acc).unwrap();
 
-    Committee::set_members(root, vec![alice_did, bob_did]).unwrap();
+    CommitteeGroup::reset_members(root, vec![alice_did, bob_did]).unwrap();
 
     let proposal = make_proposal(42);
     let hash: H256 = proposal.blake2_256().into();
@@ -172,7 +172,7 @@ fn motions_revoting_works_we() {
     let charlie_acc = AccountKeyring::Charlie.public();
     let (_charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
 
-    Committee::set_members(root, vec![alice_did, bob_did, charlie_did]).unwrap();
+    CommitteeGroup::reset_members(root, vec![alice_did, bob_did, charlie_did]).unwrap();
 
     let proposal = make_proposal(42);
     let hash: H256 = proposal.blake2_256().into();
@@ -228,7 +228,7 @@ fn voting_works_we() {
     let charlie_acc = AccountKeyring::Charlie.public();
     let (charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
 
-    Committee::set_members(root, vec![alice_did, bob_did, charlie_did]).unwrap();
+    CommitteeGroup::reset_members(root, vec![alice_did, bob_did, charlie_did]).unwrap();
 
     let proposal = make_proposal(69);
     let hash = BlakeTwo256::hash_of(&proposal);
