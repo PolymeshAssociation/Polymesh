@@ -125,6 +125,34 @@ decl_storage! {
         /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Signatory;
     }
+    add_extra_genesis {
+        config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
+        build(|config: &GenesisConfig<T>| {
+            for &(ref master_account_id, did_issuer, did, expiry) in &config.identities {
+                // Direct storage change for registering the DID and providing the claim
+                let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
+                assert!(!<DidRecords>::exists(did), "Identity already exist");
+                <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
+                <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, did);
+                let record = DidRecord {
+                    master_key,
+                    ..Default::default()
+                };
+                <DidRecords>::insert(&did, record);
+
+                // Add the claim data for the CustomerDueDiligence type claim
+                let claim_meta_data = ClaimIdentifier(IdentityClaimData::CustomerDueDiligence, did_issuer);
+                let claim = IdentityClaim {
+                    claim_issuer: did_issuer,
+                    issuance_date: 0_u64,
+                    last_update_date: 0_u64,
+                    expiry: expiry,
+                    claim: IdentityClaimData::CustomerDueDiligence,
+                };
+                <Claims>::insert(&did, &claim_meta_data, claim);
+            }
+        });
+    }
 }
 
 decl_module! {
@@ -166,7 +194,7 @@ decl_module! {
         pub fn cdd_register_did(
             origin,
             target_account: T::AccountId,
-            cdd_claim_expiry: T::Moment,
+            cdd_claim_expiry: Option<T::Moment>,
             signing_items: Vec<SigningItem>
         ) -> DispatchResult {
             // Sender has to be part of CDDProviders
@@ -356,7 +384,7 @@ decl_module! {
             origin,
             did: IdentityId,
             claim_data: IdentityClaimData,
-            expiry: T::Moment,
+            expiry: Option<T::Moment>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -382,7 +410,7 @@ decl_module! {
         pub fn add_claims_batch(
             origin,
             // Vec(did_of_claim_receiver, claim_expiry, claim_data)
-            claims: Vec<(IdentityId, T::Moment, IdentityClaimData)>
+            claims: Vec<(IdentityId, Option<T::Moment>, IdentityClaimData)>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -1160,9 +1188,12 @@ impl<T: Trait> Module<T> {
         if <Claims>::exists(&did, &claim_meta_data) {
             let now = <pallet_timestamp::Module<T>>::get();
             let claim = <Claims>::get(&did, &claim_meta_data);
-            if claim.expiry > now.saturated_into::<u64>() {
-                return true;
+            if let Some(claim_expiry) = claim.expiry {
+                if claim_expiry <= now.saturated_into::<u64>() {
+                    return false;
+                }
             }
+            return true;
         }
         false
     }
@@ -1189,9 +1220,12 @@ impl<T: Trait> Module<T> {
         if <Claims>::exists(&did, &claim_meta_data) {
             let now = <pallet_timestamp::Module<T>>::get();
             let claim = <Claims>::get(&did, &claim_meta_data);
-            if claim.expiry > now.saturated_into::<u64>() {
-                return Some(claim);
+            if let Some(claim_expiry) = claim.expiry {
+                if claim_expiry <= now.saturated_into::<u64>() {
+                    return None;
+                }
             }
+            return Some(claim);
         }
         None
     }
@@ -1235,9 +1269,12 @@ impl<T: Trait> Module<T> {
                     IdentityClaimData::CustomerDueDiligence,
                     trusted_cdd_provider,
                 ) {
-                    if claim.expiry > threshold {
-                        return (true, Some(trusted_cdd_provider));
+                    if let Some(claim_expiry) = claim.expiry {
+                        if claim_expiry <= threshold {
+                            return (false, None);
+                        }
                     }
+                    return (true, Some(trusted_cdd_provider));
                 }
             }
         }
@@ -1461,7 +1498,7 @@ impl<T: Trait> Module<T> {
         target_did: IdentityId,
         claim_data: IdentityClaimData,
         did_issuer: IdentityId,
-        expiry: T::Moment,
+        expiry: Option<T::Moment>,
     ) {
         let claim_meta_data = ClaimIdentifier(claim_data.clone(), did_issuer);
 
@@ -1473,11 +1510,16 @@ impl<T: Trait> Module<T> {
             last_update_date
         };
 
+        let claim_expiry = match expiry {
+            Some(claim_expiry) => Some(claim_expiry.saturated_into::<u64>()),
+            None => None,
+        };
+
         let claim = IdentityClaim {
             claim_issuer: did_issuer,
             issuance_date: issuance_date,
             last_update_date: last_update_date,
-            expiry: expiry.saturated_into::<u64>(),
+            expiry: claim_expiry,
             claim: claim_data,
         };
 
