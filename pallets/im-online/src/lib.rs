@@ -329,10 +329,7 @@ decl_module! {
             ensure!(params.constant > 0, Error::<T>::InvalidSlashingParam);
             ensure!(params.max_offline_percent > 0, Error::<T>::InvalidSlashingParam);
 
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::NotAuthorised)?;
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::NotAuthorised)?;
 
             SlashingParams::put(&params);
 

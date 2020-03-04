@@ -26,7 +26,7 @@ use polymesh_primitives::IdentityId;
 pub use polymesh_runtime_common::group::{GroupTrait, RawEvent, Trait};
 
 use frame_support::{
-    decl_module, decl_storage,
+    decl_error, decl_module, decl_storage,
     traits::{ChangeMembers, InitializeMembers},
     weights::SimpleDispatchInfo,
     StorageValue,
@@ -53,11 +53,24 @@ decl_storage! {
     }
 }
 
+decl_error! {
+    pub enum Error for Module<T: Trait<I>, I: Instance> {
+        /// The proposer or voter is not a committee member.
+        NotACommitteeMember,
+        /// Group member was added alredy.
+        DuplicateMember,
+        /// Can't remove a member that doesnt exist.
+        NoSuchMember,
+    }
+}
+
 decl_module! {
     pub struct Module<T: Trait<I>, I: Instance=DefaultInstance>
         for enum Call
         where origin: T::Origin
     {
+        type Error = Error<T, I>;
+
         fn deposit_event() = default;
 
         /// Add a member `who` to the set. May only be called from `AddOrigin` or root.
@@ -67,13 +80,10 @@ decl_module! {
         /// * `who` IdentityId to be added to the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn add_member(origin, who: IdentityId) {
-            T::AddOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            T::AddOrigin::try_origin(origin).map_err(|_| Error::<T, I>::NotACommitteeMember)?;
 
             let mut members = <Members<I>>::get();
-            let location = members.binary_search(&who).err().ok_or("already a member")?;
+            let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
             members.insert(location, who.clone());
             <Members<I>>::put(&members);
 
@@ -89,13 +99,10 @@ decl_module! {
         /// * `who` IdentityId to be removed from the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn remove_member(origin, who: IdentityId) {
-            T::RemoveOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::NotACommitteeMember)?;
 
             let mut members = <Members<I>>::get();
-            let location = members.binary_search(&who).ok().ok_or("not a member")?;
+            let location = members.binary_search(&who).ok().ok_or(Error::<T, I>::NoSuchMember)?;
             members.remove(location);
             <Members<I>>::put(&members);
 
@@ -113,19 +120,16 @@ decl_module! {
         /// * `add` IdentityId to be added in place of `remove`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn swap_member(origin, remove: IdentityId, add: IdentityId) {
-            T::SwapOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            T::SwapOrigin::try_origin(origin).map_err(|_| Error::<T, I>::NotACommitteeMember)?;
 
             if remove == add { return Ok(()) }
 
             let mut members = <Members<I>>::get();
 
-            let location = members.binary_search(&remove).ok().ok_or("not a member")?;
+            let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NoSuchMember)?;
             members[location] = add.clone();
 
-            let _location = members.binary_search(&add).err().ok_or("already a member")?;
+            let _location = members.binary_search(&add).err().ok_or(Error::<T, I>::DuplicateMember)?;
             members.sort();
             <Members<I>>::put(&members);
 
@@ -146,10 +150,7 @@ decl_module! {
         /// * `members` New set of identities
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn reset_members(origin, members: Vec<IdentityId>) {
-            T::ResetOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            T::ResetOrigin::try_origin(origin).map_err(|_| Error::<T, I>::NotACommitteeMember)?;
 
             let mut new_members = members.clone();
             new_members.sort();
@@ -323,11 +324,11 @@ mod tests {
         new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::add_member(Origin::signed(5), IdentityId::from(3)),
-                "bad origin"
+                Error::<Test, DefaultInstance>::NotACommitteeMember
             );
             assert_noop!(
                 Group::add_member(Origin::signed(1), IdentityId::from(3)),
-                "already a member"
+                Error::<Test, DefaultInstance>::DuplicateMember
             );
             assert_ok!(Group::add_member(Origin::signed(1), IdentityId::from(4)));
             assert_eq!(
@@ -348,11 +349,11 @@ mod tests {
         new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::remove_member(Origin::signed(5), IdentityId::from(3)),
-                "bad origin"
+                Error::<Test, DefaultInstance>::NotACommitteeMember
             );
             assert_noop!(
                 Group::remove_member(Origin::signed(2), IdentityId::from(5)),
-                "not a member"
+                Error::<Test, DefaultInstance>::NoSuchMember
             );
             assert_ok!(Group::remove_member(Origin::signed(2), IdentityId::from(3)));
             assert_eq!(
@@ -368,15 +369,15 @@ mod tests {
         new_test_ext().execute_with(|| {
             assert_noop!(
                 Group::swap_member(Origin::signed(5), IdentityId::from(1), IdentityId::from(5)),
-                "bad origin"
+                Error::<Test, DefaultInstance>::NotACommitteeMember
             );
             assert_noop!(
                 Group::swap_member(Origin::signed(3), IdentityId::from(5), IdentityId::from(6)),
-                "not a member"
+                Error::<Test, DefaultInstance>::NoSuchMember
             );
             assert_noop!(
                 Group::swap_member(Origin::signed(3), IdentityId::from(1), IdentityId::from(3)),
-                "already a member"
+                Error::<Test, DefaultInstance>::DuplicateMember
             );
             assert_ok!(Group::swap_member(
                 Origin::signed(3),
@@ -420,7 +421,7 @@ mod tests {
                         IdentityId::from(6),
                     ]
                 ),
-                "bad origin"
+                Error::<Test, DefaultInstance>::NotACommitteeMember
             );
             assert_ok!(Group::reset_members(
                 Origin::signed(4),
