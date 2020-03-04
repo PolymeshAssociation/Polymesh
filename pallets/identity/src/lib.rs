@@ -938,8 +938,8 @@ decl_error! {
         AuthorizationDoesNotExist,
         /// The offchain authorization has expired.
         AuthorizationExpired,
-        /// The master key is not linked to an identity.
-        MasterKeyNotLinked,
+        /// The master key is already linked to an identity.
+        MasterKeyAlreadyLinked,
         /// The target DID has no valid CDD.
         TargetHasNoCdd,
         /// Authorization has been explicitly revoked.
@@ -1413,7 +1413,7 @@ impl<T: Trait> Module<T> {
         // 1.1. Master key is not linked to any identity.
         ensure!(
             Self::can_key_be_linked_to_did(&master_key, SignatoryType::External),
-            Error::<T>::MasterKeyNotLinked
+            Error::<T>::MasterKeyAlreadyLinked
         );
         // 1.2. Master key is not part of signing keys.
         ensure!(
