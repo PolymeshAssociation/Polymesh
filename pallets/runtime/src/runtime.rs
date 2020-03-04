@@ -323,7 +323,6 @@ impl group::Trait<group::Instance1> for Runtime {
 
 impl pallet_mips::Trait for Runtime {
     type Currency = Balances;
-    //type Proposal = Call;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = PolymeshCommittee;
     type Event = Event;

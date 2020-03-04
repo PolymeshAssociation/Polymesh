@@ -361,46 +361,6 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     }
 }
 
-// pub struct EnsureProportionMoreThan<N: U32, D: U32, AccountId, I = DefaultInstance>(
-//     sp_std::marker::PhantomData<(N, D, AccountId, I)>,
-// );
-// impl<
-//         O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-//         N: U32,
-//         D: U32,
-//         AccountId,
-//         I,
-//     > EnsureOrigin<O> for EnsureProportionMoreThan<N, D, AccountId, I>
-// {
-//     type Success = ();
-//     fn try_origin(o: O) -> Result<Self::Success, O> {
-//         o.into().and_then(|o| match o {
-//             RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
-//             r => Err(O::from(r)),
-//         })
-//     }
-// }
-//
-// pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
-//     sp_std::marker::PhantomData<(N, D, AccountId, I)>,
-// );
-// impl<
-//         O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-//         N: U32,
-//         D: U32,
-//         AccountId,
-//         I,
-//     > EnsureOrigin<O> for EnsureProportionAtLeast<N, D, AccountId, I>
-// {
-//     type Success = ();
-//     fn try_origin(o: O) -> Result<Self::Success, O> {
-//         o.into().and_then(|o| match o {
-//             RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
-//             r => Err(O::from(r)),
-//         })
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
