@@ -249,7 +249,7 @@ impl GroupTrait for Test {
     }
 
     fn member_count() -> usize {
-        Self::members().len()
+        Group::members().len()
     }
 }
 
