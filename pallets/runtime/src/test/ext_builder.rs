@@ -179,6 +179,7 @@ impl ExtBuilder {
             did_creation_fee: 250,
             did_records: cdd_identities,
             key_to_identity_ids: cdd_links,
+            identities: vec![],
         }
         .assimilate_storage(&mut storage)
         .unwrap();

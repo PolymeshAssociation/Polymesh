@@ -1,6 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use polymesh_primitives::{AccountId, Signature};
+use polymesh_primitives::{AccountId, IdentityId, Signature};
 use polymesh_runtime::{
     asset::TickerRegistrationConfig,
     committee::ProportionMatch,
@@ -230,6 +230,60 @@ fn testnet_genesis(
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             did_creation_fee: 250,
+            identities: vec![
+                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                /// Service providers
+                (
+                    get_account_id_from_seed::<sr25519::Public>("service_provider_1"),
+                    IdentityId::from(1),
+                    IdentityId::from(1),
+                    None,
+                ),
+                (
+                    get_account_id_from_seed::<sr25519::Public>("service_provider_2"),
+                    IdentityId::from(2),
+                    IdentityId::from(2),
+                    None,
+                ),
+                /// Governance committee members
+                (
+                    get_account_id_from_seed::<sr25519::Public>("governance_committee_1"),
+                    IdentityId::from(1),
+                    IdentityId::from(3),
+                    None,
+                ),
+                (
+                    get_account_id_from_seed::<sr25519::Public>("governance_committee_2"),
+                    IdentityId::from(1),
+                    IdentityId::from(4),
+                    None,
+                ),
+                (
+                    get_account_id_from_seed::<sr25519::Public>("governance_committee_3"),
+                    IdentityId::from(2),
+                    IdentityId::from(5),
+                    None,
+                ),
+                /// Validators
+                (
+                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                    IdentityId::from(2),
+                    IdentityId::from(6),
+                    None,
+                ),
+                (
+                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                    IdentityId::from(1),
+                    IdentityId::from(7),
+                    None,
+                ),
+                (
+                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                    IdentityId::from(1),
+                    IdentityId::from(8),
+                    None,
+                ),
+            ],
             ..Default::default()
         }),
         simple_token: Some(SimpleTokenConfig { creation_fee: 1000 }),
@@ -300,12 +354,16 @@ fn testnet_genesis(
             phantom: Default::default(),
         }),
         committee_Instance1: Some(PolymeshCommitteeConfig {
-            members: vec![],
+            members: vec![
+                IdentityId::from(3),
+                IdentityId::from(4),
+                IdentityId::from(5),
+            ],
             vote_threshold: (ProportionMatch::AtLeast, 1, 2),
             phantom: Default::default(),
         }),
         group_Instance2: Some(CddServiceProvidersConfig {
-            members: vec![],
+            members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }),
     }
