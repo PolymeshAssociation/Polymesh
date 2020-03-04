@@ -167,8 +167,11 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     // /// A proposal is a dispatchable call
     // type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
 
-    /// Required origin for enacting a referundum.
+    /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Origin for enacting a referundum.
+    type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
     /// Committee
     type GovernanceCommittee: GroupTrait;
@@ -479,7 +482,7 @@ decl_module! {
         /// Moves a referendum instance into dispatch queue.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn enact_referendum(origin, proposal_hash: T::Hash) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
 
             Self::prepare_to_dispatch(proposal_hash);
         }
@@ -841,6 +844,7 @@ mod tests {
         type MembershipChanged = ();
     }
 
+    type Identity = identity::Module<Test>;
     type System = system::Module<Test>;
     type Balances = balances::Module<Test>;
     type Mips = Module<Test>;

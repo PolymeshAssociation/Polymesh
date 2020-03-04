@@ -30,6 +30,7 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_common::{group::GroupTrait, identity::Trait as IdentityTrait, Context};
 use polymesh_runtime_identity as identity;
+use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{EnsureOrigin, Hash};
 use sp_std::{convert::TryFrom, prelude::*, vec};
 
@@ -152,7 +153,6 @@ decl_module! {
         /// * `match_criteria` One of {AtLeast, MoreThan}
         /// * `n` Numerator of the fraction representing vote threshold
         /// * `d` Denominator of the fraction representing vote threshold
-        /// * `match_criteria` One of {AtLeast, MoreThan}
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_vote_threshold(origin, n: u32, d: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
@@ -358,6 +358,46 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
             );
             <Members<I>>::put(members);
         }
+    }
+}
+
+pub struct EnsureProportionMoreThan<N: U32, D: U32, AccountId, I = DefaultInstance>(
+    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
+);
+impl<
+        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+        N: U32,
+        D: U32,
+        AccountId,
+        I,
+    > EnsureOrigin<O> for EnsureProportionMoreThan<N, D, AccountId, I>
+{
+    type Success = ();
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
+            r => Err(O::from(r)),
+        })
+    }
+}
+
+pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
+    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
+);
+impl<
+        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+        N: U32,
+        D: U32,
+        AccountId,
+        I,
+    > EnsureOrigin<O> for EnsureProportionAtLeast<N, D, AccountId, I>
+{
+    type Success = ();
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
+            r => Err(O::from(r)),
+        })
     }
 }
 

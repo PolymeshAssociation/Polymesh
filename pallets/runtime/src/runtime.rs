@@ -25,7 +25,7 @@ use frame_support::{
 };
 use pallet_elections::VoteIndex;
 use sp_api::impl_runtime_apis;
-use sp_core::u32_trait::{_1, _4};
+use sp_core::u32_trait::{_1, _2, _4};
 use sp_offchain;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::transaction_validity::TransactionValidity;
@@ -324,6 +324,8 @@ impl group::Trait<group::Instance1> for Runtime {
 impl pallet_mips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type VotingMajorityOrigin =
+        committee::EnsureProportionAtLeast<_1, _2, AccountId, GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type Event = Event;
 }
