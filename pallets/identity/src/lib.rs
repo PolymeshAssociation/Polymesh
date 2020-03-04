@@ -1225,7 +1225,7 @@ impl<T: Trait> Module<T> {
                     return None;
                 }
             }
-            return Some(claim); 
+            return Some(claim);
         }
         None
     }
@@ -1274,7 +1274,7 @@ impl<T: Trait> Module<T> {
                             return (false, None);
                         }
                     }
-                    return (true, Some(trusted_cdd_provider));   
+                    return (true, Some(trusted_cdd_provider));
                 }
             }
         }
@@ -1512,7 +1512,7 @@ impl<T: Trait> Module<T> {
 
         let claim_expiry = match expiry {
             Some(claim_expiry) => Some(claim_expiry.saturated_into::<u64>()),
-            None => None
+            None => None,
         };
 
         let claim = IdentityClaim {

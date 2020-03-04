@@ -62,7 +62,11 @@ fn add_claims_batch() {
 
         assert_eq!(claim1.expiry, None);
         assert_eq!(claim2.expiry, None);
-        assert!(Identity::is_claim_valid(claim_issuer_did, IdentityClaimData::CustomerDueDiligence ,claim_issuer_did));
+        assert!(Identity::is_claim_valid(
+            claim_issuer_did,
+            IdentityClaimData::CustomerDueDiligence,
+            claim_issuer_did
+        ));
 
         assert_eq!(claim1.claim, IdentityClaimData::NoData);
 
@@ -917,7 +921,9 @@ fn cdd_register_did_test_we() {
     // Error case: Try account without ID.
     assert!(Identity::cdd_register_did(non_id, bob_acc, Some(10), vec![]).is_err(),);
     // Error case: Try account with ID but it is not part of CDD providers.
-    assert!(Identity::cdd_register_did(Origin::signed(alice_acc), bob_acc, Some(10), vec![]).is_err());
+    assert!(
+        Identity::cdd_register_did(Origin::signed(alice_acc), bob_acc, Some(10), vec![]).is_err()
+    );
 
     // CDD 2 registers properly Bob's ID.
     assert_ok!(Identity::cdd_register_did(
