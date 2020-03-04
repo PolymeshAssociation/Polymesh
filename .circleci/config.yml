@@ -137,18 +137,12 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Build concatenated lock file for caching
-          command: find . -name "Cargo.lock" -not -path "*/target/*" | xargs cat > concatenated.lock
-      - run:
           name: Store rust version in a file for cache key
-          command: rustc --version > rust.version
+          command: rustc +nightly --version > rust.version
       - restore_cache:
           keys:
-            - v1-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - v1-clippy-cache-{{ checksum "./rust.version" }}
-            - v4-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - v4-test-cache-{{ checksum "./rust.version" }}
-            - v3-test-cache-{{ checksum "./rust.version" }}
+            - v2-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v2-clippy-cache-{{ checksum "./rust.version" }}
       - run:
           name: run clippy in primitives
           command: cargo +nightly clippy
@@ -175,7 +169,7 @@ jobs:
           working_directory: ./pallets/im-online
           no_output_timeout: 30m
       - save_cache:
-          key: v1-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: v2-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./pallets/runtime/target"
