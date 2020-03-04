@@ -49,8 +49,6 @@ jobs:
           keys:
             - v4-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - v4-test-cache-{{ checksum "./rust.version" }}
-            - v1-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - v1-clippy-cache-{{ checksum "./rust.version" }}
             - v3-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: runtime tests
