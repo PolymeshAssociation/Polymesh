@@ -15,7 +15,6 @@
 //! - Proposal automatically dispatches if it meets a vote threshold
 //!
 //! ### Dispatchable Functions
-//! - `set_members` - Initialize membership. Called by Root.
 //! - `propose` - Members can propose a new dispatchable
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
 //!
@@ -31,7 +30,7 @@ use sp_std::{convert::TryFrom, prelude::*, vec};
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{Dispatchable, Parameter},
+    dispatch::{DispatchResult, Dispatchable, Parameter},
     ensure,
     traits::{ChangeMembers, InitializeMembers},
     weights::SimpleDispatchInfo,
@@ -45,7 +44,7 @@ pub type ProposalIndex = u32;
 /// The number of committee members
 pub type MemberCount = u32;
 
-pub trait Trait<I = DefaultInstance>: frame_system::Trait + IdentityTrait {
+pub trait Trait<I>: frame_system::Trait + IdentityTrait {
     /// The outer origin type.
     type Origin: From<RawOrigin<Self::AccountId, I>>;
 
@@ -88,11 +87,11 @@ pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::Accoun
 /// Info for keeping track of a motion being voted on.
 pub struct PolymeshVotes<IdentityId> {
     /// The proposal's unique index.
-    index: ProposalIndex,
+    pub index: ProposalIndex,
     /// The current set of commmittee members that approved it.
-    ayes: Vec<IdentityId>,
+    pub ayes: Vec<IdentityId>,
     /// The current set of commmittee members that rejected it.
-    nays: Vec<IdentityId>,
+    pub nays: Vec<IdentityId>,
 }
 
 decl_storage! {
@@ -116,7 +115,7 @@ decl_storage! {
 }
 
 decl_event!(
-    pub enum Event<T, I=DefaultInstance> where
+    pub enum Event<T, I> where
         <T as frame_system::Trait>::Hash,
     {
         /// A motion (given hash) has been proposed (by given account) with a threshold (given
@@ -140,6 +139,12 @@ decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Duplicate vote ignored
         DuplicateVote,
+        /// Only master key of the identity is allowed.
+        OnlyMasterKeyAllowed,
+        /// Sender Identity is not part of the committee.
+        MemberNotFound,
+        /// Last member of the committee can not quit.
+        LastMemberCannotQuit,
         /// The sender must be a signing key for the DID.
         SenderMustBeSigningKeyForDid,
         /// The proposer or voter is not a committee member.
@@ -171,7 +176,7 @@ decl_module! {
         /// * `d` Denominator of the fraction representing vote threshold
         /// * `match_criteria` One of {AtLeast, MoreThan}
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn set_vote_threshold(origin, match_criteria: ProportionMatch, n: u32, d: u32) {
+        pub fn set_vote_threshold(origin, match_criteria: ProportionMatch, n: u32, d: u32) {
             T::CommitteeOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)
@@ -179,29 +184,12 @@ decl_module! {
             <VoteThreshold<I>>::put((match_criteria, n, d));
         }
 
-        /// Set the committee's membership manually to `new_members`.
-        /// Requires root origin.
-        ///
-        /// # Arguments
-        /// * `origin` Root
-        /// * `new_members` Members to be initialized as committee.
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn set_members(origin, new_members: Vec<IdentityId>) {
-            ensure_root(origin)?;
-
-            let mut new_members = new_members;
-            new_members.sort();
-            <Members<I>>::mutate(|m| {
-                *m = new_members;
-            });
-        }
-
         /// Any committee member proposes a dispatchable.
         ///
         /// # Arguments
         /// * `proposal` A dispatchable call
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
-        fn propose(origin, proposal: Box<<T as Trait<I>>::Proposal>) {
+        pub fn propose(origin, proposal: Box<<T as Trait<I>>::Proposal>) {
             let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
             let signer = Signatory::AccountKey(who_key);
@@ -237,7 +225,7 @@ decl_module! {
         /// * `index` Proposal index
         /// * `approve` Represents a `for` or `against` vote
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) {
+        pub fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) -> DispatchResult {
             let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
             let signer = Signatory::AccountKey(who_key);
@@ -258,29 +246,79 @@ decl_module! {
             let position_no = voting.nays.iter().position(|a| a == &did);
 
             if approve {
-                if position_yes.is_none() {
-                    voting.ayes.push(did.clone());
-                } else {
-                    return Err(Error::<T, I>::DuplicateVote.into())
-                }
+                ensure!( position_yes.is_none(), Error::<T, I>::DuplicateVote);
+                voting.ayes.push(did.clone());
+
                 if let Some(pos) = position_no {
                     voting.nays.swap_remove(pos);
                 }
             } else {
-                if position_no.is_none() {
-                    voting.nays.push(did.clone());
-                } else {
-                    return Err(Error::<T, I>::DuplicateVote.into())
-                }
+                ensure!( position_no.is_none(),  Error::<T, I>::DuplicateVote);
+                voting.nays.push(did.clone());
+
                 if let Some(pos) = position_yes {
                     voting.ayes.swap_remove(pos);
                 }
             }
 
+            <Voting<T, I>>::insert(&proposal, voting);
+            Self::check_proposal_threshold(proposal);
+            Ok(())
+        }
+    }
+}
+
+impl<T: Trait<I>, I: Instance> Module<T, I> {
+    /// Returns true if given did is contained in `Members` set. `false`, otherwise.
+    pub fn is_member(who: &IdentityId) -> bool {
+        Self::members().contains(who)
+    }
+
+    /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
+    /// in relation to the threshold proporion `n`/`d`.
+    fn is_threshold_satisfied(
+        votes: u32,
+        total: u32,
+        (threshold, n, d): (ProportionMatch, u32, u32),
+    ) -> bool {
+        match threshold {
+            ProportionMatch::AtLeast => votes * d >= n * total,
+            ProportionMatch::MoreThan => votes * d > n * total,
+        }
+    }
+
+    /// It removes the `id`'s vote from `proposal` if it exists.
+    ///
+    /// # Return
+    /// It returns true if vote was removed.
+    fn remove_vote_from(id: IdentityId, proposal: T::Hash) -> bool {
+        let mut is_id_removed = None;
+        if let Some(mut voting) = Self::voting(&proposal) {
+            // If any element is removed, we have to update `voting`.
+            is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
+                Some(voting.ayes.swap_remove(idx))
+            } else {
+                if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
+                    Some(voting.nays.swap_remove(idx))
+                } else {
+                    None
+                }
+            };
+
+            if is_id_removed.is_some() {
+                <Voting<T, I>>::insert(&proposal, voting);
+            }
+        }
+
+        is_id_removed.is_some()
+    }
+
+    /// It accepts/rejects the proposal if its threshold is satisfied.
+    fn check_proposal_threshold(proposal: T::Hash) {
+        if let Some(voting) = Self::voting(&proposal) {
             let seats = Self::members().len() as MemberCount;
             let yes_votes = voting.ayes.len() as MemberCount;
             let no_votes = voting.nays.len() as MemberCount;
-            Self::deposit_event(RawEvent::Voted(did, proposal, approve, yes_votes, no_votes, seats));
 
             let threshold = <VoteThreshold<I>>::get();
 
@@ -305,30 +343,7 @@ decl_module! {
                 // remove vote
                 <Voting<T, I>>::remove(&proposal);
                 <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
-            } else {
-                // update voting
-                <Voting<T, I>>::insert(&proposal, voting);
             }
-        }
-    }
-}
-
-impl<T: Trait<I>, I: Instance> Module<T, I> {
-    /// Returns true if given did is contained in `Members` set. `false`, otherwise.
-    pub fn is_member(who: &IdentityId) -> bool {
-        Self::members().contains(who)
-    }
-
-    /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
-    /// in relation to the threshold proporion `n`/`d`.
-    fn is_threshold_satisfied(
-        votes: u32,
-        total: u32,
-        (threshold, n, d): (ProportionMatch, u32, u32),
-    ) -> bool {
-        match threshold {
-            ProportionMatch::AtLeast => votes * d >= n * total,
-            ProportionMatch::MoreThan => votes * d > n * total,
         }
     }
 }
@@ -340,27 +355,15 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
         new: &[IdentityId],
     ) {
         // remove accounts from all current voting in motions.
-        let mut outgoing = outgoing.to_vec();
-        outgoing.sort_unstable();
+        Self::proposals()
+            .into_iter()
+            .filter(|proposal| {
+                outgoing.iter().fold(false, |acc, id| {
+                    acc || Self::remove_vote_from(*id, *proposal)
+                })
+            })
+            .for_each(|update_proposal| Self::check_proposal_threshold(update_proposal));
 
-        for h in Self::proposals().into_iter() {
-            <Voting<T, I>>::mutate(h, |v| {
-                if let Some(mut votes) = v.take() {
-                    votes.ayes = votes
-                        .ayes
-                        .into_iter()
-                        .filter(|i| outgoing.binary_search(i).is_err())
-                        .collect();
-
-                    votes.nays = votes
-                        .nays
-                        .into_iter()
-                        .filter(|i| outgoing.binary_search(i).is_err())
-                        .collect();
-                    *v = Some(votes);
-                }
-            });
-        }
         <Members<I>>::put(new);
     }
 }
@@ -414,432 +417,5 @@ impl<
             RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
             r => Err(O::from(r)),
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use polymesh_primitives::IdentityId;
-    use polymesh_runtime_balances as balances;
-    use polymesh_runtime_common::traits::{asset, multisig, CommonTrait};
-    use polymesh_runtime_group as group;
-    use polymesh_runtime_identity as identity;
-
-    use crate::committee;
-    use core::result::Result as StdResult;
-    use frame_support::{
-        assert_noop, assert_ok, dispatch::DispatchResult, parameter_types, Hashable,
-    };
-    use frame_system::EnsureSignedBy;
-    use sp_core::H256;
-    use sp_runtime::{
-        testing::Header,
-        traits::{BlakeTwo256, Block as BlockT, IdentityLookup, Verify},
-        AnySignature, BuildStorage, Perbill,
-    };
-    use test_client::{self, AccountKeyring};
-
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub const MaximumBlockWeight: u32 = 1024;
-        pub const MaximumBlockLength: u32 = 2 * 1024;
-        pub const AvailableBlockRatio: Perbill = Perbill::one();
-    }
-
-    impl frame_system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Call = ();
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type AccountId = AccountId;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type BlockHashCount = BlockHashCount;
-        type MaximumBlockWeight = MaximumBlockWeight;
-        type MaximumBlockLength = MaximumBlockLength;
-        type AvailableBlockRatio = AvailableBlockRatio;
-        type Version = ();
-        type ModuleToIndex = ();
-    }
-
-    parameter_types! {
-        pub const ExistentialDeposit: u64 = 0;
-        pub const TransferFee: u64 = 0;
-        pub const CreationFee: u64 = 0;
-        pub const TransactionBaseFee: u64 = 0;
-        pub const TransactionByteFee: u64 = 0;
-    }
-
-    impl CommonTrait for Test {
-        type Balance = u128;
-        type CreationFee = CreationFee;
-        type AcceptTransferTarget = Test;
-
-        type BlockRewardsReserve = balances::Module<Test>;
-    }
-
-    impl balances::Trait for Test {
-        type OnFreeBalanceZero = ();
-        type OnNewAccount = ();
-        type Event = ();
-        type DustRemoval = ();
-        type TransferPayment = ();
-        type ExistentialDeposit = ExistentialDeposit;
-        type TransferFee = TransferFee;
-        type Identity = identity::Module<Test>;
-    }
-
-    parameter_types! {
-        pub const MinimumPeriod: u64 = 3;
-    }
-
-    impl pallet_timestamp::Trait for Test {
-        type Moment = u64;
-        type OnTimestampSet = ();
-        type MinimumPeriod = MinimumPeriod;
-    }
-
-    parameter_types! {
-        pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
-        pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
-        pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
-        pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
-        pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
-    }
-
-    impl group::Trait<Instance2> for Test {
-        type Event = ();
-        type AddOrigin = EnsureSignedBy<One, AccountId>;
-        type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
-        type SwapOrigin = EnsureSignedBy<Three, AccountId>;
-        type ResetOrigin = EnsureSignedBy<Four, AccountId>;
-        type MembershipInitialized = ();
-        type MembershipChanged = ();
-    }
-
-    impl identity::Trait for Test {
-        type Event = ();
-        type Proposal = Call;
-        type AddSignerMultiSigTarget = Test;
-        type CddServiceProviders = Test;
-        type Balances = balances::Module<Test>;
-    }
-
-    impl group::GroupTrait for Test {
-        fn get_members() -> Vec<IdentityId> {
-            unimplemented!()
-        }
-        fn is_member(_did: &IdentityId) -> bool {
-            unimplemented!()
-        }
-    }
-
-    impl asset::AcceptTransfer for Test {
-        fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-    }
-
-    impl multisig::AddSignerMultiSig for Test {
-        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-    }
-
-    type Identity = identity::Module<Test>;
-    type AccountId = <AnySignature as Verify>::Signer;
-
-    parameter_types! {
-        pub const CommitteeOrigin: AccountId = AccountId::from(AccountKeyring::Alice);
-    }
-
-    impl Trait<Instance1> for Test {
-        type Origin = Origin;
-        type Proposal = Call;
-        type CommitteeOrigin = EnsureSignedBy<CommitteeOrigin, AccountId>;
-        type Event = ();
-    }
-
-    impl Trait for Test {
-        type Origin = Origin;
-        type Proposal = Call;
-        type CommitteeOrigin = EnsureSignedBy<CommitteeOrigin, AccountId>;
-        type Event = ();
-    }
-
-    pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-    pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, Call, ()>;
-
-    frame_support::construct_runtime!(
-        pub enum Test where
-            Block = Block,
-            NodeBlock = Block,
-            UncheckedExtrinsic = UncheckedExtrinsic
-        {
-            System: frame_system::{Module, Call, Event},
-            Committee: committee::<Instance1>::{Module, Call, Event<T>, Origin<T>, Config<T>},
-            DefaultCommittee: committee::{Module, Call, Event<T>, Origin<T>, Config<T>},
-        }
-    );
-
-    fn make_ext() -> sp_io::TestExternalities {
-        GenesisConfig {
-            committee_Instance1: Some(committee::GenesisConfig {
-                members: vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3),
-                ],
-                vote_threshold: (ProportionMatch::AtLeast, 1, 1),
-                phantom: Default::default(),
-            }),
-            committee: None,
-        }
-        .build_storage()
-        .unwrap()
-        .into()
-    }
-
-    #[test]
-    fn motions_basic_environment_works() {
-        make_ext().execute_with(|| {
-            System::set_block_number(1);
-            assert_eq!(
-                Committee::members(),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3)
-                ]
-            );
-            assert_eq!(Committee::proposals(), Vec::<H256>::new());
-        });
-    }
-
-    fn make_proposal(value: u64) -> Call {
-        Call::System(frame_system::Call::remark(value.encode()))
-    }
-
-    fn make_account(
-        account_id: &AccountId,
-    ) -> StdResult<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(account_id.clone());
-        let _ = Identity::register_did(signed_id.clone(), vec![]);
-        let did = Identity::get_identity(&AccountKey::try_from(account_id.encode())?).unwrap();
-        Ok((signed_id, did))
-    }
-
-    #[test]
-    fn propose_works() {
-        make_ext().execute_with(|| {
-            System::set_block_number(1);
-
-            let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
-
-            Committee::set_members(Origin::ROOT, vec![alice_did]).unwrap();
-
-            let proposal = make_proposal(42);
-            let hash = proposal.blake2_256().into();
-            assert_ok!(Committee::propose(
-                alice_signer.clone(),
-                Box::new(proposal.clone())
-            ));
-            assert_eq!(Committee::proposals(), vec![hash]);
-            assert_eq!(Committee::proposal_of(&hash), Some(proposal));
-            assert_eq!(
-                Committee::voting(&hash),
-                Some(PolymeshVotes {
-                    index: 0,
-                    ayes: vec![alice_did],
-                    nays: vec![]
-                })
-            );
-        });
-    }
-
-    #[test]
-    fn preventing_motions_from_non_members_works() {
-        make_ext().execute_with(|| {
-            System::set_block_number(1);
-
-            let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (alice_signer, _) = make_account(&alice_acc).unwrap();
-
-            let proposal = make_proposal(42);
-            assert_noop!(
-                Committee::propose(alice_signer.clone(), Box::new(proposal.clone())),
-                Error::<Test, Instance1>::NotACommitteeMember
-            );
-        });
-    }
-
-    #[test]
-    fn preventing_voting_from_non_members_works() {
-        make_ext().execute_with(|| {
-            System::set_block_number(1);
-
-            let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
-
-            let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (bob_signer, _) = make_account(&bob_acc).unwrap();
-
-            Committee::set_members(Origin::ROOT, vec![alice_did]).unwrap();
-
-            let proposal = make_proposal(42);
-            let hash: H256 = proposal.blake2_256().into();
-            assert_ok!(Committee::propose(
-                alice_signer.clone(),
-                Box::new(proposal.clone())
-            ));
-            assert_noop!(
-                Committee::vote(bob_signer, hash.clone(), 0, true),
-                Error::<Test, Instance1>::NotACommitteeMember
-            );
-        });
-    }
-
-    #[test]
-    fn motions_ignoring_bad_index_vote_works() {
-        make_ext().execute_with(|| {
-            System::set_block_number(3);
-
-            let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
-
-            let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
-
-            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did]).unwrap();
-
-            let proposal = make_proposal(42);
-            let hash: H256 = proposal.blake2_256().into();
-            assert_ok!(Committee::propose(
-                alice_signer.clone(),
-                Box::new(proposal.clone())
-            ));
-            assert_noop!(
-                Committee::vote(bob_signer, hash.clone(), 1, true),
-                Error::<Test, Instance1>::MismatchedVotingIndex
-            );
-        });
-    }
-
-    #[test]
-    fn motions_revoting_works() {
-        make_ext().execute_with(|| {
-            System::set_block_number(1);
-
-            let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (alice_signer, alice_did) = make_account(&alice_acc).unwrap();
-
-            let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (_bob_signer, bob_did) = make_account(&bob_acc).unwrap();
-
-            let charlie_acc = AccountId::from(AccountKeyring::Charlie);
-            let (_charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
-
-            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]).unwrap();
-
-            let proposal = make_proposal(42);
-            let hash: H256 = proposal.blake2_256().into();
-            assert_ok!(Committee::propose(
-                alice_signer.clone(),
-                Box::new(proposal.clone())
-            ));
-            assert_eq!(
-                Committee::voting(&hash),
-                Some(PolymeshVotes {
-                    index: 0,
-                    ayes: vec![alice_did],
-                    nays: vec![]
-                })
-            );
-            assert_noop!(
-                Committee::vote(alice_signer.clone(), hash.clone(), 0, true),
-                Error::<Test, Instance1>::DuplicateVote
-            );
-            assert_ok!(Committee::vote(
-                alice_signer.clone(),
-                hash.clone(),
-                0,
-                false
-            ));
-            assert_eq!(
-                Committee::voting(&hash),
-                Some(PolymeshVotes {
-                    index: 0,
-                    ayes: vec![],
-                    nays: vec![alice_did]
-                })
-            );
-            assert_noop!(
-                Committee::vote(alice_signer.clone(), hash.clone(), 0, false),
-                Error::<Test, Instance1>::DuplicateVote
-            );
-        });
-    }
-
-    #[test]
-    fn voting_works() {
-        make_ext().execute_with(|| {
-            System::set_block_number(1);
-
-            let alice_acc = AccountId::from(AccountKeyring::Alice);
-            let (_alice_signer, alice_did) = make_account(&alice_acc).unwrap();
-
-            let bob_acc = AccountId::from(AccountKeyring::Bob);
-            let (bob_signer, bob_did) = make_account(&bob_acc).unwrap();
-
-            let charlie_acc = AccountId::from(AccountKeyring::Charlie);
-            let (charlie_signer, charlie_did) = make_account(&charlie_acc).unwrap();
-
-            Committee::set_members(Origin::ROOT, vec![alice_did, bob_did, charlie_did]).unwrap();
-
-            let proposal = make_proposal(69);
-            let hash = BlakeTwo256::hash_of(&proposal);
-            assert_ok!(Committee::propose(
-                charlie_signer.clone(),
-                Box::new(proposal.clone())
-            ));
-            assert_ok!(Committee::vote(bob_signer.clone(), hash.clone(), 0, false));
-            assert_eq!(
-                Committee::voting(&hash),
-                Some(PolymeshVotes {
-                    index: 0,
-                    ayes: vec![charlie_did],
-                    nays: vec![bob_did]
-                })
-            );
-        });
-    }
-
-    #[test]
-    fn changing_vote_threshold_works() {
-        make_ext().execute_with(|| {
-            assert_eq!(
-                Committee::vote_threshold(),
-                (ProportionMatch::AtLeast, 1, 1)
-            );
-            assert_ok!(Committee::set_vote_threshold(
-                Origin::signed(AccountId::from(AccountKeyring::Alice)),
-                ProportionMatch::AtLeast,
-                4,
-                17
-            ));
-            assert_eq!(
-                Committee::vote_threshold(),
-                (ProportionMatch::AtLeast, 4, 17)
-            );
-        });
     }
 }

@@ -1,5 +1,6 @@
 use crate::{
     asset::{self, TickerRegistrationConfig},
+    committee::{self, ProportionMatch},
     test::TestStorage,
 };
 
@@ -26,6 +27,8 @@ pub struct ExtBuilder {
     monied: bool,
     vesting: bool,
     cdd_providers: Vec<Public>,
+    gen_committee_members: Vec<IdentityId>,
+    gen_committee_vote_threshold: (ProportionMatch, u32, u32),
 }
 
 thread_local! {
@@ -61,6 +64,16 @@ impl ExtBuilder {
         if self.existential_deposit == 0 {
             self.existential_deposit = 1;
         }
+        self
+    }
+
+    pub fn committee_members(mut self, committee: Vec<IdentityId>) -> Self {
+        self.gen_committee_members = committee;
+        self
+    }
+
+    pub fn committee_vote_threshold(mut self, threshold: (ProportionMatch, u32, u32)) -> Self {
+        self.gen_committee_vote_threshold = threshold;
         self
     }
 
@@ -208,6 +221,22 @@ impl ExtBuilder {
         // CDD Service providers.
         group::GenesisConfig::<TestStorage, group::Instance2> {
             members: cdd_ids,
+            ..Default::default()
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        // Committee
+        group::GenesisConfig::<TestStorage, group::Instance1> {
+            members: self.gen_committee_members.clone(),
+            ..Default::default()
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        committee::GenesisConfig::<TestStorage, committee::Instance1> {
+            members: self.gen_committee_members,
+            vote_threshold: self.gen_committee_vote_threshold,
             ..Default::default()
         }
         .assimilate_storage(&mut storage)

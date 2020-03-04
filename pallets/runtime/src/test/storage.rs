@@ -1,4 +1,6 @@
-use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics, utils};
+use crate::{
+    asset, bridge, committee, exemption, general_tm, multisig, percentage_tm, statistics, utils,
+};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
@@ -52,12 +54,11 @@ impl_outer_event! {
         pallet_session,
         general_tm,
         exemption,
-    }
-}
-
-impl From<()> for EventTest {
-    fn from(_: ()) -> Self {
-        unimplemented!()
+        group Instance1<T>,
+        group Instance2<T>,
+        group DefaultInstance<T>,
+        committee Instance1<T>,
+        committee DefaultInstance<T>,
     }
 }
 
@@ -154,14 +155,60 @@ parameter_types! {
     pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
 }
 
+impl group::Trait<group::DefaultInstance> for TestStorage {
+    type Event = Event;
+    type AddOrigin = EnsureSignedBy<One, AccountId>;
+    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type MembershipInitialized = ();
+    type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
+}
+
+impl group::Trait<group::Instance1> for TestStorage {
+    type Event = Event;
+    type AddOrigin = EnsureSignedBy<One, AccountId>;
+    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
+    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
+    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type MembershipInitialized = ();
+    type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
+}
+
 impl group::Trait<group::Instance2> for TestStorage {
-    type Event = ();
+    type Event = Event;
     type AddOrigin = EnsureSignedBy<One, AccountId>;
     type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
     type SwapOrigin = EnsureSignedBy<Three, AccountId>;
     type ResetOrigin = EnsureSignedBy<Four, AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
+}
+
+pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as system::Trait>::AccountId, I>;
+
+impl<I> From<CommitteeOrigin<TestStorage, I>> for Origin {
+    fn from(_co: CommitteeOrigin<TestStorage, I>) -> Origin {
+        Origin::system(frame_system::RawOrigin::Root)
+    }
+}
+
+parameter_types! {
+    pub const CommitteeRoot: AccountId = AccountId::from(AccountKeyring::Alice);
+}
+
+impl committee::Trait<committee::Instance1> for TestStorage {
+    type Origin = Origin;
+    type Proposal = Call;
+    type CommitteeOrigin = EnsureSignedBy<CommitteeRoot, AccountId>;
+    type Event = Event;
+}
+
+impl committee::Trait<committee::DefaultInstance> for TestStorage {
+    type Origin = Origin;
+    type Proposal = Call;
+    type CommitteeOrigin = EnsureSignedBy<CommitteeRoot, AccountId>;
+    type Event = Event;
 }
 
 impl identity::Trait for TestStorage {
