@@ -169,7 +169,7 @@ impl ExtBuilder {
 
         let root = AccountKeyring::Alice.public();
 
-        // Define KYC providers.
+        // Define CDD providers.
         let (cdd_identities, cdd_links) = self.make_cdd_identities();
         let cdd_ids: Vec<IdentityId> = cdd_identities.iter().map(|(id, _)| id.clone()).collect();
 
@@ -204,7 +204,7 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        // KYC Service providers.
+        // CDD Service providers.
         group::GenesisConfig::<TestStorage, group::Instance2> {
             members: cdd_ids,
             ..Default::default()

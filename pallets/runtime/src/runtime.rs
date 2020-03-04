@@ -510,7 +510,7 @@ impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = MultiSig;
-    type KycServiceProviders = KycServiceProviders;
+    type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
 }
 
@@ -590,7 +590,7 @@ construct_runtime!(
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
-        KycServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
+        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage },
     }
 );

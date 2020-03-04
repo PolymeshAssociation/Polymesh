@@ -52,15 +52,6 @@ pub enum Error {
     RuntimeError,
 }
 
-impl From<Error> for i64 {
-    fn from(e: Error) -> i64 {
-        match e {
-            Error::RuntimeError => 1,
-            Error::DecodeError => 2,
-        }
-    }
-}
-
 impl<C, Block, AccountId, Balance> MipsApi<<Block as BlockT>::Hash, AccountId, Balance>
     for Mips<C, Block>
 where
@@ -82,7 +73,7 @@ where
 
         api.get_votes(&at, index)
             .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                code: ErrorCode::ServerError(Error::RuntimeError as i64),
                 message: "Unable to query get_votes.".into(),
                 data: Some(format!("{:?}", e).into()),
             })
@@ -98,7 +89,7 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let result = api.proposed_by(&at, address).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            code: ErrorCode::ServerError(Error::RuntimeError as i64),
             message: "Unable to query proposed_by.".into(),
             data: Some(format!("{:?}", e).into()),
         })?;
@@ -115,7 +106,7 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let result = api.voted_on(&at, address).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            code: ErrorCode::ServerError(Error::RuntimeError as i64),
             message: "Unable to query voted_on.".into(),
             data: Some(format!("{:?}", e).into()),
         })?;

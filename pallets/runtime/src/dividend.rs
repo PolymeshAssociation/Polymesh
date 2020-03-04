@@ -660,7 +660,7 @@ mod tests {
         type Event = ();
         type Proposal = Call;
         type AddSignerMultiSigTarget = Test;
-        type KycServiceProviders = Test;
+        type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
     }
 
