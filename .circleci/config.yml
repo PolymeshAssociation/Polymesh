@@ -25,6 +25,7 @@ jobs:
             - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
             - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - v2-release-cache-{{ checksum "./rust.version" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
           command: cargo build -j 1 --release
@@ -48,6 +49,8 @@ jobs:
           keys:
             - v4-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - v4-test-cache-{{ checksum "./rust.version" }}
+            - v1-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v1-clippy-cache-{{ checksum "./rust.version" }}
             - v3-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: runtime tests
@@ -141,53 +144,53 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
-            - release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - release-cache-{{ checksum "./rust.version" }}
-            - release-cache
+            - v1-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v1-clippy-cache-{{ checksum "./rust.version" }}
+            - v4-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v4-test-cache-{{ checksum "./rust.version" }}
+            - v3-test-cache-{{ checksum "./rust.version" }}
       - run:
-          name: Build release
-          command: cargo build -j 1 --release
-          no_output_timeout: 4h
-      - run:
-          name: install clippy
-          command: rustup component add clippy
-          no_output_timeout: 10m
-      - run:
-          name: run Clippy in Primitive Folder
+          name: run clippy in primitives
           command: cargo +nightly clippy
           working_directory: ./primitives
-          no_output_timeout: 30m               
+          no_output_timeout: 30m
       - run:
-          name: Updating WASM in Runtime Folder
-          command: rustup target add wasm32-unknown-unknown
-          working_directory: ./pallets/runtime
-          no_output_timeout: 30m  
-      - run:
-          name: adding WASM-GC in Runtime Folder
-          command: cargo install --git https://github.com/alexcrichton/wasm-gc --force   
-          working_directory: ./pallets/runtime
-          no_output_timeout: 30m  
-      - run:
-          name: run Clippy in Runtime Folder
+          name: run clippy in runtime
           command: cargo +nightly clippy
           working_directory: ./pallets/runtime
           no_output_timeout: 30m
+      - run:
+          name: run clippy in staking
+          command: cargo +nightly clippy
+          working_directory: ./pallets/staking
+          no_output_timeout: 30m
+      - run:
+          name: run clippy in group
+          command: cargo +nightly clippy
+          working_directory: ./pallets/group
+          no_output_timeout: 30m
+      - run:
+          name: run clippy in im-online
+          command: cargo +nightly clippy
+          working_directory: ./pallets/im-online
+          no_output_timeout: 30m
       - save_cache:
-          key: debug-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./concatenated.lock" }}
+          key: v1-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
-            - "./target"
             - "./pallets/runtime/target"
-            - "./pallets/runtime/wasm/target"
+            - "./pallets/staking/target"
+            - "./pallets/group/target"
+            - "./pallets/im-online/target"
+            - "./primitives/target"
 workflows:
   version: 2
   commit:
     jobs:
       - lint
+      - clippy
       - cli
       - test
-      - clippy
   daily-builds:
     triggers:
       - schedule:
