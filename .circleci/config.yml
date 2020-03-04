@@ -141,42 +141,18 @@ jobs:
           command: rustc +nightly --version > rust.version
       - restore_cache:
           keys:
-            - v2-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - v2-clippy-cache-{{ checksum "./rust.version" }}
+            - v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
+            - v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v3-clippy-cache-{{ checksum "./rust.version" }}
       - run:
-          name: run clippy in primitives
+          name: run clippy
           command: cargo +nightly clippy
-          working_directory: ./primitives
-          no_output_timeout: 30m
-      - run:
-          name: run clippy in runtime
-          command: cargo +nightly clippy
-          working_directory: ./pallets/runtime
-          no_output_timeout: 30m
-      - run:
-          name: run clippy in staking
-          command: cargo +nightly clippy
-          working_directory: ./pallets/staking
-          no_output_timeout: 30m
-      - run:
-          name: run clippy in group
-          command: cargo +nightly clippy
-          working_directory: ./pallets/group
-          no_output_timeout: 30m
-      - run:
-          name: run clippy in im-online
-          command: cargo +nightly clippy
-          working_directory: ./pallets/im-online
-          no_output_timeout: 30m
+          no_output_timeout: 60m
       - save_cache:
-          key: v2-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
-            - "./pallets/runtime/target"
-            - "./pallets/staking/target"
-            - "./pallets/group/target"
-            - "./pallets/im-online/target"
-            - "./primitives/target"
+            - "./target"
 workflows:
   version: 2
   commit:
