@@ -146,7 +146,7 @@ jobs:
             - v3-clippy-cache-{{ checksum "./rust.version" }}
       - run:
           name: run clippy
-          command: cargo +nightly clippy
+          command: cargo +nightly clippy -j 1
           no_output_timeout: 60m
       - save_cache:
           key: v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
