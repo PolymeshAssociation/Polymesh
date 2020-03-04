@@ -56,7 +56,7 @@ pub struct IdentityClaim {
     /// Last updated date
     pub last_update_date: Moment,
     /// Expirty date
-    pub expiry: Moment,
+    pub expiry: Option<Moment>,
     /// Claim data
     pub claim: IdentityClaimData,
 }

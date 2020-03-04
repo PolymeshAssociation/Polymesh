@@ -176,7 +176,7 @@ mod tests {
         assert_ok!(Identity::cdd_register_did(
             Origin::signed(AccountKeyring::Eve.public()),
             alice_acc,
-            10,
+            Some(10),
             vec![]
         ));
         let alice_key = AccountKey::from(AccountKeyring::Alice.public().0);
