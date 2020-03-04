@@ -2250,7 +2250,9 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "polymesh-primitives",
+ "serde",
  "sp-api",
+ "sp-std",
 ]
 
 [[package]]
