@@ -21,7 +21,6 @@ type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type System = frame_system::Module<TestStorage>;
-type Session = pallet_session::Module<TestStorage>;
 
 macro_rules! assert_tx_approvals {
     ($address:expr, $proposal_id:expr, $num_approvals:expr) => {{
