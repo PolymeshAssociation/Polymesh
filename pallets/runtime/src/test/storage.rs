@@ -341,7 +341,7 @@ pub fn make_account_with_balance(
     let cdd_providers = CDDServieProvider::get_members();
     let did_registration = if let Some(cdd_provider) = cdd_providers.into_iter().nth(0) {
         let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
-        Identity::cdd_register_did(Origin::signed(cdd_acc), id, 10, vec![])
+        Identity::cdd_register_did(Origin::signed(cdd_acc), id, Some(10), vec![])
     } else {
         Identity::register_did(signed_id.clone(), vec![])
     };
