@@ -1,6 +1,4 @@
-use crate::{
-    asset, bridge, committee, exemption, general_tm, multisig, percentage_tm, statistics,
-};
+use crate::{asset, bridge, committee, exemption, general_tm, multisig, percentage_tm, statistics};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;

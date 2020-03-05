@@ -47,8 +47,7 @@ use crate::asset::{self, AssetTrait};
 
 use polymesh_primitives::{AccountKey, IdentityClaimData, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
-    balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait,
-    utils::Trait as Utils, Context,
+    balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait, Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -327,6 +326,7 @@ mod tests {
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
     };
+    use polymesh_runtime_common::utils::Trait as Utils;
     use polymesh_runtime_group as group;
     use polymesh_runtime_identity as identity;
 
