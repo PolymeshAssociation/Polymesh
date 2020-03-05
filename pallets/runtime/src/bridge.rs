@@ -311,10 +311,6 @@ decl_module! {
                 }
                 return Ok(());
             }
-            ensure!(
-                !Self::handled_txs(&bridge_tx),
-                Error::<T>::ProposalAlreadyHandled
-            );
             ensure!(!Self::frozen_txs(&bridge_tx), Error::<T>::FrozenTx);
             let timelock = Self::timelock();
             if timelock.is_zero() {
@@ -351,7 +347,6 @@ decl_module! {
                 ensure!(Self::frozen_txs(&bridge_tx), Error::<T>::NoSuchFrozenTx);
                 <FrozenTxs<T>>::remove(&bridge_tx);
                 Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
-                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
                 if let Err(e) = Self::handle_bridge_tx_now(bridge_tx) {
                     sp_runtime::print(e);
                 }
@@ -365,28 +360,6 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let account_key = AccountKey::try_from(sender.encode())?;
             ensure!(account_key == Self::admin_key(), Error::<T>::Unauthorized);
-            Ok(())
-        }
-
-        /// Emits an event containing the timelocked balances of a given `IssueRecipient`.
-        pub fn get_timelocked_balances_of_recipient(
-            _origin,
-            issue_recipient: IssueRecipient<T::AccountId>
-        ) -> DispatchResult {
-            ensure!(!Self::frozen(), Error::<T>::Frozen);
-            let mut timelocked_balances = Vec::new();
-            for (n, txs) in <TimelockedTxs<T>>::enumerate() {
-                let sum_balance = |accum, tx: &BridgeTx<_, _>| {
-                    if tx.recipient == issue_recipient {
-                        accum + tx.amount
-                    } else {
-                        accum
-                    }
-                };
-                let recipients_balance: T::Balance = txs.iter().fold(Zero::zero(), sum_balance);
-                timelocked_balances.push((n, recipients_balance));
-            }
-            Self::deposit_event(RawEvent::TimelockedBalancesOfRecipient(timelocked_balances));
             Ok(())
         }
     }
@@ -457,5 +430,28 @@ impl<T: Trait> Module<T> {
                 sp_runtime::print(e);
             }
         }
+    }
+
+    /// Emits an event containing the timelocked balances of a given `IssueRecipient`.
+    ///
+    /// TODO: Convert this method to an RPC call.
+    pub fn get_timelocked_balances_of_recipient(
+        issue_recipient: IssueRecipient<T::AccountId>,
+    ) -> DispatchResult {
+        ensure!(!Self::frozen(), Error::<T>::Frozen);
+        let mut timelocked_balances = Vec::new();
+        for (n, txs) in <TimelockedTxs<T>>::enumerate() {
+            let sum_balance = |accum, tx: &BridgeTx<_, _>| {
+                if tx.recipient == issue_recipient {
+                    accum + tx.amount
+                } else {
+                    accum
+                }
+            };
+            let recipients_balance: T::Balance = txs.iter().fold(Zero::zero(), sum_balance);
+            timelocked_balances.push((n, recipients_balance));
+        }
+        Self::deposit_event(RawEvent::TimelockedBalancesOfRecipient(timelocked_balances));
+        Ok(())
     }
 }
