@@ -115,7 +115,7 @@ pub struct RuleData {
     claim: IdentityClaimData,
 
     /// Array of trusted claim issuers
-    trusted_issuers: Option<Vec<IdentityId>>,
+    trusted_issuers: Vec<IdentityId>,
 
     /// Defines if it is a whitelist based rule or a blacklist based rule
     rule_type: RuleType,
@@ -371,11 +371,9 @@ impl<T: Trait> Module<T> {
 
     fn is_any_rule_broken(ticker: &Ticker, did: IdentityId, rules: Vec<RuleData>) -> bool {
         for rule in rules {
-            let is_valid_claim_present = match rule.trusted_issuers {
-                Some(trusted_issuers) => {
-                    <Identity<T>>::is_any_claim_valid(did, rule.claim, trusted_issuers)
-                }
-                None => <Identity<T>>::is_any_claim_valid(
+            let is_valid_claim_present = match rule.trusted_issuers.len() > 0 {
+                true => <Identity<T>>::is_any_claim_valid(did, rule.claim, rule.trusted_issuers),
+                false => <Identity<T>>::is_any_claim_valid(
                     did,
                     rule.claim,
                     Self::trusted_claim_issuer(ticker),
@@ -846,19 +844,19 @@ mod tests {
 
             let sender_rule = RuleData {
                 claim: IdentityClaimData::NoData,
-                trusted_issuers: Some(vec![claim_issuer_did]),
+                trusted_issuers: vec![claim_issuer_did],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
             let receiver_rule1 = RuleData {
                 claim: IdentityClaimData::CustomerDueDiligence,
-                trusted_issuers: Some(vec![claim_issuer_did]),
+                trusted_issuers: vec![claim_issuer_did],
                 rule_type: RuleType::ClaimIsAbsent,
             };
 
             let receiver_rule2 = RuleData {
                 claim: IdentityClaimData::Accredited(token_owner_did),
-                trusted_issuers: Some(vec![claim_issuer_did]),
+                trusted_issuers: vec![claim_issuer_did],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
@@ -1035,7 +1033,7 @@ mod tests {
         // 4. Define rules
         let receiver_rules = vec![RuleData {
             claim: IdentityClaimData::NoData,
-            trusted_issuers: Some(vec![receiver_did]),
+            trusted_issuers: vec![receiver_did],
             rule_type: RuleType::ClaimIsAbsent,
         }];
 
@@ -1148,7 +1146,7 @@ mod tests {
                 trusted_issuer_signed.clone(),
                 receiver_did.clone(),
                 IdentityClaimData::CustomerDueDiligence,
-                99999999999999999u64,
+                Some(99999999999999999u64),
             ));
 
             let now = Utc::now();
@@ -1156,13 +1154,13 @@ mod tests {
 
             let sender_rule = RuleData {
                 claim: IdentityClaimData::CustomerDueDiligence,
-                trusted_issuers: None,
+                trusted_issuers: vec![],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
             let receiver_rule = RuleData {
                 claim: IdentityClaimData::CustomerDueDiligence,
-                trusted_issuers: None,
+                trusted_issuers: vec![],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
@@ -1195,7 +1193,7 @@ mod tests {
                 trusted_issuer_signed.clone(),
                 token_owner_did.clone(),
                 IdentityClaimData::CustomerDueDiligence,
-                99999999999999999u64,
+                Some(99999999999999999u64),
             ));
             assert_ok!(Asset::transfer(
                 token_owner_signed.clone(),
@@ -1299,7 +1297,7 @@ mod tests {
                 trusted_issuer_signed_1.clone(),
                 receiver_did.clone(),
                 IdentityClaimData::CustomerDueDiligence,
-                99999999999999999u64,
+                None,
             ));
 
             // adding claim by trusted issuer 1
@@ -1307,7 +1305,7 @@ mod tests {
                 trusted_issuer_signed_1.clone(),
                 receiver_did.clone(),
                 IdentityClaimData::NoData,
-                99999999999999999u64,
+                None,
             ));
 
             // adding claim by trusted issuer 2
@@ -1315,7 +1313,7 @@ mod tests {
                 trusted_issuer_signed_2.clone(),
                 token_owner_did.clone(),
                 IdentityClaimData::CustomerDueDiligence,
-                99999999999999999u64,
+                None,
             ));
 
             let now = Utc::now();
@@ -1323,19 +1321,19 @@ mod tests {
 
             let sender_rule = RuleData {
                 claim: IdentityClaimData::CustomerDueDiligence,
-                trusted_issuers: None,
+                trusted_issuers: vec![],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
             let receiver_rule_1 = RuleData {
                 claim: IdentityClaimData::CustomerDueDiligence,
-                trusted_issuers: None,
+                trusted_issuers: vec![],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
             let receiver_rule_2 = RuleData {
                 claim: IdentityClaimData::NoData,
-                trusted_issuers: None,
+                trusted_issuers: vec![],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
@@ -1388,13 +1386,13 @@ mod tests {
 
             let receiver_rule_1 = RuleData {
                 claim: IdentityClaimData::CustomerDueDiligence,
-                trusted_issuers: Some(vec![trusted_issuer_did_1]),
+                trusted_issuers: vec![trusted_issuer_did_1],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
             let receiver_rule_2 = RuleData {
                 claim: IdentityClaimData::NoData,
-                trusted_issuers: Some(vec![trusted_issuer_did_1]),
+                trusted_issuers: vec![trusted_issuer_did_1],
                 rule_type: RuleType::ClaimIsPresent,
             };
 
