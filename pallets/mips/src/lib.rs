@@ -810,6 +810,10 @@ mod tests {
         pub const ProposalDuration: u32 = 10;
     }
 
+    /// Mock group instance to represent a committee. There's only one member of committee
+    /// which is DID of AccountKeyring::Charlie
+    /// This in conjunction with `CommitteeOrigin` member in Trait sets up prerequisites for tests
+    /// TODO: When committee module is refactored outof runtime, construct a committee instance
     impl group::GroupTrait for Test {
         fn get_members() -> Vec<IdentityId> {
             vec![]
@@ -1138,16 +1142,16 @@ mod tests {
             let alice_acc = AccountKeyring::Alice.public();
             let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
 
+            // Charlie represents committee origin
+            let charlie_acc = AccountKeyring::Charlie.public();
+            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 0).unwrap();
+
             // Voting majority
             let root = Origin::system(frame_system::RawOrigin::Root);
 
-            // assert_err!(
-            //     Mips::submit_referendum(alice_signer.clone(), Box::new(proposal.clone())),
-            //     Error::<Test>::NotACommitteeMember
-            // );
-
+            // Charlie is a committee member
             assert_ok!(Mips::submit_referendum(
-                alice_signer.clone(),
+                charlie_signer.clone(),
                 Box::new(proposal.clone())
             ));
 
