@@ -16,6 +16,20 @@ use test_client::AccountKeyring;
 
 use std::{cell::RefCell, convert::From};
 
+struct BuilderVoteThreshold {
+    pub numerator: u32,
+    pub denominator: u32,
+}
+
+impl Default for BuilderVoteThreshold {
+    fn default() -> Self {
+        BuilderVoteThreshold {
+            numerator: 2,
+            denominator: 3,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct ExtBuilder {
     transaction_base_fee: u128,
@@ -28,7 +42,7 @@ pub struct ExtBuilder {
     vesting: bool,
     cdd_providers: Vec<Public>,
     gen_committee_members: Vec<IdentityId>,
-    gen_committee_vote_threshold: (u32, u32),
+    gen_committee_vote_threshold: BuilderVoteThreshold,
 }
 
 thread_local! {
@@ -73,7 +87,10 @@ impl ExtBuilder {
     }
 
     pub fn committee_vote_threshold(mut self, threshold: (u32, u32)) -> Self {
-        self.gen_committee_vote_threshold = threshold;
+        self.gen_committee_vote_threshold = BuilderVoteThreshold {
+            numerator: threshold.0,
+            denominator: threshold.1,
+        };
         self
     }
 
@@ -236,7 +253,10 @@ impl ExtBuilder {
 
         committee::GenesisConfig::<TestStorage, committee::Instance1> {
             members: self.gen_committee_members,
-            vote_threshold: self.gen_committee_vote_threshold,
+            vote_threshold: (
+                self.gen_committee_vote_threshold.numerator,
+                self.gen_committee_vote_threshold.denominator,
+            ),
             ..Default::default()
         }
         .assimilate_storage(&mut storage)
