@@ -20,7 +20,7 @@ pub enum IdentityRole {
     Investor,
     NodeRunner,
     PM,
-    KYCAMLClaimIssuer,
+    CddAMLClaimIssuer,
     AccreditedInvestorClaimIssuer,
     VerifiedIdentityClaimIssuer,
     Custom(u8),

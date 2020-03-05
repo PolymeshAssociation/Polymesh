@@ -68,7 +68,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// MultiSig module
     type AddSignerMultiSigTarget: AddSignerMultiSig;
     /// Group module
-    type KycServiceProviders: GroupTrait;
+    type CddServiceProviders: GroupTrait;
 
     type Balances: balances::BalancesTrait<
         <Self as frame_system::Trait>::AccountId,

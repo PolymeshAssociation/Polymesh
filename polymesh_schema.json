@@ -95,7 +95,7 @@
             "Investor",
             "NodeRunner",
             "PM",
-            "KYCAMLClaimIssuer",
+            "CDDAMLClaimIssuer",
             "AccreditedInvestorClaimIssuer",
             "VerifiedIdentityClaimIssuer"
         ]
@@ -128,7 +128,7 @@
         "claim_issuer": "IdentityId",
         "issuance_date": "Moment",
         "last_update_date": "Moment",
-        "expiry": "Moment",
+        "expiry": "Option<Moment>",
         "claim": "IdentityClaimData"
     },
     "ClaimIdentifier": {

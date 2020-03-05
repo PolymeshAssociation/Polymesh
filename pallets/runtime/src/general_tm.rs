@@ -16,7 +16,7 @@
 //! The rules can dictate various requirements like:
 //!
 //! - Only accredited investors should be able to trade
-//! - Only valid KYC holders should be able to trade
+//! - Only valid CDD holders should be able to trade
 //! - Only those with credit score of greater than 800 should be able to purchase this token
 //! - People from Wakanda should only be able to trade with people from Wakanda
 //! - People from Gryffindor should not be able to trade with people from Slytherin (But allowed to trade with anyone else)
@@ -569,10 +569,6 @@ mod tests {
         fn get_members() -> Vec<IdentityId> {
             unimplemented!();
         }
-
-        fn is_member(_member_id: &IdentityId) -> bool {
-            unimplemented!();
-        }
     }
 
     impl balances::Trait for Test {
@@ -681,7 +677,7 @@ mod tests {
         type Event = ();
         type Proposal = Call;
         type AddSignerMultiSigTarget = Test;
-        type KycServiceProviders = Test;
+        type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
     }
 
@@ -842,7 +838,7 @@ mod tests {
                 claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::NoData,
-                99999999999999999u64,
+                None,
             ));
 
             let now = Utc::now();
@@ -887,7 +883,7 @@ mod tests {
                 claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::Accredited(claim_issuer_did),
-                99999999999999999u64,
+                None,
             ));
 
             //Transfer tokens to investor
@@ -905,7 +901,7 @@ mod tests {
                 claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::Accredited(token_owner_did),
-                99999999999999999u64,
+                None,
             ));
 
             assert_ok!(Asset::transfer(
@@ -919,7 +915,7 @@ mod tests {
                 claim_issuer_signed.clone(),
                 token_owner_did,
                 IdentityClaimData::CustomerDueDiligence,
-                99999999999999999u64,
+                None,
             ));
 
             assert_err!(
@@ -1030,7 +1026,7 @@ mod tests {
             receiver_signed.clone(),
             receiver_did.clone(),
             IdentityClaimData::NoData,
-            99999999999999999u64,
+            Some(99999999999999999u64),
         ));
 
         let now = Utc::now();
