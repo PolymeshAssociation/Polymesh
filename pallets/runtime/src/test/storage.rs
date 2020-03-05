@@ -1,10 +1,11 @@
-use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics, utils};
+use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
 };
+use polymesh_runtime_common::utils::Trait as Utils;
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
@@ -261,7 +262,7 @@ impl exemption::Trait for TestStorage {
     type Asset = asset::Module<TestStorage>;
 }
 
-impl utils::Trait for TestStorage {
+impl Utils for TestStorage {
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
     fn validator_id_to_account_id(

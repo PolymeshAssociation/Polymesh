@@ -47,7 +47,8 @@ use crate::asset::{self, AssetTrait};
 
 use polymesh_primitives::{AccountKey, IdentityClaimData, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
-    balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait, Context,
+    balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait,
+    utils::Trait as Utils, Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -331,7 +332,7 @@ mod tests {
 
     use crate::{
         asset::{AssetType, Error as AssetError, SecurityToken, TickerRegistrationConfig},
-        exemption, percentage_tm, statistics, utils,
+        exemption, percentage_tm, statistics,
     };
 
     impl_outer_origin! {
@@ -439,7 +440,7 @@ mod tests {
         type MinimumPeriod = MinimumPeriod;
     }
 
-    impl utils::Trait for Test {
+    impl Utils for Test {
         type Public = AccountId;
         type OffChainSignature = OffChainSignature;
         fn validator_id_to_account_id(

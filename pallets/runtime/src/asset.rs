@@ -56,7 +56,7 @@
 //! - `custodian_allowance`- Returns the allowance provided to a custodian for a given ticker and token holder
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
 
-use crate::{general_tm, percentage_tm, statistics, utils};
+use crate::{general_tm, percentage_tm, statistics};
 
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
@@ -66,7 +66,7 @@ use polymesh_primitives::{
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     asset::AcceptTransfer, balances::Trait as BalancesTrait, constants::*,
-    identity::Trait as IdentityTrait, CommonTrait, Context,
+    identity::Trait as IdentityTrait, utils::Trait as Utils, CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -95,7 +95,7 @@ pub trait Trait:
     frame_system::Trait
     + general_tm::Trait
     + percentage_tm::Trait
-    + utils::Trait
+    + Utils
     + BalancesTrait
     + IdentityTrait
     + pallet_session::Trait
@@ -450,7 +450,7 @@ decl_module! {
             for v in validators {
                 <balances::Module<T> as Currency<_>>::transfer(
                     &sender,
-                    &<T as utils::Trait>::validator_id_to_account_id(v),
+                    &<T as Utils>::validator_id_to_account_id(v),
                     proportional_fee,
                     ExistenceRequirement::AllowDeath
                 )?;

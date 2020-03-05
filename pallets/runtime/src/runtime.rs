@@ -3,7 +3,7 @@ use crate::{
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
     multisig, percentage_tm, simple_token, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
-    utils, voting,
+    voting,
 };
 
 use polymesh_primitives::{
@@ -13,6 +13,7 @@ use polymesh_primitives::{
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
+    utils::Trait as Utils,
     CommonTrait,
 };
 use polymesh_runtime_group as group;
@@ -481,7 +482,7 @@ impl asset::Trait for Runtime {
     type Currency = Balances;
 }
 
-impl utils::Trait for Runtime {
+impl Utils for Runtime {
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     fn validator_id_to_account_id(

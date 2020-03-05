@@ -30,13 +30,12 @@
 //! - `vote` - Casts a vote.
 //! - `cancel_ballot` - Cancels an existing ballot.
 
-use crate::{
-    asset::{self, AssetTrait},
-    utils,
-};
+use crate::asset::{self, AssetTrait};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{identity::Trait as IdentityTrait, CommonTrait, Context};
+use polymesh_runtime_common::{
+    identity::Trait as IdentityTrait, utils::Trait as Utils, CommonTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use codec::{Decode, Encode};
@@ -47,9 +46,7 @@ use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// The module's configuration trait.
-pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + utils::Trait + IdentityTrait
-{
+pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + Utils + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
@@ -494,7 +491,7 @@ mod tests {
         type MinimumPeriod = MinimumPeriod;
     }
 
-    impl utils::Trait for Test {
+    impl Utils for Test {
         type Public = AccountId;
         type OffChainSignature = OffChainSignature;
         fn validator_id_to_account_id(

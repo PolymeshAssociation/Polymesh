@@ -31,10 +31,12 @@
 //!
 //! - `get_dividend` - Returns details about a dividend
 
-use crate::{asset, simple_token, utils};
+use crate::{asset, simple_token};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait, Context};
+use polymesh_runtime_common::{
+    balances::Trait as BalancesTrait, utils::Trait as Utils, CommonTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
@@ -51,7 +53,7 @@ pub trait Trait:
     + BalancesTrait
     + simple_token::Trait
     + frame_system::Trait
-    + utils::Trait
+    + Utils
     + pallet_timestamp::Trait
 {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -752,7 +754,7 @@ mod tests {
         type MinimumPeriod = MinimumPeriod;
     }
 
-    impl utils::Trait for Test {
+    impl Utils for Test {
         type Public = AccountId;
         type OffChainSignature = OffChainSignature;
         fn validator_id_to_account_id(
