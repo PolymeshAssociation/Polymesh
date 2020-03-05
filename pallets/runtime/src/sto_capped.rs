@@ -355,7 +355,7 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
         /// * `simple_token_ticker` Ticker of the simple token
-        pub fn buy_tokens_by_simple_token(origin, _did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
+        pub fn buy_tokens_by_simple_token(origin, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;

@@ -79,7 +79,7 @@ use frame_support::{
     weights::SimpleDispatchInfo, Parameter,
 };
 use frame_system::offchain::SubmitUnsignedTransaction;
-use frame_system::{self as system, ensure_none, ensure_root};
+use frame_system::{self as system, ensure_none};
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::{OpaqueNetworkState, StorageKind};
