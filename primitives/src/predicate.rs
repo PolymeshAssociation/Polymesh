@@ -31,13 +31,13 @@ pub struct PredicateContext {
 
 impl PredicateContext {
     #[cfg(test)]
-    pub fn fetch_claims(&self, filter: &FilterClaim) -> Vec<IdentityClaimData> {
+    pub fn fetch_claims(&self) -> Vec<IdentityClaimData> {
         self.claims.clone()
     }
 
     /// It fetchs all claims filtered by this context.
     #[cfg(not(test))]
-    pub fn fetch_claims(&self, filter: &FilterClaim) -> Vec<IdentityClaimData> {
+    pub fn fetch_claims(&self) -> Vec<IdentityClaimData> {
         unimplemented!()
     }
 }
@@ -253,7 +253,7 @@ mod tests {
         predicate::{self, Predicate, PredicateContext},
         IdentityClaimData, JurisdictionName,
     };
-
+    use codec::{Decode, Encode};
     use std::convert::From;
 
     #[test]
@@ -292,7 +292,14 @@ mod tests {
         assert_eq!(in_juridisction_pre.evaluate(&context), false);
 
         // 3. Check NOT in jurisdiction.
-        let not_in_jurisdiction_pre = predicate::not(in_juridisction_pre);
+        let not_in_jurisdiction_pre = predicate::not(in_juridisction_pre.clone());
         assert_eq!(not_in_jurisdiction_pre.evaluate(&context), true);
+
+        // 4. Code & decode
+        let text = in_juridisction_pre.encode();
+        assert_ne!(text.len(), 0);
+
+        let text_2 = not_in_jurisdiction_pre.encode();
+        assert_ne!(text_2.len(), 0);
     }
 }
