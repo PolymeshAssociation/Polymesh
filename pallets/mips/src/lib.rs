@@ -693,6 +693,7 @@ mod tests {
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
         parameter_types,
     };
+    use frame_system::EnsureSignedBy;
     use sp_core::H256;
     use sp_runtime::{
         testing::Header,
@@ -811,7 +812,7 @@ mod tests {
 
     impl group::GroupTrait for Test {
         fn get_members() -> Vec<IdentityId> {
-            (1..=3).map(IdentityId::from).collect::<Vec<_>>()
+            vec![]
         }
 
         fn is_member(member_id: &IdentityId) -> bool {
@@ -819,9 +820,13 @@ mod tests {
         }
     }
 
+    parameter_types! {
+        pub const CommitteeRoot: AccountId = AccountId::from(AccountKeyring::Charlie);
+    }
+
     impl Trait for Test {
         type Currency = balances::Module<Self>;
-        type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+        type CommitteeOrigin = EnsureSignedBy<CommitteeRoot, AccountId>;
         type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
         type GovernanceCommittee = Test;
         type Event = ();
@@ -942,9 +947,12 @@ mod tests {
             let proposal_url: Url = b"www.abc.com".into();
             let proposal_desc: MipDescription = b"Test description".into();
 
-            let committee = Origin::system(frame_system::RawOrigin::Root);
             let alice_acc = AccountKeyring::Alice.public();
             let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
+
+            // Charlie represents committee origin
+            let charlie_acc = AccountKeyring::Charlie.public();
+            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 0).unwrap();
 
             // Account 6 starts a proposal with min deposit
             assert_ok!(Mips::propose(
@@ -966,7 +974,7 @@ mod tests {
                 })
             );
 
-            assert_ok!(Mips::kill_proposal(committee, index, hash));
+            assert_ok!(Mips::kill_proposal(charlie_signer, index, hash));
 
             assert_eq!(Balances::free_balance(&alice_acc), 60);
 
@@ -1028,11 +1036,13 @@ mod tests {
             let proposal_url: Url = b"www.abc.com".into();
             let proposal_desc: MipDescription = b"Test description".into();
 
-            let committee = Origin::system(frame_system::RawOrigin::Root);
             let alice_acc = AccountKeyring::Alice.public();
             let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
             let bob_acc = AccountKeyring::Bob.public();
             let (bob_signer, _) = make_account_with_balance(bob_acc, 50).unwrap();
+
+            // Voting majority
+            let root = Origin::system(frame_system::RawOrigin::Root);
 
             assert_ok!(Mips::propose(
                 alice_signer.clone(),
@@ -1062,7 +1072,7 @@ mod tests {
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(Mips::enact_referendum(committee, hash));
+            assert_ok!(Mips::enact_referendum(root, hash));
         });
     }
 
@@ -1076,11 +1086,17 @@ mod tests {
             let proposal_url: Url = b"www.abc.com".into();
             let proposal_desc: MipDescription = b"Test description".into();
 
-            let committee = Origin::system(frame_system::RawOrigin::Root);
             let alice_acc = AccountKeyring::Alice.public();
             let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
             let bob_acc = AccountKeyring::Bob.public();
             let (bob_signer, _) = make_account_with_balance(bob_acc, 50).unwrap();
+
+            // Charlie represents committee origin
+            let charlie_acc = AccountKeyring::Charlie.public();
+            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 0).unwrap();
+
+            // Voting majority
+            let root = Origin::system(frame_system::RawOrigin::Root);
 
             assert_ok!(Mips::propose(
                 alice_signer.clone(),
@@ -1092,7 +1108,11 @@ mod tests {
 
             assert_ok!(Mips::vote(bob_signer.clone(), hash, index, true, 50));
 
-            assert_ok!(Mips::fast_track_proposal(alice_signer.clone(), index, hash));
+            assert_ok!(Mips::fast_track_proposal(
+                charlie_signer.clone(),
+                index,
+                hash
+            ));
 
             fast_forward_to(20);
 
@@ -1103,7 +1123,7 @@ mod tests {
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(Mips::enact_referendum(committee, hash));
+            assert_ok!(Mips::enact_referendum(root, hash));
         });
     }
 
@@ -1115,9 +1135,11 @@ mod tests {
             let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
 
-            let committee = Origin::system(frame_system::RawOrigin::Root);
             let alice_acc = AccountKeyring::Alice.public();
             let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
+
+            // Voting majority
+            let root = Origin::system(frame_system::RawOrigin::Root);
 
             // assert_err!(
             //     Mips::submit_referendum(alice_signer.clone(), Box::new(proposal.clone())),
@@ -1147,24 +1169,35 @@ mod tests {
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(Mips::enact_referendum(committee, hash));
+            assert_ok!(Mips::enact_referendum(root, hash));
         });
     }
 
     #[test]
     fn updating_mips_variables_works() {
         new_test_ext().execute_with(|| {
-            let committee = Origin::system(frame_system::RawOrigin::Root);
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
+
+            // Charlie represents committee origin
+            let charlie_acc = AccountKeyring::Charlie.public();
+            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 0).unwrap();
+
+            // config variables can be updated only through committee
             assert_eq!(Mips::min_proposal_deposit(), 50);
-            assert_ok!(Mips::set_min_proposal_deposit(committee.clone(), 10));
+            assert_err!(
+                Mips::set_min_proposal_deposit(alice_signer.clone(), 10),
+                Error::<Test>::BadOrigin
+            );
+            assert_ok!(Mips::set_min_proposal_deposit(charlie_signer.clone(), 10));
             assert_eq!(Mips::min_proposal_deposit(), 10);
 
             assert_eq!(Mips::quorum_threshold(), 70);
-            assert_ok!(Mips::set_quorum_threshold(committee.clone(), 100));
+            assert_ok!(Mips::set_quorum_threshold(charlie_signer.clone(), 100));
             assert_eq!(Mips::quorum_threshold(), 100);
 
             assert_eq!(Mips::proposal_duration(), 10);
-            assert_ok!(Mips::set_proposal_duration(committee.clone(), 100));
+            assert_ok!(Mips::set_proposal_duration(charlie_signer.clone(), 100));
             assert_eq!(Mips::proposal_duration(), 100);
         });
     }
