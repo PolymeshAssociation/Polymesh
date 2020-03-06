@@ -90,10 +90,8 @@ decl_error! {
         ControllerNotSet,
         /// The signer does not have an identity.
         IdentityMissing,
-        /// Failure to credit the recipient account.
-        CannotCreditAccount,
-        /// Failure to credit the recipient identity.
-        CannotCreditIdentity,
+        /// Failure to credit the recipient account or identity.
+        CannotCreditRecipient,
         /// The origin is not the controller address.
         BadCaller,
         /// The recipient DID has no valid CDD.
@@ -393,7 +391,7 @@ impl<T: Trait> Module<T> {
                 } else {
                     <balances::Module<T>>::resolve_into_existing_identity(&did, neg_imbalance)
                 };
-                resolution.map_err(|_| Error::<T>::CannotCreditAccount)?;
+                resolution.map_err(|_| Error::<T>::CannotCreditRecipient)?;
             } else {
                 return Ok(Some(PendingTx { did, bridge_tx }));
             }
@@ -401,7 +399,7 @@ impl<T: Trait> Module<T> {
             // Issue to an account not associated with an identity.
             let neg_imbalance = <balances::Module<T>>::issue(*amount);
             <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
-                .map_err(|_| Error::<T>::CannotCreditIdentity)?;
+                .map_err(|_| Error::<T>::CannotCreditRecipient)?;
         }
         Ok(None)
     }
