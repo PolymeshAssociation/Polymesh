@@ -18,6 +18,8 @@
 //! - `propose` - Members can propose a new dispatchable
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
 //!
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage,

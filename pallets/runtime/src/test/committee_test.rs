@@ -1,11 +1,9 @@
-use crate::{
-    committee::{self, PolymeshVotes},
-    test::{
-        storage::{make_account, Call, TestStorage},
-        ExtBuilder,
-    },
+use crate::test::{
+    storage::{make_account, Call, TestStorage},
+    ExtBuilder,
 };
 use polymesh_primitives::IdentityId;
+use polymesh_runtime_committee::{self as committee, PolymeshVotes};
 use polymesh_runtime_group::{self as group};
 use polymesh_runtime_identity as identity;
 

@@ -2599,6 +2599,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-runtime-balances",
+ "polymesh-runtime-committee",
  "polymesh-runtime-common",
  "polymesh-runtime-group",
  "polymesh-runtime-identity",
@@ -2641,6 +2642,28 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+]
+
+[[package]]
+name = "polymesh-runtime-committee"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-common",
+ "polymesh-runtime-identity",
  "serde",
  "serde_derive",
  "sp-api",

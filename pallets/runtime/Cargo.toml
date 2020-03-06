@@ -9,6 +9,7 @@ build = "build.rs"
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
+polymesh-runtime-committee = { package = "polymesh-runtime-committee", path = "../committee", default-features = false }
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
 polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", path = "../identity/rpc/runtime-api", default-features = false }
@@ -139,5 +140,6 @@ std = [
 	"polymesh-runtime-balances/std",
 	"polymesh-runtime-group/std",
 	"polymesh-runtime-identity/std",
+	"polymesh-runtime-committee/std",
 	"ink_primitives/std"
 ]

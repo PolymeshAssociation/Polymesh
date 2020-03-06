@@ -1,6 +1,6 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{
-    asset, bridge, committee, contracts_wrapper, dividend, exemption, general_tm,
+    asset, bridge, contracts_wrapper, dividend, exemption, general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
     multisig, percentage_tm, simple_token, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
@@ -12,6 +12,7 @@ use polymesh_primitives::{
     Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
+use polymesh_runtime_committee as committee;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
     CommonTrait,
