@@ -440,7 +440,7 @@ fn should_change_all_signers_and_sigs_required() {
 
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
-        
+
         let dave_did = register_keyring_account(AccountKeyring::Dave).unwrap();
         let dave = Origin::signed(AccountKeyring::Dave.public());
 
@@ -521,8 +521,6 @@ fn should_change_all_signers_and_sigs_required() {
                 .next()
                 .unwrap()
                 .auth_id;
-        
-        println!("Authorization value: {:?}", <identity::Authorizations<TestStorage>>::get(Signatory::from(dave_did), dave_auth_id));
 
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             charlie,
