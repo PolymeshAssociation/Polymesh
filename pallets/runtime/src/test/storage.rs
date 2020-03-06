@@ -13,7 +13,7 @@ use polymesh_runtime_identity as identity;
 use codec::Encode;
 use frame_support::{
     dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
-    parameter_types, traits::Currency,
+    parameter_types, traits::Currency, weights::DispatchInfo,
 };
 use frame_system::{self as system, EnsureSignedBy};
 use sp_core::{
@@ -24,6 +24,7 @@ use sp_core::{
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+    transaction_validity::{TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
 use std::convert::TryFrom;
@@ -145,6 +146,13 @@ impl pallet_timestamp::Trait for TestStorage {
 
 impl multisig::Trait for TestStorage {
     type Event = Event;
+    type ChargeTxFeeTarget = TestStorage;
+}
+
+impl pallet_transaction_payment::ChargeTxFee for TestStorage {
+    fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        Ok(ValidTransaction::default())
+    }
 }
 
 parameter_types! {
