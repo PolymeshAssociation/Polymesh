@@ -1,10 +1,10 @@
 use crate::{identity_id::IdentityId, Moment};
 use codec::{Decode, Encode};
-use sp_std::prelude::Vec;
+use sp_std::prelude::*;
 
 /// All possible claims in polymesh
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum IdentityClaimData {
+pub enum Claim {
     /// User is Accredited
     Accredited,
     /// User is Accredited
@@ -21,14 +21,54 @@ pub enum IdentityClaimData {
     Jurisdiction(JurisdictionName),
     /// User is whitelisted
     Whitelisted,
-    /// Empty claim
-    NoData,
+    /// Custom type
+    Custom(Vec<u8>),
 }
 
-impl Default for IdentityClaimData {
+impl Default for Claim {
     fn default() -> Self {
-        IdentityClaimData::NoData
+        Claim::Custom(vec![])
     }
+}
+
+impl Claim {
+    /// It returns the claim type.
+    pub fn claim_type(&self) -> ClaimType {
+        match self {
+            Claim::Accredited => ClaimType::Accredited,
+            Claim::Affiliate => ClaimType::Affiliate,
+            Claim::BuyLockup => ClaimType::BuyLockup,
+            Claim::SellLockup => ClaimType::SellLockup,
+            Claim::CustomerDueDiligence => ClaimType::CustomerDueDiligence,
+            Claim::KnowYourCustomer => ClaimType::KnowYourCustomer,
+            Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
+            Claim::Whitelisted => ClaimType::Whitelisted,
+            Claim::Custom(..) => ClaimType::Custom,
+        }
+    }
+}
+
+/// Claim type represent the claim without its data.
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum ClaimType {
+    /// User is Accredited
+    Accredited,
+    /// User is Accredited
+    Affiliate,
+    /// User has an active BuyLockup (end date defined in claim expiry)
+    BuyLockup,
+    /// User has an active SellLockup (date defined in claim expiry)
+    SellLockup,
+    /// User has passed CDD
+    CustomerDueDiligence,
+    /// User is KYC'd
+    KnowYourCustomer,
+    /// This claim contains a string that represents the jurisdiction of the user
+    Jurisdiction,
+    /// User is whitelisted
+    Whitelisted,
+    /// Custom type.
+    Custom,
 }
 
 /// A wrapper for Jurisdiction name.
@@ -56,15 +96,15 @@ pub struct IdentityClaim {
     /// Expirty date
     pub expiry: Moment,
     /// Claim data
-    pub claim: IdentityClaimData,
+    pub claim: Claim,
 }
 
 /// Information required to fetch a claim of a particular did. (Claim_data, claim_issuer)
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct ClaimIdentifier(pub IdentityClaimData, pub IdentityId);
+pub struct ClaimIdentifier(pub ClaimType, pub IdentityId);
 
-impl From<IdentityClaimData> for IdentityClaim {
-    fn from(data: IdentityClaimData) -> Self {
+impl From<Claim> for IdentityClaim {
+    fn from(data: Claim) -> Self {
         IdentityClaim {
             claim: data,
             ..Default::default()

@@ -45,7 +45,7 @@
 
 use crate::asset::{self, AssetTrait};
 
-use polymesh_primitives::{AccountKey, IdentityClaimData, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{predicate, AccountKey, IdentityId, Rule, Signatory, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait, Context,
 };
@@ -57,20 +57,10 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::{convert::TryFrom, prelude::*};
-
-/// Type of claim requirements that a rule can have
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum RuleType {
-    ClaimIsPresent,
-    ClaimIsAbsent,
-}
-
-impl Default for RuleType {
-    fn default() -> Self {
-        RuleType::ClaimIsPresent
-    }
-}
+use sp_std::{
+    convert::{From, TryFrom},
+    prelude::*,
+};
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -86,28 +76,15 @@ pub trait Trait:
 /// An asset rule.
 /// All sender and receiver rules of the same asset rule must be true for tranfer to be valid
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct AssetRule {
-    pub sender_rules: Vec<RuleData>,
-    pub receiver_rules: Vec<RuleData>,
+pub struct AssetTransferRule {
+    pub sender_rules: Vec<Rule>,
+    pub receiver_rules: Vec<Rule>,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct AssetRules {
+pub struct AssetTransferRules {
     pub is_paused: bool,
-    pub rules: Vec<AssetRule>,
-}
-
-/// Details about individual rules
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct RuleData {
-    /// Claim key
-    claim: IdentityClaimData,
-
-    /// Array of trusted claim issuers
-    trusted_issuers: Vec<IdentityId>,
-
-    /// Defines if it is a whitelist based rule or a blacklist based rule
-    rule_type: RuleType,
+    pub rules: Vec<AssetTransferRule>,
 }
 
 type Identity<T> = identity::Module<T>;
@@ -115,7 +92,7 @@ type Identity<T> = identity::Module<T>;
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
         /// List of active rules for a ticker (Ticker -> Array of AssetRules)
-        pub AssetRulesMap get(fn asset_rules): map Ticker => AssetRules;
+        pub AssetRulesMap get(fn asset_rules): map Ticker => AssetTransferRules;
     }
 }
 
@@ -136,7 +113,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Adds an asset rule to active rules for a ticker
-        pub fn add_active_rule(origin, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
+        pub fn add_active_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
@@ -160,7 +137,7 @@ decl_module! {
         }
 
         /// Removes a rule from active asset rules
-        pub fn remove_active_rule(origin, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
+        pub fn remove_active_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
@@ -219,8 +196,8 @@ decl_module! {
 
 decl_event!(
     pub enum Event {
-        NewAssetRule(Ticker, AssetRule),
-        RemoveAssetRule(Ticker, AssetRule),
+        NewAssetRule(Ticker, AssetTransferRule),
+        RemoveAssetRule(Ticker, AssetTransferRule),
         ResetAssetRules(Ticker),
         ResumeAssetRules(Ticker),
         PauseAssetRules(Ticker),
@@ -232,17 +209,33 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker, sender_did)
     }
 
-    fn is_any_rule_broken(did: IdentityId, rules: Vec<RuleData>) -> bool {
-        for rule in rules {
-            let is_valid_claim_present =
-                <identity::Module<T>>::is_any_claim_valid(did, rule.claim, rule.trusted_issuers);
-            if rule.rule_type == RuleType::ClaimIsPresent && !is_valid_claim_present
-                || rule.rule_type == RuleType::ClaimIsAbsent && is_valid_claim_present
-            {
-                return true;
-            }
-        }
-        return false;
+    /// It fetchs the context
+    fn fetch_context(id: IdentityId, rule: &Rule) -> predicate::Context {
+        let claim_type = rule.rule_type.as_claim_type();
+        let issuers = &rule.issuers;
+
+        let claims = match issuers.len() {
+            0 => <identity::Module<T>>::fetch_claims(id, claim_type)
+                .map(|id_claim| id_claim.claim)
+                .collect::<Vec<_>>(),
+            1 => <identity::Module<T>>::fetch_claim_with_issuer(id, claim_type, issuers[0])
+                .into_iter()
+                .map(|id_claim| id_claim.claim)
+                .collect::<Vec<_>>(),
+            _ => <identity::Module<T>>::fetch_claims(id, claim_type)
+                .filter(|id_claim| issuers.contains(&id_claim.claim_issuer))
+                .map(|id_claim| id_claim.claim)
+                .collect::<sp_std::prelude::Vec<_>>(),
+        };
+
+        predicate::Context::from(claims)
+    }
+
+    fn is_any_rule_broken(did: IdentityId, rules: Vec<Rule>) -> bool {
+        rules.into_iter().any(|rule| {
+            let context = Self::fetch_context(did, &rule);
+            !predicate::run(rule, &context)
+        })
     }
 
     ///  Sender restriction verification
@@ -321,7 +314,7 @@ mod tests {
     use sp_std::result::Result;
     use test_client::{self, AccountKeyring};
 
-    use polymesh_primitives::IdentityId;
+    use polymesh_primitives::{Claim, ClaimType, IdentityId, Rule, RuleType};
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -678,35 +671,32 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                IdentityClaimData::Accredited,
+                Claim::Accredited,
                 99999999999999999u64,
             ));
 
             let now = Utc::now();
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
-            let sender_rule = RuleData {
-                claim: IdentityClaimData::Accredited,
-                trusted_issuers: vec![claim_issuer_did],
-                rule_type: RuleType::ClaimIsPresent,
+            let sender_rule = Rule {
+                rule_type: RuleType::IsPresent(ClaimType::Accredited),
+                issuers: vec![claim_issuer_did],
             };
 
-            let receiver_rule1 = RuleData {
-                claim: IdentityClaimData::Affiliate,
-                trusted_issuers: vec![claim_issuer_did],
-                rule_type: RuleType::ClaimIsAbsent,
+            let receiver_rule1 = Rule {
+                rule_type: RuleType::IsAbsent(ClaimType::Affiliate),
+                issuers: vec![claim_issuer_did],
             };
 
-            let receiver_rule2 = RuleData {
-                claim: IdentityClaimData::KnowYourCustomer,
-                trusted_issuers: vec![claim_issuer_did],
-                rule_type: RuleType::ClaimIsPresent,
+            let receiver_rule2 = Rule {
+                rule_type: RuleType::IsPresent(ClaimType::KnowYourCustomer),
+                issuers: vec![claim_issuer_did],
             };
 
             let x = vec![sender_rule];
             let y = vec![receiver_rule1, receiver_rule2];
 
-            let asset_rule = AssetRule {
+            let asset_rule = AssetTransferRule {
                 sender_rules: x,
                 receiver_rules: y,
             };
@@ -731,7 +721,13 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                IdentityClaimData::KnowYourCustomer,
+                Claim::KnowYourCustomer,
+                99999999999999999u64,
+            ));
+            assert_ok!(Identity::add_claim(
+                claim_issuer_signed.clone(),
+                token_owner_did,
+                Claim::Accredited,
                 99999999999999999u64,
             ));
 
@@ -745,7 +741,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                IdentityClaimData::Affiliate,
+                Claim::Affiliate,
                 99999999999999999u64,
             ));
 
@@ -791,7 +787,7 @@ mod tests {
                 None
             ));
 
-            let asset_rule = AssetRule {
+            let asset_rule = AssetTransferRule {
                 sender_rules: vec![],
                 receiver_rules: vec![],
             };
@@ -856,7 +852,7 @@ mod tests {
         assert_ok!(Identity::add_claim(
             receiver_signed.clone(),
             receiver_did.clone(),
-            IdentityClaimData::Accredited,
+            Claim::Accredited,
             99999999999999999u64,
         ));
 
@@ -864,13 +860,12 @@ mod tests {
         <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
         // 4. Define rules
-        let receiver_rules = vec![RuleData {
-            claim: IdentityClaimData::Accredited,
-            trusted_issuers: vec![receiver_did],
-            rule_type: RuleType::ClaimIsAbsent,
+        let receiver_rules = vec![Rule {
+            rule_type: RuleType::IsAbsent(ClaimType::Accredited),
+            issuers: vec![receiver_did],
         }];
 
-        let asset_rule = AssetRule {
+        let asset_rule = AssetTransferRule {
             sender_rules: vec![],
             receiver_rules,
         };

@@ -4,7 +4,7 @@ use crate::test::{
 };
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, IdentityClaimData, LinkData, Permission, Signatory,
+    AccountKey, AuthorizationData, Claim, ClaimType, LinkData, Permission, Signatory,
     SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
@@ -29,37 +29,28 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 fn add_claims_batch() {
     ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let issuer = AccountKeyring::Bob.public();
+        let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = AccountKeyring::Charlie.public();
 
         let claim_records = vec![
-            (
-                claim_issuer_did.clone(),
-                100u64,
-                IdentityClaimData::Accredited,
-            ),
-            (
-                claim_issuer_did.clone(),
-                200u64,
-                IdentityClaimData::Affiliate,
-            ),
+            (claim_issuer_did.clone(), 100u64, Claim::Accredited),
+            (claim_issuer_did.clone(), 200u64, Claim::Affiliate),
         ];
         assert_ok!(Identity::add_claims_batch(
             Origin::signed(claim_issuer.clone()),
             claim_records,
         ));
 
-        let claim1 = Identity::fetch_valid_claim(
+        let claim1 = Identity::fetch_claim_with_issuer(
             claim_issuer_did,
-            IdentityClaimData::Accredited,
+            ClaimType::Accredited,
             claim_issuer_did,
         )
         .unwrap();
-        let claim2 = Identity::fetch_valid_claim(
+        let claim2 = Identity::fetch_claim_with_issuer(
             claim_issuer_did,
-            IdentityClaimData::Affiliate,
+            ClaimType::Affiliate,
             claim_issuer_did,
         )
         .unwrap();
@@ -67,9 +58,9 @@ fn add_claims_batch() {
         assert_eq!(claim1.expiry, 100u64);
         assert_eq!(claim2.expiry, 200u64);
 
-        assert_eq!(claim1.claim, IdentityClaimData::Accredited);
+        assert_eq!(claim1.claim, Claim::Accredited);
 
-        assert_eq!(claim2.claim, IdentityClaimData::Affiliate);
+        assert_eq!(claim2.claim, Claim::Affiliate);
     });
 }
 
@@ -119,19 +110,18 @@ fn revoking_claims() {
     ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
 
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::Accredited,
+            Claim::Accredited,
             100u64,
         ));
-        assert!(Identity::fetch_valid_claim(
+        assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
-            IdentityClaimData::Accredited,
+            ClaimType::Accredited,
             claim_issuer_did
         )
         .is_some());
@@ -139,11 +129,11 @@ fn revoking_claims() {
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::Accredited
+            ClaimType::Accredited
         ));
-        assert!(Identity::fetch_valid_claim(
+        assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
-            IdentityClaimData::Accredited,
+            ClaimType::Accredited,
             claim_issuer_did
         )
         .is_none());
@@ -914,7 +904,6 @@ fn cdd_register_did_test_we() {
 
     // Check that Alice's ID is attested by KYC 1.
     let alice_id = Identity::get_identity(&alice_key).unwrap();
-    let kyc_1_id = Identity::get_identity(&kyc_1_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Error case: Try account without ID.
@@ -930,6 +919,5 @@ fn cdd_register_did_test_we() {
         vec![]
     ));
     let bob_id = Identity::get_identity(&bob_key).unwrap();
-    let kyc_2_id = Identity::get_identity(&kyc_2_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
 }

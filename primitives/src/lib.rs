@@ -74,7 +74,7 @@ pub use identity::Identity;
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{ClaimIdentifier, IdentityClaim, IdentityClaimData, JurisdictionName};
+pub use identity_claim::{Claim, ClaimIdentifier, ClaimType, IdentityClaim, JurisdictionName};
 
 /// Key is strong type which stores bytes representing the key.
 pub mod account_key;
@@ -112,8 +112,13 @@ pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType
 pub mod document;
 pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
-/// Testing
+/// Rules for claims.
+pub mod rule;
+pub use rule::{Rule, RuleType};
+
+/// Predicate calculation for Claims.
 pub mod predicate;
+pub use predicate::{AndPredicate, Context, NotPredicate, OrPredicate, Predicate};
 
 /// Represents custom transaction errors.
 #[repr(u8)]

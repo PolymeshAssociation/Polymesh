@@ -4,7 +4,6 @@ use codec::{Decode, Encode};
 use frame_system;
 use pallet_session;
 use sp_runtime::traits::{IdentifyAccount, Member, Verify};
-use sp_std::prelude::*;
 
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + BalancesTrait + pallet_session::Trait {

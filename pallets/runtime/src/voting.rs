@@ -985,7 +985,7 @@ mod tests {
                 None
             ));
 
-            let asset_rule = general_tm::AssetRule {
+            let asset_rule = general_tm::AssetTransferRule {
                 sender_rules: vec![],
                 receiver_rules: vec![],
             };

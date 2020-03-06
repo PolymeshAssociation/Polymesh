@@ -19,7 +19,6 @@ mod bridge;
 mod contracts_wrapper;
 mod dividend;
 mod exemption;
-mod predicates;
 mod general_tm;
 mod mips;
 mod multisig;

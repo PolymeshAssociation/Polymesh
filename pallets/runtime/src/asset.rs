@@ -2265,7 +2265,7 @@ impl<T: Trait> Module<T> {
     pub fn call_extension(
         from: T::AccountId,
         dest: T::AccountId,
-        value: T::Balance,
+        _value: T::Balance,
         gas_limit: Gas,
         data: Vec<u8>,
     ) -> ExecReturnValue {

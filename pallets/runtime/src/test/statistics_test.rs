@@ -53,7 +53,7 @@ fn investor_count_per_asset_with_ext() {
     ));
 
     // NOTE: TM needs at least one asset rule.
-    let asset_rule = general_tm::AssetRule {
+    let asset_rule = general_tm::AssetTransferRule {
         sender_rules: vec![],
         receiver_rules: vec![],
     };
