@@ -487,13 +487,29 @@ decl_module! {
                 Self::is_signer_authorized(did_issuer, &sender),
                 Error::<T>::SenderMustHoldClaimIssuerKey
             );
+            Self::unsafe_revoke_claim(ClaimIdentifier(claim_data, did_issuer), did);
+            Ok(())
+        }
 
-            let claim_meta_data = ClaimIdentifier(claim_data, did_issuer);
+        /// Revoke multiple claims in a batch
+        ///
+        /// # Arguments
+        /// * origin - did issuer
+        /// * did_and_claim_data - Vector of the identities & the corresponding claim data whom claim needs to be revoked
+        pub fn revoke_claims_batch(origin, did_and_claim_data: Vec<(IdentityId, IdentityClaimData)>) -> DispatchResult {
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
-            <Claims>::remove(&did, &claim_meta_data);
-
-            Self::deposit_event(RawEvent::RevokedClaim(did, claim_meta_data));
-
+            ensure!(<DidRecords>::exists(&did_issuer), Error::<T>::ClaimIssuerDidMustAlreadyExist);
+            // Verify that sender key is one of did_issuer's signing keys
+            ensure!(
+                Self::is_signer_authorized(did_issuer, &sender),
+                Error::<T>::SenderMustHoldClaimIssuerKey
+            );
+            for (did, claim_data) in did_and_claim_data.into_iter() {
+                Self::unsafe_revoke_claim(ClaimIdentifier(claim_data, did_issuer), did);
+            }
             Ok(())
         }
 
@@ -1526,6 +1542,11 @@ impl<T: Trait> Module<T> {
         <Claims>::insert(&target_did, &claim_meta_data, claim.clone());
 
         Self::deposit_event(RawEvent::NewClaims(target_did, claim_meta_data, claim));
+    }
+
+    fn unsafe_revoke_claim(claim_identifier: ClaimIdentifier, did: IdentityId) {
+        <Claims>::remove(&did, &claim_identifier);
+        Self::deposit_event(RawEvent::RevokedClaim(did, claim_identifier));
     }
 }
 
