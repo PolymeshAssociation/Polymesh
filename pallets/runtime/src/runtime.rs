@@ -470,6 +470,7 @@ impl pallet_sudo::Trait for Runtime {
 
 impl multisig::Trait for Runtime {
     type Event = Event;
+    type ChargeTxFeeTarget = TransactionPayment;
 }
 
 impl bridge::Trait for Runtime {
