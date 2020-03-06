@@ -2336,6 +2336,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-runtime-group",
  "polymesh-runtime-identity-rpc-runtime-api",
  "serde",
  "serde_derive",

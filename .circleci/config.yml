@@ -25,6 +25,7 @@ jobs:
             - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
             - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - v2-release-cache-{{ checksum "./rust.version" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
           command: cargo build -j 1 --release
@@ -126,11 +127,36 @@ jobs:
             - "~/.cargo"
             - "./target"
             - "./scripts/cli/node_modules"
+  clippy:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc +nightly --version > rust.version
+      - restore_cache:
+          keys:
+            - v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
+            - v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v3-clippy-cache-{{ checksum "./rust.version" }}
+      - run:
+          name: run clippy
+          command: cargo +nightly clippy -j 1
+          no_output_timeout: 60m
+      - save_cache:
+          key: v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
 workflows:
   version: 2
   commit:
     jobs:
       - lint
+      - clippy
       - cli
       - test
   daily-builds:
