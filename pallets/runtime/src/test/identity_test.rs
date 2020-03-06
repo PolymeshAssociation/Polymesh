@@ -152,6 +152,85 @@ fn revoking_claims() {
 }
 
 #[test]
+fn revoking_batch_claims() {
+    ExtBuilder::default().build().execute_with(|| {
+        let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _issuer = Origin::signed(AccountKeyring::Bob.public());
+        let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
+
+        assert_ok!(Identity::add_claim(
+            claim_issuer.clone(),
+            claim_issuer_did,
+            IdentityClaimData::NoData,
+            Some(100u64),
+        ));
+
+        assert_ok!(Identity::add_claim(
+            claim_issuer.clone(),
+            claim_issuer_did,
+            IdentityClaimData::CustomerDueDiligence,
+            None,
+        ));
+
+        assert_ok!(Identity::add_claim(
+            claim_issuer.clone(),
+            claim_issuer_did,
+            IdentityClaimData::Accredited(claim_issuer_did),
+            None,
+        ));
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::NoData,
+            claim_issuer_did
+        )
+        .is_some());
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::CustomerDueDiligence,
+            claim_issuer_did
+        )
+        .is_some());
+
+        assert_ok!(Identity::revoke_claims_batch(
+            claim_issuer.clone(),
+            vec![
+                (claim_issuer_did, IdentityClaimData::NoData),
+                (claim_issuer_did, IdentityClaimData::CustomerDueDiligence),
+                (
+                    claim_issuer_did,
+                    IdentityClaimData::Accredited(claim_issuer_did)
+                )
+            ]
+        ));
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::NoData,
+            claim_issuer_did
+        )
+        .is_none());
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::CustomerDueDiligence,
+            claim_issuer_did
+        )
+        .is_none());
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::Accredited(claim_issuer_did),
+            claim_issuer_did
+        )
+        .is_none());
+    });
+}
+
+#[test]
 fn only_master_key_can_add_signing_key_permissions() {
     ExtBuilder::default()
         .build()
