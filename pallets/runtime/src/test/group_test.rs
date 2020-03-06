@@ -38,11 +38,11 @@ fn add_member_works_we() {
 
     assert_noop!(
         CommitteeGroup::add_member(non_root, IdentityId::from(3)),
-        "bad origin"
+        group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
     assert_noop!(
         CommitteeGroup::add_member(root.clone(), IdentityId::from(3)),
-        "already a member"
+        group::Error::<TestStorage, group::Instance1>::DuplicateMember
     );
     assert_ok!(CommitteeGroup::add_member(root, IdentityId::from(4)));
     assert_eq!(
@@ -67,11 +67,11 @@ fn remove_member_works_we() {
 
     assert_noop!(
         CommitteeGroup::remove_member(non_root, IdentityId::from(3)),
-        "bad origin"
+        group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
     assert_noop!(
         CommitteeGroup::remove_member(root.clone(), IdentityId::from(5)),
-        "not a member"
+        group::Error::<TestStorage, group::Instance1>::NoSuchMember
     );
     assert_ok!(CommitteeGroup::remove_member(root, IdentityId::from(3)));
     assert_eq!(
@@ -96,15 +96,15 @@ fn swap_member_works_we() {
 
     assert_noop!(
         CommitteeGroup::swap_member(non_root, IdentityId::from(1), IdentityId::from(5)),
-        "bad origin"
+        group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
     assert_noop!(
         CommitteeGroup::swap_member(root.clone(), IdentityId::from(5), IdentityId::from(6)),
-        "not a member"
+        group::Error::<TestStorage, group::Instance1>::NoSuchMember
     );
     assert_noop!(
         CommitteeGroup::swap_member(root.clone(), IdentityId::from(1), IdentityId::from(3)),
-        "already a member"
+        group::Error::<TestStorage, group::Instance1>::DuplicateMember
     );
     assert_ok!(CommitteeGroup::swap_member(
         root.clone(),
@@ -147,7 +147,7 @@ fn reset_members_works_we() {
 
     assert_noop!(
         CommitteeGroup::reset_members(non_root, new_committee.clone()),
-        "bad origin"
+        group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
     assert_ok!(CommitteeGroup::reset_members(root, new_committee.clone()));
     assert_eq!(CommitteeGroup::members(), new_committee);
@@ -179,7 +179,7 @@ fn rage_quit_we() {
     assert_eq!(CommitteeGroup::is_member(&ferdie_did), false);
     assert_err!(
         CommitteeGroup::abdicate_membership(ferdie_signer),
-        group::Error::<TestStorage, group::Instance1>::MemberNotFound
+        group::Error::<TestStorage, group::Instance1>::NoSuchMember
     );
 
     // Bob quits, its vote should be removed.
