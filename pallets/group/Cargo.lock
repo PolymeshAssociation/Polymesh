@@ -2233,9 +2233,11 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-runtime-identity",
  "serde",
  "serde_derive",
  "sp-api",
@@ -2246,6 +2248,38 @@ dependencies = [
  "sp-std",
  "sp-version",
  "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "polymesh-runtime-identity"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-common",
+ "polymesh-runtime-identity-rpc-runtime-api",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+]
+
+[[package]]
+name = "polymesh-runtime-identity-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "sp-api",
 ]
 
 [[package]]
