@@ -470,7 +470,6 @@ impl pallet_sudo::Trait for Runtime {
 
 impl multisig::Trait for Runtime {
     type Event = Event;
-    type ChargeTxFeeTarget = TransactionPayment;
 }
 
 impl bridge::Trait for Runtime {
@@ -522,6 +521,7 @@ impl identity::Trait for Runtime {
     type AddSignerMultiSigTarget = MultiSig;
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
+    type ChargeTxFeeTarget = TransactionPayment;
 }
 
 impl contracts_wrapper::Trait for Runtime {}

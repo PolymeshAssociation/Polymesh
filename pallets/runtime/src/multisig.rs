@@ -62,8 +62,6 @@ pub type CreateProposalResult = sp_std::result::Result<u64, DispatchError>;
 pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-
-    type ChargeTxFeeTarget: ChargeTxFee;
 }
 
 decl_storage! {

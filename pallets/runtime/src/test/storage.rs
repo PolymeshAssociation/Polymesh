@@ -146,7 +146,6 @@ impl pallet_timestamp::Trait for TestStorage {
 
 impl multisig::Trait for TestStorage {
     type Event = Event;
-    type ChargeTxFeeTarget = TestStorage;
 }
 
 impl pallet_transaction_payment::ChargeTxFee for TestStorage {
@@ -225,6 +224,7 @@ impl identity::Trait for TestStorage {
     type AddSignerMultiSigTarget = TestStorage;
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
+    type ChargeTxFeeTarget = TestStorage;
 }
 
 impl AddSignerMultiSig for TestStorage {

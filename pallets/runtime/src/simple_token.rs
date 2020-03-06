@@ -307,12 +307,14 @@ mod tests {
 
     use frame_support::{
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_origin, parameter_types,
+        weights::DispatchInfo,
     };
 
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        transaction_validity::{TransactionValidity, ValidTransaction},
         AnySignature, KeyTypeId, Perbill,
     };
     use test_client::{self, AccountKeyring};
@@ -388,6 +390,13 @@ mod tests {
         type AddSignerMultiSigTarget = Test;
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
+        type ChargeTxFeeTarget = Test;
+    }
+
+    impl pallet_transaction_payment::ChargeTxFee for Test {
+        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+            Ok(ValidTransaction::default())
+        }
     }
 
     impl group::GroupTrait for Test {
