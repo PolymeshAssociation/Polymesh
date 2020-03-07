@@ -7,12 +7,12 @@ use crate::{
     utils, voting,
 };
 
+use pallet_committee as committee;
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
     Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_committee as committee;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
     CommonTrait,

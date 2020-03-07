@@ -9,7 +9,6 @@ build = "build.rs"
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
-polymesh-runtime-committee = { package = "polymesh-runtime-committee", path = "../committee", default-features = false }
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
 polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", path = "../identity/rpc/runtime-api", default-features = false }
@@ -21,6 +20,7 @@ pallet-staking = { package = "pallet-staking", path = "../staking", default-feat
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve", default-features = false  }
 pallet-mips-rpc-runtime-api = { package = "pallet-mips-rpc-runtime-api", path = "../mips/rpc/runtime-api", default-features = false  }
 pallet-mips = { package = "pallet-mips", path = "../mips", default-features = false  }
+pallet-committee = { package = "pallet-committee", path = "../committee", default-features = false }
 
 chrono = { version = "0.4.10", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
@@ -132,6 +132,7 @@ std = [
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
 	"pallet-mips/std",
+	"pallet-committee/std",
 	"pallet-mips-rpc-runtime-api/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -140,6 +141,5 @@ std = [
 	"polymesh-runtime-balances/std",
 	"polymesh-runtime-group/std",
 	"polymesh-runtime-identity/std",
-	"polymesh-runtime-committee/std",
 	"ink_primitives/std"
 ]

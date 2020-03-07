@@ -2,8 +2,8 @@ use crate::test::{
     storage::{make_account, Call, TestStorage},
     ExtBuilder,
 };
+use pallet_committee::{self as committee, PolymeshVotes};
 use polymesh_primitives::IdentityId;
-use polymesh_runtime_committee::{self as committee, PolymeshVotes};
 use polymesh_runtime_group::{self as group};
 use polymesh_runtime_identity as identity;
 
@@ -36,7 +36,6 @@ fn motions_basic_environment_works_we() {
 }
 
 fn make_proposal(value: u64) -> Call {
-    // Call::System(frame_system::Call::remark(value.encode()))
     Call::Identity(identity::Call::accept_master_key(value, value))
 }
 

@@ -38,8 +38,8 @@ pub use runtime::{native_version, WASM_BINARY};
 #[cfg(feature = "std")]
 pub mod config {
 
+    use pallet_committee as committee;
     use polymesh_runtime_balances as balances;
-    use polymesh_runtime_committee as committee;
     use polymesh_runtime_identity as identity;
 
     pub type AssetConfig = crate::asset::GenesisConfig<crate::Runtime>;
