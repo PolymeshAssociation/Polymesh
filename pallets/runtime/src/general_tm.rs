@@ -105,7 +105,6 @@ pub struct RuleDetails {
 pub struct AssetRules {
     pub is_paused: bool,
     pub rules: Vec<RuleDetails>,
-    pub latest_rule_id: u32,
 }
 
 /// Details about individual rules
@@ -127,7 +126,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
         /// List of active rules for a ticker (Ticker -> Array of AssetRules)
         pub AssetRulesMap get(fn asset_rules): map Ticker => AssetRules;
-        /// List of trusted claim issuer ( (Ticker, claim_type) -> Issuer Identity)
+        /// List of trusted claim issuer Ticker -> Issuer Identity
         pub TrustedClaimIssuer get(fn trusted_claim_issuer): map Ticker => Vec<IdentityId>;
     }
 }
@@ -144,6 +143,8 @@ decl_error! {
         InvalidLength,
         /// Rule id doesn't exist
         InvalidRuleId,
+        /// Issuer exist but trying to add it again
+        IncorrectOperationOnTrustedIssuer
     }
 }
 
@@ -176,13 +177,12 @@ decl_module! {
                 if !old_asset_rules.rules.iter().position(|rule| rule.asset_rule == asset_rule).is_some() {
                     old_asset_rules.rules.push( RuleDetails {
                         asset_rule: asset_rule.clone(),
-                        rule_id: old_asset_rules.latest_rule_id
+                        rule_id: Self::get_next_rule_id(ticker)
                     });
-                    old_asset_rules.latest_rule_id += 1u32;
                 }
             });
 
-            Self::deposit_event(Event::NewAssetRule(ticker, asset_rule, Self::asset_rules(ticker).latest_rule_id - 1u32));
+            Self::deposit_event(Event::NewAssetRule(ticker, asset_rule, Self::get_next_rule_id(ticker) - 1u32));
 
             Ok(())
         }
@@ -260,58 +260,48 @@ decl_module! {
             Ok(())
         }
 
-        /// To add/remove the default trusted claim issuer for a given asset
+        /// To add the default trusted claim issuer for a given asset
         /// Addition - When the given element is not exist
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
+        /// * ticker - Symbol of the asset.
+        /// * trusted_issuer - IdentityId of the trusted claim issuer.
+        fn add_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
+            Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, true)
+        }
+
+        /// To remove the default trusted claim issuer for a given asset
         /// Removal - When the given element is already present
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuer - IdentityId of the trusted claim issuer.
-        fn modify_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
-
-            ensure!(
-                <Identity<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            // ensure whether the trusted issuer's did is register did or not
-            ensure!(<Identity<T>>::is_identity_exists(&trusted_issuer), Error::<T>::DidNotExist);
-            Self::unsafe_modify_default_trusted_claim_issuer(ticker, trusted_issuer);
-            Ok(())
+        fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
+            Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, false)
         }
 
-        /// To add/remove the default trusted claim issuer for a given asset
+        /// To add the default trusted claim issuer for a given asset
         /// Addition - When the given element is not exist
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
+        /// * ticker - Symbol of the asset.
+        /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
+        fn add_default_trusted_claim_issuers_batch(origin, ticker: Ticker, trusted_issuers: Vec<IdentityId>) -> DispatchResult {
+            Self::modify_default_trusted_claim_issuers_batch(origin, ticker, trusted_issuers, true)
+        }
+
+        /// To remove the default trusted claim issuer for a given asset
         /// Removal - When the given element is already present
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
-        fn modify_default_trusted_claim_issuers_batch(origin, ticker: Ticker, trusted_issuers: Vec<IdentityId>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
-
-            ensure!(
-                <Identity<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
-            ensure!(trusted_issuers.len() >= 1, Error::<T>::InvalidLength);
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            // ensure whether the trusted issuer's did is register did or not
-            for trusted_issuer in trusted_issuers.iter() {
-                ensure!(<Identity<T>>::is_identity_exists(trusted_issuer), Error::<T>::DidNotExist);
-            }
-            // iterate all the trusted issuer and modify the data of those.
-            for default_issuer in trusted_issuers.into_iter() {
-                Self::unsafe_modify_default_trusted_claim_issuer(ticker, default_issuer);
-            }
-            Ok(())
+        fn remove_default_trusted_claim_issuers_batch(origin, ticker: Ticker, trusted_issuers: Vec<IdentityId>) -> DispatchResult {
+            Self::modify_default_trusted_claim_issuers_batch(origin, ticker, trusted_issuers, false)
         }
 
         /// Change/Modify the existing asset rule of a given ticker
@@ -331,13 +321,33 @@ decl_module! {
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            ensure!(Self::asset_rules(ticker).latest_rule_id >= asset_rule_id, Error::<T>::InvalidRuleId);
-            <AssetRulesMap>::mutate(&ticker, |asset_rule| {
-                if let Some(index) = asset_rule.rules.iter().position(|rule| rule.rule_id == asset_rule_id) {
-                    asset_rule.rules[index].asset_rule = new_asset_rule.clone();
-                }
+            ensure!(Self::get_next_rule_id(ticker) > asset_rule_id, Error::<T>::InvalidRuleId);
+            Self::unsafe_change_asset_rule(ticker, asset_rule_id, new_asset_rule);
+            Ok(())
+        }
+
+        /// Change/Modify the existing asset rule of a given ticker in batch
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
+        /// * ticker - Symbol of the asset.
+        /// * asset_rule_details - Unique id of the asset rule and asset rule id.
+        fn change_asset_rule_batch(origin, ticker: Ticker, asset_rule_details: Vec<(u32, AssetRule)>) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
+
+            ensure!(
+                <Identity<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            for (asset_rule_id, _) in asset_rule_details.iter() {
+                ensure!(Self::get_next_rule_id(ticker) > *asset_rule_id, Error::<T>::InvalidRuleId);
+            }
+            asset_rule_details.into_iter().for_each(|(asset_rule_id, asset_rule)| {
+                Self::unsafe_change_asset_rule(ticker, asset_rule_id, asset_rule);
             });
-            Self::deposit_event(Event::ChangeAssetRule(ticker, asset_rule_id, new_asset_rule));
             Ok(())
         }
     }
@@ -359,8 +369,10 @@ decl_event!(
         PauseAssetRules(Ticker),
         /// Emitted when asset rule get modified/change
         ChangeAssetRule(Ticker, u32, AssetRule),
-        /// Emitted when default claim issuer list for a given ticker get modified
-        ModifyTrustedDefaultClaimIssuer(Ticker, IdentityId),
+        /// Emitted when default claim issuer list for a given ticker gets added
+        AddTrustedDefaultClaimIssuer(Ticker, IdentityId),
+        /// Emitted when default claim issuer list for a given ticker get removed
+        RemoveTrustedDefaultClaimIssuer(Ticker, IdentityId),
     }
 );
 
@@ -450,15 +462,103 @@ impl<T: Trait> Module<T> {
             if identity_list.contains(&trusted_issuer) {
                 // remove the old one
                 identity_list.retain(|&ti| ti != trusted_issuer);
+                Self::deposit_event(Event::RemoveTrustedDefaultClaimIssuer(
+                    ticker,
+                    trusted_issuer,
+                ));
             } else {
                 // New trusted issuer addition case
                 identity_list.push(trusted_issuer);
+                Self::deposit_event(Event::AddTrustedDefaultClaimIssuer(ticker, trusted_issuer));
             }
         });
-        Self::deposit_event(Event::ModifyTrustedDefaultClaimIssuer(
+    }
+
+    fn modify_default_trusted_claim_issuer(
+        origin: T::Origin,
+        ticker: Ticker,
+        trusted_issuer: IdentityId,
+        is_add_call: bool,
+    ) -> DispatchResult {
+        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        let sender = Signatory::AccountKey(sender_key);
+        ensure!(
+            <Identity<T>>::is_signer_authorized(did, &sender),
+            Error::<T>::SenderMustBeSigningKeyForDid
+        );
+        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+        // ensure whether the trusted issuer's did is register did or not
+        ensure!(
+            <Identity<T>>::is_identity_exists(&trusted_issuer),
+            Error::<T>::DidNotExist
+        );
+        ensure!(
+            !Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) && is_add_call,
+            Error::<T>::IncorrectOperationOnTrustedIssuer
+        );
+        Self::unsafe_modify_default_trusted_claim_issuer(ticker, trusted_issuer);
+        Ok(())
+    }
+
+    fn modify_default_trusted_claim_issuers_batch(
+        origin: T::Origin,
+        ticker: Ticker,
+        trusted_issuers: Vec<IdentityId>,
+        is_add_call: bool,
+    ) -> DispatchResult {
+        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        let sender = Signatory::AccountKey(sender_key);
+        ensure!(
+            <Identity<T>>::is_signer_authorized(did, &sender),
+            Error::<T>::SenderMustBeSigningKeyForDid
+        );
+        ensure!(trusted_issuers.len() >= 1, Error::<T>::InvalidLength);
+        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+        // ensure whether the trusted issuer's did is register did or not
+        for trusted_issuer in trusted_issuers.iter() {
+            match is_add_call {
+                true => ensure!(
+                    !Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer),
+                    Error::<T>::IncorrectOperationOnTrustedIssuer
+                ),
+                false => ensure!(
+                    Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer),
+                    Error::<T>::IncorrectOperationOnTrustedIssuer
+                ),
+            };
+            ensure!(
+                <Identity<T>>::is_identity_exists(trusted_issuer),
+                Error::<T>::DidNotExist
+            );
+        }
+        // iterate all the trusted issuer and modify the data of those.
+        for default_issuer in trusted_issuers.into_iter() {
+            Self::unsafe_modify_default_trusted_claim_issuer(ticker, default_issuer);
+        }
+        Ok(())
+    }
+
+    fn unsafe_change_asset_rule(ticker: Ticker, asset_rule_id: u32, new_asset_rule: AssetRule) {
+        <AssetRulesMap>::mutate(&ticker, |asset_rule| {
+            if let Some(index) = asset_rule
+                .rules
+                .iter()
+                .position(|rule| rule.rule_id == asset_rule_id)
+            {
+                asset_rule.rules[index].asset_rule = new_asset_rule.clone();
+            }
+        });
+        Self::deposit_event(Event::ChangeAssetRule(
             ticker,
-            trusted_issuer,
+            asset_rule_id,
+            new_asset_rule,
         ));
+    }
+
+    fn get_next_rule_id(ticker: Ticker) -> u32 {
+        u32::try_from(Self::asset_rules(ticker).rules.len()).unwrap_or_default()
     }
 }
 
@@ -874,7 +974,7 @@ mod tests {
                 asset_rule
             ));
 
-            assert_eq!(GeneralTM::asset_rules(ticker).latest_rule_id, 1);
+            assert_eq!(GeneralTM::asset_rules(ticker).rules.len(), 1);
             assert_eq!(GeneralTM::asset_rules(ticker).rules[0].rule_id, 0);
 
             assert_ok!(Identity::add_claim(
@@ -1122,7 +1222,7 @@ mod tests {
 
             // Failed because trusted issuer identity not exist
             assert_err!(
-                GeneralTM::modify_default_trusted_claim_issuer(
+                GeneralTM::add_default_trusted_claim_issuer(
                     token_owner_signed.clone(),
                     ticker,
                     IdentityId::from(1)
@@ -1130,7 +1230,7 @@ mod tests {
                 Error::<Test>::DidNotExist
             );
 
-            assert_ok!(GeneralTM::modify_default_trusted_claim_issuer(
+            assert_ok!(GeneralTM::add_default_trusted_claim_issuer(
                 token_owner_signed.clone(),
                 ticker,
                 trusted_issuer_did
@@ -1252,7 +1352,7 @@ mod tests {
 
             // Failed because caller is not the owner of the ticker
             assert_err!(
-                GeneralTM::modify_default_trusted_claim_issuers_batch(
+                GeneralTM::add_default_trusted_claim_issuers_batch(
                     receiver_signed.clone(),
                     ticker,
                     vec![trusted_issuer_did_1, trusted_issuer_did_2]
@@ -1262,7 +1362,7 @@ mod tests {
 
             // Failed because trusted issuer identity not exist
             assert_err!(
-                GeneralTM::modify_default_trusted_claim_issuers_batch(
+                GeneralTM::add_default_trusted_claim_issuers_batch(
                     token_owner_signed.clone(),
                     ticker,
                     vec![IdentityId::from(1), IdentityId::from(2)]
@@ -1272,7 +1372,7 @@ mod tests {
 
             // Failed because trusted issuers length < 0
             assert_err!(
-                GeneralTM::modify_default_trusted_claim_issuers_batch(
+                GeneralTM::add_default_trusted_claim_issuers_batch(
                     token_owner_signed.clone(),
                     ticker,
                     vec![]
@@ -1280,7 +1380,7 @@ mod tests {
                 Error::<Test>::InvalidLength
             );
 
-            assert_ok!(GeneralTM::modify_default_trusted_claim_issuers_batch(
+            assert_ok!(GeneralTM::add_default_trusted_claim_issuers_batch(
                 token_owner_signed.clone(),
                 ticker,
                 vec![trusted_issuer_did_1, trusted_issuer_did_2]
@@ -1359,7 +1459,7 @@ mod tests {
             ));
 
             // Remove the trusted issuer 1 from the list
-            assert_ok!(GeneralTM::modify_default_trusted_claim_issuers_batch(
+            assert_ok!(GeneralTM::remove_default_trusted_claim_issuers_batch(
                 token_owner_signed.clone(),
                 ticker,
                 vec![trusted_issuer_did_1]

@@ -340,7 +340,6 @@
     },
     "AssetRules": {
         "is_paused": "bool",
-        "rules": "Vec<RuleDetails>",
-        "latest_rule_id": "u32"
+        "rules": "Vec<RuleDetails>"
     }
 }
