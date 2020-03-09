@@ -83,20 +83,19 @@ pub trait Trait:
     type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
 
-/// An asset rule.
-/// All sender and receiver rules of the same asset rule must be true for tranfer to be valid
+/// Only used as the function param
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct AssetRule {
+pub struct AssetRuleDetails {
     pub sender_rules: Vec<RuleData>,
     pub receiver_rules: Vec<RuleData>,
 }
 
-/// Details of a rule
+/// An asset rule.
+/// All sender and receiver rules of the same asset rule must be true for transfer to be valid
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct RuleDetails {
-    /// Asset rule
-    pub asset_rule: AssetRule,
-
+pub struct AssetRule {
+    pub sender_rules: Vec<RuleData>,
+    pub receiver_rules: Vec<RuleData>,
     /// Unique identifier of the asset rule
     pub rule_id: u32,
 }
@@ -104,7 +103,7 @@ pub struct RuleDetails {
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetRules {
     pub is_paused: bool,
-    pub rules: Vec<RuleDetails>,
+    pub rules: Vec<AssetRule>,
 }
 
 /// Details about individual rules
@@ -161,7 +160,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
         /// * asset_rule - Sender & receiver rule.
-        pub fn add_active_rule(origin, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
+        pub fn add_active_rule(origin, ticker: Ticker, asset_rule: AssetRuleDetails) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
@@ -174,15 +173,16 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
-                if !old_asset_rules.rules.iter().position(|rule| rule.asset_rule == asset_rule).is_some() {
-                    old_asset_rules.rules.push( RuleDetails {
-                        asset_rule: asset_rule.clone(),
-                        rule_id: Self::get_next_rule_id(ticker)
+                if !old_asset_rules.rules.iter().position(|rule| rule.sender_rules == asset_rule.sender_rules && rule.receiver_rules == asset_rule.receiver_rules).is_some() {
+                    old_asset_rules.rules.push( AssetRule {
+                        sender_rules: asset_rule.clone().sender_rules,
+                        receiver_rules: asset_rule.clone().receiver_rules,
+                        rule_id: Self::get_latest_rule_id(ticker) + 1u32
                     });
                 }
             });
 
-            Self::deposit_event(Event::NewAssetRule(ticker, asset_rule, Self::get_next_rule_id(ticker) - 1u32));
+            Self::deposit_event(Event::NewAssetRule(ticker, asset_rule, Self::get_latest_rule_id(ticker)));
 
             Ok(())
         }
@@ -311,7 +311,7 @@ decl_module! {
         /// * ticker - Symbol of the asset.
         /// * asset_rule_id - Unique id of the asset rule.
         /// * new_asset_rule - new asset rule.
-        fn change_asset_rule(origin, ticker: Ticker, asset_rule_id: u32, new_asset_rule: AssetRule) -> DispatchResult {
+        fn change_asset_rule(origin, ticker: Ticker, asset_rule_id: u32, new_asset_rule: AssetRuleDetails) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
@@ -321,7 +321,7 @@ decl_module! {
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            ensure!(Self::get_next_rule_id(ticker) > asset_rule_id, Error::<T>::InvalidRuleId);
+            ensure!(Self::get_latest_rule_id(ticker) >= asset_rule_id, Error::<T>::InvalidRuleId);
             Self::unsafe_change_asset_rule(ticker, asset_rule_id, new_asset_rule);
             Ok(())
         }
@@ -332,7 +332,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * asset_rule_details - Unique id of the asset rule and asset rule id.
-        fn change_asset_rule_batch(origin, ticker: Ticker, asset_rule_details: Vec<(u32, AssetRule)>) -> DispatchResult {
+        fn change_asset_rule_batch(origin, ticker: Ticker, asset_rule_details: Vec<(u32, AssetRuleDetails)>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
@@ -343,7 +343,7 @@ decl_module! {
             );
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             for (asset_rule_id, _) in asset_rule_details.iter() {
-                ensure!(Self::get_next_rule_id(ticker) > *asset_rule_id, Error::<T>::InvalidRuleId);
+                ensure!(Self::get_latest_rule_id(ticker) >= *asset_rule_id, Error::<T>::InvalidRuleId);
             }
             asset_rule_details.into_iter().for_each(|(asset_rule_id, asset_rule)| {
                 Self::unsafe_change_asset_rule(ticker, asset_rule_id, asset_rule);
@@ -356,8 +356,8 @@ decl_module! {
 decl_event!(
     pub enum Event {
         /// Emitted when new asset rule is created
-        /// (Ticker, AssetRule, Asset_rule_id)
-        NewAssetRule(Ticker, AssetRule, u32),
+        /// (Ticker, AssetRuleDetails, Asset_rule_id)
+        NewAssetRule(Ticker, AssetRuleDetails, u32),
         /// Emitted when asset rule is removed
         /// (Ticker, Asset_rule_id)
         RemoveAssetRule(Ticker, u32),
@@ -368,7 +368,7 @@ decl_event!(
         /// Emitted when asset rules for a given ticker gets paused.
         PauseAssetRules(Ticker),
         /// Emitted when asset rule get modified/change
-        ChangeAssetRule(Ticker, u32, AssetRule),
+        ChangeAssetRule(Ticker, u32, AssetRuleDetails),
         /// Emitted when default claim issuer list for a given ticker gets added
         AddTrustedDefaultClaimIssuer(Ticker, IdentityId),
         /// Emitted when default claim issuer list for a given ticker get removed
@@ -418,7 +418,7 @@ impl<T: Trait> Module<T> {
 
             if let Some(from_did) = from_did_opt {
                 rule_broken =
-                    Self::is_any_rule_broken(ticker, from_did, active_rule.asset_rule.sender_rules);
+                    Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
                 if rule_broken {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
@@ -427,7 +427,7 @@ impl<T: Trait> Module<T> {
 
             if let Some(to_did) = to_did_opt {
                 rule_broken =
-                    Self::is_any_rule_broken(ticker, to_did, active_rule.asset_rule.receiver_rules)
+                    Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
             }
 
             if !rule_broken {
@@ -540,14 +540,15 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn unsafe_change_asset_rule(ticker: Ticker, asset_rule_id: u32, new_asset_rule: AssetRule) {
-        <AssetRulesMap>::mutate(&ticker, |asset_rule| {
-            if let Some(index) = asset_rule
+    fn unsafe_change_asset_rule(ticker: Ticker, asset_rule_id: u32, new_asset_rule: AssetRuleDetails) {
+        <AssetRulesMap>::mutate(&ticker, |asset_rules| {
+            if let Some(index) = asset_rules
                 .rules
                 .iter()
                 .position(|rule| rule.rule_id == asset_rule_id)
             {
-                asset_rule.rules[index].asset_rule = new_asset_rule.clone();
+                asset_rules.rules[index].sender_rules = new_asset_rule.clone().sender_rules;
+                asset_rules.rules[index].receiver_rules = new_asset_rule.clone().receiver_rules;
             }
         });
         Self::deposit_event(Event::ChangeAssetRule(
@@ -557,8 +558,12 @@ impl<T: Trait> Module<T> {
         ));
     }
 
-    fn get_next_rule_id(ticker: Ticker) -> u32 {
-        u32::try_from(Self::asset_rules(ticker).rules.len()).unwrap_or_default()
+    fn get_latest_rule_id(ticker: Ticker) -> u32 {
+        let length = Self::asset_rules(ticker).rules.len();
+        match length > 0 {
+            true => Self::asset_rules(ticker).rules[length - 1].rule_id,
+            false => 0u32
+        }
     }
 }
 
@@ -963,7 +968,7 @@ mod tests {
             let x = vec![sender_rule];
             let y = vec![receiver_rule1, receiver_rule2];
 
-            let asset_rule = AssetRule {
+            let asset_rule = AssetRuleDetails {
                 sender_rules: x,
                 receiver_rules: y,
             };
@@ -975,7 +980,7 @@ mod tests {
             ));
 
             assert_eq!(GeneralTM::asset_rules(ticker).rules.len(), 1);
-            assert_eq!(GeneralTM::asset_rules(ticker).rules[0].rule_id, 0);
+            assert_eq!(GeneralTM::asset_rules(ticker).rules[0].rule_id, 1);
 
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
@@ -1058,7 +1063,7 @@ mod tests {
                 None
             ));
 
-            let asset_rule = AssetRule {
+            let asset_rule = AssetRuleDetails {
                 sender_rules: vec![],
                 receiver_rules: vec![],
             };
@@ -1137,7 +1142,7 @@ mod tests {
             rule_type: RuleType::ClaimIsAbsent,
         }];
 
-        let asset_rule = AssetRule {
+        let asset_rule = AssetRuleDetails {
             sender_rules: vec![],
             receiver_rules,
         };
@@ -1267,7 +1272,7 @@ mod tests {
             let x = vec![sender_rule];
             let y = vec![receiver_rule];
 
-            let asset_rule = AssetRule {
+            let asset_rule = AssetRuleDetails {
                 sender_rules: x,
                 receiver_rules: y,
             };
@@ -1440,7 +1445,7 @@ mod tests {
             let x = vec![sender_rule.clone()];
             let y = vec![receiver_rule_1, receiver_rule_2];
 
-            let asset_rule = AssetRule {
+            let asset_rule = AssetRuleDetails {
                 sender_rules: x,
                 receiver_rules: y,
             };
@@ -1499,7 +1504,7 @@ mod tests {
             let x = vec![sender_rule];
             let y = vec![receiver_rule_1, receiver_rule_2];
 
-            let asset_rule = AssetRule {
+            let asset_rule = AssetRuleDetails {
                 sender_rules: x,
                 receiver_rules: y,
             };
@@ -1509,7 +1514,7 @@ mod tests {
                 GeneralTM::change_asset_rule(
                     receiver_signed.clone(),
                     ticker,
-                    0,
+                    1,
                     asset_rule.clone()
                 ),
                 Error::<Test>::Unauthorized
@@ -1530,7 +1535,7 @@ mod tests {
             assert_ok!(GeneralTM::change_asset_rule(
                 token_owner_signed.clone(),
                 ticker,
-                0,
+                1,
                 asset_rule
             ));
 

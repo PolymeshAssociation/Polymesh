@@ -207,7 +207,7 @@ fn valid_transfers_pass() {
             None
         ));
 
-        let asset_rule = general_tm::AssetRule {
+        let asset_rule = general_tm::AssetRuleDetails {
             sender_rules: vec![],
             receiver_rules: vec![],
         };
@@ -269,7 +269,7 @@ fn valid_custodian_allowance() {
             token.total_supply
         );
 
-        let asset_rule = general_tm::AssetRule {
+        let asset_rule = general_tm::AssetRuleDetails {
             sender_rules: vec![],
             receiver_rules: vec![],
         };
@@ -452,7 +452,7 @@ fn valid_custodian_allowance_of() {
             token.total_supply
         );
 
-        let asset_rule = general_tm::AssetRule {
+        let asset_rule = general_tm::AssetRuleDetails {
             sender_rules: vec![],
             receiver_rules: vec![],
         };
@@ -640,7 +640,7 @@ fn checkpoints_fuzz_test() {
                 None
             ));
 
-            let asset_rule = general_tm::AssetRule {
+            let asset_rule = general_tm::AssetRuleDetails {
                 sender_rules: vec![],
                 receiver_rules: vec![],
             };
@@ -1748,7 +1748,7 @@ fn freeze_unfreeze_asset() {
             None
         ));
         // Allow all transfers.
-        let asset_rule = general_tm::AssetRule {
+        let asset_rule = general_tm::AssetRuleDetails {
             sender_rules: vec![],
             receiver_rules: vec![],
         };
