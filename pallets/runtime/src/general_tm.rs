@@ -417,8 +417,7 @@ impl<T: Trait> Module<T> {
             let mut rule_broken = false;
 
             if let Some(from_did) = from_did_opt {
-                rule_broken =
-                    Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
+                rule_broken = Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
                 if rule_broken {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
@@ -426,8 +425,7 @@ impl<T: Trait> Module<T> {
             }
 
             if let Some(to_did) = to_did_opt {
-                rule_broken =
-                    Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
+                rule_broken = Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
             }
 
             if !rule_broken {
@@ -540,7 +538,11 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn unsafe_change_asset_rule(ticker: Ticker, asset_rule_id: u32, new_asset_rule: AssetRuleDetails) {
+    fn unsafe_change_asset_rule(
+        ticker: Ticker,
+        asset_rule_id: u32,
+        new_asset_rule: AssetRuleDetails,
+    ) {
         <AssetRulesMap>::mutate(&ticker, |asset_rules| {
             if let Some(index) = asset_rules
                 .rules
@@ -562,7 +564,7 @@ impl<T: Trait> Module<T> {
         let length = Self::asset_rules(ticker).rules.len();
         match length > 0 {
             true => Self::asset_rules(ticker).rules[length - 1].rule_id,
-            false => 0u32
+            false => 0u32,
         }
     }
 }
