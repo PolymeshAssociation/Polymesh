@@ -73,7 +73,7 @@ use frame_support::{
     traits::{ExistenceRequirement, WithdrawReason},
     weights::SimpleDispatchInfo,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed};
 
 use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 
@@ -124,6 +124,8 @@ decl_storage! {
 
         /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Signatory;
+
+        pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
@@ -302,79 +304,24 @@ decl_module! {
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
         /// * `cdd_auth_id` Authorization from a CDD service provider
-        pub fn accept_master_key(origin, rotation_auth_id: u64, cdd_auth_id: u64) -> DispatchResult {
+        pub fn accept_master_key(origin, rotation_auth_id: u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer = Signatory::from(sender_key);
+            Self::accept_master_key_rotation(sender_key, rotation_auth_id, optional_cdd_auth_id)
+        }
 
-            // When both authorizations are present...
-            ensure!(
-                <Authorizations<T>>::exists(signer, rotation_auth_id),
-                Error::<T>::InvalidAuthorizationFromOwner
-            );
-            ensure!(
-                <Authorizations<T>>::exists(signer, cdd_auth_id),
-                Error::<T>::InvalidAuthorizationFromCddProvider
-            );
-
-            // Accept authorization from the owner
-            let rotation_auth = <Authorizations<T>>::get(signer, rotation_auth_id);
-
-            if let AuthorizationData::RotateMasterKey(rotation_for_did) = rotation_auth.authorization_data {
-                // Ensure the request was made by the owner of master key
-                match rotation_auth.authorized_by {
-                    Signatory::AccountKey(key) =>  {
-                        let master_key = <DidRecords>::get(rotation_for_did).master_key;
-                        ensure!(key == master_key, Error::<T>::KeyChangeUnauthorized);
-                    },
-                    _ => return Err(Error::<T>::UnknownAuthorization.into())
-                };
-
-                // Aceept authorization from CDD service provider
-
-                let cdd_auth = <Authorizations<T>>::get(signer, cdd_auth_id);
-
-                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = cdd_auth.authorization_data {
-                    // Attestor must be a CDD service provider
-                    let cdd_provider_did = match cdd_auth.authorized_by {
-                        Signatory::AccountKey(ref key) =>  Self::get_identity(key),
-                        Signatory::Identity(id)  => Some(id),
-                    };
-
-                    if let Some(id) = cdd_provider_did {
-                        ensure!(
-                            T::CddServiceProviders::is_member(&id),
-                            Error::<T>::NotCddProviderAttestation
-                        );
-                    } else {
-                        return Err(Error::<T>::NoDIDFound.into());
-                    }
-
-                    // Make sure authorizations are for the same DID
-                    ensure!(
-                        rotation_for_did == attestation_for_did,
-                        Error::<T>::AuthorizationsNotForSameDids
-                    );
-
-                    // remove owner's authorization
-                    Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
-
-                    // remove CDD service provider's authorization
-                    Self::consume_auth(cdd_auth.authorized_by, signer, cdd_auth_id)?;
-
-                    // Replace master key of the owner that initiated key rotation
-                    <DidRecords>::mutate(rotation_for_did, |record| {
-                        (*record).master_key = sender_key.clone();
-                    });
-
-                    Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
-                } else {
-                    return Err(Error::<T>::UnknownAuthorization.into());
-                }
-            } else {
-                return Err(Error::<T>::UnknownAuthorization.into());
-            }
-
+        /// Set if CDD authorization is required for updating master key of an identity.
+        /// Callable via root (governance)
+        ///
+        /// # Arguments
+        /// * `auth_required` CDD Authorization required or not
+        pub fn change_cdd_requirement_for_mk_rotation(
+            origin,
+            auth_required: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            <CddAuthForMasterKeyRotation>::put(auth_required);
+            Self::deposit_event(RawEvent::CddRequirementForMasterKeyUpdated(auth_required));
             Ok(())
         }
 
@@ -689,6 +636,8 @@ decl_module! {
                     match auth.authorization_data {
                         AuthorizationData::AddMultiSigSigner =>
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
+                        AuthorizationData::RotateMasterKey(_identityid) =>
+                            Self::accept_master_key_rotation(key , auth_id, None),
                         _ => return Err(Error::<T>::UnknownAuthorization.into())
                     }
                 }
@@ -740,6 +689,8 @@ decl_module! {
                             let _result = match auth.authorization_data {
                                 AuthorizationData::AddMultiSigSigner =>
                                     T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
+                                AuthorizationData::RotateMasterKey(_identityid) =>
+                                    Self::accept_master_key_rotation(key , auth_id, None),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
                             };
                         }
@@ -1103,6 +1054,92 @@ impl<T: Trait> Module<T> {
         if <Links<T>>::exists(target, link_id) {
             <Links<T>>::mutate(target, link_id, |link| link.link_data = link_data);
             Self::deposit_event(RawEvent::LinkUpdated(link_id, target));
+        }
+    }
+
+    /// Accepts a master key rotation
+    fn accept_master_key_rotation(
+        sender_key: AccountKey,
+        rotation_auth_id: u64,
+        optional_cdd_auth_id: Option<u64>,
+    ) -> DispatchResult {
+        let signer = Signatory::from(sender_key);
+        // ensure authorization is present
+        ensure!(
+            <Authorizations<T>>::exists(signer, rotation_auth_id),
+            Error::<T>::InvalidAuthorizationFromOwner
+        );
+
+        // Accept authorization from the owner
+        let rotation_auth = <Authorizations<T>>::get(signer, rotation_auth_id);
+
+        if let AuthorizationData::RotateMasterKey(rotation_for_did) =
+            rotation_auth.authorization_data
+        {
+            // Ensure the request was made by the owner of master key
+            match rotation_auth.authorized_by {
+                Signatory::AccountKey(key) => {
+                    let master_key = <DidRecords>::get(rotation_for_did).master_key;
+                    ensure!(key == master_key, Error::<T>::KeyChangeUnauthorized);
+                }
+                _ => return Err(Error::<T>::UnknownAuthorization.into()),
+            };
+
+            // Aceept authorization from CDD service provider
+            if Self::cdd_auth_for_master_key_rotation() {
+                if let Some(cdd_auth_id) = optional_cdd_auth_id {
+                    ensure!(
+                        <Authorizations<T>>::exists(signer, cdd_auth_id),
+                        Error::<T>::InvalidAuthorizationFromCddProvider
+                    );
+                    let cdd_auth = <Authorizations<T>>::get(signer, cdd_auth_id);
+
+                    if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) =
+                        cdd_auth.authorization_data
+                    {
+                        // Attestor must be a CDD service provider
+                        let cdd_provider_did = match cdd_auth.authorized_by {
+                            Signatory::AccountKey(ref key) => Self::get_identity(key),
+                            Signatory::Identity(id) => Some(id),
+                        };
+
+                        if let Some(id) = cdd_provider_did {
+                            ensure!(
+                                T::CddServiceProviders::is_member(&id),
+                                Error::<T>::NotCddProviderAttestation
+                            );
+                        } else {
+                            return Err(Error::<T>::NoDIDFound.into());
+                        }
+
+                        // Make sure authorizations are for the same DID
+                        ensure!(
+                            rotation_for_did == attestation_for_did,
+                            Error::<T>::AuthorizationsNotForSameDids
+                        );
+
+                        // consume CDD service provider's authorization
+                        Self::consume_auth(cdd_auth.authorized_by, signer, cdd_auth_id)?;
+                    } else {
+                        return Err(Error::<T>::UnknownAuthorization.into());
+                    }
+                } else {
+                    return Err(Error::<T>::InvalidAuthorizationFromCddProvider.into());
+                }
+            }
+
+            // consume owner's authorization
+            Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
+
+            // Replace master key of the owner that initiated key rotation
+            <DidRecords>::mutate(rotation_for_did, |record| {
+                (*record).master_key = sender_key.clone();
+            });
+
+            Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
+            Ok(())
+        } else {
+            return Err(Error::<T>::UnknownAuthorization.into());
         }
     }
 
