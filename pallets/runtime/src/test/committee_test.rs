@@ -36,7 +36,7 @@ fn motions_basic_environment_works_we() {
 }
 
 fn make_proposal(value: u64) -> Call {
-    Call::Identity(identity::Call::accept_master_key(value, value))
+    Call::Identity(identity::Call::accept_master_key(value, Some(value)))
 }
 
 #[test]
