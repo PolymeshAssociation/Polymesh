@@ -154,6 +154,9 @@ decl_event!(
 
         /// Signatory approved a previous request to join to a target identity.
         SignerJoinedToIdentityApproved( Signatory, IdentityId),
+
+        /// CDD requirement for updating master key changed. (new_requirment)
+        CddRequirementForMasterKeyUpdated(bool),
     }
 );
 
