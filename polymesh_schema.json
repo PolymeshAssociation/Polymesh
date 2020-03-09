@@ -149,9 +149,9 @@
         "id": "IdentityId",
         "claim_type": "ClaimType"
     },
-    "AssetRule": {
-        "sender_rules": "Vec<RuleData>",
-        "receiver_rules":"Vec<RuleData>"
+    "AssetTransferRule": {
+        "sender_rules": "Vec<Rule>",
+        "receiver_rules":"Vec<Rule>"
     },
     "RuleType": {
         "_enum": { 
