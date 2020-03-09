@@ -52,9 +52,14 @@ decl_event!(
 );
 
 pub trait GroupTrait {
+    /// Retrieve members
     fn get_members() -> Vec<IdentityId>;
 
-    /// Is the given `MemberId` a valid member?
+    /// Current set size
+    fn member_count() -> usize {
+        Self::get_members().len()
+    }
+
     fn is_member(member_id: &IdentityId) -> bool {
         Self::get_members().contains(member_id)
     }

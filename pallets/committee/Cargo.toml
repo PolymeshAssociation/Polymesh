@@ -1,16 +1,13 @@
 [package]
-name = "pallet-mips"
+name = "pallet-committee"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
+polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false  }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false  }
-polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
-polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
-polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
-pallet-mips-rpc-runtime-api = { default-features = false, path = "./rpc/runtime-api" }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
@@ -23,14 +20,14 @@ sp-serializer = { git = "https://github.com/paritytech/substrate", default-featu
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-version = { package = "sp-version", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-pallet-committee = { package = "pallet-committee", path = "../committee", default-features = false  }
 
+pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421", default-features = false }
+
 
 [features]
 equalize = []
@@ -47,14 +44,9 @@ std = [
 	"sp-runtime/std",
 	"sp-api/std",
 	"sp-version/std",
-	"pallet-timestamp/std",
 	"frame-system/std",
 	"frame-support/std",
+	"pallet-timestamp/std",
 	"polymesh-primitives/std",
-	"polymesh-runtime-common/std",
-	"polymesh-runtime-balances/std",
-	"polymesh-runtime-group/std",
 	"polymesh-runtime-identity/std",
-	"pallet-mips-rpc-runtime-api/std",
-	"pallet-committee/std",
 ]
