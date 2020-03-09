@@ -18,14 +18,7 @@
 //! - `propose` - Members can propose a new dispatchable
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold
 //!
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
-use polymesh_runtime_common::{identity::Trait as IdentityTrait, Context};
-use polymesh_runtime_identity as identity;
-
-use sp_runtime::traits::{EnsureOrigin, Hash};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*, vec};
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
     codec::{Decode, Encode},
@@ -35,8 +28,13 @@ use frame_support::{
     traits::{ChangeMembers, InitializeMembers},
     weights::SimpleDispatchInfo,
 };
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_signed};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_runtime_common::{group::GroupTrait, identity::Trait as IdentityTrait, Context};
+use polymesh_runtime_identity as identity;
 use sp_core::u32_trait::Value as U32;
+use sp_runtime::traits::{EnsureOrigin, Hash};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
@@ -56,19 +54,6 @@ pub trait Trait<I>: frame_system::Trait + IdentityTrait {
 
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum ProportionMatch {
-    AtLeast,
-    MoreThan,
-}
-
-impl Default for ProportionMatch {
-    fn default() -> Self {
-        ProportionMatch::MoreThan
-    }
 }
 
 /// Origin for the committee module.
@@ -107,7 +92,7 @@ decl_storage! {
         /// The current members of the committee.
         pub Members get(fn members) config(): Vec<IdentityId>;
         /// Vote threshold for an approval.
-        pub VoteThreshold get(fn vote_threshold) config(): (ProportionMatch, u32, u32);
+        pub VoteThreshold get(fn vote_threshold) config(): (u32, u32);
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -148,13 +133,15 @@ decl_error! {
         /// The sender must be a signing key for the DID.
         SenderMustBeSigningKeyForDid,
         /// The proposer or voter is not a committee member.
-        NotACommitteeMember,
+        BadOrigin,
         /// No such proposal.
         NoSuchProposal,
         /// Duplicate proposal.
         DuplicateProposal,
         /// Mismatched voting index.
         MismatchedVotingIndex,
+        /// Proportion must be a rational number.
+        InvalidProportion,
     }
 }
 
@@ -168,20 +155,20 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Change the vote threshold the determines the winning proposal. For e.g., for a simple
-        /// majority use (ProportionMatch.AtLeast, 1, 2) which represents the inequation ">= 1/2"
+        /// majority use (1, 2) which represents the inequation ">= 1/2"
         ///
         /// # Arguments
         /// * `match_criteria` One of {AtLeast, MoreThan}
         /// * `n` Numerator of the fraction representing vote threshold
         /// * `d` Denominator of the fraction representing vote threshold
-        /// * `match_criteria` One of {AtLeast, MoreThan}
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn set_vote_threshold(origin, match_criteria: ProportionMatch, n: u32, d: u32) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
-            <VoteThreshold<I>>::put((match_criteria, n, d));
+        pub fn set_vote_threshold(origin, n: u32, d: u32) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+
+            // Proportion must be a nrational number
+            ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
+
+            <VoteThreshold<I>>::put((n, d));
         }
 
         /// Any committee member proposes a dispatchable.
@@ -201,7 +188,7 @@ decl_module! {
             );
 
             // Only committee members can propose
-            ensure!(Self::is_member(&did), Error::<T, I>::NotACommitteeMember);
+            ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
 
             // Reject duplicate proposals
             let proposal_hash = T::Hashing::hash_of(&proposal);
@@ -237,7 +224,7 @@ decl_module! {
             );
 
             // Only committee members can vote
-            ensure!(Self::is_member(&did), Error::<T, I>::NotACommitteeMember);
+            ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
 
             let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
             ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
@@ -276,15 +263,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
     /// in relation to the threshold proporion `n`/`d`.
-    fn is_threshold_satisfied(
-        votes: u32,
-        total: u32,
-        (threshold, n, d): (ProportionMatch, u32, u32),
-    ) -> bool {
-        match threshold {
-            ProportionMatch::AtLeast => votes * d >= n * total,
-            ProportionMatch::MoreThan => votes * d > n * total,
-        }
+    fn is_threshold_satisfied(votes: u32, total: u32, (n, d): (u32, u32)) -> bool {
+        votes * d >= n * total
     }
 
     /// It removes the `id`'s vote from `proposal` if it exists.
@@ -345,6 +325,13 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
             }
         }
+    }
+}
+
+impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
+    /// Retrieve all members of this committee
+    fn get_members() -> Vec<IdentityId> {
+        Self::members()
     }
 }
 
