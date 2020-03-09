@@ -7,8 +7,8 @@ use crate::multisig;
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::Currency;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_support::traits::{Currency, Get};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, parameter_types};
 use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
@@ -19,16 +19,16 @@ use sp_runtime::traits::{One, SimpleArithmetic, Zero};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::{convert::TryFrom, prelude::*};
 
-/// The maximum number of timelocked bridge transactions that can be scheduled to be executed in a
-/// single block. Any excess bridge transactions are scheduled in later blocks.
-const MAX_TIMELOCKED_TXS_PER_BLOCK: usize = 10;
-
-/// The block number range in which to look for available blocks to put a timelocked transaction.
-const BLOCK_RANGE_FOR_TIMELOCK: u32 = 1000;
-
 pub trait Trait: multisig::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as identity::Trait>::Proposal>;
+    /// The maximum number of timelocked bridge transactions that can be scheduled to be
+    /// executed in a single block. Any excess bridge transactions are scheduled in later
+    /// blocks.
+    type MaxTimelockedTxsPerBlock: Get<u32>;
+    /// The block number range in which to look for available blocks to put a timelocked
+    /// transaction.
+    type BlockRangeForTimelock: Get<Self::BlockNumber>;
 }
 
 /// The intended recipient of POLY exchanged from the locked ERC20 tokens.
@@ -110,7 +110,7 @@ decl_error! {
         NoSuchFrozenTx,
         /// There is no proposal corresponding to a given bridge transaction.
         NoSuchProposal,
-        ///
+        /// All the blocks in the timelock block range are full.
         TimelockBlockRangeFull,
     }
 }
@@ -194,6 +194,9 @@ decl_event! {
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
+
+        const MaxTimelockedTxsPerBlock: u32 = T::MaxTimelockedTxsPerBlock::get();
+        const BlockRangeForTimelock: T::BlockNumber = T::BlockRangeForTimelock::get();
 
         fn deposit_event() = default;
 
@@ -423,9 +426,10 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let current_block_number = <system::Module<T>>::block_number();
         let mut unlock_block_number = current_block_number + timelock;
-        let range = <T::BlockNumber>::from(BLOCK_RANGE_FOR_TIMELOCK);
+        let range = T::BlockRangeForTimelock::get();
         let max_unlock_block_number = unlock_block_number + range - One::one();
-        while Self::timelocked_txs(unlock_block_number).len() >= MAX_TIMELOCKED_TXS_PER_BLOCK
+        let max_timelocked_txs_per_block = T::MaxTimelockedTxsPerBlock::get() as usize;
+        while Self::timelocked_txs(unlock_block_number).len() >= max_timelocked_txs_per_block
             && unlock_block_number <= max_unlock_block_number
         {
             unlock_block_number += One::one();
