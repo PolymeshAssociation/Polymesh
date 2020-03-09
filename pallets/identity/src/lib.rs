@@ -1219,22 +1219,28 @@ impl<T: Trait> Module<T> {
         key == &<DidRecords>::get(did).master_key
     }
 
-    /// It returns true if `id_claim` is not expired at `at` moment.
+    /// It returns true if `id_claim` is not expired at `moment`.
     #[inline]
-    fn is_identity_claim_not_expired_at(id_claim: &IdentityClaim, at: u64) -> bool {
+    fn is_identity_claim_not_expired_at(id_claim: &IdentityClaim, moment: u64) -> bool {
         if let Some(expiry) = id_claim.expiry {
-            expiry > at
+            expiry > moment
         } else {
             true
         }
     }
 
+    /// It returns true if `id_claim` is not expired.
     #[inline]
     fn is_identity_claim_not_expired(id_claim: &IdentityClaim) -> bool {
         let now = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
         Self::is_identity_claim_not_expired_at(id_claim, now)
     }
 
+    /// It fetches all claims associated with `id` identity, filtered by `claim_type`.
+    /// It only returns valid claims, it means claims which are not expired.
+    ///
+    /// # Return
+    /// It does not load all claims into memory. It just returns an iterator over all claims.
     pub fn fetch_claims(
         id: IdentityId,
         claim_type: ClaimType,
@@ -1242,6 +1248,9 @@ impl<T: Trait> Module<T> {
         Self::fetch_base_claims(id, claim_type).filter(|c| Self::is_identity_claim_not_expired(c))
     }
 
+    /// It fetches an specific `claim_type` claim type for target identity `id`, which was issued
+    /// by `issuer`.
+    /// It only returns non-expired claims.
     pub fn fetch_claim_with_issuer(
         id: IdentityId,
         claim_type: ClaimType,
@@ -1255,36 +1264,44 @@ impl<T: Trait> Module<T> {
             .nth(0)
     }
 
+    /// It double-checks if `claim_for` identity has at least one valid CDD, which was issued by
+    /// any of CDD providers.
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
-        let now = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
         let trusted_cdd_providers = T::CddServiceProviders::get_members();
 
         Self::fetch_claims(claim_for, ClaimType::CustomerDueDiligence)
-            .filter(|c| Self::is_identity_claim_not_expired_at(c, now))
             .any(|c| trusted_cdd_providers.contains(&c.claim_issuer))
     }
 
-    pub fn is_identity_has_valid_cdd(claim_for: IdentityId, buffer: u64) -> Option<IdentityId> {
+    /// It returns the CDD identity which issued the current valid CDD claim for `claim_for`
+    /// identity.
+    /// # Parameters
+    ///     - leeway: This leeway is added to now() before check if claim is expired.
+    pub fn fetch_cdd(claim_for: IdentityId, leeway: u64) -> Option<IdentityId> {
         let trusted_cdd_providers = T::CddServiceProviders::get_members();
-        let exp_threshold = <pallet_timestamp::Module<T>>::get()
+        let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
             .saturated_into::<u64>()
-            .checked_add(buffer)
+            .checked_add(leeway)
             .unwrap_or_default();
 
-        Self::fetch_claims(claim_for, ClaimType::CustomerDueDiligence)
+        Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
             .filter(|id_claim| {
-                Self::is_identity_claim_not_expired_at(id_claim, exp_threshold)
+                Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
                     && trusted_cdd_providers.contains(&id_claim.claim_issuer)
             })
             .map(|id_claim| id_claim.claim_issuer)
             .nth(0)
     }
 
+    /// It iterates over all claims of type `claim_type` for target `id` identity.
+    /// Please note that it could return expired claims.
     fn fetch_base_claims(id: IdentityId, claim_type: ClaimType) -> PrefixIterator<IdentityClaim> {
         let claim_key = IdentityClaimKey(id, claim_type);
         <Claims>::iter_prefix(claim_key)
     }
 
+    /// It fetches an specific `claim_type` claim type for target identity `id`, which was issued
+    /// by `issuer`.
     fn fetch_base_claim_with_issuer(
         id: IdentityId,
         claim_type: ClaimType,
@@ -1514,27 +1531,29 @@ impl<T: Trait> Module<T> {
     fn unsafe_add_claim(
         target: IdentityId,
         claim: Claim,
-        issuer: IdentityId,
+        claim_issuer: IdentityId,
         expiry: Option<T::Moment>,
     ) {
         let claim_type = claim.claim_type();
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
-        let issuance_date = Self::fetch_claim_with_issuer(target, claim_type, issuer)
+        let issuance_date = Self::fetch_claim_with_issuer(target, claim_type, claim_issuer)
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
-
+        let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).nth(0);
         let id_claim_key = IdentityClaimKey(target, claim.claim_type());
+
         let identity_claim = IdentityClaim {
-            claim_issuer: issuer,
+            claim_issuer,
             issuance_date,
             last_update_date,
-            expiry: expiry.into_iter().map(|m| m.saturated_into::<u64>()).nth(0),
+            expiry,
             claim,
         };
 
-        <Claims>::insert(&id_claim_key, issuer, identity_claim.clone());
+        <Claims>::insert(&id_claim_key, claim_issuer, identity_claim.clone());
         Self::deposit_event(RawEvent::NewClaims(target, identity_claim));
     }
 
+    /// It removes a claim from `target` which was issued by `issuer` without any security check.
     fn unsafe_revoke_claim(target: IdentityId, claim_type: ClaimType, issuer: IdentityId) {
         let id_claim_key = IdentityClaimKey(target, claim_type);
         <Claims>::remove(&id_claim_key, &issuer);

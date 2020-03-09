@@ -209,7 +209,22 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker, sender_did)
     }
 
-    /// It fetchs the context
+    /// It fetches the context in order to evaluate a predicate based on claims.
+    ///  - id : Target identity. Claims will be fetched filtered by this target identity.
+    ///  - rule: Based on that rule, this function will run some optimizations. See below:
+    ///
+    /// # Optimizations
+    /// The following optimizations are applied base on `rule` parameter:
+    ///  - One specific issuer. When rule is defined for an specific issuer, it will fetch and
+    ///     load into memory that claim.
+    ///  - List of issuers. It `rule` defines a list of issuers, it will iterate over identity
+    ///     claims (of an specific type) and load into memory the ones which are created by those
+    ///     issuers.
+    ///  - Zero issuers. It is the most expensive because it load all claims of specific type
+    ///     for the specific user.
+    ///
+    /// # TODO
+    ///   - Use an iterator instead of load claims into a vector.
     fn fetch_context(id: IdentityId, rule: &Rule) -> predicate::Context {
         let claim_type = rule.rule_type.as_claim_type();
         let issuers = &rule.issuers;
@@ -231,6 +246,8 @@ impl<T: Trait> Module<T> {
         predicate::Context::from(claims)
     }
 
+    /// It loads a context for each rule in `rules` and verify if any of them is evaluated as a
+    /// false predicate. In that case, rule is considered as a "broken rule".
     fn is_any_rule_broken(did: IdentityId, rules: Vec<Rule>) -> bool {
         rules.into_iter().any(|rule| {
             let context = Self::fetch_context(did, &rule);
@@ -245,7 +262,7 @@ impl<T: Trait> Module<T> {
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        // Transfer is valid if ALL reciever AND sender rules of ANY asset rule are valid.
+        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
         if asset_rules.is_paused {
             return Ok(ERC1400_TRANSFER_SUCCESS);
@@ -898,6 +915,103 @@ mod tests {
         ));
         assert_err!(
             Asset::transfer(token_owner_signed.clone(), ticker, receiver_did, 10),
+            AssetError::<Test>::InvalidTransfer
+        );
+    }
+
+    #[test]
+    fn jurisdiction_asset_rules() {
+        identity_owned_by_alice().execute_with(jurisdiction_asset_rules_we);
+    }
+
+    fn jurisdiction_asset_rules_we() {
+        // 0. Create accounts
+        let token_owner_acc = AccountId::from(AccountKeyring::Alice);
+        let (token_owner_signed, token_owner_id) = make_account(&token_owner_acc).unwrap();
+        Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+
+        let cdd_acc = AccountId::from(AccountKeyring::Bob);
+        let (cdd_signed, cdd_id) = make_account(&cdd_acc).unwrap();
+
+        let user_acc = AccountId::from(AccountKeyring::Charlie);
+        let (user_signed, user_id) = make_account(&user_acc).unwrap();
+
+        // 1. Create a token.
+        let token = SecurityToken {
+            name: vec![0x01].into(),
+            owner_did: token_owner_id.clone(),
+            total_supply: 1_000_000,
+            divisible: true,
+            ..Default::default()
+        };
+        let ticker = Ticker::from(token.name.0.as_slice());
+
+        assert_ok!(Asset::create_token(
+            token_owner_signed.clone(),
+            token.name.clone(),
+            ticker,
+            token.total_supply,
+            true,
+            token.asset_type.clone(),
+            vec![],
+            None
+        ));
+
+        // 2. Set up rules for Asset transfer.
+        let asset_transfer_rules = AssetTransferRule {
+            sender_rules: vec![],
+            receiver_rules: vec![
+                Rule {
+                    rule_type: RuleType::IsAnyOf(vec![
+                        Claim::Jurisdiction(b"Canada".into()),
+                        Claim::Jurisdiction(b"Spain".into()),
+                    ]),
+                    issuers: vec![cdd_id],
+                },
+                Rule {
+                    rule_type: RuleType::IsAbsent(ClaimType::BlackListed),
+                    issuers: vec![token_owner_id],
+                },
+            ],
+        };
+        assert_ok!(GeneralTM::add_active_rule(
+            token_owner_signed.clone(),
+            ticker,
+            asset_transfer_rules
+        ));
+
+        // 3. Validate behaviour.
+        // 3.1. Invalid transfer because missing jurisdiction.
+        assert_err!(
+            Asset::transfer(token_owner_signed.clone(), ticker, user_id, 100),
+            AssetError::<Test>::InvalidTransfer
+        );
+
+        // 3.2. Add jurisdiction and transfer will be OK.
+        assert_ok!(Identity::add_claim(
+            cdd_signed.clone(),
+            user_id,
+            Claim::Jurisdiction(b"Canada".into()),
+            None
+        ));
+
+        assert_ok!(Asset::transfer(
+            token_owner_signed.clone(),
+            ticker,
+            user_id,
+            100
+        ));
+
+        // 3.3. Add user to blacklist
+        assert_ok!(Identity::add_claim(
+            token_owner_signed.clone(),
+            user_id,
+            Claim::BlackListed,
+            None
+        ));
+
+        assert_err!(
+            Asset::transfer(token_owner_signed.clone(), ticker, user_id, 100),
             AssetError::<Test>::InvalidTransfer
         );
     }

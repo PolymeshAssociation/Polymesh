@@ -21,13 +21,15 @@ pub enum Claim {
     Jurisdiction(JurisdictionName),
     /// User is whitelisted
     Whitelisted,
-    /// Custom type
-    Custom(Vec<u8>),
+    /// User is Blacklisted
+    BlackListed,
+    /// Empty claim
+    NoData,
 }
 
 impl Default for Claim {
     fn default() -> Self {
-        Claim::Custom(vec![])
+        Claim::NoData
     }
 }
 
@@ -43,7 +45,8 @@ impl Claim {
             Claim::KnowYourCustomer => ClaimType::KnowYourCustomer,
             Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
             Claim::Whitelisted => ClaimType::Whitelisted,
-            Claim::Custom(..) => ClaimType::Custom,
+            Claim::BlackListed => ClaimType::BlackListed,
+            Claim::NoData => ClaimType::NoType,
         }
     }
 }
@@ -67,8 +70,10 @@ pub enum ClaimType {
     Jurisdiction,
     /// User is whitelisted
     Whitelisted,
-    /// Custom type.
-    Custom,
+    /// User is BlackListed.
+    BlackListed,
+    /// Empty type
+    NoType,
 }
 
 /// A wrapper for Jurisdiction name.
@@ -98,10 +103,6 @@ pub struct IdentityClaim {
     /// Claim data
     pub claim: Claim,
 }
-
-/// Information required to fetch a claim of a particular did. (Claim_data, claim_issuer)
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct ClaimIdentifier(pub ClaimType, pub IdentityId);
 
 impl From<Claim> for IdentityClaim {
     fn from(data: Claim) -> Self {

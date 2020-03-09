@@ -1156,7 +1156,7 @@ decl_module! {
             // then it break the loop and the given nominator in the nominator pool.
 
             if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(stash.encode())?)) {
-                let is_cdded = <identity::Module<T>>::is_identity_has_valid_cdd(
+                let is_cdded = <identity::Module<T>>::fetch_cdd(
                         nominate_identity,
                         Self::get_bonding_duration_period()).is_some();
 

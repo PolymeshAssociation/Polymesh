@@ -3,7 +3,8 @@ use codec::{Decode, Encode};
 use sp_std::prelude::*;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-/// Type of claim requirements that a rule can have
+/// It defines the type of rule supported, and the filter information we will use to evaluate as a
+/// predicate.
 pub enum RuleType {
     /// Rule to ensure that claim filter produces one claim.
     IsPresent(ClaimType),
@@ -14,7 +15,13 @@ pub enum RuleType {
 }
 
 impl RuleType {
-    /// It returns the
+    /// It returns the claim type which will be searched and fetched during the evaluation process.
+    /// # NOTE
+    /// The case `IsAnyOf` is special and all the claims should have the same type. The first one
+    /// will be used as the reference type, and any other claim value which differs of that type,
+    /// will be ignored.
+    /// If user defines a empty list of claims in `IsAnyOf`, `Jurisdiction` type will be used by
+    /// default.
     pub fn as_claim_type(&self) -> ClaimType {
         match self {
             RuleType::IsPresent(claim_type) => *claim_type,
@@ -23,7 +30,7 @@ impl RuleType {
                 .iter()
                 .map(|claim| claim.claim_type())
                 .nth(0)
-                .unwrap_or(ClaimType::CustomerDueDiligence),
+                .unwrap_or(ClaimType::Jurisdiction),
         }
     }
 }

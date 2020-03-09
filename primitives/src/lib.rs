@@ -74,7 +74,7 @@ pub use identity::Identity;
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimIdentifier, ClaimType, IdentityClaim, JurisdictionName};
+pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName};
 
 /// Key is strong type which stores bytes representing the key.
 pub mod account_key;
