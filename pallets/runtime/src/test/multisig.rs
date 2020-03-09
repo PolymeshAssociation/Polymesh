@@ -509,8 +509,6 @@ fn should_change_all_signers_and_sigs_required() {
             false
         );
 
-        assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 2);
-
         let charlie_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(charlie_did))
                 .next()
@@ -549,5 +547,7 @@ fn should_change_all_signers_and_sigs_required() {
             MultiSig::ms_signers(musig_address.clone(), Signatory::from(charlie_did)),
             true
         );
+
+        assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 2);
     })
 }
