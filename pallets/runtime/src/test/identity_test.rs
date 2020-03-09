@@ -152,6 +152,85 @@ fn revoking_claims() {
 }
 
 #[test]
+fn revoking_batch_claims() {
+    ExtBuilder::default().build().execute_with(|| {
+        let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _issuer = Origin::signed(AccountKeyring::Bob.public());
+        let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
+
+        assert_ok!(Identity::add_claim(
+            claim_issuer.clone(),
+            claim_issuer_did,
+            IdentityClaimData::NoData,
+            Some(100u64),
+        ));
+
+        assert_ok!(Identity::add_claim(
+            claim_issuer.clone(),
+            claim_issuer_did,
+            IdentityClaimData::CustomerDueDiligence,
+            None,
+        ));
+
+        assert_ok!(Identity::add_claim(
+            claim_issuer.clone(),
+            claim_issuer_did,
+            IdentityClaimData::Accredited(claim_issuer_did),
+            None,
+        ));
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::NoData,
+            claim_issuer_did
+        )
+        .is_some());
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::CustomerDueDiligence,
+            claim_issuer_did
+        )
+        .is_some());
+
+        assert_ok!(Identity::revoke_claims_batch(
+            claim_issuer.clone(),
+            vec![
+                (claim_issuer_did, IdentityClaimData::NoData),
+                (claim_issuer_did, IdentityClaimData::CustomerDueDiligence),
+                (
+                    claim_issuer_did,
+                    IdentityClaimData::Accredited(claim_issuer_did)
+                )
+            ]
+        ));
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::NoData,
+            claim_issuer_did
+        )
+        .is_none());
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::CustomerDueDiligence,
+            claim_issuer_did
+        )
+        .is_none());
+
+        assert!(Identity::fetch_valid_claim(
+            claim_issuer_did,
+            IdentityClaimData::Accredited(claim_issuer_did),
+            claim_issuer_did
+        )
+        .is_none());
+    });
+}
+
+#[test]
 fn only_master_key_can_add_signing_key_permissions() {
     ExtBuilder::default()
         .build()
@@ -845,6 +924,48 @@ fn changing_master_key_we() {
     let new_key = AccountKey::from(AccountKeyring::Bob.public().0);
     let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
 
+    // Master key matches Alice's key
+    assert_eq!(Identity::did_records(alice_did).master_key, alice_key);
+
+    // Alice triggers change of master key
+    let owner_auth_id = Identity::add_auth(
+        Signatory::AccountKey(alice_key),
+        Signatory::AccountKey(new_key),
+        AuthorizationData::RotateMasterKey(alice_did),
+        None,
+    );
+
+    // Accept the authorization with the new key
+    assert_ok!(Identity::accept_master_key(
+        new_key_origin.clone(),
+        owner_auth_id.clone(),
+        None
+    ));
+
+    // Alice's master key is now Bob's
+    assert_eq!(
+        Identity::did_records(alice_did).master_key,
+        AccountKey::from(AccountKeyring::Bob.public().0)
+    );
+}
+
+#[test]
+fn changing_master_key_with_cdd_auth() {
+    ExtBuilder::default()
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .build()
+        .execute_with(|| changing_master_key_with_cdd_auth_we());
+}
+
+fn changing_master_key_with_cdd_auth_we() {
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice_key = AccountKey::from(AccountKeyring::Alice.public().0);
+
+    let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let new_key = AccountKey::from(AccountKeyring::Bob.public().0);
+    let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
+
     let cdd_acc = AccountKey::from(AccountKeyring::Eve.public().0);
     let cdd_did = Identity::get_identity(&cdd_acc).unwrap();
 
@@ -866,11 +987,17 @@ fn changing_master_key_we() {
         None,
     );
 
+    Identity::change_cdd_requirement_for_mk_rotation(frame_system::RawOrigin::Root.into(), true);
+
+    assert!(
+        Identity::accept_master_key(new_key_origin.clone(), owner_auth_id.clone(), None).is_err()
+    );
+
     // Accept the authorization with the new key
     assert_ok!(Identity::accept_master_key(
         new_key_origin.clone(),
         owner_auth_id.clone(),
-        cdd_auth_id.clone()
+        Some(cdd_auth_id)
     ));
 
     // Alice's master key is now Bob's
