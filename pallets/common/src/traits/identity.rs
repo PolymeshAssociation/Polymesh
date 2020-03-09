@@ -117,7 +117,7 @@ decl_event!(
         /// DID queried
         DidQuery(AccountKey, IdentityId),
 
-        /// Asset DID queried	
+        /// Asset DID queried
         AssetDid(Ticker, IdentityId),
 
         /// New authorization added (auth_id, from, to, authorization_data, expiry)
@@ -151,6 +151,9 @@ decl_event!(
 
         /// Signatory approved a previous request to join to a target identity.
         SignerJoinedToIdentityApproved( Signatory, IdentityId),
+
+        /// CDD requirement for updating master key changed. (new_requirment)
+        CddRequirementForMasterKeyUpdated(bool),
     }
 );
 
