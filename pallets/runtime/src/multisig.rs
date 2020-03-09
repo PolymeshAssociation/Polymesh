@@ -412,21 +412,21 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyApproved
         );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
-            ensure!(
-                T::ChargeTxFeeTarget::charge_fee(
-                    signer,
-                    proposal.encode().len().try_into().unwrap_or_default(),
-                    proposal.get_dispatch_info(),
-                )
-                .is_ok(),
-                Error::<T>::FailedToChargeFee
-            );
             <Votes<T>>::insert(&multisig_signer_proposal, true);
             // Since approvals are always only incremented by 1, they can not overflow.
             let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
             <TxApprovals<T>>::insert(&multisig_proposal, approvals);
             let approvals_needed = Self::ms_signs_required(multisig.clone());
             if approvals >= approvals_needed {
+                ensure!(
+                    T::ChargeTxFeeTarget::charge_fee(
+                        signer,
+                        proposal.encode().len().try_into().unwrap_or_default(),
+                        proposal.get_dispatch_info(),
+                    )
+                    .is_ok(),
+                    Error::<T>::FailedToChargeFee
+                );
                 let who_key = AccountKey::try_from(multisig.clone().encode())?;
                 match <identity::Module<T>>::get_identity(&who_key) {
                     Some(id) => {
