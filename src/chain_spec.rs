@@ -3,7 +3,6 @@ use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::{AccountId, IdentityId, Signature};
 use polymesh_runtime::{
     asset::TickerRegistrationConfig,
-    committee::ProportionMatch,
     config::{
         AssetConfig, BalancesConfig, BridgeConfig, ContractsConfig, GenesisConfig, IdentityConfig,
         ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
@@ -354,12 +353,12 @@ fn testnet_genesis(
             phantom: Default::default(),
         }),
         committee_Instance1: Some(PolymeshCommitteeConfig {
+            vote_threshold: (1, 2),
             members: vec![
                 IdentityId::from(3),
                 IdentityId::from(4),
                 IdentityId::from(5),
             ],
-            vote_threshold: (ProportionMatch::AtLeast, 1, 2),
             phantom: Default::default(),
         }),
         group_Instance2: Some(CddServiceProvidersConfig {
