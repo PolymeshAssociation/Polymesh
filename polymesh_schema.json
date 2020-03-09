@@ -153,6 +153,10 @@
         "sender_rules": "Vec<Rule>",
         "receiver_rules":"Vec<Rule>"
     },
+    "AssetTransferRules": {
+        "is_paused": "bool",
+        "rules": "Vec<AssetTransferRule>"
+    },
     "RuleType": {
         "_enum": { 
             "IsPresent" : "ClaimType",
