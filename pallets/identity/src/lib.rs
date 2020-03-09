@@ -76,6 +76,8 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 
+use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
+
 pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
 pub type Event<T> = polymesh_runtime_common::traits::identity::Event<T>;
 
@@ -98,7 +100,6 @@ decl_storage! {
         pub CurrentDid: Option<IdentityId>;
 
         /// (DID, claim_type, issuer) -> Associated claims
-        // pub Claims: double_map hasher(blake2_256) IdentityId, blake2_256(ClaimIdentifier) => IdentityClaim;
         pub Claims: double_map hasher(blake2_256) IdentityClaimKey, blake2_256(IdentityId) => IdentityClaim;
 
         // Account => DID
@@ -128,6 +129,34 @@ decl_storage! {
         /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Signatory;
     }
+    add_extra_genesis {
+        config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
+        build(|config: &GenesisConfig<T>| {
+            for &(ref master_account_id, issuer, did, expiry) in &config.identities {
+                // Direct storage change for registering the DID and providing the claim
+                let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
+                assert!(!<DidRecords>::exists(did), "Identity already exist");
+                <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
+                <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, did);
+                let record = DidRecord {
+                    master_key,
+                    ..Default::default()
+                };
+                <DidRecords>::insert(&did, record);
+
+                // Add the claim data for the CustomerDueDiligence type claim
+                let id_claim = IdentityClaim {
+                    claim_issuer: issuer.clone(),
+                    issuance_date: 0_u64,
+                    last_update_date: 0_u64,
+                    expiry: expiry,
+                    claim: Claim::CustomerDueDiligence,
+                };
+                let id_claim_key = IdentityClaimKey( did, id_claim.claim.claim_type());
+                <Claims>::insert(&id_claim_key, &issuer, id_claim);
+            }
+        });
+    }
 }
 
 decl_module! {
@@ -156,7 +185,7 @@ decl_module! {
         /// Register `target_account` with a new Identity.
         ///
         /// # Failure
-        /// - `origin` has to be a trusted KYC provider.
+        /// - `origin` has to be a trusted CDD provider.
         /// - `target_account` (master key of the new Identity) can be linked to just one and only
         /// one identity.
         /// - External signing keys can be linked to just one identity.
@@ -169,18 +198,18 @@ decl_module! {
         pub fn cdd_register_did(
             origin,
             target_account: T::AccountId,
-            cdd_claim_expiry: T::Moment,
+            cdd_claim_expiry: Option<T::Moment>,
             signing_items: Vec<SigningItem>
         ) -> DispatchResult {
-            // Sender has to be part of KYCProviders
+            // Sender has to be part of CDDProviders
             let cdd_sender = ensure_signed(origin)?;
             let cdd_key = AccountKey::try_from(cdd_sender.encode())?;
             let cdd_id = Context::current_identity_or::<Self>(&cdd_key)?;
 
-            let kyc_providers = T::KycServiceProviders::get_members();
+            let cdd_providers = T::CddServiceProviders::get_members();
             ensure!(
-                kyc_providers.into_iter().any(|kyc_id| kyc_id == cdd_id),
-                Error::<T>::UnAuthorizedKYCProvider
+                cdd_providers.into_iter().any(|kyc_id| kyc_id == cdd_id),
+                Error::<T>::UnAuthorizedCddProvider
             );
 
             // Register Identity and add claim.
@@ -271,13 +300,13 @@ decl_module! {
         }
 
         /// Call this with the new master key. By invoking this method, caller accepts authorization
-        /// with the new master key. If a KYC service provider approved this change, master key of
+        /// with the new master key. If a CDD service provider approved this change, master key of
         /// the DID is updated.
         ///
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
-        /// * `kyc_auth_id` Authorization from a KYC service provider
-        pub fn accept_master_key(origin, rotation_auth_id: u64, kyc_auth_id: u64) -> DispatchResult {
+        /// * `cdd_auth_id` Authorization from a CDD service provider
+        pub fn accept_master_key(origin, rotation_auth_id: u64, cdd_auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let signer = Signatory::from(sender_key);
@@ -288,7 +317,7 @@ decl_module! {
                 Error::<T>::InvalidAuthorizationFromOwner
             );
             ensure!(
-                <Authorizations<T>>::exists(signer, kyc_auth_id),
+                <Authorizations<T>>::exists(signer, cdd_auth_id),
                 Error::<T>::InvalidAuthorizationFromCddProvider
             );
 
@@ -305,20 +334,20 @@ decl_module! {
                     _ => return Err(Error::<T>::UnknownAuthorization.into())
                 };
 
-                // Aceept authorization from KYC service provider
+                // Aceept authorization from CDD service provider
 
-                let kyc_auth = <Authorizations<T>>::get(signer, kyc_auth_id);
+                let cdd_auth = <Authorizations<T>>::get(signer, cdd_auth_id);
 
-                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = kyc_auth.authorization_data {
-                    // Attestor must be a KYC service provider
-                    let kyc_provider_did = match kyc_auth.authorized_by {
+                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) = cdd_auth.authorization_data {
+                    // Attestor must be a CDD service provider
+                    let cdd_provider_did = match cdd_auth.authorized_by {
                         Signatory::AccountKey(ref key) =>  Self::get_identity(key),
                         Signatory::Identity(id)  => Some(id),
                     };
 
-                    if let Some(id) = kyc_provider_did {
+                    if let Some(id) = cdd_provider_did {
                         ensure!(
-                            T::KycServiceProviders::is_member(&id),
+                            T::CddServiceProviders::is_member(&id),
                             Error::<T>::NotCddProviderAttestation
                         );
                     } else {
@@ -334,8 +363,8 @@ decl_module! {
                     // remove owner's authorization
                     Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
 
-                    // remove KYC service provider's authorization
-                    Self::consume_auth(kyc_auth.authorized_by, signer, kyc_auth_id)?;
+                    // remove CDD service provider's authorization
+                    Self::consume_auth(cdd_auth.authorized_by, signer, cdd_auth_id)?;
 
                     // Replace master key of the owner that initiated key rotation
                     <DidRecords>::mutate(rotation_for_did, |record| {
@@ -359,7 +388,7 @@ decl_module! {
             origin,
             did: IdentityId,
             claim_data: Claim,
-            expiry: T::Moment,
+            expiry: Option<T::Moment>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -385,25 +414,26 @@ decl_module! {
         pub fn add_claims_batch(
             origin,
             // Vec(did_of_claim_receiver, claim_expiry, claim_data)
-            claims: Vec<(IdentityId, T::Moment, Claim)>
+            claims: Vec<(IdentityId, Option<T::Moment>, Claim)>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
+            let issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
-            ensure!(<DidRecords>::exists(did_issuer), "claim issuer DID must already exist");
+            ensure!(<DidRecords>::exists(issuer), Error::<T>::ClaimIssuerDidMustAlreadyExist);
 
-            // Verify that sender key is one of did_issuer's signing keys
+            // Verify that sender key is one of issuer's signing keys
             let sender_signer = Signatory::AccountKey(sender_key);
-            ensure!(Self::is_signer_authorized(did_issuer, &sender_signer),
-                    "Sender must hold a claim issuer's signing key");
+            ensure!(
+                Self::is_signer_authorized(issuer, &sender_signer),
+                Error::<T>::SenderMustHoldClaimIssuerKey
+            );
 
             // Check input claims.
-            for (did, _, _) in &claims {
-                ensure!(<DidRecords>::exists(did), "DID must already exist");
-            }
-            for (did, expiry, claim_data) in claims {
-                Self::unsafe_add_claim(did, claim_data, did_issuer, expiry);
+            ensure!( claims.iter().all( |(id, _, _)| <DidRecords>::exists(id)), Error::<T>::DidMustAlreadyExist);
+
+            for (did, expiry, claim) in claims {
+                Self::unsafe_add_claim(did, claim, issuer, expiry);
             }
             Ok(())
         }
@@ -423,7 +453,7 @@ decl_module! {
                 return Err(Error::<T>::MissingCurrentIdentity.into());
             }
 
-            // 1.3. Check that target_did has a KYC.
+            // 1.3. Check that target_did has a CDD.
             // Please keep in mind that `current_did` is double-checked:
             //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
             //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
@@ -449,14 +479,23 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked
-        pub fn revoke_claim(origin, did: IdentityId, claim_type: ClaimType) -> DispatchResult {
+        pub fn revoke_claim(origin, target: IdentityId, claim_type: ClaimType) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
-            let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
+            let issuer = Context::current_identity_or::<Self>(&sender_key)?;
+            Self::unsafe_revoke_claim(target, claim_type, issuer);
+            Ok(())
+        }
+        /// Revoke multiple claims in a batch
+        ///
+        /// # Arguments
+        /// * origin - did issuer
+        /// * did_and_claim_data - Vector of the identities & the corresponding claim data whom claim needs to be revoked
+        pub fn revoke_claims_batch(origin, target_and_claim_type: Vec<(IdentityId, ClaimType)>) -> DispatchResult {
+            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
+            let issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
-            let id_claim_key = IdentityClaimKey(did, claim_type);
-            <Claims>::remove(&id_claim_key, &did_issuer);
-
-            Self::deposit_event(RawEvent::RevokedClaim(did, claim_type, did_issuer));
+            target_and_claim_type.into_iter()
+                .for_each( |(target, claim_type)| Self::unsafe_revoke_claim(target, claim_type, issuer));
 
             Ok(())
         }
@@ -500,14 +539,6 @@ decl_module! {
             let did = Context::current_identity_or::<Self>(&sender_key)?;
 
             Self::deposit_event(RawEvent::DidQuery(sender_key, did));
-            Ok(())
-        }
-
-        pub fn get_asset_did(origin, ticker: Ticker) -> DispatchResult {
-            ensure_signed(origin)?;
-            let did = Self::get_token_did(&ticker)?;
-            Self::deposit_event(RawEvent::AssetDid(ticker, did));
-            sp_runtime::print(did);
             Ok(())
         }
 
@@ -895,21 +926,6 @@ decl_module! {
             <RevokeOffChainAuthorization<T>>::insert((signer,auth), true);
             Ok(())
         }
-
-        /// Query whether given signer identity has valid KYC or not
-        ///
-        /// # Arguments
-        /// * `origin` Signatory whose identity get checked
-        /// * `buffer_time` Buffer time corresponds to which kyc expiry need to check
-        pub fn is_my_identity_has_valid_kyc(origin, buffer_time: u64) ->  DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did = Context::current_identity_or::<Self>(&sender_key)?;
-
-            let cdd_provider = Self::is_identity_has_valid_kyc(my_did, buffer_time);
-            Self::deposit_event(RawEvent::MyKycStatus(my_did, cdd_provider.is_some(), cdd_provider));
-            Ok(())
-        }
     }
 }
 
@@ -929,8 +945,8 @@ decl_error! {
         UnknownAuthorization,
         /// Account Id cannot be extracted from signer
         InvalidAccountKey,
-        /// Only KYC service providers are allowed.
-        UnAuthorizedKYCProvider,
+        /// Only CDD service providers are allowed.
+        UnAuthorizedCddProvider,
         /// An invalid authorization from the owner.
         InvalidAuthorizationFromOwner,
         /// An invalid authorization from the CDD provider.
@@ -953,8 +969,8 @@ decl_error! {
         AuthorizationDoesNotExist,
         /// The offchain authorization has expired.
         AuthorizationExpired,
-        /// The master key is not linked to an identity.
-        MasterKeyNotLinked,
+        /// The master key is already linked to an identity.
+        MasterKeyAlreadyLinked,
         /// The target DID has no valid CDD.
         TargetHasNoCdd,
         /// Authorization has been explicitly revoked.
@@ -1166,11 +1182,27 @@ impl<T: Trait> Module<T> {
         key == &<DidRecords>::get(did).master_key
     }
 
-    pub fn fetch_claims<'a>(
+    /// It returns true if `id_claim` is not expired at `at` moment.
+    #[inline]
+    fn is_identity_claim_not_expired_at(id_claim: &IdentityClaim, at: u64) -> bool {
+        if let Some(expiry) = id_claim.expiry {
+            expiry > at
+        } else {
+            true
+        }
+    }
+
+    #[inline]
+    fn is_identity_claim_not_expired(id_claim: &IdentityClaim) -> bool {
+        let now = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
+        Self::is_identity_claim_not_expired_at(id_claim, now)
+    }
+
+    pub fn fetch_claims(
         id: IdentityId,
         claim_type: ClaimType,
     ) -> impl Iterator<Item = IdentityClaim> {
-        Self::fetch_base_claims(id, claim_type).filter(Self::is_identity_claim_not_expired)
+        Self::fetch_base_claims(id, claim_type).filter(|c| Self::is_identity_claim_not_expired(c))
     }
 
     pub fn fetch_claim_with_issuer(
@@ -1182,20 +1214,21 @@ impl<T: Trait> Module<T> {
 
         Self::fetch_base_claim_with_issuer(id, claim_type, issuer)
             .into_iter()
-            .filter(|id_claim| id_claim.expiry > now)
+            .filter(|c| Self::is_identity_claim_not_expired_at(c, now))
             .nth(0)
     }
 
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
-        let trusted_cdd_providers = T::KycServiceProviders::get_members();
+        let now = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
+        let trusted_cdd_providers = T::CddServiceProviders::get_members();
 
         Self::fetch_claims(claim_for, ClaimType::CustomerDueDiligence)
-            .filter(Self::is_identity_claim_not_expired)
-            .any(|id_claim| trusted_cdd_providers.contains(&id_claim.claim_issuer))
+            .filter(|c| Self::is_identity_claim_not_expired_at(c, now))
+            .any(|c| trusted_cdd_providers.contains(&c.claim_issuer))
     }
 
-    pub fn is_identity_has_valid_kyc(claim_for: IdentityId, buffer: u64) -> Option<IdentityId> {
-        let trusted_cdd_providers = T::KycServiceProviders::get_members();
+    pub fn is_identity_has_valid_cdd(claim_for: IdentityId, buffer: u64) -> Option<IdentityId> {
+        let trusted_cdd_providers = T::CddServiceProviders::get_members();
         let exp_threshold = <pallet_timestamp::Module<T>>::get()
             .saturated_into::<u64>()
             .checked_add(buffer)
@@ -1203,17 +1236,11 @@ impl<T: Trait> Module<T> {
 
         Self::fetch_claims(claim_for, ClaimType::CustomerDueDiligence)
             .filter(|id_claim| {
-                id_claim.expiry > exp_threshold
+                Self::is_identity_claim_not_expired_at(id_claim, exp_threshold)
                     && trusted_cdd_providers.contains(&id_claim.claim_issuer)
             })
             .map(|id_claim| id_claim.claim_issuer)
             .nth(0)
-    }
-
-    /// It returns true if `id_claim` is not expired yet.
-    fn is_identity_claim_not_expired(id_claim: &IdentityClaim) -> bool {
-        let now = <pallet_timestamp::Module<T>>::get();
-        id_claim.expiry > now.saturated_into::<u64>()
     }
 
     fn fetch_base_claims(id: IdentityId, claim_type: ClaimType) -> PrefixIterator<IdentityClaim> {
@@ -1376,6 +1403,8 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// IMPORTANT: No state change is allowed in this function
+    /// because this function is used within the RPC calls
     /// It is a helper function that can be used to get did for any asset
     pub fn get_token_did(ticker: &Ticker) -> StdResult<IdentityId, &'static str> {
         let mut buf = Vec::new();
@@ -1401,7 +1430,7 @@ impl<T: Trait> Module<T> {
         // 1.1. Master key is not linked to any identity.
         ensure!(
             Self::can_key_be_linked_to_did(&master_key, SignatoryType::External),
-            Error::<T>::MasterKeyNotLinked
+            Error::<T>::MasterKeyAlreadyLinked
         );
         // 1.2. Master key is not part of signing keys.
         ensure!(
@@ -1445,7 +1474,12 @@ impl<T: Trait> Module<T> {
     }
 
     /// It adds a new claim without any previous security check.
-    fn unsafe_add_claim(target: IdentityId, claim: Claim, issuer: IdentityId, expiry: T::Moment) {
+    fn unsafe_add_claim(
+        target: IdentityId,
+        claim: Claim,
+        issuer: IdentityId,
+        expiry: Option<T::Moment>,
+    ) {
         let claim_type = claim.claim_type();
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
         let issuance_date = Self::fetch_claim_with_issuer(target, claim_type, issuer)
@@ -1456,13 +1490,38 @@ impl<T: Trait> Module<T> {
             claim_issuer: issuer,
             issuance_date,
             last_update_date,
-            expiry: expiry.saturated_into::<u64>(),
+            expiry: expiry.into_iter().map(|m| m.saturated_into::<u64>()).nth(0),
             claim,
         };
 
         <Claims>::insert(&id_claim_key, issuer, identity_claim.clone());
-
         Self::deposit_event(RawEvent::NewClaims(target, identity_claim));
+    }
+
+    fn unsafe_revoke_claim(target: IdentityId, claim_type: ClaimType, issuer: IdentityId) {
+        let id_claim_key = IdentityClaimKey(target, claim_type);
+        <Claims>::remove(&id_claim_key, &issuer);
+        Self::deposit_event(RawEvent::RevokedClaim(target, claim_type, issuer));
+    }
+}
+
+impl<T: Trait> Module<T> {
+    /// RPC call to query the given ticker did
+    pub fn get_asset_did(ticker: Ticker) -> Result<IdentityId, &'static str> {
+        Self::get_token_did(&ticker)
+    }
+
+    /// Retrieve DidRecords for `did`
+    pub fn get_did_records(did: IdentityId) -> RpcDidRecords<AccountKey, SigningItem> {
+        if <DidRecords>::exists(did) {
+            let record = <DidRecords>::get(did);
+            RpcDidRecords::Success {
+                master_key: record.master_key,
+                signing_items: record.signing_items,
+            }
+        } else {
+            RpcDidRecords::IdNotFound
+        }
     }
 }
 

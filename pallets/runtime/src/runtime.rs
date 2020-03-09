@@ -1,13 +1,15 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{
     asset, bridge, committee, contracts_wrapper, dividend, exemption, general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    mips, multisig, percentage_tm, simple_token, statistics, sto_capped,
+    multisig, percentage_tm, simple_token, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
     utils, voting,
 };
 
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, Moment, Signature,
+    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
+    Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
@@ -43,6 +45,7 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
+use polymesh_runtime_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe;
 use sp_core::OpaqueMetadata;
@@ -326,7 +329,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type MembershipChanged = PolymeshCommittee;
 }
 
-impl mips::Trait for Runtime {
+impl pallet_mips::Trait for Runtime {
     type Currency = Balances;
     type Proposal = Call;
     type CommitteeOrigin =
@@ -516,7 +519,7 @@ impl identity::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = MultiSig;
-    type KycServiceProviders = KycServiceProviders;
+    type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
 }
 
@@ -582,7 +585,7 @@ construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Storage, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-        Mips: mips::{Module, Call, Storage, Event<T>, Config<T>},
+        Mips: pallet_mips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
@@ -595,7 +598,7 @@ construct_runtime!(
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
-        KycServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
+        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage },
     }
 );
@@ -782,8 +785,56 @@ impl_runtime_apis! {
     }
 
     impl pallet_staking_rpc_runtime_api::StakingApi<Block> for Runtime {
-         fn get_curve() -> Vec<(Perbill, Perbill)> {
+        fn get_curve() -> Vec<(Perbill, Perbill)> {
             Staking::get_curve()
+        }
+    }
+
+    impl pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance> for Runtime {
+        /// Get vote count for a given proposal index
+        fn get_votes(index: u32) -> pallet_mips_rpc_runtime_api::VoteCount<Balance> {
+            Mips::get_votes(index)
+        }
+
+        /// Proposals voted by `address`
+        fn proposed_by(address: AccountId) -> Vec<u32> {
+            Mips::proposed_by(address)
+        }
+
+        /// Proposals `address` voted on
+        fn voted_on(address: AccountId) -> Vec<u32> {
+            Mips::voted_on(address)
+        }
+    }
+
+    impl
+        polymesh_runtime_identity_rpc_runtime_api::IdentityApi<
+            Block,
+            IdentityId,
+            Ticker,
+            AccountKey,
+            SigningItem,
+        > for Runtime
+    {
+        /// RPC call to know whether the given did has valid cdd claim or not
+        fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus {
+            let buffer_time = buffer_time.unwrap_or_default();
+
+            Identity::is_identity_has_valid_cdd(did, buffer_time)
+                .ok_or_else(|| "Either cdd claim is expired or not yet provided to give identity".into())
+        }
+
+        /// RPC call to query the given ticker did
+        fn get_asset_did(ticker: Ticker) -> AssetDidResult {
+            match Identity::get_asset_did(ticker) {
+                Ok(did) => Ok(did),
+                Err(_) => Err("Error in computing the given ticker error".into()),
+            }
+        }
+
+        /// Retrieve master key and signing keys for a given IdentityId
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
+            Identity::get_did_records(did)
         }
     }
 }
