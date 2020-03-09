@@ -292,23 +292,18 @@ impl<T: Trait> ChargeTxFee for Module<T> {
         } else {
             Zero::zero()
         };
-        let imbalance;
-        match who {
-            Signatory::Identity(did) => {
-                imbalance = T::Currency::withdraw_identity_balance(&did, fee)
-                    .map_err(|_| InvalidTransaction::Payment)?;
-            }
-            Signatory::AccountKey(account) => {
-                imbalance = T::Currency::withdraw(
-                    &T::AccountId::decode(&mut &account.encode()[..])
-                        .map_err(|_| InvalidTransaction::Payment)?,
-                    fee,
-                    WithdrawReason::TransactionPayment.into(),
-                    ExistenceRequirement::KeepAlive,
-                )
-                .map_err(|_| InvalidTransaction::Payment)?;
-            }
-        }
+        let imbalance = match who {
+            Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
+                .map_err(|_| InvalidTransaction::Payment),
+            Signatory::AccountKey(account) => T::Currency::withdraw(
+                &T::AccountId::decode(&mut &account.encode()[..])
+                    .map_err(|_| InvalidTransaction::Payment)?,
+                fee,
+                WithdrawReason::TransactionPayment.into(),
+                ExistenceRequirement::KeepAlive,
+            )
+            .map_err(|_| InvalidTransaction::Payment),
+        }?;
         T::OnTransactionPayment::on_unbalanced(imbalance);
         Ok(ValidTransaction::default())
     }
