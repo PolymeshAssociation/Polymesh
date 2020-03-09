@@ -1,9 +1,9 @@
 use crate::{
     asset::{self, TickerRegistrationConfig},
-    committee::{self},
     test::TestStorage,
 };
 
+use pallet_committee as committee;
 use polymesh_primitives::{AccountKey, Identity, IdentityId};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::LinkedKeyInfo;

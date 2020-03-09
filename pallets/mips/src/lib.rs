@@ -681,6 +681,7 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
+    use pallet_committee as committee;
     use polymesh_primitives::{IdentityId, Signatory};
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
@@ -693,7 +694,6 @@ mod tests {
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
         parameter_types,
     };
-    use frame_system::EnsureSignedBy;
     use sp_core::H256;
     use sp_runtime::{
         testing::Header,
@@ -728,9 +728,9 @@ mod tests {
 
     impl frame_system::Trait for Test {
         type Origin = Origin;
+        type Call = ();
         type Index = u64;
         type BlockNumber = u64;
-        type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = AccountId;
@@ -763,9 +763,9 @@ mod tests {
     impl balances::Trait for Test {
         type OnFreeBalanceZero = ();
         type OnNewAccount = ();
-        type Event = ();
-        type DustRemoval = ();
         type TransferPayment = ();
+        type DustRemoval = ();
+        type Event = ();
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type Identity = identity::Module<Test>;
@@ -810,60 +810,74 @@ mod tests {
         pub const ProposalDuration: u32 = 10;
     }
 
-    /// Mock group instance to represent a committee. There's only one member of committee
-    /// which is DID of AccountKeyring::Charlie
-    /// This in conjunction with `CommitteeOrigin` member in Trait sets up prerequisites for tests
-    /// TODO: When committee module is refactored outof runtime, construct a committee instance
     impl group::GroupTrait for Test {
         fn get_members() -> Vec<IdentityId> {
-            vec![]
+            unimplemented!()
         }
-
-        fn is_member(member_id: &IdentityId) -> bool {
-            true
-        }
-    }
-
-    parameter_types! {
-        pub const CommitteeRoot: AccountId = AccountId::from(AccountKeyring::Charlie);
     }
 
     impl Trait for Test {
         type Currency = balances::Module<Self>;
-        type CommitteeOrigin = EnsureSignedBy<CommitteeRoot, AccountId>;
+        type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
         type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
-        type GovernanceCommittee = Test;
+        type GovernanceCommittee = Committee;
         type Event = ();
     }
 
-    impl group::Trait<group::Instance2> for Test {
+    impl group::Trait<group::Instance1> for Test {
         type Event = ();
         type AddOrigin = frame_system::EnsureRoot<AccountId>;
         type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
         type SwapOrigin = frame_system::EnsureRoot<AccountId>;
         type ResetOrigin = frame_system::EnsureRoot<AccountId>;
         type MembershipInitialized = ();
-        type MembershipChanged = ();
+        type MembershipChanged = committee::Module<Test, committee::Instance1>;
+    }
+
+    pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as system::Trait>::AccountId, I>;
+
+    impl<I> From<CommitteeOrigin<Test, I>> for Origin {
+        fn from(_co: CommitteeOrigin<Test, I>) -> Origin {
+            Origin::system(frame_system::RawOrigin::Root)
+        }
+    }
+
+    impl committee::Trait<committee::Instance1> for Test {
+        type Origin = Origin;
+        type Proposal = Call;
+        type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+        type Event = ();
     }
 
     type Identity = identity::Module<Test>;
     type System = system::Module<Test>;
     type Balances = balances::Module<Test>;
+    type Group = group::Module<Test, group::Instance1>;
+    type Committee = committee::Module<Test, committee::Instance1>;
     type Mips = Module<Test>;
 
     fn new_test_ext() -> sp_io::TestExternalities {
-        let mut t = system::GenesisConfig::default()
+        let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
+
+        committee::GenesisConfig::<Test, committee::Instance1> {
+            members: vec![],
+            vote_threshold: (1, 1),
+            ..Default::default()
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         GenesisConfig::<Test> {
             min_proposal_deposit: 50,
             quorum_threshold: 70,
             proposal_duration: 10,
         }
-        .assimilate_storage(&mut t)
+        .assimilate_storage(&mut storage)
         .unwrap();
-        t.into()
+
+        sp_io::TestExternalities::new(storage)
     }
 
     fn next_block() {
@@ -951,14 +965,13 @@ mod tests {
             let proposal_url: Url = b"www.abc.com".into();
             let proposal_desc: MipDescription = b"Test description".into();
 
+            // Voting majority
+            let root = Origin::system(frame_system::RawOrigin::Root);
+
             let alice_acc = AccountKeyring::Alice.public();
             let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
 
-            // Charlie represents committee origin
-            let charlie_acc = AccountKeyring::Charlie.public();
-            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 0).unwrap();
-
-            // Account 6 starts a proposal with min deposit
+            // Alice starts a proposal with min deposit
             assert_ok!(Mips::propose(
                 alice_signer.clone(),
                 Box::new(proposal.clone()),
@@ -978,7 +991,7 @@ mod tests {
                 })
             );
 
-            assert_ok!(Mips::kill_proposal(charlie_signer, index, hash));
+            assert_ok!(Mips::kill_proposal(root, index, hash));
 
             assert_eq!(Balances::free_balance(&alice_acc), 60);
 
@@ -1090,20 +1103,23 @@ mod tests {
             let proposal_url: Url = b"www.abc.com".into();
             let proposal_desc: MipDescription = b"Test description".into();
 
-            let alice_acc = AccountKeyring::Alice.public();
-            let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
-            let bob_acc = AccountKeyring::Bob.public();
-            let (bob_signer, _) = make_account_with_balance(bob_acc, 50).unwrap();
-
-            // Charlie represents committee origin
-            let charlie_acc = AccountKeyring::Charlie.public();
-            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 0).unwrap();
-
-            // Voting majority
             let root = Origin::system(frame_system::RawOrigin::Root);
 
+            // Alice and Bob are committee members
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, alice_did) = make_account_with_balance(alice_acc, 60).unwrap();
+            let bob_acc = AccountKeyring::Bob.public();
+            let (bob_signer, bob_did) = make_account_with_balance(bob_acc, 50).unwrap();
+
+            let charlie_acc = AccountKeyring::Charlie.public();
+            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 60).unwrap();
+
+            Group::reset_members(root.clone(), vec![alice_did, bob_did]).unwrap();
+
+            assert_eq!(Committee::members(), vec![alice_did, bob_did]);
+
             assert_ok!(Mips::propose(
-                alice_signer.clone(),
+                charlie_signer.clone(),
                 Box::new(proposal.clone()),
                 50,
                 Some(proposal_url.clone()),
@@ -1112,11 +1128,14 @@ mod tests {
 
             assert_ok!(Mips::vote(bob_signer.clone(), hash, index, true, 50));
 
-            assert_ok!(Mips::fast_track_proposal(
-                charlie_signer.clone(),
-                index,
-                hash
-            ));
+            // only a committee member can fast track a proposal
+            assert_err!(
+                Mips::fast_track_proposal(charlie_signer.clone(), index, hash),
+                Error::<Test>::NotACommitteeMember
+            );
+
+            // Alice can fast track because she is a GC member
+            assert_ok!(Mips::fast_track_proposal(alice_signer.clone(), index, hash));
 
             fast_forward_to(20);
 
@@ -1139,19 +1158,19 @@ mod tests {
             let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
 
-            let alice_acc = AccountKeyring::Alice.public();
-            let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
-
-            // Charlie represents committee origin
-            let charlie_acc = AccountKeyring::Charlie.public();
-            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 0).unwrap();
-
-            // Voting majority
             let root = Origin::system(frame_system::RawOrigin::Root);
 
-            // Charlie is a committee member
+            // Alice and Bob are committee members
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, alice_did) = make_account_with_balance(alice_acc, 60).unwrap();
+
+            Group::reset_members(root.clone(), vec![alice_did]).unwrap();
+
+            assert_eq!(Committee::members(), vec![alice_did]);
+
+            // Alice is a committee member
             assert_ok!(Mips::submit_referendum(
-                charlie_signer.clone(),
+                alice_signer.clone(),
                 Box::new(proposal.clone())
             ));
 
@@ -1180,12 +1199,10 @@ mod tests {
     #[test]
     fn updating_mips_variables_works() {
         new_test_ext().execute_with(|| {
+            let root = Origin::system(frame_system::RawOrigin::Root);
+
             let alice_acc = AccountKeyring::Alice.public();
             let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
-
-            // Charlie represents committee origin
-            let charlie_acc = AccountKeyring::Charlie.public();
-            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 0).unwrap();
 
             // config variables can be updated only through committee
             assert_eq!(Mips::min_proposal_deposit(), 50);
@@ -1193,15 +1210,15 @@ mod tests {
                 Mips::set_min_proposal_deposit(alice_signer.clone(), 10),
                 Error::<Test>::BadOrigin
             );
-            assert_ok!(Mips::set_min_proposal_deposit(charlie_signer.clone(), 10));
+            assert_ok!(Mips::set_min_proposal_deposit(root.clone(), 10));
             assert_eq!(Mips::min_proposal_deposit(), 10);
 
             assert_eq!(Mips::quorum_threshold(), 70);
-            assert_ok!(Mips::set_quorum_threshold(charlie_signer.clone(), 100));
+            assert_ok!(Mips::set_quorum_threshold(root.clone(), 100));
             assert_eq!(Mips::quorum_threshold(), 100);
 
             assert_eq!(Mips::proposal_duration(), 10);
-            assert_ok!(Mips::set_proposal_duration(charlie_signer.clone(), 100));
+            assert_ok!(Mips::set_proposal_duration(root.clone(), 100));
             assert_eq!(Mips::proposal_duration(), 100);
         });
     }
