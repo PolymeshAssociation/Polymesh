@@ -1,10 +1,8 @@
-use crate::{
-    committee::{self, PolymeshVotes, ProportionMatch},
-    test::{
-        storage::{make_account, Call, TestStorage},
-        ExtBuilder,
-    },
+use crate::test::{
+    storage::{make_account, Call, TestStorage},
+    ExtBuilder,
 };
+use pallet_committee::{self as committee, PolymeshVotes};
 use polymesh_primitives::IdentityId;
 use polymesh_runtime_group::{self as group};
 use polymesh_runtime_identity as identity;
@@ -38,7 +36,6 @@ fn motions_basic_environment_works_we() {
 }
 
 fn make_proposal(value: u64) -> Call {
-    // Call::System(frame_system::Call::remark(value.encode()))
     Call::Identity(identity::Call::accept_master_key(value, Some(value)))
 }
 
@@ -90,7 +87,7 @@ fn preventing_motions_from_non_members_works_we() {
     let proposal = make_proposal(42);
     assert_noop!(
         Committee::propose(alice_signer, Box::new(proposal.clone())),
-        committee::Error::<TestStorage, committee::Instance1>::NotACommitteeMember
+        committee::Error::<TestStorage, committee::Instance1>::BadOrigin
     );
 }
 
@@ -120,7 +117,7 @@ fn preventing_voting_from_non_members_works_we() {
     ));
     assert_noop!(
         Committee::vote(bob_signer, hash.clone(), 0, true),
-        committee::Error::<TestStorage, committee::Instance1>::NotACommitteeMember
+        committee::Error::<TestStorage, committee::Instance1>::BadOrigin
     );
 }
 
@@ -236,6 +233,14 @@ fn voting_works_we() {
         charlie_signer.clone(),
         Box::new(proposal.clone())
     ));
+    assert_eq!(
+        Committee::voting(&hash),
+        Some(PolymeshVotes {
+            index: 0,
+            ayes: vec![charlie_did],
+            nays: vec![]
+        })
+    );
     assert_ok!(Committee::vote(bob_signer.clone(), hash.clone(), 0, false));
     assert_eq!(
         Committee::voting(&hash),
@@ -250,32 +255,25 @@ fn voting_works_we() {
 #[test]
 fn changing_vote_threshold_works() {
     ExtBuilder::default()
-        .committee_vote_threshold((ProportionMatch::AtLeast, 1, 1))
+        .committee_vote_threshold((1, 1))
         .build()
         .execute_with(changing_vote_threshold_works_we);
 }
 
 fn changing_vote_threshold_works_we() {
-    assert_eq!(
-        Committee::vote_threshold(),
-        (ProportionMatch::AtLeast, 1, 1)
-    );
+    assert_eq!(Committee::vote_threshold(), (1, 1));
     assert_ok!(Committee::set_vote_threshold(
-        Origin::signed(AccountKeyring::Alice.public()),
-        ProportionMatch::AtLeast,
+        Origin::system(frame_system::RawOrigin::Root),
         4,
         17
     ));
-    assert_eq!(
-        Committee::vote_threshold(),
-        (ProportionMatch::AtLeast, 4, 17)
-    );
+    assert_eq!(Committee::vote_threshold(), (4, 17));
 }
 
 #[test]
 fn rage_quit() {
     ExtBuilder::default()
-        .committee_vote_threshold((ProportionMatch::AtLeast, 2, 3))
+        .committee_vote_threshold((2, 3))
         .build()
         .execute_with(rage_quit_we);
 }
@@ -301,7 +299,7 @@ fn rage_quit_we() {
     assert_eq!(Committee::is_member(&ferdie_did), false);
     assert_err!(
         CommitteeGroup::abdicate_membership(ferdie_signer),
-        group::Error::<TestStorage, group::Instance1>::MemberNotFound
+        group::Error::<TestStorage, group::Instance1>::NoSuchMember
     );
 
     // Make a proposal... only Alice & Bob approve it.
