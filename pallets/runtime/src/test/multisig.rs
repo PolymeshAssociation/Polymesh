@@ -12,6 +12,7 @@ use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_system::{EventRecord, Phase};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -522,11 +523,18 @@ fn should_change_all_signers_and_sigs_required() {
                 .unwrap()
                 .auth_id;
 
+        let by = <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(charlie_did))
+            .next()
+            .unwrap()
+            .authorized_by;
+
+        Context::set_current_identity::<Identity>(None);
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             charlie,
             charlie_auth_id
         ));
 
+        Context::set_current_identity::<Identity>(None);
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             dave,
             dave_auth_id
