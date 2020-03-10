@@ -79,7 +79,7 @@ use frame_support::{
     weights::SimpleDispatchInfo, Parameter,
 };
 use frame_system::offchain::SubmitUnsignedTransaction;
-use frame_system::{self as system, ensure_none, ensure_root};
+use frame_system::{self as system, ensure_none};
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::{OpaqueNetworkState, StorageKind};
@@ -329,10 +329,7 @@ decl_module! {
             ensure!(params.constant > 0, Error::<T>::InvalidSlashingParam);
             ensure!(params.max_offline_percent > 0, Error::<T>::InvalidSlashingParam);
 
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::NotAuthorised)?;
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::NotAuthorised)?;
 
             SlashingParams::put(&params);
 
