@@ -1,13 +1,14 @@
 use crate::test::{
-    storage::{make_account, Call, TestStorage},
+    storage::{make_account, Call, EventTest, TestStorage},
     ExtBuilder,
 };
-use pallet_committee::{self as committee, PolymeshVotes};
+use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
 use polymesh_primitives::IdentityId;
 use polymesh_runtime_group::{self as group};
 use polymesh_runtime_identity as identity;
 
 use frame_support::{assert_err, assert_noop, assert_ok, Hashable};
+use frame_system::{self as system, EventRecord, Phase};
 use test_client::AccountKeyring;
 
 use sp_core::H256;
@@ -49,9 +50,11 @@ fn propose_works_we() {
 
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
+    let bob_acc = AccountKeyring::Bob.public();
+    let (_, bob_did) = make_account(bob_acc).unwrap();
 
     let root = Origin::system(frame_system::RawOrigin::Root);
-    CommitteeGroup::reset_members(root, vec![alice_did]).unwrap();
+    CommitteeGroup::reset_members(root, vec![alice_did, bob_did]).unwrap();
 
     let proposal = make_proposal(42);
     let hash = proposal.blake2_256().into();
@@ -69,6 +72,40 @@ fn propose_works_we() {
             nays: vec![]
         })
     );
+}
+
+#[test]
+fn single_member_committee_works() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(single_member_committee_works_we);
+}
+
+fn single_member_committee_works_we() {
+    System::set_block_number(1);
+
+    let alice_acc = AccountKeyring::Alice.public();
+    let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
+
+    let root = Origin::system(frame_system::RawOrigin::Root);
+    CommitteeGroup::reset_members(root, vec![alice_did]).unwrap();
+
+    // Proposal is executed if committee is comprised of a single member
+    let proposal = make_proposal(42);
+    let hash: sp_core::H256 = proposal.blake2_256().into();
+    assert_ok!(Committee::propose(
+        alice_signer.clone(),
+        Box::new(proposal.clone())
+    ));
+    assert_eq!(Committee::proposals(), vec![]);
+
+    let expected_event = EventRecord {
+        phase: Phase::ApplyExtrinsic(0),
+        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(hash.clone(), false)),
+        topics: vec![],
+    };
+
+    assert_eq!(System::events().contains(&expected_event), true);
 }
 
 #[test]
