@@ -35,11 +35,11 @@ fn add_claims_batch() {
         let claim_issuer = AccountKeyring::Charlie.public();
 
         let claim_records = vec![
-            (claim_issuer_did.clone(), None, IdentityClaimData::NoData),
+            (claim_issuer_did, None, IdentityClaimData::NoData),
             (
-                claim_issuer_did.clone(),
+                claim_issuer_did,
                 None,
-                IdentityClaimData::CustomerDueDiligence,
+                IdentityClaimData::Accredited(claim_issuer_did),
             ),
         ];
         assert_ok!(Identity::add_claims_batch(
@@ -55,7 +55,7 @@ fn add_claims_batch() {
         .unwrap();
         let claim2 = Identity::fetch_valid_claim(
             claim_issuer_did,
-            IdentityClaimData::CustomerDueDiligence,
+            IdentityClaimData::Accredited(claim_issuer_did),
             claim_issuer_did,
         )
         .unwrap();
@@ -64,13 +64,15 @@ fn add_claims_batch() {
         assert_eq!(claim2.expiry, None);
         assert!(Identity::is_claim_valid(
             claim_issuer_did,
-            IdentityClaimData::CustomerDueDiligence,
+            IdentityClaimData::Accredited(claim_issuer_did),
             claim_issuer_did
         ));
 
         assert_eq!(claim1.claim, IdentityClaimData::NoData);
-
-        assert_eq!(claim2.claim, IdentityClaimData::CustomerDueDiligence);
+        assert_eq!(
+            claim2.claim,
+            IdentityClaimData::Accredited(claim_issuer_did)
+        );
     });
 }
 
@@ -170,14 +172,14 @@ fn revoking_batch_claims() {
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::CustomerDueDiligence,
+            IdentityClaimData::Accredited(claim_issuer_did),
             None,
         ));
 
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::Accredited(claim_issuer_did),
+            IdentityClaimData::Affiliate(claim_issuer_did),
             None,
         ));
 
@@ -190,7 +192,7 @@ fn revoking_batch_claims() {
 
         assert!(Identity::fetch_valid_claim(
             claim_issuer_did,
-            IdentityClaimData::CustomerDueDiligence,
+            IdentityClaimData::Affiliate(claim_issuer_did),
             claim_issuer_did
         )
         .is_some());
@@ -199,10 +201,13 @@ fn revoking_batch_claims() {
             claim_issuer.clone(),
             vec![
                 (claim_issuer_did, IdentityClaimData::NoData),
-                (claim_issuer_did, IdentityClaimData::CustomerDueDiligence),
                 (
                     claim_issuer_did,
                     IdentityClaimData::Accredited(claim_issuer_did)
+                ),
+                (
+                    claim_issuer_did,
+                    IdentityClaimData::Affiliate(claim_issuer_did)
                 )
             ]
         ));
@@ -987,7 +992,10 @@ fn changing_master_key_with_cdd_auth_we() {
         None,
     );
 
-    Identity::change_cdd_requirement_for_mk_rotation(frame_system::RawOrigin::Root.into(), true);
+    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
+        frame_system::RawOrigin::Root.into(),
+        true
+    ));
 
     assert!(
         Identity::accept_master_key(new_key_origin.clone(), owner_auth_id.clone(), None).is_err()

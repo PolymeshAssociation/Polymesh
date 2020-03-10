@@ -205,15 +205,11 @@ decl_module! {
             let cdd_id = Context::current_identity_or::<Self>(&cdd_key)?;
 
             let cdd_providers = T::CddServiceProviders::get_members();
-            ensure!(
-                cdd_providers.into_iter().any(|kyc_id| kyc_id == cdd_id),
-                Error::<T>::UnAuthorizedCddProvider
-            );
+            ensure!( cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
 
             // Register Identity and add claim.
             let new_id = Self::_register_did(target_account, signing_items)?;
-            Self::unsafe_add_claim(new_id, IdentityClaimData::CustomerDueDiligence, cdd_id, cdd_claim_expiry);
-            Ok(())
+            Self::unsafe_add_claim(new_id, IdentityClaimData::CustomerDueDiligence, cdd_id, cdd_claim_expiry)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -333,22 +329,16 @@ decl_module! {
             claim_data: IdentityClaimData,
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
             ensure!(<DidRecords>::exists(did), Error::<T>::DidMustAlreadyExist);
-            ensure!(<DidRecords>::exists(did_issuer), Error::<T>::ClaimIssuerDidMustAlreadyExist);
 
-            // Verify that sender key is one of did_issuer's signing keys
-            let sender_signer = Signatory::AccountKey(sender_key);
-            ensure!(
-                Self::is_signer_authorized(did_issuer, &sender_signer),
-                Error::<T>::SenderMustHoldClaimIssuerKey
-            );
-
-            Self::unsafe_add_claim(did, claim_data, did_issuer, expiry);
-            Ok(())
+            match claim_data {
+                IdentityClaimData::CustomerDueDiligence =>
+                    Self::unsafe_add_cdd_claim(did, claim_data, did_issuer, expiry),
+                _ => Self::unsafe_add_claim(did, claim_data, did_issuer, expiry)
+            }
         }
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
@@ -359,27 +349,26 @@ decl_module! {
             // Vec(did_of_claim_receiver, claim_expiry, claim_data)
             claims: Vec<(IdentityId, Option<T::Moment>, IdentityClaimData)>
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
-
-            ensure!(<DidRecords>::exists(did_issuer), Error::<T>::ClaimIssuerDidMustAlreadyExist);
-
-            // Verify that sender key is one of did_issuer's signing keys
-            let sender_signer = Signatory::AccountKey(sender_key);
-            ensure!(
-                Self::is_signer_authorized(did_issuer, &sender_signer),
-                Error::<T>::SenderMustHoldClaimIssuerKey
-            );
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
             // Check input claims.
-            for (did, _, _) in &claims {
+            let cdd_providers = T::CddServiceProviders::get_members();
+            for (did, _, claim) in &claims {
                 ensure!(<DidRecords>::exists(did), Error::<T>::DidMustAlreadyExist);
+                match claim {
+                    IdentityClaimData::CustomerDueDiligence => ensure!(
+                        cdd_providers.contains(&issuer),
+                        Error::<T>::UnAuthorizedCddProvider),
+                    _ => {}
+                };
             }
-            for (did, expiry, claim_data) in claims {
-                Self::unsafe_add_claim(did, claim_data, did_issuer, expiry);
-            }
-            Ok(())
+
+            // Add claims and check error.
+            claims.into_iter()
+                .map( |(id, exp, claim)| Self::unsafe_add_claim(id, claim, issuer, exp))
+                .collect::<Result< Vec<_>, DispatchError>>()
+                .map( |_| ())
         }
 
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResult {
@@ -1552,7 +1541,7 @@ impl<T: Trait> Module<T> {
         claim_data: IdentityClaimData,
         did_issuer: IdentityId,
         expiry: Option<T::Moment>,
-    ) {
+    ) -> DispatchResult {
         let claim_meta_data = ClaimIdentifier(claim_data.clone(), did_issuer);
 
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
@@ -1579,6 +1568,26 @@ impl<T: Trait> Module<T> {
         <Claims>::insert(&target_did, &claim_meta_data, claim.clone());
 
         Self::deposit_event(RawEvent::NewClaims(target_did, claim_meta_data, claim));
+        Ok(())
+    }
+
+    /// It ensures that CDD claim issuer is a valid CDD provider before add the claim.
+    ///
+    /// # Errors
+    /// - 'UnAuthorizedCddProvider' is returned if `issuer` is not a CDD provider.
+    fn unsafe_add_cdd_claim(
+        target: IdentityId,
+        claim: IdentityClaimData,
+        issuer: IdentityId,
+        expiry: Option<T::Moment>,
+    ) -> DispatchResult {
+        let cdd_providers = T::CddServiceProviders::get_members();
+        ensure!(
+            cdd_providers.contains(&issuer),
+            Error::<T>::UnAuthorizedCddProvider
+        );
+
+        Self::unsafe_add_claim(target, claim, issuer, expiry)
     }
 
     fn unsafe_revoke_claim(claim_identifier: ClaimIdentifier, did: IdentityId) {
