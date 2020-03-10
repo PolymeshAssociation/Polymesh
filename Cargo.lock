@@ -2793,6 +2793,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-committee"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-common",
+ "polymesh-runtime-identity",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+]
+
+[[package]]
 name = "pallet-contracts"
 version = "2.0.0"
 source = "git+https://github.com/paritytech/substrate?rev=93569d0d1af7aa5eb67b9de8b58d7fffde63b421#93569d0d1af7aa5eb67b9de8b58d7fffde63b421"
@@ -2959,6 +2981,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-committee",
  "pallet-mips-rpc-runtime-api",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -3599,6 +3622,7 @@ dependencies = [
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
+ "pallet-committee",
  "pallet-contracts",
  "pallet-contracts-rpc-runtime-api",
  "pallet-democracy",

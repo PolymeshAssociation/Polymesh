@@ -7,20 +7,28 @@ use crate::multisig;
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::Currency;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_support::traits::{Currency, Get};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, parameter_types};
 use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::CommonTrait;
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
+use sp_runtime::traits::{One, SimpleArithmetic, Zero};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::{convert::TryFrom, prelude::*};
 
 pub trait Trait: multisig::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as identity::Trait>::Proposal>;
+    /// The maximum number of timelocked bridge transactions that can be scheduled to be
+    /// executed in a single block. Any excess bridge transactions are scheduled in later
+    /// blocks.
+    type MaxTimelockedTxsPerBlock: Get<u32>;
+    /// The block number range in which to look for available blocks to put a timelocked
+    /// transaction.
+    type BlockRangeForTimelock: Get<Self::BlockNumber>;
 }
 
 /// The intended recipient of POLY exchanged from the locked ERC20 tokens.
@@ -82,10 +90,8 @@ decl_error! {
         ControllerNotSet,
         /// The signer does not have an identity.
         IdentityMissing,
-        /// Failure to credit the recipient account.
-        CannotCreditAccount,
-        /// Failure to credit the recipient identity.
-        CannotCreditIdentity,
+        /// Failure to credit the recipient account or identity.
+        CannotCreditRecipient,
         /// The origin is not the controller address.
         BadCaller,
         /// The recipient DID has no valid CDD.
@@ -98,10 +104,14 @@ decl_error! {
         Frozen,
         /// The bridge is not frozen.
         NotFrozen,
+        /// The transaction is frozen.
+        FrozenTx,
         /// There is no such frozen transaction.
         NoSuchFrozenTx,
         /// There is no proposal corresponding to a given bridge transaction.
         NoSuchProposal,
+        /// All the blocks in the timelock block range are full.
+        TimelockBlockRangeFull,
     }
 }
 
@@ -109,7 +119,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
         /// The multisig account of the bridge controller. The genesis signers must accept their
         /// authorizations to be able to get their proposals delivered.
-        Controller get(controller) build(|config: &GenesisConfig| {
+        Controller get(controller) build(|config: &GenesisConfig<T>| {
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
                 panic!("too many signatures required");
@@ -134,6 +144,13 @@ decl_storage! {
         AdminKey get(admin_key) config(): AccountKey;
         /// Whether or not the bridge operation is frozen.
         Frozen get(frozen): bool;
+        /// The bridge transaction timelock period, in blocks, since the acceptance of the
+        /// transaction proposal during which the admin key can freeze the transaction.
+        Timelock get(timelock) config(): T::BlockNumber;
+        /// The list of timelocked transactions with the block numbers in which those transactions
+        /// become unlocked.
+        TimelockedTxs get(timelocked_txs):
+            linked_map T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
     }
     add_extra_genesis {
         /// The set of initial signers from which a multisig address is created at genesis time.
@@ -147,7 +164,8 @@ decl_event! {
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Trait>::AccountId,
-        Balance = <T as CommonTrait>::Balance
+        Balance = <T as CommonTrait>::Balance,
+        BlockNumber = <T as frame_system::Trait>::BlockNumber,
     {
         /// Confirmation of a signer set change.
         ControllerChanged(AccountId),
@@ -167,6 +185,9 @@ decl_event! {
         FrozenTx(BridgeTx<AccountId, Balance>),
         /// Notification of unfreezing a transaction.
         UnfrozenTx(BridgeTx<AccountId, Balance>),
+        /// A vector of timelocked balances of a recipient, each with the number of the block in
+        /// which the balance gets unlocked.
+        TimelockedBalancesOfRecipient(Vec<(BlockNumber, Balance)>),
     }
 }
 
@@ -174,7 +195,15 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
+        const MaxTimelockedTxsPerBlock: u32 = T::MaxTimelockedTxsPerBlock::get();
+        const BlockRangeForTimelock: T::BlockNumber = T::BlockRangeForTimelock::get();
+
         fn deposit_event() = default;
+
+        /// Issue tokens in timelocked transactions.
+        fn on_initialize(block_number: T::BlockNumber) {
+            Self::handle_timelocked_txs(block_number);
+        }
 
         /// Change the controller account as admin.
         pub fn change_controller(origin, account_id: T::AccountId) -> DispatchResult {
@@ -190,11 +219,19 @@ decl_module! {
             Ok(())
         }
 
+        /// Change the timelock period.
+        pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
+            Self::check_admin(origin)?;
+            <Timelock<T>>::put(timelock);
+            Ok(())
+        }
+
         /// Freezes the entire operation of the bridge module if it is not already frozen. The only
         /// available operations in the frozen state are the following admin methods:
         ///
         /// * `change_controller`,
         /// * `change_admin_key`,
+        /// * `change_timelock`,
         /// * `unfreeze`,
         /// * `freeze_bridge_txs`,
         /// * `unfreeze_bridge_txs`.
@@ -270,9 +307,6 @@ decl_module! {
         }
 
         /// Handles an approved bridge transaction proposal.
-        ///
-        /// NOTE: Extrinsics without `pub` are exported too. This function is declared as `pub` only
-        /// to test that it cannot be called from a wrong `origin`.
         pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
@@ -287,20 +321,13 @@ decl_module! {
                 }
                 return Ok(());
             }
-            if let Some(PendingTx {
-                did,
-                bridge_tx,
-            }) = Self::issue(bridge_tx.clone())? {
-                <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
-                Self::deposit_event(RawEvent::Pending(PendingTx {
-                    did,
-                    bridge_tx
-                }));
+            ensure!(!Self::frozen_txs(&bridge_tx), Error::<T>::FrozenTx);
+            let timelock = Self::timelock();
+            if timelock.is_zero() {
+                Self::handle_bridge_tx_now(bridge_tx)
             } else {
-                <HandledTxs<T>>::insert(&bridge_tx, true);
-                Self::deposit_event(RawEvent::Bridged(bridge_tx));
+                Self::handle_bridge_tx_later(bridge_tx, timelock)
             }
-            Ok(())
         }
 
         /// Freezes given bridge transactions.
@@ -330,20 +357,8 @@ decl_module! {
                 ensure!(Self::frozen_txs(&bridge_tx), Error::<T>::NoSuchFrozenTx);
                 <FrozenTxs<T>>::remove(&bridge_tx);
                 Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
-                if let Some(PendingTx {
-                        did,
-                        bridge_tx,
-                }) = Self::issue(bridge_tx.clone())? {
-                    <PendingTxs<T>>::mutate(did, |pending_txs| {
-                        pending_txs.push(bridge_tx.clone())
-                    });
-                    Self::deposit_event(RawEvent::Pending(PendingTx {
-                        did,
-                        bridge_tx
-                    }));
-                } else {
-                    <HandledTxs<T>>::insert(&bridge_tx, true);
-                    Self::deposit_event(RawEvent::Bridged(bridge_tx));
+                if let Err(e) = Self::handle_bridge_tx_now(bridge_tx) {
+                    sp_runtime::print(e);
                 }
             }
             Ok(())
@@ -379,7 +394,7 @@ impl<T: Trait> Module<T> {
                 } else {
                     <balances::Module<T>>::resolve_into_existing_identity(&did, neg_imbalance)
                 };
-                resolution.map_err(|_| Error::<T>::CannotCreditAccount)?;
+                resolution.map_err(|_| Error::<T>::CannotCreditRecipient)?;
             } else {
                 return Ok(Some(PendingTx { did, bridge_tx }));
             }
@@ -387,8 +402,78 @@ impl<T: Trait> Module<T> {
             // Issue to an account not associated with an identity.
             let neg_imbalance = <balances::Module<T>>::issue(*amount);
             <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
-                .map_err(|_| Error::<T>::CannotCreditIdentity)?;
+                .map_err(|_| Error::<T>::CannotCreditRecipient)?;
         }
         Ok(None)
+    }
+
+    /// Handles a bridge transaction proposal immediately.
+    fn handle_bridge_tx_now(bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
+        if let Some(PendingTx { did, bridge_tx }) = Self::issue(bridge_tx.clone())? {
+            <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
+            Self::deposit_event(RawEvent::Pending(PendingTx { did, bridge_tx }));
+        } else {
+            <HandledTxs<T>>::insert(&bridge_tx, true);
+            Self::deposit_event(RawEvent::Bridged(bridge_tx));
+        }
+        Ok(())
+    }
+
+    /// Handles a bridge transaction proposal after `timelock` blocks.
+    fn handle_bridge_tx_later(
+        bridge_tx: BridgeTx<T::AccountId, T::Balance>,
+        timelock: T::BlockNumber,
+    ) -> DispatchResult {
+        let current_block_number = <system::Module<T>>::block_number();
+        let mut unlock_block_number = current_block_number + timelock;
+        let range = T::BlockRangeForTimelock::get();
+        let max_unlock_block_number = unlock_block_number + range - One::one();
+        let max_timelocked_txs_per_block = T::MaxTimelockedTxsPerBlock::get() as usize;
+        while Self::timelocked_txs(unlock_block_number).len() >= max_timelocked_txs_per_block
+            && unlock_block_number <= max_unlock_block_number
+        {
+            unlock_block_number += One::one();
+        }
+        ensure!(
+            unlock_block_number <= max_unlock_block_number,
+            Error::<T>::TimelockBlockRangeFull
+        );
+        <TimelockedTxs<T>>::mutate(unlock_block_number, |txs| {
+            txs.push(bridge_tx);
+        });
+        Ok(())
+    }
+
+    /// Handles the timelocked transactions that are set to unlock at the given block number.
+    fn handle_timelocked_txs(block_number: T::BlockNumber) {
+        let txs = <TimelockedTxs<T>>::take(block_number);
+        for tx in txs {
+            if let Err(e) = Self::handle_bridge_tx_now(tx) {
+                sp_runtime::print(e);
+            }
+        }
+    }
+
+    /// Emits an event containing the timelocked balances of a given `IssueRecipient`.
+    ///
+    /// TODO: Convert this method to an RPC call.
+    pub fn get_timelocked_balances_of_recipient(
+        issue_recipient: IssueRecipient<T::AccountId>,
+    ) -> DispatchResult {
+        ensure!(!Self::frozen(), Error::<T>::Frozen);
+        let mut timelocked_balances = Vec::new();
+        for (n, txs) in <TimelockedTxs<T>>::enumerate() {
+            let sum_balance = |accum, tx: &BridgeTx<_, _>| {
+                if tx.recipient == issue_recipient {
+                    accum + tx.amount
+                } else {
+                    accum
+                }
+            };
+            let recipients_balance: T::Balance = txs.iter().fold(Zero::zero(), sum_balance);
+            timelocked_balances.push((n, recipients_balance));
+        }
+        Self::deposit_event(RawEvent::TimelockedBalancesOfRecipient(timelocked_balances));
+        Ok(())
     }
 }
