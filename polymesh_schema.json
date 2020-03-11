@@ -263,6 +263,7 @@
             "TransferTicker": "Ticker",
             "AddMultiSigSigner": "",
             "TransferTokenOwnership": "Ticker",
+            "JoinIdentity": "IdentityId",
             "Custom": "Vec<u8>",
             "NoData": ""
         }

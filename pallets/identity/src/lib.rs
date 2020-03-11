@@ -325,6 +325,19 @@ decl_module! {
             Ok(())
         }
 
+        /// Join an identity as a signing key
+        pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
+            let signer = Signatory::from(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            Self::join_identity(signer, auth_id)
+        }
+
+        /// Join an identity as a signing identity
+        pub fn join_identity_as_identity(origin, auth_id: u64) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender_did = Context::current_identity_or::<Self>(&sender_key)?;
+            Self::join_identity(Signatory::from(sender_did), auth_id)
+        }
+
         /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
         #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
         pub fn add_claim(
@@ -629,6 +642,8 @@ decl_module! {
                             T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner =>
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
+                        AuthorizationData::JoinIdentity(_) =>
+                            Self::join_identity(Signatory::from(did), auth_id),
                         _ => return Err(Error::<T>::UnknownAuthorization.into())
                     }
                 },
@@ -638,6 +653,8 @@ decl_module! {
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
                         AuthorizationData::RotateMasterKey(_identityid) =>
                             Self::accept_master_key_rotation(key , auth_id, None),
+                        AuthorizationData::JoinIdentity(_) =>
+                            Self::join_identity(Signatory::from(key), auth_id),
                         _ => return Err(Error::<T>::UnknownAuthorization.into())
                     }
                 }
@@ -672,6 +689,8 @@ decl_module! {
                                     T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
                                 AuthorizationData::AddMultiSigSigner =>
                                     T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
+                                AuthorizationData::JoinIdentity(_) =>
+                                    Self::join_identity(Signatory::from(did), auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
                             };
                         }
@@ -691,6 +710,8 @@ decl_module! {
                                     T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
                                 AuthorizationData::RotateMasterKey(_identityid) =>
                                     Self::accept_master_key_rotation(key , auth_id, None),
+                                AuthorizationData::JoinIdentity(_) =>
+                                    Self::join_identity(Signatory::from(key), auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
                             };
                         }
@@ -955,6 +976,43 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
+    fn join_identity(signer: Signatory, auth_id: u64) -> DispatchResult {
+        ensure!(
+            <Authorizations<T>>::exists(signer, auth_id),
+            AuthorizationError::Invalid
+        );
+
+        let auth = <Authorizations<T>>::get(signer, auth_id);
+
+        let identity_to_join = match auth.authorization_data {
+            AuthorizationData::JoinIdentity(identity) => Ok(identity),
+            _ => Err(AuthorizationError::Invalid),
+        }?;
+
+        ensure!(
+            <DidRecords>::exists(&identity_to_join),
+            "Identity does not exist"
+        );
+
+        let master = Self::did_records(&identity_to_join).master_key;
+
+        Self::consume_auth(Signatory::from(master), signer, auth_id)?;
+
+        if let Signatory::AccountKey(key) = signer {
+            Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
+        }
+        <DidRecords>::mutate(identity_to_join, |identity| {
+            identity.add_signing_items(&[SigningItem::new(signer, vec![])]);
+        });
+
+        Self::deposit_event(RawEvent::NewSigningItems(
+            identity_to_join,
+            [SigningItem::new(signer, vec![])].to_vec(),
+        ));
+
+        Ok(())
+    }
+
     pub fn add_auth(
         from: Signatory,
         target: Signatory,
