@@ -2,7 +2,7 @@ use crate::{
     asset, bridge, committee, exemption, general_tm, multisig, percentage_tm, statistics, utils,
 };
 
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -409,6 +409,17 @@ pub fn register_keyring_account_with_balance(
 ) -> Result<IdentityId, &'static str> {
     let acc_pub = acc.public();
     make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
+}
+
+pub fn add_signing_item(did: IdentityId, signer: Signatory) {
+    let master_key = Identity::did_records(&did).master_key;
+    let auth_id = Identity::add_auth(
+        Signatory::from(master_key),
+        signer,
+        AuthorizationData::JoinIdentity(did),
+        None,
+    );
+    Identity::join_identity(signer, auth_id);
 }
 
 pub fn account_from(id: u64) -> AccountId {

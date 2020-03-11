@@ -863,7 +863,7 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    fn join_identity(signer: Signatory, auth_id: u64) -> DispatchResult {
+    pub fn join_identity(signer: Signatory, auth_id: u64) -> DispatchResult {
         ensure!(
             <Authorizations<T>>::exists(signer, auth_id),
             AuthorizationError::Invalid
@@ -886,6 +886,10 @@ impl<T: Trait> Module<T> {
         Self::consume_auth(Signatory::from(master), signer, auth_id)?;
 
         if let Signatory::AccountKey(key) = signer {
+            ensure!(
+                Self::can_key_be_linked_to_did(&key, SignatoryType::External),
+                Error::<T>::AlreadyLinked
+            );
             Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
         }
         <DidRecords>::mutate(identity_to_join, |identity| {
