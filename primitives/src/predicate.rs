@@ -91,6 +91,7 @@ pub fn run(rule: Rule, context: &Context) -> bool {
         RuleType::IsPresent(claim_type) => exists(claim_type).evaluate(context),
         RuleType::IsAbsent(claim_type) => not(exists(claim_type)).evaluate(context),
         RuleType::IsAnyOf(claims) => any(claims).evaluate(context),
+        RuleType::IsNoneOf(claims) => not(any(claims)).evaluate(context),
     }
 }
 
@@ -290,6 +291,7 @@ mod tests {
                 Claim::Jurisdiction(b"Canada".into()),
             ])
             .into(),
+            RuleType::IsNoneOf(vec![Claim::Jurisdiction(b"Cuba".into())]).into(),
         ];
 
         // Valid case
@@ -325,6 +327,13 @@ mod tests {
         // Invalid case: Missing `Jurisdiction`
         let context: Context = vec![Claim::Accredited, Claim::Jurisdiction(b"Spain".into())].into();
 
+        let out = !rules
+            .iter()
+            .any(|rule| !predicate::run(rule.clone(), &context));
+        assert_eq!(out, false);
+
+        // Check NoneOf
+        let context: Context = vec![Claim::Accredited, Claim::Jurisdiction(b"Cuba".into())].into();
         let out = !rules
             .iter()
             .any(|rule| !predicate::run(rule.clone(), &context));

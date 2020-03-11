@@ -12,6 +12,8 @@ pub enum RuleType {
     IsAbsent(ClaimType),
     /// Rule to ensure that at least one claim is fetched when filter is applied.
     IsAnyOf(Vec<Claim>),
+    /// Rule to ensure that at none of claims is fetched when filter is applied.
+    IsNoneOf(Vec<Claim>),
 }
 
 impl RuleType {
@@ -26,12 +28,17 @@ impl RuleType {
         match self {
             RuleType::IsPresent(claim_type) => *claim_type,
             RuleType::IsAbsent(claim_type) => *claim_type,
-            RuleType::IsAnyOf(ref claims) => claims
-                .iter()
-                .map(|claim| claim.claim_type())
-                .nth(0)
-                .unwrap_or(ClaimType::Jurisdiction),
+            RuleType::IsNoneOf(ref claims) => Self::get_claim_type(claims.as_slice()),
+            RuleType::IsAnyOf(ref claims) => Self::get_claim_type(claims.as_slice()),
         }
+    }
+
+    fn get_claim_type(claims: &[Claim]) -> ClaimType {
+        claims
+            .iter()
+            .map(|claim| claim.claim_type())
+            .nth(0)
+            .unwrap_or(ClaimType::Jurisdiction)
     }
 }
 
