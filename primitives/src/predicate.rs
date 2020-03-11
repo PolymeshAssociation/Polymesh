@@ -121,8 +121,8 @@ impl Predicate for ExistentialPredicate {
 #[derive(Encode, Decode, Clone, Debug)]
 pub struct AndPredicate<P1, P2>
 where
-    P1: Predicate,
-    P2: Predicate,
+    P1: Predicate + Sized,
+    P2: Predicate + Sized,
 {
     lhs: P1,
     rhs: P2,
@@ -130,8 +130,8 @@ where
 
 impl<P1, P2> AndPredicate<P1, P2>
 where
-    P1: Predicate,
-    P2: Predicate,
+    P1: Predicate + Sized,
+    P2: Predicate + Sized,
 {
     /// Create a new `AndPredicate` over predicates `lhs` and `rhs`.
     #[inline]
@@ -142,8 +142,8 @@ where
 
 impl<P1, P2> Predicate for AndPredicate<P1, P2>
 where
-    P1: Predicate,
-    P2: Predicate,
+    P1: Predicate + Sized,
+    P2: Predicate + Sized,
 {
     /// Evaluate predicate against `context`.
     #[inline]
@@ -159,8 +159,8 @@ where
 #[derive(Encode, Decode, Clone, Debug)]
 pub struct OrPredicate<P1, P2>
 where
-    P1: Predicate,
-    P2: Predicate,
+    P1: Predicate + Sized,
+    P2: Predicate + Sized,
 {
     lhs: P1,
     rhs: P2,
@@ -168,8 +168,8 @@ where
 
 impl<P1, P2> OrPredicate<P1, P2>
 where
-    P1: Predicate,
-    P2: Predicate,
+    P1: Predicate + Sized,
+    P2: Predicate + Sized,
 {
     /// Create a new `OrPredicate` over predicates `lhs` and `rhs`.
     #[inline]
@@ -180,8 +180,8 @@ where
 
 impl<P1, P2> Predicate for OrPredicate<P1, P2>
 where
-    P1: Predicate,
-    P2: Predicate,
+    P1: Predicate + Sized,
+    P2: Predicate + Sized,
 {
     /// Evaluate predicate against `context`.
     #[inline]
