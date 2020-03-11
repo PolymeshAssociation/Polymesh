@@ -297,9 +297,16 @@ impl asset::Trait for TestStorage {
     type Currency = balances::Module<TestStorage>;
 }
 
+parameter_types! {
+    pub const MaxTimelockedTxsPerBlock: u32 = 10;
+    pub const BlockRangeForTimelock: BlockNumber = 1000;
+}
+
 impl bridge::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
+    type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
+    type BlockRangeForTimelock = BlockRangeForTimelock;
 }
 
 impl exemption::Trait for TestStorage {

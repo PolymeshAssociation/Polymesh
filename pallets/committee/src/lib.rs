@@ -194,15 +194,22 @@ decl_module! {
             let proposal_hash = T::Hashing::hash_of(&proposal);
             ensure!(!<ProposalOf<T, I>>::exists(proposal_hash), Error::<T, I>::DuplicateProposal);
 
-            let index = Self::proposal_count();
-            <ProposalCount<I>>::mutate(|i| *i += 1);
-            <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
-            <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
+            // If committee is composed of a single member, execite the proposal
+            let seats = Self::members().len() as MemberCount;
+            if seats < 2 {
+                let ok = proposal.dispatch(RawOrigin::Members(1, seats).into()).is_ok();
+                Self::deposit_event(RawEvent::Executed(proposal_hash, ok));
+            } else {
+                let index = Self::proposal_count();
+                <ProposalCount<I>>::mutate(|i| *i += 1);
+                <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
+                <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
 
-            let votes = PolymeshVotes { index, ayes: vec![did.clone()], nays: vec![] };
-            <Voting<T, I>>::insert(proposal_hash, votes);
+                let votes = PolymeshVotes { index, ayes: vec![did.clone()], nays: vec![] };
+                <Voting<T, I>>::insert(proposal_hash, votes);
 
-            Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
+                Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
+            }
         }
 
         /// Member casts a vote.
@@ -240,7 +247,7 @@ decl_module! {
                     voting.nays.swap_remove(pos);
                 }
             } else {
-                ensure!( position_no.is_none(),  Error::<T, I>::DuplicateVote);
+                ensure!(position_no.is_none(),  Error::<T, I>::DuplicateVote);
                 voting.nays.push(did.clone());
 
                 if let Some(pos) = position_yes {
@@ -264,7 +271,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
     /// in relation to the threshold proporion `n`/`d`.
     fn is_threshold_satisfied(votes: u32, total: u32, (n, d): (u32, u32)) -> bool {
-        votes * d >= n * total
+        (total < 2) || (votes * d >= n * total)
     }
 
     /// It removes the `id`'s vote from `proposal` if it exists.
