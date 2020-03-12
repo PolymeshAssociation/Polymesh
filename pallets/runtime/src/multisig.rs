@@ -250,7 +250,7 @@ decl_module! {
                 Error::<T>::NotEnoughSigners
             );
             <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - 1u64);
-            Self::unsafe_signer_removal(sender, signer);
+            Self::unsafe_signer_removal(sender, &signer);
             Ok(())
         }
 
@@ -294,7 +294,7 @@ decl_module! {
             // but present in the signers vector
             let new_signers = signers.into_iter().filter(|x| !current_signers.contains(x)).collect::<Vec<Signatory>>();
             // Removing the signers from the valid multi-signers list first
-            old_signers.clone().into_iter()
+            old_signers.iter()
                 .for_each(|signer| {
                     Self::unsafe_signer_removal(sender.clone(), signer)
                 });
@@ -375,9 +375,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// Remove signer from the valid signer list for a given multisig
-    fn unsafe_signer_removal(multisig: T::AccountId, signer: Signatory) {
+    fn unsafe_signer_removal(multisig: T::AccountId, signer: &Signatory) {
         <MultiSigSigners<T>>::remove(&multisig, signer);
-        Self::deposit_event(RawEvent::MultiSigSignerRemoved(multisig, signer));
+        Self::deposit_event(RawEvent::MultiSigSignerRemoved(multisig, *signer));
     }
 
     /// Change the required signature count for a given multisig
