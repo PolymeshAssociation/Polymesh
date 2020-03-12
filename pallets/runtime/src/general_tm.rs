@@ -1029,4 +1029,83 @@ mod tests {
             AssetError::<Test>::InvalidTransfer
         );
     }
+
+    #[test]
+    fn scope_asset_rules() {
+        identity_owned_by_alice().execute_with(scope_asset_rules_we);
+    }
+
+    fn scope_asset_rules_we() {
+        // 0. Create accounts
+        let token_owner_acc = AccountId::from(AccountKeyring::Alice);
+        let (token_owner_signed, token_owner_id) = make_account(&token_owner_acc).unwrap();
+        Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+
+        let cdd_acc = AccountId::from(AccountKeyring::Bob);
+        let (cdd_signed, cdd_id) = make_account(&cdd_acc).unwrap();
+
+        let user_acc = AccountId::from(AccountKeyring::Charlie);
+        let (user_signed, user_id) = make_account(&user_acc).unwrap();
+
+        // 1. Create a token.
+        let token = SecurityToken {
+            name: vec![0x01].into(),
+            owner_did: token_owner_id.clone(),
+            total_supply: 1_000_000,
+            divisible: true,
+            ..Default::default()
+        };
+        let ticker = Ticker::from(token.name.0.as_slice());
+
+        assert_ok!(Asset::create_token(
+            token_owner_signed.clone(),
+            token.name.clone(),
+            ticker,
+            token.total_supply,
+            true,
+            token.asset_type.clone(),
+            vec![],
+            None
+        ));
+
+        // 2. Set up rules for Asset transfer.
+        let scope = Identity::get_token_did(&ticker).unwrap();
+
+        let asset_transfer_rules = AssetTransferRule {
+            sender_rules: vec![],
+            receiver_rules: vec![Rule {
+                rule_type: RuleType::IsPresent(ClaimType::Affiliate),
+                issuers: vec![cdd_id],
+                scope: Some(scope),
+            }],
+        };
+        assert_ok!(GeneralTM::add_active_rule(
+            token_owner_signed.clone(),
+            ticker,
+            asset_transfer_rules
+        ));
+
+        // 3. Validate behaviour.
+        // 3.1. Invalid transfer because missing jurisdiction.
+        assert_err!(
+            Asset::transfer(token_owner_signed.clone(), ticker, user_id, 100),
+            AssetError::<Test>::InvalidTransfer
+        );
+
+        // 3.2. Add jurisdiction and transfer will be OK.
+        assert_ok!(Identity::add_claim(
+            cdd_signed.clone(),
+            user_id,
+            Claim::Affiliate,
+            Some(scope),
+            None
+        ));
+
+        assert_ok!(Asset::transfer(
+            token_owner_signed.clone(),
+            ticker,
+            user_id,
+            100
+        ));
+    }
 }
