@@ -62,7 +62,7 @@ async function addClaimsToDids(api, accounts, dids, claim_dids) {
     for (let i = 0; i < dids.length; i++) {
 
         const unsub = await api.tx.identity
-        .addClaim(dids[i], 0, 0, 0)
+        .addClaim(dids[i], 0, undefined, 0)
         .signAndSend(accounts[i%claim_dids.length],
           { nonce: reqImports["nonces"].get(accounts[i%claim_dids.length].address) },
           ({ events = [], status }) => {
