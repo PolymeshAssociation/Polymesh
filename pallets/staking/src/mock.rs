@@ -243,10 +243,6 @@ impl GroupTrait for Test {
     fn get_members() -> Vec<IdentityId> {
         return Group::members();
     }
-
-    fn is_member(_did: &IdentityId) -> bool {
-        true
-    }
 }
 
 impl AcceptTransfer for Test {
@@ -342,7 +338,7 @@ impl Trait for Test {
     type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
-    type RequiredAddOrigin = EnsureSignedBy<OneThousand, Self::AccountId>;
+    type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
     type RequiredComplianceOrigin = EnsureSignedBy<ThreeThousand, Self::AccountId>;
     type RequiredCommissionOrigin = EnsureSignedBy<FourThousand, Self::AccountId>;

@@ -38,7 +38,7 @@ use frame_support::{
     weights::SimpleDispatchInfo,
     StorageValue,
 };
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::EnsureOrigin;
 use sp_std::{convert::TryFrom, prelude::*};
 
@@ -66,6 +66,8 @@ decl_module! {
         for enum Call
         where origin: T::Origin
     {
+        type Error = Error<T, I>;
+
         fn deposit_event() = default;
 
         /// Add a member `who` to the set. May only be called from `AddOrigin` or root.
@@ -75,13 +77,10 @@ decl_module! {
         /// * `who` IdentityId to be added to the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn add_member(origin, who: IdentityId) {
-            T::AddOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            T::AddOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
             let mut members = <Members<I>>::get();
-            let location = members.binary_search(&who).err().ok_or("already a member")?;
+            let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
             members.insert(location, who.clone());
             <Members<I>>::put(&members);
 
@@ -97,13 +96,10 @@ decl_module! {
         /// * `who` IdentityId to be removed from the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn remove_member(origin, who: IdentityId) {
-            T::RemoveOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
             let mut members = <Members<I>>::get();
-            let location = members.binary_search(&who).ok().ok_or("not a member")?;
+            let location = members.binary_search(&who).ok().ok_or(Error::<T, I>::NoSuchMember)?;
             members.remove(location);
             <Members<I>>::put(&members);
 
@@ -121,19 +117,16 @@ decl_module! {
         /// * `add` IdentityId to be added in place of `remove`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
-            T::SwapOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            T::SwapOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
             if remove == add { return Ok(()) }
 
             let mut members = <Members<I>>::get();
 
-            let location = members.binary_search(&remove).ok().ok_or("not a member")?;
+            let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NoSuchMember)?;
             members[location] = add.clone();
 
-            let _location = members.binary_search(&add).err().ok_or("already a member")?;
+            let _location = members.binary_search(&add).err().ok_or(Error::<T, I>::DuplicateMember)?;
             members.sort();
             <Members<I>>::put(&members);
 
@@ -154,10 +147,7 @@ decl_module! {
         /// * `members` New set of identities
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn reset_members(origin, members: Vec<IdentityId>) {
-            T::ResetOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            T::ResetOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
             let mut new_members = members.clone();
             new_members.sort();
@@ -187,7 +177,7 @@ decl_module! {
 
             let mut members = Self::members();
             ensure!(members.contains(&remove_id),
-                Error::<T,I>::MemberNotFound);
+                Error::<T,I>::NoSuchMember);
             ensure!( members.len() > 1,
                 Error::<T,I>::LastMemberCannotQuit);
 
@@ -209,8 +199,12 @@ decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Only master key of the identity is allowed.
         OnlyMasterKeyAllowed,
-        /// Sender Identity is not part of the committee.
-        MemberNotFound,
+        /// Incorrect origin.
+        BadOrigin,
+        /// Group member was added alredy.
+        DuplicateMember,
+        /// Can't remove a member that doesnt exist.
+        NoSuchMember,
         /// Last member of the committee can not quit.
         LastMemberCannotQuit,
     }
@@ -220,10 +214,6 @@ decl_error! {
 /// Is the given `IdentityId` a valid member?
 impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
     fn get_members() -> Vec<IdentityId> {
-        return Self::members();
-    }
-
-    fn is_member(did: &IdentityId) -> bool {
-        Self::members().iter().any(|id| id == did)
+        Self::members()
     }
 }

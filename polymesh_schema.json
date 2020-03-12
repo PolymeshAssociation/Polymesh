@@ -237,6 +237,7 @@
         "index": "MipsIndex",
         "proposal":"Call"
     },
+    "MipDescription": "Text",
     "PolymeshReferendumInfo": {
         "index": "MipsIndex",
         "priority": "MipsPriority",

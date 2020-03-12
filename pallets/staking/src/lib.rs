@@ -1252,8 +1252,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn add_potential_validator(origin, validator: T::AccountId) {
             T::RequiredAddOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             ensure!(!<PermissionedValidators<T>>::exists(&validator), Error::<T>::AlreadyExists);
@@ -1271,8 +1269,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn remove_validator(origin, validator: T::AccountId) {
             T::RequiredRemoveOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             ensure!(<PermissionedValidators<T>>::exists(&validator), Error::<T>::NotExists);
@@ -1287,8 +1283,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_failed(origin, validator: T::AccountId) {
             T::RequiredComplianceOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             ensure!(<PermissionedValidators<T>>::exists(&validator), Error::<T>::NotExists);
@@ -1306,8 +1300,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         fn compliance_passed(origin, validator: T::AccountId) {
             T::RequiredComplianceOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             ensure!(<PermissionedValidators<T>>::exists(&validator), Error::<T>::NotExists);
@@ -1376,8 +1368,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn enable_individual_commissions(origin) {
             T::RequiredCommissionOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             // Ensure individual commissions are not already enabled
@@ -1397,8 +1387,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_global_comission(origin, new_value: Perbill) {
             T::RequiredCommissionOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             // Ensure individual commissions are not already enabled
@@ -1420,8 +1408,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             <MinimumBondThreshold<T>>::put(new_value);
@@ -1492,8 +1478,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FreeOperational]
         fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
             T::SlashCancelOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)?;
+                .map_err(|_| Error::<T>::NotAuthorised)?;
 
             let mut slash_indices = slash_indices;
             slash_indices.sort_unstable();
