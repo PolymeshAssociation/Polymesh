@@ -9,7 +9,7 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{SigningItemWithAuth, TargetIdAuthorization};
-use polymesh_runtime_identity::{self as identity, Error};
+use polymesh_runtime_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
@@ -34,8 +34,18 @@ fn add_claims_batch() {
         let claim_issuer = AccountKeyring::Charlie.public();
 
         let claim_records = vec![
-            (claim_issuer_did.clone(), None, Claim::Accredited),
-            (claim_issuer_did.clone(), None, Claim::Affiliate),
+            BatchAddClaimItem {
+                target: claim_issuer_did,
+                claim: Claim::Accredited,
+                scope: None,
+                expiry: None,
+            },
+            BatchAddClaimItem {
+                target: claim_issuer_did,
+                claim: Claim::Affiliate,
+                scope: None,
+                expiry: None,
+            },
         ];
         assert_ok!(Identity::add_claims_batch(
             Origin::signed(claim_issuer.clone()),
@@ -46,12 +56,14 @@ fn add_claims_batch() {
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
+            None,
         )
         .unwrap();
         let claim2 = Identity::fetch_claim_with_issuer(
             claim_issuer_did,
             ClaimType::Affiliate,
             claim_issuer_did,
+            None,
         )
         .unwrap();
 
@@ -117,24 +129,28 @@ fn revoking_claims() {
             claim_issuer.clone(),
             claim_issuer_did,
             Claim::Accredited,
+            None,
             Some(100u64),
         ));
         assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
             ClaimType::Accredited,
-            claim_issuer_did
+            claim_issuer_did,
+            None,
         )
         .is_some());
 
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            ClaimType::Accredited
+            ClaimType::Accredited,
+            None,
         ));
         assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
             ClaimType::Accredited,
-            claim_issuer_did
+            claim_issuer_did,
+            None,
         )
         .is_none());
     });
@@ -152,6 +168,7 @@ fn revoking_batch_claims() {
             claim_issuer.clone(),
             claim_issuer_did,
             Claim::Accredited,
+            None,
             Some(100u64),
         ));
 
@@ -159,54 +176,69 @@ fn revoking_batch_claims() {
             claim_issuer.clone(),
             claim_issuer_did,
             Claim::CustomerDueDiligence,
-            None
+            None,
+            None,
         ));
         assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
             ClaimType::Accredited,
-            claim_issuer_did
+            claim_issuer_did,
+            None,
         )
         .is_some());
 
         assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
             ClaimType::CustomerDueDiligence,
-            claim_issuer_did
+            claim_issuer_did,
+            None,
         )
         .is_some());
 
         assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
             ClaimType::Accredited,
-            claim_issuer_did
+            claim_issuer_did,
+            None,
         )
         .is_some());
 
         assert_ok!(Identity::revoke_claims_batch(
             claim_issuer.clone(),
             vec![
-                (claim_issuer_did, ClaimType::Accredited),
-                (claim_issuer_did, ClaimType::CustomerDueDiligence),
+                BatchRevokeClaimItem {
+                    target: claim_issuer_did,
+                    claim_type: ClaimType::Accredited,
+                    scope: None
+                },
+                BatchRevokeClaimItem {
+                    target: claim_issuer_did,
+                    claim_type: ClaimType::CustomerDueDiligence,
+                    scope: None
+                }
             ]
         ));
         assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
             ClaimType::Accredited,
-            claim_issuer_did
+            claim_issuer_did,
+            None,
         )
         .is_none());
 
         assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
             ClaimType::CustomerDueDiligence,
-            claim_issuer_did
+            claim_issuer_did,
+            None,
         )
         .is_none());
 
         assert!(Identity::fetch_claim_with_issuer(
             claim_issuer_did,
             ClaimType::Accredited,
-            claim_issuer_did
+            claim_issuer_did,
+            None,
         )
         .is_none());
     });
@@ -969,7 +1001,10 @@ fn changing_master_key_with_cdd_auth_we() {
         None,
     );
 
-    Identity::change_cdd_requirement_for_mk_rotation(frame_system::RawOrigin::Root.into(), true);
+    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
+        frame_system::RawOrigin::Root.into(),
+        true
+    ));
 
     assert!(
         Identity::accept_master_key(new_key_origin.clone(), owner_auth_id.clone(), None).is_err()

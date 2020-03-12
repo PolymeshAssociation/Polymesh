@@ -761,7 +761,7 @@ impl_runtime_apis! {
             Contracts::get_storage(address, key).map_err(|rpc_err| {
                 use pallet_contracts::GetStorageError;
                 use pallet_contracts_rpc_runtime_api::{GetStorageError as RpcGetStorageError};
-                /// Map the contract error into the RPC layer error.
+                // Map the contract error into the RPC layer error.
                 match rpc_err {
                     GetStorageError::ContractDoesntExist => RpcGetStorageError::ContractDoesntExist,
                     GetStorageError::IsTombstone => RpcGetStorageError::IsTombstone,

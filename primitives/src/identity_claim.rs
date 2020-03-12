@@ -76,6 +76,12 @@ pub enum ClaimType {
     NoType,
 }
 
+impl Default for ClaimType {
+    fn default() -> Self {
+        ClaimType::NoType
+    }
+}
+
 /// A wrapper for Jurisdiction name.
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct JurisdictionName(pub Vec<u8>);
@@ -94,6 +100,9 @@ impl<T: AsRef<[u8]>> From<T> for JurisdictionName {
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,
+    /// Scoped Identity: This claim is valid for target ticket identity. None, is valid for any
+    /// one.
+    pub scope: Option<IdentityId>,
     /// Issuance date
     pub issuance_date: Moment,
     /// Last updated date

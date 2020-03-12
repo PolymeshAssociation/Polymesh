@@ -49,6 +49,8 @@ pub struct Rule {
     pub rule_type: RuleType,
     /// Trusted issuers.
     pub issuers: Vec<IdentityId>,
+    /// Claim scope
+    pub scope: Option<IdentityId>,
 }
 
 impl From<RuleType> for Rule {
@@ -56,6 +58,7 @@ impl From<RuleType> for Rule {
         Rule {
             rule_type,
             issuers: vec![],
+            scope: None,
         }
     }
 }

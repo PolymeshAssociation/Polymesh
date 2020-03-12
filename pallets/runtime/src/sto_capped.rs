@@ -304,7 +304,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
 
-            /// Check that sender is allowed to act on behalf of `did`
+            // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
                 Error::<T>::SenderMustBeSigningKeyForDid

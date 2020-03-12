@@ -228,16 +228,17 @@ impl<T: Trait> Module<T> {
     fn fetch_context(id: IdentityId, rule: &Rule) -> predicate::Context {
         let claim_type = rule.rule_type.as_claim_type();
         let issuers = &rule.issuers;
+        let scope = rule.scope.clone();
 
         let claims = match issuers.len() {
-            0 => <identity::Module<T>>::fetch_claims(id, claim_type)
+            0 => <identity::Module<T>>::fetch_claims(id, claim_type, &scope)
                 .map(|id_claim| id_claim.claim)
                 .collect::<Vec<_>>(),
-            1 => <identity::Module<T>>::fetch_claim_with_issuer(id, claim_type, issuers[0])
+            1 => <identity::Module<T>>::fetch_claim_with_issuer(id, claim_type, issuers[0], scope)
                 .into_iter()
                 .map(|id_claim| id_claim.claim)
                 .collect::<Vec<_>>(),
-            _ => <identity::Module<T>>::fetch_claims(id, claim_type)
+            _ => <identity::Module<T>>::fetch_claims(id, claim_type, &scope)
                 .filter(|id_claim| issuers.contains(&id_claim.claim_issuer))
                 .map(|id_claim| id_claim.claim)
                 .collect::<sp_std::prelude::Vec<_>>(),
@@ -686,6 +687,7 @@ mod tests {
                 token_owner_did,
                 Claim::Accredited,
                 None,
+                None,
             ));
 
             let now = Utc::now();
@@ -694,16 +696,19 @@ mod tests {
             let sender_rule = Rule {
                 rule_type: RuleType::IsPresent(ClaimType::Accredited),
                 issuers: vec![claim_issuer_did],
+                scope: None,
             };
 
             let receiver_rule1 = Rule {
                 rule_type: RuleType::IsAbsent(ClaimType::Affiliate),
                 issuers: vec![claim_issuer_did],
+                scope: None,
             };
 
             let receiver_rule2 = Rule {
                 rule_type: RuleType::IsPresent(ClaimType::KnowYourCustomer),
                 issuers: vec![claim_issuer_did],
+                scope: None,
             };
 
             let x = vec![sender_rule];
@@ -725,6 +730,7 @@ mod tests {
                 token_owner_did,
                 Claim::Accredited,
                 None,
+                None,
             ));
 
             assert_err!(
@@ -742,6 +748,7 @@ mod tests {
                 token_owner_did,
                 Claim::KnowYourCustomer,
                 None,
+                None,
             ));
 
             assert_ok!(Asset::transfer(
@@ -755,6 +762,7 @@ mod tests {
                 claim_issuer_signed.clone(),
                 token_owner_did,
                 Claim::Affiliate,
+                None,
                 None,
             ));
 
@@ -866,6 +874,7 @@ mod tests {
             receiver_signed.clone(),
             receiver_did.clone(),
             Claim::Accredited,
+            None,
             Some(99999999999999999u64),
         ));
 
@@ -876,6 +885,7 @@ mod tests {
         let receiver_rules = vec![Rule {
             rule_type: RuleType::IsAbsent(ClaimType::Accredited),
             issuers: vec![receiver_did],
+            scope: None,
         }];
 
         let asset_rule = AssetTransferRule {
@@ -967,10 +977,12 @@ mod tests {
                         Claim::Jurisdiction(b"Spain".into()),
                     ]),
                     issuers: vec![cdd_id],
+                    scope: None,
                 },
                 Rule {
                     rule_type: RuleType::IsAbsent(ClaimType::BlackListed),
                     issuers: vec![token_owner_id],
+                    scope: None,
                 },
             ],
         };
@@ -992,6 +1004,7 @@ mod tests {
             cdd_signed.clone(),
             user_id,
             Claim::Jurisdiction(b"Canada".into()),
+            None,
             None
         ));
 
@@ -1007,6 +1020,7 @@ mod tests {
             token_owner_signed.clone(),
             user_id,
             Claim::BlackListed,
+            None,
             None
         ));
 

@@ -55,7 +55,7 @@ use polymesh_runtime_common::{
     Context,
 };
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use core::{convert::From, result::Result as StdResult};
 
 use sp_core::sr25519::{Public, Signature};
@@ -70,7 +70,6 @@ use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    storage::PrefixIterator,
     traits::{ExistenceRequirement, WithdrawReason},
     weights::SimpleDispatchInfo,
 };
@@ -81,8 +80,32 @@ use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
 pub type Event<T> = polymesh_runtime_common::traits::identity::Event<T>;
 
-#[derive(Encode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct IdentityClaimKey(pub IdentityId, pub ClaimType);
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct Claim1stKey {
+    pub target: IdentityId,
+    pub claim_type: ClaimType,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct Claim2ndKey {
+    pub issuer: IdentityId,
+    pub scope: Option<IdentityId>,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Default)]
+pub struct BatchAddClaimItem<M> {
+    pub target: IdentityId,
+    pub claim: Claim,
+    pub scope: Option<IdentityId>,
+    pub expiry: Option<M>,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Default)]
+pub struct BatchRevokeClaimItem {
+    pub target: IdentityId,
+    pub claim_type: ClaimType,
+    pub scope: Option<IdentityId>,
+}
 
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
@@ -99,8 +122,8 @@ decl_storage! {
         /// It stores the current identity for current transaction.
         pub CurrentDid: Option<IdentityId>;
 
-        /// (DID, claim_type, issuer) -> Associated claims
-        pub Claims: double_map hasher(blake2_256) IdentityClaimKey, blake2_256(IdentityId) => IdentityClaim;
+        /// (Target ID, claim type) (issuer,scope) -> Associated claims
+        pub Claims: double_map hasher(blake2_256) Claim1stKey, blake2_256(Claim2ndKey) => IdentityClaim;
 
         // Account => DID
         pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map AccountKey => Option<LinkedKeyInfo>;
@@ -147,15 +170,19 @@ decl_storage! {
                 <DidRecords>::insert(&did, record);
 
                 // Add the claim data for the CustomerDueDiligence type claim
+                let claim_type = ClaimType::CustomerDueDiligence;
+                let pk = Claim1stKey{ target: did, claim_type };
+                let sk = Claim2ndKey{ issuer, scope: None };
                 let id_claim = IdentityClaim {
-                    claim_issuer: issuer.clone(),
+                    claim_issuer: issuer,
                     issuance_date: 0_u64,
                     last_update_date: 0_u64,
                     expiry: expiry,
                     claim: Claim::CustomerDueDiligence,
+                    scope: None,
                 };
-                let id_claim_key = IdentityClaimKey( did, id_claim.claim.claim_type());
-                <Claims>::insert(&id_claim_key, &issuer, id_claim);
+
+                <Claims>::insert(&pk, &sk, id_claim);
             }
         });
     }
@@ -216,8 +243,7 @@ decl_module! {
 
             // Register Identity and add claim.
             let new_id = Self::_register_did(target_account, signing_items)?;
-            Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, cdd_claim_expiry);
-            Ok(())
+            Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, None, cdd_claim_expiry)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -333,26 +359,17 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
         pub fn add_claim(
             origin,
-            did: IdentityId,
-            claim_data: Claim,
+            target: IdentityId,
+            claim: Claim,
+            scope: Option<IdentityId>,
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did_issuer = Context::current_identity_or::<Self>(&sender_key)?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
-            ensure!(<DidRecords>::exists(did), Error::<T>::DidMustAlreadyExist);
-            ensure!(<DidRecords>::exists(did_issuer), Error::<T>::ClaimIssuerDidMustAlreadyExist);
+            ensure!(<DidRecords>::exists(target), Error::<T>::DidMustAlreadyExist);
 
-            // Verify that sender key is one of did_issuer's signing keys
-            let sender_signer = Signatory::AccountKey(sender_key);
-            ensure!(
-                Self::is_signer_authorized(did_issuer, &sender_signer),
-                Error::<T>::SenderMustHoldClaimIssuerKey
-            );
-
-            Self::unsafe_add_claim(did, claim_data, did_issuer, expiry);
-            Ok(())
+            Self::unsafe_add_claim(target, claim, issuer, scope, expiry)
         }
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
@@ -360,29 +377,20 @@ decl_module! {
         // TODO: fix #[weight = BatchDispatchInfo::new_normal(3_000, 10_000)]
         pub fn add_claims_batch(
             origin,
-            // Vec(did_of_claim_receiver, claim_expiry, claim_data)
-            claims: Vec<(IdentityId, Option<T::Moment>, Claim)>
+            claims: Vec<BatchAddClaimItem<T::Moment>>
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
-            ensure!(<DidRecords>::exists(issuer), Error::<T>::ClaimIssuerDidMustAlreadyExist);
-
-            // Verify that sender key is one of issuer's signing keys
-            let sender_signer = Signatory::AccountKey(sender_key);
-            ensure!(
-                Self::is_signer_authorized(issuer, &sender_signer),
-                Error::<T>::SenderMustHoldClaimIssuerKey
-            );
-
             // Check input claims.
-            ensure!( claims.iter().all( |(id, _, _)| <DidRecords>::exists(id)), Error::<T>::DidMustAlreadyExist);
+            ensure!( claims.iter().all(
+                |batch_claim_item| <DidRecords>::exists(batch_claim_item.target)),
+                Error::<T>::DidMustAlreadyExist);
 
-            for (did, expiry, claim) in claims {
-                Self::unsafe_add_claim(did, claim, issuer, expiry);
-            }
-            Ok(())
+            claims.into_iter()
+                .map( |bci| Self::unsafe_add_claim(bci.target, bci.claim, issuer, bci.scope, bci.expiry))
+                .collect::<Result<Vec<_>, DispatchError>>()
+                .map( |_| ())
         }
 
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResult {
@@ -426,25 +434,32 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked
-        pub fn revoke_claim(origin, target: IdentityId, claim_type: ClaimType) -> DispatchResult {
+        pub fn revoke_claim(origin,
+            target: IdentityId,
+            claim_type: ClaimType,
+            scope: Option<IdentityId>
+       ) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
-            Self::unsafe_revoke_claim(target, claim_type, issuer);
-            Ok(())
+
+            Self::unsafe_revoke_claim(target, claim_type, issuer, scope)
         }
+
         /// Revoke multiple claims in a batch
         ///
         /// # Arguments
         /// * origin - did issuer
         /// * did_and_claim_data - Vector of the identities & the corresponding claim data whom claim needs to be revoked
-        pub fn revoke_claims_batch(origin, target_and_claim_type: Vec<(IdentityId, ClaimType)>) -> DispatchResult {
+        pub fn revoke_claims_batch(origin,
+            claims: Vec<BatchRevokeClaimItem>
+        ) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
-            target_and_claim_type.into_iter()
-                .for_each( |(target, claim_type)| Self::unsafe_revoke_claim(target, claim_type, issuer));
-
-            Ok(())
+            claims.into_iter()
+                .map( |bci| Self::unsafe_revoke_claim(bci.target, bci.claim_type, issuer, bci.scope))
+                .collect::<Result<Vec<_>, DispatchError>>()
+                .map( |_| ())
         }
 
         /// It sets permissions for an specific `target_key` key.
@@ -1236,16 +1251,29 @@ impl<T: Trait> Module<T> {
         Self::is_identity_claim_not_expired_at(id_claim, now)
     }
 
+    /// It check if `id_claim` has the same scope as `scope`.
+    /// If `scope` is `None`, it will returns true.
+    #[inline]
+    fn is_identity_claim_in_scope(id_claim: &IdentityClaim, scope: &Option<IdentityId>) -> bool {
+        if !scope.is_none() {
+            *scope == id_claim.scope
+        } else {
+            true
+        }
+    }
+
     /// It fetches all claims associated with `id` identity, filtered by `claim_type`.
     /// It only returns valid claims, it means claims which are not expired.
     ///
     /// # Return
     /// It does not load all claims into memory. It just returns an iterator over all claims.
-    pub fn fetch_claims(
+    pub fn fetch_claims<'a>(
         id: IdentityId,
         claim_type: ClaimType,
-    ) -> impl Iterator<Item = IdentityClaim> {
-        Self::fetch_base_claims(id, claim_type).filter(|c| Self::is_identity_claim_not_expired(c))
+        scope: &'a Option<IdentityId>,
+    ) -> impl Iterator<Item = IdentityClaim> + 'a {
+        Self::fetch_base_claims(id, claim_type, scope)
+            .filter(|c| Self::is_identity_claim_not_expired(c))
     }
 
     /// It fetches an specific `claim_type` claim type for target identity `id`, which was issued
@@ -1255,10 +1283,11 @@ impl<T: Trait> Module<T> {
         id: IdentityId,
         claim_type: ClaimType,
         issuer: IdentityId,
+        scope: Option<IdentityId>,
     ) -> Option<IdentityClaim> {
         let now = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
 
-        Self::fetch_base_claim_with_issuer(id, claim_type, issuer)
+        Self::fetch_base_claim_with_issuer(id, claim_type, issuer, scope)
             .into_iter()
             .filter(|c| Self::is_identity_claim_not_expired_at(c, now))
             .nth(0)
@@ -1269,14 +1298,16 @@ impl<T: Trait> Module<T> {
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
         let trusted_cdd_providers = T::CddServiceProviders::get_members();
 
-        Self::fetch_claims(claim_for, ClaimType::CustomerDueDiligence)
-            .any(|c| trusted_cdd_providers.contains(&c.claim_issuer))
+        let valid = Self::fetch_claims(claim_for, ClaimType::CustomerDueDiligence, &None)
+            .any(|c| trusted_cdd_providers.contains(&c.claim_issuer));
+
+        valid
     }
 
     /// It returns the CDD identity which issued the current valid CDD claim for `claim_for`
     /// identity.
     /// # Parameters
-    ///     - leeway: This leeway is added to now() before check if claim is expired.
+    ///  - leeway: This leeway is added to now() before check if claim is expired.
     pub fn fetch_cdd(claim_for: IdentityId, leeway: u64) -> Option<IdentityId> {
         let trusted_cdd_providers = T::CddServiceProviders::get_members();
         let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
@@ -1284,32 +1315,41 @@ impl<T: Trait> Module<T> {
             .checked_add(leeway)
             .unwrap_or_default();
 
-        Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
+        let cdd = Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence, &None)
             .filter(|id_claim| {
                 Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
                     && trusted_cdd_providers.contains(&id_claim.claim_issuer)
             })
             .map(|id_claim| id_claim.claim_issuer)
-            .nth(0)
+            .nth(0);
+        cdd
     }
 
     /// It iterates over all claims of type `claim_type` for target `id` identity.
     /// Please note that it could return expired claims.
-    fn fetch_base_claims(id: IdentityId, claim_type: ClaimType) -> PrefixIterator<IdentityClaim> {
-        let claim_key = IdentityClaimKey(id, claim_type);
-        <Claims>::iter_prefix(claim_key)
+    fn fetch_base_claims<'a>(
+        target: IdentityId,
+        claim_type: ClaimType,
+        scope: &'a Option<IdentityId>,
+    ) -> impl Iterator<Item = IdentityClaim> + 'a {
+        let pk = Claim1stKey { target, claim_type };
+
+        <Claims>::iter_prefix(pk).filter(move |c| Self::is_identity_claim_in_scope(c, scope))
     }
 
     /// It fetches an specific `claim_type` claim type for target identity `id`, which was issued
     /// by `issuer`.
     fn fetch_base_claim_with_issuer(
-        id: IdentityId,
+        target: IdentityId,
         claim_type: ClaimType,
         issuer: IdentityId,
+        scope: Option<IdentityId>,
     ) -> Option<IdentityClaim> {
-        let claim_key = IdentityClaimKey(id, claim_type);
-        if <Claims>::exists(&claim_key, issuer) {
-            Some(<Claims>::get(claim_key, issuer))
+        let pk = Claim1stKey { target, claim_type };
+        let sk = Claim2ndKey { issuer, scope };
+
+        if <Claims>::exists(&pk, &sk) {
+            Some(<Claims>::get(&pk, &sk))
         } else {
             None
         }
@@ -1531,33 +1571,45 @@ impl<T: Trait> Module<T> {
     fn unsafe_add_claim(
         target: IdentityId,
         claim: Claim,
-        claim_issuer: IdentityId,
+        issuer: IdentityId,
+        scope: Option<IdentityId>,
         expiry: Option<T::Moment>,
-    ) {
+    ) -> DispatchResult {
         let claim_type = claim.claim_type();
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
-        let issuance_date = Self::fetch_claim_with_issuer(target, claim_type, claim_issuer)
+        let issuance_date = Self::fetch_claim_with_issuer(target, claim_type, issuer, scope)
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
         let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).nth(0);
-        let id_claim_key = IdentityClaimKey(target, claim.claim_type());
-
-        let identity_claim = IdentityClaim {
-            claim_issuer,
+        let pk = Claim1stKey { target, claim_type };
+        let sk = Claim2ndKey { issuer, scope };
+        let id_claim = IdentityClaim {
+            claim_issuer: issuer,
             issuance_date,
             last_update_date,
             expiry,
+            scope,
             claim,
         };
 
-        <Claims>::insert(&id_claim_key, claim_issuer, identity_claim.clone());
-        Self::deposit_event(RawEvent::NewClaims(target, identity_claim));
+        <Claims>::insert(&pk, &sk, id_claim.clone());
+        Self::deposit_event(RawEvent::NewClaims(target, id_claim));
+
+        Ok(())
     }
 
     /// It removes a claim from `target` which was issued by `issuer` without any security check.
-    fn unsafe_revoke_claim(target: IdentityId, claim_type: ClaimType, issuer: IdentityId) {
-        let id_claim_key = IdentityClaimKey(target, claim_type);
-        <Claims>::remove(&id_claim_key, &issuer);
+    fn unsafe_revoke_claim(
+        target: IdentityId,
+        claim_type: ClaimType,
+        issuer: IdentityId,
+        scope: Option<IdentityId>,
+    ) -> DispatchResult {
+        let pk = Claim1stKey { target, claim_type };
+        let sk = Claim2ndKey { scope, issuer };
+
+        <Claims>::remove(&pk, &sk);
         Self::deposit_event(RawEvent::RevokedClaim(target, claim_type, issuer));
+        Ok(())
     }
 }
 
