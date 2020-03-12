@@ -356,5 +356,20 @@
     "AssetRules": {
         "is_paused": "bool",
         "rules": "Vec<AssetRule>"
+    },
+    "Claim1stKey": {
+        "target": "IdentityId",
+        "claim_type": "ClaimType"
+    },
+    "BatchAddClaimItem": {
+        "target": "IdentityId",
+        "claim": "Claim",
+        "scope": "Option<IdentityId>",
+        "expiry": "Option<u64>"
+    },
+    "BatchRevokeClaimItem": {
+        "target": "IdentityId",
+        "claim_type": "ClaimType",
+        "scope": "Option<IdentityId>"
     }
 }
