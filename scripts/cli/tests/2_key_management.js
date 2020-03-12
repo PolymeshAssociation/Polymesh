@@ -21,9 +21,9 @@ async function main() {
   let master_keys = await reqImports["generateKeys"](api,5, "master");
 
   let signing_keys = await reqImports["generateKeys"](api, 5, "signing");
-  
+
   await reqImports["createIdentities"](api, testEntities);
-  
+
   await reqImports["distributePoly"]( api, master_keys.concat(signing_keys), reqImports["transfer_amount"], testEntities[0] );
 
   await reqImports["blockTillPoolEmpty"](api);
@@ -48,26 +48,17 @@ async function main() {
 
 // Attach a signing key to each DID
 async function addSigningKeys( api, accounts, dids, signing_accounts ) {
-  
+
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
-
-    let signing_item = {
-      signer: {
-          AccountKey: signing_accounts[i].publicKey
-      },
-      signer_type: 0,
-      roles: []
-    };
-
     const unsub = await api.tx.identity
-      .addSigningItems([signing_item])
+      .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
       .signAndSend(
         accounts[i],
         { nonce: reqImports["nonces"].get(accounts[i].address) },
         ({ events = [], status }) => {
           if (status.isFinalized) {
-            reqImports["fail_count"] = reqImports["callback"](status, events, "identity", "NewSigningItems", reqImports["fail_count"]);
+            reqImports["fail_count"] = reqImports["callback"](status, events, "identity", "NewAuthorization", reqImports["fail_count"]);
             unsub();
           }
         }

@@ -82,6 +82,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
             Call::Identity(identity::Call::register_did(..))
             | Call::Identity(identity::Call::accept_master_key(..))
             | Call::Identity(identity::Call::accept_authorization(..))
+            | Call::Identity(identity::Call::join_identity_as_key(..))
             | Call::Identity(identity::Call::batch_accept_authorization(..)) => {
                 Ok(ValidTransaction::default())
             }
