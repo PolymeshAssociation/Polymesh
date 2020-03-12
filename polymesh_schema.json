@@ -361,6 +361,10 @@
         "target": "IdentityId",
         "claim_type": "ClaimType"
     },
+    "Claim2ndKey": {
+        "issuer": "IdentityId",
+        "scope": "Option<IdentityId>"
+    },
     "BatchAddClaimItem": {
         "target": "IdentityId",
         "claim": "Claim",
@@ -372,4 +376,5 @@
         "claim_type": "ClaimType",
         "scope": "Option<IdentityId>"
     }
+
 }
