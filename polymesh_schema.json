@@ -335,10 +335,6 @@
         "constant": "u32",
         "max_slash_percent": "u32"
     },
-    "AssetRuleDetails": {
-        "sender_rules": "Vec<RuleData>",
-        "receiver_rules":"Vec<RuleData>"
-    },
     "AssetRules": {
         "is_paused": "bool",
         "rules": "Vec<AssetRules>"
