@@ -4,8 +4,8 @@ use crate::test::{
 };
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, IdentityClaimData, LinkData, Permission, Signatory,
-    SignatoryType, SigningItem, Ticker,
+    AccountKey, AuthorizationData, AuthorizationError, IdentityClaimData, LinkData, Permission,
+    Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{SigningItemWithAuth, TargetIdAuthorization};
@@ -853,4 +853,107 @@ fn cdd_register_did_test_we() {
     let bob_id = Identity::get_identity(&bob_key).unwrap();
     let _cdd_2_id = Identity::get_identity(&cdd_2_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
+}
+
+#[test]
+fn add_identity_signers() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let alice_identity_signer = Signatory::from(alice_did);
+        let alice_acc_signer =
+            Signatory::from(AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap());
+        let bob_identity_signer = Signatory::from(bob_did);
+        let charlie_acc_signer = Signatory::from(
+            AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
+        );
+        let dave_acc_signer =
+            Signatory::from(AccountKey::try_from(AccountKeyring::Dave.public().encode()).unwrap());
+
+        let auth_id_for_id_to_id = Identity::add_auth(
+            alice_identity_signer,
+            bob_identity_signer,
+            AuthorizationData::JoinIdentity(alice_did),
+            None,
+        );
+
+        assert_err!(
+            Identity::join_identity(bob_identity_signer, auth_id_for_id_to_id),
+            AuthorizationError::Unauthorized
+        );
+
+        let auth_id_for_acc_to_id = Identity::add_auth(
+            alice_acc_signer,
+            bob_identity_signer,
+            AuthorizationData::JoinIdentity(alice_did),
+            None,
+        );
+
+        assert_ok!(Identity::join_identity(
+            bob_identity_signer,
+            auth_id_for_acc_to_id
+        ));
+
+        let auth_id_for_acc2_to_id = Identity::add_auth(
+            charlie_acc_signer,
+            bob_identity_signer,
+            AuthorizationData::JoinIdentity(charlie_did),
+            None,
+        );
+
+        assert_ok!(Identity::join_identity(
+            bob_identity_signer,
+            auth_id_for_acc2_to_id
+        ));
+
+        let auth_id_for_acc1_to_acc = Identity::add_auth(
+            alice_acc_signer,
+            dave_acc_signer,
+            AuthorizationData::JoinIdentity(alice_did),
+            None,
+        );
+
+        assert_ok!(Identity::join_identity(
+            dave_acc_signer,
+            auth_id_for_acc1_to_acc
+        ));
+
+        let auth_id_for_acc2_to_acc = Identity::add_auth(
+            charlie_acc_signer,
+            dave_acc_signer,
+            AuthorizationData::JoinIdentity(charlie_did),
+            None,
+        );
+
+        assert_err!(
+            Identity::join_identity(dave_acc_signer, auth_id_for_acc2_to_acc),
+            Error::<TestStorage>::AlreadyLinked
+        );
+
+        let alice_signing_items = Identity::did_records(alice_did).signing_items;
+        let charlie_signing_items = Identity::did_records(charlie_did).signing_items;
+        assert!(alice_signing_items
+            .iter()
+            .find(|si| **si == bob_did)
+            .is_some());
+        assert!(charlie_signing_items
+            .iter()
+            .find(|si| **si == bob_did)
+            .is_some());
+        assert!(
+            alice_signing_items
+                .iter()
+                .find(|si| **si
+                    == AccountKey::try_from(AccountKeyring::Dave.public().encode()).unwrap())
+                .is_some()
+        );
+        assert!(
+            charlie_signing_items
+                .iter()
+                .find(|si| **si
+                    == AccountKey::try_from(AccountKeyring::Dave.public().encode()).unwrap())
+                .is_none()
+        );
+    });
 }
