@@ -417,9 +417,13 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn unsafe_modify_default_trusted_claim_issuer(ticker: Ticker, trusted_issuer: IdentityId) {
+    fn unsafe_modify_default_trusted_claim_issuer(
+        ticker: Ticker,
+        trusted_issuer: IdentityId,
+        is_add_call: bool,
+    ) {
         TrustedClaimIssuer::mutate(ticker, |identity_list| {
-            if identity_list.contains(&trusted_issuer) {
+            if !is_add_call {
                 // remove the old one
                 identity_list.retain(|&ti| ti != trusted_issuer);
                 Self::deposit_event(Event::RemoveTrustedDefaultClaimIssuer(
@@ -453,7 +457,7 @@ impl<T: Trait> Module<T> {
             Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) == !is_add_call,
             Error::<T>::IncorrectOperationOnTrustedIssuer
         );
-        Self::unsafe_modify_default_trusted_claim_issuer(ticker, trusted_issuer);
+        Self::unsafe_modify_default_trusted_claim_issuer(ticker, trusted_issuer, is_add_call);
         Ok(())
     }
 
@@ -486,7 +490,7 @@ impl<T: Trait> Module<T> {
 
         // iterate all the trusted issuer and modify the data of those.
         trusted_issuers.into_iter().for_each(|default_issuer| {
-            Self::unsafe_modify_default_trusted_claim_issuer(ticker, default_issuer);
+            Self::unsafe_modify_default_trusted_claim_issuer(ticker, default_issuer, is_add_call);
         });
         Ok(())
     }
