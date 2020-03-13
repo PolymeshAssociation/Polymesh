@@ -24,7 +24,7 @@
 
 use polymesh_primitives::{AccountKey, IdentityId};
 pub use polymesh_runtime_common::{
-    group::{GroupTrait, RawEvent, Trait},
+    group::{GroupTrait, InactiveMember, RawEvent, Trait},
     Context,
 };
 use polymesh_runtime_identity as identity;
@@ -47,16 +47,17 @@ type Identity<T> = identity::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
-        /// Identities that are part of this group
-        pub Members get(fn members) config(): Vec<IdentityId>;
+        /// Identities that are part of this group, known as "Active members".
+        pub ActiveMembers get(fn active_members) config(): Vec<IdentityId>;
+        pub InactiveMembers get(fn inactive_members): Vec<InactiveMember<T::Moment>>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
         build(|config: &Self| {
-            let mut members = config.members.clone();
+            let mut members = config.active_members.clone();
             members.sort();
             T::MembershipInitialized::initialize_members(&members);
-            <Members<I>>::put(members);
+            <ActiveMembers<I>>::put(members);
         })
     }
 }
@@ -70,6 +71,43 @@ decl_module! {
 
         fn deposit_event() = default;
 
+        /// It revokes a member at specific moment.
+        /// Any claim is still valid if they were issued before that `at` moment.
+        ///
+        /// Please note that if member is already revoked (a "valid member"), its revocation
+        /// time-stamp will be updated.
+        ///
+        /// # Arguments
+        /// * `at` Revocation time-stamp.
+        /// * `who` Target member of the group.
+        pub fn disable_member_at( origin,
+            who: IdentityId,
+            expiry: Option<T::Moment>,
+            at: Option<T::Moment>
+        ) -> DispatchResult {
+            T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+
+            Self::unsafe_remove_member(who)?;
+
+            let deactivated_at = at.unwrap_or_else(||<pallet_timestamp::Module<T>>::get());
+            let inactive_member = InactiveMember {
+                id: who,
+                expiry,
+                deactivated_at
+            };
+
+            <InactiveMembers<T,I>>::mutate( |members| {
+                if let Some(idx) = members.binary_search(&inactive_member).ok() {
+                    members[idx] = inactive_member;
+                } else {
+                    members.push( inactive_member);
+                    members.sort();
+                }
+            });
+            Self::deposit_event(RawEvent::MemberRevoked(who));
+            Ok(())
+        }
+
         /// Add a member `who` to the set. May only be called from `AddOrigin` or root.
         ///
         /// # Arguments
@@ -79,10 +117,10 @@ decl_module! {
         pub fn add_member(origin, who: IdentityId) {
             T::AddOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
-            let mut members = <Members<I>>::get();
+            let mut members = <ActiveMembers<I>>::get();
             let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
             members.insert(location, who.clone());
-            <Members<I>>::put(&members);
+            <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
 
@@ -95,17 +133,9 @@ decl_module! {
         /// * `origin` Origin representing `RemoveOrigin` or root
         /// * `who` IdentityId to be removed from the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        pub fn remove_member(origin, who: IdentityId) {
+        pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
             T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
-
-            let mut members = <Members<I>>::get();
-            let location = members.binary_search(&who).ok().ok_or(Error::<T, I>::NoSuchMember)?;
-            members.remove(location);
-            <Members<I>>::put(&members);
-
-            T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
-
-            Self::deposit_event(RawEvent::MemberRemoved(who));
+            Self::unsafe_remove_member(who)
         }
 
         /// Swap out one member `remove` for another `add`.
@@ -121,14 +151,13 @@ decl_module! {
 
             if remove == add { return Ok(()) }
 
-            let mut members = <Members<I>>::get();
-
+            let mut members = <ActiveMembers<I>>::get();
             let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NoSuchMember)?;
             members[location] = add.clone();
 
             let _location = members.binary_search(&add).err().ok_or(Error::<T, I>::DuplicateMember)?;
             members.sort();
-            <Members<I>>::put(&members);
+            <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(
                 &[add],
@@ -151,7 +180,7 @@ decl_module! {
 
             let mut new_members = members.clone();
             new_members.sort();
-            <Members<I>>::mutate(|m| {
+            <ActiveMembers<I>>::mutate(|m| {
                 T::MembershipChanged::set_members_sorted(&members[..], m);
                 *m = new_members;
             });
@@ -175,14 +204,14 @@ decl_module! {
             ensure!(<Identity<T>>::is_master_key(remove_id, &who),
                 Error::<T,I>::OnlyMasterKeyAllowed);
 
-            let mut members = Self::members();
+            let mut members = Self::get_members();
             ensure!(members.contains(&remove_id),
                 Error::<T,I>::NoSuchMember);
             ensure!( members.len() > 1,
                 Error::<T,I>::LastMemberCannotQuit);
 
             members.retain( |id| *id != remove_id);
-            <Members<I>>::put(&members);
+            <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(
                 &[],
@@ -210,10 +239,87 @@ decl_error! {
     }
 }
 
+impl<T: Trait<I>, I: Instance> Module<T, I> {
+    /// It returns the current "active members" and any "inactive member" which its
+    /// expiration time-stamp is greater than `moment`.
+    pub fn valid_members_at(moment: T::Moment) -> Vec<IdentityId> {
+        Self::active_members()
+            .into_iter()
+            .chain(Self::inactive_members().into_iter().filter_map(|m| {
+                if m.expiry.is_none() || m.expiry.unwrap_or_default() > moment {
+                    Some(m.id)
+                } else {
+                    None
+                }
+            }))
+            .collect::<Vec<_>>()
+    }
+
+    /// It returns the current "active members" and any "valid member" which its revocation
+    /// time-stamp is in the future.
+    pub fn valid_members() -> Vec<IdentityId> {
+        let now = <pallet_timestamp::Module<T>>::get();
+        Self::valid_members_at(now)
+    }
+
+    /// Remove a member `who` as "active" or "inactive" member.
+    ///
+    /// # Arguments
+    /// * `who` IdentityId to be removed from the group.
+    fn unsafe_remove_member(who: IdentityId) -> DispatchResult {
+        Self::unsafe_remove_active_member(who).or(Self::unsafe_remove_inactive_member(who))
+    }
+
+    /// Remove `who` as "inactive member"
+    ///
+    /// # Errors
+    /// * `NoSuchMember` if `who` is not part of *inactive members*.
+    fn unsafe_remove_inactive_member(who: IdentityId) -> DispatchResult {
+        let inactive_who = InactiveMember::<T::Moment>::from(who);
+        let mut members = <InactiveMembers<T, I>>::get();
+        let position = members
+            .binary_search(&inactive_who)
+            .ok()
+            .ok_or(Error::<T, I>::NoSuchMember)?;
+
+        members.swap_remove(position);
+
+        <InactiveMembers<T, I>>::put(&members);
+        Self::deposit_event(RawEvent::MemberRemoved(who));
+        Ok(())
+    }
+
+    /// Remove `who` as "active member"
+    ///
+    /// # Errors
+    /// * `NoSuchMember` if `who` is not part of *active members*.
+    fn unsafe_remove_active_member(who: IdentityId) -> DispatchResult {
+        let mut members = <ActiveMembers<I>>::get();
+        let location = members
+            .binary_search(&who)
+            .ok()
+            .ok_or(Error::<T, I>::NoSuchMember)?;
+
+        members.remove(location);
+        <ActiveMembers<I>>::put(&members);
+
+        T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
+        Self::deposit_event(RawEvent::MemberRemoved(who));
+        Ok(())
+    }
+}
+
 /// Retrieve all members of this group
 /// Is the given `IdentityId` a valid member?
-impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
+impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
+    /// It returns only the "active members".
+    #[inline]
     fn get_members() -> Vec<IdentityId> {
-        Self::members()
+        Self::active_members()
+    }
+
+    #[inline]
+    fn get_inactive_members() -> Vec<InactiveMember<T::Moment>> {
+        Self::inactive_members()
     }
 }
