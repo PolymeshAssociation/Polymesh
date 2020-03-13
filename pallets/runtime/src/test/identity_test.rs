@@ -1,11 +1,11 @@
 use crate::test::{
-    storage::{register_keyring_account, TestStorage},
+    storage::{add_signing_item, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, IdentityClaimData, LinkData, Permission, Signatory,
-    SignatoryType, SigningItem, Ticker,
+    AccountKey, AuthorizationData, AuthorizationError, IdentityClaimData, LinkData, Permission,
+    Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{SigningItemWithAuth, TargetIdAuthorization};
@@ -91,14 +91,7 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
         let charlie_signing_item =
             SigningItem::new(charlie_signer.clone(), vec![Permission::Admin]);
 
-        assert_ok!(Identity::add_signing_items(
-            a.clone(),
-            vec![charlie_signing_item]
-        ));
-        assert_ok!(Identity::authorize_join_to_identity(
-            Origin::signed(AccountKeyring::Charlie.public()),
-            a_did
-        ));
+        add_signing_item(a_did, charlie_signer);
 
         // Check master key on master and signing_keys.
         assert!(Identity::is_signer_authorized(owner_did, &owner_signer));
@@ -245,12 +238,8 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
 
-    assert_ok!(Identity::add_signing_items(
-        alice.clone(),
-        vec![SigningItem::from(bob_key), SigningItem::from(charlie_key)]
-    ));
-    assert_ok!(Identity::authorize_join_to_identity(bob.clone(), alice_did));
-    assert_ok!(Identity::authorize_join_to_identity(charlie, alice_did));
+    add_signing_item(alice_did, Signatory::from(charlie_key));
+    add_signing_item(alice_did, Signatory::from(bob_key));
 
     // Only `alice` is able to update `bob`'s permissions and `charlie`'s permissions.
     assert_ok!(Identity::set_permission_to_signer(
@@ -288,48 +277,6 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     ));
 }
 
-#[test]
-fn add_signing_keys_with_specific_type() {
-    ExtBuilder::default()
-        .build()
-        .execute_with(&add_signing_keys_with_specific_type_with_externalities);
-}
-
-/// It tests that signing key can be added using non-default key type
-/// (`SignatoryType::External`).
-fn add_signing_keys_with_specific_type_with_externalities() {
-    let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
-    let dave_key = AccountKey::from(AccountKeyring::Dave.public().0);
-
-    // Create keys using non-default type.
-    let charlie_signing_key = SigningItem {
-        signer: Signatory::AccountKey(charlie_key),
-        signer_type: SignatoryType::Relayer,
-        permissions: vec![],
-    };
-    let dave_signing_key = SigningItem {
-        signer: Signatory::AccountKey(dave_key),
-        signer_type: SignatoryType::MultiSig,
-        permissions: vec![],
-    };
-
-    // Add signing keys with non-default type.
-    let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    assert_ok!(Identity::add_signing_items(
-        alice,
-        vec![charlie_signing_key, dave_signing_key.clone()]
-    ));
-
-    // Register did with non-default type.
-    let bob = AccountKeyring::Bob.public();
-    Balances::make_free_balance_be(&bob, 5_000);
-    assert_ok!(Identity::register_did(
-        Origin::signed(bob),
-        vec![dave_signing_key]
-    ));
-}
-
 /// It verifies that frozen keys are recovered after `unfreeze` call.
 #[test]
 fn freeze_signing_keys_test() {
@@ -359,16 +306,8 @@ fn freeze_signing_keys_with_externalities() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
-    let signing_keys_v1 = vec![bob_signing_key.clone(), charlie_signing_key];
-    assert_ok!(Identity::add_signing_items(
-        alice.clone(),
-        signing_keys_v1.clone()
-    ));
-    assert_ok!(Identity::authorize_join_to_identity(bob.clone(), alice_did));
-    assert_ok!(Identity::authorize_join_to_identity(
-        charlie.clone(),
-        alice_did
-    ));
+    add_signing_item(alice_did, Signatory::from(bob_key));
+    add_signing_item(alice_did, Signatory::from(charlie_key));
 
     assert_eq!(
         Identity::is_signer_authorized(alice_did, &Signatory::AccountKey(bob_key)),
@@ -388,16 +327,7 @@ fn freeze_signing_keys_with_externalities() {
     );
 
     // Add new signing keys.
-    let signing_keys_v2 = vec![dave_signing_key.clone()];
-    assert_ok!(Identity::add_signing_items(
-        alice.clone(),
-        signing_keys_v2.clone()
-    ));
-    assert_ok!(Identity::authorize_join_to_identity(dave, alice_did));
-    assert_eq!(
-        Identity::is_signer_authorized(alice_did, &Signatory::AccountKey(dave_key)),
-        false
-    );
+    add_signing_item(alice_did, Signatory::from(dave_key));
 
     // update permission of frozen keys.
     assert_ok!(Identity::set_permission_to_signer(
@@ -434,28 +364,14 @@ fn remove_frozen_signing_keys_with_externalities() {
     );
 
     let bob_signing_key = SigningItem::new(Signatory::AccountKey(bob_key), vec![Permission::Admin]);
-    let charlie_signing_key = SigningItem::new(
-        Signatory::AccountKey(charlie_key),
-        vec![Permission::Operator],
-    );
+    let charlie_signing_key = SigningItem::new(Signatory::AccountKey(charlie_key), vec![]);
 
     // Add signing keys.
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
-    let signing_keys_v1 = vec![bob_signing_key, charlie_signing_key.clone()];
-    assert_ok!(Identity::add_signing_items(
-        alice.clone(),
-        signing_keys_v1.clone()
-    ));
-    assert_ok!(Identity::authorize_join_to_identity(
-        Origin::signed(AccountKeyring::Bob.public()),
-        alice_did
-    ));
-    assert_ok!(Identity::authorize_join_to_identity(
-        Origin::signed(AccountKeyring::Charlie.public()),
-        alice_did
-    ));
+    add_signing_item(alice_did, Signatory::from(bob_key));
+    add_signing_item(alice_did, Signatory::from(charlie_key));
 
     // Freeze all signing keys
     assert_ok!(Identity::freeze_signing_keys(alice.clone()));
@@ -486,52 +402,19 @@ fn enforce_uniqueness_keys_in_identity() {
 
     // Check external signed key uniqueness.
     let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
-    let charlie_sk = SigningItem::new(
-        Signatory::AccountKey(charlie_key),
-        vec![Permission::Operator],
+    let charlie_sk = SigningItem::new(Signatory::AccountKey(charlie_key), vec![]);
+    add_signing_item(alice_id, Signatory::from(charlie_key));
+    let auth_id = Identity::add_auth(
+        Signatory::from(AccountKey::from(AccountKeyring::Alice.public().0)),
+        Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0)),
+        AuthorizationData::JoinIdentity(alice_id),
+        None,
     );
-    assert_ok!(Identity::add_signing_items(
-        alice.clone(),
-        vec![charlie_sk.clone()]
-    ));
-    assert_ok!(Identity::authorize_join_to_identity(
-        Origin::signed(AccountKeyring::Charlie.public()),
-        alice_id
-    ));
-
     assert_err!(
-        Identity::add_signing_items(bob.clone(), vec![charlie_sk]),
-        Error::<TestStorage>::AlreadyLinked
-    );
-
-    // Check non-external signed key non-uniqueness.
-    let dave_key = AccountKey::from(AccountKeyring::Dave.public().0);
-    let dave_sk = SigningItem {
-        signer: Signatory::AccountKey(dave_key),
-        signer_type: SignatoryType::MultiSig,
-        permissions: vec![Permission::Operator],
-    };
-    assert_ok!(Identity::add_signing_items(
-        alice.clone(),
-        vec![dave_sk.clone()]
-    ));
-    assert_ok!(Identity::add_signing_items(bob.clone(), vec![dave_sk]));
-
-    // Check that master key acts like external signed key.
-    let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
-    let bob_sk_as_mutisig = SigningItem {
-        signer: Signatory::AccountKey(bob_key),
-        signer_type: SignatoryType::MultiSig,
-        permissions: vec![Permission::Operator],
-    };
-    assert_err!(
-        Identity::add_signing_items(alice.clone(), vec![bob_sk_as_mutisig]),
-        Error::<TestStorage>::AlreadyLinked
-    );
-
-    let bob_sk = SigningItem::new(Signatory::AccountKey(bob_key), vec![Permission::Admin]);
-    assert_err!(
-        Identity::add_signing_items(alice.clone(), vec![bob_sk]),
+        Identity::join_identity(
+            Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0)),
+            auth_id
+        ),
         Error::<TestStorage>::AlreadyLinked
     );
 }
@@ -551,22 +434,13 @@ fn add_remove_signing_identities_with_externalities() {
 
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
-    let dave_id = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-    assert_ok!(Identity::add_signing_items(
-        alice.clone(),
-        vec![SigningItem::from(bob_id), SigningItem::from(charlie_id)]
-    ));
-    assert_ok!(Identity::authorize_join_to_identity(bob, alice_id));
-    assert_ok!(Identity::authorize_join_to_identity(charlie, alice_id));
-    assert_eq!(
-        Identity::is_signer_authorized(alice_id, &Signatory::Identity(bob_id)),
-        true
-    );
+    add_signing_item(alice_id, Signatory::from(bob_id));
+    add_signing_item(alice_id, Signatory::from(charlie_id));
 
     assert_ok!(Identity::remove_signing_items(
         alice.clone(),
-        vec![Signatory::Identity(bob_id), Signatory::Identity(dave_id)]
+        vec![Signatory::Identity(bob_id)]
     ));
 
     let alice_rec = Identity::did_records(alice_id);
@@ -581,89 +455,6 @@ fn add_remove_signing_identities_with_externalities() {
         Identity::is_signer_authorized(alice_id, &Signatory::Identity(bob_id)),
         false
     );
-}
-
-#[test]
-fn two_step_join_id() {
-    ExtBuilder::default()
-        .build()
-        .execute_with(&two_step_join_id_with_ext);
-}
-
-fn two_step_join_id_with_ext() {
-    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let bob = Origin::signed(AccountKeyring::Bob.public());
-
-    let c_sk = SigningItem::new(
-        Signatory::AccountKey(AccountKey::from(AccountKeyring::Charlie.public().0)),
-        vec![Permission::Operator],
-    );
-    let d_sk = SigningItem::new(
-        Signatory::AccountKey(AccountKey::from(AccountKeyring::Dave.public().0)),
-        vec![Permission::Full],
-    );
-    let e_sk = SigningItem::new(
-        Signatory::AccountKey(AccountKey::from(AccountKeyring::Eve.public().0)),
-        vec![Permission::Full],
-    );
-
-    // Check 1-to-1 relation between key and identity.
-    let signing_keys = vec![c_sk.clone(), d_sk.clone(), e_sk.clone()];
-    assert_ok!(Identity::add_signing_items(
-        alice.clone(),
-        signing_keys.clone()
-    ));
-    assert_ok!(Identity::add_signing_items(bob.clone(), signing_keys));
-    assert_eq!(
-        Identity::is_signer_authorized(alice_id, &c_sk.signer),
-        false
-    );
-
-    let charlie = Origin::signed(AccountKeyring::Charlie.public());
-    assert_ok!(Identity::authorize_join_to_identity(
-        charlie.clone(),
-        alice_id
-    ));
-    assert_eq!(Identity::is_signer_authorized(alice_id, &c_sk.signer), true);
-
-    assert_err!(
-        Identity::authorize_join_to_identity(charlie, bob_id),
-        Error::<TestStorage>::AlreadyLinked
-    );
-    assert_eq!(Identity::is_signer_authorized(bob_id, &c_sk.signer), false);
-
-    // Check after remove a signing key.
-    let dave = Origin::signed(AccountKeyring::Dave.public());
-    assert_ok!(Identity::authorize_join_to_identity(dave, alice_id));
-    assert_eq!(Identity::is_signer_authorized(alice_id, &d_sk.signer), true);
-    assert_ok!(Identity::remove_signing_items(
-        alice.clone(),
-        vec![d_sk.signer.clone()]
-    ));
-    assert_eq!(
-        Identity::is_signer_authorized(alice_id, &d_sk.signer),
-        false
-    );
-
-    // Check remove pre-authorization from master and itself.
-    assert_err!(
-        Identity::unauthorized_join_to_identity(alice.clone(), e_sk.signer.clone(), bob_id),
-        Error::<TestStorage>::Unauthorized
-    );
-    assert_ok!(Identity::unauthorized_join_to_identity(
-        alice,
-        e_sk.signer.clone(),
-        alice_id
-    ));
-
-    let eve = Origin::signed(AccountKeyring::Eve.public());
-    assert_ok!(Identity::unauthorized_join_to_identity(
-        eve,
-        e_sk.signer,
-        bob_id
-    ));
 }
 
 #[test]
@@ -1062,4 +853,107 @@ fn cdd_register_did_test_we() {
     let bob_id = Identity::get_identity(&bob_key).unwrap();
     let _cdd_2_id = Identity::get_identity(&cdd_2_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
+}
+
+#[test]
+fn add_identity_signers() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let alice_identity_signer = Signatory::from(alice_did);
+        let alice_acc_signer =
+            Signatory::from(AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap());
+        let bob_identity_signer = Signatory::from(bob_did);
+        let charlie_acc_signer = Signatory::from(
+            AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
+        );
+        let dave_acc_signer =
+            Signatory::from(AccountKey::try_from(AccountKeyring::Dave.public().encode()).unwrap());
+
+        let auth_id_for_id_to_id = Identity::add_auth(
+            alice_identity_signer,
+            bob_identity_signer,
+            AuthorizationData::JoinIdentity(alice_did),
+            None,
+        );
+
+        assert_err!(
+            Identity::join_identity(bob_identity_signer, auth_id_for_id_to_id),
+            AuthorizationError::Unauthorized
+        );
+
+        let auth_id_for_acc_to_id = Identity::add_auth(
+            alice_acc_signer,
+            bob_identity_signer,
+            AuthorizationData::JoinIdentity(alice_did),
+            None,
+        );
+
+        assert_ok!(Identity::join_identity(
+            bob_identity_signer,
+            auth_id_for_acc_to_id
+        ));
+
+        let auth_id_for_acc2_to_id = Identity::add_auth(
+            charlie_acc_signer,
+            bob_identity_signer,
+            AuthorizationData::JoinIdentity(charlie_did),
+            None,
+        );
+
+        assert_ok!(Identity::join_identity(
+            bob_identity_signer,
+            auth_id_for_acc2_to_id
+        ));
+
+        let auth_id_for_acc1_to_acc = Identity::add_auth(
+            alice_acc_signer,
+            dave_acc_signer,
+            AuthorizationData::JoinIdentity(alice_did),
+            None,
+        );
+
+        assert_ok!(Identity::join_identity(
+            dave_acc_signer,
+            auth_id_for_acc1_to_acc
+        ));
+
+        let auth_id_for_acc2_to_acc = Identity::add_auth(
+            charlie_acc_signer,
+            dave_acc_signer,
+            AuthorizationData::JoinIdentity(charlie_did),
+            None,
+        );
+
+        assert_err!(
+            Identity::join_identity(dave_acc_signer, auth_id_for_acc2_to_acc),
+            Error::<TestStorage>::AlreadyLinked
+        );
+
+        let alice_signing_items = Identity::did_records(alice_did).signing_items;
+        let charlie_signing_items = Identity::did_records(charlie_did).signing_items;
+        assert!(alice_signing_items
+            .iter()
+            .find(|si| **si == bob_did)
+            .is_some());
+        assert!(charlie_signing_items
+            .iter()
+            .find(|si| **si == bob_did)
+            .is_some());
+        assert!(
+            alice_signing_items
+                .iter()
+                .find(|si| **si
+                    == AccountKey::try_from(AccountKeyring::Dave.public().encode()).unwrap())
+                .is_some()
+        );
+        assert!(
+            charlie_signing_items
+                .iter()
+                .find(|si| **si
+                    == AccountKey::try_from(AccountKeyring::Dave.public().encode()).unwrap())
+                .is_none()
+        );
+    });
 }

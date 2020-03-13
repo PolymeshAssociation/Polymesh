@@ -218,37 +218,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds new signing keys for a DID. Only called by master key owner.
-        ///
-        /// # Failure
-        ///  - It can only called by master key owner.
-        ///  - If any signing key is already linked to any identity, it will fail.
-        ///  - If any signing key is already
-        pub fn add_signing_items(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Self>(&sender_key)?;
-            let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
-
-            // Check constraint 1-to-1 in relation key-identity.
-            for s_item in &signing_items{
-                if let Signatory::AccountKey(ref key) = s_item.signer {
-                    ensure!(
-                        Self::can_key_be_linked_to_did(key, s_item.signer_type),
-                        Error::<T>::AlreadyLinked
-                    );
-                }
-            }
-
-            // Ignore any key which is already valid in that identity.
-            let authorized_signing_items = Self::did_records( did).signing_items;
-            signing_items.iter()
-                .filter( |si| authorized_signing_items.contains(si) == false)
-                .for_each( |si| Self::add_pre_join_identity( si, did));
-
-            Self::deposit_event(RawEvent::NewSigningItems(did, signing_items));
-            Ok(())
-        }
-
         /// Removes specified signing keys of a DID if present.
         ///
         /// # Failure
@@ -325,6 +294,19 @@ decl_module! {
             <CddAuthForMasterKeyRotation>::put(auth_required);
             Self::deposit_event(RawEvent::CddRequirementForMasterKeyUpdated(auth_required));
             Ok(())
+        }
+
+        /// Join an identity as a signing key
+        pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
+            let signer = Signatory::from(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            Self::join_identity(signer, auth_id)
+        }
+
+        /// Join an identity as a signing identity
+        pub fn join_identity_as_identity(origin, auth_id: u64) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender_did = Context::current_identity_or::<Self>(&sender_key)?;
+            Self::join_identity(Signatory::from(sender_did), auth_id)
         }
 
         /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
@@ -642,6 +624,8 @@ decl_module! {
                             T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner =>
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
+                        AuthorizationData::JoinIdentity(_) =>
+                            Self::join_identity(Signatory::from(did), auth_id),
                         _ => return Err(Error::<T>::UnknownAuthorization.into())
                     }
                 },
@@ -651,6 +635,8 @@ decl_module! {
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
                         AuthorizationData::RotateMasterKey(_identityid) =>
                             Self::accept_master_key_rotation(key , auth_id, None),
+                        AuthorizationData::JoinIdentity(_) =>
+                            Self::join_identity(Signatory::from(key), auth_id),
                         _ => return Err(Error::<T>::UnknownAuthorization.into())
                     }
                 }
@@ -685,6 +671,8 @@ decl_module! {
                                     T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
                                 AuthorizationData::AddMultiSigSigner =>
                                     T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
+                                AuthorizationData::JoinIdentity(_) =>
+                                    Self::join_identity(Signatory::from(did), auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
                             };
                         }
@@ -704,6 +692,8 @@ decl_module! {
                                     T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
                                 AuthorizationData::RotateMasterKey(_identityid) =>
                                     Self::accept_master_key_rotation(key , auth_id, None),
+                                AuthorizationData::JoinIdentity(_) =>
+                                    Self::join_identity(Signatory::from(key), auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
                             };
                         }
@@ -713,88 +703,6 @@ decl_module! {
 
             Ok(())
         }
-
-        // Manage Authorizations to join to an Identity
-        // ================================================
-
-        /// The key designated by `origin` accepts the authorization to join to `target_id`
-        /// Identity.
-        ///
-        /// # Errors
-        ///  - AccountKey should be authorized previously to join to that target identity.
-        ///  - AccountKey is not linked to any other identity.
-        pub fn authorize_join_to_identity(origin, target_id: IdentityId) -> DispatchResult {
-            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
-            let signer_from_key = Signatory::AccountKey( sender_key.clone());
-            let signer_id_found = Self::key_to_identity_ids(sender_key);
-
-            // Double check that `origin` (its key or identity) has been pre-authorize.
-            let valid_signer = if <PreAuthorizedJoinDid>::exists(&signer_from_key) {
-                // Sender key is valid.
-                // Verify 1-to-1 relation between key and identity.
-                ensure!(signer_id_found.is_none(), Error::<T>::AlreadyLinked);
-                Some(signer_from_key)
-            } else {
-                // Otherwise, sender's identity (only master key) should be pre-authorize.
-                match signer_id_found {
-                    Some(LinkedKeyInfo::Unique(sender_id)) if Self::is_master_key(sender_id, &sender_key) => {
-                        let signer_from_id = Signatory::Identity(sender_id);
-                        if <PreAuthorizedJoinDid>::exists(&signer_from_id) {
-                            Some(signer_from_id)
-                        } else {
-                            None
-                        }
-                    },
-                    _ => None
-                }
-            };
-
-            // Only works with a valid signer.
-            if let Some(signer) = valid_signer {
-                if let Some(pre_auth) = Self::pre_authorized_join_did( signer.clone())
-                        .iter()
-                        .find( |pre_auth_item| pre_auth_item.target_id == target_id) {
-                    // Remove pre-auth, link key to identity and update identity record.
-                    Self::remove_pre_join_identity(&signer, target_id);
-                    if let Signatory::AccountKey(key) = signer {
-                        Self::link_key_to_did( &key, pre_auth.signing_item.signer_type, target_id);
-                    }
-                    <DidRecords>::mutate( target_id, |identity| {
-                        identity.add_signing_items( &[pre_auth.signing_item.clone()]);
-                    });
-                    Self::deposit_event( RawEvent::SignerJoinedToIdentityApproved( signer, target_id));
-                    Ok(())
-                } else {
-                    Err(Error::<T>::Unauthorized.into())
-                }
-            } else {
-                Err(Error::<T>::Unauthorized.into())
-            }
-        }
-
-        /// Identity's master key or target key are allowed to reject a pre authorization to join.
-        /// It only affects the authorization: if key accepted it previously, then this transaction
-        /// shall have no effect.
-        pub fn unauthorized_join_to_identity(origin, signer: Signatory, target_id: IdentityId) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-
-            let mut is_remove_allowed = Self::is_master_key( target_id, &sender_key);
-
-            if !is_remove_allowed {
-                is_remove_allowed = match signer {
-                    Signatory::AccountKey(ref key) => sender_key == *key,
-                    Signatory::Identity(id) => Self::is_master_key(id, &sender_key)
-                }
-            }
-
-            if is_remove_allowed {
-                Self::remove_pre_join_identity( &signer, target_id);
-                Ok(())
-            } else {
-                Err(Error::<T>::Unauthorized.into())
-            }
-        }
-
 
         /// It adds signing keys to target identity `id`.
         /// Keys are directly added to identity because each of them has an authorization.
@@ -970,6 +878,47 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
+    pub fn join_identity(signer: Signatory, auth_id: u64) -> DispatchResult {
+        ensure!(
+            <Authorizations<T>>::exists(signer, auth_id),
+            AuthorizationError::Invalid
+        );
+
+        let auth = <Authorizations<T>>::get(signer, auth_id);
+
+        let identity_to_join = match auth.authorization_data {
+            AuthorizationData::JoinIdentity(identity) => Ok(identity),
+            _ => Err(AuthorizationError::Invalid),
+        }?;
+
+        ensure!(
+            <DidRecords>::exists(&identity_to_join),
+            "Identity does not exist"
+        );
+
+        let master = Self::did_records(&identity_to_join).master_key;
+
+        Self::consume_auth(Signatory::from(master), signer, auth_id)?;
+
+        if let Signatory::AccountKey(key) = signer {
+            ensure!(
+                Self::can_key_be_linked_to_did(&key, SignatoryType::External),
+                Error::<T>::AlreadyLinked
+            );
+            Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
+        }
+        <DidRecords>::mutate(identity_to_join, |identity| {
+            identity.add_signing_items(&[SigningItem::new(signer, vec![])]);
+        });
+
+        Self::deposit_event(RawEvent::NewSigningItems(
+            identity_to_join,
+            [SigningItem::new(signer, vec![])].to_vec(),
+        ));
+
+        Ok(())
+    }
+
     pub fn add_auth(
         from: Signatory,
         target: Signatory,
