@@ -40,14 +40,16 @@ use polymesh_runtime_common::{
 use polymesh_runtime_identity as identity;
 
 use codec::{Decode, Encode, Error as CodecError};
+use core::convert::{From, TryInto};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    weights::{GetDispatchInfo, Weight},
+    weights::GetDispatchInfo,
     StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_transaction_payment::ChargeTxFee;
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, prelude::*};
 
@@ -85,7 +87,6 @@ decl_storage! {
         pub Votes get(votes): map (T::AccountId, Signatory, u64) => bool;
     }
 }
-use core::convert::From;
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -327,6 +328,8 @@ decl_error! {
         AlreadyApproved,
         /// Already a signer.
         AlreadyASigner,
+        /// Couldn't charge fee for the transaction
+        FailedToChargeFee,
     }
 }
 
@@ -409,13 +412,21 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyApproved
         );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
-            Self::charge_fee(multisig.clone(), proposal.get_dispatch_info().weight)?;
             <Votes<T>>::insert(&multisig_signer_proposal, true);
             // Since approvals are always only incremented by 1, they can not overflow.
             let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
             <TxApprovals<T>>::insert(&multisig_proposal, approvals);
             let approvals_needed = Self::ms_signs_required(multisig.clone());
             if approvals >= approvals_needed {
+                ensure!(
+                    T::ChargeTxFeeTarget::charge_fee(
+                        signer,
+                        proposal.encode().len().try_into().unwrap_or_default(),
+                        proposal.get_dispatch_info(),
+                    )
+                    .is_ok(),
+                    Error::<T>::FailedToChargeFee
+                );
                 let who_key = AccountKey::try_from(multisig.clone().encode())?;
                 match <identity::Module<T>>::get_identity(&who_key) {
                     Some(id) => {
@@ -441,12 +452,6 @@ impl<T: Trait> Module<T> {
         } else {
             return Err(Error::<T>::ProposalMissing.into());
         }
-    }
-
-    /// Charges appropriate fee for the proposal
-    fn charge_fee(_multisig: T::AccountId, _weight: Weight) -> DispatchResult {
-        // TODO use this weight to charge appropriate fee
-        Ok(())
     }
 
     /// Accept and process addition of a signer to a multisig
