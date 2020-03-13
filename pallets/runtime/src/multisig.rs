@@ -234,13 +234,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
             ensure!(<MultiSigSignsRequired<T>>::exists(&sender), Error::<T>::NoSuchMultisig);
-            <identity::Module<T>>::add_auth(
-                sender_signer,
-                signer,
-                AuthorizationData::AddMultiSigSigner,
-                None
-            );
-            Self::deposit_event(RawEvent::MultiSigSignerAuthorized(sender, signer));
+            Self::unsafe_add_auth_for_signers(sender_signer, signer, sender);
             Ok(())
         }
 
@@ -257,8 +251,7 @@ decl_module! {
                 Error::<T>::NotEnoughSigners
             );
             <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - 1u64);
-            <MultiSigSigners<T>>::remove(&sender, signer);
-            Self::deposit_event(RawEvent::MultiSigSignerRemoved(sender, signer));
+            Self::unsafe_signer_removal(sender, &signer);
             Ok(())
         }
 
@@ -273,8 +266,50 @@ decl_module! {
                 <NumberOfSigners<T>>::get(&sender) >= sigs_required,
                 Error::<T>::NotEnoughSigners
             );
-            <MultiSigSignsRequired<T>>::insert(&sender, &sigs_required);
-            Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(sender, sigs_required));
+            Self::unsafe_change_sigs_required(sender, sigs_required);
+            Ok(())
+        }
+
+        /// This function allows to replace all existing signers of the given multisig & also change no. of signature required
+        /// NOTE - Once this function get executed no other function of the multisig is allowed to execute until unless
+        /// potential signers accept the authorization and there count should be greater than or equal to the signature required
+        ///
+        /// # Arguments
+        /// * signers - Vector of signers for a given multisig
+        /// * sigs_required - Number of signature required for a given multisig
+        pub fn change_all_signers_and_sigs_required(origin, signers: Vec<Signatory>, sigs_required: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), Error::<T>::NoSuchMultisig);
+            ensure!(signers.len() > 0, Error::<T>::NoSigners);
+            ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
+                Error::<T>::RequiredSignaturesOutOfBounds
+            );
+
+            // Collect the list of all signers present for the given multisig
+            let current_signers = <MultiSigSigners<T>>::iter_prefix(&sender).collect::<Vec<Signatory>>();
+            // Collect all those signers who need to be removed. It means those signers that are not exist in the signers vector
+            // but present in the current_signers vector
+            let old_signers = current_signers.clone().into_iter().filter(|x| !signers.contains(x)).collect::<Vec<Signatory>>();
+            // Collect all those signers who need to be added. It means those signers that are not exist in the current_signers vector
+            // but present in the signers vector
+            let new_signers = signers.into_iter().filter(|x| !current_signers.contains(x)).collect::<Vec<Signatory>>();
+            // Removing the signers from the valid multi-signers list first
+            old_signers.iter()
+                .for_each(|signer| {
+                    Self::unsafe_signer_removal(sender.clone(), signer)
+                });
+
+            // Add the new signers for the given multi-sig
+            new_signers.into_iter()
+                .for_each(|signer| {
+                    Self::unsafe_add_auth_for_signers(sender_signer, signer, sender.clone())
+                });
+            // Change the no. of signers for a multisig
+            <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - u64::try_from(old_signers.len()).unwrap_or_default());
+            // Change the required signature count
+            Self::unsafe_change_sigs_required(sender, sigs_required);
+
             Ok(())
         }
     }
@@ -334,6 +369,29 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Private immutables
+
+    /// Add authorization for the accountKey to become a signer of multisig
+    fn unsafe_add_auth_for_signers(from: Signatory, target: Signatory, authorizer: T::AccountId) {
+        <identity::Module<T>>::add_auth(from, target, AuthorizationData::AddMultiSigSigner, None);
+        Self::deposit_event(RawEvent::MultiSigSignerAuthorized(authorizer, target));
+    }
+
+    /// Remove signer from the valid signer list for a given multisig
+    fn unsafe_signer_removal(multisig: T::AccountId, signer: &Signatory) {
+        <MultiSigSigners<T>>::remove(&multisig, signer);
+        Self::deposit_event(RawEvent::MultiSigSignerRemoved(multisig, *signer));
+    }
+
+    /// Change the required signature count for a given multisig
+    fn unsafe_change_sigs_required(multisig: T::AccountId, sigs_required: u64) {
+        <MultiSigSignsRequired<T>>::insert(&multisig, &sigs_required);
+        Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(
+            multisig,
+            sigs_required,
+        ));
+    }
+
     /// Creates a multisig account without precondition checks or emitting an event.
     pub fn create_multisig_account(
         sender: T::AccountId,
