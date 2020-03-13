@@ -1,13 +1,13 @@
 use crate::{
     asset::{self as asset, AssetType, Error as AssetError, SecurityToken},
-    general_tm::{self as general_tm, AssetRule, RuleData, RuleType},
+    general_tm::{self as general_tm, AssetRule, Error as GTMError, RuleData, RuleType},
     test::{
         storage::{make_account, TestStorage},
         ExtBuilder,
     },
 };
 
-use polymesh_primitives::{IdentityClaimData, Ticker};
+use polymesh_primitives::{IdentityClaimData, IdentityId, Ticker};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group::{self as group};
 use polymesh_runtime_identity::{self as identity};
@@ -28,13 +28,13 @@ type CDDGroup = group::Module<TestStorage, group::Instance2>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
-fn should_add_and_verify_assetrule() {
+fn should_add_and_verify_asset_rule() {
     ExtBuilder::default()
         .build()
-        .execute_with(should_add_and_verify_assetrule_we);
+        .execute_with(should_add_and_verify_asset_rule_we);
 }
 
-fn should_add_and_verify_assetrule_we() {
+fn should_add_and_verify_asset_rule_we() {
     // 0. Create accounts
     let root = Origin::system(frame_system::RawOrigin::Root);
     let token_owner_acc = AccountKeyring::Alice.public();
@@ -99,18 +99,11 @@ fn should_add_and_verify_assetrule_we() {
         rule_type: RuleType::ClaimIsPresent,
     };
 
-    let x = vec![sender_rule];
-    let y = vec![receiver_rule1, receiver_rule2];
-
-    let asset_rule = AssetRule {
-        sender_rules: x,
-        receiver_rules: y,
-    };
-
     assert_ok!(GeneralTM::add_active_rule(
         token_owner_signed.clone(),
         ticker,
-        asset_rule
+        vec![sender_rule],
+        vec![receiver_rule1, receiver_rule2]
     ));
 
     assert_ok!(Identity::add_claim(
@@ -164,7 +157,7 @@ fn should_add_and_verify_assetrule_we() {
 }
 
 #[test]
-fn should_reset_assetrules() {
+fn should_reset_asset_rules() {
     ExtBuilder::default()
         .build()
         .execute_with(should_reset_assetrules_we);
@@ -198,15 +191,11 @@ fn should_reset_assetrules_we() {
         None
     ));
 
-    let asset_rule = AssetRule {
-        sender_rules: vec![],
-        receiver_rules: vec![],
-    };
-
     assert_ok!(GeneralTM::add_active_rule(
         token_owner_signed.clone(),
         ticker,
-        asset_rule
+        vec![],
+        vec![]
     ));
 
     let asset_rules = GeneralTM::asset_rules(ticker);
@@ -276,15 +265,11 @@ fn pause_resume_asset_rules_we() {
         rule_type: RuleType::ClaimIsAbsent,
     }];
 
-    let asset_rule = AssetRule {
-        sender_rules: vec![],
-        receiver_rules,
-    };
-
     assert_ok!(GeneralTM::add_active_rule(
         token_owner_signed.clone(),
         ticker,
-        asset_rule
+        vec![],
+        receiver_rules
     ));
 
     // 5. Verify pause/resume mechanism.
@@ -315,4 +300,360 @@ fn pause_resume_asset_rules_we() {
         Asset::transfer(token_owner_signed.clone(), ticker, receiver_did, 10),
         AssetError::<TestStorage>::InvalidTransfer
     );
+}
+
+#[test]
+fn should_successfully_add_and_use_default_issuers() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(should_successfully_add_and_use_default_issuers_we);
+}
+
+fn should_successfully_add_and_use_default_issuers_we() {
+    // 0. Create accounts
+    let root = Origin::system(frame_system::RawOrigin::Root);
+    let token_owner_acc = AccountKeyring::Alice.public();
+    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
+    let trusted_issuer_acc = AccountKeyring::Charlie.public();
+    let (trusted_issuer_signed, trusted_issuer_did) = make_account(trusted_issuer_acc).unwrap();
+    let receiver_acc = AccountKeyring::Dave.public();
+    let (_, receiver_did) = make_account(receiver_acc).unwrap();
+
+    assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer_did]));
+
+    // 1. A token representing 1M shares
+    let token = SecurityToken {
+        name: vec![0x01].into(),
+        owner_did: token_owner_did.clone(),
+        total_supply: 1_000_000,
+        divisible: true,
+        asset_type: AssetType::default(),
+        ..Default::default()
+    };
+    let ticker = Ticker::from(token.name.0.as_slice());
+
+    // 2. Share issuance is successful
+    assert_ok!(Asset::create_token(
+        token_owner_signed.clone(),
+        token.name.clone(),
+        ticker,
+        token.total_supply,
+        true,
+        token.asset_type.clone(),
+        vec![],
+        None
+    ));
+
+    // Failed because trusted issuer identity not exist
+    assert_err!(
+        GeneralTM::add_default_trusted_claim_issuer(
+            token_owner_signed.clone(),
+            ticker,
+            IdentityId::from(1)
+        ),
+        GTMError::<TestStorage>::DidNotExist
+    );
+
+    assert_ok!(GeneralTM::add_default_trusted_claim_issuer(
+        token_owner_signed.clone(),
+        ticker,
+        trusted_issuer_did
+    ));
+
+    assert_eq!(GeneralTM::trusted_claim_issuer(ticker).len(), 1);
+    assert_eq!(
+        GeneralTM::trusted_claim_issuer(ticker),
+        vec![trusted_issuer_did]
+    );
+
+    assert_ok!(Identity::add_claim(
+        trusted_issuer_signed.clone(),
+        receiver_did.clone(),
+        IdentityClaimData::CustomerDueDiligence,
+        Some(99999999999999999u64),
+    ));
+
+    let now = Utc::now();
+    Timestamp::set_timestamp(now.timestamp() as u64);
+
+    let sender_rule = RuleData {
+        claim: IdentityClaimData::CustomerDueDiligence,
+        trusted_issuers: vec![],
+        rule_type: RuleType::ClaimIsPresent,
+    };
+
+    let receiver_rule = RuleData {
+        claim: IdentityClaimData::CustomerDueDiligence,
+        trusted_issuers: vec![],
+        rule_type: RuleType::ClaimIsPresent,
+    };
+
+    assert_ok!(GeneralTM::add_active_rule(
+        token_owner_signed.clone(),
+        ticker,
+        vec![sender_rule],
+        vec![receiver_rule]
+    ));
+
+    // fail when token owner doesn't has the valid claim
+    assert_err!(
+        Asset::transfer(
+            token_owner_signed.clone(),
+            ticker,
+            receiver_did.clone(),
+            100
+        ),
+        AssetError::<TestStorage>::InvalidTransfer
+    );
+
+    assert_ok!(Identity::add_claim(
+        trusted_issuer_signed.clone(),
+        token_owner_did.clone(),
+        IdentityClaimData::CustomerDueDiligence,
+        Some(99999999999999999u64),
+    ));
+    assert_ok!(Asset::transfer(
+        token_owner_signed.clone(),
+        ticker,
+        receiver_did.clone(),
+        100
+    ));
+}
+
+#[test]
+fn should_modify_vector_of_trusted_issuer() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(should_modify_vector_of_trusted_issuer_we);
+}
+
+fn should_modify_vector_of_trusted_issuer_we() {
+    // 0. Create accounts
+    let root = Origin::system(frame_system::RawOrigin::Root);
+    let token_owner_acc = AccountKeyring::Alice.public();
+    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
+    let trusted_issuer_acc_1 = AccountKeyring::Charlie.public();
+    let (trusted_issuer_signed_1, trusted_issuer_did_1) =
+        make_account(trusted_issuer_acc_1).unwrap();
+    let trusted_issuer_acc_2 = AccountKeyring::Ferdie.public();
+    let (trusted_issuer_signed_2, trusted_issuer_did_2) =
+        make_account(trusted_issuer_acc_2).unwrap();
+    let receiver_acc = AccountKeyring::Dave.public();
+    let (receiver_signed, receiver_did) = make_account(receiver_acc).unwrap();
+
+    assert_ok!(CDDGroup::reset_members(
+        root,
+        vec![trusted_issuer_did_1, trusted_issuer_did_2]
+    ));
+
+    // 1. A token representing 1M shares
+    let token = SecurityToken {
+        name: vec![0x01].into(),
+        owner_did: token_owner_did.clone(),
+        total_supply: 1_000_000,
+        divisible: true,
+        asset_type: AssetType::default(),
+        ..Default::default()
+    };
+    let ticker = Ticker::from(token.name.0.as_slice());
+
+    // 2. Share issuance is successful
+    assert_ok!(Asset::create_token(
+        token_owner_signed.clone(),
+        token.name.clone(),
+        ticker,
+        token.total_supply,
+        true,
+        token.asset_type.clone(),
+        vec![],
+        None
+    ));
+
+    // Failed because caller is not the owner of the ticker
+    assert_err!(
+        GeneralTM::add_default_trusted_claim_issuers_batch(
+            receiver_signed.clone(),
+            ticker,
+            vec![trusted_issuer_did_1, trusted_issuer_did_2]
+        ),
+        GTMError::<TestStorage>::Unauthorized
+    );
+
+    // Failed because trusted issuer identity not exist
+    assert_err!(
+        GeneralTM::add_default_trusted_claim_issuers_batch(
+            token_owner_signed.clone(),
+            ticker,
+            vec![IdentityId::from(1), IdentityId::from(2)]
+        ),
+        GTMError::<TestStorage>::DidNotExist
+    );
+
+    // Failed because trusted issuers length < 0
+    assert_err!(
+        GeneralTM::add_default_trusted_claim_issuers_batch(
+            token_owner_signed.clone(),
+            ticker,
+            vec![]
+        ),
+        GTMError::<TestStorage>::InvalidLength
+    );
+
+    assert_ok!(GeneralTM::add_default_trusted_claim_issuers_batch(
+        token_owner_signed.clone(),
+        ticker,
+        vec![trusted_issuer_did_1, trusted_issuer_did_2]
+    ));
+
+    assert_eq!(GeneralTM::trusted_claim_issuer(ticker).len(), 2);
+    assert_eq!(
+        GeneralTM::trusted_claim_issuer(ticker),
+        vec![trusted_issuer_did_1, trusted_issuer_did_2]
+    );
+
+    // adding claim by trusted issuer 1
+    assert_ok!(Identity::add_claim(
+        trusted_issuer_signed_1.clone(),
+        receiver_did.clone(),
+        IdentityClaimData::CustomerDueDiligence,
+        None,
+    ));
+
+    // adding claim by trusted issuer 1
+    assert_ok!(Identity::add_claim(
+        trusted_issuer_signed_1.clone(),
+        receiver_did.clone(),
+        IdentityClaimData::NoData,
+        None,
+    ));
+
+    // adding claim by trusted issuer 2
+    assert_ok!(Identity::add_claim(
+        trusted_issuer_signed_2.clone(),
+        token_owner_did.clone(),
+        IdentityClaimData::CustomerDueDiligence,
+        None,
+    ));
+
+    let now = Utc::now();
+    Timestamp::set_timestamp(now.timestamp() as u64);
+
+    let sender_rule = RuleData {
+        claim: IdentityClaimData::CustomerDueDiligence,
+        trusted_issuers: vec![],
+        rule_type: RuleType::ClaimIsPresent,
+    };
+
+    let receiver_rule_1 = RuleData {
+        claim: IdentityClaimData::CustomerDueDiligence,
+        trusted_issuers: vec![],
+        rule_type: RuleType::ClaimIsPresent,
+    };
+
+    let receiver_rule_2 = RuleData {
+        claim: IdentityClaimData::NoData,
+        trusted_issuers: vec![],
+        rule_type: RuleType::ClaimIsPresent,
+    };
+
+    let x = vec![sender_rule.clone()];
+    let y = vec![receiver_rule_1, receiver_rule_2];
+
+    assert_ok!(GeneralTM::add_active_rule(
+        token_owner_signed.clone(),
+        ticker,
+        x,
+        y
+    ));
+
+    assert_ok!(Asset::transfer(
+        token_owner_signed.clone(),
+        ticker,
+        receiver_did.clone(),
+        100
+    ));
+
+    // Remove the trusted issuer 1 from the list
+    assert_ok!(GeneralTM::remove_default_trusted_claim_issuers_batch(
+        token_owner_signed.clone(),
+        ticker,
+        vec![trusted_issuer_did_1]
+    ));
+
+    assert_eq!(GeneralTM::trusted_claim_issuer(ticker).len(), 1);
+    assert_eq!(
+        GeneralTM::trusted_claim_issuer(ticker),
+        vec![trusted_issuer_did_2]
+    );
+
+    // Transfer should fail as issuer doesn't exist anymore but the rule data still exist
+    assert_err!(
+        Asset::transfer(
+            token_owner_signed.clone(),
+            ticker,
+            receiver_did.clone(),
+            500
+        ),
+        AssetError::<TestStorage>::InvalidTransfer
+    );
+
+    // Change the asset rule to all the transfer happen again
+
+    let receiver_rule_1 = RuleData {
+        claim: IdentityClaimData::CustomerDueDiligence,
+        trusted_issuers: vec![trusted_issuer_did_1],
+        rule_type: RuleType::ClaimIsPresent,
+    };
+
+    let receiver_rule_2 = RuleData {
+        claim: IdentityClaimData::NoData,
+        trusted_issuers: vec![trusted_issuer_did_1],
+        rule_type: RuleType::ClaimIsPresent,
+    };
+
+    let x = vec![sender_rule];
+    let y = vec![receiver_rule_1, receiver_rule_2];
+
+    let asset_rule = AssetRule {
+        sender_rules: x.clone(),
+        receiver_rules: y.clone(),
+        rule_id: 1,
+    };
+
+    // Failed because sender is not the owner of the ticker
+    assert_err!(
+        GeneralTM::change_asset_rule(receiver_signed.clone(), ticker, asset_rule.clone()),
+        GTMError::<TestStorage>::Unauthorized
+    );
+
+    let asset_rule_failure = AssetRule {
+        sender_rules: x,
+        receiver_rules: y,
+        rule_id: 5,
+    };
+
+    // Failed because passed rule id is not valid
+    assert_err!(
+        GeneralTM::change_asset_rule(
+            token_owner_signed.clone(),
+            ticker,
+            asset_rule_failure.clone()
+        ),
+        GTMError::<TestStorage>::InvalidRuleId
+    );
+
+    // Should successfully change the asset rule
+    assert_ok!(GeneralTM::change_asset_rule(
+        token_owner_signed.clone(),
+        ticker,
+        asset_rule
+    ));
+
+    // Now the transfer should pass
+    assert_ok!(Asset::transfer(
+        token_owner_signed.clone(),
+        ticker,
+        receiver_did.clone(),
+        500
+    ));
 }

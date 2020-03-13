@@ -777,6 +777,13 @@ mod tests {
         type AddSignerMultiSigTarget = Test;
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
+        type ChargeTxFeeTarget = Test;
+    }
+
+    impl pallet_transaction_payment::ChargeTxFee for Test {
+        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+            Ok(ValidTransaction::default())
+        }
     }
 
     impl AddSignerMultiSig for Test {

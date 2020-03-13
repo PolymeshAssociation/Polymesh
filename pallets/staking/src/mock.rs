@@ -27,7 +27,7 @@ use frame_support::{
     dispatch::DispatchResult,
     impl_outer_dispatch, impl_outer_origin, parameter_types,
     traits::{Currency, FindAuthor, Get},
-    weights::Weight,
+    weights::{DispatchInfo, Weight},
     StorageLinkedMap, StorageValue,
 };
 use frame_system::{self as system, EnsureSignedBy};
@@ -50,6 +50,7 @@ use sp_runtime::testing::{sr25519::Public, Header, UintAuthorityId};
 use sp_runtime::traits::{
     Convert, IdentityLookup, OnInitialize, OpaqueKeys, SaturatedConversion, Verify,
 };
+use sp_runtime::transaction_validity::{TransactionValidity, ValidTransaction};
 use sp_runtime::{AnySignature, KeyTypeId, Perbill};
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -237,6 +238,13 @@ impl identity::Trait for Test {
     type AddSignerMultiSigTarget = Test;
     type CddServiceProviders = Test;
     type Balances = balances::Module<Test>;
+    type ChargeTxFeeTarget = Test;
+}
+
+impl pallet_transaction_payment::ChargeTxFee for Test {
+    fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        Ok(ValidTransaction::default())
+    }
 }
 
 impl GroupTrait for Test {
