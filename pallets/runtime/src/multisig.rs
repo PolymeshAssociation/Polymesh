@@ -316,6 +316,45 @@ decl_module! {
 
             Ok(())
         }
+
+        /// Adds a multisig as a signer of current did if the current did is the creator of the multisig
+        ///
+        /// # Arguments
+        /// * `multi_sig` - multi sig address
+        pub fn make_multisig_signer(origin, multi_sig: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ensure!(<MultiSigSignsRequired<T>>::exists(&multi_sig), Error::<T>::NoSuchMultisig);
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            ensure!(
+                <MultiSigCreator<T>>::get(&multi_sig) == signer_did,
+                Error::<T>::IdentityNotCreator
+            );
+            <identity::Module<T>>::unsafe_join_identity(
+                signer_did,
+                Signatory::from(AccountKey::try_from(multi_sig.encode())?)
+            )
+        }
+
+        /// Adds a multisig as the master key of the current did if the current did is the creator of the multisig
+        ///
+        /// # Arguments
+        /// * `multi_sig` - multi sig address
+        pub fn make_multisig_master(origin, multi_sig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ensure!(<MultiSigSignsRequired<T>>::exists(&multi_sig), Error::<T>::NoSuchMultisig);
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            ensure!(
+                <MultiSigCreator<T>>::get(&multi_sig) == signer_did,
+                Error::<T>::IdentityNotCreator
+            );
+            <identity::Module<T>>::unsafe_master_key_rotation(
+                AccountKey::try_from(multi_sig.encode())?,
+                signer_did,
+                optional_cdd_auth_id
+            )
+        }
     }
 }
 
@@ -369,6 +408,8 @@ decl_error! {
         AlreadyASigner,
         /// Couldn't charge fee for the transaction
         FailedToChargeFee,
+        /// Identity provided is not the multisig's creator
+        IdentityNotCreator
     }
 }
 

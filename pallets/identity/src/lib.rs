@@ -1114,6 +1114,7 @@ impl<T: Trait> Module<T> {
 
         // Replace master key of the owner that initiated key rotation
         <DidRecords>::mutate(rotation_for_did, |record| {
+            Self::unlink_key_to_did(&(*record).master_key, rotation_for_did);
             (*record).master_key = sender_key.clone();
         });
 
