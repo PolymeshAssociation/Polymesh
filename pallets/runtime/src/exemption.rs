@@ -66,7 +66,7 @@ decl_module! {
             );
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
-            let ticker_asset_holder_did = (ticker, _tm, asset_holder_did.clone());
+            let ticker_asset_holder_did = (ticker, _tm, asset_holder_did);
             let is_exempted = Self::exemption_list(&ticker_asset_holder_did);
             ensure!(is_exempted != exempted, Error::<T>::NoChange);
 

@@ -168,7 +168,7 @@ decl_module! {
 
             ensure!(now < ballot_details.voting_end, Error::<T>::InvalidDate);
             ensure!(ballot_details.voting_end > ballot_details.voting_start, Error::<T>::InvalidDate);
-            ensure!(ballot_details.motions.len() > 0, Error::<T>::NoMotions);
+            ensure!(!ballot_details.motions.is_empty(), Error::<T>::NoMotions);
 
             // NB: Checkpoint ID is not verified here to allow creating ballots that will become active in future.
             // Voting will only be allowed on checkpoints that exist.
@@ -176,7 +176,7 @@ decl_module! {
             let mut total_choices:usize = 0usize;
 
             for motion in &ballot_details.motions {
-                ensure!(motion.choices.len() > 0, Error::<T>::NoChoicesInMotions);
+                ensure!(!motion.choices.is_empty(), Error::<T>::NoChoicesInMotions);
                 total_choices += motion.choices.len();
             }
 

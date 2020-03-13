@@ -89,7 +89,7 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
             // Other calls should be identified
             _ => {
                 let id_opt = Self::identity_from_key(who);
-                if let Some(_id) = id_opt.clone() {
+                if let Some(_id) = id_opt {
                     // TODO CDD Claim validation is disable by now
                     // and it will enable later.
                     /*

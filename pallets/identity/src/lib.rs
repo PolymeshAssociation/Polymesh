@@ -240,7 +240,7 @@ decl_module! {
             // Ignore any key which is already valid in that identity.
             let authorized_signing_items = Self::did_records( did).signing_items;
             signing_items.iter()
-                .filter( |si| authorized_signing_items.contains(si) == false)
+                .filter( |si| !authorized_signing_items.contains(si))
                 .for_each( |si| Self::add_pre_join_identity( si, did));
 
             Self::deposit_event(RawEvent::NewSigningItems(did, signing_items));
@@ -290,7 +290,7 @@ decl_module! {
 
             <DidRecords>::mutate(did,
             |record| {
-                (*record).master_key = new_key.clone();
+                (*record).master_key = new_key;
             });
 
             Self::deposit_event(RawEvent::NewMasterKey(did, sender, new_key));
@@ -413,7 +413,7 @@ decl_module! {
             let _res = match proposal.dispatch(new_origin) {
                 Ok(_) => true,
                 Err(e) => {
-                    let e: DispatchError = e.into();
+                    let e: DispatchError = e;
                     sp_runtime::print(e);
                     false
                 }
@@ -475,7 +475,7 @@ decl_module! {
             }
 
             // Find key in `DidRecord::signing_keys`
-            if record.signing_items.iter().find(|&si| si.signer == signer).is_some() {
+            if record.signing_items.iter().any(|si| si.signer == signer) {
                 Self::update_signing_item_permissions(did, &signer, permissions)
             } else {
                 Err(Error::<T>::InvalidSender.into())
@@ -614,7 +614,7 @@ decl_module! {
             let signer = Context::current_identity_or::<Self>(&sender_key)
                 .map_or_else(
                     |_error| Signatory::from(sender_key),
-                    |did| Signatory::from(did));
+                    Signatory::from);
             ensure!(
                 <Authorizations<T>>::exists(signer, auth_id),
                 Error::<T>::AuthorizationDoesNotExist
@@ -629,7 +629,7 @@ decl_module! {
                             T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner =>
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
-                        _ => return Err(Error::<T>::UnknownAuthorization.into())
+                        _ => Err(Error::<T>::UnknownAuthorization.into())
                     }
                 },
                 Signatory::AccountKey(key) => {
@@ -638,7 +638,7 @@ decl_module! {
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
                         AuthorizationData::RotateMasterKey(_identityid) =>
                             Self::accept_master_key_rotation(key , auth_id, None),
-                        _ => return Err(Error::<T>::UnknownAuthorization.into())
+                        _ => Err(Error::<T>::UnknownAuthorization.into())
                     }
                 }
             }
@@ -653,7 +653,7 @@ decl_module! {
             let signer = Context::current_identity_or::<Self>(&sender_key)
                 .map_or_else(
                     |_error| Signatory::from(sender_key),
-                    |did| Signatory::from(did));
+                    Signatory::from);
 
             match signer {
                 Signatory::Identity(did) => {
@@ -712,7 +712,7 @@ decl_module! {
         ///  - AccountKey is not linked to any other identity.
         pub fn authorize_join_to_identity(origin, target_id: IdentityId) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
-            let signer_from_key = Signatory::AccountKey( sender_key.clone());
+            let signer_from_key = Signatory::AccountKey( sender_key);
             let signer_id_found = Self::key_to_identity_ids(sender_key);
 
             // Double check that `origin` (its key or identity) has been pre-authorize.
@@ -738,7 +738,7 @@ decl_module! {
 
             // Only works with a valid signer.
             if let Some(signer) = valid_signer {
-                if let Some(pre_auth) = Self::pre_authorized_join_did( signer.clone())
+                if let Some(pre_auth) = Self::pre_authorized_join_did( signer)
                         .iter()
                         .find( |pre_auth_item| pre_auth_item.target_id == target_id) {
                     // Remove pre-auth, link key to identity and update identity record.
@@ -967,7 +967,7 @@ impl<T: Trait> Module<T> {
         let auth = Authorization {
             authorization_data: authorization_data.clone(),
             authorized_by: from,
-            expiry: expiry,
+            expiry,
             auth_id: new_nonce,
         };
 
@@ -1029,7 +1029,7 @@ impl<T: Trait> Module<T> {
 
         let link = Link {
             link_data: link_data.clone(),
-            expiry: expiry,
+            expiry,
             link_id: new_nonce,
         };
 
@@ -1133,13 +1133,13 @@ impl<T: Trait> Module<T> {
 
             // Replace master key of the owner that initiated key rotation
             <DidRecords>::mutate(rotation_for_did, |record| {
-                (*record).master_key = sender_key.clone();
+                (*record).master_key = sender_key;
             });
 
             Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
             Ok(())
         } else {
-            return Err(Error::<T>::UnknownAuthorization.into());
+             Err(Error::<T>::UnknownAuthorization.into())
         }
     }
 
@@ -1331,7 +1331,7 @@ impl<T: Trait> Module<T> {
                 }
             }
         }
-        return (false, None);
+        (false, None)
     }
 
     /// It checks that `sender_key` is the master key of `did` Identifier and that
@@ -1357,7 +1357,7 @@ impl<T: Trait> Module<T> {
                 return Some(linked_id);
             }
         }
-        return None;
+         None
     }
 
     /// It freezes/unfreezes the target `did` identity.
@@ -1542,7 +1542,7 @@ impl<T: Trait> Module<T> {
         };
         <DidRecords>::insert(&did, record);
 
-        Self::deposit_event(RawEvent::NewDid(did.clone(), sender, signing_items));
+        Self::deposit_event(RawEvent::NewDid(did, sender, signing_items));
         Ok(did)
     }
 
@@ -1570,8 +1570,8 @@ impl<T: Trait> Module<T> {
 
         let claim = IdentityClaim {
             claim_issuer: did_issuer,
-            issuance_date: issuance_date,
-            last_update_date: last_update_date,
+            issuance_date,
+            last_update_date,
             expiry: claim_expiry,
             claim: claim_data,
         };

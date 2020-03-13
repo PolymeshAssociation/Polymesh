@@ -45,14 +45,14 @@ use syn::parse::{Parse, ParseStream};
 /// use sp_runtime::curve::PiecewiseLinear;
 ///
 /// pallet_staking_reward_curve::build! {
-/// 	const I_NPOS: PiecewiseLinear<'static> = curve!(
-/// 		min_inflation: 0_025_000,
-/// 		max_inflation: 0_100_000,
-/// 		ideal_stake: 0_500_000,
-/// 		falloff: 0_050_000,
-/// 		max_piece_count: 40,
-/// 		test_precision: 0_005_000,
-/// 	);
+/// const I_NPOS: PiecewiseLinear<'static> = curve!(
+///    min_inflation: 0_025_000,
+///    max_inflation: 0_100_000,
+///    ideal_stake: 0_500_000,
+///    falloff: 0_050_000,
+///    max_piece_count: 40,
+///    test_precision: 0_005_000,
+/// );
 /// }
 /// ```
 #[proc_macro]
@@ -452,5 +452,5 @@ fn generate_test_module(input: &INposInput) -> TokenStream2 {
 				);
 			}
 		}
-	).into()
+	)
 }

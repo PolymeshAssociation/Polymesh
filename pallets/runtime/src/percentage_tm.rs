@@ -132,7 +132,7 @@ impl<T: Trait> Module<T> {
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
         // TODO: Mould the integer into the module identity
-        if let Some(to_did) = to_did_opt.clone() {
+        if let Some(to_did) = to_did_opt {
             let is_exempted = <exemption::Module<T>>::is_exempted(&ticker, 2, to_did);
             if max_percentage != 0 && !is_exempted {
                 let new_balance = (T::Asset::balance(&ticker, to_did))

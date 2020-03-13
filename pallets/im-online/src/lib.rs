@@ -52,13 +52,13 @@
 //! pub trait Trait: im_online::Trait {}
 //!
 //! decl_module! {
-//! 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-//! 		pub fn is_online(origin, authority_index: u32) -> dispatch::DispatchResult {
-//! 			let _sender = ensure_signed(origin)?;
-//! 			let _is_online = <im_online::Module<T>>::is_online(authority_index);
-//! 			Ok(())
-//! 		}
+//! pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+//!     pub fn is_online(origin, authority_index: u32) -> dispatch::DispatchResult {
+//!         let _sender = ensure_signed(origin)?;
+//!         let _is_online = <im_online::Module<T>>::is_online(authority_index);
+//!         Ok(())
 //! 	}
+//! }
 //! }
 //! # fn main() { }
 //! ```
@@ -316,9 +316,9 @@ decl_module! {
                     &network_state
                 );
             } else if exists {
-                Err(Error::<T>::DuplicatedHeartbeat)?
+              return  Err(Error::<T>::DuplicatedHeartbeat.into())
             } else {
-                Err(Error::<T>::InvalidKey)?
+              return  Err(Error::<T>::InvalidKey.into())
             }
         }
 

@@ -7,7 +7,6 @@ use polymesh_primitives::{
 };
 
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
-use frame_system;
 use sp_core::H512;
 use sp_runtime::traits::Dispatchable;
 #[cfg(feature = "std")]

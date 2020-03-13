@@ -3,7 +3,6 @@ use core::fmt::{Display, Formatter};
 use core::str;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_io;
 use sp_runtime::traits::Printable;
 use sp_std::prelude::*;
 
@@ -104,7 +103,7 @@ impl From<[u8; UUID_LEN]> for IdentityId {
 
 impl Printable for IdentityId {
     fn print(&self) {
-        sp_io::misc::print_utf8("did:poly:".as_bytes());
+        sp_io::misc::print_utf8(b"did:poly:");
         sp_io::misc::print_hex(&self.0);
     }
 }
