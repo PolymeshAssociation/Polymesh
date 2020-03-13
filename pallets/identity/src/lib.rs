@@ -1139,7 +1139,7 @@ impl<T: Trait> Module<T> {
             Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
             Ok(())
         } else {
-             Err(Error::<T>::UnknownAuthorization.into())
+            Err(Error::<T>::UnknownAuthorization.into())
         }
     }
 
@@ -1357,7 +1357,7 @@ impl<T: Trait> Module<T> {
                 return Some(linked_id);
             }
         }
-         None
+        None
     }
 
     /// It freezes/unfreezes the target `did` identity.

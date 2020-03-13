@@ -570,11 +570,7 @@ impl<T: Trait> Module<T> {
         <ReferendumMetadata<T>>::mutate(|metadata| metadata.push(ri));
         <Referendums<T>>::insert(proposal_hash, proposal);
 
-        Self::deposit_event(RawEvent::ReferendumCreated(
-            index,
-            priority,
-            proposal_hash,
-        ));
+        Self::deposit_event(RawEvent::ReferendumCreated(index, priority, proposal_hash));
 
         // If committee size is too small, enact it.
         if T::GovernanceCommittee::member_count() < 2 {

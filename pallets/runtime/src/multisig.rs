@@ -434,12 +434,12 @@ impl<T: Trait> Module<T> {
                     }
                 };
                 Self::deposit_event(RawEvent::ProposalExecuted(multisig, proposal_id, res));
-                 Ok(())
+                Ok(())
             } else {
-                 Ok(())
+                Ok(())
             }
         } else {
-             Err(Error::<T>::ProposalMissing.into())
+            Err(Error::<T>::ProposalMissing.into())
         }
     }
 

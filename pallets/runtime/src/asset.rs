@@ -1666,7 +1666,7 @@ impl<T: Trait> Module<T> {
                 return false;
             }
         }
-         true
+        true
     }
 
     pub fn is_ticker_registry_valid(ticker: &Ticker, did: IdentityId) -> bool {
@@ -1685,7 +1685,7 @@ impl<T: Trait> Module<T> {
                 return true;
             }
         }
-         false
+        false
     }
 
     /// Returns 0 if ticker is registered to someone else
@@ -1797,7 +1797,7 @@ impl<T: Trait> Module<T> {
         // User has no checkpoint data.
         // This means that user's balance has not changed since first checkpoint was created.
         // Maybe the user never held any balance.
-         Self::balance_of(&ticker_did)
+        Self::balance_of(&ticker_did)
     }
 
     fn find_ceiling(arr: &Vec<u64>, key: u64) -> u64 {
@@ -1823,7 +1823,7 @@ impl<T: Trait> Module<T> {
         }
 
         // This should only be reached when mid becomes 0.
-         arr[0]
+        arr[0]
     }
 
     fn _is_valid_transfer(
@@ -2250,7 +2250,7 @@ impl<T: Trait> Module<T> {
                 return allowed;
             }
         }
-         RestrictionResult::Invalid
+        RestrictionResult::Invalid
     }
 
     /// A helper function that is used to call the smart extension function.
@@ -2270,13 +2270,11 @@ impl<T: Trait> Module<T> {
     ) -> ExecReturnValue {
         // TODO: Fix the value conversion into Currency
         match <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data) {
-            Ok(encoded_value) => {
-                 encoded_value
-            }
+            Ok(encoded_value) => encoded_value,
             Err(err) => {
                 let reason: &'static str = err.reason.into();
                 // status 0 is used for extension call successfully executed
-                 ExecReturnValue {
+                ExecReturnValue {
                     status: 1,
                     data: reason.as_bytes().to_vec(),
                 }

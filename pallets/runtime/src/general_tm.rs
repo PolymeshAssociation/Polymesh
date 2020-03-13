@@ -242,7 +242,7 @@ impl<T: Trait> Module<T> {
                 return true;
             }
         }
-         false
+        false
     }
 
     ///  Sender restriction verification

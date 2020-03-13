@@ -278,10 +278,10 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
                 Some(voting.ayes.swap_remove(idx))
             } else if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
-                    Some(voting.nays.swap_remove(idx))
-                } else {
-                    None
-                };
+                Some(voting.nays.swap_remove(idx))
+            } else {
+                None
+            };
 
             if is_id_removed.is_some() {
                 <Voting<T, I>>::insert(&proposal, voting);
