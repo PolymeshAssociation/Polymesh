@@ -12,7 +12,7 @@ use polymesh_runtime_identity as identity;
 use codec::Encode;
 use frame_support::{
     dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
-    parameter_types, traits::Currency,
+    parameter_types, traits::Currency, weights::DispatchInfo,
 };
 use frame_system::{self as system, EnsureSignedBy};
 use sp_core::{
@@ -23,6 +23,7 @@ use sp_core::{
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+    transaction_validity::{TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
 use std::convert::TryFrom;
@@ -146,6 +147,12 @@ impl multisig::Trait for TestStorage {
     type Event = Event;
 }
 
+impl pallet_transaction_payment::ChargeTxFee for TestStorage {
+    fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        Ok(ValidTransaction::default())
+    }
+}
+
 parameter_types! {
     pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
     pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -216,6 +223,7 @@ impl identity::Trait for TestStorage {
     type AddSignerMultiSigTarget = TestStorage;
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
+    type ChargeTxFeeTarget = TestStorage;
 }
 
 impl AddSignerMultiSig for TestStorage {

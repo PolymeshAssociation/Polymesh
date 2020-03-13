@@ -522,6 +522,7 @@ impl identity::Trait for Runtime {
     type AddSignerMultiSigTarget = MultiSig;
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
+    type ChargeTxFeeTarget = TransactionPayment;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
