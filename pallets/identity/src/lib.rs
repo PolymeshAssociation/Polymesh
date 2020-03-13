@@ -1596,6 +1596,10 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::NewClaims(target_did, claim_meta_data, claim));
     }
 
+    pub fn is_identity_exists(did: &IdentityId) -> bool {
+        <DidRecords>::exists(did)
+    }
+
     fn unsafe_revoke_claim(claim_identifier: ClaimIdentifier, did: IdentityId) {
         <Claims>::remove(&did, &claim_identifier);
         Self::deposit_event(RawEvent::RevokedClaim(did, claim_identifier));

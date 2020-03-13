@@ -137,7 +137,8 @@
     },
     "AssetRule": {
         "sender_rules": "Vec<RuleData>",
-        "receiver_rules":"Vec<RuleData>"
+        "receiver_rules":"Vec<RuleData>",
+        "rule_id": "u32"
     },
     "RuleType": {
         "_enum": [
@@ -337,6 +338,6 @@
     },
     "AssetRules": {
         "is_paused": "bool",
-        "rules": "Vec<AssetRule>"
+        "rules": "Vec<AssetRules>"
     }
 }

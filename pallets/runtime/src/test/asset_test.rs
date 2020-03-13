@@ -207,16 +207,12 @@ fn valid_transfers_pass() {
             None
         ));
 
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
-
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
 
         assert_ok!(Asset::transfer(
@@ -269,16 +265,12 @@ fn valid_custodian_allowance() {
             token.total_supply
         );
 
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
-
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
         let funding_round1: FundingRoundName = b"Round One".into();
         assert_ok!(Asset::set_funding_round(
@@ -452,16 +444,12 @@ fn valid_custodian_allowance_of() {
             token.total_supply
         );
 
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
-
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
 
         // Mint some tokens to investor1
@@ -640,16 +628,12 @@ fn checkpoints_fuzz_test() {
                 None
             ));
 
-            let asset_rule = general_tm::AssetRule {
-                sender_rules: vec![],
-                receiver_rules: vec![],
-            };
-
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
                 owner_signed.clone(),
                 ticker,
-                asset_rule
+                vec![],
+                vec![]
             ));
 
             let mut owner_balance: [u128; 100] = [1_000_000; 100];
@@ -1747,15 +1731,13 @@ fn freeze_unfreeze_asset() {
             vec![],
             None
         ));
+
         // Allow all transfers.
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
         assert_ok!(GeneralTM::add_active_rule(
             alice_signed.clone(),
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
         assert_err!(
             Asset::freeze(bob_signed.clone(), ticker),
