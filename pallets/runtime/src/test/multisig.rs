@@ -12,6 +12,7 @@ use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_system::{EventRecord, Phase};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -427,4 +428,126 @@ fn add_multisig_signer() {
             true
         );
     });
+}
+
+#[test]
+fn should_change_all_signers_and_sigs_required() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let bob = Origin::signed(AccountKeyring::Bob.public());
+
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+
+        let dave_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let dave = Origin::signed(AccountKeyring::Dave.public());
+
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![Signatory::from(alice_did), Signatory::from(bob_did)],
+            1,
+        ));
+
+        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
+
+        let alice_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
+        let bob_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(bob_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            alice.clone(),
+            alice_auth_id
+        ));
+
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            bob.clone(),
+            bob_auth_id
+        ));
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
+            true
+        );
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
+            true
+        );
+
+        let call = Box::new(Call::MultiSig(
+            multisig::Call::change_all_signers_and_sigs_required(
+                vec![Signatory::from(charlie_did), Signatory::from(dave_did)],
+                2,
+            ),
+        ));
+
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.clone(),
+            musig_address.clone(),
+            call
+        ));
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
+            false
+        );
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(bob_did)),
+            false
+        );
+
+        let charlie_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(charlie_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
+        let dave_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(dave_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
+        let by = <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(charlie_did))
+            .next()
+            .unwrap()
+            .authorized_by;
+
+        Context::set_current_identity::<Identity>(None);
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            charlie,
+            charlie_auth_id
+        ));
+
+        Context::set_current_identity::<Identity>(None);
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            dave,
+            dave_auth_id
+        ));
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(dave_did)),
+            true
+        );
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(charlie_did)),
+            true
+        );
+
+        assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 2);
+    })
 }
