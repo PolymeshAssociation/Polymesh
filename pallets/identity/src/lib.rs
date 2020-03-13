@@ -56,8 +56,10 @@ use polymesh_runtime_common::{
 };
 
 use codec::Encode;
-use core::{convert::From, result::Result as StdResult};
-
+use core::{
+    convert::{From, TryInto},
+    result::Result as StdResult,
+};
 use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
@@ -71,10 +73,10 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{ExistenceRequirement, WithdrawReason},
-    weights::SimpleDispatchInfo,
+    weights::{GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-
+use pallet_transaction_payment::ChargeTxFee;
 use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 
 pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
@@ -402,6 +404,17 @@ decl_module! {
             //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
             //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
+
+            /// 1.4 charge fee
+            ensure!(
+                T::ChargeTxFeeTarget::charge_fee(
+                    Signatory::from(AccountKey::try_from(sender.encode())?),
+                    proposal.encode().len().try_into().unwrap_or_default(),
+                    proposal.get_dispatch_info(),
+                )
+                .is_ok(),
+                Error::<T>::FailedToChargeFee
+            );
 
             // 2. Actions
             Context::set_current_identity::<Self>(Some(target_did));
@@ -951,6 +964,8 @@ decl_error! {
         DidAlreadyExists,
         /// The signing keys contain the master key.
         SigningKeysContainMasterKey,
+        /// Couldn't charge fee for the transaction
+        FailedToChargeFee,
     }
 }
 
