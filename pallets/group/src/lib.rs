@@ -80,7 +80,7 @@ decl_module! {
         /// # Arguments
         /// * `at` Revocation time-stamp.
         /// * `who` Target member of the group.
-        pub fn disable_member_at( origin,
+        pub fn disable_member( origin,
             who: IdentityId,
             expiry: Option<T::Moment>,
             at: Option<T::Moment>
