@@ -20,7 +20,7 @@ impl Context {
     }
 
     /// It gets the current identity and if it is none, it will use the identity from `key`.
-    /// This funtion is a helper tool for testing where SignedExtension is not used and
+    /// This function is a helper tool for testing where SignedExtension is not used and
     /// `current_identity` is always none.
     pub fn current_identity_or<I: IdentityTrait>(
         key: &AccountKey,
