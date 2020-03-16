@@ -290,7 +290,7 @@ decl_module! {
             ensure!(<MultiSigSignsRequired<T>>::exists(&multisig), Error::<T>::NoSuchMultisig);
             ensure!(<MultiSigSigners<T>>::exists(&multisig, &signer), Error::<T>::NotASigner);
             ensure!(
-                <NumberOfSigners<T>>::get(&multisig) > <MultiSigSignsRequired<T>>::get(&sender),
+                <NumberOfSigners<T>>::get(&multisig) > <MultiSigSignsRequired<T>>::get(&multisig),
                 Error::<T>::NotEnoughSigners
             );
             let sender_key = AccountKey::try_from(sender.encode())?;
