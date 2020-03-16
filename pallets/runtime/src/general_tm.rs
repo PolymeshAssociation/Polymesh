@@ -45,7 +45,7 @@
 
 use crate::asset::{self, AssetTrait};
 
-use polymesh_primitives::{AccountKey, IdentityClaimData, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{AccountKey, IdentityClaimData, IdentityId, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait, Context,
 };
@@ -539,7 +539,7 @@ mod tests {
     use sp_std::result::Result;
     use test_client::{self, AccountKeyring};
 
-    use polymesh_primitives::IdentityId;
+    use polymesh_primitives::{IdentityId, Signatory};
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,

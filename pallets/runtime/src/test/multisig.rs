@@ -552,3 +552,77 @@ fn should_change_all_signers_and_sigs_required() {
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 2);
     })
 }
+
+#[test]
+fn make_multisig_master() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+        let bob = Origin::signed(AccountKeyring::Bob.public());
+        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![Signatory::from(alice_did)],
+            1,
+        ));
+
+        assert_eq!(
+            Identity::did_records(alice_did).master_key,
+            AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap()
+        );
+
+        assert_err!(
+            MultiSig::make_multisig_master(bob.clone(), musig_address.clone(), None),
+            Error::IdentityNotCreator
+        );
+
+        assert_ok!(MultiSig::make_multisig_master(
+            alice.clone(),
+            musig_address.clone(),
+            None
+        ));
+
+        assert_eq!(
+            Identity::did_records(alice_did).master_key,
+            AccountKey::try_from(musig_address.encode()).unwrap()
+        );
+    });
+}
+
+#[test]
+fn make_multisig_signer() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let bob = Origin::signed(AccountKeyring::Bob.public());
+
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+        let ms_key = AccountKey::try_from(musig_address.encode()).unwrap();
+
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![Signatory::from(alice_did)],
+            1,
+        ));
+
+        let signing_items = Identity::did_records(alice_did).signing_items;
+        assert!(signing_items.iter().find(|si| **si == ms_key).is_none());
+
+        assert_err!(
+            MultiSig::make_multisig_signer(bob.clone(), musig_address.clone()),
+            Error::IdentityNotCreator
+        );
+
+        assert_ok!(MultiSig::make_multisig_signer(
+            alice.clone(),
+            musig_address.clone(),
+        ));
+
+        let signing_items2 = Identity::did_records(alice_did).signing_items;
+        assert!(signing_items2.iter().find(|si| **si == ms_key).is_some());
+    });
+}
