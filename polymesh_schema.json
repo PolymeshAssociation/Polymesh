@@ -1,6 +1,7 @@
 {
     "IdentityId":"H256",
     "Ticker": "[u8; 12]",
+    "DispatchableName": "Text",
     "DocumentName": "Text",
     "DocumentUri": "Text",
     "DocumentHash": "Text",

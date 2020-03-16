@@ -3560,6 +3560,7 @@ dependencies = [
  "pallet-transaction-payment-rpc",
  "parking_lot 0.9.0",
  "polymesh-primitives",
+ "polymesh-protocol-fee",
  "polymesh-runtime",
  "polymesh-runtime-common",
  "polymesh-runtime-identity-rpc",
@@ -3604,6 +3605,19 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-version",
+]
+
+[[package]]
+name = "polymesh-protocol-fee"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "serde",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
