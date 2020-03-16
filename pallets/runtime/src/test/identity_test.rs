@@ -65,7 +65,8 @@ fn add_claims_batch() {
         assert!(Identity::is_claim_valid(
             claim_issuer_did,
             IdentityClaimData::Accredited(claim_issuer_did),
-            claim_issuer_did
+            claim_issuer_did,
+            None
         ));
 
         assert_eq!(claim1.claim, IdentityClaimData::NoData);

@@ -247,7 +247,7 @@ fn disable_member_we() {
         root.clone(),
         charlie_id,
         Some(10),
-        None,
+        None
     ));
     assert_eq!(CommitteeGroup::get_members(), vec![alice_id]);
     assert_eq!(CommitteeGroup::valid_members_at(10), vec![alice_id, bob_id]);

@@ -1240,32 +1240,42 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         claim_data: IdentityClaimData,
         claim_issuer: IdentityId,
+        issuance_date_less_than: Option<T::Moment>,
     ) -> bool {
+        // Check claim existence.
         let claim_meta_data = ClaimIdentifier(claim_data, claim_issuer);
-        if <Claims>::exists(&did, &claim_meta_data) {
-            let now = <pallet_timestamp::Module<T>>::get();
-            let claim = <Claims>::get(&did, &claim_meta_data);
-            if let Some(claim_expiry) = claim.expiry {
-                if claim_expiry <= now.saturated_into::<u64>() {
-                    return false;
-                }
-            }
-            return true;
+        if !<Claims>::exists(&did, &claim_meta_data) {
+            return false;
         }
-        false
+
+        let claim = <Claims>::get(&did, &claim_meta_data);
+
+        // Check issuance date.
+        if let Some(issuance_date_max) = issuance_date_less_than {
+            if claim.issuance_date >= issuance_date_max.saturated_into::<u64>() {
+                return false;
+            }
+        }
+
+        // Check claim expiry.
+        if let Some(claim_expiry) = claim.expiry {
+            let now = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
+            if claim_expiry <= now {
+                return false;
+            }
+        }
+
+        true
     }
 
     pub fn is_any_claim_valid(
-        did: IdentityId,
-        claim_data: IdentityClaimData,
-        claim_issuers: Vec<IdentityId>,
+        target: IdentityId,
+        claim: IdentityClaimData,
+        issuers: Vec<IdentityId>,
     ) -> bool {
-        for claim_issuer in claim_issuers {
-            if Self::is_claim_valid(did, claim_data.clone(), claim_issuer) {
-                return true;
-            }
-        }
-        false
+        issuers
+            .into_iter()
+            .any(|issuer| Self::is_claim_valid(target, claim.clone(), issuer, None))
     }
 
     pub fn fetch_valid_claim(
@@ -1301,12 +1311,32 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
-        let trusted_cdd_providers = T::CddServiceProviders::get_members();
-        Self::is_any_claim_valid(
-            claim_for,
-            IdentityClaimData::CustomerDueDiligence,
-            trusted_cdd_providers,
-        )
+        // 1. Check claims on active CDD providers
+        let active_cdds = T::CddServiceProviders::get_active_members();
+        let mut is_valid = active_cdds.into_iter().any(|cdd| {
+            Self::is_claim_valid(
+                claim_for,
+                IdentityClaimData::CustomerDueDiligence,
+                cdd,
+                None,
+            )
+        });
+
+        // 2. Check claims inactive CDD providers.
+        // NOTE: The claims should be created *before* CDD provider is deactivated.
+        if !is_valid {
+            let valid_cdds = T::CddServiceProviders::get_inactive_members();
+            is_valid = valid_cdds.into_iter().any(|cdd| {
+                Self::is_claim_valid(
+                    claim_for,
+                    IdentityClaimData::CustomerDueDiligence,
+                    cdd.id,
+                    Some(cdd.deactivated_at),
+                )
+            });
+        }
+
+        is_valid
     }
 
     /// IMPORTANT: No state change is allowed in this function

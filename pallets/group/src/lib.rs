@@ -97,12 +97,17 @@ decl_module! {
             };
 
             <InactiveMembers<T,I>>::mutate( |members| {
+                // Update inactive member
                 if let Some(idx) = members.binary_search(&inactive_member).ok() {
                     members[idx] = inactive_member;
                 } else {
                     members.push( inactive_member);
                     members.sort();
                 }
+
+                // Remove expired members.
+                let now = <pallet_timestamp::Module<T>>::get();
+                members.retain(|m| !Self::is_member_expired( m, now));
             });
             Self::deposit_event(RawEvent::MemberRevoked(who));
             Ok(())
@@ -245,13 +250,12 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     pub fn valid_members_at(moment: T::Moment) -> Vec<IdentityId> {
         Self::active_members()
             .into_iter()
-            .chain(Self::inactive_members().into_iter().filter_map(|m| {
-                if m.expiry.is_none() || m.expiry.unwrap_or_default() > moment {
-                    Some(m.id)
-                } else {
-                    None
-                }
-            }))
+            .chain(
+                Self::inactive_members()
+                    .into_iter()
+                    .filter(|m| !Self::is_member_expired(&m, moment))
+                    .map(|m| m.id),
+            )
             .collect::<Vec<_>>()
     }
 
@@ -307,6 +311,14 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         Self::deposit_event(RawEvent::MemberRemoved(who));
         Ok(())
     }
+
+    fn is_member_expired(member: &InactiveMember<T::Moment>, now: T::Moment) -> bool {
+        if let Some(expiry) = member.expiry {
+            expiry <= now
+        } else {
+            false
+        }
+    }
 }
 
 /// Retrieve all members of this group
@@ -318,8 +330,13 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         Self::active_members()
     }
 
+    /// It returns inactive members who are not expired yet.
     #[inline]
     fn get_inactive_members() -> Vec<InactiveMember<T::Moment>> {
+        let now = <pallet_timestamp::Module<T>>::get();
         Self::inactive_members()
+            .into_iter()
+            .filter(|member| !Self::is_member_expired(member, now))
+            .collect::<Vec<_>>()
     }
 }
