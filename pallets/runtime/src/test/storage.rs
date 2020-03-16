@@ -1,6 +1,7 @@
-use crate::{asset, bridge, committee, exemption, general_tm, multisig, percentage_tm, statistics};
+use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics, utils};
 
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use pallet_committee as committee;
+use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -12,7 +13,7 @@ use polymesh_runtime_identity as identity;
 use codec::Encode;
 use frame_support::{
     dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
-    parameter_types, traits::Currency,
+    parameter_types, traits::Currency, weights::DispatchInfo,
 };
 use frame_system::{self as system, EnsureSignedBy};
 use sp_core::{
@@ -23,6 +24,7 @@ use sp_core::{
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+    transaction_validity::{TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
 use std::convert::TryFrom;
@@ -146,6 +148,12 @@ impl multisig::Trait for TestStorage {
     type Event = Event;
 }
 
+impl pallet_transaction_payment::ChargeTxFee for TestStorage {
+    fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        Ok(ValidTransaction::default())
+    }
+}
+
 parameter_types! {
     pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
     pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -156,30 +164,30 @@ parameter_types! {
 
 impl group::Trait<group::DefaultInstance> for TestStorage {
     type Event = Event;
-    type AddOrigin = EnsureSignedBy<One, AccountId>;
-    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
-    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
-    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type AddOrigin = frame_system::EnsureRoot<AccountId>;
+    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
 
 impl group::Trait<group::Instance1> for TestStorage {
     type Event = Event;
-    type AddOrigin = EnsureSignedBy<One, AccountId>;
-    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
-    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
-    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type AddOrigin = frame_system::EnsureRoot<AccountId>;
+    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
 
 impl group::Trait<group::Instance2> for TestStorage {
     type Event = Event;
-    type AddOrigin = EnsureSignedBy<One, AccountId>;
-    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
-    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
-    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type AddOrigin = frame_system::EnsureRoot<AccountId>;
+    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
 }
@@ -199,14 +207,14 @@ parameter_types! {
 impl committee::Trait<committee::Instance1> for TestStorage {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin = EnsureSignedBy<CommitteeRoot, AccountId>;
+    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin = EnsureSignedBy<CommitteeRoot, AccountId>;
+    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
 }
 
@@ -216,6 +224,7 @@ impl identity::Trait for TestStorage {
     type AddSignerMultiSigTarget = TestStorage;
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
+    type ChargeTxFeeTarget = TestStorage;
 }
 
 impl AddSignerMultiSig for TestStorage {
@@ -297,9 +306,16 @@ impl asset::Trait for TestStorage {
     type Currency = balances::Module<TestStorage>;
 }
 
+parameter_types! {
+    pub const MaxTimelockedTxsPerBlock: u32 = 10;
+    pub const BlockRangeForTimelock: BlockNumber = 1000;
+}
+
 impl bridge::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
+    type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
+    type BlockRangeForTimelock = BlockRangeForTimelock;
 }
 
 impl exemption::Trait for TestStorage {
@@ -408,6 +424,17 @@ pub fn register_keyring_account_with_balance(
 ) -> Result<IdentityId, &'static str> {
     let acc_pub = acc.public();
     make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
+}
+
+pub fn add_signing_item(did: IdentityId, signer: Signatory) {
+    let master_key = Identity::did_records(&did).master_key;
+    let auth_id = Identity::add_auth(
+        Signatory::from(master_key),
+        signer,
+        AuthorizationData::JoinIdentity(did),
+        None,
+    );
+    Identity::join_identity(signer, auth_id);
 }
 
 pub fn account_from(id: u64) -> AccountId {

@@ -21,9 +21,9 @@ async function main() {
   let master_keys = await reqImports["generateKeys"](api,5, "master");
 
   let signing_keys = await reqImports["generateKeys"](api, 5, "signing");
-  
+
   await reqImports["createIdentities"](api, testEntities);
-  
+
   await reqImports["distributePoly"]( api, master_keys.concat(signing_keys), reqImports["transfer_amount"], testEntities[0] );
 
   await reqImports["blockTillPoolEmpty"](api);
@@ -50,23 +50,24 @@ async function main() {
 
 // Authorizes the join of signing keys to a DID
 async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) {
-   
-    for (let i = 0; i < accounts.length; i++) {
-      // 1. Authorize
-      
-          const unsub = await api.tx.identity
-          .authorizeJoinToIdentity(dids[i])
-          .signAndSend(signing_accounts[i],
-            { nonce: reqImports["nonces"].get(signing_accounts[i].address) },
-            ({ events = [], status }) => {
-            if (status.isFinalized) {
-              reqImports["fail_count"] = reqImports["callback"](status, events, "identity", "SignerJoinedToIdentityApproved", reqImports["fail_count"]);
-              unsub();
-            }
-          });
-    }
-  
-    return dids;
+
+  for (let i = 0; i < accounts.length; i++) {
+    // 1. Authorize
+    const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
+    const last_auth_id = auths[auths.length - 1].auth_id;
+    const unsub = await api.tx.identity
+    .joinIdentityAsKey([last_auth_id])
+    .signAndSend(signing_accounts[i],
+      { nonce: reqImports["nonces"].get(signing_accounts[i].address) },
+      ({ events = [], status }) => {
+      if (status.isFinalized) {
+        reqImports["fail_count"] = reqImports["callback"](status, events, "identity", "NewSigningItems", reqImports["fail_count"]);
+        unsub();
+      }
+    });
   }
+
+  return dids;
+}
 
 main().catch(console.error);

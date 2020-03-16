@@ -8,7 +8,6 @@ pub mod impls;
 pub mod statistics;
 
 pub mod asset;
-pub mod committee;
 
 #[cfg(feature = "std")]
 pub use pallet_staking::{Commission, StakerStatus};
@@ -38,17 +37,18 @@ pub use runtime::{native_version, WASM_BINARY};
 #[cfg(feature = "std")]
 pub mod config {
 
+    use pallet_committee as committee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_identity as identity;
 
     pub type AssetConfig = crate::asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
-    pub type BridgeConfig = crate::bridge::GenesisConfig;
+    pub type BridgeConfig = crate::bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type PolymeshCommitteeConfig =
-        crate::committee::GenesisConfig<crate::Runtime, crate::committee::Instance1>;
+        committee::GenesisConfig<crate::Runtime, committee::Instance1>;
     pub type MipsConfig = pallet_mips::GenesisConfig<crate::Runtime>;
     pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
     pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;

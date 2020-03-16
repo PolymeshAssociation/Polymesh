@@ -455,13 +455,14 @@ mod tests {
     use frame_support::traits::Currency;
     use frame_support::{
         assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
-        parameter_types,
+        parameter_types, weights::DispatchInfo,
     };
     use lazy_static::lazy_static;
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
+        transaction_validity::{TransactionValidity, ValidTransaction},
         AnySignature, KeyTypeId, Perbill,
     };
     use test_client::{self, AccountKeyring};
@@ -664,6 +665,13 @@ mod tests {
         type AddSignerMultiSigTarget = Test;
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
+        type ChargeTxFeeTarget = Test;
+    }
+
+    impl pallet_transaction_payment::ChargeTxFee for Test {
+        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+            Ok(ValidTransaction::default())
+        }
     }
 
     impl GroupTrait for Test {
@@ -930,16 +938,12 @@ mod tests {
 
             drop(outer);
 
-            let asset_rule = general_tm::AssetRule {
-                sender_rules: vec![],
-                receiver_rules: vec![],
-            };
-
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
                 ticker,
-                asset_rule
+                vec![],
+                vec![]
             ));
 
             // Transfer tokens to investor

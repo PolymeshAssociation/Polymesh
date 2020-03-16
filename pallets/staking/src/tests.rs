@@ -411,7 +411,7 @@ fn staking_should_work() {
             start_session(1);
             // Pass compliance for account 3
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(3)
             ));
             // add a new candidate for being a validator. account 3 controlled by 4.
@@ -2078,7 +2078,7 @@ fn switching_roles() {
 
             // Pass compliance for account 1
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(1)
             ));
 
@@ -2140,7 +2140,7 @@ fn switching_roles() {
 
             // Pass compliance for account 5
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(5)
             ));
 
@@ -2248,7 +2248,7 @@ fn switching_roles_when_min_bond_changes() {
 
             // Pass compliance for account 1
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(1)
             ));
 
@@ -2279,7 +2279,7 @@ fn switching_roles_when_min_bond_changes() {
 
             // Pass compliance for account 1
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(5)
             ));
 
@@ -2519,7 +2519,7 @@ fn bond_with_little_staked_value_bounded_by_slot_stake() {
             ));
             // Pass compliance for account 1
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(1)
             ));
             assert_ok!(Staking::validate(
@@ -2699,11 +2699,11 @@ fn phragmen_should_not_overflow_validators() {
 
             // Pass copliance for account 3 & 5
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(3)
             ));
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(5)
             ));
 
@@ -2762,11 +2762,11 @@ fn phragmen_should_not_overflow_nominators() {
 
             // Pass compliance for account 3 & 5
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(3)
             ));
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(5)
             ));
 
@@ -2823,11 +2823,11 @@ fn phragmen_should_not_overflow_ultimate() {
 
             // Pass compliance for account 3 & 5
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(3)
             ));
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 account_from(5)
             ));
 
@@ -4102,11 +4102,11 @@ fn should_add_potential_validators() {
             let acc_20 = account_from(20);
 
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 acc_10.clone()
             ));
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 acc_20.clone()
             ));
 
@@ -4140,11 +4140,11 @@ fn should_remove_validators() {
             let acc_30 = account_from(30);
 
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 acc_10.clone()
             ));
             assert_ok!(Staking::add_potential_validator(
-                Origin::signed(account_from(1000)),
+                Origin::system(frame_system::RawOrigin::Root),
                 acc_20.clone()
             ));
 
