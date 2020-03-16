@@ -349,7 +349,7 @@ fn testnet_genesis(
             gas_price: 1 * MILLICENTS,
         }),
         group_Instance1: Some(CommitteeMembershipConfig {
-            members: vec![],
+            active_members: vec![],
             phantom: Default::default(),
         }),
         committee_Instance1: Some(PolymeshCommitteeConfig {
@@ -362,7 +362,7 @@ fn testnet_genesis(
             phantom: Default::default(),
         }),
         group_Instance2: Some(CddServiceProvidersConfig {
-            members: vec![IdentityId::from(1), IdentityId::from(2)],
+            active_members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }),
     }
