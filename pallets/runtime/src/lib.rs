@@ -44,7 +44,7 @@ pub mod config {
 
     pub type AssetConfig = crate::asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
-    pub type BridgeConfig = crate::bridge::GenesisConfig;
+    pub type BridgeConfig = crate::bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;

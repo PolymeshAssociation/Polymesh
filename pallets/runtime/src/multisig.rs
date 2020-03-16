@@ -40,14 +40,16 @@ use polymesh_runtime_common::{
 use polymesh_runtime_identity as identity;
 
 use codec::{Decode, Encode, Error as CodecError};
+use core::convert::{From, TryInto};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    weights::{GetDispatchInfo, Weight},
+    weights::GetDispatchInfo,
     StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_transaction_payment::ChargeTxFee;
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, prelude::*};
 
@@ -85,7 +87,6 @@ decl_storage! {
         pub Votes get(votes): map (T::AccountId, Signatory, u64) => bool;
     }
 }
-use core::convert::From;
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -233,13 +234,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
             ensure!(<MultiSigSignsRequired<T>>::exists(&sender), Error::<T>::NoSuchMultisig);
-            <identity::Module<T>>::add_auth(
-                sender_signer,
-                signer,
-                AuthorizationData::AddMultiSigSigner,
-                None
-            );
-            Self::deposit_event(RawEvent::MultiSigSignerAuthorized(sender, signer));
+            Self::unsafe_add_auth_for_signers(sender_signer, signer, sender);
             Ok(())
         }
 
@@ -255,9 +250,8 @@ decl_module! {
                 <NumberOfSigners<T>>::get(&sender) > <MultiSigSignsRequired<T>>::get(&sender),
                 Error::<T>::NotEnoughSigners
             );
-            <NumberOfSigners<T>>::mutate(&sender, |x| *x -= 1u64);
-            <MultiSigSigners<T>>::remove(&sender, signer);
-            Self::deposit_event(RawEvent::MultiSigSignerRemoved(sender, signer));
+            <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - 1u64);
+            Self::unsafe_signer_removal(sender, &signer);
             Ok(())
         }
 
@@ -272,8 +266,50 @@ decl_module! {
                 <NumberOfSigners<T>>::get(&sender) >= sigs_required,
                 Error::<T>::NotEnoughSigners
             );
-            <MultiSigSignsRequired<T>>::insert(&sender, &sigs_required);
-            Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(sender, sigs_required));
+            Self::unsafe_change_sigs_required(sender, sigs_required);
+            Ok(())
+        }
+
+        /// This function allows to replace all existing signers of the given multisig & also change no. of signature required
+        /// NOTE - Once this function get executed no other function of the multisig is allowed to execute until unless
+        /// potential signers accept the authorization and there count should be greater than or equal to the signature required
+        ///
+        /// # Arguments
+        /// * signers - Vector of signers for a given multisig
+        /// * sigs_required - Number of signature required for a given multisig
+        pub fn change_all_signers_and_sigs_required(origin, signers: Vec<Signatory>, sigs_required: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+            ensure!(<MultiSigSignsRequired<T>>::exists(&sender), Error::<T>::NoSuchMultisig);
+            ensure!(signers.len() > 0, Error::<T>::NoSigners);
+            ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
+                Error::<T>::RequiredSignaturesOutOfBounds
+            );
+
+            // Collect the list of all signers present for the given multisig
+            let current_signers = <MultiSigSigners<T>>::iter_prefix(&sender).collect::<Vec<Signatory>>();
+            // Collect all those signers who need to be removed. It means those signers that are not exist in the signers vector
+            // but present in the current_signers vector
+            let old_signers = current_signers.clone().into_iter().filter(|x| !signers.contains(x)).collect::<Vec<Signatory>>();
+            // Collect all those signers who need to be added. It means those signers that are not exist in the current_signers vector
+            // but present in the signers vector
+            let new_signers = signers.into_iter().filter(|x| !current_signers.contains(x)).collect::<Vec<Signatory>>();
+            // Removing the signers from the valid multi-signers list first
+            old_signers.iter()
+                .for_each(|signer| {
+                    Self::unsafe_signer_removal(sender.clone(), signer)
+                });
+
+            // Add the new signers for the given multi-sig
+            new_signers.into_iter()
+                .for_each(|signer| {
+                    Self::unsafe_add_auth_for_signers(sender_signer, signer, sender.clone())
+                });
+            // Change the no. of signers for a multisig
+            <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - u64::try_from(old_signers.len()).unwrap_or_default());
+            // Change the required signature count
+            Self::unsafe_change_sigs_required(sender, sigs_required);
+
             Ok(())
         }
     }
@@ -327,10 +363,35 @@ decl_error! {
         AlreadyApproved,
         /// Already a signer.
         AlreadyASigner,
+        /// Couldn't charge fee for the transaction
+        FailedToChargeFee,
     }
 }
 
 impl<T: Trait> Module<T> {
+    /// Private immutables
+
+    /// Add authorization for the accountKey to become a signer of multisig
+    fn unsafe_add_auth_for_signers(from: Signatory, target: Signatory, authorizer: T::AccountId) {
+        <identity::Module<T>>::add_auth(from, target, AuthorizationData::AddMultiSigSigner, None);
+        Self::deposit_event(RawEvent::MultiSigSignerAuthorized(authorizer, target));
+    }
+
+    /// Remove signer from the valid signer list for a given multisig
+    fn unsafe_signer_removal(multisig: T::AccountId, signer: &Signatory) {
+        <MultiSigSigners<T>>::remove(&multisig, signer);
+        Self::deposit_event(RawEvent::MultiSigSignerRemoved(multisig, *signer));
+    }
+
+    /// Change the required signature count for a given multisig
+    fn unsafe_change_sigs_required(multisig: T::AccountId, sigs_required: u64) {
+        <MultiSigSignsRequired<T>>::insert(&multisig, &sigs_required);
+        Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(
+            multisig,
+            sigs_required,
+        ));
+    }
+
     /// Creates a multisig account without precondition checks or emitting an event.
     pub fn create_multisig_account(
         sender: T::AccountId,
@@ -409,13 +470,21 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyApproved
         );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
-            Self::charge_fee(multisig.clone(), proposal.get_dispatch_info().weight)?;
             <Votes<T>>::insert(&multisig_signer_proposal, true);
             // Since approvals are always only incremented by 1, they can not overflow.
             let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
             <TxApprovals<T>>::insert(&multisig_proposal, approvals);
             let approvals_needed = Self::ms_signs_required(multisig.clone());
             if approvals >= approvals_needed {
+                ensure!(
+                    T::ChargeTxFeeTarget::charge_fee(
+                        signer,
+                        proposal.encode().len().try_into().unwrap_or_default(),
+                        proposal.get_dispatch_info(),
+                    )
+                    .is_ok(),
+                    Error::<T>::FailedToChargeFee
+                );
                 let who_key = AccountKey::try_from(multisig.clone().encode())?;
                 match <identity::Module<T>>::get_identity(&who_key) {
                     Some(id) => {
@@ -441,12 +510,6 @@ impl<T: Trait> Module<T> {
         } else {
             Err(Error::<T>::ProposalMissing.into())
         }
-    }
-
-    /// Charges appropriate fee for the proposal
-    fn charge_fee(_multisig: T::AccountId, _weight: Weight) -> DispatchResult {
-        // TODO use this weight to charge appropriate fee
-        Ok(())
     }
 
     /// Accept and process addition of a signer to a multisig

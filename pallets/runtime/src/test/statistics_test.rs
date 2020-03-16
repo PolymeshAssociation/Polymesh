@@ -52,17 +52,12 @@ fn investor_count_per_asset_with_ext() {
         None,
     ));
 
-    // NOTE: TM needs at least one asset rule.
-    let asset_rule = general_tm::AssetRule {
-        sender_rules: vec![],
-        receiver_rules: vec![],
-    };
-
     let ticker = Ticker::from(token.name.as_slice());
     assert_ok!(GeneralTM::add_active_rule(
         alice_signed.clone(),
         ticker,
-        asset_rule
+        vec![],
+        vec![]
     ));
 
     // Alice sends some tokens to Bob. Token has only one investor.

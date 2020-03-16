@@ -38,7 +38,7 @@ use frame_support::{
     weights::{DispatchInfo, GetDispatchInfo, Weight},
 };
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-use primitives::{traits::IdentityCurrency, AccountKey, TransactionError};
+use primitives::{traits::IdentityCurrency, AccountKey, Signatory, TransactionError};
 use sp_runtime::{
     traits::{Convert, SaturatedConversion, Saturating, SignedExtension, Zero},
     transaction_validity::{
@@ -255,6 +255,57 @@ where
         // will be a bit more than setting the priority to tip. For now, this is enough.
         r.priority = fee.saturated_into::<TransactionPriority>();
         Ok(r)
+    }
+}
+
+pub trait ChargeTxFee {
+    fn charge_fee(who: Signatory, len: u32, info: DispatchInfo) -> TransactionValidity;
+}
+
+impl<T: Trait> ChargeTxFee for Module<T> {
+    fn charge_fee(who: Signatory, len: u32, info: DispatchInfo) -> TransactionValidity {
+        let fee = if info.pays_fee {
+            let len = <BalanceOf<T>>::from(len);
+            let per_byte = T::TransactionByteFee::get();
+            let len_fee = per_byte.saturating_mul(len);
+
+            let weight_fee = {
+                // cap the weight to the maximum defined in runtime, otherwise it will be the `Bounded`
+                // maximum of its data type, which is not desired.
+                let capped_weight = info
+                    .weight
+                    .min(<T as frame_system::Trait>::MaximumBlockWeight::get());
+                T::WeightToFee::convert(capped_weight)
+            };
+
+            // the adjustable part of the fee
+            let adjustable_fee = len_fee.saturating_add(weight_fee);
+            let targeted_fee_adjustment = NextFeeMultiplier::get();
+            // adjusted_fee = adjustable_fee + (adjustable_fee * targeted_fee_adjustment)
+            let adjusted_fee =
+                targeted_fee_adjustment.saturated_multiply_accumulate(adjustable_fee);
+
+            let base_fee = T::TransactionBaseFee::get();
+            let final_fee = base_fee.saturating_add(adjusted_fee);
+
+            final_fee
+        } else {
+            Zero::zero()
+        };
+        let imbalance = match who {
+            Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
+                .map_err(|_| InvalidTransaction::Payment),
+            Signatory::AccountKey(account) => T::Currency::withdraw(
+                &T::AccountId::decode(&mut &account.encode()[..])
+                    .map_err(|_| InvalidTransaction::Payment)?,
+                fee,
+                WithdrawReason::TransactionPayment.into(),
+                ExistenceRequirement::KeepAlive,
+            )
+            .map_err(|_| InvalidTransaction::Payment),
+        }?;
+        T::OnTransactionPayment::on_unbalanced(imbalance);
+        Ok(ValidTransaction::default())
     }
 }
 

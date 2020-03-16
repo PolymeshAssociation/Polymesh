@@ -121,13 +121,13 @@ const blockTillPoolEmpty = async function(api) {
 // precondition - accounts all have enough POLY
 const createIdentities = async function(api, accounts) {
   let dids = [];
-   
+
   for (let i = 0; i < accounts.length; i++) {
-    
+
       await api.tx.identity
         .registerDid([])
         .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
-    
+
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
   await blockTillPoolEmpty(api);
@@ -143,13 +143,13 @@ async function distributePoly(api, accounts, transfer_amount, signingEntity) {
 
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
-      
+
       const unsub = await api.tx.balances
       .transfer(accounts[i].address, transfer_amount)
       .signAndSend(
         signingEntity,
         { nonce: nonces.get(signingEntity.address) });
-     
+
     nonces.set(signingEntity.address, nonces.get(signingEntity.address).addn(1));
   }
 
@@ -157,46 +157,38 @@ async function distributePoly(api, accounts, transfer_amount, signingEntity) {
 
 // Attach a signing key to each DID
 async function addSigningKeys(api, accounts, dids, signing_accounts) {
- 
+
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
-    let signing_item = {
-      signer: {
-          AccountKey: signing_accounts[i].publicKey
-      },
-      signer_type: 0,
-      roles: []
-    };
-  
-      const unsub = await api.tx.identity
-      .addSigningItems([signing_item])
-      .signAndSend(accounts[i],
-        { nonce: nonces.get(accounts[i].address) });
-    
+
+    const unsub = await api.tx.identity
+    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
+    .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
-   
+
   }
 }
 
 // Authorizes the join of signing keys to a DID
 async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) {
-  
+
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
-   
-        const unsub = await api.tx.identity
-            .authorizeJoinToIdentity(dids[i])
-            .signAndSend(signing_accounts[i],
-                { nonce: nonces.get(signing_accounts[i].address) });
-        nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
+    const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
+    const last_auth_id = auths[auths.length - 1].auth_id;
+    const unsub = await api.tx.identity
+      .joinIdentityAsKey([last_auth_id])
+      .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
+    nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
   }
 
   return dids;
 }
 
-// Used to make the functions in scripts more efficient 
+// Used to make the functions in scripts more efficient
 async function callback(status, events, sectionName, methodName, fail_count) {
- 
+
     let new_did_ok = false;
     events.forEach(({ phase, event: { data, method, section } }) => {
       if (section == sectionName && method == methodName) {
@@ -211,7 +203,7 @@ async function callback(status, events, sectionName, methodName, fail_count) {
   return fail_count;
 }
 
-// this object holds the required imports for all the scripts 
+// this object holds the required imports for all the scripts
 let reqImports = {
   path,
   ApiPromise,

@@ -120,7 +120,7 @@ jobs:
           name: cli scripts test
           command: npm test
           working_directory: ./scripts/cli
-          no_output_timeout: 30m
+          no_output_timeout: 10m
       - save_cache:
           key: v2-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
           paths:
