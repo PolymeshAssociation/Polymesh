@@ -87,30 +87,7 @@ decl_module! {
         ) -> DispatchResult {
             T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
-            Self::unsafe_remove_member(who)?;
-
-            let deactivated_at = at.unwrap_or_else(||<pallet_timestamp::Module<T>>::get());
-            let inactive_member = InactiveMember {
-                id: who,
-                expiry,
-                deactivated_at
-            };
-
-            <InactiveMembers<T,I>>::mutate( |members| {
-                // Update inactive member
-                if let Some(idx) = members.binary_search(&inactive_member).ok() {
-                    members[idx] = inactive_member;
-                } else {
-                    members.push( inactive_member);
-                    members.sort();
-                }
-
-                // Remove expired members.
-                let now = <pallet_timestamp::Module<T>>::get();
-                members.retain(|m| !Self::is_member_expired( m, now));
-            });
-            Self::deposit_event(RawEvent::MemberRevoked(who));
-            Ok(())
+            <Self as GroupTrait<T::Moment>>::disable_member(who, expiry, at)
         }
 
         /// Add a member `who` to the set. May only be called from `AddOrigin` or root.
@@ -311,14 +288,6 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         Self::deposit_event(RawEvent::MemberRemoved(who));
         Ok(())
     }
-
-    fn is_member_expired(member: &InactiveMember<T::Moment>, now: T::Moment) -> bool {
-        if let Some(expiry) = member.expiry {
-            expiry <= now
-        } else {
-            false
-        }
-    }
 }
 
 /// Retrieve all members of this group
@@ -338,5 +307,36 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
             .into_iter()
             .filter(|member| !Self::is_member_expired(member, now))
             .collect::<Vec<_>>()
+    }
+
+    fn disable_member(
+        who: IdentityId,
+        expiry: Option<T::Moment>,
+        at: Option<T::Moment>,
+    ) -> DispatchResult {
+        Self::unsafe_remove_member(who)?;
+
+        let deactivated_at = at.unwrap_or_else(|| <pallet_timestamp::Module<T>>::get());
+        let inactive_member = InactiveMember {
+            id: who,
+            expiry,
+            deactivated_at,
+        };
+
+        <InactiveMembers<T, I>>::mutate(|members| {
+            // Update inactive member
+            if let Some(idx) = members.binary_search(&inactive_member).ok() {
+                members[idx] = inactive_member;
+            } else {
+                members.push(inactive_member);
+                members.sort();
+            }
+
+            // Remove expired members.
+            let now = <pallet_timestamp::Module<T>>::get();
+            members.retain(|m| !Self::is_member_expired(m, now));
+        });
+        Self::deposit_event(RawEvent::MemberRevoked(who));
+        Ok(())
     }
 }

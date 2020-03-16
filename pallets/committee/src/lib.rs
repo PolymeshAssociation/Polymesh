@@ -348,6 +348,14 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     fn get_inactive_members() -> Vec<InactiveMember<T::Moment>> {
         vec![]
     }
+
+    fn disable_member(
+        _who: IdentityId,
+        _expiry: Option<T::Moment>,
+        _at: Option<T::Moment>,
+    ) -> DispatchResult {
+        unimplemented!()
+    }
 }
 
 impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {

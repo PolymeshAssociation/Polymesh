@@ -5,6 +5,7 @@ use polymesh_primitives::IdentityId;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
+    dispatch::DispatchResult,
     traits::{ChangeMembers, InitializeMembers},
 };
 use sp_runtime::traits::EnsureOrigin;
@@ -106,12 +107,43 @@ decl_event!(
     }
 );
 
-pub trait GroupTrait<Moment> {
+pub trait GroupTrait<Moment: PartialOrd + Copy> {
     /// Retrieve members
     fn get_members() -> Vec<IdentityId>;
 
     /// Retrieve valid members: active and revoked members.
     fn get_inactive_members() -> Vec<InactiveMember<Moment>>;
+
+    /// It moves `who` from active to inactive group.
+    /// Any generated claim from `at` is considered as invalid. If `at` is `None` it will use `now`
+    /// by default.
+    /// If `expiry` is some value, that member will be removed automatically from this group at the
+    /// specific moment, and any generated claim will be invalidated.
+    fn disable_member(
+        who: IdentityId,
+        expiry: Option<Moment>,
+        at: Option<Moment>,
+    ) -> DispatchResult;
+
+    fn get_valid_members_at(moment: Moment) -> Vec<IdentityId> {
+        Self::get_active_members()
+            .into_iter()
+            .chain(
+                Self::get_inactive_members()
+                    .into_iter()
+                    .filter(|m| !Self::is_member_expired(&m, moment))
+                    .map(|m| m.id),
+            )
+            .collect::<Vec<_>>()
+    }
+
+    fn is_member_expired(member: &InactiveMember<Moment>, now: Moment) -> bool {
+        if let Some(expiry) = member.expiry {
+            expiry <= now
+        } else {
+            false
+        }
+    }
 
     #[inline]
     fn get_active_members() -> Vec<IdentityId> {

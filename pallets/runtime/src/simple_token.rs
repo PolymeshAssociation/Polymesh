@@ -408,6 +408,14 @@ mod tests {
         fn get_inactive_members() -> Vec<InactiveMember<Moment>> {
             unimplemented!()
         }
+
+        fn disable_member(
+            _who: IdentityId,
+            _expiry: Option<Moment>,
+            _at: Option<Moment>,
+        ) -> DispatchResult {
+            unimplemented!();
+        }
     }
 
     impl AddSignerMultiSig for Test {
