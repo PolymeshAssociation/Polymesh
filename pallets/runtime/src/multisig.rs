@@ -33,7 +33,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polymesh_primitives::{AccountKey, AuthorizationData, AuthorizationError, Signatory};
+use polymesh_primitives::{
+    AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signatory,
+};
 use polymesh_runtime_common::{
     identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, Context,
 };
@@ -83,8 +85,10 @@ decl_storage! {
             double_map hasher(blake2_256) T::AccountId, blake2_256(T::Proposal) => Option<u64>;
         /// Number of votes in favor of a tx. Mapping from (multisig, tx id) => no. of approvals.
         pub TxApprovals get(tx_approvals): map (T::AccountId, u64) => u64;
-        /// Individual multisig signer votes. (multi sig, signer, )
+        /// Individual multisig signer votes. (multi sig, signer, proposal) => vote
         pub Votes get(votes): map (T::AccountId, Signatory, u64) => bool;
+        /// Maps a multisig to its creator's identity
+        pub MultiSigCreator get(ms_creator): map T::AccountId => IdentityId;
     }
 }
 
@@ -398,6 +402,8 @@ impl<T: Trait> Module<T> {
         signers: &[Signatory],
         sigs_required: u64,
     ) -> CreateMultisigAccountResult<T> {
+        let sender_key = AccountKey::try_from(sender.encode())?;
+        let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
         let new_nonce = Self::ms_nonce()
             .checked_add(1)
             .ok_or(Error::<T>::NonceOverflow)?;
@@ -413,6 +419,7 @@ impl<T: Trait> Module<T> {
             );
         }
         <MultiSigSignsRequired<T>>::insert(&account_id, &sigs_required);
+        <MultiSigCreator<T>>::insert(&account_id, &signer_did);
         Ok(account_id)
     }
 
@@ -476,9 +483,10 @@ impl<T: Trait> Module<T> {
             <TxApprovals<T>>::insert(&multisig_proposal, approvals);
             let approvals_needed = Self::ms_signs_required(multisig.clone());
             if approvals >= approvals_needed {
+                let ms_creator_identity = <MultiSigCreator<T>>::get(&multisig);
                 ensure!(
                     T::ChargeTxFeeTarget::charge_fee(
-                        signer,
+                        Signatory::from(ms_creator_identity),
                         proposal.encode().len().try_into().unwrap_or_default(),
                         proposal.get_dispatch_info(),
                     )
