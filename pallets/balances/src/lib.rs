@@ -133,9 +133,9 @@
 //! type Currency: LockableCurrency<Self::AccountId, Moment=Self::BlockNumber>;
 //! }
 //! # struct StakingLedger<T: Trait> {
-//! # stash: <T as frame_system::Trait>::AccountId,
-//! # total: <<T as Trait>::Currency as frame_support::traits::Currency<<T as frame_system::Trait>::AccountId>>::Balance,
-//! # phantom: std::marker::PhantomData<T>,
+//!     # stash: <T as frame_system::Trait>::AccountId,
+//!     # total: <<T as Trait>::Currency as frame_support::traits::Currency<<T as frame_system::Trait>::AccountId>>::Balance,
+//!     # phantom: std::marker::PhantomData<T>,
 //! # }
 //! # const STAKING_ID: [u8; 8] = *b"staking ";
 //!

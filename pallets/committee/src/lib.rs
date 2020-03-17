@@ -205,8 +205,8 @@ decl_module! {
                 <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
                 <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
 
-            let votes = PolymeshVotes { index, ayes: vec![did], nays: vec![] };
-            <Voting<T, I>>::insert(proposal_hash, votes);
+                let votes = PolymeshVotes { index, ayes: vec![did], nays: vec![] };
+                <Voting<T, I>>::insert(proposal_hash, votes);
 
                 Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
             }
