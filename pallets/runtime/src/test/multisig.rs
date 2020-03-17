@@ -39,6 +39,7 @@ fn create_multisig() {
         assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
+        assert_eq!(MultiSig::ms_creator(musig_address), alice_did);
 
         assert_err!(
             MultiSig::create_multisig(alice.clone(), vec![], 10,),
