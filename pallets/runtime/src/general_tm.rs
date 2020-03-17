@@ -45,7 +45,9 @@
 
 use crate::asset::{self, AssetTrait};
 
-use polymesh_primitives::{predicate, AccountKey, IdentityId, Rule, Signatory, Ticker};
+use polymesh_primitives::{
+    predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Signatory, Ticker,
+};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait, Context,
 };
@@ -209,39 +211,33 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker, sender_did)
     }
 
-    /// It fetches the context in order to evaluate a predicate based on claims.
-    ///  - id : Target identity. Claims will be fetched filtered by this target identity.
-    ///  - rule: Based on that rule, this function will run some optimizations. See below:
-    ///
-    /// # Optimizations
-    /// The following optimizations are applied base on `rule` parameter:
-    ///  - One specific issuer. When rule is defined for an specific issuer, it will fetch and
-    ///     load into memory that claim.
-    ///  - List of issuers. It `rule` defines a list of issuers, it will iterate over identity
-    ///     claims (of an specific type) and load into memory the ones which are created by those
-    ///     issuers.
-    ///  - Zero issuers. It is the most expensive because it load all claims of specific type
-    ///     for the specific user.
-    ///
-    /// # TODO
-    ///   - Use an iterator instead of load claims into a vector.
-    fn fetch_context(id: IdentityId, rule: &Rule) -> predicate::Context {
-        let claim_type = rule.rule_type.as_claim_type();
-        let issuers = &rule.issuers;
-        let scope = rule.scope.clone();
+    fn fetch_claims(target: IdentityId, claim: &Claim, issuers: &[IdentityId]) -> Vec<Claim> {
+        let claim_type = claim.claim_type();
+        let scope = claim.as_scope().cloned();
 
-        let claims = match issuers.len() {
-            0 => <identity::Module<T>>::fetch_claims(id, claim_type, &scope)
-                .map(|id_claim| id_claim.claim)
+        issuers
+            .iter()
+            .flat_map(|issuer| {
+                <identity::Module<T>>::fetch_claim(target, claim_type, *issuer, scope)
+                    .map(|id_claim| id_claim.claim)
+            })
+            .collect::<Vec<_>>()
+    }
+
+    fn fetch_context(id: IdentityId, rule: &Rule) -> predicate::Context {
+        let issuers = &rule.issuers;
+
+        let claims = match rule.rule_type {
+            RuleType::IsPresent(ref claim) => Self::fetch_claims(id, claim, issuers),
+            RuleType::IsAbsent(ref claim) => Self::fetch_claims(id, claim, issuers),
+            RuleType::IsAnyOf(ref claims) => claims
+                .iter()
+                .flat_map(|claim| Self::fetch_claims(id, claim, issuers))
                 .collect::<Vec<_>>(),
-            1 => <identity::Module<T>>::fetch_claim_with_issuer(id, claim_type, issuers[0], scope)
-                .into_iter()
-                .map(|id_claim| id_claim.claim)
+            RuleType::IsNoneOf(ref claims) => claims
+                .iter()
+                .flat_map(|claim| Self::fetch_claims(id, claim, issuers))
                 .collect::<Vec<_>>(),
-            _ => <identity::Module<T>>::fetch_claims(id, claim_type, &scope)
-                .filter(|id_claim| issuers.contains(&id_claim.claim_issuer))
-                .map(|id_claim| id_claim.claim)
-                .collect::<sp_std::prelude::Vec<_>>(),
         };
 
         predicate::Context::from(claims)
@@ -333,7 +329,7 @@ mod tests {
     use sp_std::result::Result;
     use test_client::{self, AccountKeyring};
 
-    use polymesh_primitives::{Claim, ClaimType, IdentityId, Rule, RuleType};
+    use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope};
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -690,11 +686,11 @@ mod tests {
             let (claim_issuer_signed, claim_issuer_did) =
                 make_account(&claim_issuer_acc.clone()).unwrap();
 
+            let scope = Scope::from(0);
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                Claim::Accredited,
-                None,
+                Claim::Accredited(scope),
                 None,
             ));
 
@@ -702,21 +698,18 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = Rule {
-                rule_type: RuleType::IsPresent(ClaimType::Accredited),
+                rule_type: RuleType::IsPresent(Claim::Accredited(scope)),
                 issuers: vec![claim_issuer_did],
-                scope: None,
             };
 
             let receiver_rule1 = Rule {
-                rule_type: RuleType::IsAbsent(ClaimType::Affiliate),
+                rule_type: RuleType::IsAbsent(Claim::Affiliate(scope)),
                 issuers: vec![claim_issuer_did],
-                scope: None,
             };
 
             let receiver_rule2 = Rule {
-                rule_type: RuleType::IsPresent(ClaimType::KnowYourCustomer),
+                rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
                 issuers: vec![claim_issuer_did],
-                scope: None,
             };
 
             let x = vec![sender_rule];
@@ -736,8 +729,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                Claim::Accredited,
-                None,
+                Claim::Accredited(scope),
                 None,
             ));
 
@@ -754,8 +746,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                Claim::KnowYourCustomer,
-                None,
+                Claim::KnowYourCustomer(scope),
                 None,
             ));
 
@@ -769,8 +760,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                Claim::Affiliate,
-                None,
+                Claim::Affiliate(scope),
                 None,
             ));
 
@@ -851,6 +841,7 @@ mod tests {
         let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
         let receiver_acc = AccountId::from(AccountKeyring::Charlie);
         let (receiver_signed, receiver_did) = make_account(&receiver_acc.clone()).unwrap();
+        let scope = Scope::from(0);
 
         Balances::make_free_balance_be(&receiver_acc, 1_000_000);
 
@@ -881,8 +872,7 @@ mod tests {
         assert_ok!(Identity::add_claim(
             receiver_signed.clone(),
             receiver_did.clone(),
-            Claim::Accredited,
-            None,
+            Claim::Accredited(scope),
             Some(99999999999999999u64),
         ));
 
@@ -891,9 +881,8 @@ mod tests {
 
         // 4. Define rules
         let receiver_rules = vec![Rule {
-            rule_type: RuleType::IsAbsent(ClaimType::Accredited),
+            rule_type: RuleType::IsAbsent(Claim::Accredited(scope)),
             issuers: vec![receiver_did],
-            scope: None,
         }];
 
         let asset_rule = AssetTransferRule {
@@ -952,7 +941,7 @@ mod tests {
         let (cdd_signed, cdd_id) = make_account(&cdd_acc).unwrap();
 
         let user_acc = AccountId::from(AccountKeyring::Charlie);
-        let (user_signed, user_id) = make_account(&user_acc).unwrap();
+        let (_, user_id) = make_account(&user_acc).unwrap();
 
         // 1. Create a token.
         let token = SecurityToken {
@@ -976,21 +965,20 @@ mod tests {
         ));
 
         // 2. Set up rules for Asset transfer.
+        let scope = Scope::from(0);
         let asset_transfer_rules = AssetTransferRule {
             sender_rules: vec![],
             receiver_rules: vec![
                 Rule {
                     rule_type: RuleType::IsAnyOf(vec![
-                        Claim::Jurisdiction(b"Canada".into()),
-                        Claim::Jurisdiction(b"Spain".into()),
+                        Claim::Jurisdiction(b"Canada".into(), scope),
+                        Claim::Jurisdiction(b"Spain".into(), scope),
                     ]),
                     issuers: vec![cdd_id],
-                    scope: None,
                 },
                 Rule {
-                    rule_type: RuleType::IsAbsent(ClaimType::BlackListed),
+                    rule_type: RuleType::IsAbsent(Claim::BlackListed(scope)),
                     issuers: vec![token_owner_id],
-                    scope: None,
                 },
             ],
         };
@@ -1011,8 +999,7 @@ mod tests {
         assert_ok!(Identity::add_claim(
             cdd_signed.clone(),
             user_id,
-            Claim::Jurisdiction(b"Canada".into()),
-            None,
+            Claim::Jurisdiction(b"Canada".into(), scope),
             None
         ));
 
@@ -1027,9 +1014,8 @@ mod tests {
         assert_ok!(Identity::add_claim(
             token_owner_signed.clone(),
             user_id,
-            Claim::BlackListed,
+            Claim::BlackListed(scope),
             None,
-            None
         ));
 
         assert_err!(
@@ -1053,7 +1039,7 @@ mod tests {
         let (cdd_signed, cdd_id) = make_account(&cdd_acc).unwrap();
 
         let user_acc = AccountId::from(AccountKeyring::Charlie);
-        let (user_signed, user_id) = make_account(&user_acc).unwrap();
+        let (_, user_id) = make_account(&user_acc).unwrap();
 
         // 1. Create a token.
         let token = SecurityToken {
@@ -1082,9 +1068,8 @@ mod tests {
         let asset_transfer_rules = AssetTransferRule {
             sender_rules: vec![],
             receiver_rules: vec![Rule {
-                rule_type: RuleType::IsPresent(ClaimType::Affiliate),
+                rule_type: RuleType::IsPresent(Claim::Affiliate(scope)),
                 issuers: vec![cdd_id],
-                scope: Some(scope),
             }],
         };
         assert_ok!(GeneralTM::add_active_rule(
@@ -1104,8 +1089,7 @@ mod tests {
         assert_ok!(Identity::add_claim(
             cdd_signed.clone(),
             user_id,
-            Claim::Affiliate,
-            Some(scope),
+            Claim::Affiliate(scope),
             None
         ));
 

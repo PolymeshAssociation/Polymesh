@@ -7,9 +7,9 @@ use sp_std::prelude::*;
 /// predicate.
 pub enum RuleType {
     /// Rule to ensure that claim filter produces one claim.
-    IsPresent(ClaimType),
+    IsPresent(Claim),
     /// Rule to ensure that claim filter produces an empty list.
-    IsAbsent(ClaimType),
+    IsAbsent(Claim),
     /// Rule to ensure that at least one claim is fetched when filter is applied.
     IsAnyOf(Vec<Claim>),
     /// Rule to ensure that at none of claims is fetched when filter is applied.
@@ -26,8 +26,8 @@ impl RuleType {
     /// default.
     pub fn as_claim_type(&self) -> ClaimType {
         match self {
-            RuleType::IsPresent(claim_type) => *claim_type,
-            RuleType::IsAbsent(claim_type) => *claim_type,
+            RuleType::IsPresent(ref claim) => claim.claim_type(),
+            RuleType::IsAbsent(ref claim) => claim.claim_type(),
             RuleType::IsNoneOf(ref claims) => Self::get_claim_type(claims.as_slice()),
             RuleType::IsAnyOf(ref claims) => Self::get_claim_type(claims.as_slice()),
         }
@@ -38,7 +38,7 @@ impl RuleType {
             .iter()
             .map(|claim| claim.claim_type())
             .nth(0)
-            .unwrap_or(ClaimType::Jurisdiction)
+            .unwrap_or(ClaimType::NoType)
     }
 }
 
@@ -49,8 +49,6 @@ pub struct Rule {
     pub rule_type: RuleType,
     /// Trusted issuers.
     pub issuers: Vec<IdentityId>,
-    /// Claim scope
-    pub scope: Option<IdentityId>,
 }
 
 impl From<RuleType> for Rule {
@@ -58,7 +56,6 @@ impl From<RuleType> for Rule {
         Rule {
             rule_type,
             issuers: vec![],
-            scope: None,
         }
     }
 }

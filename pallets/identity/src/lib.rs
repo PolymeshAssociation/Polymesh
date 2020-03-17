@@ -39,7 +39,7 @@
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
     ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,
-    PreAuthorizedKeyInfo, Signatory, SignatoryType, SigningItem, Ticker,
+    PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -91,22 +91,20 @@ pub struct Claim1stKey {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim2ndKey {
     pub issuer: IdentityId,
-    pub scope: Option<IdentityId>,
+    pub scope: Option<Scope>,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Default)]
 pub struct BatchAddClaimItem<M> {
     pub target: IdentityId,
     pub claim: Claim,
-    pub scope: Option<IdentityId>,
     pub expiry: Option<M>,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Default)]
 pub struct BatchRevokeClaimItem {
     pub target: IdentityId,
-    pub claim_type: ClaimType,
-    pub scope: Option<IdentityId>,
+    pub claim: Claim,
 }
 
 decl_storage! {
@@ -181,7 +179,6 @@ decl_storage! {
                     last_update_date: 0_u64,
                     expiry: expiry,
                     claim: Claim::CustomerDueDiligence,
-                    scope: None,
                 };
 
                 <Claims>::insert(&pk, &sk, id_claim);
@@ -245,7 +242,7 @@ decl_module! {
 
             // Register Identity and add claim.
             let new_id = Self::_register_did(target_account, signing_items)?;
-            Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, None, cdd_claim_expiry)
+            Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, cdd_claim_expiry)
         }
 
         /// Adds new signing keys for a DID. Only called by master key owner.
@@ -363,7 +360,6 @@ decl_module! {
             origin,
             target: IdentityId,
             claim: Claim,
-            scope: Option<IdentityId>,
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
@@ -371,7 +367,7 @@ decl_module! {
 
             ensure!(<DidRecords>::exists(target), Error::<T>::DidMustAlreadyExist);
 
-            Self::unsafe_add_claim(target, claim, issuer, scope, expiry)
+            Self::unsafe_add_claim(target, claim, issuer, expiry)
         }
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
@@ -390,7 +386,7 @@ decl_module! {
                 Error::<T>::DidMustAlreadyExist);
 
             claims.into_iter()
-                .map( |bci| Self::unsafe_add_claim(bci.target, bci.claim, issuer, bci.scope, bci.expiry))
+                .map( |bci| Self::unsafe_add_claim(bci.target, bci.claim, issuer, bci.expiry))
                 .collect::<Result<Vec<_>, DispatchError>>()
                 .map( |_| ())
         }
@@ -449,11 +445,12 @@ decl_module! {
         /// Marks the specified claim as revoked
         pub fn revoke_claim(origin,
             target: IdentityId,
-            claim_type: ClaimType,
-            scope: Option<IdentityId>
+            claim: Claim,
        ) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
+            let claim_type = claim.claim_type();
+            let scope = claim.as_scope().cloned();
 
             Self::unsafe_revoke_claim(target, claim_type, issuer, scope)
         }
@@ -470,7 +467,11 @@ decl_module! {
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
             claims.into_iter()
-                .map( |bci| Self::unsafe_revoke_claim(bci.target, bci.claim_type, issuer, bci.scope))
+                .map( |bci| {
+                    let claim_type = bci.claim.claim_type();
+                    let scope = bci.claim.as_scope().cloned();
+                    Self::unsafe_revoke_claim(bci.target, claim_type, issuer, scope)
+                })
                 .collect::<Result<Vec<_>, DispatchError>>()
                 .map( |_| ())
         }
@@ -1266,39 +1267,14 @@ impl<T: Trait> Module<T> {
         Self::is_identity_claim_not_expired_at(id_claim, now)
     }
 
-    /// It check if `id_claim` has the same scope as `scope`.
-    /// If `scope` is `None`, it will returns true.
-    #[inline]
-    fn is_identity_claim_in_scope(id_claim: &IdentityClaim, scope: &Option<IdentityId>) -> bool {
-        if !scope.is_none() {
-            *scope == id_claim.scope
-        } else {
-            true
-        }
-    }
-
-    /// It fetches all claims associated with `id` identity, filtered by `claim_type`.
-    /// It only returns valid claims, it means claims which are not expired.
-    ///
-    /// # Return
-    /// It does not load all claims into memory. It just returns an iterator over all claims.
-    pub fn fetch_claims<'a>(
-        id: IdentityId,
-        claim_type: ClaimType,
-        scope: &'a Option<IdentityId>,
-    ) -> impl Iterator<Item = IdentityClaim> + 'a {
-        Self::fetch_base_claims(id, claim_type, scope)
-            .filter(|c| Self::is_identity_claim_not_expired(c))
-    }
-
     /// It fetches an specific `claim_type` claim type for target identity `id`, which was issued
     /// by `issuer`.
     /// It only returns non-expired claims.
-    pub fn fetch_claim_with_issuer(
+    pub fn fetch_claim(
         id: IdentityId,
         claim_type: ClaimType,
         issuer: IdentityId,
-        scope: Option<IdentityId>,
+        scope: Option<Scope>,
     ) -> Option<IdentityClaim> {
         let now = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
 
@@ -1313,7 +1289,8 @@ impl<T: Trait> Module<T> {
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
         let trusted_cdd_providers = T::CddServiceProviders::get_members();
 
-        let valid = Self::fetch_claims(claim_for, ClaimType::CustomerDueDiligence, &None)
+        let valid = Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
+            .filter(|c| Self::is_identity_claim_not_expired(c))
             .any(|c| trusted_cdd_providers.contains(&c.claim_issuer));
 
         valid
@@ -1330,7 +1307,7 @@ impl<T: Trait> Module<T> {
             .checked_add(leeway)
             .unwrap_or_default();
 
-        let cdd = Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence, &None)
+        let cdd = Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
             .filter(|id_claim| {
                 Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
                     && trusted_cdd_providers.contains(&id_claim.claim_issuer)
@@ -1345,11 +1322,9 @@ impl<T: Trait> Module<T> {
     fn fetch_base_claims<'a>(
         target: IdentityId,
         claim_type: ClaimType,
-        scope: &'a Option<IdentityId>,
     ) -> impl Iterator<Item = IdentityClaim> + 'a {
         let pk = Claim1stKey { target, claim_type };
-
-        <Claims>::iter_prefix(pk).filter(move |c| Self::is_identity_claim_in_scope(c, scope))
+        <Claims>::iter_prefix(pk)
     }
 
     /// It fetches an specific `claim_type` claim type for target identity `id`, which was issued
@@ -1358,7 +1333,7 @@ impl<T: Trait> Module<T> {
         target: IdentityId,
         claim_type: ClaimType,
         issuer: IdentityId,
-        scope: Option<IdentityId>,
+        scope: Option<Scope>,
     ) -> Option<IdentityClaim> {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { issuer, scope };
@@ -1587,13 +1562,14 @@ impl<T: Trait> Module<T> {
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
-        scope: Option<IdentityId>,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         let claim_type = claim.claim_type();
+        let scope = claim.as_scope().cloned();
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
-        let issuance_date = Self::fetch_claim_with_issuer(target, claim_type, issuer, scope)
+        let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope)
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
+
         let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).nth(0);
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { issuer, scope };
@@ -1602,7 +1578,6 @@ impl<T: Trait> Module<T> {
             issuance_date,
             last_update_date,
             expiry,
-            scope,
             claim,
         };
 
@@ -1617,7 +1592,7 @@ impl<T: Trait> Module<T> {
         target: IdentityId,
         claim_type: ClaimType,
         issuer: IdentityId,
-        scope: Option<IdentityId>,
+        scope: Option<Scope>,
     ) -> DispatchResult {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { scope, issuer };

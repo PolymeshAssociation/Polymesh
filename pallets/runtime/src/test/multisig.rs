@@ -521,10 +521,11 @@ fn should_change_all_signers_and_sigs_required() {
                 .unwrap()
                 .auth_id;
 
-        let by = <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(charlie_did))
-            .next()
-            .unwrap()
-            .authorized_by;
+        let _by =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(charlie_did))
+                .next()
+                .unwrap()
+                .authorized_by;
 
         Context::set_current_identity::<Identity>(None);
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(

@@ -4,7 +4,7 @@ use crate::test::{
 };
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, Claim, ClaimType, LinkData, Permission, Signatory,
+    AccountKey, AuthorizationData, Claim, ClaimType, LinkData, Permission, Scope, Signatory,
     SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_balances as balances;
@@ -32,18 +32,17 @@ fn add_claims_batch() {
         let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = AccountKeyring::Charlie.public();
+        let scope = Scope::from(0);
 
         let claim_records = vec![
             BatchAddClaimItem {
                 target: claim_issuer_did,
-                claim: Claim::Accredited,
-                scope: None,
+                claim: Claim::Accredited(scope),
                 expiry: None,
             },
             BatchAddClaimItem {
                 target: claim_issuer_did,
-                claim: Claim::Affiliate,
-                scope: None,
+                claim: Claim::Affiliate(scope),
                 expiry: None,
             },
         ];
@@ -52,26 +51,26 @@ fn add_claims_batch() {
             claim_records,
         ));
 
-        let claim1 = Identity::fetch_claim_with_issuer(
+        let claim1 = Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            None,
+            Some(scope),
         )
         .unwrap();
-        let claim2 = Identity::fetch_claim_with_issuer(
+        let claim2 = Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Affiliate,
             claim_issuer_did,
-            None,
+            Some(scope),
         )
         .unwrap();
 
         assert_eq!(claim1.expiry, None);
         assert_eq!(claim2.expiry, None);
 
-        assert_eq!(claim1.claim, Claim::Accredited);
-        assert_eq!(claim2.claim, Claim::Affiliate);
+        assert_eq!(claim1.claim, Claim::Accredited(scope));
+        assert_eq!(claim2.claim, Claim::Affiliate(scope));
     });
 }
 
@@ -124,33 +123,32 @@ fn revoking_claims() {
         let _issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
+        let scope = Scope::from(0);
 
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            Claim::Accredited,
-            None,
+            Claim::Accredited(scope),
             Some(100u64),
         ));
-        assert!(Identity::fetch_claim_with_issuer(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            None,
+            Some(scope)
         )
         .is_some());
 
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            ClaimType::Accredited,
-            None,
+            Claim::Accredited(scope),
         ));
-        assert!(Identity::fetch_claim_with_issuer(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            None,
+            Some(scope)
         )
         .is_none());
     });
@@ -164,11 +162,12 @@ fn revoking_batch_claims() {
         let _issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
+        let scope = Scope::from(0);
+
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            Claim::Accredited,
-            None,
+            Claim::Accredited(scope),
             Some(100u64),
         ));
 
@@ -177,17 +176,16 @@ fn revoking_batch_claims() {
             claim_issuer_did,
             Claim::CustomerDueDiligence,
             None,
-            None,
         ));
-        assert!(Identity::fetch_claim_with_issuer(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            None,
+            Some(scope)
         )
         .is_some());
 
-        assert!(Identity::fetch_claim_with_issuer(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::CustomerDueDiligence,
             claim_issuer_did,
@@ -195,11 +193,11 @@ fn revoking_batch_claims() {
         )
         .is_some());
 
-        assert!(Identity::fetch_claim_with_issuer(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            None,
+            Some(scope),
         )
         .is_some());
 
@@ -208,37 +206,35 @@ fn revoking_batch_claims() {
             vec![
                 BatchRevokeClaimItem {
                     target: claim_issuer_did,
-                    claim_type: ClaimType::Accredited,
-                    scope: None
+                    claim: Claim::Accredited(scope),
                 },
                 BatchRevokeClaimItem {
                     target: claim_issuer_did,
-                    claim_type: ClaimType::CustomerDueDiligence,
-                    scope: None
+                    claim: Claim::CustomerDueDiligence,
                 }
             ]
         ));
-        assert!(Identity::fetch_claim_with_issuer(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            None,
+            Some(scope)
         )
         .is_none());
 
-        assert!(Identity::fetch_claim_with_issuer(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::CustomerDueDiligence,
             claim_issuer_did,
-            None,
+            None
         )
         .is_none());
 
-        assert!(Identity::fetch_claim_with_issuer(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            None,
+            Some(scope),
         )
         .is_none());
     });
@@ -250,7 +246,6 @@ fn only_master_key_can_add_signing_key_permissions() {
         .build()
         .execute_with(&only_master_key_can_add_signing_key_permissions_with_externalities);
 }
-
 fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
     let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);

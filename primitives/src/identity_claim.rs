@@ -2,27 +2,30 @@ use crate::{identity_id::IdentityId, Moment};
 use codec::{Decode, Encode};
 use sp_std::prelude::*;
 
+/// Scope: Almost all claim needs a valid scope identity.
+pub type Scope = IdentityId;
+
 /// All possible claims in polymesh
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Claim {
     /// User is Accredited
-    Accredited,
+    Accredited(Scope),
     /// User is Accredited
-    Affiliate,
+    Affiliate(Scope),
     /// User has an active BuyLockup (end date defined in claim expiry)
-    BuyLockup,
+    BuyLockup(Scope),
     /// User has an active SellLockup (date defined in claim expiry)
-    SellLockup,
+    SellLockup(Scope),
     /// User has passed CDD
     CustomerDueDiligence,
     /// User is KYC'd
-    KnowYourCustomer,
+    KnowYourCustomer(Scope),
     /// This claim contains a string that represents the jurisdiction of the user
-    Jurisdiction(JurisdictionName),
+    Jurisdiction(JurisdictionName, Scope),
     /// User is whitelisted
-    Whitelisted,
+    Whitelisted(Scope),
     /// User is Blacklisted
-    BlackListed,
+    BlackListed(Scope),
     /// Empty claim
     NoData,
 }
@@ -37,16 +40,32 @@ impl Claim {
     /// It returns the claim type.
     pub fn claim_type(&self) -> ClaimType {
         match self {
-            Claim::Accredited => ClaimType::Accredited,
-            Claim::Affiliate => ClaimType::Affiliate,
-            Claim::BuyLockup => ClaimType::BuyLockup,
-            Claim::SellLockup => ClaimType::SellLockup,
+            Claim::Accredited(..) => ClaimType::Accredited,
+            Claim::Affiliate(..) => ClaimType::Affiliate,
+            Claim::BuyLockup(..) => ClaimType::BuyLockup,
+            Claim::SellLockup(..) => ClaimType::SellLockup,
             Claim::CustomerDueDiligence => ClaimType::CustomerDueDiligence,
-            Claim::KnowYourCustomer => ClaimType::KnowYourCustomer,
+            Claim::KnowYourCustomer(..) => ClaimType::KnowYourCustomer,
             Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
-            Claim::Whitelisted => ClaimType::Whitelisted,
-            Claim::BlackListed => ClaimType::BlackListed,
+            Claim::Whitelisted(..) => ClaimType::Whitelisted,
+            Claim::BlackListed(..) => ClaimType::BlackListed,
             Claim::NoData => ClaimType::NoType,
+        }
+    }
+
+    /// The scope of this claim.
+    pub fn as_scope(&self) -> Option<&Scope> {
+        match self {
+            Claim::Accredited(ref scope) => Some(scope),
+            Claim::Affiliate(ref scope) => Some(scope),
+            Claim::BuyLockup(ref scope) => Some(scope),
+            Claim::SellLockup(ref scope) => Some(scope),
+            Claim::CustomerDueDiligence => None,
+            Claim::KnowYourCustomer(ref scope) => Some(scope),
+            Claim::Jurisdiction(.., ref scope) => Some(scope),
+            Claim::Whitelisted(ref scope) => Some(scope),
+            Claim::BlackListed(ref scope) => Some(scope),
+            Claim::NoData => None,
         }
     }
 }
@@ -100,9 +119,6 @@ impl<T: AsRef<[u8]>> From<T> for JurisdictionName {
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,
-    /// Scoped Identity: This claim is valid for target ticket identity. None, is valid for any
-    /// one.
-    pub scope: Option<IdentityId>,
     /// Issuance date
     pub issuance_date: Moment,
     /// Last updated date

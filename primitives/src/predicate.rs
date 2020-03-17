@@ -1,4 +1,4 @@
-use crate::{Claim, ClaimType, Rule, RuleType};
+use crate::{Claim, Rule, RuleType};
 use codec::{Decode, Encode};
 
 use sp_std::prelude::*;
@@ -66,13 +66,13 @@ pub trait Predicate {
 
 /// It creates a predicate to evaluate the existential of `claim` in the context.
 #[inline]
-pub fn exists(claim_type: ClaimType) -> ExistentialPredicate {
-    ExistentialPredicate { claim_type }
+pub fn exists<'a>(claim: &'a Claim) -> ExistentialPredicate<'a> {
+    ExistentialPredicate { claim }
 }
 
 /// It creates a predicate to evaluate if any of `claims` are found in the context.
 #[inline]
-pub fn any(claims: Vec<Claim>) -> AnyPredicate {
+pub fn any<'a>(claims: &'a [Claim]) -> AnyPredicate<'a> {
     AnyPredicate { claims }
 }
 
@@ -88,10 +88,10 @@ where
 /// Helper function to run predicates from a context.
 pub fn run(rule: Rule, context: &Context) -> bool {
     match rule.rule_type {
-        RuleType::IsPresent(claim_type) => exists(claim_type).evaluate(context),
-        RuleType::IsAbsent(claim_type) => not(exists(claim_type)).evaluate(context),
-        RuleType::IsAnyOf(claims) => any(claims).evaluate(context),
-        RuleType::IsNoneOf(claims) => not(any(claims)).evaluate(context),
+        RuleType::IsPresent(ref claim) => exists(claim).evaluate(context),
+        RuleType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
+        RuleType::IsAnyOf(ref claims) => any(claims).evaluate(context),
+        RuleType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
     }
 }
 
@@ -99,19 +99,19 @@ pub fn run(rule: Rule, context: &Context) -> bool {
 // ======================================================
 
 /// It checks the existential of a claim.
-#[derive(Encode, Decode, Clone, Debug)]
-pub struct ExistentialPredicate {
+#[derive(Clone, Debug)]
+pub struct ExistentialPredicate<'a> {
     /// Claims we want to check if it exists in context.
-    pub claim_type: ClaimType,
+    pub claim: &'a Claim,
 }
 
-impl Predicate for ExistentialPredicate {
+impl<'a> Predicate for ExistentialPredicate<'a> {
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
         context
             .claims
             .iter()
-            .any(|ctx_claim| ctx_claim.claim_type() == self.claim_type)
+            .any(|ctx_claim| ctx_claim == self.claim)
     }
 }
 
@@ -223,13 +223,13 @@ impl<P: Predicate + Sized> Predicate for NotPredicate<P> {
 // =========================================================
 
 /// Predicate that checks if any of its internal claims exists in context.
-#[derive(Encode, Decode, Clone, Debug)]
-pub struct AnyPredicate {
+#[derive(Clone, Debug)]
+pub struct AnyPredicate<'a> {
     /// List of claims to find in context.
-    pub claims: Vec<Claim>,
+    pub claims: &'a [Claim],
 }
 
-impl Predicate for AnyPredicate {
+impl<'a> Predicate for AnyPredicate<'a> {
     /// Evaluate predicate against `context`.
     fn evaluate(&self, context: &Context) -> bool {
         context.claims.iter().any(|ctx_claim| {
@@ -244,36 +244,41 @@ impl Predicate for AnyPredicate {
 mod tests {
     use crate::{
         predicate::{self, Context, Predicate},
-        Claim, ClaimType, JurisdictionName, Rule, RuleType,
+        Claim, Rule, RuleType, Scope,
     };
     use std::convert::From;
 
     #[test]
     fn existential_operators_test() {
-        let context = Context::from(vec![Claim::CustomerDueDiligence, Claim::Affiliate]);
+        let scope = Scope::from(0);
+        let context = Context::from(vec![Claim::CustomerDueDiligence, Claim::Affiliate(scope)]);
 
         // Affiliate && CustommerDueDiligenge
-        let affiliate_and_cdd_pred = predicate::exists(ClaimType::Affiliate)
-            .and(predicate::exists(ClaimType::CustomerDueDiligence));
+        let affiliate_claim = Claim::Affiliate(scope);
+        let cdd_claim = Claim::CustomerDueDiligence;
+        let affiliate_and_cdd_pred =
+            predicate::exists(&affiliate_claim).and(predicate::exists(&cdd_claim));
 
         assert_eq!(affiliate_and_cdd_pred.evaluate(&context), true);
     }
 
     #[test]
     fn collection_operators_test() {
+        let scope = Scope::from(0);
+
         // 1. Check jurisdiction "CAN" belongs to {ESP, CAN, IND}
         let valid_jurisdictions = vec![
-            Claim::Jurisdiction(JurisdictionName::from(b"Spain")),
-            Claim::Jurisdiction(JurisdictionName::from(b"Canada")),
-            Claim::Jurisdiction(JurisdictionName::from(b"India")),
+            Claim::Jurisdiction(b"Spain".into(), scope),
+            Claim::Jurisdiction(b"Canada".into(), scope),
+            Claim::Jurisdiction(b"India".into(), scope),
         ];
 
-        let context = Context::from(vec![Claim::Jurisdiction(JurisdictionName::from(b"Canada"))]);
-        let in_juridisction_pre = predicate::any(valid_jurisdictions);
+        let context = Context::from(vec![Claim::Jurisdiction(b"Canada".into(), scope)]);
+        let in_juridisction_pre = predicate::any(&valid_jurisdictions);
         assert_eq!(in_juridisction_pre.evaluate(&context), true);
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
-        let context = Context::from(vec![Claim::Jurisdiction(JurisdictionName::from(b"USA"))]);
+        let context = Context::from(vec![Claim::Jurisdiction(b"USA".into(), scope)]);
         assert_eq!(in_juridisction_pre.evaluate(&context), false);
 
         // 3. Check NOT in jurisdiction.
@@ -283,20 +288,25 @@ mod tests {
 
     #[test]
     fn run_predicate() {
+        let scope = Scope::from(0);
+
         let rules: Vec<Rule> = vec![
-            RuleType::IsPresent(ClaimType::Accredited).into(),
-            RuleType::IsAbsent(ClaimType::BuyLockup).into(),
+            RuleType::IsPresent(Claim::Accredited(scope)).into(),
+            RuleType::IsAbsent(Claim::BuyLockup(scope)).into(),
             RuleType::IsAnyOf(vec![
-                Claim::Jurisdiction(b"USA".into()),
-                Claim::Jurisdiction(b"Canada".into()),
+                Claim::Jurisdiction(b"USA".into(), scope),
+                Claim::Jurisdiction(b"Canada".into(), scope),
             ])
             .into(),
-            RuleType::IsNoneOf(vec![Claim::Jurisdiction(b"Cuba".into())]).into(),
+            RuleType::IsNoneOf(vec![Claim::Jurisdiction(b"Cuba".into(), scope)]).into(),
         ];
 
         // Valid case
-        let context: Context =
-            vec![Claim::Accredited, Claim::Jurisdiction(b"Canada".into())].into();
+        let context: Context = vec![
+            Claim::Accredited(scope),
+            Claim::Jurisdiction(b"Canada".into(), scope),
+        ]
+        .into();
 
         let out = !rules
             .iter()
@@ -305,9 +315,9 @@ mod tests {
 
         // Invalid case: `BuyLockup` is present.
         let context: Context = vec![
-            Claim::Accredited,
-            Claim::BuyLockup,
-            Claim::Jurisdiction(b"Canada".into()),
+            Claim::Accredited(scope),
+            Claim::BuyLockup(scope),
+            Claim::Jurisdiction(b"Canada".into(), scope),
         ]
         .into();
 
@@ -317,7 +327,11 @@ mod tests {
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
-        let context: Context = vec![Claim::BuyLockup, Claim::Jurisdiction(b"Canada".into())].into();
+        let context: Context = vec![
+            Claim::BuyLockup(scope),
+            Claim::Jurisdiction(b"Canada".into(), scope),
+        ]
+        .into();
 
         let out = !rules
             .iter()
@@ -325,7 +339,11 @@ mod tests {
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
-        let context: Context = vec![Claim::Accredited, Claim::Jurisdiction(b"Spain".into())].into();
+        let context: Context = vec![
+            Claim::Accredited(scope),
+            Claim::Jurisdiction(b"Spain".into(), scope),
+        ]
+        .into();
 
         let out = !rules
             .iter()
@@ -333,7 +351,11 @@ mod tests {
         assert_eq!(out, false);
 
         // Check NoneOf
-        let context: Context = vec![Claim::Accredited, Claim::Jurisdiction(b"Cuba".into())].into();
+        let context: Context = vec![
+            Claim::Accredited(scope),
+            Claim::Jurisdiction(b"Cuba".into(), scope),
+        ]
+        .into();
         let out = !rules
             .iter()
             .any(|rule| !predicate::run(rule.clone(), &context));
