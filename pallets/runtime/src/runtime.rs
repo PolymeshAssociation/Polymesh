@@ -201,6 +201,11 @@ impl pallet_transaction_payment::Trait for Runtime {
     type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
 }
 
+impl protocol_fee::Trait for Runtime {
+    type Currency = Balances;
+    type OnProtocolFeePayment = DealWithFees;
+}
+
 parameter_types! {
     pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
@@ -593,7 +598,8 @@ construct_runtime!(
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        Statistic: statistics::{Module, Call, Storage },
+        Statistic: statistics::{Module, Call, Storage},
+        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 

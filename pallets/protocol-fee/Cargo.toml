@@ -16,6 +16,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 [dev-dependencies]
 sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+polymesh-runtime-balances = { path = "../balances" }
 
 [features]
 default = ["std"]
@@ -24,6 +25,8 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "primitives/std",
+    "sp-core/std",
+    "sp-io/std",
     "sp-std/std",
     "sp-runtime/std",
 ]
