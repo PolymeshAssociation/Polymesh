@@ -152,11 +152,8 @@
     },
     "AssetTransferRule": {
         "sender_rules": "Vec<Rule>",
-        "receiver_rules":"Vec<Rule>"
-    },
-    "AssetTransferRules": {
-        "is_paused": "bool",
-        "rules": "Vec<AssetTransferRule>"
+        "receiver_rules":"Vec<Rule>",
+        "rule_id": "u32"
     },
     "RuleType": {
         "_enum": { 
@@ -284,6 +281,7 @@
             "TransferTicker": "Ticker",
             "AddMultiSigSigner": "",
             "TransferTokenOwnership": "Ticker",
+            "JoinIdentity": "IdentityId",
             "Custom": "Vec<u8>",
             "NoData": ""
         }

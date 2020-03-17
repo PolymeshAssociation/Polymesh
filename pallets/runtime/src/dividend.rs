@@ -936,16 +936,12 @@ mod tests {
 
             drop(outer);
 
-            let asset_rule = general_tm::AssetTransferRule {
-                sender_rules: vec![],
-                receiver_rules: vec![],
-            };
-
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
                 ticker,
-                asset_rule
+                vec![],
+                vec![]
             ));
 
             // Transfer tokens to investor

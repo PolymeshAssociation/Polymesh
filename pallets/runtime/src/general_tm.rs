@@ -45,9 +45,7 @@
 
 use crate::asset::{self, AssetTrait};
 
-use polymesh_primitives::{
-    predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Signatory, Ticker,
-};
+use polymesh_primitives::{predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait, Context,
 };
@@ -76,11 +74,13 @@ pub trait Trait:
 }
 
 /// An asset rule.
-/// All sender and receiver rules of the same asset rule must be true for tranfer to be valid
+/// All sender and receiver rules of the same asset rule must be true for transfer to be valid
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRule {
     pub sender_rules: Vec<Rule>,
     pub receiver_rules: Vec<Rule>,
+    /// Unique identifier of the asset rule
+    pub rule_id: u32,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
@@ -93,8 +93,10 @@ type Identity<T> = identity::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
-        /// List of active rules for a ticker (Ticker -> Array of AssetRules)
+        /// List of active rules for a ticker (Ticker -> Array of AssetTransferRules)
         pub AssetRulesMap get(fn asset_rules): map Ticker => AssetTransferRules;
+        /// List of trusted claim issuer Ticker -> Issuer Identity
+        pub TrustedClaimIssuer get(fn trusted_claim_issuer): map Ticker => Vec<IdentityId>;
     }
 }
 
@@ -104,6 +106,14 @@ decl_error! {
         SenderMustBeSigningKeyForDid,
         /// User is not authorized.
         Unauthorized,
+        /// Did not exist
+        DidNotExist,
+        /// When param has length < 1
+        InvalidLength,
+        /// Rule id doesn't exist
+        InvalidRuleId,
+        /// Issuer exist but trying to add it again
+        IncorrectOperationOnTrustedIssuer
     }
 }
 
@@ -115,60 +125,63 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Adds an asset rule to active rules for a ticker
-        pub fn add_active_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker
+        /// * ticker - Symbol of the asset
+        /// * sender_rules - Sender transfer rule.
+        /// * receiver_rules - Receiver transfer rule.
+        pub fn add_active_rule(origin, ticker: Ticker, sender_rules: Vec<Rule>, receiver_rules: Vec<Rule>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
 
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
+            let new_rule = AssetTransferRule {
+                sender_rules: sender_rules,
+                receiver_rules: receiver_rules,
+                rule_id: Self::get_latest_rule_id(ticker) + 1u32
+            };
+
             <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
-                if !old_asset_rules.rules.contains(&asset_rule) {
-                    old_asset_rules.rules.push(asset_rule.clone());
+                if !old_asset_rules.rules.iter().position(|rule| rule.sender_rules == new_rule.sender_rules && rule.receiver_rules == new_rule.receiver_rules).is_some() {
+                    old_asset_rules.rules.push(new_rule.clone());
+                    Self::deposit_event(Event::NewAssetRule(ticker, new_rule));
                 }
             });
-
-            Self::deposit_event(Event::NewAssetRule(ticker, asset_rule));
 
             Ok(())
         }
 
         /// Removes a rule from active asset rules
-        pub fn remove_active_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker
+        /// * ticker - Symbol of the asset
+        /// * asset_rule_id - Rule id which is need to be removed
+        pub fn remove_active_rule(origin, ticker: Ticker, asset_rule_id: u32) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
 
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
-                old_asset_rules.rules.retain( |rule| { *rule != asset_rule });
+                old_asset_rules.rules.retain( |rule| { rule.rule_id != asset_rule_id });
             });
 
-            Self::deposit_event(Event::RemoveAssetRule(ticker, asset_rule));
+            Self::deposit_event(Event::RemoveAssetRule(ticker, asset_rule_id));
 
             Ok(())
         }
 
-        /// Removes all active rules of a ticker
+        /// Removes all active rules of a given ticker
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker
+        /// * ticker - Symbol of the asset
         pub fn reset_active_rules(origin, ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
-
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             <AssetRulesMap>::remove(ticker);
@@ -179,6 +192,10 @@ decl_module! {
         }
 
         /// It pauses the verification of rules for `ticker` during transfers.
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker
+        /// * ticker - Symbol of the asset
         pub fn pause_asset_rules(origin, ticker: Ticker) -> DispatchResult {
             Self::pause_resume_rules(origin, ticker, true)?;
 
@@ -187,10 +204,94 @@ decl_module! {
         }
 
         /// It resumes the verification of rules for `ticker` during transfers.
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker
+        /// * ticker - Symbol of the asset
         pub fn resume_asset_rules(origin, ticker: Ticker) -> DispatchResult {
             Self::pause_resume_rules(origin, ticker, false)?;
 
             Self::deposit_event(Event::ResumeAssetRules(ticker));
+            Ok(())
+        }
+
+        /// To add the default trusted claim issuer for a given asset
+        /// Addition - When the given element is not exist
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
+        /// * ticker - Symbol of the asset.
+        /// * trusted_issuer - IdentityId of the trusted claim issuer.
+        fn add_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
+            Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, true)
+        }
+
+        /// To remove the default trusted claim issuer for a given asset
+        /// Removal - When the given element is already present
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
+        /// * ticker - Symbol of the asset.
+        /// * trusted_issuer - IdentityId of the trusted claim issuer.
+        fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
+            Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, false)
+        }
+
+        /// To add the default trusted claim issuer for a given asset
+        /// Addition - When the given element is not exist
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
+        /// * ticker - Symbol of the asset.
+        /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
+        fn add_default_trusted_claim_issuers_batch(origin, ticker: Ticker, trusted_issuers: Vec<IdentityId>) -> DispatchResult {
+            Self::modify_default_trusted_claim_issuers_batch(origin, ticker, trusted_issuers, true)
+        }
+
+        /// To remove the default trusted claim issuer for a given asset
+        /// Removal - When the given element is already present
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
+        /// * ticker - Symbol of the asset.
+        /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
+        fn remove_default_trusted_claim_issuers_batch(origin, ticker: Ticker, trusted_issuers: Vec<IdentityId>) -> DispatchResult {
+            Self::modify_default_trusted_claim_issuers_batch(origin, ticker, trusted_issuers, false)
+        }
+
+        /// Change/Modify the existing asset rule of a given ticker
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
+        /// * ticker - Symbol of the asset.
+        /// * asset_rule - Asset rule.
+        fn change_asset_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            ensure!(Self::get_latest_rule_id(ticker) >= asset_rule.rule_id, Error::<T>::InvalidRuleId);
+            Self::unsafe_change_asset_rule(ticker, asset_rule);
+            Ok(())
+        }
+
+        /// Change/Modify the existing asset rule of a given ticker in batch
+        ///
+        /// # Arguments
+        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
+        /// * ticker - Symbol of the asset.
+        /// * asset_rules - Vector of asset rule.
+        fn change_asset_rule_batch(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            let latest_rule_id = Self::get_latest_rule_id(ticker);
+            ensure!(asset_rules.iter().any(|rule| latest_rule_id >= rule.rule_id), Error::<T>::InvalidRuleId);
+
+            asset_rules.into_iter().for_each(|asset_rule| {
+                Self::unsafe_change_asset_rule(ticker, asset_rule);
+            });
             Ok(())
         }
     }
@@ -198,11 +299,24 @@ decl_module! {
 
 decl_event!(
     pub enum Event {
+        /// Emitted when new asset rule is created
+        /// (Ticker, AssetRule)
         NewAssetRule(Ticker, AssetTransferRule),
-        RemoveAssetRule(Ticker, AssetTransferRule),
+        /// Emitted when asset rule is removed
+        /// (Ticker, Asset_rule_id)
+        RemoveAssetRule(Ticker, u32),
+        /// Emitted when all asset rules of a ticker get reset
         ResetAssetRules(Ticker),
+        /// Emitted when asset rules for a given ticker gets resume.
         ResumeAssetRules(Ticker),
+        /// Emitted when asset rules for a given ticker gets paused.
         PauseAssetRules(Ticker),
+        /// Emitted when asset rule get modified/change
+        ChangeAssetRule(Ticker, AssetTransferRule),
+        /// Emitted when default claim issuer list for a given ticker gets added
+        AddTrustedDefaultClaimIssuer(Ticker, IdentityId),
+        /// Emitted when default claim issuer list for a given ticker get removed
+        RemoveTrustedDefaultClaimIssuer(Ticker, IdentityId),
     }
 );
 
@@ -227,19 +341,23 @@ impl<T: Trait> Module<T> {
     }
 
     /// It fetches the predicate context for target `id` and specific `rule`.
-    fn fetch_context(id: IdentityId, rule: &Rule) -> predicate::Context {
-        let issuers = &rule.issuers;
+    fn fetch_context(ticker: &Ticker, id: IdentityId, rule: &Rule) -> predicate::Context {
+        let issuers = if !rule.issuers.is_empty() {
+            rule.issuers.clone()
+        } else {
+            Self::trusted_claim_issuer(ticker)
+        };
 
         let claims = match rule.rule_type {
-            RuleType::IsPresent(ref claim) => Self::fetch_claims(id, claim, issuers),
-            RuleType::IsAbsent(ref claim) => Self::fetch_claims(id, claim, issuers),
+            RuleType::IsPresent(ref claim) => Self::fetch_claims(id, claim, &issuers),
+            RuleType::IsAbsent(ref claim) => Self::fetch_claims(id, claim, &issuers),
             RuleType::IsAnyOf(ref claims) => claims
                 .iter()
-                .flat_map(|claim| Self::fetch_claims(id, claim, issuers))
+                .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
                 .collect::<Vec<_>>(),
             RuleType::IsNoneOf(ref claims) => claims
                 .iter()
-                .flat_map(|claim| Self::fetch_claims(id, claim, issuers))
+                .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
                 .collect::<Vec<_>>(),
         };
 
@@ -248,9 +366,9 @@ impl<T: Trait> Module<T> {
 
     /// It loads a context for each rule in `rules` and verify if any of them is evaluated as a
     /// false predicate. In that case, rule is considered as a "broken rule".
-    fn is_any_rule_broken(did: IdentityId, rules: Vec<Rule>) -> bool {
+    fn is_any_rule_broken(ticker: &Ticker, did: IdentityId, rules: Vec<Rule>) -> bool {
         rules.into_iter().any(|rule| {
-            let context = Self::fetch_context(did, &rule);
+            let context = Self::fetch_context(ticker, did, &rule);
             !predicate::run(rule, &context)
         })
     }
@@ -272,7 +390,7 @@ impl<T: Trait> Module<T> {
             let mut rule_broken = false;
 
             if let Some(from_did) = from_did_opt {
-                rule_broken = Self::is_any_rule_broken(from_did, active_rule.sender_rules);
+                rule_broken = Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
                 if rule_broken {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
@@ -280,7 +398,7 @@ impl<T: Trait> Module<T> {
             }
 
             if let Some(to_did) = to_did_opt {
-                rule_broken = Self::is_any_rule_broken(to_did, active_rule.receiver_rules)
+                rule_broken = Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
             }
 
             if !rule_broken {
@@ -295,12 +413,7 @@ impl<T: Trait> Module<T> {
     pub fn pause_resume_rules(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
         let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
         let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-        let sender = Signatory::AccountKey(sender_key);
 
-        ensure!(
-            <identity::Module<T>>::is_signer_authorized(did, &sender),
-            Error::<T>::SenderMustBeSigningKeyForDid
-        );
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
         <AssetRulesMap>::mutate(&ticker, |asset_rules| {
@@ -308,6 +421,106 @@ impl<T: Trait> Module<T> {
         });
 
         Ok(())
+    }
+
+    fn unsafe_modify_default_trusted_claim_issuer(
+        ticker: Ticker,
+        trusted_issuer: IdentityId,
+        is_add_call: bool,
+    ) {
+        TrustedClaimIssuer::mutate(ticker, |identity_list| {
+            if !is_add_call {
+                // remove the old one
+                identity_list.retain(|&ti| ti != trusted_issuer);
+                Self::deposit_event(Event::RemoveTrustedDefaultClaimIssuer(
+                    ticker,
+                    trusted_issuer,
+                ));
+            } else {
+                // New trusted issuer addition case
+                identity_list.push(trusted_issuer);
+                Self::deposit_event(Event::AddTrustedDefaultClaimIssuer(ticker, trusted_issuer));
+            }
+        });
+    }
+
+    fn modify_default_trusted_claim_issuer(
+        origin: T::Origin,
+        ticker: Ticker,
+        trusted_issuer: IdentityId,
+        is_add_call: bool,
+    ) -> DispatchResult {
+        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+        // ensure whether the trusted issuer's did is register did or not
+        ensure!(
+            <Identity<T>>::is_identity_exists(&trusted_issuer),
+            Error::<T>::DidNotExist
+        );
+        ensure!(
+            Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) == !is_add_call,
+            Error::<T>::IncorrectOperationOnTrustedIssuer
+        );
+        Self::unsafe_modify_default_trusted_claim_issuer(ticker, trusted_issuer, is_add_call);
+        Ok(())
+    }
+
+    fn modify_default_trusted_claim_issuers_batch(
+        origin: T::Origin,
+        ticker: Ticker,
+        trusted_issuers: Vec<IdentityId>,
+        is_add_call: bool,
+    ) -> DispatchResult {
+        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+        ensure!(trusted_issuers.len() >= 1, Error::<T>::InvalidLength);
+        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+        // Perform validity checks on the data set
+        for trusted_issuer in trusted_issuers.iter() {
+            // Ensure whether the right operation is performed on trusted issuer or not
+            // if is_add_call == true then trusted_claim_issuer should not exists.
+            // if is_add_call == false then trusted_claim_issuer should exists.
+            ensure!(
+                Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) == !is_add_call,
+                Error::<T>::IncorrectOperationOnTrustedIssuer
+            );
+            // ensure whether the trusted issuer's did is register did or not
+            ensure!(
+                <Identity<T>>::is_identity_exists(trusted_issuer),
+                Error::<T>::DidNotExist
+            );
+        }
+
+        // iterate all the trusted issuer and modify the data of those.
+        trusted_issuers.into_iter().for_each(|default_issuer| {
+            Self::unsafe_modify_default_trusted_claim_issuer(ticker, default_issuer, is_add_call);
+        });
+        Ok(())
+    }
+
+    fn unsafe_change_asset_rule(ticker: Ticker, new_asset_rule: AssetTransferRule) {
+        <AssetRulesMap>::mutate(&ticker, |asset_rules| {
+            if let Some(index) = asset_rules
+                .rules
+                .iter()
+                .position(|rule| &rule.rule_id == &new_asset_rule.rule_id)
+            {
+                asset_rules.rules[index] = new_asset_rule.clone();
+            }
+        });
+        Self::deposit_event(Event::ChangeAssetRule(ticker, new_asset_rule));
+    }
+
+    // TODO: Cache the latest_rule_id to avoid loading of all asset_rules in memory.
+    fn get_latest_rule_id(ticker: Ticker) -> u32 {
+        let length = Self::asset_rules(ticker).rules.len();
+        match length > 0 {
+            true => Self::asset_rules(ticker).rules[length - 1].rule_id,
+            false => 0u32,
+        }
     }
 }
 
@@ -332,7 +545,7 @@ mod tests {
     use sp_std::result::Result;
     use test_client::{self, AccountKeyring};
 
-    use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope};
+    use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Signatory};
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -620,7 +833,7 @@ mod tests {
     type Contracts = pallet_contracts::Module<Test>;
 
     /// Build a genesis identity instance owned by the specified account
-    fn identity_owned_by_alice() -> sp_io::TestExternalities {
+    fn build() -> sp_io::TestExternalities {
         let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -656,8 +869,8 @@ mod tests {
     }
 
     #[test]
-    fn should_add_and_verify_assetrule() {
-        identity_owned_by_alice().execute_with(|| {
+    fn should_add_and_verify_asset_rule() {
+        build().execute_with(|| {
             let token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 
@@ -689,11 +902,10 @@ mod tests {
             let (claim_issuer_signed, claim_issuer_did) =
                 make_account(&claim_issuer_acc.clone()).unwrap();
 
-            let scope = Scope::from(0);
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                Claim::Accredited(scope),
+                Claim::NoData,
                 None,
             ));
 
@@ -701,41 +913,41 @@ mod tests {
             <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
 
             let sender_rule = Rule {
-                rule_type: RuleType::IsPresent(Claim::Accredited(scope)),
                 issuers: vec![claim_issuer_did],
+                rule_type: RuleType::IsPresent(Claim::NoData),
             };
 
             let receiver_rule1 = Rule {
-                rule_type: RuleType::IsAbsent(Claim::Affiliate(scope)),
                 issuers: vec![claim_issuer_did],
+                rule_type: RuleType::IsAbsent(Claim::CustomerDueDiligence),
             };
 
             let receiver_rule2 = Rule {
-                rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
                 issuers: vec![claim_issuer_did],
+                rule_type: RuleType::IsPresent(Claim::Accredited(token_owner_did)),
             };
 
             let x = vec![sender_rule];
             let y = vec![receiver_rule1, receiver_rule2];
 
-            let asset_rule = AssetTransferRule {
-                sender_rules: x,
-                receiver_rules: y,
-            };
-
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
                 ticker,
-                asset_rule
+                x,
+                y
             ));
+
+            assert_eq!(GeneralTM::asset_rules(ticker).rules.len(), 1);
+            assert_eq!(GeneralTM::asset_rules(ticker).rules[0].rule_id, 1);
 
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                Claim::Accredited(scope),
+                Claim::Accredited(claim_issuer_did),
                 None,
             ));
 
+            //Transfer tokens to investor
             assert_err!(
                 Asset::transfer(
                     token_owner_signed.clone(),
@@ -749,7 +961,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                Claim::KnowYourCustomer(scope),
+                Claim::Accredited(token_owner_did),
                 None,
             ));
 
@@ -763,7 +975,7 @@ mod tests {
             assert_ok!(Identity::add_claim(
                 claim_issuer_signed.clone(),
                 token_owner_did,
-                Claim::Affiliate(scope),
+                Claim::CustomerDueDiligence,
                 None,
             ));
 
@@ -780,8 +992,8 @@ mod tests {
     }
 
     #[test]
-    fn should_reset_assetrules() {
-        identity_owned_by_alice().execute_with(|| {
+    fn should_reset_asset_rules() {
+        build().execute_with(|| {
             let token_owner_acc = AccountId::from(AccountKeyring::Alice);
             let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
 
@@ -809,15 +1021,11 @@ mod tests {
                 None
             ));
 
-            let asset_rule = AssetTransferRule {
-                sender_rules: vec![],
-                receiver_rules: vec![],
-            };
-
             assert_ok!(GeneralTM::add_active_rule(
                 token_owner_signed.clone(),
                 ticker,
-                asset_rule
+                vec![],
+                vec![]
             ));
 
             let asset_rules = GeneralTM::asset_rules(ticker);
@@ -835,7 +1043,7 @@ mod tests {
 
     #[test]
     fn pause_resume_asset_rules() {
-        identity_owned_by_alice().execute_with(pause_resume_asset_rules_we);
+        build().execute_with(pause_resume_asset_rules_we);
     }
 
     fn pause_resume_asset_rules_we() {
@@ -844,7 +1052,6 @@ mod tests {
         let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
         let receiver_acc = AccountId::from(AccountKeyring::Charlie);
         let (receiver_signed, receiver_did) = make_account(&receiver_acc.clone()).unwrap();
-        let scope = Scope::from(0);
 
         Balances::make_free_balance_be(&receiver_acc, 1_000_000);
 
@@ -875,7 +1082,7 @@ mod tests {
         assert_ok!(Identity::add_claim(
             receiver_signed.clone(),
             receiver_did.clone(),
-            Claim::Accredited(scope),
+            Claim::NoData,
             Some(99999999999999999u64),
         ));
 
@@ -884,19 +1091,15 @@ mod tests {
 
         // 4. Define rules
         let receiver_rules = vec![Rule {
-            rule_type: RuleType::IsAbsent(Claim::Accredited(scope)),
             issuers: vec![receiver_did],
+            rule_type: RuleType::IsAbsent(Claim::NoData),
         }];
-
-        let asset_rule = AssetTransferRule {
-            sender_rules: vec![],
-            receiver_rules,
-        };
 
         assert_ok!(GeneralTM::add_active_rule(
             token_owner_signed.clone(),
             ticker,
-            asset_rule
+            vec![],
+            receiver_rules
         ));
 
         // 5. Verify pause/resume mechanism.
@@ -930,22 +1133,365 @@ mod tests {
     }
 
     #[test]
-    fn jurisdiction_asset_rules() {
-        identity_owned_by_alice().execute_with(jurisdiction_asset_rules_we);
+    fn should_successfully_add_and_use_default_issuers() {
+        build().execute_with(|| {
+            // 0. Create accounts
+            let token_owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
+            let trusted_issuer_acc = AccountId::from(AccountKeyring::Charlie);
+            let (trusted_issuer_signed, trusted_issuer_did) =
+                make_account(&trusted_issuer_acc.clone()).unwrap();
+            let receiver_acc = AccountId::from(AccountKeyring::Dave);
+            let (_, receiver_did) = make_account(&receiver_acc.clone()).unwrap();
+
+            Balances::make_free_balance_be(&trusted_issuer_acc, 1_000_000);
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+            Balances::make_free_balance_be(&receiver_acc, 1_000_000);
+
+            // 1. A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
+            let ticker = Ticker::from(token.name.0.as_slice());
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+
+            // 2. Share issuance is successful
+            assert_ok!(Asset::create_token(
+                token_owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None
+            ));
+
+            // Failed because trusted issuer identity not exist
+            assert_err!(
+                GeneralTM::add_default_trusted_claim_issuer(
+                    token_owner_signed.clone(),
+                    ticker,
+                    IdentityId::from(1)
+                ),
+                Error::<Test>::DidNotExist
+            );
+
+            assert_ok!(GeneralTM::add_default_trusted_claim_issuer(
+                token_owner_signed.clone(),
+                ticker,
+                trusted_issuer_did
+            ));
+
+            assert_eq!(GeneralTM::trusted_claim_issuer(ticker).len(), 1);
+            assert_eq!(
+                GeneralTM::trusted_claim_issuer(ticker),
+                vec![trusted_issuer_did]
+            );
+
+            assert_ok!(Identity::add_claim(
+                trusted_issuer_signed.clone(),
+                receiver_did.clone(),
+                Claim::CustomerDueDiligence,
+                Some(99999999999999999u64),
+            ));
+
+            let now = Utc::now();
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let sender_rule = Rule {
+                issuers: vec![],
+                rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+            };
+
+            let receiver_rule = Rule {
+                issuers: vec![],
+                rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+            };
+
+            let x = vec![sender_rule];
+            let y = vec![receiver_rule];
+
+            assert_ok!(GeneralTM::add_active_rule(
+                token_owner_signed.clone(),
+                ticker,
+                x,
+                y
+            ));
+
+            // fail when token owner doesn't has the valid claim
+            assert_err!(
+                Asset::transfer(
+                    token_owner_signed.clone(),
+                    ticker,
+                    receiver_did.clone(),
+                    100
+                ),
+                AssetError::<Test>::InvalidTransfer
+            );
+
+            assert_ok!(Identity::add_claim(
+                trusted_issuer_signed.clone(),
+                token_owner_did.clone(),
+                Claim::CustomerDueDiligence,
+                Some(99999999999999999u64),
+            ));
+            assert_ok!(Asset::transfer(
+                token_owner_signed.clone(),
+                ticker,
+                receiver_did.clone(),
+                100
+            ));
+        });
     }
 
+    #[test]
+    fn should_modify_vector_of_trusted_issuer() {
+        build().execute_with(|| {
+            // 0. Create accounts
+            let token_owner_acc = AccountId::from(AccountKeyring::Alice);
+            let (token_owner_signed, token_owner_did) = make_account(&token_owner_acc).unwrap();
+            let trusted_issuer_acc_1 = AccountId::from(AccountKeyring::Charlie);
+            let (trusted_issuer_signed_1, trusted_issuer_did_1) =
+                make_account(&trusted_issuer_acc_1.clone()).unwrap();
+            let trusted_issuer_acc_2 = AccountId::from(AccountKeyring::Ferdie);
+            let (trusted_issuer_signed_2, trusted_issuer_did_2) =
+                make_account(&trusted_issuer_acc_2.clone()).unwrap();
+            let receiver_acc = AccountId::from(AccountKeyring::Dave);
+            let (receiver_signed, receiver_did) = make_account(&receiver_acc.clone()).unwrap();
+
+            Balances::make_free_balance_be(&trusted_issuer_acc_1, 1_000_000);
+            Balances::make_free_balance_be(&trusted_issuer_acc_2, 1_000_000);
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+            Balances::make_free_balance_be(&receiver_acc, 1_000_000);
+
+            // 1. A token representing 1M shares
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did: token_owner_did.clone(),
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
+            let ticker = Ticker::from(token.name.0.as_slice());
+            Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+
+            // 2. Share issuance is successful
+            assert_ok!(Asset::create_token(
+                token_owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None
+            ));
+
+            // Failed because caller is not the owner of the ticker
+            assert_err!(
+                GeneralTM::add_default_trusted_claim_issuers_batch(
+                    receiver_signed.clone(),
+                    ticker,
+                    vec![trusted_issuer_did_1, trusted_issuer_did_2]
+                ),
+                Error::<Test>::Unauthorized
+            );
+
+            // Failed because trusted issuer identity not exist
+            assert_err!(
+                GeneralTM::add_default_trusted_claim_issuers_batch(
+                    token_owner_signed.clone(),
+                    ticker,
+                    vec![IdentityId::from(1), IdentityId::from(2)]
+                ),
+                Error::<Test>::DidNotExist
+            );
+
+            // Failed because trusted issuers length < 0
+            assert_err!(
+                GeneralTM::add_default_trusted_claim_issuers_batch(
+                    token_owner_signed.clone(),
+                    ticker,
+                    vec![]
+                ),
+                Error::<Test>::InvalidLength
+            );
+
+            assert_ok!(GeneralTM::add_default_trusted_claim_issuers_batch(
+                token_owner_signed.clone(),
+                ticker,
+                vec![trusted_issuer_did_1, trusted_issuer_did_2]
+            ));
+
+            assert_eq!(GeneralTM::trusted_claim_issuer(ticker).len(), 2);
+            assert_eq!(
+                GeneralTM::trusted_claim_issuer(ticker),
+                vec![trusted_issuer_did_1, trusted_issuer_did_2]
+            );
+
+            // adding claim by trusted issuer 1
+            assert_ok!(Identity::add_claim(
+                trusted_issuer_signed_1.clone(),
+                receiver_did.clone(),
+                Claim::CustomerDueDiligence,
+                None,
+            ));
+
+            // adding claim by trusted issuer 1
+            assert_ok!(Identity::add_claim(
+                trusted_issuer_signed_1.clone(),
+                receiver_did.clone(),
+                Claim::NoData,
+                None,
+            ));
+
+            // adding claim by trusted issuer 2
+            assert_ok!(Identity::add_claim(
+                trusted_issuer_signed_2.clone(),
+                token_owner_did.clone(),
+                Claim::CustomerDueDiligence,
+                None,
+            ));
+
+            let now = Utc::now();
+            <pallet_timestamp::Module<Test>>::set_timestamp(now.timestamp() as u64);
+
+            let sender_rule = Rule {
+                issuers: vec![],
+                rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+            };
+
+            let receiver_rule_1 = Rule {
+                issuers: vec![],
+                rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+            };
+
+            let receiver_rule_2 = Rule {
+                issuers: vec![],
+                rule_type: RuleType::IsPresent(Claim::NoData),
+            };
+
+            let x = vec![sender_rule.clone()];
+            let y = vec![receiver_rule_1, receiver_rule_2];
+
+            assert_ok!(GeneralTM::add_active_rule(
+                token_owner_signed.clone(),
+                ticker,
+                x,
+                y
+            ));
+
+            assert_ok!(Asset::transfer(
+                token_owner_signed.clone(),
+                ticker,
+                receiver_did.clone(),
+                100
+            ));
+
+            // Remove the trusted issuer 1 from the list
+            assert_ok!(GeneralTM::remove_default_trusted_claim_issuers_batch(
+                token_owner_signed.clone(),
+                ticker,
+                vec![trusted_issuer_did_1]
+            ));
+
+            assert_eq!(GeneralTM::trusted_claim_issuer(ticker).len(), 1);
+            assert_eq!(
+                GeneralTM::trusted_claim_issuer(ticker),
+                vec![trusted_issuer_did_2]
+            );
+
+            // Transfer should fail as issuer doesn't exist anymore but the rule data still exist
+            assert_err!(
+                Asset::transfer(
+                    token_owner_signed.clone(),
+                    ticker,
+                    receiver_did.clone(),
+                    500
+                ),
+                AssetError::<Test>::InvalidTransfer
+            );
+
+            // Change the asset rule to all the transfer happen again
+
+            let receiver_rule_1 = Rule {
+                issuers: vec![trusted_issuer_did_1],
+                rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+            };
+
+            let receiver_rule_2 = Rule {
+                issuers: vec![trusted_issuer_did_1],
+                rule_type: RuleType::IsPresent(Claim::NoData),
+            };
+
+            let x = vec![sender_rule];
+            let y = vec![receiver_rule_1, receiver_rule_2];
+
+            let asset_rule = AssetTransferRule {
+                sender_rules: x.clone(),
+                receiver_rules: y.clone(),
+                rule_id: 1,
+            };
+
+            // Failed because sender is not the owner of the ticker
+            assert_err!(
+                GeneralTM::change_asset_rule(receiver_signed.clone(), ticker, asset_rule.clone()),
+                Error::<Test>::Unauthorized
+            );
+
+            let asset_rule_failure = AssetTransferRule {
+                sender_rules: x,
+                receiver_rules: y,
+                rule_id: 5,
+            };
+
+            // Failed because passed rule id is not valid
+            assert_err!(
+                GeneralTM::change_asset_rule(
+                    token_owner_signed.clone(),
+                    ticker,
+                    asset_rule_failure.clone()
+                ),
+                Error::<Test>::InvalidRuleId
+            );
+
+            // Should successfully change the asset rule
+            assert_ok!(GeneralTM::change_asset_rule(
+                token_owner_signed.clone(),
+                ticker,
+                asset_rule
+            ));
+
+            // Now the transfer should pass
+            assert_ok!(Asset::transfer(
+                token_owner_signed.clone(),
+                ticker,
+                receiver_did.clone(),
+                500
+            ));
+        });
+    }
+
+    #[test]
+    fn jurisdiction_asset_rules() {
+        build().execute_with(jurisdiction_asset_rules_we);
+    }
     fn jurisdiction_asset_rules_we() {
         // 0. Create accounts
         let token_owner_acc = AccountId::from(AccountKeyring::Alice);
         let (token_owner_signed, token_owner_id) = make_account(&token_owner_acc).unwrap();
         Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
-
         let cdd_acc = AccountId::from(AccountKeyring::Bob);
         let (cdd_signed, cdd_id) = make_account(&cdd_acc).unwrap();
-
         let user_acc = AccountId::from(AccountKeyring::Charlie);
         let (_, user_id) = make_account(&user_acc).unwrap();
-
         // 1. Create a token.
         let token = SecurityToken {
             name: vec![0x01].into(),
@@ -955,7 +1501,6 @@ mod tests {
             ..Default::default()
         };
         let ticker = Ticker::from(token.name.0.as_slice());
-
         assert_ok!(Asset::create_token(
             token_owner_signed.clone(),
             token.name.clone(),
@@ -966,38 +1511,33 @@ mod tests {
             vec![],
             None
         ));
-
         // 2. Set up rules for Asset transfer.
         let scope = Scope::from(0);
-        let asset_transfer_rules = AssetTransferRule {
-            sender_rules: vec![],
-            receiver_rules: vec![
-                Rule {
-                    rule_type: RuleType::IsAnyOf(vec![
-                        Claim::Jurisdiction(b"Canada".into(), scope),
-                        Claim::Jurisdiction(b"Spain".into(), scope),
-                    ]),
-                    issuers: vec![cdd_id],
-                },
-                Rule {
-                    rule_type: RuleType::IsAbsent(Claim::BlackListed(scope)),
-                    issuers: vec![token_owner_id],
-                },
-            ],
-        };
+        let receiver_rules = vec![
+            Rule {
+                rule_type: RuleType::IsAnyOf(vec![
+                    Claim::Jurisdiction(b"Canada".into(), scope),
+                    Claim::Jurisdiction(b"Spain".into(), scope),
+                ]),
+                issuers: vec![cdd_id],
+            },
+            Rule {
+                rule_type: RuleType::IsAbsent(Claim::BlackListed(scope)),
+                issuers: vec![token_owner_id],
+            },
+        ];
         assert_ok!(GeneralTM::add_active_rule(
             token_owner_signed.clone(),
             ticker,
-            asset_transfer_rules
+            vec![],
+            receiver_rules
         ));
-
         // 3. Validate behaviour.
         // 3.1. Invalid transfer because missing jurisdiction.
         assert_err!(
             Asset::transfer(token_owner_signed.clone(), ticker, user_id, 100),
             AssetError::<Test>::InvalidTransfer
         );
-
         // 3.2. Add jurisdiction and transfer will be OK.
         assert_ok!(Identity::add_claim(
             cdd_signed.clone(),
@@ -1005,14 +1545,12 @@ mod tests {
             Claim::Jurisdiction(b"Canada".into(), scope),
             None
         ));
-
         assert_ok!(Asset::transfer(
             token_owner_signed.clone(),
             ticker,
             user_id,
             100
         ));
-
         // 3.3. Add user to blacklist
         assert_ok!(Identity::add_claim(
             token_owner_signed.clone(),
@@ -1020,30 +1558,24 @@ mod tests {
             Claim::BlackListed(scope),
             None,
         ));
-
         assert_err!(
             Asset::transfer(token_owner_signed.clone(), ticker, user_id, 100),
             AssetError::<Test>::InvalidTransfer
         );
     }
-
     #[test]
     fn scope_asset_rules() {
-        identity_owned_by_alice().execute_with(scope_asset_rules_we);
+        build().execute_with(scope_asset_rules_we);
     }
-
     fn scope_asset_rules_we() {
         // 0. Create accounts
         let token_owner_acc = AccountId::from(AccountKeyring::Alice);
         let (token_owner_signed, token_owner_id) = make_account(&token_owner_acc).unwrap();
         Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
-
         let cdd_acc = AccountId::from(AccountKeyring::Bob);
         let (cdd_signed, cdd_id) = make_account(&cdd_acc).unwrap();
-
         let user_acc = AccountId::from(AccountKeyring::Charlie);
         let (_, user_id) = make_account(&user_acc).unwrap();
-
         // 1. Create a token.
         let token = SecurityToken {
             name: vec![0x01].into(),
@@ -1053,7 +1585,6 @@ mod tests {
             ..Default::default()
         };
         let ticker = Ticker::from(token.name.0.as_slice());
-
         assert_ok!(Asset::create_token(
             token_owner_signed.clone(),
             token.name.clone(),
@@ -1064,30 +1595,24 @@ mod tests {
             vec![],
             None
         ));
-
         // 2. Set up rules for Asset transfer.
         let scope = Identity::get_token_did(&ticker).unwrap();
-
-        let asset_transfer_rules = AssetTransferRule {
-            sender_rules: vec![],
-            receiver_rules: vec![Rule {
-                rule_type: RuleType::IsPresent(Claim::Affiliate(scope)),
-                issuers: vec![cdd_id],
-            }],
-        };
+        let receiver_rules = vec![Rule {
+            rule_type: RuleType::IsPresent(Claim::Affiliate(scope)),
+            issuers: vec![cdd_id],
+        }];
         assert_ok!(GeneralTM::add_active_rule(
             token_owner_signed.clone(),
             ticker,
-            asset_transfer_rules
+            vec![],
+            receiver_rules
         ));
-
         // 3. Validate behaviour.
         // 3.1. Invalid transfer because missing jurisdiction.
         assert_err!(
             Asset::transfer(token_owner_signed.clone(), ticker, user_id, 100),
             AssetError::<Test>::InvalidTransfer
         );
-
         // 3.2. Add jurisdiction and transfer will be OK.
         assert_ok!(Identity::add_claim(
             cdd_signed.clone(),
@@ -1095,7 +1620,6 @@ mod tests {
             Claim::Affiliate(scope),
             None
         ));
-
         assert_ok!(Asset::transfer(
             token_owner_signed.clone(),
             ticker,

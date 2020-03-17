@@ -12,7 +12,6 @@ use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
-use frame_system::{EventRecord, Phase};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -39,6 +38,7 @@ fn create_multisig() {
         assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
+        assert_eq!(MultiSig::ms_creator(musig_address), alice_did);
 
         assert_err!(
             MultiSig::create_multisig(alice.clone(), vec![], 10,),
