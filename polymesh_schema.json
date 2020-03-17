@@ -110,17 +110,18 @@
         "signing_items": "Vec<SigningItem>"
     },
     "JurisdictionName": "Text",
+    "Scope": "IdentityId",
     "Claim": {
         "_enum": {
-            "Accredited": "", 
-            "Affiliate": "",
-            "BuyLockup": "",
-            "SellLockup": "",
+            "Accredited": "Scope",
+            "Affiliate": "Scope",
+            "BuyLockup": "Scope",
+            "SellLockup": "Scope",
             "CustomerDueDiligence": "",
-            "KnowYourCustomer": "",
-            "Jurisdiction": "JurisdictionName",
-            "Whitelisted": "",
-            "Blacklisted": "",
+            "KnowYourCustomer": "Scope",
+            "Jurisdiction": "(JurisdictionName, Scope)",
+            "Whitelisted": "Scope",
+            "Blacklisted": "Scope",
             "NoData": ""
         }
     },
@@ -159,9 +160,10 @@
     },
     "RuleType": {
         "_enum": { 
-            "IsPresent" : "ClaimType",
-            "IsAbsent": "ClaimType",
-            "IsAnyOf": "Vec<Claim>"
+            "IsPresent" : "Claim",
+            "IsAbsent": "Claim",
+            "IsAnyOf": "Vec<Claim>",
+            "IsNoneOf": "Vec<Claim>"
         } 
     },
     "Rule": {
@@ -363,18 +365,15 @@
     },
     "Claim2ndKey": {
         "issuer": "IdentityId",
-        "scope": "Option<IdentityId>"
+        "scope": "Option<Scope>"
     },
     "BatchAddClaimItem": {
         "target": "IdentityId",
         "claim": "Claim",
-        "scope": "Option<IdentityId>",
         "expiry": "Option<u64>"
     },
     "BatchRevokeClaimItem": {
         "target": "IdentityId",
-        "claim_type": "ClaimType",
-        "scope": "Option<IdentityId>"
+        "claim": "Claim"
     }
-
 }

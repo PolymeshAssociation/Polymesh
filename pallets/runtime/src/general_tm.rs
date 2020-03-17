@@ -211,6 +211,8 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker, sender_did)
     }
 
+    /// It fetches all claims of `target` identity with type and scope from `claim` and generated
+    /// by any of `issuers`.
     fn fetch_claims(target: IdentityId, claim: &Claim, issuers: &[IdentityId]) -> Vec<Claim> {
         let claim_type = claim.claim_type();
         let scope = claim.as_scope().cloned();
@@ -224,6 +226,7 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
+    /// It fetches the predicate context for target `id` and specific `rule`.
     fn fetch_context(id: IdentityId, rule: &Rule) -> predicate::Context {
         let issuers = &rule.issuers;
 
