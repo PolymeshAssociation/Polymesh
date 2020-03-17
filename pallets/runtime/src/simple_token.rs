@@ -34,7 +34,7 @@
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::currency::MAX_SUPPLY,
-    identity::Trait as IdentityTrait, utils::Trait as Utils, CommonTrait, Context,
+    identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -48,7 +48,7 @@ use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedSub};
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + BalancesTrait + Utils + IdentityTrait {
+pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -389,6 +389,8 @@ mod tests {
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
+        type Public = AccountId;
+        type OffChainSignature = OffChainSignature;
     }
 
     impl pallet_transaction_payment::ChargeTxFee for Test {
@@ -426,16 +428,6 @@ mod tests {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
-    }
-
-    impl Utils for Test {
-        type Public = AccountId;
-        type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(
-            v: <Self as pallet_session::Trait>::ValidatorId,
-        ) -> Self::AccountId {
-            v
-        }
     }
 
     pub struct TestOnSessionEnding;

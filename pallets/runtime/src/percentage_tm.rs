@@ -26,7 +26,7 @@
 use crate::{asset::AssetTrait, exemption};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{constants::*, utils::Trait as Utils, CommonTrait, Context};
+use polymesh_runtime_common::{constants::*, CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
@@ -39,7 +39,7 @@ use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + Utils + exemption::Trait {
+pub trait Trait: frame_system::Trait + exemption::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }

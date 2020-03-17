@@ -5,7 +5,7 @@
 
 use sp_runtime::{generic, MultiSignature};
 
-pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Verify, Member};
+pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify};
 
 pub use codec::{Compact, Decode, Encode};
 
@@ -50,12 +50,6 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// Block ID.
 pub type BlockId = generic::BlockId<Block>;
-
-type Public = dyn IdentifyAccount<AccountId = AccountId>;
-type OffChainSignature = dyn Verify<Signer = Public> + Decode + Encode;
-
-// type Public = dyn IdentifyAccount<AccountId = AccountId>;
-// type OffChainSignature = Verify<Signer = Public> + Member + Decode + Encode;
 
 /// Opaque, encoded, unchecked extrinsic.
 pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;

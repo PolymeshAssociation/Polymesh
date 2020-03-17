@@ -1,8 +1,7 @@
 use crate::asset::{self, AssetTrait};
 
 use polymesh_runtime_common::{
-    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, utils::Trait as Utils,
-    Context,
+    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -16,7 +15,7 @@ use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + Utils + BalancesTrait + IdentityTrait {
+pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;

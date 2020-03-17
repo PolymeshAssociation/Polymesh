@@ -33,9 +33,7 @@
 use crate::asset::{self, AssetTrait};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{
-    identity::Trait as IdentityTrait, utils::Trait as Utils, CommonTrait, Context,
-};
+use polymesh_runtime_common::{identity::Trait as IdentityTrait, CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 
 use codec::{Decode, Encode};
@@ -46,7 +44,7 @@ use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// The module's configuration trait.
-pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + Utils + IdentityTrait {
+pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
@@ -492,16 +490,6 @@ mod tests {
         type MinimumPeriod = MinimumPeriod;
     }
 
-    impl Utils for Test {
-        type Public = AccountId;
-        type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(
-            v: <Self as pallet_session::Trait>::ValidatorId,
-        ) -> Self::AccountId {
-            v
-        }
-    }
-
     pub struct TestOnSessionEnding;
     impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
         fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
@@ -575,6 +563,8 @@ mod tests {
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
+        type Public = AccountId;
+        type OffChainSignature = OffChainSignature;
     }
 
     impl pallet_transaction_payment::ChargeTxFee for Test {
