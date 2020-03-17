@@ -395,7 +395,6 @@ fn enforce_uniqueness_keys_in_identity() {
     // Check external signed key uniqueness.
     let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
     add_signing_item(alice_id, Signatory::from(charlie_key));
-
     let auth_id = Identity::add_auth(
         Signatory::from(AccountKey::from(AccountKeyring::Alice.public().0)),
         Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0)),

@@ -708,7 +708,6 @@ pub fn add_nominator_claim(
         signed_claim_issuer_id,
         idendity_id,
         Claim::CustomerDueDiligence,
-        None,
         Some((now.timestamp() as u64 + 10000_u64).into()),
     ));
 }
@@ -725,7 +724,6 @@ pub fn add_nominator_claim_with_expiry(
         signed_claim_issuer_id,
         idendity_id,
         Claim::CustomerDueDiligence,
-        None,
         Some(expiry.into()),
     ));
 }

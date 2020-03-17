@@ -353,9 +353,9 @@
         "constant": "u32",
         "max_slash_percent": "u32"
     },
-    "AssetRules": {
+    "AssetTransferRules": {
         "is_paused": "bool",
-        "rules": "Vec<AssetRule>"
+        "rules": "Vec<AssetRules>"
     },
     "Claim1stKey": {
         "target": "IdentityId",
