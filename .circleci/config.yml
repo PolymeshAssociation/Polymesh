@@ -103,6 +103,7 @@ jobs:
             - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - v3-cli-cache-{{ checksum "./rust.version" }}
             - v2-release-cache-{{ checksum "./rust.version" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
           command: cargo build --release || cargo build -j 1 --release
@@ -113,7 +114,7 @@ jobs:
           background: true
       - run:
           name: cli scripts install
-          command: yarn
+          command: npm install
           working_directory: ./scripts/cli
           no_output_timeout: 30m
       - run:
