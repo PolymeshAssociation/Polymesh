@@ -48,6 +48,13 @@ pub mod did {
     pub const SECURITY_TOKEN: [u8; 15] = *b"SECURITY_TOKEN:";
 }
 
+/// Protocol fee operations.
+pub mod protocol_op {
+    pub const ASSET_REGISTER_TICKER: &'static [u8] = b"asset_register_ticker";
+    pub const ASSET_ISSUE: &'static [u8] = b"asset_issue";
+    pub const ASSET_ADD_DOCUMENT: &'static [u8] = b"asset_add_document";
+}
+
 // ERC1400 transfer status codes
 pub const ERC1400_TRANSFER_FAILURE: u8 = 0x50;
 pub const ERC1400_TRANSFER_SUCCESS: u8 = 0x51;

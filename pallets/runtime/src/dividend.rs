@@ -467,6 +467,7 @@ mod tests {
     use system::EnsureSignedBy;
 
     use polymesh_primitives::IdentityId;
+    use polymesh_protocol_fee as protocol_fee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig,
@@ -633,6 +634,12 @@ mod tests {
 
     impl simple_token::Trait for Test {
         type Event = ();
+    }
+
+    impl protocol_fee::Trait for Test {
+        type Event = ();
+        type Currency = Balances;
+        type OnProtocolFeePayment = ();
     }
 
     impl asset::Trait for Test {

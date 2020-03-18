@@ -2,6 +2,7 @@ use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, stati
 
 use pallet_committee as committee;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -60,6 +61,7 @@ impl_outer_event! {
         group DefaultInstance<T>,
         committee Instance1<T>,
         committee DefaultInstance<T>,
+        protocol_fee<T>,
     }
 }
 
@@ -301,6 +303,12 @@ impl percentage_tm::Trait for TestStorage {
 impl general_tm::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
+}
+
+impl protocol_fee::Trait for TestStorage {
+    type Event = Event;
+    type Currency = Balances;
+    type OnProtocolFeePayment = ();
 }
 
 impl asset::Trait for TestStorage {

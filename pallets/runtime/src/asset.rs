@@ -63,9 +63,10 @@ use polymesh_primitives::{
     DocumentUri, IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionName,
     SmartExtensionType, Ticker,
 };
+use polymesh_protocol_fee::{self as protocol_fee, OperationName};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
-    asset::AcceptTransfer, balances::Trait as BalancesTrait, constants::*,
+    self as common, asset::AcceptTransfer, balances::Trait as BalancesTrait, constants::*,
     identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
@@ -99,6 +100,7 @@ pub trait Trait:
     + pallet_session::Trait
     + statistics::Trait
     + pallet_contracts::Trait
+    + protocol_fee::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -346,6 +348,10 @@ decl_module! {
             let now = <pallet_timestamp::Module<T>>::get();
             let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
 
+            <protocol_fee::Module<T>>::charge_fee(
+                signer,
+                OperationName::from(protocol_op::ASSET_REGISTER_TICKER)
+            )?;
             Self::_register_ticker(&ticker, sender, to_did, expiry);
 
             Ok(())
@@ -727,6 +733,10 @@ decl_module! {
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            <protocol_fee::Module<T>>::charge_fee(
+                signer,
+                OperationName::from(protocol_op::ASSET_ISSUE)
+            )?;
             Self::_mint(&ticker, sender, to_did, value)
         }
 
@@ -795,6 +805,11 @@ decl_module! {
                     .checked_add(v)
                     .ok_or(Error::<T>::FundingRoundTotalOverflow)?;
             }
+            <protocol_fee::Module<T>>::charge_fee_batch(
+                signer,
+                OperationName::from(protocol_op::ASSET_ISSUE),
+                investor_dids.len() as u32
+            );
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
             // Update investor balances and emit events quoting the updated total token balance issued.
             for i in 0..investor_dids.len() {
@@ -1097,6 +1112,11 @@ decl_module! {
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
+            <protocol_fee::Module<T>>::charge_fee_batch(
+                sender_signer,
+                OperationName::from(protocol_op::ASSET_ADD_DOCUMENT),
+                documents.len() as u32
+            );
             documents.into_iter().for_each(|doc| {
                 <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None);
             });
@@ -1519,7 +1539,7 @@ decl_error! {
         SenderMustBeSigningKeyForDid,
         /// The sender must be a signing key for the DID.
         HolderMustBeSigningKeyForHolderDid,
-        /// The token has already been created.
+        /// The token has already been createod.
         TokenAlreadyCreated,
         /// The ticker length is over the limit.
         TickerTooLong,

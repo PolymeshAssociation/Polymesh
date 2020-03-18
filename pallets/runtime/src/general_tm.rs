@@ -546,6 +546,7 @@ mod tests {
     use test_client::{self, AccountKeyring};
 
     use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Signatory};
+    use polymesh_protocol_fee as protocol_fee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -746,6 +747,12 @@ mod tests {
         fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
         }
+    }
+
+    impl protocol_fee::Trait for Test {
+        type Event = ();
+        type Currency = Balances;
+        type OnProtocolFeePayment = ();
     }
 
     impl asset::Trait for Test {

@@ -600,7 +600,7 @@ construct_runtime!(
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
-        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>},
+        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 
