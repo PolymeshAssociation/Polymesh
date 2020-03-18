@@ -14,9 +14,14 @@ sp-std = { git = "https://github.com/paritytech/substrate", default-features = f
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
 [dev-dependencies]
+pallet-timestamp = { version = "2.0.0", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-transaction-payment = { path = "../transaction-payment" }
+polymesh-runtime-identity = { path = "../identity" }
+polymesh-runtime-balances = { path = "../balances" }
+polymesh-runtime-common = { path = "../common" }
 sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-polymesh-runtime-balances = { path = "../balances" }
+test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
 [features]
 default = ["std"]

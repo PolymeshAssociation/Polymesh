@@ -108,6 +108,7 @@ impl<T: Trait> Module<T> {
     /// Computes the fee of the extrinsic.
     pub fn compute_fee(name: ExtrinsicName) -> ComputeFeeResult<T> {
         let (numerator, denominator) = Self::multiplier();
+        println!("compute_fee: {}/{}", numerator, denominator);
         if let Some(fee) = Self::base_fees(name)
             .saturating_mul(<BalanceOf<T>>::from(numerator))
             .checked_div(&<BalanceOf<T>>::from(denominator))
@@ -143,30 +144,61 @@ mod tests {
     use super::*;
     use frame_support::{
         impl_outer_dispatch, impl_outer_origin, parameter_types,
-        weights::{DispatchClass, DispatchInfo, GetDispatchInfo, Weight},
+        weights::{DispatchInfo, Weight},
     };
     use frame_system as system;
+    use polymesh_runtime_balances as balances;
+    use polymesh_runtime_common::traits::{
+        asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
+    };
+    use polymesh_runtime_identity as identity;
+    use primitives::IdentityId;
     use sp_core::H256;
     use sp_runtime::{
-        testing::{Header, TestXt},
-        traits::{BlakeTwo256, Extrinsic, IdentityLookup},
+        testing::Header,
+        traits::{BlakeTwo256, IdentityLookup},
+        transaction_validity::{TransactionValidity, ValidTransaction},
         Perbill,
     };
+    use test_client::{self, AccountKeyring};
 
-    type ProtocolFee = super::Module<Runtime>;
-    type System = frame_system::Module<Runtime>;
+    type Balances = balances::Module<Test>;
+    type ProtocolFee = super::Module<Test>;
+    type System = frame_system::Module<Test>;
 
     impl_outer_dispatch! {
-        pub enum Call for Runtime where origin: Origin {
+        pub enum Call for Test where origin: Origin {
             frame_system::System,
         }
     }
 
     #[derive(Clone, PartialEq, Eq, Debug)]
-    pub struct Runtime;
+    pub struct Test;
 
     impl_outer_origin! {
-        pub enum Origin for Runtime {}
+        pub enum Origin for Test {}
+    }
+
+    impl AcceptTransfer for Test {
+        fn accept_ticker_transfer(_to_did: IdentityId, _auth_id: u64) -> DispatchResult {
+            unimplemented!();
+        }
+
+        fn accept_token_ownership_transfer(_to_did: IdentityId, _auth_id: u64) -> DispatchResult {
+            unimplemented!();
+        }
+    }
+
+    impl GroupTrait for Test {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!();
+        }
+    }
+
+    impl AddSignerMultiSig for Test {
+        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
+            unimplemented!()
+        }
     }
 
     parameter_types! {
@@ -174,9 +206,13 @@ mod tests {
         pub const MaximumBlockWeight: Weight = 1024;
         pub const MaximumBlockLength: u32 = 2 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::one();
+        pub const TransferFee: u64 = 0;
+        pub const CreationFee: u64 = 0;
+        pub const ExistentialDeposit: u64 = 0;
+        pub const MinimumPeriod: u64 = 3;
     }
 
-    impl frame_system::Trait for Runtime {
+    impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
@@ -195,14 +231,53 @@ mod tests {
         type ModuleToIndex = ();
     }
 
-    impl Trait for Runtime {
+    impl pallet_transaction_payment::ChargeTxFee for Test {
+        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+            Ok(ValidTransaction::default())
+        }
+    }
+
+    impl pallet_timestamp::Trait for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+    }
+
+    impl identity::Trait for Test {
         type Event = ();
-        type Currency = polymesh_runtime_balances::Module<Runtime>;
+        type Proposal = Call;
+        type AddSignerMultiSigTarget = Test;
+        type CddServiceProviders = Test;
+        type Balances = balances::Module<Test>;
+        type ChargeTxFeeTarget = Test;
+    }
+
+    impl CommonTrait for Test {
+        type Balance = u128;
+        type CreationFee = CreationFee;
+        type AcceptTransferTarget = Test;
+        type BlockRewardsReserve = balances::Module<Test>;
+    }
+
+    impl balances::Trait for Test {
+        type OnFreeBalanceZero = ();
+        type OnNewAccount = ();
+        type Event = ();
+        type DustRemoval = ();
+        type TransferPayment = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type Identity = identity::Module<Test>;
+    }
+
+    impl Trait for Test {
+        type Event = ();
+        type Currency = Balances;
         type OnProtocolFeePayment = ();
     }
 
     pub struct ExtBuilder {
-        base_fees: Vec<(Vec<u8>, u64)>,
+        base_fees: Vec<(Vec<u8>, u128)>,
         multiplier: (u32, u32),
     }
 
@@ -220,9 +295,19 @@ mod tests {
 
     impl ExtBuilder {
         fn build(self) -> sp_io::TestExternalities {
-            let storage = frame_system::GenesisConfig::default()
-                .build_storage::<Runtime>()
+            let mut storage = frame_system::GenesisConfig::default()
+                .build_storage::<Test>()
                 .unwrap();
+            GenesisConfig::<Test> {
+                base_fees: self
+                    .base_fees
+                    .iter()
+                    .map(|(k, v)| (ExtrinsicName::from(k), *v))
+                    .collect(),
+                multiplier: self.multiplier,
+            }
+            .assimilate_storage(&mut storage)
+            .unwrap();
             storage.into()
         }
     }
@@ -232,11 +317,11 @@ mod tests {
         ExtBuilder::default().build().execute_with(|| {
             assert_eq!(
                 ProtocolFee::compute_fee(ExtrinsicName::from(b"10_k_test")),
-                10_000
+                Ok(10_000)
             );
             assert_eq!(
                 ProtocolFee::compute_fee(ExtrinsicName::from(b"99_k_test")),
-                99_000
+                Ok(99_000)
             );
         });
     }
