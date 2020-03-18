@@ -1,5 +1,6 @@
 const { ApiPromise, WsProvider } = require("@polkadot/api");
 const { Keyring } = require("@polkadot/keyring");
+const { cryptoWaitReady } = require("@polkadot/util-crypto");
 const BN = require("bn.js");
 const cli = require("command-line-args");
 const cliProg = require("cli-progress");
@@ -41,7 +42,10 @@ let n_claims = opts.claims;
 let prepend = opts.prepend;
 let fast = opts.fast;
 
-const keyring = new Keyring({ type: "sr25519" });
+let keyring;
+cryptoWaitReady().then(() => {
+  keyring = new Keyring({ type: "sr25519" });
+});
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
