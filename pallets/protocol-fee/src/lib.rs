@@ -11,6 +11,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_root};
 use primitives::{traits::IdentityCurrency, Signatory};
 use sp_runtime::traits::{CheckedDiv, Saturating};
+use sp_std::{fmt::Debug, prelude::*};
 
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -108,7 +109,6 @@ impl<T: Trait> Module<T> {
     /// Computes the fee of the extrinsic.
     pub fn compute_fee(name: ExtrinsicName) -> ComputeFeeResult<T> {
         let (numerator, denominator) = Self::multiplier();
-        println!("compute_fee: {}/{}", numerator, denominator);
         if let Some(fee) = Self::base_fees(name)
             .saturating_mul(<BalanceOf<T>>::from(numerator))
             .checked_div(&<BalanceOf<T>>::from(denominator))
@@ -277,7 +277,7 @@ mod tests {
     }
 
     pub struct ExtBuilder {
-        base_fees: Vec<(Vec<u8>, u128)>,
+        base_fees: Vec<(ExtrinsicName, u128)>,
         multiplier: (u32, u32),
     }
 
@@ -285,8 +285,8 @@ mod tests {
         fn default() -> Self {
             Self {
                 base_fees: vec![
-                    (b"10_k_test".to_vec(), 10_000),
-                    (b"99_k_test".to_vec(), 99_000),
+                    (ExtrinsicName::from(b"10_k_test"), 10_000),
+                    (ExtrinsicName::from(b"99_k_test"), 99_000),
                 ],
                 multiplier: (1, 1),
             }
@@ -299,11 +299,7 @@ mod tests {
                 .build_storage::<Test>()
                 .unwrap();
             GenesisConfig::<Test> {
-                base_fees: self
-                    .base_fees
-                    .iter()
-                    .map(|(k, v)| (ExtrinsicName::from(k), *v))
-                    .collect(),
+                base_fees: self.base_fees,
                 multiplier: self.multiplier,
             }
             .assimilate_storage(&mut storage)

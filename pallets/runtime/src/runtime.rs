@@ -202,6 +202,7 @@ impl pallet_transaction_payment::Trait for Runtime {
 }
 
 impl protocol_fee::Trait for Runtime {
+    type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = DealWithFees;
 }
@@ -599,7 +600,7 @@ construct_runtime!(
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
-        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
+        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>},
     }
 );
 

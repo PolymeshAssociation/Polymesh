@@ -25,6 +25,7 @@ test-client = { package = "substrate-test-runtime-client", git = "https://github
 
 [features]
 default = ["std"]
+no_std = []
 std = [
     "codec/std",
     "frame-support/std",

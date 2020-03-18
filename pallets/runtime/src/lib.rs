@@ -57,7 +57,6 @@ pub mod config {
     pub type SystemConfig = frame_system::GenesisConfig;
     pub type GenesisConfig = crate::runtime::GenesisConfig;
     pub type SessionConfig = pallet_session::GenesisConfig<crate::Runtime>;
-    pub type ProtocolFeeConfig = polymesh_protocol_fee::ProtocolFeeConfig<crate::Runtime>;
 }
 
 pub mod update_did_signed_extension;
