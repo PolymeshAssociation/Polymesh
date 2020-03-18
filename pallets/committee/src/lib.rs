@@ -205,7 +205,7 @@ decl_module! {
                 <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
                 <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
 
-                let votes = PolymeshVotes { index, ayes: vec![did.clone()], nays: vec![] };
+                let votes = PolymeshVotes { index, ayes: vec![did], nays: vec![] };
                 <Voting<T, I>>::insert(proposal_hash, votes);
 
                 Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
@@ -284,12 +284,10 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             // If any element is removed, we have to update `voting`.
             is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
                 Some(voting.ayes.swap_remove(idx))
+            } else if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
+                Some(voting.nays.swap_remove(idx))
             } else {
-                if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
-                    Some(voting.nays.swap_remove(idx))
-                } else {
-                    None
-                }
+                None
             };
 
             if is_id_removed.is_some() {
@@ -356,7 +354,7 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
                     acc || Self::remove_vote_from(*id, *proposal)
                 })
             })
-            .for_each(|update_proposal| Self::check_proposal_threshold(update_proposal));
+            .for_each(Self::check_proposal_threshold);
 
         <Members<I>>::put(new);
     }

@@ -145,14 +145,14 @@
 //! pub trait Trait: staking::Trait {}
 //!
 //! decl_module! {
-//! 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-//!			/// Reward a validator.
-//! 		pub fn reward_myself(origin) -> dispatch::DispatchResult {
-//! 			let reported = ensure_signed(origin)?;
-//! 			<staking::Module<T>>::reward_by_ids(vec![(reported, 10)]);
-//! 			Ok(())
-//! 		}
-//! 	}
+//! pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+//!	/// Reward a validator.
+//!     pub fn reward_myself(origin) -> dispatch::DispatchResult {
+//!         let reported = ensure_signed(origin)?;
+//!         <staking::Module<T>>::reward_by_ids(vec![(reported, 10)]);
+//!         Ok(())
+//!         }
+//!     }
 //! }
 //! # fn main() { }
 //! ```

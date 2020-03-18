@@ -124,7 +124,7 @@ decl_module! {
             let mut members = <Members<I>>::get();
 
             let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NoSuchMember)?;
-            members[location] = add.clone();
+            members[location] = add;
 
             let _location = members.binary_search(&add).err().ok_or(Error::<T, I>::DuplicateMember)?;
             members.sort();

@@ -105,7 +105,7 @@ decl_module! {
         /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
         pub fn create_multisig(origin, signers: Vec<Signatory>, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure!(signers.len() > 0, Error::<T>::NoSigners);
+            ensure!(!signers.is_empty(), Error::<T>::NoSigners);
             ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
                 Error::<T>::RequiredSignaturesOutOfBounds
             );
@@ -505,18 +505,18 @@ impl<T: Trait> Module<T> {
                 {
                     Ok(_) => true,
                     Err(e) => {
-                        let e: DispatchError = e.into();
+                        let e: DispatchError = e;
                         sp_runtime::print(e);
                         false
                     }
                 };
                 Self::deposit_event(RawEvent::ProposalExecuted(multisig, proposal_id, res));
-                return Ok(());
+                Ok(())
             } else {
-                return Ok(());
+                Ok(())
             }
         } else {
-            return Err(Error::<T>::ProposalMissing.into());
+            Err(Error::<T>::ProposalMissing.into())
         }
     }
 
@@ -539,7 +539,7 @@ impl<T: Trait> Module<T> {
                 T::AccountId::decode(&mut &multisig_key.as_slice()[..])
                     .map_err(|_| Error::<T>::DecodingError)
             } else {
-                Err(Error::<T>::DecodingError.into())
+                Err(Error::<T>::DecodingError)
             }
         }?;
 
@@ -555,7 +555,7 @@ impl<T: Trait> Module<T> {
         <identity::Module<T>>::consume_auth(wallet_signer, signer, auth_id)?;
 
         <MultiSigSigners<T>>::insert(wallet_id.clone(), signer, signer);
-        <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x = *x + 1u64);
+        <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x += 1u64);
 
         Self::deposit_event(RawEvent::MultiSigSignerAdded(wallet_id, signer));
 

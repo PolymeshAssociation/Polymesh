@@ -3,9 +3,7 @@
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 use polymesh_primitives::Block;
 use polymesh_runtime::{self, config::GenesisConfig, RuntimeApi};
-use sc_basic_authority;
 use sc_client::LongestChain;
-use sc_consensus_babe;
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_network::construct_simple_protocol;
@@ -191,7 +189,7 @@ pub fn new_full<C: Send + Default + 'static>(
             service.keystore(),
             future03_dht_event_rx,
         );
-        let future01_authority_discovery = authority_discovery.map(|x| Ok(x)).compat();
+        let future01_authority_discovery = authority_discovery.map(Ok).compat();
 
         service.spawn_task(future01_authority_discovery);
     }
@@ -231,7 +229,7 @@ pub fn new_full<C: Send + Default + 'static>(
                 config: grandpa_config,
                 link: grandpa_link,
                 network: service.network(),
-                inherent_data_providers: inherent_data_providers.clone(),
+                inherent_data_providers,
                 on_exit: service.on_exit(),
                 telemetry_on_connect: Some(service.telemetry_on_connect_stream()),
                 voting_rule: grandpa::VotingRulesBuilder::default().build(),
@@ -302,7 +300,7 @@ pub fn new_light<C: Send + Default + 'static>(
                 )?;
 
                 let import_queue = sc_consensus_babe::import_queue(
-                    babe_link.clone(),
+                    babe_link,
                     babe_block_import,
                     None,
                     Some(Box::new(finality_proof_import)),
