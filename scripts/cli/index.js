@@ -643,13 +643,13 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, compl
 
     if (fast) {
       const unsub = await api.tx.identity
-      .addClaim(dids[i], 0, undefined, 0)
+      .addClaim(dids[i], 0, 0)
       .signAndSend(accounts[i%claim_dids.length],
         { nonce: nonces.get(accounts[i%claim_dids.length].address) });
     } else {
 
       const unsub = await api.tx.identity
-      .addClaim(dids[i], 0, undefined, 0)
+      .addClaim(dids[i], 0, 0)
       .signAndSend(accounts[i%claim_dids.length],
         { nonce: nonces.get(accounts[i%claim_dids.length].address) },
         ({ events = [], status }) => {
