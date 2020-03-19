@@ -231,11 +231,13 @@
         "motions": "Vec<Motion>"
     },
     "Url": "Text",
+    "MipDescription": "Text",
     "MipsMetadata": {
         "index": "u32",
         "end": "u64",
         "proposal_hash": "Hash",
-        "url": "Option<Url>"
+        "url": "Option<Url>",
+        "description": "Option<MipDescription>"
     },
     "PolymeshVotes": {
         "index": "u32",
@@ -253,7 +255,6 @@
         "index": "MipsIndex",
         "proposal":"Call"
     },
-    "MipDescription": "Text",
     "PolymeshReferendumInfo": {
         "index": "MipsIndex",
         "priority": "MipsPriority",
