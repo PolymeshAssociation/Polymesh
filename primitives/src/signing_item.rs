@@ -146,8 +146,7 @@ impl SigningItem {
     pub fn has_permission(&self, permission: Permission) -> bool {
         self.permissions
             .iter()
-            .find(|&r| permission == *r || *r == Permission::Full)
-            .is_some()
+            .any(|r| permission == *r || *r == Permission::Full)
     }
 }
 

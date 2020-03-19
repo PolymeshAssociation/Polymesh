@@ -4,22 +4,20 @@ use crate::test::{
 };
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, IdentityClaimData, LinkData, Permission,
-    Signatory, SignatoryType, SigningItem, Ticker,
+    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, LinkData, Permission,
+    Scope, Signatory, SigningItem, Ticker,
 };
-use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{SigningItemWithAuth, TargetIdAuthorization};
-use polymesh_runtime_identity::{self as identity, Error};
+use polymesh_runtime_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use sp_core::H512;
 use test_client::AccountKeyring;
 
 use std::convert::TryFrom;
 
 type Identity = identity::Module<TestStorage>;
-type Balances = balances::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
@@ -30,47 +28,47 @@ fn add_claims_batch() {
     ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let _issuer = AccountKeyring::Bob.public();
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = AccountKeyring::Charlie.public();
+        let scope = Scope::from(0);
 
         let claim_records = vec![
-            (claim_issuer_did.clone(), None, IdentityClaimData::NoData),
-            (
-                claim_issuer_did.clone(),
-                None,
-                IdentityClaimData::CustomerDueDiligence,
-            ),
+            BatchAddClaimItem {
+                target: claim_issuer_did,
+                claim: Claim::Accredited(scope),
+                expiry: None,
+            },
+            BatchAddClaimItem {
+                target: claim_issuer_did,
+                claim: Claim::Affiliate(scope),
+                expiry: None,
+            },
         ];
         assert_ok!(Identity::add_claims_batch(
             Origin::signed(claim_issuer.clone()),
             claim_records,
         ));
 
-        let claim1 = Identity::fetch_valid_claim(
+        let claim1 = Identity::fetch_claim(
             claim_issuer_did,
-            IdentityClaimData::NoData,
+            ClaimType::Accredited,
             claim_issuer_did,
+            Some(scope),
         )
         .unwrap();
-        let claim2 = Identity::fetch_valid_claim(
+        let claim2 = Identity::fetch_claim(
             claim_issuer_did,
-            IdentityClaimData::CustomerDueDiligence,
+            ClaimType::Affiliate,
             claim_issuer_did,
+            Some(scope),
         )
         .unwrap();
 
         assert_eq!(claim1.expiry, None);
         assert_eq!(claim2.expiry, None);
-        assert!(Identity::is_claim_valid(
-            claim_issuer_did,
-            IdentityClaimData::CustomerDueDiligence,
-            claim_issuer_did
-        ));
 
-        assert_eq!(claim1.claim, IdentityClaimData::NoData);
-
-        assert_eq!(claim2.claim, IdentityClaimData::CustomerDueDiligence);
+        assert_eq!(claim1.claim, Claim::Accredited(scope));
+        assert_eq!(claim2.claim, Claim::Affiliate(scope));
     });
 }
 
@@ -88,8 +86,6 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
 
         let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
         let charlie_signer = Signatory::AccountKey(charlie_key);
-        let charlie_signing_item =
-            SigningItem::new(charlie_signer.clone(), vec![Permission::Admin]);
 
         add_signing_item(a_did, charlie_signer);
 
@@ -116,29 +112,32 @@ fn revoking_claims() {
         let _issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
+        let scope = Scope::from(0);
 
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::NoData,
+            Claim::Accredited(scope),
             Some(100u64),
         ));
-        assert!(Identity::fetch_valid_claim(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
-            IdentityClaimData::NoData,
-            claim_issuer_did
+            ClaimType::Accredited,
+            claim_issuer_did,
+            Some(scope)
         )
         .is_some());
 
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::NoData
+            Claim::Accredited(scope),
         ));
-        assert!(Identity::fetch_valid_claim(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
-            IdentityClaimData::NoData,
-            claim_issuer_did
+            ClaimType::Accredited,
+            claim_issuer_did,
+            Some(scope)
         )
         .is_none());
     });
@@ -152,72 +151,79 @@ fn revoking_batch_claims() {
         let _issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
+        let scope = Scope::from(0);
 
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::NoData,
+            Claim::Accredited(scope),
             Some(100u64),
         ));
 
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            IdentityClaimData::CustomerDueDiligence,
+            Claim::CustomerDueDiligence,
             None,
         ));
-
-        assert_ok!(Identity::add_claim(
-            claim_issuer.clone(),
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
-            IdentityClaimData::Accredited(claim_issuer_did),
-            None,
-        ));
-
-        assert!(Identity::fetch_valid_claim(
+            ClaimType::Accredited,
             claim_issuer_did,
-            IdentityClaimData::NoData,
-            claim_issuer_did
+            Some(scope)
         )
         .is_some());
 
-        assert!(Identity::fetch_valid_claim(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
-            IdentityClaimData::CustomerDueDiligence,
-            claim_issuer_did
+            ClaimType::CustomerDueDiligence,
+            claim_issuer_did,
+            None,
+        )
+        .is_some());
+
+        assert!(Identity::fetch_claim(
+            claim_issuer_did,
+            ClaimType::Accredited,
+            claim_issuer_did,
+            Some(scope),
         )
         .is_some());
 
         assert_ok!(Identity::revoke_claims_batch(
             claim_issuer.clone(),
             vec![
-                (claim_issuer_did, IdentityClaimData::NoData),
-                (claim_issuer_did, IdentityClaimData::CustomerDueDiligence),
-                (
-                    claim_issuer_did,
-                    IdentityClaimData::Accredited(claim_issuer_did)
-                )
+                BatchRevokeClaimItem {
+                    target: claim_issuer_did,
+                    claim: Claim::Accredited(scope),
+                },
+                BatchRevokeClaimItem {
+                    target: claim_issuer_did,
+                    claim: Claim::CustomerDueDiligence,
+                }
             ]
         ));
-
-        assert!(Identity::fetch_valid_claim(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
-            IdentityClaimData::NoData,
-            claim_issuer_did
+            ClaimType::Accredited,
+            claim_issuer_did,
+            Some(scope)
         )
         .is_none());
 
-        assert!(Identity::fetch_valid_claim(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
-            IdentityClaimData::CustomerDueDiligence,
-            claim_issuer_did
+            ClaimType::CustomerDueDiligence,
+            claim_issuer_did,
+            None
         )
         .is_none());
 
-        assert!(Identity::fetch_valid_claim(
+        assert!(Identity::fetch_claim(
             claim_issuer_did,
-            IdentityClaimData::Accredited(claim_issuer_did),
-            claim_issuer_did
+            ClaimType::Accredited,
+            claim_issuer_did,
+            Some(scope),
         )
         .is_none());
     });
@@ -229,14 +235,12 @@ fn only_master_key_can_add_signing_key_permissions() {
         .build()
         .execute_with(&only_master_key_can_add_signing_key_permissions_with_externalities);
 }
-
 fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
     let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob = Origin::signed(AccountKeyring::Bob.public());
-    let charlie = Origin::signed(AccountKeyring::Charlie.public());
 
     add_signing_item(alice_did, Signatory::from(charlie_key));
     add_signing_item(alice_did, Signatory::from(bob_key));
@@ -292,15 +296,6 @@ fn freeze_signing_keys_with_externalities() {
         AccountKey::from(AccountKeyring::Dave.public().0),
     );
     let bob = Origin::signed(AccountKeyring::Bob.public());
-    let charlie = Origin::signed(AccountKeyring::Charlie.public());
-    let dave = Origin::signed(AccountKeyring::Dave.public());
-
-    let bob_signing_key = SigningItem::new(Signatory::AccountKey(bob_key), vec![Permission::Admin]);
-    let charlie_signing_key = SigningItem::new(
-        Signatory::AccountKey(charlie_key),
-        vec![Permission::Operator],
-    );
-    let dave_signing_key = SigningItem::from(dave_key);
 
     // Add signing keys.
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -363,7 +358,6 @@ fn remove_frozen_signing_keys_with_externalities() {
         AccountKey::from(AccountKeyring::Charlie.public().0),
     );
 
-    let bob_signing_key = SigningItem::new(Signatory::AccountKey(bob_key), vec![Permission::Admin]);
     let charlie_signing_key = SigningItem::new(Signatory::AccountKey(charlie_key), vec![]);
 
     // Add signing keys.
@@ -396,13 +390,10 @@ fn enforce_uniqueness_keys_in_identity_tests() {
 fn enforce_uniqueness_keys_in_identity() {
     // Register identities
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
     let _bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let bob = Origin::signed(AccountKeyring::Bob.public());
 
     // Check external signed key uniqueness.
     let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
-    let charlie_sk = SigningItem::new(Signatory::AccountKey(charlie_key), vec![]);
     add_signing_item(alice_id, Signatory::from(charlie_key));
     let auth_id = Identity::add_auth(
         Signatory::from(AccountKey::from(AccountKeyring::Alice.public().0)),
@@ -430,10 +421,8 @@ fn add_remove_signing_identities_with_externalities() {
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let bob = Origin::signed(AccountKeyring::Bob.public());
 
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let charlie = Origin::signed(AccountKeyring::Charlie.public());
 
     add_signing_item(alice_id, Signatory::from(bob_id));
     add_signing_item(alice_id, Signatory::from(charlie_id));
@@ -778,7 +767,10 @@ fn changing_master_key_with_cdd_auth_we() {
         None,
     );
 
-    Identity::change_cdd_requirement_for_mk_rotation(frame_system::RawOrigin::Root.into(), true);
+    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
+        frame_system::RawOrigin::Root.into(),
+        true
+    ));
 
     assert!(
         Identity::accept_master_key(new_key_origin.clone(), owner_auth_id.clone(), None).is_err()
@@ -813,9 +805,7 @@ fn cdd_register_did_test() {
 
 fn cdd_register_did_test_we() {
     let cdd_1_acc = AccountKeyring::Eve.public();
-    let cdd_1_key = AccountKey::try_from(cdd_1_acc.0).unwrap();
     let cdd_2_acc = AccountKeyring::Ferdie.public();
-    let cdd_2_key = AccountKey::try_from(cdd_2_acc.0).unwrap();
     let non_id = Origin::signed(AccountKeyring::Charlie.public());
 
     let alice_acc = AccountKeyring::Alice.public();
@@ -833,7 +823,6 @@ fn cdd_register_did_test_we() {
 
     // Check that Alice's ID is attested by CDD 1.
     let alice_id = Identity::get_identity(&alice_key).unwrap();
-    let _cdd_1_id = Identity::get_identity(&cdd_1_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Error case: Try account without ID.
@@ -851,7 +840,6 @@ fn cdd_register_did_test_we() {
         vec![]
     ));
     let bob_id = Identity::get_identity(&bob_key).unwrap();
-    let _cdd_2_id = Identity::get_identity(&cdd_2_key).unwrap();
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
 }
 

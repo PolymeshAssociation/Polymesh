@@ -310,7 +310,7 @@ decl_module! {
         pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
-            let sender = ensure_signed(origin.clone())?;
+            let sender = ensure_signed(origin)?;
             ensure!(sender == Self::controller(), Error::<T>::BadCaller);
             ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
             if Self::frozen() {
