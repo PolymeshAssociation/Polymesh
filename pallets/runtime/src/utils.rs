@@ -2,7 +2,6 @@ use polymesh_runtime_common::balances::Trait as BalancesTrait;
 
 use codec::{Decode, Encode};
 use frame_system;
-use pallet_session;
 use sp_runtime::traits::{IdentifyAccount, Member, Verify};
 
 /// The module's configuration trait.

@@ -3,7 +3,6 @@ use core::fmt::{Display, Formatter};
 use core::str;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_io;
 use sp_runtime::traits::Printable;
 use sp_std::prelude::*;
 

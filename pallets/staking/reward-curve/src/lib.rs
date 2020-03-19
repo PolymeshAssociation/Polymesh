@@ -45,14 +45,14 @@ use syn::parse::{Parse, ParseStream};
 /// use sp_runtime::curve::PiecewiseLinear;
 ///
 /// pallet_staking_reward_curve::build! {
-/// 	const I_NPOS: PiecewiseLinear<'static> = curve!(
-/// 		min_inflation: 0_025_000,
-/// 		max_inflation: 0_100_000,
-/// 		ideal_stake: 0_500_000,
-/// 		falloff: 0_050_000,
-/// 		max_piece_count: 40,
-/// 		test_precision: 0_005_000,
-/// 	);
+/// const I_NPOS: PiecewiseLinear<'static> = curve!(
+///    min_inflation: 0_025_000,
+///    max_inflation: 0_100_000,
+///    ideal_stake: 0_500_000,
+///    falloff: 0_050_000,
+///    max_piece_count: 40,
+///    test_precision: 0_005_000,
+/// );
 /// }
 /// ```
 #[proc_macro]
@@ -403,54 +403,54 @@ fn generate_test_module(input: &INposInput) -> TokenStream2 {
     let max_piece_count = input.max_piece_count;
 
     quote!(
-		#[cfg(test)]
-		mod __pallet_staking_reward_curve_test_module {
-			fn i_npos(x: f64) -> f64 {
-				if x <= #x_ideal {
-					#i_0 + x * (#i_ideal - #i_0 / #x_ideal)
-				} else {
-					#i_0 + (#i_ideal_times_x_ideal - #i_0) * 2_f64.powf((#x_ideal - x) / #d)
-				}
-			}
+        #[cfg(test)]
+        mod __pallet_staking_reward_curve_test_module {
+            fn i_npos(x: f64) -> f64 {
+                if x <= #x_ideal {
+                    #i_0 + x * (#i_ideal - #i_0 / #x_ideal)
+                } else {
+                    #i_0 + (#i_ideal_times_x_ideal - #i_0) * 2_f64.powf((#x_ideal - x) / #d)
+                }
+            }
 
-			const MILLION: u32 = 1_000_000;
+            const MILLION: u32 = 1_000_000;
 
-			#[test]
-			fn reward_curve_precision() {
-				for &base in [MILLION, u32::max_value()].into_iter() {
-					let number_of_check = 100_000.min(base);
-					for check_index in 0..=number_of_check {
-						let i = (check_index as u64 * base as u64 / number_of_check as u64) as u32;
-						let x = i as f64 / base as f64;
-						let float_res = (i_npos(x) * base as f64).round() as u32;
-						let int_res = super::#ident.calculate_for_fraction_times_denominator(i, base);
-						let err = (
-							(float_res.max(int_res) - float_res.min(int_res)) as u64
-							* MILLION as u64
-							/ float_res as u64
-						) as u32;
-						if err > #precision {
-							panic!(format!("\n\
-								Generated reward curve approximation differ from real one:\n\t\
-								for i = {} and base = {}, f(i/base) * base = {},\n\t\
-								but approximation = {},\n\t\
-								err = {:07} millionth,\n\t\
-								try increase the number of segment: {} or the test_error: {}.\n",
-								i, base, float_res, int_res, err, #max_piece_count, #precision
-							));
-						}
-					}
-				}
-			}
+            #[test]
+            fn reward_curve_precision() {
+                for &base in [MILLION, u32::max_value()].into_iter() {
+                    let number_of_check = 100_000.min(base);
+                    for check_index in 0..=number_of_check {
+                        let i = (check_index as u64 * base as u64 / number_of_check as u64) as u32;
+                        let x = i as f64 / base as f64;
+                        let float_res = (i_npos(x) * base as f64).round() as u32;
+                        let int_res = super::#ident.calculate_for_fraction_times_denominator(i, base);
+                        let err = (
+                            (float_res.max(int_res) - float_res.min(int_res)) as u64
+                            * MILLION as u64
+                            / float_res as u64
+                        ) as u32;
+                        if err > #precision {
+                            panic!(format!("\n\
+                                Generated reward curve approximation differ from real one:\n\t\
+                                for i = {} and base = {}, f(i/base) * base = {},\n\t\
+                                but approximation = {},\n\t\
+                                err = {:07} millionth,\n\t\
+                                try increase the number of segment: {} or the test_error: {}.\n",
+                                i, base, float_res, int_res, err, #max_piece_count, #precision
+                            ));
+                        }
+                    }
+                }
+            }
 
-			#[test]
-			fn reward_curve_piece_count() {
-				assert!(
-					super::#ident.points.len() as u32 - 1 <= #max_piece_count,
-					"Generated reward curve approximation is invalid: \
-					has more points than specified, please fill an issue."
-				);
-			}
-		}
-	).into()
+            #[test]
+            fn reward_curve_piece_count() {
+                assert!(
+                    super::#ident.points.len() as u32 - 1 <= #max_piece_count,
+                    "Generated reward curve approximation is invalid: \
+                    has more points than specified, please fill an issue."
+                );
+            }
+        }
+    )
 }
