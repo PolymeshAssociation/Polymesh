@@ -1553,6 +1553,23 @@ impl<T: Trait> Module<T> {
         <Claims>::remove(&did, &claim_identifier);
         Self::deposit_event(RawEvent::RevokedClaim(did, claim_identifier));
     }
+
+    pub fn get_non_expired_auth(
+        target: &Signatory,
+        auth_id: &u64,
+    ) -> Option<Authorization<T::Moment>> {
+        if !<Authorizations<T>>::exists(target, auth_id) {
+            return None;
+        }
+        let auth = <Authorizations<T>>::get(target, auth_id);
+        if let Some(expiry) = auth.expiry {
+            let now = <pallet_timestamp::Module<T>>::get();
+            if expiry > now {
+                return None;
+            }
+        }
+        Some(auth)
+    }
 }
 
 impl<T: Trait> Module<T> {

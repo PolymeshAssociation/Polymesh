@@ -74,6 +74,7 @@ pub trait Trait: frame_system::Trait {
     /// Update the multiplier of the next block, based on the previous block's weight.
     type FeeMultiplierUpdate: Convert<Multiplier, Multiplier>;
 
+    // Polymesh note: This was specifically added for Polymesh
     /// Fetch the signatory to charge fee from
     type WhomToCharge: FeeDetails<Self::Call>;
 }
@@ -222,7 +223,7 @@ where
     fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
         Ok(())
     }
-
+    // Polymesh note: Almost all of this function was re written to enforce zero tip and charge fee to proper payer.
     fn validate(
         &self,
         who: &Self::AccountId,
@@ -268,6 +269,8 @@ where
         Ok(r)
     }
 }
+
+// Polymesh note: This was specifically added for Polymesh
 pub trait FeeDetails<Call> {
     fn whom_to_charge(
         call: &Call,
@@ -275,10 +278,12 @@ pub trait FeeDetails<Call> {
     ) -> Result<Option<Signatory>, InvalidTransaction>;
 }
 
+// Polymesh note: This was specifically added for Polymesh
 pub trait ChargeTxFee {
     fn charge_fee(who: Signatory, len: u32, info: DispatchInfo) -> TransactionValidity;
 }
 
+// Polymesh note: This was specifically added for Polymesh
 impl<T: Trait> ChargeTxFee for Module<T> {
     fn charge_fee(who: Signatory, len: u32, info: DispatchInfo) -> TransactionValidity {
         let fee = if info.pays_fee {
