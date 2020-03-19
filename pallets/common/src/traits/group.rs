@@ -125,6 +125,8 @@ pub trait GroupTrait<Moment: PartialOrd + Copy> {
         at: Option<Moment>,
     ) -> DispatchResult;
 
+    /// It returns the current "active members" and any "inactive member" which its
+    /// expiration time-stamp is greater than `moment`.
     fn get_valid_members_at(moment: Moment) -> Vec<IdentityId> {
         Self::get_active_members()
             .into_iter()

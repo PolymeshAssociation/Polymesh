@@ -258,9 +258,11 @@ impl GroupTrait<Moment> for Test {
     fn get_members() -> Vec<IdentityId> {
         return Group::get_members();
     }
+
     fn get_inactive_members() -> Vec<InactiveMember<Moment>> {
-        unimplemented!();
+        vec![]
     }
+
     fn disable_member(
         _who: IdentityId,
         _expiry: Option<Moment>,

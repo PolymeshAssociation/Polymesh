@@ -238,7 +238,7 @@ fn disable_member_we() {
     ));
     assert_eq!(CommitteeGroup::get_members(), vec![charlie_id, alice_id]);
     assert_eq!(
-        CommitteeGroup::valid_members(),
+        CommitteeGroup::get_valid_members(),
         vec![charlie_id, alice_id, bob_id]
     );
 
@@ -250,9 +250,12 @@ fn disable_member_we() {
         None
     ));
     assert_eq!(CommitteeGroup::get_members(), vec![alice_id]);
-    assert_eq!(CommitteeGroup::valid_members_at(10), vec![alice_id, bob_id]);
     assert_eq!(
-        CommitteeGroup::valid_members_at(9),
+        CommitteeGroup::get_valid_members_at(10),
+        vec![alice_id, bob_id]
+    );
+    assert_eq!(
+        CommitteeGroup::get_valid_members_at(9),
         vec![alice_id, charlie_id, bob_id]
     );
 }
