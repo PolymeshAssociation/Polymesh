@@ -56,7 +56,7 @@
 //! - `custodian_allowance`- Returns the allowance provided to a custodian for a given ticker and token holder
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
 
-use crate::{general_tm, percentage_tm, statistics, utils};
+use crate::{general_tm, percentage_tm, statistics};
 
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
@@ -94,7 +94,6 @@ pub trait Trait:
     frame_system::Trait
     + general_tm::Trait
     + percentage_tm::Trait
-    + utils::Trait
     + BalancesTrait
     + IdentityTrait
     + pallet_session::Trait
@@ -446,14 +445,14 @@ decl_module! {
                 validator_len = T::Balance::from(validators.len() as u32);
             }
             let proportional_fee = fee / validator_len;
-            for v in validators {
-                <balances::Module<T> as Currency<_>>::transfer(
-                    &sender,
-                    &<T as utils::Trait>::validator_id_to_account_id(v),
-                    proportional_fee,
-                    ExistenceRequirement::AllowDeath
-                )?;
-            }
+            // for v in validators {
+            //     <balances::Module<T> as Currency<_>>::transfer(
+            //         &sender,
+            //         &<T as Utils>::validator_id_to_account_id(v),
+            //         proportional_fee,
+            //         ExistenceRequirement::AllowDeath
+            //     )?;
+            // }
             let remainder_fee = fee - (proportional_fee * validator_len);
             let _withdraw_result = <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee.into(), ExistenceRequirement::KeepAlive)?;
             <identity::Module<T>>::register_asset_did(&ticker)?;

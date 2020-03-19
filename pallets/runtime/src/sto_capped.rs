@@ -31,7 +31,6 @@ use crate::{
     asset::AssetTrait,
     general_tm,
     simple_token::{self, SimpleTokenTrait},
-    utils,
 };
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
@@ -50,7 +49,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + utils::Trait + BalancesTrait + general_tm::Trait
+    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + general_tm::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;

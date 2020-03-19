@@ -70,6 +70,7 @@ use test_client::AccountKeyring;
 pub type AccountId = <AnySignature as Verify>::Signer;
 pub type BlockNumber = u64;
 pub type Balance = u128;
+type OffChainSignature = AnySignature;
 type Moment = <Test as pallet_timestamp::Trait>::Moment;
 
 /// Simple structure that exposes how u64 currency can be represented as... u64.
@@ -243,6 +244,8 @@ impl identity::Trait for Test {
     type CddServiceProviders = Test;
     type Balances = balances::Module<Test>;
     type ChargeTxFeeTarget = Test;
+    type Public = AccountId;
+    type OffChainSignature = OffChainSignature;
 }
 
 impl pallet_transaction_payment::ChargeTxFee for Test {
