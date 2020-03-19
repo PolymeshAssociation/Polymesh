@@ -219,7 +219,7 @@ fn testnet_genesis(
             ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
-                registration_length: Some(5184000000),
+                registration_length: Some(5_184_000_000),
             },
             fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
@@ -230,8 +230,8 @@ fn testnet_genesis(
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             did_creation_fee: 250,
             identities: vec![
-                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                /// Service providers
+                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // Service providers
                 (
                     get_account_id_from_seed::<sr25519::Public>("service_provider_1"),
                     IdentityId::from(1),
@@ -244,7 +244,7 @@ fn testnet_genesis(
                     IdentityId::from(2),
                     None,
                 ),
-                /// Governance committee members
+                // Governance committee members
                 (
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_1"),
                     IdentityId::from(1),
@@ -263,7 +263,7 @@ fn testnet_genesis(
                     IdentityId::from(5),
                     None,
                 ),
-                /// Validators
+                // Validators
                 (
                     get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
                     IdentityId::from(2),
@@ -327,7 +327,7 @@ fn testnet_genesis(
         }),
         pallet_mips: Some(MipsConfig {
             min_proposal_deposit: 5000,
-            quorum_threshold: 100000,
+            quorum_threshold: 100_000,
             proposal_duration: 50,
         }),
         pallet_im_online: Some(ImOnlineConfig {

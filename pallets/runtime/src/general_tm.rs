@@ -364,7 +364,7 @@ impl<T: Trait> Module<T> {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     ///  Sender restriction verification
