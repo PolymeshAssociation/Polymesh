@@ -55,6 +55,12 @@ impl Ticker {
         0
     }
     /// returns ticker as raw array
+    /// It returns true if it is empty. It's an optimice way to do `len() == 0`.
+    pub fn is_empty(&self) -> bool {
+        self.0[0] == 0
+    }
+
+    /// returns ticker as raw array
     pub fn as_slice(&self) -> &[u8] {
         &self.0
     }

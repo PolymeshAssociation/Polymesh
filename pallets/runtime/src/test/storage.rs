@@ -14,7 +14,7 @@ use frame_support::{
     dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
     parameter_types, traits::Currency, weights::DispatchInfo,
 };
-use frame_system::{self as system, EnsureSignedBy};
+use frame_system::{self as system};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},

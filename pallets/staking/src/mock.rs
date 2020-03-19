@@ -38,7 +38,7 @@ use polymesh_runtime_common::traits::{
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity::{self as identity};
 use primitives::traits::BlockRewardsReserveCurrency;
-use primitives::{AccountKey, IdentityClaimData, IdentityId, Signatory};
+use primitives::{AccountKey, Claim, IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
@@ -707,7 +707,7 @@ pub fn add_nominator_claim(
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         idendity_id,
-        IdentityClaimData::CustomerDueDiligence,
+        Claim::CustomerDueDiligence,
         Some((now.timestamp() as u64 + 10000_u64).into()),
     ));
 }
@@ -723,7 +723,7 @@ pub fn add_nominator_claim_with_expiry(
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         idendity_id,
-        IdentityClaimData::CustomerDueDiligence,
+        Claim::CustomerDueDiligence,
         Some(expiry.into()),
     ));
 }
