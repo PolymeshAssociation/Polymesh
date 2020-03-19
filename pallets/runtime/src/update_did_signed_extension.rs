@@ -1,4 +1,4 @@
-use crate::{runtime, Runtime};
+use crate::{multisig, runtime, Runtime};
 
 use polymesh_primitives::{AccountKey, IdentityId, TransactionError};
 use polymesh_runtime_common::{identity::LinkedKeyInfo, Context};
@@ -79,11 +79,11 @@ impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
     ) -> TransactionValidity {
         match call {
             // Add here any function from any module which does *not* need a current identity.
+            // NB: The generic accept auth function can no longer be called without can identity.
             Call::Identity(identity::Call::register_did(..))
             | Call::Identity(identity::Call::accept_master_key(..))
-            | Call::Identity(identity::Call::accept_authorization(..))
-            | Call::Identity(identity::Call::join_identity_as_key(..))
-            | Call::Identity(identity::Call::batch_accept_authorization(..)) => {
+            | Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(..))
+            | Call::Identity(identity::Call::join_identity_as_key(..)) => {
                 Ok(ValidTransaction::default())
             }
             // Other calls should be identified

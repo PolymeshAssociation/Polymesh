@@ -1,6 +1,8 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{
-    asset, bridge, contracts_wrapper, dividend, exemption, general_tm,
+    asset, bridge, contracts_wrapper, dividend, exemption,
+    fee_details::FeeHandler,
+    general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
     multisig, percentage_tm, simple_token, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
@@ -200,6 +202,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
     type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
+    type WhomToCharge = FeeHandler;
 }
 
 parameter_types! {

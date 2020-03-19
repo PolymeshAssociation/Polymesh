@@ -73,6 +73,9 @@ pub trait Trait: frame_system::Trait {
 
     /// Update the multiplier of the next block, based on the previous block's weight.
     type FeeMultiplierUpdate: Convert<Multiplier, Multiplier>;
+
+    /// Fetch the signatory to charge fee from
+    type WhomToCharge: FeeDetails<Self::Call>;
 }
 
 decl_storage! {
@@ -223,7 +226,7 @@ where
     fn validate(
         &self,
         who: &Self::AccountId,
-        _call: &Self::Call,
+        call: &Self::Call,
         info: Self::DispatchInfo,
         len: usize,
     ) -> TransactionValidity {
@@ -232,30 +235,44 @@ where
             // This is enforced to curb front running.
             return InvalidTransaction::Custom(TransactionError::ZeroTip as u8).into();
         }
-        let fee = Self::compute_fee(len as u32, info, 0u32.into());
         let encoded_transactor =
             AccountKey::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
-        let imbalance;
-        if let Some(did) = T::Currency::charge_fee_to_identity(&encoded_transactor) {
-            sp_runtime::print("Charging fee to identity");
-            imbalance = T::Currency::withdraw_identity_balance(&did, fee)
-                .map_err(|_| InvalidTransaction::Payment)?;
-        } else {
-            imbalance = T::Currency::withdraw(
-                who,
-                fee,
-                WithdrawReason::TransactionPayment.into(),
-                ExistenceRequirement::KeepAlive,
-            )
-            .map_err(|_| InvalidTransaction::Payment)?;
-        }
-        T::OnTransactionPayment::on_unbalanced(imbalance);
+        let fee = Self::compute_fee(len as u32, info, 0u32.into());
+        if let Some(payer) =
+            T::WhomToCharge::whom_to_charge(call, &Signatory::from(encoded_transactor))?
+        {
+            let imbalance;
+            match payer {
+                Signatory::AccountKey(key) => {
+                    let payer_key = T::AccountId::decode(&mut &key.as_slice()[..])
+                        .map_err(|_| InvalidTransaction::Payment)?;
+                    imbalance = T::Currency::withdraw(
+                        &payer_key,
+                        fee,
+                        WithdrawReason::TransactionPayment.into(),
+                        ExistenceRequirement::KeepAlive,
+                    )
+                    .map_err(|_| InvalidTransaction::Payment)?;
+                }
+                Signatory::Identity(did) => {
+                    imbalance = T::Currency::withdraw_identity_balance(&did, fee)
+                        .map_err(|_| InvalidTransaction::Payment)?;
+                }
+            }
+            T::OnTransactionPayment::on_unbalanced(imbalance);
+        };
         let mut r = ValidTransaction::default();
         // NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
         // will be a bit more than setting the priority to tip. For now, this is enough.
         r.priority = fee.saturated_into::<TransactionPriority>();
         Ok(r)
     }
+}
+pub trait FeeDetails<Call> {
+    fn whom_to_charge(
+        call: &Call,
+        caller: &Signatory,
+    ) -> Result<Option<Signatory>, InvalidTransaction>;
 }
 
 pub trait ChargeTxFee {
