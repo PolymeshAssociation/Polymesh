@@ -4,7 +4,7 @@ use crate::{
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
     multisig, percentage_tm, simple_token, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
-    utils, voting,
+    voting,
 };
 
 use pallet_committee as committee;
@@ -481,16 +481,6 @@ impl asset::Trait for Runtime {
     type Currency = Balances;
 }
 
-impl utils::Trait for Runtime {
-    type Public = <MultiSignature as Verify>::Signer;
-    type OffChainSignature = MultiSignature;
-    fn validator_id_to_account_id(
-        v: <Self as pallet_session::Trait>::ValidatorId,
-    ) -> Self::AccountId {
-        v
-    }
-}
-
 impl simple_token::Trait for Runtime {
     type Event = Event;
 }
@@ -521,6 +511,8 @@ impl identity::Trait for Runtime {
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;
+    type Public = <MultiSignature as Verify>::Signer;
+    type OffChainSignature = MultiSignature;
 }
 
 impl contracts_wrapper::Trait for Runtime {}

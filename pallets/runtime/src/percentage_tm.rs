@@ -23,7 +23,7 @@
 //!
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
-use crate::{asset::AssetTrait, exemption, utils};
+use crate::{asset::AssetTrait, exemption};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{constants::*, CommonTrait, Context};
@@ -39,7 +39,7 @@ use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + utils::Trait + exemption::Trait {
+pub trait Trait: frame_system::Trait + exemption::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }

@@ -6,11 +6,12 @@ use polymesh_primitives::{
     Signatory, SigningItem, Ticker,
 };
 
+use codec::{Decode, Encode};
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
 use frame_system;
 use pallet_transaction_payment::ChargeTxFee;
 use sp_core::H512;
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::vec::Vec;
@@ -61,7 +62,9 @@ pub struct SigningItemWithAuth {
 }
 
 /// The module's configuration trait.
-pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
+pub trait Trait:
+    CommonTrait + pallet_timestamp::Trait + balances::Trait + pallet_session::Trait
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
@@ -78,6 +81,9 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     >;
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
+
+    type Public: IdentifyAccount<AccountId = Self::AccountId>;
+    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
 }
 // rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation
 #[rustfmt::skip]

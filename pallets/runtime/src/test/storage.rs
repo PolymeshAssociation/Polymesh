@@ -1,4 +1,4 @@
-use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics, utils};
+use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics};
 
 use pallet_committee as committee;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
@@ -6,6 +6,7 @@ use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
 };
+
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
@@ -224,6 +225,8 @@ impl identity::Trait for TestStorage {
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
+    type Public = AccountId;
+    type OffChainSignature = OffChainSignature;
 }
 
 impl AddSignerMultiSig for TestStorage {
@@ -320,16 +323,6 @@ impl bridge::Trait for TestStorage {
 impl exemption::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
-}
-
-impl utils::Trait for TestStorage {
-    type Public = AccountId;
-    type OffChainSignature = OffChainSignature;
-    fn validator_id_to_account_id(
-        v: <Self as pallet_session::Trait>::ValidatorId,
-    ) -> Self::AccountId {
-        v
-    }
 }
 
 pub struct TestOnSessionEnding;

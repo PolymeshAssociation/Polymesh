@@ -5,9 +5,9 @@
 
 use sp_runtime::{generic, MultiSignature};
 
-pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Verify};
+pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify};
 
-pub use codec::Compact;
+pub use codec::{Compact, Decode, Encode};
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
