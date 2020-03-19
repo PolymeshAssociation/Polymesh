@@ -45,7 +45,7 @@
 
 use crate::asset::{self, AssetTrait};
 
-use polymesh_primitives::{AccountKey, IdentityClaimData, IdentityId, Ticker};
+use polymesh_primitives::{predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait, Context,
 };
@@ -57,20 +57,10 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::{convert::TryFrom, prelude::*};
-
-/// Type of claim requirements that a rule can have
-#[derive(codec::Encode, codec::Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum RuleType {
-    ClaimIsPresent,
-    ClaimIsAbsent,
-}
-
-impl Default for RuleType {
-    fn default() -> Self {
-        RuleType::ClaimIsPresent
-    }
-}
+use sp_std::{
+    convert::{From, TryFrom},
+    prelude::*,
+};
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -86,38 +76,25 @@ pub trait Trait:
 /// An asset rule.
 /// All sender and receiver rules of the same asset rule must be true for transfer to be valid
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct AssetRule {
-    pub sender_rules: Vec<RuleData>,
-    pub receiver_rules: Vec<RuleData>,
+pub struct AssetTransferRule {
+    pub sender_rules: Vec<Rule>,
+    pub receiver_rules: Vec<Rule>,
     /// Unique identifier of the asset rule
     pub rule_id: u32,
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct AssetRules {
+pub struct AssetTransferRules {
     pub is_paused: bool,
-    pub rules: Vec<AssetRule>,
-}
-
-/// Details about individual rules
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct RuleData {
-    /// Claim key
-    pub claim: IdentityClaimData,
-
-    /// Array of trusted claim issuers
-    pub trusted_issuers: Vec<IdentityId>,
-
-    /// Defines if it is a whitelist based rule or a blacklist based rule
-    pub rule_type: RuleType,
+    pub rules: Vec<AssetTransferRule>,
 }
 
 type Identity<T> = identity::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
-        /// List of active rules for a ticker (Ticker -> Array of AssetRules)
-        pub AssetRulesMap get(fn asset_rules): map Ticker => AssetRules;
+        /// List of active rules for a ticker (Ticker -> Array of AssetTransferRules)
+        pub AssetRulesMap get(fn asset_rules): map Ticker => AssetTransferRules;
         /// List of trusted claim issuer Ticker -> Issuer Identity
         pub TrustedClaimIssuer get(fn trusted_claim_issuer): map Ticker => Vec<IdentityId>;
     }
@@ -154,13 +131,13 @@ decl_module! {
         /// * ticker - Symbol of the asset
         /// * sender_rules - Sender transfer rule.
         /// * receiver_rules - Receiver transfer rule.
-        pub fn add_active_rule(origin, ticker: Ticker, sender_rules: Vec<RuleData>, receiver_rules: Vec<RuleData>) -> DispatchResult {
+        pub fn add_active_rule(origin, ticker: Ticker, sender_rules: Vec<Rule>, receiver_rules: Vec<Rule>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            let new_rule = AssetRule {
+            let new_rule = AssetTransferRule {
                 sender_rules: sender_rules,
                 receiver_rules: receiver_rules,
                 rule_id: Self::get_latest_rule_id(ticker) + 1u32
@@ -288,7 +265,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * asset_rule - Asset rule.
-        pub fn change_asset_rule(origin, ticker: Ticker, asset_rule: AssetRule) -> DispatchResult {
+        pub fn change_asset_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -304,7 +281,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * asset_rules - Vector of asset rule.
-        pub fn change_asset_rule_batch(origin, ticker: Ticker, asset_rules: Vec<AssetRule>) -> DispatchResult {
+        pub fn change_asset_rule_batch(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -324,7 +301,7 @@ decl_event!(
     pub enum Event {
         /// Emitted when new asset rule is created
         /// (Ticker, AssetRule)
-        NewAssetRule(Ticker, AssetRule),
+        NewAssetRule(Ticker, AssetTransferRule),
         /// Emitted when asset rule is removed
         /// (Ticker, Asset_rule_id)
         RemoveAssetRule(Ticker, u32),
@@ -335,7 +312,7 @@ decl_event!(
         /// Emitted when asset rules for a given ticker gets paused.
         PauseAssetRules(Ticker),
         /// Emitted when asset rule get modified/change
-        ChangeAssetRule(Ticker, AssetRule),
+        ChangeAssetRule(Ticker, AssetTransferRule),
         /// Emitted when default claim issuer list for a given ticker gets added
         AddTrustedDefaultClaimIssuer(Ticker, IdentityId),
         /// Emitted when default claim issuer list for a given ticker get removed
@@ -348,23 +325,52 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker, sender_did)
     }
 
-    fn is_any_rule_broken(ticker: &Ticker, did: IdentityId, rules: Vec<RuleData>) -> bool {
-        for rule in rules {
-            let is_valid_claim_present = match rule.trusted_issuers.len() > 0 {
-                true => <Identity<T>>::is_any_claim_valid(did, rule.claim, rule.trusted_issuers),
-                false => <Identity<T>>::is_any_claim_valid(
-                    did,
-                    rule.claim,
-                    Self::trusted_claim_issuer(ticker),
-                ),
-            };
-            if rule.rule_type == RuleType::ClaimIsPresent && !is_valid_claim_present
-                || rule.rule_type == RuleType::ClaimIsAbsent && is_valid_claim_present
-            {
-                return true;
-            }
-        }
-        false
+    /// It fetches all claims of `target` identity with type and scope from `claim` and generated
+    /// by any of `issuers`.
+    fn fetch_claims(target: IdentityId, claim: &Claim, issuers: &[IdentityId]) -> Vec<Claim> {
+        let claim_type = claim.claim_type();
+        let scope = claim.as_scope().cloned();
+
+        issuers
+            .iter()
+            .flat_map(|issuer| {
+                <identity::Module<T>>::fetch_claim(target, claim_type, *issuer, scope)
+                    .map(|id_claim| id_claim.claim)
+            })
+            .collect::<Vec<_>>()
+    }
+
+    /// It fetches the predicate context for target `id` and specific `rule`.
+    fn fetch_context(ticker: &Ticker, id: IdentityId, rule: &Rule) -> predicate::Context {
+        let issuers = if !rule.issuers.is_empty() {
+            rule.issuers.clone()
+        } else {
+            Self::trusted_claim_issuer(ticker)
+        };
+
+        let claims = match rule.rule_type {
+            RuleType::IsPresent(ref claim) => Self::fetch_claims(id, claim, &issuers),
+            RuleType::IsAbsent(ref claim) => Self::fetch_claims(id, claim, &issuers),
+            RuleType::IsAnyOf(ref claims) => claims
+                .iter()
+                .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
+                .collect::<Vec<_>>(),
+            RuleType::IsNoneOf(ref claims) => claims
+                .iter()
+                .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
+                .collect::<Vec<_>>(),
+        };
+
+        predicate::Context::from(claims)
+    }
+
+    /// It loads a context for each rule in `rules` and verify if any of them is evaluated as a
+    /// false predicate. In that case, rule is considered as a "broken rule".
+    fn is_any_rule_broken(ticker: &Ticker, did: IdentityId, rules: Vec<Rule>) -> bool {
+        rules.into_iter().any(|rule| {
+            let context = Self::fetch_context(ticker, did, &rule);
+            !predicate::run(rule, &context)
+        })
     }
 
     ///  Sender restriction verification
@@ -495,7 +501,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn unsafe_change_asset_rule(ticker: Ticker, new_asset_rule: AssetRule) {
+    fn unsafe_change_asset_rule(ticker: Ticker, new_asset_rule: AssetTransferRule) {
         <AssetRulesMap>::mutate(&ticker, |asset_rules| {
             if let Some(index) = asset_rules
                 .rules

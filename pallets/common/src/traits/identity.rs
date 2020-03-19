@@ -2,8 +2,8 @@ use crate::traits::{
     balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, ClaimIdentifier, IdentityClaim, IdentityId, LinkData,
-    Permission, Signatory, SigningItem, Ticker,
+    AccountKey, AuthorizationData, ClaimType, IdentityClaim, IdentityId, LinkData, Permission,
+    Signatory, SigningItem, Ticker,
 };
 
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
@@ -108,11 +108,11 @@ decl_event!(
         /// DID, removed claim issuer DID
         RemovedClaimIssuer(IdentityId, IdentityId),
 
-        /// DID, claim issuer DID, claims
-        NewClaims(IdentityId, ClaimIdentifier, IdentityClaim),
+        /// DID, claims
+        NewClaims(IdentityId, IdentityClaim),
 
-        /// DID, claim issuer DID, claim
-        RevokedClaim(IdentityId, ClaimIdentifier),
+        /// DID, ClaimType, Claim Issuer
+        RevokedClaim(IdentityId, ClaimType, IdentityId),
 
         /// DID
         NewIssuer(IdentityId),

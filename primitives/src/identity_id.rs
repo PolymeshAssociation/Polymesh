@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Printable;
 use sp_std::prelude::*;
 
-const _POLY_DID_PREFIX: &'static str = "did:poly:";
+const _POLY_DID_PREFIX: &str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
 const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
 const UUID_LEN: usize = 32usize;
