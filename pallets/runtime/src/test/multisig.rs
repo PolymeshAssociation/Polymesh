@@ -628,7 +628,7 @@ fn make_multisig_signer() {
 }
 
 #[test]
-fn remove_multisig_signer_via_creator() {
+fn remove_multisig_signers_via_creator() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -683,18 +683,18 @@ fn remove_multisig_signer_via_creator() {
         );
 
         assert_err!(
-            MultiSig::remove_multisig_signer_via_creator(
+            MultiSig::remove_multisig_signers_via_creator(
                 bob.clone(),
                 musig_address.clone(),
-                bob_signer
+                vec![bob_signer]
             ),
             Error::IdentityNotCreator
         );
 
-        assert_ok!(MultiSig::remove_multisig_signer_via_creator(
+        assert_ok!(MultiSig::remove_multisig_signers_via_creator(
             alice.clone(),
             musig_address.clone(),
-            bob_signer
+            vec![bob_signer]
         ));
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
@@ -710,10 +710,10 @@ fn remove_multisig_signer_via_creator() {
         );
 
         assert_err!(
-            MultiSig::remove_multisig_signer_via_creator(
+            MultiSig::remove_multisig_signers_via_creator(
                 alice.clone(),
                 musig_address.clone(),
-                alice_signer
+                vec![alice_signer]
             ),
             Error::NotEnoughSigners
         );
@@ -727,7 +727,7 @@ fn remove_multisig_signer_via_creator() {
 }
 
 #[test]
-fn add_multisig_signer_via_creator() {
+fn add_multisig_signers_via_creator() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -767,18 +767,18 @@ fn add_multisig_signer_via_creator() {
         );
 
         assert_err!(
-            MultiSig::add_multisig_signer_via_creator(
+            MultiSig::add_multisig_signers_via_creator(
                 bob.clone(),
                 musig_address.clone(),
-                bob_signer
+                vec![bob_signer]
             ),
             Error::IdentityNotCreator
         );
 
-        assert_ok!(MultiSig::add_multisig_signer_via_creator(
+        assert_ok!(MultiSig::add_multisig_signers_via_creator(
             alice.clone(),
             musig_address.clone(),
-            bob_signer
+            vec![bob_signer]
         ));
 
         assert_eq!(
