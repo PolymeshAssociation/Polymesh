@@ -75,8 +75,8 @@ pub trait Trait: frame_system::Trait {
     type FeeMultiplierUpdate: Convert<Multiplier, Multiplier>;
 
     // Polymesh note: This was specifically added for Polymesh
-    /// Fetch the signatory to charge fee from
-    type WhomToCharge: FeeDetails<Self::Call>;
+    /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
+    type CddHandler: CddAndFeeDetails<Self::Call>;
 }
 
 decl_storage! {
@@ -240,7 +240,7 @@ where
             AccountKey::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
         let fee = Self::compute_fee(len as u32, info, 0u32.into());
         if let Some(payer) =
-            T::WhomToCharge::whom_to_charge(call, &Signatory::from(encoded_transactor))?
+            T::CddHandler::get_valid_payer(call, &Signatory::from(encoded_transactor))?
         {
             let imbalance;
             match payer {
@@ -271,11 +271,12 @@ where
 }
 
 // Polymesh note: This was specifically added for Polymesh
-pub trait FeeDetails<Call> {
-    fn whom_to_charge(
+pub trait CddAndFeeDetails<Call> {
+    fn get_valid_payer(
         call: &Call,
         caller: &Signatory,
     ) -> Result<Option<Signatory>, InvalidTransaction>;
+    fn clear_context();
 }
 
 // Polymesh note: This was specifically added for Polymesh

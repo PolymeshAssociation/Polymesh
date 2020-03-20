@@ -1,16 +1,18 @@
 use crate::{multisig, runtime, Runtime};
 
-use pallet_transaction_payment::FeeDetails;
+use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
-    traits::IdentityCurrency, AccountId, AuthorizationData, IdentityId, Signatory, TransactionError,
+    traits::IdentityCurrency, AccountId, AccountKey, AuthorizationData, IdentityId, Signatory,
+    TransactionError,
 };
 use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
-
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 use codec::{Decode, Encode};
 use frame_support::{StorageDoubleMap, StorageMap};
+use core::convert::TryFrom;
 
 type Identity = identity::Module<Runtime>;
 type Balances = balances::Module<Runtime>;
@@ -23,10 +25,14 @@ enum CallType {
 }
 
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
-pub struct FeeHandler;
+pub struct CddHandler;
 
-impl FeeDetails<Call> for FeeHandler {
-    fn whom_to_charge(
+impl CddAndFeeDetails<Call> for CddHandler {
+    /// Check if there's an eligible payer with valid CDD.
+    /// Return the payer if found or else an error.
+    /// Can also return Ok(none) to represent the case where
+    /// CDD is valid but no payer should pay fee for this tx
+    fn get_valid_payer(
         call: &Call,
         caller: &Signatory,
     ) -> Result<Option<Signatory>, InvalidTransaction> {
@@ -58,7 +64,12 @@ impl FeeDetails<Call> for FeeHandler {
             | Call::MultiSig(multisig::Call::approve_as_key(multisig, ..)) => {
                 sp_runtime::print("multisig stuff");
                 if <multisig::MultiSigSigners<Runtime>>::exists(multisig, caller) {
-                    return check_cdd(&<multisig::MultiSigCreator<Runtime>>::get(multisig));
+                    if let Some(did) = Identity::get_identity(
+                        &AccountKey::try_from(multisig.encode())
+                            .map_err(|_| InvalidTransaction::Payment)?,
+                    ) {
+                        return check_cdd(&did);
+                    }
                 }
                 Err(InvalidTransaction::Payment)
             }
@@ -69,6 +80,7 @@ impl FeeDetails<Call> for FeeHandler {
                 // otherwise, the account should be charged. In any case, the external account
                 // must directly be linked to an identity with valid CDD.
                 Signatory::AccountKey(key) => {
+                    // TODO: Handle the multisig, forwared call case here as well?
                     if let Some(did) = Identity::get_identity(key) {
                         if Identity::has_valid_cdd(did) {
                             if let Some(fee_did) = Balances::charge_fee_to_identity(&key) {
@@ -90,6 +102,11 @@ impl FeeDetails<Call> for FeeHandler {
             },
         }
     }
+
+    /// Clears context. Should be called in post_dispatch
+    fn clear_context() {
+        Context::set_current_identity::<Identity>(None);
+    }
 }
 
 /// Returns signatory to charge fee if auth is valid.
@@ -105,13 +122,18 @@ fn is_auth_valid(
         match call_type {
             CallType::AcceptMultiSigSigner => {
                 if auth.authorization_data == AuthorizationData::AddMultiSigSigner {
-                    // make sure that the auth was created by a multisig
+                    // make sure that the auth was created by a valid multisig
                     if let Signatory::AccountKey(multisig) = auth.authorized_by {
                         let ms = AccountId::decode(&mut &multisig.as_slice()[..])
                             .map_err(|_| InvalidTransaction::Payment)?;
                         if <multisig::MultiSigCreator<Runtime>>::exists(&ms) {
-                            // make sure that the multisig creator has valid CDD
-                            return check_cdd(&<multisig::MultiSigCreator<Runtime>>::get(ms));
+                            // make sure that the multisig is attached to an identity with valid CDD
+                            if let Some(did) = Identity::get_identity(
+                                &AccountKey::try_from(ms.encode())
+                                    .map_err(|_| InvalidTransaction::Payment)?,
+                            ) {
+                                return check_cdd(&did);
+                            }
                         }
                     }
                 }
