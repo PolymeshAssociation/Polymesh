@@ -25,7 +25,6 @@ mod simple_token;
 
 pub mod runtime;
 mod sto_capped;
-mod utils;
 mod voting;
 pub use runtime::{
     api, Asset, Authorship, AvailableBlockRatio, Balances, Bridge, Contracts, MaximumBlockWeight,
