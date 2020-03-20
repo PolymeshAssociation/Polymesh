@@ -89,7 +89,6 @@ impl CddAndFeeDetails<Call> for CddHandler {
                 // otherwise, the account should be charged. In any case, the external account
                 // must directly be linked to an identity with valid CDD.
                 Signatory::AccountKey(key) => {
-                    // TODO: Handle the multisig, forwared call case here as well?
                     if let Some(did) = Identity::get_identity(key) {
                         if Identity::has_valid_cdd(did) {
                             Context::set_current_identity::<Identity>(Some(did));
