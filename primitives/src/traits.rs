@@ -1,9 +1,6 @@
 use crate::{account_key::AccountKey, identity_id::IdentityId};
 
-use frame_support::{
-    dispatch::DispatchError,
-    traits::{Currency, TryDrop},
-};
+use frame_support::{dispatch::DispatchError, traits::Currency};
 use sp_std::result;
 
 #[allow(missing_docs)]

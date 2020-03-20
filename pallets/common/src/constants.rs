@@ -53,6 +53,7 @@ pub mod protocol_op {
     pub const ASSET_REGISTER_TICKER: &'static [u8] = b"asset_register_ticker";
     pub const ASSET_ISSUE: &'static [u8] = b"asset_issue";
     pub const ASSET_ADD_DOCUMENT: &'static [u8] = b"asset_add_document";
+    pub const ASSET_CREATE_TOKEN: &'static [u8] = b"create_token";
 }
 
 // ERC1400 transfer status codes

@@ -213,7 +213,7 @@ mod tests {
         transaction_validity::{TransactionValidity, ValidTransaction},
         AnySignature, KeyTypeId, Perbill,
     };
-    use test_client::{self, AccountKeyring};
+//    use test_client::{self, AccountKeyring};
 
     type AccountId = <AnySignature as Verify>::Signer;
     type AuthorityId = <AnySignature as Verify>::Signer;
@@ -300,7 +300,7 @@ mod tests {
     impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
-        type BlockNumber = u64;
+        type BlockNumber = BlockNumber;
         type Call = Call;
         type Hash = H256;
         type Hashing = BlakeTwo256;
