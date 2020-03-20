@@ -24,7 +24,7 @@ use sp_core::{
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-    transaction_validity::{TransactionValidity, ValidTransaction},
+    transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
 use std::convert::TryFrom;
@@ -99,7 +99,7 @@ impl frame_system::Trait for TestStorage {
     type Header = Header;
     type Event = Event;
 
-    type Call = ();
+    type Call = Call;
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type MaximumBlockLength = MaximumBlockLength;
@@ -152,6 +152,18 @@ impl pallet_transaction_payment::ChargeTxFee for TestStorage {
     fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }
+}
+
+impl pallet_transaction_payment::CddAndFeeDetails<Call> for TestStorage {
+    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+        Ok(None)
+    }
+    fn clear_context() {}
+    fn set_payer_context(_: Option<Signatory>) {}
+    fn get_payer_from_context() -> Option<Signatory> {
+        None
+    }
+    fn set_current_identity(_: &IdentityId) {}
 }
 
 parameter_types! {
@@ -225,7 +237,7 @@ impl identity::Trait for TestStorage {
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
-    type CddHandler = Test;
+    type CddHandler = TestStorage;
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
 }
