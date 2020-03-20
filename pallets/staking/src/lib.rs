@@ -145,14 +145,14 @@
 //! pub trait Trait: staking::Trait {}
 //!
 //! decl_module! {
-//! 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-//!			/// Reward a validator.
-//! 		pub fn reward_myself(origin) -> dispatch::DispatchResult {
-//! 			let reported = ensure_signed(origin)?;
-//! 			<staking::Module<T>>::reward_by_ids(vec![(reported, 10)]);
-//! 			Ok(())
-//! 		}
-//! 	}
+//! pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+//!	/// Reward a validator.
+//!     pub fn reward_myself(origin) -> dispatch::DispatchResult {
+//!         let reported = ensure_signed(origin)?;
+//!         <staking::Module<T>>::reward_by_ids(vec![(reported, 10)]);
+//!         Ok(())
+//!         }
+//!     }
 //! }
 //! # fn main() { }
 //! ```
@@ -1156,7 +1156,10 @@ decl_module! {
             // then it break the loop and the given nominator in the nominator pool.
 
             if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(stash.encode())?)) {
-                let (is_cdded, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, Self::get_bonding_duration_period());
+                let is_cdded = <identity::Module<T>>::fetch_cdd(
+                        nominate_identity,
+                        Self::get_bonding_duration_period()).is_some();
+
                 if is_cdded {
                     let targets = targets.into_iter()
                     .take(MAX_NOMINATIONS)
@@ -1338,7 +1341,7 @@ decl_module! {
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                         // valid CDD otherwise it will be removed from the pool of the nominators.
-                        let (is_cdded, _) = <identity::Module<T>>::is_identity_has_valid_kyc(nominate_identity, 0_u64);
+                        let is_cdded = <identity::Module<T>>::has_valid_cdd(nominate_identity);
                         if !is_cdded {
                             // Unbonding the balance that bonded with the controller account of a Stash account
                             // This unbonded amount only be accessible after completion of the BondingDuration

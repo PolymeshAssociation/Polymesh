@@ -1,5 +1,6 @@
 const { ApiPromise, WsProvider } = require("@polkadot/api");
 const { Keyring } = require("@polkadot/keyring");
+const { cryptoWaitReady } = require("@polkadot/util-crypto");
 const BN = require("bn.js");
 const cli = require("command-line-args");
 const cliProg = require("cli-progress");
@@ -41,8 +42,6 @@ let n_claims = opts.claims;
 let prepend = opts.prepend;
 let fast = opts.fast;
 
-const keyring = new Keyring({ type: "sr25519" });
-
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
   let entities = [];
@@ -56,7 +55,8 @@ async function initMain(api) {
 
 let generateEntity = async function(api, name) {
   let entity = [];
-  entity = keyring.addFromUri(`//${name}`, { name: `${name}` });
+  await cryptoWaitReady();
+  entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, { name: `${name}` });
   let entityRawNonce = await api.query.system.accountNonce(entity.address);
   let entity_nonce = new BN(entityRawNonce.toString());
   nonces.set(entity.address, entity_nonce);
@@ -67,9 +67,10 @@ let generateEntity = async function(api, name) {
 
 const generateKeys = async function(api, numberOfKeys, keyPrepend) {
   let keys = [];
+  await cryptoWaitReady();
   for (let i = 0; i < numberOfKeys; i++) {
     keys.push(
-      keyring.addFromUri("//" + keyPrepend + i.toString(), {
+      new Keyring({ type: "sr25519" }).addFromUri("//" + keyPrepend + i.toString(), {
         name: i.toString()
       })
     );

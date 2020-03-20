@@ -31,7 +31,7 @@
 //!
 //! - `get_dividend` - Returns details about a dividend
 
-use crate::{asset, simple_token, utils};
+use crate::{asset, simple_token};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait, Context};
@@ -47,12 +47,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
-    asset::Trait
-    + BalancesTrait
-    + simple_token::Trait
-    + frame_system::Trait
-    + utils::Trait
-    + pallet_timestamp::Trait
+    asset::Trait + BalancesTrait + simple_token::Trait + frame_system::Trait + pallet_timestamp::Trait
 {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -664,6 +659,8 @@ mod tests {
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
+        type Public = AccountId;
+        type OffChainSignature = OffChainSignature;
     }
 
     impl pallet_transaction_payment::ChargeTxFee for Test {
@@ -754,16 +751,6 @@ mod tests {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
-    }
-
-    impl utils::Trait for Test {
-        type Public = AccountId;
-        type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(
-            v: <Self as pallet_session::Trait>::ValidatorId,
-        ) -> Self::AccountId {
-            v
-        }
     }
 
     impl Trait for Test {

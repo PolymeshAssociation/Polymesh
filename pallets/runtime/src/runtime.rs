@@ -6,7 +6,7 @@ use crate::{
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
     multisig, percentage_tm, simple_token, statistics, sto_capped,
     update_did_signed_extension::UpdateDid,
-    utils, voting,
+    voting,
 };
 
 use pallet_committee as committee;
@@ -30,7 +30,6 @@ use frame_support::{
 use pallet_elections::VoteIndex;
 use sp_api::impl_runtime_apis;
 use sp_core::u32_trait::{_1, _2, _4};
-use sp_offchain;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::transaction_validity::TransactionValidity;
 use sp_runtime::{
@@ -50,7 +49,6 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use polymesh_runtime_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_consensus_babe;
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
@@ -153,7 +151,7 @@ impl pallet_indices::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const ExistentialDeposit: Balance = 0u128.into();
+    pub const ExistentialDeposit: Balance = 0u128;
     pub const TransferFee: Balance = 1 * CENTS;
     pub const CreationFee: Balance = 1 * CENTS;
 }
@@ -345,7 +343,7 @@ parameter_types! {
 }
 
 parameter_types! {
-    pub const ContractTransferFee: Balance = 9999999999 * DOLLARS;
+    pub const ContractTransferFee: Balance = 9_999_999_999 * DOLLARS;
     pub const ContractCreationFee: Balance = 1 * CENTS;
     pub const ContractTransactionBaseFee: Balance = 1 * CENTS;
     pub const ContractTransactionByteFee: Balance = 10 * MILLICENTS;
@@ -446,8 +444,8 @@ impl pallet_grandpa::Trait for Runtime {
 impl pallet_authority_discovery::Trait for Runtime {}
 
 parameter_types! {
-    pub const WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE.into();
-    pub const ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY.into();
+    pub const WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE;
+    pub const ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY;
 }
 
 impl pallet_finality_tracker::Trait for Runtime {
@@ -486,16 +484,6 @@ impl asset::Trait for Runtime {
     type Currency = Balances;
 }
 
-impl utils::Trait for Runtime {
-    type Public = <MultiSignature as Verify>::Signer;
-    type OffChainSignature = MultiSignature;
-    fn validator_id_to_account_id(
-        v: <Self as pallet_session::Trait>::ValidatorId,
-    ) -> Self::AccountId {
-        v
-    }
-}
-
 impl simple_token::Trait for Runtime {
     type Event = Event;
 }
@@ -526,6 +514,8 @@ impl identity::Trait for Runtime {
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;
+    type Public = <MultiSignature as Verify>::Signer;
+    type OffChainSignature = MultiSignature;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -744,7 +734,7 @@ impl_runtime_apis! {
         ) -> ContractExecResult {
             let exec_result = Contracts::bare_call(
                 origin,
-                dest.into(),
+                dest,
                 value,
                 gas_limit,
                 input_data,
@@ -765,7 +755,7 @@ impl_runtime_apis! {
             Contracts::get_storage(address, key).map_err(|rpc_err| {
                 use pallet_contracts::GetStorageError;
                 use pallet_contracts_rpc_runtime_api::{GetStorageError as RpcGetStorageError};
-                /// Map the contract error into the RPC layer error.
+                // Map the contract error into the RPC layer error.
                 match rpc_err {
                     GetStorageError::ContractDoesntExist => RpcGetStorageError::ContractDoesntExist,
                     GetStorageError::IsTombstone => RpcGetStorageError::IsTombstone,
@@ -823,11 +813,9 @@ impl_runtime_apis! {
         > for Runtime
     {
         /// RPC call to know whether the given did has valid cdd claim or not
-        fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus {
-            match Identity::is_identity_has_valid_cdd(did, buffer_time) {
-                Some(provider) => Ok(provider),
-                None => Err("Either cdd claim is expired or not yet provided to give identity".into()),
-            }
+        fn is_identity_has_valid_cdd(did: IdentityId, leeway: Option<u64>) -> CddStatus {
+            Identity::fetch_cdd(did, leeway.unwrap_or_default())
+                .ok_or_else(|| "Either cdd claim is expired or not yet provided to give identity".into())
         }
 
         /// RPC call to query the given ticker did
