@@ -54,10 +54,14 @@ pub mod protocol_op {
     pub const ASSET_ISSUE: &'static [u8] = b"asset_issue";
     pub const ASSET_ADD_DOCUMENT: &'static [u8] = b"asset_add_document";
     pub const ASSET_CREATE_TOKEN: &'static [u8] = b"asset_create_token";
+    pub const DIVIDEND_NEW: &'static [u8] = b"dividend_new";
+    pub const GENERAL_TM_ADD_ACTIVE_RULE: &'static [u8] = b"general_tm_add_active_rule";
     pub const IDENTITY_CDD_REGISTER_DID: &'static [u8] = b"identity_cdd_register_did";
     pub const IDENTITY_ADD_CLAIM: &'static [u8] = b"identity_add_claim";
     pub const IDENTITY_SET_MASTER_KEY: &'static [u8] = b"identity_set_master_key";
     pub const IDENTITY_ADD_SIGNING_ITEM: &'static [u8] = b"identity_add_signing_item";
+    pub const MIPS_PROPOSE: &'static [u8] = b"mips_propose";
+    pub const VOTING_ADD_BALLOT: &'static [u8] = b"voting_add_ballot";
 }
 
 // ERC1400 transfer status codes

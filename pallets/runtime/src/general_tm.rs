@@ -45,7 +45,10 @@
 
 use crate::asset::{self, AssetTrait};
 
-use polymesh_primitives::{predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Ticker};
+use polymesh_primitives::{
+    predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Signatory, Ticker,
+};
+use polymesh_protocol_fee::{self as protocol_fee, OperationName};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::*, identity::Trait as IdentityTrait, Context,
 };
@@ -136,7 +139,10 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-
+            <protocol_fee::Module<T>>::charge_fee(
+                Signatory::AccountKey(sender_key),
+                OperationName::from(protocol_op::GENERAL_TM_ADD_ACTIVE_RULE)
+            )?;
             let new_rule = AssetTransferRule {
                 sender_rules: sender_rules,
                 receiver_rules: receiver_rules,

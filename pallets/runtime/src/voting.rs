@@ -33,7 +33,10 @@
 use crate::asset::{self, AssetTrait};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{identity::Trait as IdentityTrait, CommonTrait, Context};
+use polymesh_protocol_fee::{self as protocol_fee, OperationName};
+use polymesh_runtime_common::{
+    constants::protocol_op, identity::Trait as IdentityTrait, CommonTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use codec::{Decode, Encode};
@@ -174,7 +177,10 @@ decl_module! {
                 ensure!(!motion.choices.is_empty(), Error::<T>::NoChoicesInMotions);
                 total_choices += motion.choices.len();
             }
-
+            <protocol_fee::Module<T>>::charge_fee(
+                sender,
+                OperationName::from(protocol_op::VOTING_ADD_BALLOT)
+            )?;
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
                 <TotalChoices>::insert(&ticker_ballot_name, total_choices_u64);
             } else {

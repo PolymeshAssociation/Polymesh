@@ -2986,6 +2986,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
+ "polymesh-protocol-fee",
  "polymesh-runtime-balances",
  "polymesh-runtime-common",
  "polymesh-runtime-group",
