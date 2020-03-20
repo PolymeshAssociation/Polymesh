@@ -233,8 +233,9 @@
     "Url": "Text",
     "MipDescription": "Text",
     "MipsMetadata": {
+        "proposer": "AccountKey",
         "index": "u32",
-        "end": "u64",
+        "end": "u32",
         "proposal_hash": "Hash",
         "url": "Option<Url>",
         "description": "Option<MipDescription>"
