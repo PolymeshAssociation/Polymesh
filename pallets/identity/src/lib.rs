@@ -1554,6 +1554,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::RevokedClaim(did, claim_identifier));
     }
 
+    /// Returns an auth id if it is present and not expired.
     pub fn get_non_expired_auth(
         target: &Signatory,
         auth_id: &u64,
@@ -1569,6 +1570,14 @@ impl<T: Trait> Module<T> {
             }
         }
         Some(auth)
+    }
+
+    /// Returns identity of a signatory
+    pub fn get_identity_of_signatory(signer: &Signatory) -> Option<IdentityId> {
+        match signer {
+            Signatory::AccountKey(key) => Self::get_identity(&key),
+            Signatory::Identity(did) => Some(*did),
+        }
     }
 }
 
