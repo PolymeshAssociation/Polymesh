@@ -392,7 +392,7 @@ decl_module! {
             }
 
             // 1.3. Check that target_did has a CDD.
-            //ensure!(T::CddHandler::get_valid_payer(proposal, &Signatory::from(target_did)).is_ok(), Error::<T>::TargetHasNoCdd);
+            ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
 
             /// 1.4 charge fee
             ensure!(
@@ -405,7 +405,7 @@ decl_module! {
             );
 
             // 2. Actions
-            Context::set_current_identity::<Self>(Some(target_did));
+            T::CddHandler::set_current_identity(&target_did);
 
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...

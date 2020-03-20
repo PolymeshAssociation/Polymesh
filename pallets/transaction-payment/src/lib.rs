@@ -38,7 +38,7 @@ use frame_support::{
     weights::{DispatchInfo, GetDispatchInfo, Weight},
 };
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-use primitives::{traits::IdentityCurrency, AccountKey, Signatory, TransactionError};
+use primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory, TransactionError};
 use sp_runtime::{
     traits::{Convert, SaturatedConversion, Saturating, SignedExtension, Zero},
     transaction_validity::{
@@ -285,6 +285,7 @@ pub trait CddAndFeeDetails<Call> {
     fn clear_context();
     fn set_payer_context(payer: Option<Signatory>);
     fn get_payer_from_context() -> Option<Signatory>;
+    fn set_current_identity(did: &IdentityId);
 }
 
 // Polymesh note: This was specifically added for Polymesh

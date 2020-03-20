@@ -51,7 +51,7 @@ use frame_support::{
     StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
-use pallet_transaction_payment::ChargeTxFee;
+use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, prelude::*};
 
@@ -343,8 +343,8 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The multisig is not attached to an identity
-        IdentityMissing,
+        /// The multisig is not attached to a CDD'd identity
+        CddMissing,
         /// The proposal does not exist
         ProposalMissing,
         /// MultiSig address
@@ -483,8 +483,21 @@ impl<T: Trait> Module<T> {
             <TxApprovals<T>>::insert(&multisig_proposal, approvals);
             let approvals_needed = Self::ms_signs_required(multisig.clone());
             if approvals >= approvals_needed {
-                let who_key = AccountKey::try_from(multisig.clone().encode())?;
-                //ensure!(T::CddHandler::get_valid_payer(&proposal, &Signatory::from(who_key.clone())).is_ok(), Error::<T>::TargetHasNoCdd);
+                let ms_key = AccountKey::try_from(multisig.clone().encode())?;
+                if let Some(did) = <identity::Module<T>>::get_identity(&ms_key) {
+                    ensure!(
+                        <identity::Module<T>>::has_valid_cdd(did),
+                        Error::<T>::CddMissing
+                    );
+                    T::CddHandler::set_current_identity(&did);
+                } else {
+                    let creator_identity = Self::ms_creator(&multisig);
+                    ensure!(
+                        <identity::Module<T>>::has_valid_cdd(creator_identity),
+                        Error::<T>::CddMissing
+                    );
+                    T::CddHandler::set_current_identity(&creator_identity);
+                }
                 ensure!(
                     T::ChargeTxFeeTarget::charge_fee(
                         proposal.encode().len().try_into().unwrap_or_default(),
@@ -493,12 +506,6 @@ impl<T: Trait> Module<T> {
                     .is_ok(),
                     Error::<T>::FailedToChargeFee
                 );
-                match <identity::Module<T>>::get_identity(&who_key) {
-                    Some(id) => {
-                        <identity::CurrentDid>::put(id);
-                    }
-                    _ => return Err(Error::<T>::IdentityMissing.into()),
-                };
                 let res = match proposal
                     .dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
                 {

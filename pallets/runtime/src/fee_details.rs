@@ -122,6 +122,10 @@ impl CddAndFeeDetails<Call> for CddHandler {
     fn get_payer_from_context() -> Option<Signatory> {
         Context::current_payer::<Identity>()
     }
+
+    fn set_current_identity(did: &IdentityId) {
+        Context::set_current_identity::<Identity>(Some(*did));
+    }
 }
 
 /// Returns signatory to charge fee if auth is valid.

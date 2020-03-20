@@ -4,9 +4,7 @@ use crate::{
     fee_details::CddHandler,
     general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    multisig, percentage_tm, simple_token, statistics, sto_capped,
-    update_did_signed_extension::UpdateDid,
-    voting,
+    multisig, percentage_tm, simple_token, statistics, sto_capped, voting,
 };
 
 use pallet_committee as committee;
@@ -619,7 +617,6 @@ pub type SignedExtra = (
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_contracts::CheckBlockGasLimit<Runtime>,
-    UpdateDid<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
