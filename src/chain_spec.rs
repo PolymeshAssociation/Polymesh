@@ -1,6 +1,7 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::{AccountId, IdentityId, Signature};
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime::{
     asset::TickerRegistrationConfig,
     config::{
@@ -364,6 +365,10 @@ fn testnet_genesis(
         group_Instance2: Some(CddServiceProvidersConfig {
             members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
+        }),
+        protocol_fee: Some(ProtocolFeeConfig {
+            base_fees: vec![],
+            coefficient: (1, 1),
         }),
     }
 }
