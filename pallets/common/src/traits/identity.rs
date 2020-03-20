@@ -5,6 +5,7 @@ use polymesh_primitives::{
     AccountKey, AuthorizationData, ClaimType, IdentityClaim, IdentityId, LinkData, Permission,
     Signatory, SigningItem, Ticker,
 };
+use polymesh_protocol_fee as protocol_fee;
 
 use codec::{Decode, Encode};
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
@@ -63,7 +64,11 @@ pub struct SigningItemWithAuth {
 
 /// The module's configuration trait.
 pub trait Trait:
-    CommonTrait + pallet_timestamp::Trait + balances::Trait + pallet_session::Trait
+    CommonTrait
+    + pallet_timestamp::Trait
+    + balances::Trait
+    + pallet_session::Trait
+    + protocol_fee::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;

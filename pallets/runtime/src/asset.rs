@@ -796,7 +796,7 @@ decl_module! {
             <protocol_fee::Module<T>>::charge_fee_batch(
                 signer,
                 OperationName::from(protocol_op::ASSET_ISSUE),
-                investor_dids.len() as u32
+                investor_dids.len()
             );
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
             // Update investor balances and emit events quoting the updated total token balance issued.
@@ -1103,7 +1103,7 @@ decl_module! {
             <protocol_fee::Module<T>>::charge_fee_batch(
                 sender_signer,
                 OperationName::from(protocol_op::ASSET_ADD_DOCUMENT),
-                documents.len() as u32
+                documents.len()
             );
             documents.into_iter().for_each(|doc| {
                 <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None);

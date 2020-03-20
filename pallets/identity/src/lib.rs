@@ -41,8 +41,12 @@ use polymesh_primitives::{
     ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,
     PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
+use polymesh_protocol_fee::{self as protocol_fee, OperationName};
 use polymesh_runtime_common::{
-    constants::did::{SECURITY_TOKEN, USER},
+    constants::{
+        did::{SECURITY_TOKEN, USER},
+        protocol_op,
+    },
     traits::{
         asset::AcceptTransfer,
         balances::BalancesTrait,
@@ -239,7 +243,10 @@ decl_module! {
                 cdd_providers.into_iter().any(|kyc_id| kyc_id == cdd_id),
                 Error::<T>::UnAuthorizedCddProvider
             );
-
+            <protocol_fee::Module<T>>::charge_fee(
+                Signatory::AccountKey(cdd_key),
+                OperationName::from(protocol_op::IDENTITY_CDD_REGISTER_DID)
+            )?;
             // Register Identity and add claim.
             let new_id = Self::_register_did(target_account, signing_items)?;
             Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, cdd_claim_expiry)
@@ -285,7 +292,10 @@ decl_module! {
                 Self::can_key_be_linked_to_did(&new_key, SignatoryType::External),
                 Error::<T>::AlreadyLinked
             );
-
+            <protocol_fee::Module<T>>::charge_fee(
+                Signatory::AccountKey(sender_key),
+                OperationName::from(protocol_op::IDENTITY_SET_MASTER_KEY)
+            )?;
             <DidRecords>::mutate(did,
             |record| {
                 (*record).master_key = new_key;
@@ -346,9 +356,11 @@ decl_module! {
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
-
             ensure!(<DidRecords>::exists(target), Error::<T>::DidMustAlreadyExist);
-
+            <protocol_fee::Module<T>>::charge_fee(
+                Signatory::AccountKey(sender_key),
+                OperationName::from(protocol_op::IDENTITY_ADD_CLAIM)
+            )?;
             Self::unsafe_add_claim(target, claim, issuer, expiry)
         }
 
@@ -361,12 +373,15 @@ decl_module! {
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
-
             // Check input claims.
             ensure!( claims.iter().all(
                 |batch_claim_item| <DidRecords>::exists(batch_claim_item.target)),
                 Error::<T>::DidMustAlreadyExist);
-
+            <protocol_fee::Module<T>>::charge_fee_batch(
+                Signatory::AccountKey(sender_key),
+                OperationName::from(protocol_op::IDENTITY_ADD_CLAIM),
+                claims.len()
+            )?;
             claims.into_iter()
                 .map( |bci| Self::unsafe_add_claim(bci.target, bci.claim, issuer, bci.expiry))
                 .collect::<Result<Vec<_>, DispatchError>>()
@@ -719,9 +734,11 @@ decl_module! {
         /// Failure
         ///     - It can only called by master key owner.
         ///     - Keys should be able to linked to any identity.
-        pub fn add_signing_items_with_authorization( origin,
-                expires_at: T::Moment,
-                additional_keys: Vec<SigningItemWithAuth>) -> DispatchResult {
+        pub fn add_signing_items_with_authorization(
+            origin,
+            expires_at: T::Moment,
+            additional_keys: Vec<SigningItemWithAuth>
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let id = Context::current_identity_or::<Self>(&sender_key)?;
@@ -778,19 +795,25 @@ decl_module! {
 
             // 2.1. Link keys to identity
             additional_keys.iter().for_each( |si_with_auth| {
-                let si = & si_with_auth.signing_item;
+                let si = &si_with_auth.signing_item;
                 if let Signatory::AccountKey(ref key) = si.signer {
                     Self::link_key_to_did( key, si.signer_type, id);
                 }
             });
-
+            <protocol_fee::Module<T>>::charge_fee_batch(
+                Signatory::AccountKey(sender_key),
+                OperationName::from(protocol_op::IDENTITY_ADD_SIGNING_ITEM),
+                additional_keys.len()
+            )?;
             // 2.2. Update that identity information and its offchain authorization nonce.
-            <DidRecords>::mutate( id, |record| {
-                let keys = additional_keys.iter().map( |si_with_auth| si_with_auth.signing_item.clone())
+            <DidRecords>::mutate(id, |record| {
+                let keys = additional_keys
+                    .iter()
+                    .map(|si_with_auth| si_with_auth.signing_item.clone())
                     .collect::<Vec<_>>();
-                (*record).add_signing_items( &keys[..]);
+                (*record).add_signing_items(&keys[..]);
             });
-            <OffChainAuthorizationNonce>::mutate( id, |offchain_nonce| {
+            <OffChainAuthorizationNonce>::mutate(id, |offchain_nonce| {
                 *offchain_nonce = authorization.nonce + 1;
             });
 
@@ -910,6 +933,10 @@ impl<T: Trait> Module<T> {
             );
             Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
         }
+        <protocol_fee::Module<T>>::charge_fee(
+            signer,
+            OperationName::from(protocol_op::IDENTITY_ADD_SIGNING_ITEM),
+        )?;
         <DidRecords>::mutate(identity_to_join, |identity| {
             identity.add_signing_items(&[SigningItem::new(signer, vec![])]);
         });

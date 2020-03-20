@@ -333,7 +333,7 @@ decl_module! {
             );
 
             // Reserve the minimum deposit
-            T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+            <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
@@ -394,7 +394,7 @@ decl_module! {
                 }
 
                 // Reserve the deposit
-                T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+                <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
                 <Deposits<T>>::mutate(proposal_hash, |deposits| deposits.push((proposer.clone(), deposit)));
 
@@ -587,7 +587,7 @@ impl<T: Trait> Module<T> {
                     <Deposits<T>>::take(&proposal_hash);
 
                 for (depositor, deposit) in deposits.iter() {
-                    T::Currency::unreserve(depositor, *deposit);
+                    <T as Trait>::Currency::unreserve(depositor, *deposit);
                 }
             }
 

@@ -569,10 +569,10 @@ fn do_slash<T: Trait>(
         None => return, // nothing to do.
     };
 
-    let value = ledger.slash(value, T::Currency::minimum_balance());
+    let value = ledger.slash(value, <T as Trait>::Currency::minimum_balance());
 
     if !value.is_zero() {
-        let (imbalance, missing) = T::Currency::slash(stash, value);
+        let (imbalance, missing) = <T as Trait>::Currency::slash(stash, value);
         slashed_imbalance.subsume(imbalance);
 
         if !missing.is_zero() {
@@ -635,7 +635,7 @@ fn pay_reporters<T: Trait>(
 
         // this cancels out the reporter reward imbalance internally, leading
         // to no change in total issuance.
-        T::Currency::resolve_creating(reporter, reporter_reward);
+        <T as Trait>::Currency::resolve_creating(reporter, reporter_reward);
     }
 
     // the rest goes to the on-slash imbalance handler (e.g. treasury)

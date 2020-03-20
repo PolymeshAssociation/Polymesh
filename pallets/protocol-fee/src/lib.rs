@@ -147,9 +147,9 @@ impl<T: Trait> Module<T> {
     pub fn charge_fee_batch(
         signatory: Signatory,
         name: OperationName,
-        count: u32,
+        count: usize,
     ) -> DispatchResult {
-        let fee = Self::compute_fee(name)?.saturating_mul(<BalanceOf<T>>::from(count));
+        let fee = Self::compute_fee(name)?.saturating_mul(<BalanceOf<T>>::from(count as u32));
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
         Ok(())
