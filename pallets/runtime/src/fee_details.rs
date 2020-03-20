@@ -45,7 +45,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
             // Register did call. This should be removed before mainnet launch and
             // all did registration should go through CDD
             Call::Identity(identity::Call::register_did(..)) => {
-                sp_runtime::print("register_did");
+                sp_runtime::print("register_did, CDD check bypassed");
                 Ok(Some(*caller))
             }
             // Call made by a new Account key to accept invitation to become a signing key
@@ -79,6 +79,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                     ) {
                         return check_cdd(&did);
                     }
+                    return check_cdd(&<multisig::MultiSigCreator<Runtime>>::get(&multisig));
                 }
                 Err(InvalidTransaction::Payment)
             }
@@ -103,7 +104,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                     }
                     // Return an error if any of the above checks fail
                     // TODO: Make errors more specific
-                    Err(InvalidTransaction::Payment)
+                    Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
                 }
                 // A did was passed as the caller. The did should be charged the fee.
                 // This will never happen during an external call.
@@ -158,6 +159,7 @@ fn is_auth_valid(
                             ) {
                                 return check_cdd(&did);
                             }
+                            return check_cdd(&&<multisig::MultiSigCreator<Runtime>>::get(&ms));
                         }
                     }
                 }
