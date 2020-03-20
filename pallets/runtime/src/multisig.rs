@@ -483,10 +483,8 @@ impl<T: Trait> Module<T> {
             <TxApprovals<T>>::insert(&multisig_proposal, approvals);
             let approvals_needed = Self::ms_signs_required(multisig.clone());
             if approvals >= approvals_needed {
-                let ms_creator_identity = <MultiSigCreator<T>>::get(&multisig);
                 ensure!(
                     T::ChargeTxFeeTarget::charge_fee(
-                        Signatory::from(ms_creator_identity),
                         proposal.encode().len().try_into().unwrap_or_default(),
                         proposal.get_dispatch_info(),
                     )

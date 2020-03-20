@@ -97,6 +97,9 @@ decl_storage! {
         /// It stores the current identity for current transaction.
         pub CurrentDid: Option<IdentityId>;
 
+        /// It stores the current gas fee payer for the current transaction
+        pub CurrentPayer: Option<Signatory>;
+
         /// (DID, claim_data, claim_issuer) -> Associated claims
         pub Claims: double_map hasher(blake2_256) IdentityId, blake2_256(ClaimIdentifier) => IdentityClaim;
 
@@ -390,7 +393,6 @@ decl_module! {
             /// 1.4 charge fee
             ensure!(
                 T::ChargeTxFeeTarget::charge_fee(
-                    Signatory::from(AccountKey::try_from(sender.encode())?),
                     proposal.encode().len().try_into().unwrap_or_default(),
                     proposal.get_dispatch_info(),
                 )
@@ -1631,6 +1633,18 @@ impl<T: Trait> IdentityTrait for Module<T> {
             <CurrentDid>::put(id);
         } else {
             <CurrentDid>::kill();
+        }
+    }
+
+    fn current_payer() -> Option<Signatory> {
+        <CurrentPayer>::get()
+    }
+
+    fn set_current_payer(payer: Option<Signatory>) {
+        if let Some(payer) = payer {
+            <CurrentPayer>::put(payer);
+        } else {
+            <CurrentPayer>::kill();
         }
     }
 

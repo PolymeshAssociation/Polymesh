@@ -164,6 +164,8 @@ pub trait IdentityTrait {
     fn get_identity(key: &AccountKey) -> Option<IdentityId>;
     fn current_identity() -> Option<IdentityId>;
     fn set_current_identity(id: Option<IdentityId>);
+    fn current_payer() -> Option<Signatory>;
+    fn set_current_payer(payer: Option<Signatory>);
 
     fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool;
     fn is_signer_authorized_with_permissions(

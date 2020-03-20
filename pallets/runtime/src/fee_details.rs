@@ -11,8 +11,8 @@ use polymesh_runtime_identity as identity;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 use codec::{Decode, Encode};
-use frame_support::{StorageDoubleMap, StorageMap};
 use core::convert::TryFrom;
+use frame_support::{StorageDoubleMap, StorageMap};
 
 type Identity = identity::Module<Runtime>;
 type Balances = balances::Module<Runtime>;
@@ -32,6 +32,9 @@ impl CddAndFeeDetails<Call> for CddHandler {
     /// Return the payer if found or else an error.
     /// Can also return Ok(none) to represent the case where
     /// CDD is valid but no payer should pay fee for this tx
+    /// This also sets the identity in the context to the identity that was checked for CDD
+    /// However, this does not set the payer context since that is meant to remain constant
+    /// throughout the transaction. This function can also be used to simply check CDD and update identity context.
     fn get_valid_payer(
         call: &Call,
         caller: &Signatory,
@@ -83,6 +86,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                     // TODO: Handle the multisig, forwared call case here as well?
                     if let Some(did) = Identity::get_identity(key) {
                         if Identity::has_valid_cdd(did) {
+                            Context::set_current_identity::<Identity>(Some(did));
                             if let Some(fee_did) = Balances::charge_fee_to_identity(&key) {
                                 sp_runtime::print("charging identity");
                                 return Ok(Some(Signatory::from(fee_did)));
@@ -106,6 +110,17 @@ impl CddAndFeeDetails<Call> for CddHandler {
     /// Clears context. Should be called in post_dispatch
     fn clear_context() {
         Context::set_current_identity::<Identity>(None);
+        Context::set_current_payer::<Identity>(None);
+    }
+
+    /// Sets payer in context. Should be called by the signed extension that first charges fee.
+    fn set_payer_context(payer: Option<Signatory>) {
+        Context::set_current_payer::<Identity>(payer);
+    }
+
+    /// Fetches fee payer for further payements (forwareded calls)
+    fn get_payer_from_context() -> Option<Signatory> {
+        Context::current_payer::<Identity>()
     }
 }
 
@@ -166,6 +181,7 @@ fn is_auth_valid(
 /// Returns signatory to charge fee if cdd is valid.
 fn check_cdd(did: &IdentityId) -> Result<Option<Signatory>, InvalidTransaction> {
     if Identity::has_valid_cdd(*did) {
+        Context::set_current_identity::<Identity>(Some(*did));
         return Ok(Some(Signatory::from(*did)));
     } else {
         sp_runtime::print("ERROR: This transaction requires an Identity");

@@ -261,12 +261,18 @@ where
                 }
             }
             T::OnTransactionPayment::on_unbalanced(imbalance);
+            T::CddHandler::set_payer_context(Some(payer));
         };
         let mut r = ValidTransaction::default();
         // NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
         // will be a bit more than setting the priority to tip. For now, this is enough.
         r.priority = fee.saturated_into::<TransactionPriority>();
         Ok(r)
+    }
+
+    /// It clears the identity and payer in the context after transaction.
+    fn post_dispatch(_pre: Self::Pre, _info: Self::DispatchInfo, _len: usize) {
+        T::CddHandler::clear_context();
     }
 }
 
@@ -277,16 +283,18 @@ pub trait CddAndFeeDetails<Call> {
         caller: &Signatory,
     ) -> Result<Option<Signatory>, InvalidTransaction>;
     fn clear_context();
+    fn set_payer_context(payer: Option<Signatory>);
+    fn get_payer_from_context() -> Option<Signatory>;
 }
 
 // Polymesh note: This was specifically added for Polymesh
 pub trait ChargeTxFee {
-    fn charge_fee(who: Signatory, len: u32, info: DispatchInfo) -> TransactionValidity;
+    fn charge_fee(len: u32, info: DispatchInfo) -> TransactionValidity;
 }
 
 // Polymesh note: This was specifically added for Polymesh
 impl<T: Trait> ChargeTxFee for Module<T> {
-    fn charge_fee(who: Signatory, len: u32, info: DispatchInfo) -> TransactionValidity {
+    fn charge_fee(len: u32, info: DispatchInfo) -> TransactionValidity {
         let fee = if info.pays_fee {
             let len = <BalanceOf<T>>::from(len);
             let per_byte = T::TransactionByteFee::get();
@@ -315,19 +323,21 @@ impl<T: Trait> ChargeTxFee for Module<T> {
         } else {
             Zero::zero()
         };
-        let imbalance = match who {
-            Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
+        if let Some(who) = T::CddHandler::get_payer_from_context() {
+            let imbalance = match who {
+                Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
+                    .map_err(|_| InvalidTransaction::Payment),
+                Signatory::AccountKey(account) => T::Currency::withdraw(
+                    &T::AccountId::decode(&mut &account.encode()[..])
+                        .map_err(|_| InvalidTransaction::Payment)?,
+                    fee,
+                    WithdrawReason::TransactionPayment.into(),
+                    ExistenceRequirement::KeepAlive,
+                )
                 .map_err(|_| InvalidTransaction::Payment),
-            Signatory::AccountKey(account) => T::Currency::withdraw(
-                &T::AccountId::decode(&mut &account.encode()[..])
-                    .map_err(|_| InvalidTransaction::Payment)?,
-                fee,
-                WithdrawReason::TransactionPayment.into(),
-                ExistenceRequirement::KeepAlive,
-            )
-            .map_err(|_| InvalidTransaction::Payment),
-        }?;
-        T::OnTransactionPayment::on_unbalanced(imbalance);
+            }?;
+            T::OnTransactionPayment::on_unbalanced(imbalance);
+        }
         Ok(ValidTransaction::default())
     }
 }

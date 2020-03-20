@@ -738,7 +738,7 @@ mod tests {
     }
 
     impl pallet_transaction_payment::ChargeTxFee for Test {
-        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
             Ok(ValidTransaction::default())
         }
     }
