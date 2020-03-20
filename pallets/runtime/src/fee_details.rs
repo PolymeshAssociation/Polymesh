@@ -42,6 +42,12 @@ impl CddAndFeeDetails<Call> for CddHandler {
         // The CDD check and fee payer varies depending on the transaction.
         // This match covers all possible scenarios.
         match call {
+            // Register did call. This should be removed before mainnet launch and
+            // all did registration should go through CDD
+            Call::Identity(identity::Call::register_did(..)) => {
+                sp_runtime::print("register_did");
+                Ok(Some(*caller))
+            }
             // Call made by a new Account key to accept invitation to become a signing key
             // of an existing multisig that has a valid CDD. The auth should be valid.
             Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(auth_id)) => {
