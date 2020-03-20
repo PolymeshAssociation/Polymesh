@@ -76,7 +76,7 @@ use frame_support::{
     weights::{GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-use pallet_transaction_payment::ChargeTxFee;
+use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 
 pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
@@ -385,10 +385,7 @@ decl_module! {
             }
 
             // 1.3. Check that target_did has a CDD.
-            // Please keep in mind that `current_did` is double-checked:
-            //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
-            //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
-            ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
+            //ensure!(T::CddHandler::get_valid_payer(proposal, &Signatory::from(target_did)).is_ok(), Error::<T>::TargetHasNoCdd);
 
             /// 1.4 charge fee
             ensure!(

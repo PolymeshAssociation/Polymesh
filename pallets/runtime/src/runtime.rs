@@ -526,6 +526,7 @@ impl identity::Trait for Runtime {
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;
+    type CddHandler = CddHandler;
 }
 
 impl contracts_wrapper::Trait for Runtime {}

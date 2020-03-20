@@ -8,7 +8,7 @@ use polymesh_primitives::{
 
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
 use frame_system;
-use pallet_transaction_payment::ChargeTxFee;
+use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use sp_core::H512;
 use sp_runtime::traits::Dispatchable;
 #[cfg(feature = "std")]
@@ -78,6 +78,8 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     >;
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
+    /// Used to check and update CDD
+    type CddHandler: CddAndFeeDetails<Self::Call>;
 }
 // rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation
 #[rustfmt::skip]

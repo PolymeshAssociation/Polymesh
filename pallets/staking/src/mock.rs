@@ -239,6 +239,7 @@ impl identity::Trait for Test {
     type CddServiceProviders = Test;
     type Balances = balances::Module<Test>;
     type ChargeTxFeeTarget = Test;
+    type CddHandler = Test;
 }
 
 impl pallet_transaction_payment::ChargeTxFee for Test {

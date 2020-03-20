@@ -483,6 +483,8 @@ impl<T: Trait> Module<T> {
             <TxApprovals<T>>::insert(&multisig_proposal, approvals);
             let approvals_needed = Self::ms_signs_required(multisig.clone());
             if approvals >= approvals_needed {
+                let who_key = AccountKey::try_from(multisig.clone().encode())?;
+                //ensure!(T::CddHandler::get_valid_payer(&proposal, &Signatory::from(who_key.clone())).is_ok(), Error::<T>::TargetHasNoCdd);
                 ensure!(
                     T::ChargeTxFeeTarget::charge_fee(
                         proposal.encode().len().try_into().unwrap_or_default(),
@@ -491,7 +493,6 @@ impl<T: Trait> Module<T> {
                     .is_ok(),
                     Error::<T>::FailedToChargeFee
                 );
-                let who_key = AccountKey::try_from(multisig.clone().encode())?;
                 match <identity::Module<T>>::get_identity(&who_key) {
                     Some(id) => {
                         <identity::CurrentDid>::put(id);

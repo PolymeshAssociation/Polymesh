@@ -224,6 +224,7 @@ impl identity::Trait for TestStorage {
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
+    type CddHandler = Test;
 }
 
 impl AddSignerMultiSig for TestStorage {
