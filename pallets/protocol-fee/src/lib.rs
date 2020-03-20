@@ -213,12 +213,13 @@ mod tests {
         transaction_validity::{TransactionValidity, ValidTransaction},
         AnySignature, KeyTypeId, Perbill,
     };
-//    use test_client::{self, AccountKeyring};
+    //    use test_client::{self, AccountKeyring};
 
     type AccountId = <AnySignature as Verify>::Signer;
     type AuthorityId = <AnySignature as Verify>::Signer;
     type Balances = balances::Module<Test>;
     type BlockNumber = u64;
+    type Identity = identity::Module<Test>;
     type OffChainSignature = AnySignature;
     type ProtocolFee = super::Module<Test>;
     type SessionIndex = u32;
@@ -248,18 +249,19 @@ mod tests {
         fn on_before_session_ending() {}
     }
 
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
     impl_outer_dispatch! {
         pub enum Call for Test where origin: Origin {
             frame_system::System,
+            identity::Identity,
         }
     }
 
     #[derive(Clone, PartialEq, Eq, Debug)]
     pub struct Test;
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
 
     impl AcceptTransfer for Test {
         fn accept_ticker_transfer(_to_did: IdentityId, _auth_id: u64) -> DispatchResult {
@@ -304,7 +306,7 @@ mod tests {
         type Call = Call;
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
+        type AccountId = AccountId;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();

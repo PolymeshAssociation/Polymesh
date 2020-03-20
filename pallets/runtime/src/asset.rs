@@ -64,7 +64,6 @@ use polymesh_primitives::{
     SmartExtensionType, Ticker,
 };
 use polymesh_protocol_fee::{self as protocol_fee, OperationName};
-use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     asset::AcceptTransfer, balances::Trait as BalancesTrait, constants::*,
     identity::Trait as IdentityTrait, CommonTrait, Context,
@@ -75,10 +74,8 @@ use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure,
-    traits::{Currency, ExistenceRequirement, WithdrawReason},
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    traits::Currency,
 };
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
