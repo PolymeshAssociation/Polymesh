@@ -66,7 +66,7 @@ use polymesh_primitives::{
 use polymesh_protocol_fee::{self as protocol_fee, OperationName};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
-    self as common, asset::AcceptTransfer, balances::Trait as BalancesTrait, constants::*,
+    asset::AcceptTransfer, balances::Trait as BalancesTrait, constants::*,
     identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
@@ -84,7 +84,7 @@ use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
 use pallet_contracts::ExecReturnValue;
 use pallet_contracts::Gas;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Convert, Verify};
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -105,6 +105,7 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Currency: Currency<Self::AccountId>;
+    type ValidatorIdToAccountId: Convert<ValidatorId, Self::AccountId>;
 }
 
 /// The type of an asset represented by a token.
@@ -441,26 +442,16 @@ decl_module! {
 
             ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
 
-            // Alternative way to take a fee - fee is proportionaly paid to the validators and dust is burned
-            let validators = <pallet_session::Module<T>>::validators();
-            let fee = Self::asset_creation_fee();
-            let validator_len:T::Balance;
-            if validators.is_empty() {
-                validator_len = T::Balance::from(1 as u32);
-            } else {
-                validator_len = T::Balance::from(validators.len() as u32);
-            }
-            let proportional_fee = fee / validator_len;
-            // for v in validators {
-            //     <balances::Module<T> as Currency<_>>::transfer(
-            //         &sender,
-            //         &<T as Utils>::validator_id_to_account_id(v),
-            //         proportional_fee,
-            //         ExistenceRequirement::AllowDeath
-            //     )?;
-            // }
-            let remainder_fee = fee - (proportional_fee * validator_len);
-            let _withdraw_result = <balances::Module<T>>::withdraw(&sender, remainder_fee, WithdrawReason::Fee.into(), ExistenceRequirement::KeepAlive)?;
+            // The fee is proportionaly paid to the validators and dust is burned.
+            let fee_recipients: Vec<T::AccountId> = <pallet_session::Module<T>>::validators()
+                .iter()
+                .map(T::ValidatorIdToAccountId)
+                .collect();
+            <protocol_fee::Module<T>>::charge_fee_equal_parts(
+                signer,
+                OperationName::from(protocol_op::ASSET_CREATE_TOKEN),
+                fee_recipients.as_slice()
+            );
             <identity::Module<T>>::register_asset_did(&ticker)?;
 
             if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {

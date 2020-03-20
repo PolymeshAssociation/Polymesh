@@ -6,7 +6,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
 };
 use frame_system::{self as system, ensure_root};
 use primitives::{traits::IdentityCurrency, Signatory};
@@ -21,6 +21,8 @@ type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 /// Either the computed fee or an error.
 pub type ComputeFeeResult<T> = sp_std::result::Result<BalanceOf<T>, DispatchError>;
+/// Either an imbalance or an error.
+pub type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 /// A positive rational number: a pair of a numerator and a denominator.
 pub type PosRational = (u32, u32);
 
@@ -135,25 +137,49 @@ impl<T: Trait> Module<T> {
     /// Computes the fee of the operation and charges it to the given signatory.
     pub fn charge_fee(signatory: Signatory, name: OperationName) -> DispatchResult {
         let fee = Self::compute_fee(name)?;
-        Self::charge_given_fee(signatory, fee)
+        let imbalance = Self::withdraw_fee(signatory, fee)?;
+        T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        Ok(())
     }
 
-    /// Computes the fee of the operation performing `count` similar operations, and charges that
-    /// fee to the given signatory.
+    /// Computes the fee for `count` similar operations, and charges that fee to the given
+    /// signatory.
     pub fn charge_fee_batch(
         signatory: Signatory,
         name: OperationName,
         count: u32,
     ) -> DispatchResult {
         let fee = Self::compute_fee(name)?.saturating_mul(<BalanceOf<T>>::from(count));
-        Self::charge_given_fee(signatory, fee)
+        let imbalance = Self::withdraw_fee(signatory, fee)?;
+        T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        Ok(())
     }
 
-    /// Charges a precomputed fee to the signatory.
-    fn charge_given_fee(signatory: Signatory, fee: BalanceOf<T>) -> DispatchResult {
-        let imbalance = match signatory {
+    /// Computes the fee of the operation, charges that fee to `signatory`, and pays it out
+    /// collectively to `recipients` in equal parts.
+    pub fn charge_fee_equal_parts(
+        signatory: Signatory,
+        name: OperationName,
+        recipients: &[T::AccountId],
+    ) -> DispatchResult {
+        let fee = Self::compute_fee(name)?;
+        let mut imbalance = Self::withdraw_fee(signatory, fee)?;
+        let num_recipients = u32::max(1, recipients.len() as u32);
+        let fee_part = imbalance.peek() / num_recipients.into();
+        for account_id in recipients {
+            let (part, rest) = imbalance.split(fee_part);
+            imbalance = rest;
+            T::Currency::resolve_creating(account_id, part);
+        }
+        // Burn the remainder of division by not resolving it.
+        Ok(())
+    }
+
+    /// Withdraws a precomputed fee.
+    fn withdraw_fee(signatory: Signatory, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
+        match signatory {
             Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
-                .map_err(|_| Error::<T>::InsufficientBalance),
+                .map_err(|_| Error::<T>::InsufficientBalance.into()),
             Signatory::AccountKey(account) => T::Currency::withdraw(
                 &T::AccountId::decode(&mut &account.encode()[..])
                     .map_err(|_| Error::<T>::AccountIdDecode)?,
@@ -161,10 +187,8 @@ impl<T: Trait> Module<T> {
                 WithdrawReason::Fee.into(),
                 ExistenceRequirement::KeepAlive,
             )
-            .map_err(|_| Error::<T>::InsufficientBalance),
-        }?;
-        T::OnProtocolFeePayment::on_unbalanced(imbalance);
-        Ok(())
+            .map_err(|_| Error::<T>::InsufficientBalance.into()),
+        }
     }
 }
 
@@ -182,18 +206,47 @@ mod tests {
     };
     use polymesh_runtime_identity as identity;
     use primitives::IdentityId;
-    use sp_core::H256;
+    use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
-        testing::Header,
-        traits::{BlakeTwo256, IdentityLookup},
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
         transaction_validity::{TransactionValidity, ValidTransaction},
-        Perbill,
+        AnySignature, KeyTypeId, Perbill,
     };
     use test_client::{self, AccountKeyring};
 
+    type AccountId = <AnySignature as Verify>::Signer;
+    type AuthorityId = <AnySignature as Verify>::Signer;
     type Balances = balances::Module<Test>;
+    type BlockNumber = u64;
+    type OffChainSignature = AnySignature;
     type ProtocolFee = super::Module<Test>;
+    type SessionIndex = u32;
     type System = frame_system::Module<Test>;
+
+    pub struct TestOnSessionEnding;
+    impl pallet_session::OnSessionEnding<AuthorityId> for TestOnSessionEnding {
+        fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<AuthorityId>> {
+            None
+        }
+    }
+
+    pub struct TestSessionHandler;
+    impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
+        const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
+        fn on_new_session<Ks: OpaqueKeys>(
+            _changed: bool,
+            _validators: &[(AuthorityId, Ks)],
+            _queued_validators: &[(AuthorityId, Ks)],
+        ) {
+        }
+
+        fn on_disabled(_validator_index: usize) {}
+
+        fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
+
+        fn on_before_session_ending() {}
+    }
 
     impl_outer_dispatch! {
         pub enum Call for Test where origin: Origin {
@@ -239,6 +292,9 @@ mod tests {
         pub const CreationFee: u64 = 0;
         pub const ExistentialDeposit: u64 = 0;
         pub const MinimumPeriod: u64 = 3;
+        pub const Period: BlockNumber = 1;
+        pub const Offset: BlockNumber = 0;
+        pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
     }
 
     impl frame_system::Trait for Test {
@@ -272,6 +328,18 @@ mod tests {
         type MinimumPeriod = MinimumPeriod;
     }
 
+    impl pallet_session::Trait for Test {
+        type OnSessionEnding = TestOnSessionEnding;
+        type Keys = UintAuthorityId;
+        type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+        type SessionHandler = TestSessionHandler;
+        type Event = ();
+        type ValidatorId = AuthorityId;
+        type ValidatorIdOf = ConvertInto;
+        type SelectInitialValidators = ();
+        type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    }
+
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = Call;
@@ -279,6 +347,8 @@ mod tests {
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
+        type Public = AccountId;
+        type OffChainSignature = OffChainSignature;
     }
 
     impl CommonTrait for Test {

@@ -35,7 +35,9 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Permill,
 };
 use sp_runtime::{
-    traits::{BlakeTwo256, Block as BlockT, NumberFor, OpaqueKeys, StaticLookup, Verify},
+    traits::{
+        BlakeTwo256, Block as BlockT, ConvertInto, NumberFor, OpaqueKeys, StaticLookup, Verify,
+    },
     MultiSignature,
 };
 use sp_std::prelude::*;
@@ -486,6 +488,7 @@ impl bridge::Trait for Runtime {
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type ValidatorIdToAccountId = ConvertInto;
 }
 
 impl simple_token::Trait for Runtime {
