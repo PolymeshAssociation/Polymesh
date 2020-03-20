@@ -31,8 +31,6 @@
 //!
 //! - `balance_of` - Returns the simple token balance associated with an identity
 
-use crate::utils;
-
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait, constants::currency::MAX_SUPPLY,
@@ -50,7 +48,7 @@ use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedSub};
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + BalancesTrait + utils::Trait + IdentityTrait {
+pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -131,13 +129,13 @@ decl_module! {
 
             let new_token = SimpleTokenRecord {
                 ticker: ticker,
-                total_supply: total_supply.clone(),
-                owner_did: did.clone(),
+                total_supply: total_supply,
+                owner_did: did,
             };
 
             <Tokens<T>>::insert(&ticker, new_token);
             // Let the owner distribute the whole supply of the token
-            <BalanceOf<T>>::insert((ticker, did.clone()), total_supply);
+            <BalanceOf<T>>::insert((ticker, did), total_supply);
 
             sp_runtime::print("Initialized a new token");
 
@@ -152,7 +150,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
 
-            let ticker_did = (ticker, did.clone());
+            let ticker_did = (ticker, did);
             ensure!(<BalanceOf<T>>::exists(&ticker_did), Error::<T>::NotAnOwner);
 
             // Check that sender is allowed to act on behalf of `did`
@@ -208,7 +206,7 @@ decl_module! {
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&amount)
                 .ok_or(Error::<T>::AllowanceOverflow)?;
-            <Allowance<T>>::insert((ticker, from_did.clone(), did.clone()), updated_allowance);
+            <Allowance<T>>::insert((ticker, from_did, did), updated_allowance);
 
             Self::deposit_event(RawEvent::Approval(ticker, from_did, did, updated_allowance));
 
@@ -266,7 +264,7 @@ impl<T: Trait> Module<T> {
         to_did: IdentityId,
         amount: T::Balance,
     ) -> DispatchResult {
-        let ticker_from_did = (*ticker, from_did.clone());
+        let ticker_from_did = (*ticker, from_did);
         ensure!(
             <BalanceOf<T>>::exists(&ticker_from_did),
             Error::<T>::NotAnOwner
@@ -277,7 +275,7 @@ impl<T: Trait> Module<T> {
         let new_from_balance = from_balance
             .checked_sub(&amount)
             .ok_or(Error::<T>::BalanceUnderflow)?;
-        let ticker_to_did = (*ticker, to_did.clone());
+        let ticker_to_did = (*ticker, to_did);
         let to_balance = Self::balance_of(&ticker_to_did);
         let new_to_balance = to_balance
             .checked_add(&amount)
@@ -392,6 +390,8 @@ mod tests {
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
         type CddHandler = Test;
+        type Public = AccountId;
+        type OffChainSignature = OffChainSignature;
     }
 
     impl pallet_transaction_payment::ChargeTxFee for Test {
@@ -429,16 +429,6 @@ mod tests {
         type Moment = u64;
         type OnTimestampSet = ();
         type MinimumPeriod = MinimumPeriod;
-    }
-
-    impl utils::Trait for Test {
-        type Public = AccountId;
-        type OffChainSignature = OffChainSignature;
-        fn validator_id_to_account_id(
-            v: <Self as pallet_session::Trait>::ValidatorId,
-        ) -> Self::AccountId {
-            v
-        }
     }
 
     pub struct TestOnSessionEnding;

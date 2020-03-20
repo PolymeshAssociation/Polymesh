@@ -445,7 +445,7 @@ decl_module! {
                 proposal_hash,
             ));
 
-            Self::close_proposal(index, proposal_hash.clone());
+            Self::close_proposal(index, proposal_hash);
         }
 
         /// Governance committee can make a proposal that automatically becomes a referendum on
@@ -471,7 +471,7 @@ decl_module! {
             Self::create_referendum(
                 index,
                 MipsPriority::High,
-                proposal_hash.clone(),
+                proposal_hash,
                 *proposal
             );
         }
@@ -515,7 +515,7 @@ impl<T: Trait> Module<T> {
         // Find all matured proposals...
         for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
             // Tally votes and create referendums
-            Self::tally_votes(index, hash.clone());
+            Self::tally_votes(index, hash);
 
             // And close proposals
             Self::close_proposal(index, hash);
@@ -544,7 +544,7 @@ impl<T: Trait> Module<T> {
                     Self::create_referendum(
                         index,
                         MipsPriority::Normal,
-                        proposal_hash.clone(),
+                        proposal_hash,
                         mip.proposal,
                     );
                 }
@@ -568,17 +568,13 @@ impl<T: Trait> Module<T> {
         };
 
         <ReferendumMetadata<T>>::mutate(|metadata| metadata.push(ri));
-        <Referendums<T>>::insert(proposal_hash.clone(), proposal);
+        <Referendums<T>>::insert(proposal_hash, proposal);
 
-        Self::deposit_event(RawEvent::ReferendumCreated(
-            index,
-            priority.clone(),
-            proposal_hash.clone(),
-        ));
+        Self::deposit_event(RawEvent::ReferendumCreated(index, priority, proposal_hash));
 
         // If committee size is too small, enact it.
         if T::GovernanceCommittee::member_count() < 2 {
-            Self::prepare_to_dispatch(proposal_hash.clone());
+            Self::prepare_to_dispatch(proposal_hash);
         }
     }
 
@@ -597,7 +593,7 @@ impl<T: Trait> Module<T> {
 
             if <Proposals<T>>::take(&proposal_hash).is_some() {
                 <Voting<T>>::remove(&proposal_hash);
-                let hash = proposal_hash.clone();
+                let hash = proposal_hash;
                 <ProposalMetadata<T>>::mutate(|metadata| {
                     metadata.retain(|m| m.proposal_hash != hash)
                 });
@@ -613,7 +609,7 @@ impl<T: Trait> Module<T> {
             let result = match referendum.dispatch(system::RawOrigin::Root.into()) {
                 Ok(_) => true,
                 Err(e) => {
-                    let e: DispatchError = e.into();
+                    let e: DispatchError = e;
                     sp_runtime::print(e);
                     false
                 }
@@ -665,8 +661,8 @@ impl<T: Trait> Module<T> {
         let mut indices = Vec::new();
         for meta in Self::proposal_meta().into_iter() {
             if let Some(votes) = Self::voting(&meta.proposal_hash) {
-                if votes.ayes.iter().position(|(a, _)| a == &address).is_some()
-                    || votes.nays.iter().position(|(a, _)| a == &address).is_some()
+                if votes.ayes.iter().any(|(a, _)| a == &address)
+                    || votes.nays.iter().any(|(a, _)| a == &address)
                 {
                     indices.push(votes.index);
                 }

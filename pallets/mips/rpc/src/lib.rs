@@ -94,7 +94,7 @@ where
             data: Some(format!("{:?}", e).into()),
         })?;
 
-        Ok(result.into())
+        Ok(result)
     }
 
     fn voted_on(
@@ -111,6 +111,6 @@ where
             data: Some(format!("{:?}", e).into()),
         })?;
 
-        Ok(result.into())
+        Ok(result)
     }
 }

@@ -8,7 +8,7 @@ use polymesh_runtime_group::{self as group};
 use polymesh_runtime_identity as identity;
 
 use frame_support::{assert_err, assert_noop, assert_ok, Hashable};
-use frame_system::{self as system, EventRecord, Phase};
+use frame_system::{EventRecord, Phase};
 use test_client::AccountKeyring;
 
 use sp_core::H256;
