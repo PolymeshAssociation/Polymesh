@@ -1,7 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_primitives::{AccountId, IdentityId, Signature};
-use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime::{
     asset::TickerRegistrationConfig,
     config::{
@@ -9,7 +8,10 @@ use polymesh_runtime::{
         ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
         SudoConfig, SystemConfig,
     },
-    runtime::{CddServiceProvidersConfig, CommitteeMembershipConfig, PolymeshCommitteeConfig},
+    runtime::{
+        CddServiceProvidersConfig, CommitteeMembershipConfig, PolymeshCommitteeConfig,
+        ProtocolFeeConfig,
+    },
     Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
