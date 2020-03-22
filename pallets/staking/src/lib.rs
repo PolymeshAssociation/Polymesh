@@ -14,6 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
+// Modified by Polymath Inc - 13rd March 2020
+// - Validator has posses CDD check
+// - Validator should be a compliant first before adding into the potential validator list.
+
+
 //! # Staking Module
 //!
 //! The Staking module is used to manage funds at stake by network maintainers.
@@ -302,7 +307,7 @@ const STAKING_ID: LockIdentifier = *b"staking ";
 pub type EraIndex = u32;
 
 /// Counter for the number of "reward" points earned by a given validator.
-pub type Points = u32;
+pub type RewardPoint = u32;
 
 /// Information regarding the active era (era in used in session).
 #[derive(Encode, Decode, RuntimeDebug)]
@@ -923,7 +928,7 @@ decl_storage! {
 
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
-            linked_map T::AccountId => Option<PermissionedValidator>;
+            linked_map hasher(blake2_256) T::AccountId => Option<PermissionedValidator>;
 
         /// Commision rate to be used by all validators.
         pub ValidatorCommission get(fn validator_commission) config(): Commission;
@@ -977,9 +982,8 @@ decl_storage! {
 
 decl_event!(
     pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Trait>::AccountId {
-        /// All validators have been rewarded by the first balance; the second is the remainder
-        /// from the maximum amount of reward.
-        Reward(Balance, Balance),
+        /// The staker has been rewarded by this amount. AccountId is controller account.
+        Reward(AccountId, Balance),
         /// One validator (and its nominators) has been slashed by the given amount.
         Slash(AccountId, Balance),
         /// An old slashing report from a prior era was discarded because it could
@@ -1374,7 +1378,7 @@ decl_module! {
         }
 
         /// The ideal number of validators.
-        #[weight = SimpleDispatchInfo::FreeOperational]
+        #[weight = SimpleDispatchInfo::FixedOperational(20000)]
         fn set_validator_count(origin, #[compact] new: u32) {
             ensure_root(origin)?;
             ValidatorCount::put(new);
@@ -2085,7 +2089,7 @@ impl<T: Trait> Module<T> {
 
         // Select only valid validators who has bond minimum balance and has the cdd compliant
         for (validator, preference) in <Validators<T>>::enumerate() {
-            if (Self::is_active_balance_above_min_bond(validator) && Self::is_validator_cdd_compliant(validator)) {
+            if Self::is_active_balance_above_min_bond(&validator) && Self::is_validator_cdd_compliant(&validator) {
                 let self_vote = (validator.clone(), vec![validator.clone()]);
                 all_nominators.push(self_vote);
                 all_validators_and_prefs.insert(validator.clone(), preference);
@@ -2113,7 +2117,7 @@ impl<T: Trait> Module<T> {
         });
         all_nominators.extend(nominator_votes);
 
-        let maybe_phragmen_result = sp_phragmen::elect::<_, _, _, T::CurrencyToVote>(
+        let maybe_phragmen_result = sp_phragmen::elect::<_, _, _, T::CurrencyToVote, Perbill>(
             Self::validator_count() as usize,
             Self::minimum_validator_count().max(1) as usize,
             all_validators,
@@ -2315,14 +2319,6 @@ impl<T: Trait> Module<T> {
             points.push(*pair)
         }
         points
-    }
-
-    /// Ensures that at the end of the current session there will be a new era.
-    fn ensure_new_era() {
-        match ForceEra::get() {
-            Forcing::ForceAlways | Forcing::ForceNew => (),
-            _ => ForceEra::put(Forcing::ForceNew),
-        }
     }
 
     fn unbond_balance(

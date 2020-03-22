@@ -15,7 +15,7 @@ use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::CommonTrait;
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
-use sp_runtime::traits::{One, SimpleArithmetic, Zero};
+use sp_runtime::traits::{One, Zero};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::{convert::TryFrom, prelude::*};
 
@@ -119,7 +119,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
         /// The multisig account of the bridge controller. The genesis signers must accept their
         /// authorizations to be able to get their proposals delivered.
-        Controller get(controller) build(|config: &GenesisConfig<T>| {
+        Controller get(fn controller) build(|config: &GenesisConfig<T>| {
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
                 panic!("too many signatures required");
@@ -135,22 +135,22 @@ decl_storage! {
             ).expect("cannot create the bridge multisig")
         }): T::AccountId;
         /// Pending issuance transactions to identities.
-        PendingTxs get(pending_txs): map IdentityId => Vec<BridgeTx<T::AccountId, T::Balance>>;
+        PendingTxs get(fn pending_txs): map hasher(blake2_256) IdentityId => Vec<BridgeTx<T::AccountId, T::Balance>>;
         /// Frozen transactions.
-        FrozenTxs get(frozen_txs): map BridgeTx<T::AccountId, T::Balance> => bool;
+        FrozenTxs get(fn frozen_txs): map hasher(blake2_256) BridgeTx<T::AccountId, T::Balance> => bool;
         /// Handled bridge transactions.
-        HandledTxs get(handled_txs): map BridgeTx<T::AccountId, T::Balance> => bool;
+        HandledTxs get(fn handled_txs): map hasher(blake2_256) BridgeTx<T::AccountId, T::Balance> => bool;
         /// The admin key.
-        AdminKey get(admin_key) config(): AccountKey;
+        AdminKey get(fn admin_key) config(): AccountKey;
         /// Whether or not the bridge operation is frozen.
-        Frozen get(frozen): bool;
+        Frozen get(fn frozen): bool;
         /// The bridge transaction timelock period, in blocks, since the acceptance of the
         /// transaction proposal during which the admin key can freeze the transaction.
-        Timelock get(timelock) config(): T::BlockNumber;
+        Timelock get(fn timelock) config(): T::BlockNumber;
         /// The list of timelocked transactions with the block numbers in which those transactions
         /// become unlocked.
-        TimelockedTxs get(timelocked_txs):
-            linked_map T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
+        TimelockedTxs get(fn timelocked_txs):
+            linked_map hasher(blake2_256) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
     }
     add_extra_genesis {
         /// The set of initial signers from which a multisig address is created at genesis time.

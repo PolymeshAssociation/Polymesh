@@ -7,8 +7,9 @@ use polymesh_runtime_identity_rpc_runtime_api::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
     generic::BlockId,
-    traits::{Block as BlockT, ProvideRuntimeApi},
+    traits::{Block as BlockT},
 };
+use sp_api::ProvideRuntimeApi;
 use std::sync::Arc;
 
 /// Identity RPC methods
@@ -66,7 +67,7 @@ impl<C, Block, IdentityId, Ticker, AccountKey, SigningItem>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
-    C: ProvideRuntimeApi,
+    C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
     C::Api: IdentityRuntimeApi<Block, IdentityId, Ticker, AccountKey, SigningItem>,
     IdentityId: Codec,

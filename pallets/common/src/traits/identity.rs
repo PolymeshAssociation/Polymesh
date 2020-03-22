@@ -79,7 +79,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
 }
-// rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation
+// rustfmt adds a comma after Option<Moment> in NewAuthorization and it breaks compilation
 #[rustfmt::skip]
 decl_event!(
     pub enum Event<T>

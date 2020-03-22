@@ -7,10 +7,11 @@ pub use pallet_mips_rpc_runtime_api::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
     generic::BlockId,
-    traits::{Block as BlockT, ProvideRuntimeApi, UniqueSaturatedInto},
+    traits::{Block as BlockT, UniqueSaturatedInto},
 };
 use sp_std::{prelude::*, vec::Vec};
 use std::sync::Arc;
+use sp_api::ProvideRuntimeApi;
 
 /// Mips RPC methods.
 #[rpc]
@@ -57,7 +58,7 @@ impl<C, Block, AccountId, Balance> MipsApi<<Block as BlockT>::Hash, AccountId, B
 where
     Block: BlockT,
     C: Send + Sync + 'static,
-    C: ProvideRuntimeApi,
+    C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
     C::Api: MipsRuntimeApi<Block, AccountId, Balance>,
     AccountId: Codec,

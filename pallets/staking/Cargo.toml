@@ -5,9 +5,9 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
-serde = { version = "1.0.101", optional = true }
-safe-mix = { version = "1.0.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.104", optional = true }
+safe-mix = { version = "1.0.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 sp-keyring = { package = "sp-keyring", git = "https://github.com/paritytech/substrate", optional = true, default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"}
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-phragmen = { package = "sp-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }

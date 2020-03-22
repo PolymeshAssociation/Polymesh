@@ -54,6 +54,8 @@ impl<T: frame_system::Trait + Send + Sync> sp_std::fmt::Debug for UpdateDid<T> {
 }
 
 impl<T: frame_system::Trait + Send + Sync> SignedExtension for UpdateDid<T> {
+    
+    const IDENTIFIER: &'static str = "UpdateDid";
     type AccountId = T::AccountId;
     type Call = runtime::Call;
     type AdditionalSigned = ();

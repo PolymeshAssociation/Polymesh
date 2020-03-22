@@ -115,7 +115,7 @@ type Identity<T> = identity::Module<T>;
 decl_storage! {
     trait Store for Module<T: Trait> as GeneralTM {
         /// List of active rules for a ticker (Ticker -> Array of AssetRules)
-        pub AssetRulesMap get(fn asset_rules): map Ticker => AssetRules;
+        pub AssetRulesMap get(fn asset_rules): map hasher(blake2_256) Ticker => AssetRules;
     }
 }
 

@@ -81,12 +81,12 @@ decl_storage! {
     trait Store for Module<T: Trait> as dividend {
         /// Dividend records; (ticker, dividend ID) => dividend entry
         /// Note: contrary to checkpoint IDs, dividend IDs are 0-indexed.
-        Dividends get(fn dividends): map (Ticker, u32) => Dividend<T::Balance, T::Moment>;
+        Dividends get(fn dividends): map hasher(blake2_256) (Ticker, u32) => Dividend<T::Balance, T::Moment>;
         /// How many dividends were created for a ticker so far; (ticker) => count
-        DividendCount get(fn dividend_count): map Ticker => u32;
+        DividendCount get(fn dividend_count): map hasher(blake2_256) Ticker => u32;
         /// Payout flags, decide whether a user already was paid their dividend
         /// (DID, ticker, dividend_id) -> whether they got their payout
-        UserPayoutCompleted get(fn payout_completed): map (IdentityId, Ticker, u32) => bool;
+        UserPayoutCompleted get(fn payout_completed): map hasher(blake2_256) (IdentityId, Ticker, u32) => bool;
     }
 }
 
@@ -267,7 +267,7 @@ decl_module! {
             }
 
             // Compute the share
-            ensure!(<asset::Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
+            ensure!(<asset::Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchToken);
             let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker, dividend.checkpoint_id));
 
             let balance_amount_product = balance_at_checkpoint
@@ -435,7 +435,7 @@ impl<T: Trait> Module<T> {
     ) -> Option<Dividend<T::Balance, T::Moment>> {
         // Check that the dividend entry exists
         let ticker_div_id = (*ticker, dividend_id);
-        if <Dividends<T>>::exists(&ticker_div_id) {
+        if <Dividends<T>>::contains_key(&ticker_div_id) {
             Some(<Dividends<T>>::get(&ticker_div_id))
         } else {
             None

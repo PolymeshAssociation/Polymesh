@@ -20,6 +20,13 @@
 //! - `swap_member` - Replace one identity with the other.
 //! - `reset_members` - Re-initialize group members.
 
+// This module is inspired by the `membership` module of the substrate framework
+// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/membership
+// It get customize as per the Polymesh requirements
+// - Change member type from `AccountId` to `IdentityId`.
+// - Remove `change_key` function from the implementation in the favour of "User can hold only identity on Polymesh blockchain".
+// - Remove the logic of prime member logic
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use polymesh_primitives::{AccountKey, IdentityId};
@@ -201,9 +208,9 @@ decl_error! {
         OnlyMasterKeyAllowed,
         /// Incorrect origin.
         BadOrigin,
-        /// Group member was added alredy.
+        /// Group member was added already.
         DuplicateMember,
-        /// Can't remove a member that doesnt exist.
+        /// Can't remove a member that doesn't exist.
         NoSuchMember,
         /// Last member of the committee can not quit.
         LastMemberCannotQuit,

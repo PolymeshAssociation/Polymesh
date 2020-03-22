@@ -197,26 +197,26 @@ decl_storage! {
 
         /// Those who have locked a deposit.
         /// proposal hash -> (deposit, proposer)
-        pub Deposits get(fn deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
+        pub Deposits get(fn deposit_of): map hasher(blake2_256) T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
-        pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
+        pub Proposals get(fn proposals): map hasher(blake2_256) T::Hash => Option<MIP<T::Proposal>>;
 
         /// Lookup proposal hash by a proposal's index
         /// MIP index -> proposal hash
-        pub ProposalByIndex get(fn proposal_by_index): map MipsIndex => T::Hash;
+        pub ProposalByIndex get(fn proposal_by_index): map hasher(blake2_256) MipsIndex => T::Hash;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal hash -> vote count
-        pub Voting get(fn voting): map T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
+        pub Voting get(fn voting): map hasher(blake2_256) T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
         pub ReferendumMetadata get(fn referendum_meta): Vec<PolymeshReferendumInfo<T::Hash>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
-        pub Referendums get(fn referendums): map T::Hash => Option<T::Proposal>;
+        pub Referendums get(fn referendums): map hasher(blake2_256) T::Hash => Option<T::Proposal>;
     }
 }
 
@@ -328,7 +328,7 @@ decl_module! {
             );
             // Proposal must be new
             ensure!(
-                !<Proposals<T>>::exists(proposal_hash),
+                !<Proposals<T>>::contains_key(proposal_hash),
                 Error::<T>::DuplicateProposal
             );
 
@@ -463,7 +463,7 @@ decl_module! {
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Proposal must be new
-            ensure!(!<Proposals<T>>::exists(proposal_hash), Error::<T>::DuplicateProposal);
+            ensure!(!<Proposals<T>>::contains_key(proposal_hash), Error::<T>::DuplicateProposal);
 
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
@@ -586,7 +586,7 @@ impl<T: Trait> Module<T> {
     /// All deposits are unlocked and returned to respective stakers.
     fn close_proposal(index: MipsIndex, proposal_hash: T::Hash) {
         if <Voting<T>>::get(proposal_hash).is_some() {
-            if <Deposits<T>>::exists(&proposal_hash) {
+            if <Deposits<T>>::contains_key(&proposal_hash) {
                 let deposits: Vec<(T::AccountId, BalanceOf<T>)> =
                     <Deposits<T>>::take(&proposal_hash);
 

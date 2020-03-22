@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
+// Modified by Polymath Inc - 13rd March 2020
+// Charge fee from the identity in the signed extension
+
 //! # Transaction Payment Module
 //!
 //! This module provides the basic logic needed to pay the absolute minimum amount needed for a
@@ -210,7 +213,8 @@ impl<T: Trait + Send + Sync> sp_std::fmt::Debug for ChargeTransactionPayment<T> 
 impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T>
 where
     BalanceOf<T>: Send + Sync,
-{
+{   
+    const IDENTIFIER: &'static str = "ChargeTransactionPayment";
     type AccountId = T::AccountId;
     type Call = T::Call;
     type AdditionalSigned = ();

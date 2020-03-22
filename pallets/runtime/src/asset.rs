@@ -248,60 +248,60 @@ decl_storage! {
         FeeCollector get(fn fee_collector) config(): T::AccountId;
         /// Ticker registration details
         /// (ticker) -> TickerRegistration
-        pub Tickers get(fn ticker_registration): map Ticker => TickerRegistration<T::Moment>;
+        pub Tickers get(fn ticker_registration): map hasher(blake2_256) Ticker => TickerRegistration<T::Moment>;
         /// Ticker registration config
         /// (ticker) -> TickerRegistrationConfig
         pub TickerConfig get(fn ticker_registration_config) config(): TickerRegistrationConfig<T::Moment>;
         /// details of the token corresponding to the token ticker
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
-        pub Tokens get(fn token_details): map Ticker => SecurityToken<T::Balance>;
+        pub Tokens get(fn token_details): map hasher(blake2_256) Ticker => SecurityToken<T::Balance>;
         /// Used to store the securityToken balance corresponds to ticker and Identity
         /// (ticker, DID) -> balance
-        pub BalanceOf get(fn balance_of): map (Ticker, IdentityId) => T::Balance;
+        pub BalanceOf get(fn balance_of): map hasher(blake2_256) (Ticker, IdentityId) => T::Balance;
         /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
-        pub Identifiers get(fn identifiers): map (Ticker, IdentifierType) => AssetIdentifier;
+        pub Identifiers get(fn identifiers): map hasher(blake2_256) (Ticker, IdentifierType) => AssetIdentifier;
         /// (ticker, sender (DID), spender(DID)) -> allowance amount
-        Allowance get(fn allowance): map (Ticker, IdentityId, IdentityId) => T::Balance;
+        Allowance get(fn allowance): map hasher(blake2_256) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// cost in base currency to create a token
         AssetCreationFee get(fn asset_creation_fee) config(): T::Balance;
         /// cost in base currency to register a ticker
         TickerRegistrationFee get(fn ticker_registration_fee) config(): T::Balance;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
-        pub TotalCheckpoints get(fn total_checkpoints_of): map Ticker => u64;
+        pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_256) Ticker => u64;
         /// Total supply of the token at the checkpoint
         /// (ticker, checkpointId) -> total supply at given checkpoint
-        pub CheckpointTotalSupply get(fn total_supply_at): map (Ticker, u64) => T::Balance;
+        pub CheckpointTotalSupply get(fn total_supply_at): map hasher(blake2_256) (Ticker, u64) => T::Balance;
         /// Balance of a DID at a checkpoint
         /// (ticker, DID, checkpoint ID) -> Balance of a DID at a checkpoint
-        CheckpointBalance get(fn balance_at_checkpoint): map (Ticker, IdentityId, u64) => T::Balance;
+        CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_256) (Ticker, IdentityId, u64) => T::Balance;
         /// Last checkpoint updated for a DID's balance
         /// (ticker, DID) -> List of checkpoints where user balance changed
-        UserCheckpoints get(fn user_checkpoints): map (Ticker, IdentityId) => Vec<u64>;
+        UserCheckpoints get(fn user_checkpoints): map hasher(blake2_256) (Ticker, IdentityId) => Vec<u64>;
         /// Allowance provided to the custodian
         /// (ticker, token holder, custodian) -> balance
-        pub CustodianAllowance get(fn custodian_allowance): map(Ticker, IdentityId, IdentityId) => T::Balance;
+        pub CustodianAllowance get(fn custodian_allowance): map hasher(blake2_256) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Total custodian allowance for a given token holder
         /// (ticker, token holder) -> balance
-        pub TotalCustodyAllowance get(fn total_custody_allowance): map(Ticker, IdentityId) => T::Balance;
+        pub TotalCustodyAllowance get(fn total_custody_allowance): map hasher(blake2_256) (Ticker, IdentityId) => T::Balance;
         /// Store the nonce for off chain signature to increase the custody allowance
         /// (ticker, token holder, nonce) -> bool
-        AuthenticationNonce get(fn authentication_nonce): map(Ticker, IdentityId, u16) => bool;
+        AuthenticationNonce get(fn authentication_nonce): map hasher(blake2_256) (Ticker, IdentityId, u16) => bool;
         /// The name of the current funding round.
         /// ticker -> funding round
-        FundingRound get(fn funding_round): map Ticker => FundingRoundName;
+        FundingRound get(fn funding_round): map hasher(blake2_256) Ticker => FundingRoundName;
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
-        IssuedInFundingRound get(fn issued_in_funding_round): map (Ticker, FundingRoundName) => T::Balance;
+        IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_256) (Ticker, FundingRoundName) => T::Balance;
         /// List of Smart extension added for the given tokens
         /// ticker, AccountId (SE address) -> SmartExtension detail
-        pub ExtensionDetails get(fn extension_details): map (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
+        pub ExtensionDetails get(fn extension_details): map hasher(blake2_256) (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
         /// List of Smart extension added for the given tokens and for the given type
         /// ticker, type of SE -> address/AccountId of SE
-        pub Extensions get(fn extensions): map (Ticker, SmartExtensionType) => Vec<T::AccountId>;
+        pub Extensions get(fn extensions): map hasher(blake2_256) (Ticker, SmartExtensionType) => Vec<T::AccountId>;
         /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
-        pub Frozen get(fn frozen): map Ticker => bool;
+        pub Frozen get(fn frozen): map hasher(blake2_256) Ticker => bool;
     }
 }
 
@@ -330,7 +330,7 @@ decl_module! {
 
             ensure!(<identity::Module<T>>::is_signer_authorized(to_did, &signer), Error::<T>::SenderMustBeSigningKeyForDid);
 
-            ensure!(!<Tokens<T>>::exists(&ticker), Error::<T>::TokenAlreadyCreated);
+            ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::TokenAlreadyCreated);
 
             let ticker_config = Self::ticker_registration_config();
 
@@ -411,7 +411,7 @@ decl_module! {
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), Error::<T>::SenderMustBeSigningKeyForDid);
-            ensure!(!<Tokens<T>>::exists(&ticker), Error::<T>::TokenAlreadyCreated);
+            ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::TokenAlreadyCreated);
 
             let ticker_config = Self::ticker_registration_config();
 
@@ -506,7 +506,7 @@ decl_module! {
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ensure!(<Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
+            ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchToken);
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -527,7 +527,7 @@ decl_module! {
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ensure!(<Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
+            ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchToken);
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -549,7 +549,7 @@ decl_module! {
         pub fn rename_token(origin, ticker: Ticker, name: TokenName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ensure!(<Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
+            ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchToken);
             let token = <Tokens<T>>::get(&ticker);
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -636,7 +636,7 @@ decl_module! {
                 <identity::Module<T>>::is_signer_authorized(did, &signer),
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
-            ensure!(<BalanceOf<T>>::exists((ticker, did)), Error::<T>::NotAnOwner);
+            ensure!(<BalanceOf<T>>::contains_key((ticker, did)), Error::<T>::NotAnOwner);
             let allowance = Self::allowance((ticker, did, spender_did));
             let updated_allowance = allowance.checked_add(&value)
                 .ok_or(Error::<T>::AllowanceOverflow)?;
@@ -667,7 +667,7 @@ decl_module! {
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
             let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
+            ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
             let allowance = Self::allowance(&ticker_from_did_did);
             ensure!(allowance >= value, Error::<T>::InsufficientAllowance);
 
@@ -834,7 +834,7 @@ decl_module! {
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             let ticker_did = (ticker, did);
-            ensure!(<BalanceOf<T>>::exists(&ticker_did), Error::<T>::NotAnOwner);
+            ensure!(<BalanceOf<T>>::contains_key(&ticker_did), Error::<T>::NotAnOwner);
             let burner_balance = Self::balance_of(&ticker_did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
 
@@ -890,7 +890,7 @@ decl_module! {
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             let ticker_did = (ticker, did);
-            ensure!(<BalanceOf<T>>::exists(&ticker_did), Error::<T>::NotAnOwner);
+            ensure!(<BalanceOf<T>>::contains_key(&ticker_did), Error::<T>::NotAnOwner);
             let burner_balance = Self::balance_of(&ticker_did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
 
@@ -900,7 +900,7 @@ decl_module! {
                 .ok_or(Error::<T>::BalanceOverflow)?;
 
             let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
+            ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
             let allowance = Self::allowance(&ticker_from_did_did);
             ensure!(allowance >= value, Error::<T>::InsufficientAllowance);
             // Check whether the custody allowance remain intact or not
@@ -951,7 +951,7 @@ decl_module! {
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             let ticker_token_holder_did = (ticker, token_holder_did);
-            ensure!(<BalanceOf<T>>::exists(&ticker_token_holder_did), Error::<T>::NotATokenHolder);
+            ensure!(<BalanceOf<T>>::contains_key(&ticker_token_holder_did), Error::<T>::NotATokenHolder);
             let burner_balance = Self::balance_of(&ticker_token_holder_did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
 
@@ -1348,7 +1348,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
 
             // Verify the details of smart extension & store it
-            ensure!(!<ExtensionDetails<T>>::exists((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
+            ensure!(!<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
             <ExtensionDetails<T>>::insert((ticker, &extension_details.extension_id), extension_details.clone());
             <Extensions<T>>::mutate((ticker, &extension_details.extension_type), |ids| {
                 ids.push(extension_details.extension_id.clone())
@@ -1370,7 +1370,7 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
             ensure!(
-                <ExtensionDetails<T>>::exists((ticker, &extension_id)),
+                <ExtensionDetails<T>>::contains_key((ticker, &extension_id)),
                 Error::<T>::NoSuchSmartExtension
             );
             // Mutate the extension details
@@ -1393,7 +1393,7 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
             ensure!(
-                <ExtensionDetails<T>>::exists((ticker, &extension_id)),
+                <ExtensionDetails<T>>::contains_key((ticker, &extension_id)),
                 Error::<T>::NoSuchSmartExtension
             );
             // Mutate the extension details
@@ -1657,7 +1657,7 @@ impl<T: Trait> Module<T> {
 
     pub fn is_ticker_available(ticker: &Ticker) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::exists(ticker) {
+        if <Tickers<T>>::contains_key(ticker) {
             let now = <pallet_timestamp::Module<T>>::get();
             if let Some(expiry) = Self::ticker_registration(*ticker).expiry {
                 if now <= expiry {
@@ -1672,7 +1672,7 @@ impl<T: Trait> Module<T> {
 
     pub fn is_ticker_registry_valid(ticker: &Ticker, did: IdentityId) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::exists(ticker) {
+        if <Tickers<T>>::contains_key(ticker) {
             let now = <pallet_timestamp::Module<T>>::get();
             let ticker_reg = Self::ticker_registration(ticker);
             if ticker_reg.owner == did {
@@ -1697,7 +1697,7 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
     ) -> TickerRegistrationStatus {
         // Assumes uppercase ticker
-        if <Tickers<T>>::exists(ticker) {
+        if <Tickers<T>>::contains_key(ticker) {
             let ticker_reg = Self::ticker_registration(*ticker);
             if let Some(expiry) = ticker_reg.expiry {
                 let now = <pallet_timestamp::Module<T>>::get();
@@ -1728,7 +1728,7 @@ impl<T: Trait> Module<T> {
         // charge fee
         Self::charge_ticker_registration_fee(ticker, sender.clone(), to_did);
 
-        if <Tickers<T>>::exists(ticker) {
+        if <Tickers<T>>::contains_key(ticker) {
             let ticker_details = <Tickers<T>>::get(ticker);
             <identity::Module<T>>::remove_link(
                 Signatory::from(ticker_details.owner),
@@ -1770,7 +1770,7 @@ impl<T: Trait> Module<T> {
 
     pub fn get_balance_at(ticker: Ticker, did: IdentityId, at: u64) -> T::Balance {
         let ticker_did = (ticker, did);
-        if !<TotalCheckpoints>::exists(ticker) ||
+        if !<TotalCheckpoints>::contains_key(ticker) ||
             at == 0 || //checkpoints start from 1
             at > Self::total_checkpoints_of(&ticker)
         {
@@ -1778,7 +1778,7 @@ impl<T: Trait> Module<T> {
             return Self::balance_of(&ticker_did);
         }
 
-        if <UserCheckpoints>::exists(&ticker_did) {
+        if <UserCheckpoints>::contains_key(&ticker_did) {
             let user_checkpoints = Self::user_checkpoints(&ticker_did);
             if at > *user_checkpoints.last().unwrap_or(&0) {
                 // Using unwrap_or to be defensive.
@@ -1890,7 +1890,7 @@ impl<T: Trait> Module<T> {
         );
         let ticker_from_did = (*ticker, from_did);
         ensure!(
-            <BalanceOf<T>>::exists(&ticker_from_did),
+            <BalanceOf<T>>::contains_key(&ticker_from_did),
             Error::<T>::NotATokenHolder
         );
         let sender_balance = Self::balance_of(&ticker_from_did);
@@ -1926,7 +1926,7 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn _create_checkpoint(ticker: &Ticker) -> DispatchResult {
-        if <TotalCheckpoints>::exists(ticker) {
+        if <TotalCheckpoints>::contains_key(ticker) {
             let mut checkpoint_count = Self::total_checkpoints_of(ticker);
             checkpoint_count = checkpoint_count
                 .checked_add(1)
@@ -1947,10 +1947,10 @@ impl<T: Trait> Module<T> {
     }
 
     fn _update_checkpoint(ticker: &Ticker, user_did: IdentityId, user_balance: T::Balance) {
-        if <TotalCheckpoints>::exists(ticker) {
+        if <TotalCheckpoints>::contains_key(ticker) {
             let checkpoint_count = Self::total_checkpoints_of(ticker);
             let ticker_user_did_checkpont = (*ticker, user_did, checkpoint_count);
-            if !<CheckpointBalance<T>>::exists(&ticker_user_did_checkpont) {
+            if !<CheckpointBalance<T>>::contains_key(&ticker_user_did_checkpont) {
                 <CheckpointBalance<T>>::insert(&ticker_user_did_checkpont, user_balance);
                 <UserCheckpoints>::mutate(&(*ticker, user_did), |user_checkpoints| {
                     user_checkpoints.push(checkpoint_count);
@@ -2058,7 +2058,7 @@ impl<T: Trait> Module<T> {
         );
         // Ensure the valid DID
         ensure!(
-            <identity::DidRecords>::exists(custodian_did),
+            <identity::DidRecords>::contains_key(custodian_did),
             Error::<T>::InvalidCustodianDid
         );
 
@@ -2085,7 +2085,7 @@ impl<T: Trait> Module<T> {
     /// Accept and process a ticker transfer
     pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         ensure!(
-            <identity::Authorizations<T>>::exists(Signatory::from(to_did), auth_id),
+            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
             AuthorizationError::from(AuthorizationError::Invalid)
         );
 
@@ -2097,7 +2097,7 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(
-            !<Tokens<T>>::exists(&ticker),
+            !<Tokens<T>>::contains_key(&ticker),
             Error::<T>::TokenAlreadyCreated
         );
         let ticker_details = Self::ticker_registration(&ticker);
@@ -2136,7 +2136,7 @@ impl<T: Trait> Module<T> {
     /// Accept and process a token ownership transfer
     pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         ensure!(
-            <identity::Authorizations<T>>::exists(Signatory::from(to_did), auth_id),
+            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
             AuthorizationError::from(AuthorizationError::Invalid)
         );
 
@@ -2147,7 +2147,7 @@ impl<T: Trait> Module<T> {
             _ => return Err(Error::<T>::NotTickerOwnershipTransferAuth.into()),
         };
 
-        ensure!(<Tokens<T>>::exists(&ticker), Error::<T>::NoSuchToken);
+        ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchToken);
 
         let token_details = Self::token_details(&ticker);
         let ticker_details = Self::ticker_registration(&ticker);

@@ -66,13 +66,13 @@ pub struct SimpleTokenRecord<U> {
 decl_storage! {
     trait Store for Module<T: Trait> as SimpleToken {
         /// Mapping from (ticker, owner DID, spender DID) to allowance amount
-        Allowance get(fn allowance): map (Ticker, IdentityId, IdentityId) => T::Balance;
+        Allowance get(fn allowance): map hasher(blake2_256) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Mapping from (ticker, owner DID) to their balance
-        pub BalanceOf get(fn balance_of): map (Ticker, IdentityId) => T::Balance;
+        pub BalanceOf get(fn balance_of): map hasher(blake2_256) (Ticker, IdentityId) => T::Balance;
         /// The cost to create a new simple token
         CreationFee get(fn creation_fee) config(): T::Balance;
         /// The details associated with each simple token
-        Tokens get(fn tokens): map Ticker => SimpleTokenRecord<T::Balance>;
+        Tokens get(fn tokens): map hasher(blake2_256) Ticker => SimpleTokenRecord<T::Balance>;
     }
 }
 
@@ -120,7 +120,7 @@ decl_module! {
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
-            ensure!(!<Tokens<T>>::exists(&ticker), Error::<T>::TickerAlreadyExists);
+            ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::TickerAlreadyExists);
             ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
 
             // TODO Charge proper fee
@@ -153,7 +153,7 @@ decl_module! {
             let sender = Signatory::AccountKey(sender_key);
 
             let ticker_did = (ticker, did.clone());
-            ensure!(<BalanceOf<T>>::exists(&ticker_did), Error::<T>::NotAnOwner);
+            ensure!(<BalanceOf<T>>::contains_key(&ticker_did), Error::<T>::NotAnOwner);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -198,7 +198,7 @@ decl_module! {
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
             let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::exists(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
+            ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
             let allowance = Self::allowance(&ticker_from_did_did);
             ensure!(allowance >= amount, Error::<T>::InsufficientAllowance);
 
@@ -268,7 +268,7 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let ticker_from_did = (*ticker, from_did.clone());
         ensure!(
-            <BalanceOf<T>>::exists(&ticker_from_did),
+            <BalanceOf<T>>::contains_key(&ticker_from_did),
             Error::<T>::NotAnOwner
         );
         let from_balance = Self::balance_of(&ticker_from_did);

@@ -115,22 +115,22 @@ type Identity<T> = identity::Module<T>;
 decl_storage! {
     trait Store for Module<T: Trait> as Voting {
         /// Mapping of ticker and ballot name -> ballot details
-        pub Ballots get(fn ballots): linked_map(Ticker, Vec<u8>) => Ballot<T::Moment>;
+        pub Ballots get(fn ballots): linked_map hasher(blake2_256) (Ticker, Vec<u8>) => Ballot<T::Moment>;
 
         /// Helper data to make voting cheaper.
         /// (ticker, BallotName) -> NoOfChoices
-        pub TotalChoices get(fn total_choices): map (Ticker, Vec<u8>) => u64;
+        pub TotalChoices get(fn total_choices): map hasher(blake2_256) (Ticker, Vec<u8>) => u64;
 
         /// (Ticker, BallotName, DID) -> Vector of vote weights.
         /// weight at 0 index means weight for choice 1 of motion 1.
         /// weight at 1 index means weight for choice 2 of motion 1.
         /// User must enter 0 vote weight if they don't want to vote for a choice.
-        pub Votes get(fn votes): map (Ticker, Vec<u8>, IdentityId) => Vec<T::Balance>;
+        pub Votes get(fn votes): map hasher(blake2_256) (Ticker, Vec<u8>, IdentityId) => Vec<T::Balance>;
 
         /// (Ticker, BallotName) -> Vector of current vote weights.
         /// weight at 0 index means weight for choice 1 of motion 1.
         /// weight at 1 index means weight for choice 2 of motion 1.
-        pub Results get(fn results): map (Ticker, Vec<u8>) => Vec<T::Balance>;
+        pub Results get(fn results): map hasher(blake2_256) (Ticker, Vec<u8>) => Vec<T::Balance>;
     }
 }
 
@@ -162,7 +162,7 @@ decl_module! {
             let ticker_ballot_name = (ticker, ballot_name.clone());
 
             // Ensure the uniqueness of the ballot
-            ensure!(!<Ballots<T>>::exists(&ticker_ballot_name), Error::<T>::AlreadyExists);
+            ensure!(!<Ballots<T>>::contains_key(&ticker_ballot_name), Error::<T>::AlreadyExists);
 
             let now = <pallet_timestamp::Module<T>>::get();
 
@@ -214,14 +214,14 @@ decl_module! {
             let ticker_ballot_name = (ticker, ballot_name.clone());
 
             // Ensure validity the ballot
-            ensure!(<Ballots<T>>::exists(&ticker_ballot_name), Error::<T>::NotExists);
+            ensure!(<Ballots<T>>::contains_key(&ticker_ballot_name), Error::<T>::NotExists);
             let ballot = <Ballots<T>>::get(&ticker_ballot_name);
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(ballot.voting_start <= now, Error::<T>::NotStarted);
             ensure!(ballot.voting_end > now, Error::<T>::AlreadyEnded);
 
             // Ensure validity of checkpoint
-            ensure!(<asset::TotalCheckpoints>::exists(&ticker), Error::<T>::NoCheckpoints);
+            ensure!(<asset::TotalCheckpoints>::contains_key(&ticker), Error::<T>::NoCheckpoints);
             let count = <asset::TotalCheckpoints>::get(&ticker);
             ensure!(ballot.checkpoint_id <= count, Error::<T>::NoCheckpoints);
 
@@ -242,7 +242,7 @@ decl_module! {
             let ticker_ballot_name_did = (ticker, ballot_name.clone(), did);
 
             // Check if user has already voted for this ballot or if they are voting for the first time
-            if <Votes<T>>::exists(&ticker_ballot_name_did) {
+            if <Votes<T>>::contains_key(&ticker_ballot_name_did) {
                 //User wants to change their vote. We first need to subtract their existing vote
                 let previous_votes = <Votes<T>>::get(&ticker_ballot_name_did);
                 <Results<T>>::mutate(&ticker_ballot_name, |results| {
@@ -285,7 +285,7 @@ decl_module! {
             let ticker_ballot_name = (ticker, ballot_name.clone());
 
             // Ensure the existance of valid ballot
-            ensure!(<Ballots<T>>::exists(&ticker_ballot_name), Error::<T>::NotExists);
+            ensure!(<Ballots<T>>::contains_key(&ticker_ballot_name), Error::<T>::NotExists);
             let ballot = <Ballots<T>>::get(&ticker_ballot_name);
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(now < ballot.voting_end, Error::<T>::AlreadyEnded);

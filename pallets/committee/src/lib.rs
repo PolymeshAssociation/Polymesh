@@ -1,7 +1,7 @@
 //! # Committee Module
 //!
 //! The Committee module is used to create a committee of members who vote and ratify proposals.
-//! This was based on Substrate's `srml-collective` but this module differs in the following way:
+//! This was based on Substrate's `pallet-collective` but this module differs in the following way:
 //! - Winning proposal is determined by a vote threshold which is set at genesis
 //! - Vote threshold can be modified per instance
 //! - Membership consists of DIDs
@@ -44,7 +44,7 @@ pub type MemberCount = u32;
 
 pub trait Trait<I>: frame_system::Trait + IdentityTrait {
     /// The outer origin type.
-    type Origin: From<RawOrigin<Self::AccountId, I>>;
+    type Origin: From<RawOrigin<<Self as frame_system::Trait>::AccountId, I>>;
 
     /// The outer call dispatch type.
     type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin>;
@@ -73,9 +73,9 @@ pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::Accoun
 pub struct PolymeshVotes<IdentityId> {
     /// The proposal's unique index.
     pub index: ProposalIndex,
-    /// The current set of commmittee members that approved it.
+    /// The current set of committee members that approved it.
     pub ayes: Vec<IdentityId>,
-    /// The current set of commmittee members that rejected it.
+    /// The current set of committee members that rejected it.
     pub nays: Vec<IdentityId>,
 }
 
@@ -84,9 +84,10 @@ decl_storage! {
         /// The hashes of the active proposals.
         pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
-        pub ProposalOf get(fn proposal_of): map T::Hash => Option<<T as Trait<I>>::Proposal>;
+        pub ProposalOf get(fn proposal_of):
+			map hasher(blake2_256) T::Hash => Option<<T as Trait<I>>::Proposal>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        pub Voting get(fn voting): map T::Hash => Option<PolymeshVotes<IdentityId>>;
+        pub Voting get(fn voting): map hasher(blake2_256) T::Hash => Option<PolymeshVotes<IdentityId>>;
         /// Proposals so far.
         pub ProposalCount get(fn proposal_count): u32;
         /// The current members of the committee.
@@ -192,9 +193,9 @@ decl_module! {
 
             // Reject duplicate proposals
             let proposal_hash = T::Hashing::hash_of(&proposal);
-            ensure!(!<ProposalOf<T, I>>::exists(proposal_hash), Error::<T, I>::DuplicateProposal);
+            ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
-            // If committee is composed of a single member, execite the proposal
+            // If committee is composed of a single member, execute the proposal
             let seats = Self::members().len() as MemberCount;
             if seats < 2 {
                 let ok = proposal.dispatch(RawOrigin::Members(1, seats).into()).is_ok();
