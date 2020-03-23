@@ -229,6 +229,7 @@ impl identity::Trait for TestStorage {
     type ChargeTxFeeTarget = TestStorage;
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
+    type ProtocolFee = protocol_fee::Module<TestStorage>;
 }
 
 impl AddSignerMultiSig for TestStorage {
@@ -314,6 +315,7 @@ impl protocol_fee::Trait for TestStorage {
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
+    type ValidatorIdToAccountId = ConvertInto;
 }
 
 parameter_types! {

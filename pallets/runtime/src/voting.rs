@@ -578,6 +578,7 @@ mod tests {
         type ChargeTxFeeTarget = Test;
         type Public = AccountId;
         type OffChainSignature = OffChainSignature;
+        type ProtocolFee = protocol_fee::Module<Test>;
     }
 
     impl pallet_transaction_payment::ChargeTxFee for Test {
@@ -619,6 +620,7 @@ mod tests {
     impl asset::Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
+        type ValidatorIdToAccountId = ConvertInto;
     }
 
     impl statistics::Trait for Test {}
