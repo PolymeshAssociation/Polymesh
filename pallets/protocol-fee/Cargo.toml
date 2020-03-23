@@ -32,6 +32,7 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "primitives/std",
+    "serde/std",
     "sp-core/std",
     "sp-io/std",
     "sp-std/std",
