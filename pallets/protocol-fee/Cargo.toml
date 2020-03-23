@@ -10,6 +10,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 polymesh-runtime-common = { path = "../common", default-features = false }
 primitives = { package = "polymesh-primitives", default-features = false, path = "../../primitives" }
+serde = { version = "1.0.104", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 

@@ -12,7 +12,6 @@ use frame_system::{self as system, ensure_root};
 use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, OperationName};
 use primitives::{traits::IdentityCurrency, Signatory};
 use sp_runtime::traits::{CheckedDiv, Saturating};
-//use sp_std::prelude::*;
 
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
