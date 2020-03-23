@@ -1,11 +1,11 @@
 use crate::traits::{
-    balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
+    balances, group::GroupTrait, multisig::AddSignerMultiSig, protocol_fee::ChargeProtocolFee,
+    CommonTrait, NegativeImbalance,
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, ClaimType, IdentityClaim, IdentityId, LinkData, Permission,
     Signatory, SigningItem, Ticker,
 };
-use polymesh_protocol_fee as protocol_fee;
 
 use codec::{Decode, Encode};
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
@@ -64,11 +64,7 @@ pub struct SigningItemWithAuth {
 
 /// The module's configuration trait.
 pub trait Trait:
-    CommonTrait
-    + pallet_timestamp::Trait
-    + balances::Trait
-    + pallet_session::Trait
-    + protocol_fee::Trait
+    CommonTrait + pallet_timestamp::Trait + balances::Trait + pallet_session::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -89,6 +85,7 @@ pub trait Trait:
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
+    type ProtocolFee: ChargeProtocolFee;
 }
 // rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation
 #[rustfmt::skip]

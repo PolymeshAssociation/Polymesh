@@ -9,11 +9,10 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
 };
 use frame_system::{self as system, ensure_root};
+use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, OperationName};
 use primitives::{traits::IdentityCurrency, Signatory};
 use sp_runtime::traits::{CheckedDiv, Saturating};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::{fmt::Debug, prelude::*};
+//use sp_std::prelude::*;
 
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -21,24 +20,10 @@ type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 /// Either the computed fee or an error.
 pub type ComputeFeeResult<T> = sp_std::result::Result<BalanceOf<T>, DispatchError>;
-/// Either an imbalance or an error.
-pub type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 /// A positive rational number: a pair of a numerator and a denominator.
 pub type PosRational = (u32, u32);
-
-/// A wrapper for the name of a chargeable operation.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct OperationName(pub Vec<u8>);
-
-impl<T: AsRef<[u8]>> From<T> for OperationName {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        OperationName(v)
-    }
-}
+/// Either an imbalance or an error.
+type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 
 pub trait Trait: frame_system::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -107,7 +92,7 @@ decl_module! {
 
         /// Emits an event with the fee of the operation.
         pub fn get_fee(_origin, name: OperationName) -> DispatchResult {
-            let fee = Self::compute_fee(name)?;
+            let fee = Self::compute_fee(&name)?;
             Self::deposit_event(RawEvent::Fee(fee));
             Ok(())
         }
@@ -122,7 +107,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
-    pub fn compute_fee(name: OperationName) -> ComputeFeeResult<T> {
+    pub fn compute_fee(name: &OperationName) -> ComputeFeeResult<T> {
         let (numerator, denominator) = Self::coefficient();
         if let Some(fee) = Self::base_fees(name)
             .saturating_mul(<BalanceOf<T>>::from(numerator))
@@ -135,7 +120,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Computes the fee of the operation and charges it to the given signatory.
-    pub fn charge_fee(signatory: Signatory, name: OperationName) -> DispatchResult {
+    pub fn charge_fee(signatory: &Signatory, name: &OperationName) -> DispatchResult {
         let fee = Self::compute_fee(name)?;
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
@@ -145,8 +130,8 @@ impl<T: Trait> Module<T> {
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
     pub fn charge_fee_batch(
-        signatory: Signatory,
-        name: OperationName,
+        signatory: &Signatory,
+        name: &OperationName,
         count: usize,
     ) -> DispatchResult {
         let fee = Self::compute_fee(name)?.saturating_mul(<BalanceOf<T>>::from(count as u32));
@@ -158,8 +143,8 @@ impl<T: Trait> Module<T> {
     /// Computes the fee of the operation, charges that fee to `signatory`, and pays it out
     /// collectively to `recipients` in equal parts.
     pub fn charge_fee_equal_parts(
-        signatory: Signatory,
-        name: OperationName,
+        signatory: &Signatory,
+        name: &OperationName,
         recipients: &[T::AccountId],
     ) -> DispatchResult {
         let fee = Self::compute_fee(name)?;
@@ -176,9 +161,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// Withdraws a precomputed fee.
-    fn withdraw_fee(signatory: Signatory, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
+    fn withdraw_fee(signatory: &Signatory, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
         match signatory {
-            Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
+            Signatory::Identity(did) => T::Currency::withdraw_identity_balance(did, fee)
                 .map_err(|_| Error::<T>::InsufficientBalance.into()),
             Signatory::AccountKey(account) => T::Currency::withdraw(
                 &T::AccountId::decode(&mut &account.encode()[..])
@@ -189,6 +174,19 @@ impl<T: Trait> Module<T> {
             )
             .map_err(|_| Error::<T>::InsufficientBalance.into()),
         }
+    }
+}
+
+impl<T: Trait> ChargeProtocolFee for Module<T> {
+    fn charge_fee(signatory: &Signatory, name: &OperationName) -> DispatchResult {
+        Self::charge_fee(signatory, name)
+    }
+    fn charge_fee_batch(
+        signatory: &Signatory,
+        name: &OperationName,
+        count: usize,
+    ) -> DispatchResult {
+        Self::charge_fee_batch(signatory, name, count)
     }
 }
 
@@ -351,6 +349,7 @@ mod tests {
         type ChargeTxFeeTarget = Test;
         type Public = AccountId;
         type OffChainSignature = OffChainSignature;
+        type ProtocolFee = super::Module<Test>;
     }
 
     impl CommonTrait for Test {
@@ -413,11 +412,11 @@ mod tests {
     fn can_compute_fee() {
         ExtBuilder::default().build().execute_with(|| {
             assert_eq!(
-                ProtocolFee::compute_fee(OperationName::from(b"10_k_test")),
+                ProtocolFee::compute_fee(&OperationName::from(b"10_k_test")),
                 Ok(10_000)
             );
             assert_eq!(
-                ProtocolFee::compute_fee(OperationName::from(b"99_k_test")),
+                ProtocolFee::compute_fee(&OperationName::from(b"99_k_test")),
                 Ok(99_000)
             );
         });

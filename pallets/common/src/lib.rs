@@ -3,7 +3,7 @@
 pub mod constants;
 
 pub mod traits;
-pub use traits::{asset, balances, group, identity, multisig, CommonTrait};
+pub use traits::{asset, balances, group, identity, multisig, protocol_fee, CommonTrait};
 
 pub mod context;
 pub use context::Context;
