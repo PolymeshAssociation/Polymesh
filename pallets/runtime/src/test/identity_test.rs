@@ -770,10 +770,17 @@ fn changing_master_key_with_cdd_auth_we() {
         Identity::accept_master_key(new_key_origin.clone(), owner_auth_id.clone(), None).is_err()
     );
 
+    let owner_auth_id2 = Identity::add_auth(
+        Signatory::AccountKey(alice_key),
+        Signatory::AccountKey(new_key),
+        AuthorizationData::RotateMasterKey(alice_did),
+        None,
+    );
+
     // Accept the authorization with the new key
     assert_ok!(Identity::accept_master_key(
         new_key_origin.clone(),
-        owner_auth_id.clone(),
+        owner_auth_id2,
         Some(cdd_auth_id)
     ));
 
