@@ -63,10 +63,13 @@ use polymesh_primitives::{
     DocumentUri, IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionName,
     SmartExtensionType, Ticker,
 };
-use polymesh_protocol_fee::{self as protocol_fee, OperationName};
 use polymesh_runtime_common::{
-    asset::AcceptTransfer, balances::Trait as BalancesTrait, constants::*,
-    identity::Trait as IdentityTrait, CommonTrait, Context,
+    asset::AcceptTransfer,
+    balances::Trait as BalancesTrait,
+    constants::*,
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, OperationName},
+    CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -97,7 +100,6 @@ pub trait Trait:
     + pallet_session::Trait
     + statistics::Trait
     + pallet_contracts::Trait
-    + protocol_fee::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -346,9 +348,9 @@ decl_module! {
             let now = <pallet_timestamp::Module<T>>::get();
             let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
 
-            <protocol_fee::Module<T>>::charge_fee(
-                signer,
-                OperationName::from(protocol_op::ASSET_REGISTER_TICKER)
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
+                &signer,
+                &OperationName::from(protocol_op::ASSET_REGISTER_TICKER)
             )?;
             Self::_register_ticker(&ticker, sender, to_did, expiry);
 
@@ -444,9 +446,9 @@ decl_module! {
                 .into_iter()
                 .map(T::ValidatorIdToAccountId::convert)
                 .collect();
-            <protocol_fee::Module<T>>::charge_fee_equal_parts(
-                signer,
-                OperationName::from(protocol_op::ASSET_CREATE_TOKEN),
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee_equal_parts(
+                &signer,
+                &OperationName::from(protocol_op::ASSET_CREATE_TOKEN),
                 fee_recipients.as_slice()
             );
             <identity::Module<T>>::register_asset_did(&ticker)?;
@@ -721,9 +723,9 @@ decl_module! {
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            <protocol_fee::Module<T>>::charge_fee(
-                signer,
-                OperationName::from(protocol_op::ASSET_ISSUE)
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
+                &signer,
+                &OperationName::from(protocol_op::ASSET_ISSUE)
             )?;
             Self::_mint(&ticker, sender, to_did, value)
         }
@@ -793,9 +795,9 @@ decl_module! {
                     .checked_add(v)
                     .ok_or(Error::<T>::FundingRoundTotalOverflow)?;
             }
-            <protocol_fee::Module<T>>::charge_fee_batch(
-                signer,
-                OperationName::from(protocol_op::ASSET_ISSUE),
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee_batch(
+                &signer,
+                &OperationName::from(protocol_op::ASSET_ISSUE),
                 investor_dids.len()
             );
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
@@ -1100,9 +1102,9 @@ decl_module! {
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
-            <protocol_fee::Module<T>>::charge_fee_batch(
-                sender_signer,
-                OperationName::from(protocol_op::ASSET_ADD_DOCUMENT),
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee_batch(
+                &sender_signer,
+                &OperationName::from(protocol_op::ASSET_ADD_DOCUMENT),
                 documents.len()
             );
             documents.into_iter().for_each(|doc| {

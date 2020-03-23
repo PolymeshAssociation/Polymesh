@@ -178,15 +178,26 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> ChargeProtocolFee for Module<T> {
+    type AccountId = T::AccountId;
+
     fn charge_fee(signatory: &Signatory, name: &OperationName) -> DispatchResult {
         Self::charge_fee(signatory, name)
     }
+
     fn charge_fee_batch(
         signatory: &Signatory,
         name: &OperationName,
         count: usize,
     ) -> DispatchResult {
         Self::charge_fee_batch(signatory, name, count)
+    }
+
+    fn charge_fee_equal_parts(
+        signatory: &Signatory,
+        name: &OperationName,
+        recipients: &[Self::AccountId],
+    ) -> DispatchResult {
+        Self::charge_fee_equal_parts(signatory, name, recipients)
     }
 }
 

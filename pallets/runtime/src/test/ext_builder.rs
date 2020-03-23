@@ -5,9 +5,8 @@ use crate::{
 
 use pallet_committee as committee;
 use polymesh_primitives::{AccountKey, Identity, IdentityId};
-use polymesh_protocol_fee::{self as protocol_fee, OperationName, PosRational};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::identity::LinkedKeyInfo;
+use polymesh_runtime_common::traits::{identity::LinkedKeyInfo, protocol_fee::OperationName};
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
@@ -44,7 +43,7 @@ pub struct ExtBuilder {
     gen_committee_members: Vec<IdentityId>,
     gen_committee_vote_threshold: BuilderVoteThreshold,
     protocol_base_fees: Vec<(OperationName, u128)>,
-    protocol_coefficient: PosRational,
+    protocol_coefficient: (u32, u32),
 }
 
 impl Default for ExtBuilder {
@@ -274,7 +273,7 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        protocol_fee::GenesisConfig::<TestStorage> {
+        polymesh_protocol_fee::GenesisConfig::<TestStorage> {
             base_fees: self.protocol_base_fees,
             coefficient: self.protocol_coefficient,
         }
