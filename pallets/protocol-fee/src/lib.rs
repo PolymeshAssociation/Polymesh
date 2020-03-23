@@ -202,7 +202,7 @@ impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
 mod tests {
     use super::*;
     use frame_support::{
-        impl_outer_dispatch, impl_outer_origin, parameter_types,
+        assert_err, assert_ok, impl_outer_dispatch, impl_outer_origin, parameter_types,
         weights::{DispatchInfo, Weight},
     };
     use frame_system as system;
@@ -214,6 +214,7 @@ mod tests {
         CommonTrait,
     };
     use polymesh_runtime_identity as identity;
+    use primitives::AccountKey;
     use primitives::IdentityId;
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
@@ -222,12 +223,14 @@ mod tests {
         transaction_validity::{TransactionValidity, ValidTransaction},
         AnySignature, KeyTypeId, Perbill,
     };
-    //    use test_client::{self, AccountKeyring};
+    use std::convert::TryFrom;
+    use test_client::{self, AccountKeyring};
 
     type AccountId = <AnySignature as Verify>::Signer;
     type AuthorityId = <AnySignature as Verify>::Signer;
     type Balances = balances::Module<Test>;
     type BlockNumber = u64;
+    type Error = super::Error<Test>;
     type Identity = identity::Module<Test>;
     type Moment = <Test as pallet_timestamp::Trait>::Moment;
     type OffChainSignature = AnySignature;
@@ -441,6 +444,27 @@ mod tests {
                 ProtocolFee::compute_fee(&OperationName::from(b"99_k_test")),
                 Ok(99_000)
             );
+        });
+    }
+
+    #[test]
+    fn can_charge_fee_batch() {
+        ExtBuilder::default().build().execute_with(|| {
+            let alice_account = AccountId::from(AccountKeyring::Alice);
+            Balances::make_free_balance_be(&alice_account, 100_000);
+            let alice_signer = Signatory::from(
+                AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap(),
+            );
+            assert_ok!(ProtocolFee::charge_fee_batch(
+                &alice_signer,
+                &OperationName::from(b"10_k_test"),
+                7,
+            ));
+            assert_err!(ProtocolFee::charge_fee_batch(
+                &alice_signer,
+                &OperationName::from(b"10_k_test"),
+                7,
+            ), Error::InsufficientBalance);
         });
     }
 }
