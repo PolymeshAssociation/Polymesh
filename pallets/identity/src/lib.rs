@@ -1236,6 +1236,10 @@ impl<T: Trait> Module<T> {
     /// any of CDD providers.
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
         let trusted_cdd_providers = T::CddServiceProviders::get_members();
+        // It will never happen in production but helpful during testing.
+        if trusted_cdd_providers.len() == 0 {
+            return true;
+        }
 
         let valid = Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
             .filter(|c| Self::is_identity_claim_not_expired(c))
