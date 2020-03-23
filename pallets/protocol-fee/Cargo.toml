@@ -13,6 +13,9 @@ primitives = { package = "polymesh-primitives", default-features = false, path =
 serde = { version = "1.0.104", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+
 
 [dev-dependencies]
 pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
@@ -20,8 +23,6 @@ pallet-timestamp = { version = "2.0.0", git = "https://github.com/paritytech/sub
 pallet-transaction-payment = { path = "../transaction-payment", default-features = false }
 polymesh-runtime-identity = { path = "../identity", default-features = false }
 polymesh-runtime-balances = { path = "../balances", default-features = false }
-sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 
 [features]

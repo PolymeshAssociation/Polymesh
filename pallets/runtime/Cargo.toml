@@ -142,5 +142,6 @@ std = [
 	"polymesh-runtime-balances/std",
 	"polymesh-runtime-group/std",
 	"polymesh-runtime-identity/std",
+	"polymesh-protocol-fee/std",
 	"ink_primitives/std"
 ]
