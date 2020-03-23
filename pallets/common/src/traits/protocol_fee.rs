@@ -3,7 +3,7 @@ use frame_support::dispatch::DispatchResult;
 use polymesh_primitives::Signatory;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::fmt::Debug;
+use sp_std::{fmt::Debug, prelude::*};
 
 /// A wrapper for the name of a chargeable operation.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
