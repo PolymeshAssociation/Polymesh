@@ -450,7 +450,7 @@ decl_module! {
                 &signer,
                 &OperationName::from(protocol_op::ASSET_CREATE_TOKEN),
                 fee_recipients.as_slice()
-            );
+            )?;
             <identity::Module<T>>::register_asset_did(&ticker)?;
 
             if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {
@@ -799,7 +799,7 @@ decl_module! {
                 &signer,
                 &OperationName::from(protocol_op::ASSET_ISSUE),
                 investor_dids.len()
-            );
+            )?;
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
             // Update investor balances and emit events quoting the updated total token balance issued.
             for i in 0..investor_dids.len() {
@@ -1106,7 +1106,7 @@ decl_module! {
                 &sender_signer,
                 &OperationName::from(protocol_op::ASSET_ADD_DOCUMENT),
                 documents.len()
-            );
+            )?;
             documents.into_iter().for_each(|doc| {
                 <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None);
             });

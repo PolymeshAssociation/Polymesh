@@ -16,7 +16,6 @@ use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
-    protocol_fee::ChargeProtocolFee,
     CommonTrait,
 };
 use polymesh_runtime_group as group;
