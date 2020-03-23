@@ -30,7 +30,11 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
-use polymesh_runtime_common::{group::GroupTrait, identity::Trait as IdentityTrait, Context};
+use polymesh_runtime_common::{
+    group::{GroupTrait, InactiveMember},
+    identity::Trait as IdentityTrait,
+    Context,
+};
 use polymesh_runtime_identity as identity;
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{EnsureOrigin, Hash};
@@ -333,10 +337,22 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 }
 
-impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
+impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     /// Retrieve all members of this committee
     fn get_members() -> Vec<IdentityId> {
         Self::members()
+    }
+
+    fn get_inactive_members() -> Vec<InactiveMember<T::Moment>> {
+        vec![]
+    }
+
+    fn disable_member(
+        _who: IdentityId,
+        _expiry: Option<T::Moment>,
+        _at: Option<T::Moment>,
+    ) -> DispatchResult {
+        unimplemented!()
     }
 }
 

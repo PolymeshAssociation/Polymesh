@@ -394,7 +394,10 @@ mod tests {
     use polymesh_protocol_fee as protocol_fee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
-        asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
+        asset::AcceptTransfer,
+        group::{GroupTrait, InactiveMember},
+        multisig::AddSignerMultiSig,
+        CommonTrait,
     };
     use polymesh_runtime_group as group;
     use polymesh_runtime_identity as identity;
@@ -433,6 +436,7 @@ mod tests {
     type BlockNumber = u64;
     type AccountId = <AnySignature as Verify>::Signer;
     type OffChainSignature = AnySignature;
+    type Moment = <Test as pallet_timestamp::Trait>::Moment;
 
     impl frame_system::Trait for Test {
         type Origin = Origin;
@@ -582,8 +586,20 @@ mod tests {
         }
     }
 
-    impl GroupTrait for Test {
+    impl GroupTrait<Moment> for Test {
         fn get_members() -> Vec<IdentityId> {
+            unimplemented!();
+        }
+
+        fn get_inactive_members() -> Vec<InactiveMember<Moment>> {
+            unimplemented!()
+        }
+
+        fn disable_member(
+            _who: IdentityId,
+            _expiry: Option<Moment>,
+            _at: Option<Moment>,
+        ) -> DispatchResult {
             unimplemented!();
         }
     }

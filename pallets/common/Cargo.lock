@@ -2231,6 +2231,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "lazy_static",
+ "pallet-session",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",

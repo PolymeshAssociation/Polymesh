@@ -21,7 +21,7 @@ use crate::{
     ValidatorPrefs,
 };
 use chrono::prelude::Utc;
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
@@ -33,7 +33,10 @@ use frame_support::{
 use frame_system::{self as system, EnsureSignedBy};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
-    asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
+    asset::AcceptTransfer,
+    group::{GroupTrait, InactiveMember},
+    multisig::AddSignerMultiSig,
+    CommonTrait,
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity::{self as identity};
@@ -58,7 +61,7 @@ use sp_staking::{
 };
 use std::{
     cell::RefCell,
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     convert::TryFrom,
 };
 use test_client::AccountKeyring;
@@ -68,6 +71,7 @@ pub type AccountId = <AnySignature as Verify>::Signer;
 pub type BlockNumber = u64;
 pub type Balance = u128;
 type OffChainSignature = AnySignature;
+type Moment = <Test as pallet_timestamp::Trait>::Moment;
 
 /// Simple structure that exposes how u64 currency can be represented as... u64.
 pub struct CurrencyToVoteHandler;
@@ -250,9 +254,21 @@ impl pallet_transaction_payment::ChargeTxFee for Test {
     }
 }
 
-impl GroupTrait for Test {
+impl GroupTrait<Moment> for Test {
     fn get_members() -> Vec<IdentityId> {
-        return Group::members();
+        return Group::get_members();
+    }
+
+    fn get_inactive_members() -> Vec<InactiveMember<Moment>> {
+        vec![]
+    }
+
+    fn disable_member(
+        _who: IdentityId,
+        _expiry: Option<Moment>,
+        _at: Option<Moment>,
+    ) -> DispatchResult {
+        unimplemented!();
     }
 }
 
