@@ -209,7 +209,12 @@ decl_module! {
                 ExistenceRequirement::KeepAlive,
             )?;
 
-            let _new_id = Self::_register_did(sender, signing_items)?;
+            let new_id = Self::_register_did(sender, signing_items)?;
+            // Added for easier testing. To be removed before production
+            let cdd_providers = T::CddServiceProviders::get_members();
+            if cdd_providers.len() > 0 {
+                Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_providers[0], None)?;
+            }
             Ok(())
         }
 
