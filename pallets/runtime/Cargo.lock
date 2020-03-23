@@ -2591,7 +2591,6 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-runtime-common",
- "serde",
  "sp-runtime",
  "sp-std",
 ]
