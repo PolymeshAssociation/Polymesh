@@ -20,10 +20,7 @@ impl<T: AsRef<[u8]>> From<T> for OperationName {
 }
 
 /// Common interface to protocol fees for runtime modules.
-pub trait ChargeProtocolFee {
-    /// The type of account.
-    type AccountId;
-
+pub trait ChargeProtocolFee<AccountId> {
     /// Computes the fee of the operation and charges it to the given signatory.
     fn charge_fee(signatory: &Signatory, name: &OperationName) -> DispatchResult;
 
@@ -40,6 +37,6 @@ pub trait ChargeProtocolFee {
     fn charge_fee_equal_parts(
         signatory: &Signatory,
         name: &OperationName,
-        recipients: &[Self::AccountId],
+        recipients: &[AccountId],
     ) -> DispatchResult;
 }

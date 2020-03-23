@@ -16,6 +16,7 @@ use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
+    protocol_fee::ChargeProtocolFee,
     CommonTrait,
 };
 use polymesh_runtime_group as group;
@@ -523,6 +524,7 @@ impl identity::Trait for Runtime {
     type ChargeTxFeeTarget = TransactionPayment;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
+    type ProtocolFee = protocol_fee::Module<Runtime>;
 }
 
 impl contracts_wrapper::Trait for Runtime {}

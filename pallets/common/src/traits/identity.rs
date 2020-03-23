@@ -85,7 +85,7 @@ pub trait Trait:
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
-    type ProtocolFee: ChargeProtocolFee;
+    type ProtocolFee: ChargeProtocolFee<<Self as frame_system::Trait>::AccountId>;
 }
 // rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation
 #[rustfmt::skip]

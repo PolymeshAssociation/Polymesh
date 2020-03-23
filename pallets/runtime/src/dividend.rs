@@ -37,6 +37,7 @@ use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait,
     constants::protocol_op,
+    identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, OperationName},
     CommonTrait, Context,
 };

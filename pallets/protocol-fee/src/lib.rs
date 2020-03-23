@@ -145,7 +145,7 @@ impl<T: Trait> Module<T> {
     pub fn charge_fee_equal_parts(
         signatory: &Signatory,
         name: &OperationName,
-        recipients: &[T::AccountId],
+        recipients: &[<T as frame_system::Trait>::AccountId],
     ) -> DispatchResult {
         let fee = Self::compute_fee(name)?;
         let mut imbalance = Self::withdraw_fee(signatory, fee)?;
@@ -177,9 +177,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> ChargeProtocolFee for Module<T> {
-    type AccountId = T::AccountId;
-
+impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
     fn charge_fee(signatory: &Signatory, name: &OperationName) -> DispatchResult {
         Self::charge_fee(signatory, name)
     }
@@ -195,7 +193,7 @@ impl<T: Trait> ChargeProtocolFee for Module<T> {
     fn charge_fee_equal_parts(
         signatory: &Signatory,
         name: &OperationName,
-        recipients: &[Self::AccountId],
+        recipients: &[T::AccountId],
     ) -> DispatchResult {
         Self::charge_fee_equal_parts(signatory, name, recipients)
     }
