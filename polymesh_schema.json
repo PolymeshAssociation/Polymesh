@@ -357,7 +357,7 @@
     },
     "AssetTransferRules": {
         "is_paused": "bool",
-        "rules": "Vec<AssetRules>"
+        "rules": "Vec<AssetTransferRule>"
     },
     "Claim1stKey": {
         "target": "IdentityId",
