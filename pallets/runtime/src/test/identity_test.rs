@@ -163,7 +163,7 @@ fn revoking_batch_claims() {
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            Claim::CustomerDueDiligence,
+            Claim::NoData,
             None,
         ));
         assert!(Identity::fetch_claim(
@@ -174,13 +174,10 @@ fn revoking_batch_claims() {
         )
         .is_some());
 
-        assert!(Identity::fetch_claim(
-            claim_issuer_did,
-            ClaimType::CustomerDueDiligence,
-            claim_issuer_did,
-            None,
-        )
-        .is_some());
+        assert!(
+            Identity::fetch_claim(claim_issuer_did, ClaimType::NoType, claim_issuer_did, None,)
+                .is_some()
+        );
 
         assert!(Identity::fetch_claim(
             claim_issuer_did,
@@ -199,7 +196,7 @@ fn revoking_batch_claims() {
                 },
                 BatchRevokeClaimItem {
                     target: claim_issuer_did,
-                    claim: Claim::CustomerDueDiligence,
+                    claim: Claim::NoData,
                 }
             ]
         ));
@@ -211,13 +208,10 @@ fn revoking_batch_claims() {
         )
         .is_none());
 
-        assert!(Identity::fetch_claim(
-            claim_issuer_did,
-            ClaimType::CustomerDueDiligence,
-            claim_issuer_did,
-            None
-        )
-        .is_none());
+        assert!(
+            Identity::fetch_claim(claim_issuer_did, ClaimType::NoType, claim_issuer_did, None)
+                .is_none()
+        );
 
         assert!(Identity::fetch_claim(
             claim_issuer_did,
@@ -944,4 +938,57 @@ fn add_identity_signers() {
                 .is_none()
         );
     });
+}
+
+#[test]
+fn invalidate_cdd_claims() {
+    ExtBuilder::default()
+        .existential_deposit(1_000)
+        .monied(true)
+        .cdd_providers(vec![
+            AccountKeyring::Eve.public(),
+            AccountKeyring::Ferdie.public(),
+        ])
+        .build()
+        .execute_with(invalidate_cdd_claims_we);
+}
+
+fn invalidate_cdd_claims_we() {
+    let root = Origin::system(frame_system::RawOrigin::Root);
+    let cdd_1_acc = AccountKeyring::Eve.public();
+    let cdd_1_key = AccountKey::try_from(cdd_1_acc.0).unwrap();
+    let alice_acc = AccountKeyring::Alice.public();
+    let alice_key = AccountKey::try_from(alice_acc.0).unwrap();
+    let bob_acc = AccountKeyring::Bob.public();
+    assert_ok!(Identity::cdd_register_did(
+        Origin::signed(cdd_1_acc),
+        alice_acc,
+        Some(10),
+        vec![]
+    ));
+
+    // Check that Alice's ID is attested by CDD 1.
+    let alice_id = Identity::get_identity(&alice_key).unwrap();
+    let cdd_1_id = Identity::get_identity(&cdd_1_key).unwrap();
+    assert_eq!(Identity::has_valid_cdd(alice_id), true);
+
+    // Disable CDD 1.
+    assert_ok!(Identity::invalidate_cdd_claims(root, cdd_1_id, 5, Some(10)));
+    assert_eq!(Identity::has_valid_cdd(alice_id), true);
+
+    // Move to time 8... CDD_1 is inactive: Its claims are valid.
+    Timestamp::set_timestamp(8);
+    assert_eq!(Identity::has_valid_cdd(alice_id), true);
+    assert_err!(
+        Identity::cdd_register_did(Origin::signed(cdd_1_acc), bob_acc, Some(10), vec![]),
+        Error::<TestStorage>::UnAuthorizedCddProvider
+    );
+
+    // Move to time 11 ... CDD_1 is expired: Its claims are invalid.
+    Timestamp::set_timestamp(11);
+    assert_eq!(Identity::has_valid_cdd(alice_id), false);
+    assert_err!(
+        Identity::cdd_register_did(Origin::signed(cdd_1_acc), bob_acc, Some(20), vec![]),
+        Error::<TestStorage>::UnAuthorizedCddProvider
+    );
 }

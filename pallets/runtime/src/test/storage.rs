@@ -12,7 +12,7 @@ use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::{
-    dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
+    assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
     parameter_types, traits::Currency, weights::DispatchInfo,
 };
 use frame_system::{self as system};
@@ -426,7 +426,7 @@ pub fn add_signing_item(did: IdentityId, signer: Signatory) {
         AuthorizationData::JoinIdentity(did),
         None,
     );
-    Identity::join_identity(signer, auth_id);
+    assert_ok!(Identity::join_identity(signer, auth_id));
 }
 
 pub fn account_from(id: u64) -> AccountId {
