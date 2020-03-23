@@ -4,12 +4,9 @@ use jsonrpc_derive::rpc;
 use polymesh_runtime_identity_rpc_runtime_api::{
     AssetDidResult, CddStatus, DidRecords, IdentityApi as IdentityRuntimeApi,
 };
-use sp_blockchain::HeaderBackend;
-use sp_runtime::{
-    generic::BlockId,
-    traits::{Block as BlockT},
-};
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::HeaderBackend;
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
 /// Identity RPC methods

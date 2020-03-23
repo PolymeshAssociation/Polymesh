@@ -4,6 +4,7 @@ use jsonrpc_derive::rpc;
 pub use pallet_mips_rpc_runtime_api::{
     self as runtime_api, CappedVoteCount, MipsApi as MipsRuntimeApi, VoteCount,
 };
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
     generic::BlockId,
@@ -11,7 +12,6 @@ use sp_runtime::{
 };
 use sp_std::{prelude::*, vec::Vec};
 use std::sync::Arc;
-use sp_api::ProvideRuntimeApi;
 
 /// Mips RPC methods.
 #[rpc]

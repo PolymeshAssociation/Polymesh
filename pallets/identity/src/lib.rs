@@ -1486,7 +1486,10 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::AssetDid(*ticker, did));
         // Making sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
-        ensure!(!<DidRecords>::contains_key(did), Error::<T>::DidAlreadyExists);
+        ensure!(
+            !<DidRecords>::contains_key(did),
+            Error::<T>::DidAlreadyExists
+        );
         <DidRecords>::insert(did, DidRecord::default());
         Ok(())
     }
@@ -1532,7 +1535,10 @@ impl<T: Trait> Module<T> {
 
         // 1.3. Make sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
-        ensure!(!<DidRecords>::contains_key(did), Error::<T>::DidAlreadyExists);
+        ensure!(
+            !<DidRecords>::contains_key(did),
+            Error::<T>::DidAlreadyExists
+        );
         // 1.4. Signing keys can be linked to the new identity.
         for s_item in &signing_items {
             if let Signatory::AccountKey(ref key) = s_item.signer {

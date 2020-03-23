@@ -4,7 +4,7 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
-use sp_arithmetic::traits::{CheckedSub, Saturating, AtLeast32Bit};
+use sp_arithmetic::traits::{AtLeast32Bit, CheckedSub, Saturating};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;
 
