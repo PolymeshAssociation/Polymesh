@@ -16,7 +16,7 @@ use test_client::AccountKeyring;
 
 use std::{cell::RefCell, convert::From, iter};
 
-/// A prime number fee to test splitting between multiple recipients.
+/// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
 
 struct BuilderVoteThreshold {
@@ -156,14 +156,14 @@ impl ExtBuilder {
             vec![
                 (
                     AccountKeyring::Alice.public(),
-                    10 * self.existential_deposit,
+                    1_000 * self.existential_deposit,
                 ),
-                (AccountKeyring::Bob.public(), 20 * self.existential_deposit),
+                (AccountKeyring::Bob.public(), 2_000 * self.existential_deposit),
                 (
                     AccountKeyring::Charlie.public(),
-                    30 * self.existential_deposit,
+                    3_000 * self.existential_deposit,
                 ),
-                (AccountKeyring::Dave.public(), 40 * self.existential_deposit),
+                (AccountKeyring::Dave.public(), 4_000 * self.existential_deposit),
                 // CDD Accounts
                 (AccountKeyring::Eve.public(), 1_000_000),
                 (AccountKeyring::Ferdie.public(), 1_000_000),

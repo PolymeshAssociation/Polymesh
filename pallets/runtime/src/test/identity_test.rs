@@ -75,7 +75,7 @@ fn add_claims_batch() {
 /// TODO Add `Signatory::Identity(..)` test.
 #[test]
 fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let owner_signer =
             Signatory::AccountKey(AccountKey::from(AccountKeyring::Alice.public().0));
@@ -226,6 +226,7 @@ fn revoking_batch_claims() {
 #[test]
 fn only_master_key_can_add_signing_key_permissions() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&only_master_key_can_add_signing_key_permissions_with_externalities);
 }
@@ -279,6 +280,7 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
 #[test]
 fn freeze_signing_keys_test() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&freeze_signing_keys_with_externalities);
 }
@@ -342,6 +344,7 @@ fn freeze_signing_keys_with_externalities() {
 #[test]
 fn remove_frozen_signing_keys_test() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&remove_frozen_signing_keys_with_externalities);
 }
@@ -377,6 +380,7 @@ fn remove_frozen_signing_keys_with_externalities() {
 #[test]
 fn enforce_uniqueness_keys_in_identity_tests() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&enforce_uniqueness_keys_in_identity);
 }
@@ -407,6 +411,7 @@ fn enforce_uniqueness_keys_in_identity() {
 #[test]
 fn add_remove_signing_identities() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&add_remove_signing_identities_with_externalities);
 }
@@ -846,7 +851,7 @@ fn cdd_register_did_test_we() {
 
 #[test]
 fn add_identity_signers() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
