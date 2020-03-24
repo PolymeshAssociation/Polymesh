@@ -243,10 +243,7 @@ decl_module! {
             let cdd_id = Context::current_identity_or::<Self>(&cdd_key)?;
 
             let cdd_providers = T::CddServiceProviders::get_members();
-            ensure!(
-                cdd_providers.into_iter().any(|kyc_id| kyc_id == cdd_id),
-                Error::<T>::UnAuthorizedCddProvider
-            );
+            ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
             T::ProtocolFee::charge_fee(
                 &Signatory::AccountKey(cdd_key),
                 &OperationName::from(protocol_op::IDENTITY_CDD_REGISTER_DID)

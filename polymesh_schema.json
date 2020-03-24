@@ -376,5 +376,10 @@
     "BatchRevokeClaimItem": {
         "target": "IdentityId",
         "claim": "Claim"
+    },
+    "InactiveMember" : {
+        "id": "IdentityId",
+        "deactivated_at": "Moment",
+        "expiry": "Option<Moment>"
     }
 }
