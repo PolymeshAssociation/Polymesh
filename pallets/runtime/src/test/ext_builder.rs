@@ -4,7 +4,7 @@ use crate::{
 };
 
 use pallet_committee as committee;
-use polymesh_primitives::{AccountKey, Identity, IdentityId};
+use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{identity::LinkedKeyInfo, protocol_fee::OperationName};
 use polymesh_runtime_group as group;
@@ -14,7 +14,10 @@ use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use test_client::AccountKeyring;
 
-use std::{cell::RefCell, convert::From};
+use std::{cell::RefCell, convert::From, iter};
+
+/// A prime number fee to test splitting between multiple recipients.
+pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
 
 struct BuilderVoteThreshold {
     pub numerator: u32,
@@ -30,6 +33,34 @@ impl Default for BuilderVoteThreshold {
     }
 }
 
+pub struct MockProtocolBaseFees(pub Vec<(OperationName, u128)>);
+
+impl Default for MockProtocolBaseFees {
+    fn default() -> Self {
+        let ops = vec![
+            b"asset_register_ticker".to_vec(),
+            b"asset_issue".to_vec(),
+            b"asset_add_document".to_vec(),
+            b"asset_create_token".to_vec(),
+            b"dividend_new".to_vec(),
+            b"general_tm_add_active_rule".to_vec(),
+            b"identity_cdd_register_did".to_vec(),
+            b"identity_add_claim".to_vec(),
+            b"identity_set_master_key".to_vec(),
+            b"identity_add_signing_item".to_vec(),
+            b"mips_propose".to_vec(),
+            b"voting_add_ballot".to_vec(),
+        ];
+        let fees = ops
+            .into_iter()
+            .map(OperationName)
+            .zip(iter::repeat(PROTOCOL_OP_BASE_FEE))
+            .collect();
+        MockProtocolBaseFees(fees)
+    }
+}
+
+#[derive(Default)]
 pub struct ExtBuilder {
     transaction_base_fee: u128,
     transaction_byte_fee: u128,
@@ -42,18 +73,8 @@ pub struct ExtBuilder {
     cdd_providers: Vec<Public>,
     gen_committee_members: Vec<IdentityId>,
     gen_committee_vote_threshold: BuilderVoteThreshold,
-    protocol_base_fees: Vec<(OperationName, u128)>,
-    protocol_coefficient: (u32, u32),
-}
-
-impl Default for ExtBuilder {
-    fn default() -> Self {
-        ExtBuilder {
-            protocol_base_fees: vec![],
-            protocol_coefficient: (1, 1),
-            ..Default::default()
-        }
-    }
+    protocol_base_fees: MockProtocolBaseFees,
+    protocol_coefficient: PosRatio,
 }
 
 thread_local! {
@@ -108,6 +129,16 @@ impl ExtBuilder {
     /// It sets `providers` as CDD providers.
     pub fn cdd_providers(mut self, providers: Vec<Public>) -> Self {
         self.cdd_providers = providers;
+        self
+    }
+
+    pub fn set_protocol_base_fees(mut self, fees: MockProtocolBaseFees) -> Self {
+        self.protocol_base_fees = fees;
+        self
+    }
+
+    pub fn set_protocol_coefficient(mut self, coefficient: (u32, u32)) -> Self {
+        self.protocol_coefficient = PosRatio::from(coefficient);
         self
     }
 
@@ -274,7 +305,7 @@ impl ExtBuilder {
         .unwrap();
 
         polymesh_protocol_fee::GenesisConfig::<TestStorage> {
-            base_fees: self.protocol_base_fees,
+            base_fees: self.protocol_base_fees.0,
             coefficient: self.protocol_coefficient,
         }
         .assimilate_storage(&mut storage)

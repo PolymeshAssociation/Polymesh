@@ -2,7 +2,7 @@
     "IdentityId":"H256",
     "Ticker": "[u8; 12]",
     "OperationName": "Text",
-    "PosRational": "(u32, u32)",
+    "PosRatio": "(u32, u32)",
     "DocumentName": "Text",
     "DocumentUri": "Text",
     "DocumentHash": "Text",

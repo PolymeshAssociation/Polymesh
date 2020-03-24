@@ -10,7 +10,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root};
 use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, OperationName};
-use primitives::{traits::IdentityCurrency, Signatory};
+use primitives::{traits::IdentityCurrency, PosRatio, Signatory};
 use sp_runtime::traits::{CheckedDiv, Saturating};
 
 type BalanceOf<T> =
@@ -19,8 +19,6 @@ type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 /// Either the computed fee or an error.
 pub type ComputeFeeResult<T> = sp_std::result::Result<BalanceOf<T>, DispatchError>;
-/// A positive rational number: a pair of a numerator and a denominator.
-pub type PosRational = (u32, u32);
 /// Either an imbalance or an error.
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 
@@ -50,11 +48,11 @@ decl_storage! {
         /// The fee coefficient as a positive rational (numerator, denominator).
         pub Coefficient get(coefficient) config() build(|config: &GenesisConfig<T>| {
             if config.coefficient.1 == 0 {
-                (1, 1)
+                PosRatio(1, 1)
             } else {
                 config.coefficient
             }
-        }): PosRational;
+        }): PosRatio;
     }
 }
 
@@ -63,7 +61,7 @@ decl_event! {
         /// The protocol fee of an operation.
         Fee(Balance),
         /// The fee coefficient.
-        Coefficient(PosRational),
+        Coefficient(PosRatio),
     }
 }
 
@@ -74,7 +72,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Changes the fee coefficient for the root origin.
-        pub fn change_coefficient(origin, coefficient: (u32, u32)) -> DispatchResult {
+        pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
             <Coefficient>::put(coefficient);
             Ok(())
@@ -107,7 +105,8 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
     pub fn compute_fee(name: &OperationName) -> ComputeFeeResult<T> {
-        let (numerator, denominator) = Self::coefficient();
+        let coefficient = Self::coefficient();
+        let (numerator, denominator) = (coefficient.0, coefficient.1);
         if let Some(fee) = Self::base_fees(name)
             .saturating_mul(<BalanceOf<T>>::from(numerator))
             .checked_div(&<BalanceOf<T>>::from(denominator))
@@ -413,7 +412,7 @@ mod tests {
                     (OperationName::from(b"10_k_test"), 10_000),
                     (OperationName::from(b"99_k_test"), 99_000),
                 ],
-                coefficient: (1, 1),
+                coefficient: PosRatio(1, 1),
             }
         }
     }
