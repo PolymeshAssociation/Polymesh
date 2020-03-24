@@ -2,16 +2,10 @@ const { ApiPromise, WsProvider } = require("@polkadot/api");
 const { Keyring } = require("@polkadot/keyring");
 const { cryptoWaitReady } = require("@polkadot/util-crypto");
 const BN = require("bn.js");
-const cli = require("command-line-args");
-const cliProg = require("cli-progress");
-const childProc = require("child_process");
-const colors = require("colors");
 
 const fs = require("fs");
 const path = require("path");
 
-// Updated by the CLI option
-let STORAGE_DIR;
 let nonces = new Map();
 let sk_roles = [[0], [1], [2], [1, 2]];
 
@@ -24,23 +18,59 @@ let synced_block_ts = 0;
 
 // Amount to seed each key with
 let transfer_amount = 10 * 10 ** 12;
+let prepend = "demo";
 
-// Parse CLI args and compute tx count
-const opts = {
-  accounts: 5,
-  claim_accounts: 5,
-  claims: 5,
-  prepend: "demo",
-  fast: false,
-  dir: "/tmp/pmesh-primary-node"
-};
+const senderRules1 = function(account) {
+    return [
+    {
+      rule_type: {
+        IsPresent: {
+          Whitelisted: "this"
+        }
+      },
+      issuers: "this"
+    }
+  ];
+}
 
-// CLI args variables
-let n_accounts = opts.accounts;
-let n_claim_accounts = opts.claim_accounts;
-let n_claims = opts.claims;
-let prepend = opts.prepend;
-let fast = opts.fast;
+const receiverRules1 = function(account) {
+    return [
+    {
+      rule_type: {
+        IsPresent: {
+          Accredited: "this"
+        }
+      },
+      issuers: "this"
+    }
+  ];
+}
+
+const senderRules2 = function(account) {
+    return [
+    {
+      rule_type: {
+        IsPresent: {
+          Whitelisted: account
+        }
+      },
+      issuers: account
+    }
+  ];
+}
+
+const receiverRules2 = function(account) {
+    return [
+    {
+      rule_type: {
+        IsPresent: {
+          Accredited: account
+        }
+      },
+      issuers: account
+    }
+  ];
+}
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
@@ -170,7 +200,12 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
     const auths = await api.query.identity.authorizations.entries({
       AccountKey: signing_accounts[i].publicKey
     });
-    const last_auth_id = auths[auths.length - 1].auth_id;
+    let last_auth_id = 0;
+    for (let i = 0; i < auths.length; i++) {
+      if (auths[i][1].auth_id.toNumber() > last_auth_id) {
+        last_auth_id = auths[i][1].auth_id.toNumber()
+      }
+    }
     const unsub = await api.tx.identity
       .joinIdentityAsKey([last_auth_id])
       .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
@@ -227,7 +262,11 @@ let reqImports = {
   authorizeJoinToIdentities,
   sk_roles,
   prepend,
-  issueTokenPerDid
+  issueTokenPerDid,
+  senderRules1,
+  receiverRules1,
+  senderRules2,
+  receiverRules2
 };
 
 export { reqImports };

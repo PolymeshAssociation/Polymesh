@@ -54,7 +54,12 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
     const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
-    const last_auth_id = auths[auths.length - 1].auth_id;
+    let last_auth_id = 0;
+    for (let i = 0; i < auths.length; i++) {
+      if (auths[i][1].auth_id.toNumber() > last_auth_id) {
+        last_auth_id = auths[i][1].auth_id.toNumber()
+      }
+    }
     const unsub = await api.tx.identity
     .joinIdentityAsKey([last_auth_id])
     .signAndSend(signing_accounts[i],
