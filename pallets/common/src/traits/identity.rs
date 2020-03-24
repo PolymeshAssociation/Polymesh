@@ -178,4 +178,14 @@ pub trait IdentityTrait {
         permissions: Vec<Permission>,
     ) -> bool;
     fn is_master_key(did: IdentityId, key: &AccountKey) -> bool;
+
+    /// It adds a systematic CDD claim for each `target` identity.
+    ///
+    /// It is used when we add a new member to CDD providers or Governance Committee.
+    fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId]);
+
+    /// It removes the systematic CDD claim for each `target` identity.
+    ///
+    /// It is used when we remove a member from CDD providers or Governance Committee.
+    fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId]);
 }

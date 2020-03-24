@@ -32,7 +32,7 @@ use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_common::{
     group::{GroupTrait, InactiveMember},
-    identity::Trait as IdentityTrait,
+    identity::{IdentityTrait, Trait as IdentityModuleTrait},
     Context,
 };
 use polymesh_runtime_identity as identity;
@@ -46,7 +46,7 @@ pub type ProposalIndex = u32;
 /// The number of committee members
 pub type MemberCount = u32;
 
-pub trait Trait<I>: frame_system::Trait + IdentityTrait {
+pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
     /// The outer origin type.
     type Origin: From<RawOrigin<Self::AccountId, I>>;
 
@@ -357,11 +357,7 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
 }
 
 impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
-    fn change_members_sorted(
-        _incoming: &[IdentityId],
-        outgoing: &[IdentityId],
-        new: &[IdentityId],
-    ) {
+    fn change_members_sorted(incoming: &[IdentityId], outgoing: &[IdentityId], new: &[IdentityId]) {
         // remove accounts from all current voting in motions.
         Self::proposals()
             .into_iter()
@@ -371,6 +367,10 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
                 })
             })
             .for_each(Self::check_proposal_threshold);
+
+        // Add/remove Systematic CDD claims for new/removed members.
+        <identity::Module<T>>::unsafe_add_systematic_cdd_claims(incoming);
+        <identity::Module<T>>::unsafe_revoke_systematic_cdd_claims(outgoing);
 
         <Members<I>>::put(new);
     }
@@ -383,6 +383,7 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
                 <Members<I>>::get().is_empty(),
                 "Members are already initialized!"
             );
+            <identity::Module<T>>::unsafe_add_systematic_cdd_claims(members);
             <Members<I>>::put(members);
         }
     }
