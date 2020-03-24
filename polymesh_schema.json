@@ -1,7 +1,8 @@
 {
     "IdentityId":"H256",
     "Ticker": "[u8; 12]",
-    "ExtrinsicName": "Text",
+    "OperationName": "Text",
+    "PosRational": "(u32, u32)",
     "DocumentName": "Text",
     "DocumentUri": "Text",
     "DocumentHash": "Text",
@@ -128,7 +129,7 @@
     },
     "ClaimType": {
         "_enum": {
-            "Accredited": "", 
+            "Accredited": "",
             "Affiliate": "",
             "BuyLockup": "",
             "SellLockup": "",
@@ -157,12 +158,12 @@
         "rule_id": "u32"
     },
     "RuleType": {
-        "_enum": { 
+        "_enum": {
             "IsPresent" : "Claim",
             "IsAbsent": "Claim",
             "IsAnyOf": "Vec<Claim>",
             "IsNoneOf": "Vec<Claim>"
-        } 
+        }
     },
     "Rule": {
         "rule_type": "RuleType",
