@@ -168,7 +168,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
+    type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
 
@@ -178,7 +178,7 @@ impl group::Trait<group::Instance1> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
+    type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
 
@@ -188,8 +188,8 @@ impl group::Trait<group::Instance2> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
+    type MembershipInitialized = identity::Module<TestStorage>;
+    type MembershipChanged = identity::Module<TestStorage>;
 }
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as system::Trait>::AccountId, I>;

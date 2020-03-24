@@ -42,7 +42,7 @@ use polymesh_primitives::{
     PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
-    constants::did::{SECURITY_TOKEN, USER},
+    constants::did::{GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
     traits::{
         asset::AcceptTransfer,
         balances::BalancesTrait,
@@ -158,6 +158,15 @@ decl_storage! {
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         build(|config: &GenesisConfig<T>| {
+            // Add System DID: Governance committee
+            let governance_committee_id = IdentityId::from(GOVERNANCE_COMMITTEE_ID.clone());
+            let governance_committee_key = AccountKey::from([0u8;32]);
+            <DidRecords>::insert( governance_committee_id, DidRecord {
+                master_key: governance_committee_key,
+                ..Default::default()
+            });
+
+            //  Other
             for &(ref master_account_id, issuer, did, expiry) in &config.identities {
                 // Direct storage change for registering the DID and providing the claim
                 let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
@@ -1687,7 +1696,7 @@ impl<T: Trait> IdentityTrait for Module<T> {
     /// TODO
     /// * Systematic issuer ID
     fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId]) {
-        let systematic_issuer = IdentityId::from(0);
+        let systematic_issuer = IdentityId::from(GOVERNANCE_COMMITTEE_ID.clone());
 
         targets.iter().for_each(|new_member| {
             Self::unsafe_add_claim(
@@ -1702,7 +1711,7 @@ impl<T: Trait> IdentityTrait for Module<T> {
     /// TODO
     /// * Systematic issuer ID
     fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId]) {
-        let systematic_issuer = IdentityId::from(0);
+        let systematic_issuer = IdentityId::from(GOVERNANCE_COMMITTEE_ID.clone());
 
         targets.iter().for_each(|removed_member| {
             Self::unsafe_revoke_claim(

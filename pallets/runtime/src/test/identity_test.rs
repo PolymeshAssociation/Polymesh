@@ -4,10 +4,16 @@ use crate::test::{
 };
 
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, LinkData, Permission,
-    Scope, Signatory, SigningItem, Ticker,
+    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, IdentityClaim, IdentityId,
+    LinkData, Permission, Scope, Signatory, SigningItem, Ticker,
 };
-use polymesh_runtime_common::traits::identity::{SigningItemWithAuth, TargetIdAuthorization};
+use polymesh_runtime_common::{
+    constants::did::GOVERNANCE_COMMITTEE_ID,
+    traits::{
+        group::GroupTrait,
+        identity::{SigningItemWithAuth, TargetIdAuthorization},
+    },
+};
 use polymesh_runtime_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 
 use codec::Encode;
@@ -22,6 +28,7 @@ type System = frame_system::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type CddServiceProviders = <TestStorage as identity::Trait>::CddServiceProviders;
 
 #[test]
 fn add_claims_batch() {
@@ -998,4 +1005,77 @@ fn invalidate_cdd_claims_we() {
         Identity::cdd_register_did(Origin::signed(cdd_1_acc), bob_acc, Some(20), vec![]),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
+}
+
+#[test]
+fn cdd_provider_with_systematic_cdd_claims() {
+    let cdd_providers = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+
+    ExtBuilder::default()
+        .monied(true)
+        .cdd_providers(cdd_providers)
+        .build()
+        .execute_with(cdd_provider_with_systematic_cdd_claims_we);
+}
+
+/// Utility function to fetch *only* systematic CDD claims.
+fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
+    let governance_committee_id = IdentityId::from(GOVERNANCE_COMMITTEE_ID.clone());
+    Identity::fetch_claim(
+        target,
+        ClaimType::CustomerDueDiligence,
+        governance_committee_id,
+        None,
+    )
+}
+
+fn cdd_provider_with_systematic_cdd_claims_we() {
+    // 0. Get Bob & Alice IDs.
+    let root = Origin::system(frame_system::RawOrigin::Root);
+    let bob_id = Identity::get_identity(&AccountKey::from(AccountKeyring::Bob.public().0))
+        .expect("Bob should be one of CDD providers");
+    let alice_id = Identity::get_identity(&AccountKey::from(AccountKeyring::Alice.public().0))
+        .expect("Bob should be one of CDD providers");
+
+    // 1. Each CDD provider has a *systematic* CDD claim.
+    let cdd_providers = CddServiceProviders::get_members();
+    assert_eq!(
+        cdd_providers
+            .iter()
+            .all(|cdd| fetch_systematic_cdd(*cdd).is_some()),
+        true
+    );
+
+    // 2. Remove one member from CDD provider and double-check that systematic CDD claim was
+    //    removed too.
+    assert_ok!(CddServiceProviders::remove_member(root.clone(), bob_id));
+    assert_eq!(fetch_systematic_cdd(bob_id).is_none(), true);
+    assert_eq!(fetch_systematic_cdd(alice_id).is_some(), true);
+
+    // 3. Add DID with CDD claim to CDD providers, and check that systematic CDD claim was added.
+    // Then remove that DID from CDD provides, it should keep its previous CDD claim.
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let charlie_acc = AccountKeyring::Charlie.public();
+
+    // 3.1. Add CDD claim to Charlie, by Alice.
+    assert_ok!(Identity::cdd_register_did(
+        alice,
+        charlie_acc.clone(),
+        None,
+        vec![]
+    ));
+    let charlie_id = Identity::get_identity(&AccountKey::from(charlie_acc.0))
+        .expect("Charlie should have an Identity Id");
+    let charlie_cdd_claim =
+        Identity::fetch_cdd(charlie_id, 0).expect("Charlie should have a CDD claim by Alice");
+
+    // 3.2. Add Charlie as trusted CDD providers, and check its new systematic CDD claim.
+    assert_ok!(CddServiceProviders::add_member(root.clone(), charlie_id));
+    assert_eq!(fetch_systematic_cdd(charlie_id).is_some(), true);
+
+    // 3.3. Remove Charlie from trusted CDD providers, and verify that systematic CDD claim was
+    //   removed and previous CDD claim works.
+    assert_ok!(CddServiceProviders::remove_member(root, charlie_id));
+    assert_eq!(fetch_systematic_cdd(charlie_id).is_none(), true);
+    assert_eq!(Identity::fetch_cdd(charlie_id, 0), Some(charlie_cdd_claim));
 }
