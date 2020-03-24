@@ -53,7 +53,7 @@ async function initMain(api) {
   return entities;
 }
 
-let generateEntity = async function(api, name) {
+let generateEntity = async function (api, name) {
   let entity = [];
   await cryptoWaitReady();
   entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, { name: `${name}` });
@@ -61,11 +61,10 @@ let generateEntity = async function(api, name) {
   let entity_nonce = new BN(entityRawNonce.toString());
   nonces.set(entity.address, entity_nonce);
 
-    return entity;
+  return entity;
 };
 
-
-const generateKeys = async function(api, numberOfKeys, keyPrepend) {
+const generateKeys = async function (api, numberOfKeys, keyPrepend) {
   let keys = [];
   await cryptoWaitReady();
   for (let i = 0; i < numberOfKeys; i++) {
@@ -74,16 +73,14 @@ const generateKeys = async function(api, numberOfKeys, keyPrepend) {
         name: i.toString()
       })
     );
-    let accountRawNonce = await api.query.system.accountNonce(
-      keys[i].address
-    );
+    let accountRawNonce = await api.query.system.accountNonce(keys[i].address);
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(keys[i].address, account_nonce);
   }
   return keys;
 };
 
-const blockTillPoolEmpty = async function(api) {
+const blockTillPoolEmpty = async function (api) {
   let prev_block_pending = 0;
   let done_something = false;
   let done = false;
@@ -120,14 +117,13 @@ const blockTillPoolEmpty = async function(api) {
 
 // Create a new DID for each of accounts[]
 // precondition - accounts all have enough POLY
-const createIdentities = async function(api, accounts) {
+const createIdentities = async function (api, accounts) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
-
-      await api.tx.identity
-        .registerDid([])
-        .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+    await api.tx.identity
+      .registerDid([])
+      .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
 
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
@@ -141,11 +137,9 @@ const createIdentities = async function(api, accounts) {
 
 // Sends transfer_amount to accounts[] from alice
 async function distributePoly(api, accounts, transfer_amount, signingEntity) {
-
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
-
-      const unsub = await api.tx.balances
+    const unsub = await api.tx.balances
       .transfer(accounts[i].address, transfer_amount)
       .signAndSend(
         signingEntity,
@@ -153,21 +147,18 @@ async function distributePoly(api, accounts, transfer_amount, signingEntity) {
 
     nonces.set(signingEntity.address, nonces.get(signingEntity.address).addn(1));
   }
-
 }
 
 // Attach a signing key to each DID
 async function addSigningKeys(api, accounts, dids, signing_accounts) {
-
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
 
     const unsub = await api.tx.identity
-    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
-    .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+      .addAuthorizationAsKey({ AccountKey: signing_accounts[i].publicKey }, { JoinIdentity: dids[i] }, 0)
+      .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
 
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
-
   }
 }
 
@@ -176,7 +167,9 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
 
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
-    const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
+    const auths = await api.query.identity.authorizations.entries({
+      AccountKey: signing_accounts[i].publicKey
+    });
     const last_auth_id = auths[auths.length - 1].auth_id;
     const unsub = await api.tx.identity
       .joinIdentityAsKey([last_auth_id])
@@ -189,19 +182,30 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
 
 // Used to make the functions in scripts more efficient
 async function callback(status, events, sectionName, methodName, fail_count) {
-
-    let new_did_ok = false;
-    events.forEach(({ phase, event: { data, method, section } }) => {
-      if (section == sectionName && method == methodName) {
-        new_did_ok = true;
-      }
-    });
-
-    if (!new_did_ok) {
-      fail_count++;
+  let new_did_ok = false;
+  events.forEach(({ phase, event: { data, method, section } }) => {
+    if (section == sectionName && method == methodName) {
+      new_did_ok = true;
     }
+  });
+
+  if (!new_did_ok) {
+    fail_count++;
+  }
 
   return fail_count;
+}
+
+async function issueTokenPerDid(api, accounts, dids, prepend) {
+  for (let i = 0; i < dids.length; i++) {
+    const ticker = `token${prepend}${i}`.toUpperCase();
+
+    const unsub = await api.tx.asset
+      .createToken(ticker, ticker, 1000000, true, 0, [], "abc")
+      .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+
+    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+  }
 }
 
 // this object holds the required imports for all the scripts
@@ -222,10 +226,8 @@ let reqImports = {
   addSigningKeys,
   authorizeJoinToIdentities,
   sk_roles,
-  prepend
-}
-
-
-export {
-  reqImports
+  prepend,
+  issueTokenPerDid
 };
+
+export { reqImports };
