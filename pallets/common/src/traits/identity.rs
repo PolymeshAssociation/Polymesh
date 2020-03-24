@@ -72,7 +72,7 @@ pub trait Trait:
     /// MultiSig module
     type AddSignerMultiSigTarget: AddSignerMultiSig;
     /// Group module
-    type CddServiceProviders: GroupTrait;
+    type CddServiceProviders: GroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
 
     type Balances: balances::BalancesTrait<
         <Self as frame_system::Trait>::AccountId,

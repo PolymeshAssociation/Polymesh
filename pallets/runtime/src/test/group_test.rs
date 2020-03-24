@@ -20,7 +20,7 @@ fn query_membership_works() {
         .committee_members(committee.clone())
         .build()
         .execute_with(|| {
-            assert_eq!(CommitteeGroup::members(), committee);
+            assert_eq!(CommitteeGroup::get_members(), committee);
         });
 }
 
@@ -46,7 +46,7 @@ fn add_member_works_we() {
     );
     assert_ok!(CommitteeGroup::add_member(root, IdentityId::from(4)));
     assert_eq!(
-        CommitteeGroup::members(),
+        CommitteeGroup::get_members(),
         vec![IdentityId::from(3), IdentityId::from(4)]
     );
 }
@@ -75,7 +75,7 @@ fn remove_member_works_we() {
     );
     assert_ok!(CommitteeGroup::remove_member(root, IdentityId::from(3)));
     assert_eq!(
-        CommitteeGroup::members(),
+        CommitteeGroup::get_members(),
         vec![IdentityId::from(1), IdentityId::from(2),]
     );
 }
@@ -112,7 +112,7 @@ fn swap_member_works_we() {
         IdentityId::from(2)
     ));
     assert_eq!(
-        CommitteeGroup::members(),
+        CommitteeGroup::get_members(),
         (1..=3).map(IdentityId::from).collect::<Vec<_>>()
     );
     assert_ok!(CommitteeGroup::swap_member(
@@ -121,7 +121,7 @@ fn swap_member_works_we() {
         IdentityId::from(6)
     ));
     assert_eq!(
-        CommitteeGroup::members(),
+        CommitteeGroup::get_members(),
         [
             IdentityId::from(2),
             IdentityId::from(3),
@@ -150,7 +150,7 @@ fn reset_members_works_we() {
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
     assert_ok!(CommitteeGroup::reset_members(root, new_committee.clone()));
-    assert_eq!(CommitteeGroup::members(), new_committee);
+    assert_eq!(CommitteeGroup::get_members(), new_committee);
 }
 
 #[test]
@@ -200,4 +200,62 @@ fn rage_quit_we() {
         group::Error::<TestStorage, group::Instance1>::LastMemberCannotQuit
     );
     assert_eq!(CommitteeGroup::is_member(&alice_did), true);
+}
+
+#[test]
+fn disable_member() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(disable_member_we);
+}
+
+fn disable_member_we() {
+    let root = Origin::system(frame_system::RawOrigin::Root);
+
+    let alice_acc = AccountKeyring::Alice.public();
+    let (_, alice_id) = make_account(alice_acc).unwrap();
+    let bob_acc = AccountKeyring::Bob.public();
+    let (_, bob_id) = make_account(bob_acc).unwrap();
+    let charlie_acc = AccountKeyring::Charlie.public();
+    let (_, charlie_id) = make_account(charlie_acc).unwrap();
+
+    // 0. Create group
+    let mut committee = vec![alice_id, bob_id, charlie_id];
+    committee.sort();
+    assert_ok!(CommitteeGroup::reset_members(
+        root.clone(),
+        committee.clone()
+    ));
+
+    assert_eq!(CommitteeGroup::get_members(), committee);
+
+    // Revoke.
+    assert_ok!(CommitteeGroup::disable_member(
+        root.clone(),
+        bob_id,
+        None,
+        None
+    ));
+    assert_eq!(CommitteeGroup::get_members(), vec![charlie_id, alice_id]);
+    assert_eq!(
+        CommitteeGroup::get_valid_members(),
+        vec![charlie_id, alice_id, bob_id]
+    );
+
+    // Revoke at
+    assert_ok!(CommitteeGroup::disable_member(
+        root.clone(),
+        charlie_id,
+        Some(10),
+        None
+    ));
+    assert_eq!(CommitteeGroup::get_members(), vec![alice_id]);
+    assert_eq!(
+        CommitteeGroup::get_valid_members_at(10),
+        vec![alice_id, bob_id]
+    );
+    assert_eq!(
+        CommitteeGroup::get_valid_members_at(9),
+        vec![alice_id, charlie_id, bob_id]
+    );
 }

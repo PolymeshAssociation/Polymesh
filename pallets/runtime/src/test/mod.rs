@@ -9,6 +9,7 @@ mod balances_test;
 mod bridge;
 mod committee_test;
 mod fee_details;
+mod general_tm_test;
 mod group_test;
 mod identity_test;
 mod multisig;

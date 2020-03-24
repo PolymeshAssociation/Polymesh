@@ -237,7 +237,7 @@ impl ExtBuilder {
 
         // CDD Service providers.
         group::GenesisConfig::<TestStorage, group::Instance2> {
-            members: cdd_ids,
+            active_members: cdd_ids,
             ..Default::default()
         }
         .assimilate_storage(&mut storage)
@@ -245,7 +245,7 @@ impl ExtBuilder {
 
         // Committee
         group::GenesisConfig::<TestStorage, group::Instance1> {
-            members: self.gen_committee_members.clone(),
+            active_members: self.gen_committee_members.clone(),
             ..Default::default()
         }
         .assimilate_storage(&mut storage)

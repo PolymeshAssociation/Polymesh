@@ -159,7 +159,7 @@ pub struct PolymeshReferendumInfo<Hash: Parameter> {
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait {
+pub trait Trait: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
     /// Currency type for this module.
     type Currency: ReservableCurrency<Self::AccountId>
         + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
@@ -171,7 +171,7 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
     /// Committee
-    type GovernanceCommittee: GroupTrait;
+    type GovernanceCommittee: GroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
