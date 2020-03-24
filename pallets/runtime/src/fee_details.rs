@@ -185,8 +185,7 @@ fn is_auth_valid(
         }
     }
     // Return an error if any of the above checks fail
-    // TODO: Make errors more specific
-    Err(InvalidTransaction::Payment)
+    Err(InvalidTransaction::Custom(TransactionError::InvalidAuthorization as u8).into())
 }
 
 /// Returns signatory to charge fee if cdd is valid.
@@ -196,6 +195,6 @@ fn check_cdd(did: &IdentityId) -> Result<Option<Signatory>, InvalidTransaction> 
         return Ok(Some(Signatory::from(*did)));
     } else {
         sp_runtime::print("ERROR: This transaction requires an Identity");
-        Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
+        Err(InvalidTransaction::Custom(TransactionError::CDDRequired as u8).into())
     }
 }

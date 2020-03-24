@@ -629,7 +629,7 @@ mod tests {
 
     impl GroupTrait for Test {
         fn get_members() -> Vec<IdentityId> {
-            unimplemented!();
+            vec![]
         }
     }
 

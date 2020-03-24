@@ -40,6 +40,7 @@ impl_outer_dispatch! {
         multisig::MultiSig,
         pallet_contracts::Contracts,
         bridge::Bridge,
+        asset::Asset,
     }
 }
 
@@ -419,6 +420,19 @@ pub fn make_account_with_balance(
     Ok((signed_id, did))
 }
 
+pub fn make_account_without_cdd(
+    id: AccountId,
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
+    let signed_id = Origin::signed(id.clone());
+    Balances::make_free_balance_be(&id, 10_000_000);
+
+    Identity::_register_did(id.clone(), vec![]);
+
+    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+
+    Ok((signed_id, did))
+}
+
 pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'static str> {
     register_keyring_account_with_balance(acc, 10_000_000)
 }
@@ -429,6 +443,13 @@ pub fn register_keyring_account_with_balance(
 ) -> Result<IdentityId, &'static str> {
     let acc_pub = acc.public();
     make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
+}
+
+pub fn register_keyring_account_without_cdd(
+    acc: AccountKeyring,
+) -> Result<IdentityId, &'static str> {
+    let acc_pub = acc.public();
+    make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
 pub fn add_signing_item(did: IdentityId, signer: Signatory) {

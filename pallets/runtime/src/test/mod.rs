@@ -8,6 +8,7 @@ mod asset_test;
 mod balances_test;
 mod bridge;
 mod committee_test;
+mod fee_details;
 mod group_test;
 mod identity_test;
 mod multisig;
