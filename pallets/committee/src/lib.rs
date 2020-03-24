@@ -1,3 +1,27 @@
+// Copyright 2017-2019 Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+// Modified by Polymath Inc - 23rd March 2020
+// Polymesh changes - This module is inspired from the `pallet-collective`
+// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/collective
+// It is modified as per the requirement of the Polymesh
+// -`set_members()` dispatchable get removed and members are maintained by the group module
+// - New instance of the group module is being added and assigned committee instance to 
+// `MembershipInitialized` & `MembershipChanged` trait
+
 //! # Committee Module
 //!
 //! The Committee module is used to create a committee of members who vote and ratify proposals.

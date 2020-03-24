@@ -17,6 +17,12 @@
 // Modified by Polymath Inc - 13rd March 2020
 // - Validator has posses CDD check
 // - Validator should be a compliant first before adding into the potential validator list.
+// - Nominators should posses a valid CDD check to be a potential nominator. To facilitate `nominate()`
+// dispatchable gets modified.
+// - Introduce `validate_cdd_expiry_nominators()` to remove the nominators from the potential nominators list
+// when there CDD check get expired.
+// - Commission can be individual or global. 
+// - Validators stash account should stake a minimum bonding amount to be a potential validator.
 
 //! # Staking Module
 //!
@@ -754,22 +760,6 @@ impl Default for Forcing {
     }
 }
 
-// In Polymesh we don't need runtime upgrade. It is redundant we keep this to maintain the same storage structure
-// A value placed in storage that represents the current version of the Staking storage.
-// This value is used by the `on_runtime_upgrade` logic to determine whether we run
-// storage migration logic. This should match directly with the semantic versions of the Rust crate.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
-enum Releases {
-    V1_0_0,
-    V2_0_0,
-}
-
-impl Default for Releases {
-    fn default() -> Self {
-        Releases::V1_0_0
-    }
-}
-
 decl_storage! {
     trait Store for Module<T: Trait> as Staking {
 
@@ -924,11 +914,6 @@ decl_storage! {
         /// The earliest era for which we have a pending, unapplied slash.
         EarliestUnappliedSlash: Option<EraIndex>;
 
-        /// Storage version of the pallet.
-        ///
-        /// This is set to v2.0.0 for new networks.
-        StorageVersion build(|_: &GenesisConfig<T>| Releases::V2_0_0): Releases;
-
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
             linked_map hasher(blake2_256) T::AccountId => Option<PermissionedValidator>;
@@ -1068,11 +1053,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        // In Polymesh we don't need runtime upgrade
-        // fn on_runtime_upgrade() {
-        // 	migration::on_runtime_upgrade::<T>();
-        // }
 
         fn on_finalize() {
             // Set the start of the first era.

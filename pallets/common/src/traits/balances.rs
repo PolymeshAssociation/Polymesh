@@ -19,6 +19,7 @@ impl Default for Memo {
     }
 }
 
+// POLYMESH-NOTE: Make `AccountData` public to access it from the outside module.
 /// All balance information for an account.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug)]
 pub struct AccountData<Balance> {
@@ -115,9 +116,6 @@ decl_event!(
 );
 
 pub trait Trait: CommonTrait {
-    // /// Handler for the unbalanced reduction when taking fees associated with balance
-    // /// transfer (which may also include account creation).
-    // type TransferPayment: OnUnbalanced<NegativeImbalance<Self>>;
 
     /// The means of storing the balances of an account.
     type AccountStore: StoredMap<Self::AccountId, AccountData<Self::Balance>>;

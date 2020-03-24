@@ -1,3 +1,30 @@
+// Copyright 2017-2019 Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+// Modified by Polymath Inc - 23rd March 2020
+// This module is inspired by the `membership` module of the substrate framework
+// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/membership
+// It get customize as per the Polymesh requirements
+// - Change member type from `AccountId` to `IdentityId`.
+// - Remove `change_key` function from the implementation in the favour of "User can hold only single identity on Polymesh blockchain".
+// - Remove the logic of prime member logic that will lead the removal of `set_prime()` & `clear_prime()` dispatchable.
+// - Add `abdicate_membership()` dispatchable to allows a caller member to unilaterally quit without this
+// being subject to a GC vote.
+
+
 //! # Group Module
 //!
 //! The Group module is used to manage a set of identities. A group of identities can be a
@@ -20,12 +47,6 @@
 //! - `swap_member` - Replace one identity with the other.
 //! - `reset_members` - Re-initialize group members.
 
-// This module is inspired by the `membership` module of the substrate framework
-// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/membership
-// It get customize as per the Polymesh requirements
-// - Change member type from `AccountId` to `IdentityId`.
-// - Remove `change_key` function from the implementation in the favour of "User can hold only identity on Polymesh blockchain".
-// - Remove the logic of prime member logic
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

@@ -14,9 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-// Modified by Polymath Inc - 18th November 2019
+// Modified by Polymath Inc - 16th November 2020
 // Added ability to manage balances of identities with the balances module
 // In Polymesh, POLY balances can be held at either the identity or account level
+// Implement `BlockRewardsReserveCurrency` trait in the balances module.
+// Remove migration functionality from the balances module as Polymesh doesn't needed
+// any migration data structure.
 
 //! # Balances Module
 //!
@@ -195,8 +198,6 @@ pub type Event<T> = polymesh_runtime_common::traits::balances::Event<T>;
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// Vesting balance too high to send value
-        VestingBalance,
         /// Account liquidity restrictions prevent withdrawal
         LiquidityRestrictions,
         /// Got an overflow after adding
@@ -207,8 +208,6 @@ decl_error! {
         ExistentialDeposit,
         /// Transfer/payment would kill account
         KeepAlive,
-        /// A vesting schedule already exists for this account
-        ExistingVestingSchedule,
         /// AccountId is not attached with Identity
         UnAuthorized,
     }
@@ -224,22 +223,6 @@ pub struct BalanceLock<Balance> {
     pub amount: Balance,
     /// If true, then the lock remains in effect even for payment of transaction fees.
     pub reasons: Reasons,
-}
-
-// NOTE: Keeping this to have same data structure. In future may be it can be removed
-// A value placed in storage that represents the current version of the Balances storage.
-// This value is used by the `on_runtime_upgrade` logic to determine whether we run
-// storage migration logic. This should match directly with the semantic versions of the Rust crate.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
-enum Releases {
-    V1_0_0,
-    V2_0_0,
-}
-
-impl Default for Releases {
-    fn default() -> Self {
-        Releases::V1_0_0
-    }
 }
 
 decl_storage! {
@@ -263,10 +246,12 @@ decl_storage! {
 
         /// Balance held by the identity. It can be spent by its signing keys.
         pub IdentityBalance get(identity_balance): map hasher(blake2_256) IdentityId => T::Balance;
-
+        
+        // Polymesh-Note : Change to facilitate the DID charging
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map hasher(blake2_256) AccountKey => bool;
 
+        // Polymesh-Note : Change to facilitate the BRR functionality
         /// AccountId of the block rewards reserve
         pub BlockRewardsReserve get(block_rewards_reserve) build(|_| {
             let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
@@ -324,6 +309,9 @@ decl_module! {
             Self::transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
         }
 
+        /// Transfer the native currency with the help of identifier string
+        /// this functionality can help to differentiate the transfers.
+        ///
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(1_005_000)]
         pub fn transfer_with_memo(
@@ -340,6 +328,8 @@ decl_module! {
         /// Move some poly from balance of self to balance of an identity.
         /// no-op when,
         /// - value is zero
+        ///
+        /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn top_up_identity_balance(
             origin,
@@ -366,6 +356,8 @@ decl_module! {
         /// Claim back poly from an identity. Can only be called by master key of the identity.
         /// no-op when,
         /// - value is zero
+        ///
+        /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn reclaim_identity_balance(
             origin,
@@ -375,9 +367,7 @@ decl_module! {
             if value.is_zero() { return Ok(()) }
             let transactor = ensure_signed(origin)?;
             let encoded_transactor = AccountKey::try_from(transactor.encode())?;
-            if !<T::Identity>::is_master_key(did, &encoded_transactor) {
-                return Err (Error::<T>::UnAuthorized)?
-            }
+            ensure!(<T::Identity>::is_master_key(did, &encoded_transactor), Error::<T>::UnAuthorized);
             // Not managing imbalances because they will cancel out.
             // withdraw function will create negative imbalance and
             // deposit function will create positive imbalance
@@ -387,6 +377,8 @@ decl_module! {
         }
 
         /// Change setting that governs if user pays fee via their own balance or identity's balance.
+        ///
+        /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn change_charge_did_flag(origin, charge_did: bool) {
             let transactor = ensure_signed(origin)?;
@@ -438,6 +430,8 @@ decl_module! {
 
         /// Exactly as `transfer`, except the origin must be root and the source account may be
         /// specified.
+        ///
+        /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn force_transfer(
             origin,
@@ -647,7 +641,9 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         Self::try_mutate_account(&brr, |account| -> DispatchResult {
             if account.free > Zero::zero() {
                 account.free = account.free.saturating_sub(amount);
-                amount = Zero::zero();
+                // set to 0 as `amount - (brr_balance - new_brr_balance)` will be 0
+                // where brr_balance = account.free while new_brr_balance will be `account.free.saturating_sub(amount)`
+                amount = Zero::zero(); 
             }
             <TotalIssuance<T>>::mutate(|v| *v = v.saturating_add(amount));
             Ok(())
@@ -663,6 +659,7 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         Self::try_mutate_account(&brr, |account| -> Result<NegativeImbalance<T>, ()> {
             let amount_to_mint = if account.free > Zero::zero() {
                 let new_brr_balance = account.free.saturating_sub(amount);
+                account.free = new_brr_balance;
                 amount - (account.free - new_brr_balance)
             } else {
                 amount
@@ -830,7 +827,7 @@ where
         Self::try_mutate_account(
             who,
             |account| -> Result<Self::PositiveImbalance, DispatchError> {
-                // POLYMESH-NOTE: Remove it in the favour of Polymesh blockchain logic because dead account logic
+                // POLYMESH-NOTE: Remove ensure check in the favour of Polymesh blockchain logic because dead account logic
                 // don't exist in the Polymesh blockchain
 
                 account.free = account

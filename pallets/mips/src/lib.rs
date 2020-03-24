@@ -196,7 +196,7 @@ decl_storage! {
         pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::AccountId, T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
-        /// proposal hash -> (deposit, proposer)
+        /// proposal hash -> (proposer, deposit)
         pub Deposits get(fn deposit_of): map hasher(blake2_256) T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.

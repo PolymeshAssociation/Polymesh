@@ -15,7 +15,8 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 // Modified by Polymath Inc - 13rd March 2020
-// Charge fee from the identity in the signed extension
+// - Charge fee from the identity in the signed extension
+// - Introduce `ChargeTxFee` trait to compute and charge transaction fee for Multisig.
 
 //! # Transaction Payment Module
 //!

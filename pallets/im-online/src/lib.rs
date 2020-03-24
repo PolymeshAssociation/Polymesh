@@ -15,7 +15,7 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 // Modified by Polymath Inc - 23rd Febuary 2020
-// Added ability to update slashing parameters
+// Added ability to update slashing parameters by introducing `set_slashing_params()` dispatchable
 
 //! # I'm online Module
 //!
@@ -372,7 +372,7 @@ decl_module! {
                 Err(Error::<T>::InvalidKey)?
             }
         }
-
+        
         /// Set slashing params to be used in calculating `slash_fraction`
         /// Only Governance committee is allowed to set these params.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
