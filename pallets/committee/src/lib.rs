@@ -19,7 +19,7 @@
 // https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/collective
 // It is modified as per the requirement of the Polymesh
 // -`set_members()` dispatchable get removed and members are maintained by the group module
-// - New instance of the group module is being added and assigned committee instance to 
+// - New instance of the group module is being added and assigned committee instance to
 // `MembershipInitialized` & `MembershipChanged` trait
 
 //! # Committee Module

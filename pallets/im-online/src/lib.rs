@@ -372,7 +372,7 @@ decl_module! {
                 Err(Error::<T>::InvalidKey)?
             }
         }
-        
+
         /// Set slashing params to be used in calculating `slash_fraction`
         /// Only Governance committee is allowed to set these params.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]

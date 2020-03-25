@@ -246,7 +246,7 @@ decl_storage! {
 
         /// Balance held by the identity. It can be spent by its signing keys.
         pub IdentityBalance get(identity_balance): map hasher(blake2_256) IdentityId => T::Balance;
-        
+
         // Polymesh-Note : Change to facilitate the DID charging
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map hasher(blake2_256) AccountKey => bool;
@@ -643,7 +643,7 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
                 account.free = account.free.saturating_sub(amount);
                 // set to 0 as `amount - (brr_balance - new_brr_balance)` will be 0
                 // where brr_balance = account.free while new_brr_balance will be `account.free.saturating_sub(amount)`
-                amount = Zero::zero(); 
+                amount = Zero::zero();
             }
             <TotalIssuance<T>>::mutate(|v| *v = v.saturating_add(amount));
             Ok(())

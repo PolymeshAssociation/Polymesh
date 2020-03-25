@@ -116,7 +116,6 @@ decl_event!(
 );
 
 pub trait Trait: CommonTrait {
-
     /// The means of storing the balances of an account.
     type AccountStore: StoredMap<Self::AccountId, AccountData<Self::Balance>>;
 

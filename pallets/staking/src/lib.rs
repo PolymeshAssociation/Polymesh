@@ -21,7 +21,7 @@
 // dispatchable gets modified.
 // - Introduce `validate_cdd_expiry_nominators()` to remove the nominators from the potential nominators list
 // when there CDD check get expired.
-// - Commission can be individual or global. 
+// - Commission can be individual or global.
 // - Validators stash account should stake a minimum bonding amount to be a potential validator.
 
 //! # Staking Module

@@ -24,7 +24,6 @@
 // - Add `abdicate_membership()` dispatchable to allows a caller member to unilaterally quit without this
 // being subject to a GC vote.
 
-
 //! # Group Module
 //!
 //! The Group module is used to manage a set of identities. A group of identities can be a
@@ -46,7 +45,6 @@
 //! - `remove_member` - Remove identity from the group if it exists.
 //! - `swap_member` - Replace one identity with the other.
 //! - `reset_members` - Re-initialize group members.
-
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
