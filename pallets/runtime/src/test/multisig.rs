@@ -1,12 +1,14 @@
 use crate::{
     multisig,
     test::{
+        ext_builder::PROTOCOL_OP_BASE_FEE,
         storage::{register_keyring_account, Call, TestStorage},
         ExtBuilder,
     },
 };
 
 use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
 
@@ -15,6 +17,7 @@ use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
+type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
@@ -594,7 +597,7 @@ fn make_multisig_master() {
 
 #[test]
 fn make_multisig_signer() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
