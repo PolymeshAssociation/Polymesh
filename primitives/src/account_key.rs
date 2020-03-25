@@ -1,4 +1,5 @@
 use codec::{Decode, Encode};
+use sp_core::sr25519::Public;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -91,6 +92,12 @@ impl PartialEq<&[u8]> for AccountKey {
 impl PartialEq<Vec<u8>> for AccountKey {
     fn eq(&self, other: &Vec<u8>) -> bool {
         self == &other.as_slice()
+    }
+}
+
+impl PartialEq<Public> for AccountKey {
+    fn eq(&self, other: &Public) -> bool {
+        self == &&other.0[..]
     }
 }
 

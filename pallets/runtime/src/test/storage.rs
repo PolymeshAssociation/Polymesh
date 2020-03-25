@@ -27,6 +27,7 @@ use sp_runtime::{
     transaction_validity::{TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
+
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -376,6 +377,7 @@ pub type Timestamp = pallet_timestamp::Module<TestStorage>;
 pub type Contracts = pallet_contracts::Module<TestStorage>;
 pub type Bridge = bridge::Module<TestStorage>;
 pub type CDDServieProvider = group::Module<TestStorage, group::Instance2>;
+pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 
 pub fn make_account(
     id: AccountId,
@@ -437,4 +439,9 @@ pub fn account_from(id: u64) -> AccountId {
     enc_id.copy_from_slice(enc_id_vec.as_slice());
 
     Pair::from_seed(&enc_id).public()
+}
+
+pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
+    let key = AccountKey::from(acc.public().0);
+    Identity::get_identity(&key)
 }

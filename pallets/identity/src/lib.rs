@@ -42,7 +42,7 @@ use polymesh_primitives::{
     PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
-    constants::did::{GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
+    constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
     traits::{
         asset::AcceptTransfer,
         balances::BalancesTrait,
@@ -52,7 +52,7 @@ use polymesh_runtime_common::{
         },
         multisig::AddSignerMultiSig,
     },
-    Context,
+    Context, SystematicIssuers,
 };
 
 use codec::{Decode, Encode};
@@ -67,7 +67,6 @@ use sp_runtime::{
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
-// use sp_arithmetic::traits::Zero;
 
 use frame_support::{
     decl_error, decl_module, decl_storage,
@@ -158,13 +157,17 @@ decl_storage! {
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         build(|config: &GenesisConfig<T>| {
-            // Add System DID: Governance committee
-            let governance_committee_id = IdentityId::from(GOVERNANCE_COMMITTEE_ID.clone());
-            let governance_committee_key = AccountKey::from([0u8;32]);
-            <DidRecords>::insert( governance_committee_id, DidRecord {
-                master_key: governance_committee_key,
-                ..Default::default()
-            });
+            // Add System DID: Governance committee && CDD providers
+            [GOVERNANCE_COMMITTEE_ID, CDD_PROVIDERS_ID].iter()
+                .for_each(|raw_id| {
+                    let id = IdentityId::from(*raw_id.clone());
+                    let master_key = AccountKey::from(*raw_id.clone());
+
+                    <DidRecords>::insert( id, DidRecord {
+                        master_key,
+                        ..Default::default()
+                    });
+                });
 
             //  Other
             for &(ref master_account_id, issuer, did, expiry) in &config.identities {
@@ -1693,31 +1696,29 @@ impl<T: Trait> IdentityTrait for Module<T> {
         Self::is_signer_authorized_with_permissions(did, signer, permissions)
     }
 
-    /// TODO
-    /// * Systematic issuer ID
-    fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId]) {
-        let systematic_issuer = IdentityId::from(GOVERNANCE_COMMITTEE_ID.clone());
-
+    fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         targets.iter().for_each(|new_member| {
+            sp_runtime::print("Add systematic CDD claim:");
+            sp_runtime::print(*new_member);
+
             Self::unsafe_add_claim(
                 *new_member,
                 Claim::CustomerDueDiligence,
-                systematic_issuer,
+                issuer.as_id(),
                 None,
             )
         });
     }
 
-    /// TODO
-    /// * Systematic issuer ID
-    fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId]) {
-        let systematic_issuer = IdentityId::from(GOVERNANCE_COMMITTEE_ID.clone());
-
+    fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         targets.iter().for_each(|removed_member| {
+            sp_runtime::print("Add systematic CDD claim:");
+            sp_runtime::print(*removed_member);
+
             Self::unsafe_revoke_claim(
                 *removed_member,
                 ClaimType::CustomerDueDiligence,
-                systematic_issuer,
+                issuer.as_id(),
                 None,
             )
         });
@@ -1731,13 +1732,14 @@ impl<T: Trait> ChangeMembers<IdentityId> for Module<T> {
         _new: &[IdentityId],
     ) {
         // Add/remove Systematic CDD claims for new/removed members.
-        Self::unsafe_add_systematic_cdd_claims(incoming);
-        Self::unsafe_revoke_systematic_cdd_claims(outgoing);
+        let issuer = SystematicIssuers::CDDProvider;
+        Self::unsafe_add_systematic_cdd_claims(incoming, issuer);
+        Self::unsafe_revoke_systematic_cdd_claims(outgoing, issuer);
     }
 }
 
 impl<T: Trait> InitializeMembers<IdentityId> for Module<T> {
     fn initialize_members(members: &[IdentityId]) {
-        Self::unsafe_add_systematic_cdd_claims(members);
+        Self::unsafe_add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
     }
 }

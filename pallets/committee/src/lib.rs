@@ -33,7 +33,7 @@ use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_common::{
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
-    Context,
+    Context, SystematicIssuers,
 };
 use polymesh_runtime_identity as identity;
 use sp_core::u32_trait::Value as U32;
@@ -369,8 +369,9 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
             .for_each(Self::check_proposal_threshold);
 
         // Add/remove Systematic CDD claims for new/removed members.
-        <identity::Module<T>>::unsafe_add_systematic_cdd_claims(incoming);
-        <identity::Module<T>>::unsafe_revoke_systematic_cdd_claims(outgoing);
+        let issuer = SystematicIssuers::GovernanceCommittee;
+        <identity::Module<T>>::unsafe_add_systematic_cdd_claims(incoming, issuer);
+        <identity::Module<T>>::unsafe_revoke_systematic_cdd_claims(outgoing, issuer);
 
         <Members<I>>::put(new);
     }
@@ -383,7 +384,10 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
                 <Members<I>>::get().is_empty(),
                 "Members are already initialized!"
             );
-            <identity::Module<T>>::unsafe_add_systematic_cdd_claims(members);
+            <identity::Module<T>>::unsafe_add_systematic_cdd_claims(
+                members,
+                SystematicIssuers::GovernanceCommittee,
+            );
             <Members<I>>::put(members);
         }
     }
