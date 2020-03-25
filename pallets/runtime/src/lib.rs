@@ -61,7 +61,8 @@ pub mod config {
 
 pub mod update_did_signed_extension;
 pub use update_did_signed_extension::UpdateDid;
-
+pub mod cdd_check;
+pub use cdd_check::CddChecker;
 pub use sp_runtime::{Perbill, Permill};
 
 #[cfg(test)]
