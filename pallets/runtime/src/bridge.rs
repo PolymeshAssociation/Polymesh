@@ -141,7 +141,9 @@ decl_storage! {
         /// Handled bridge transactions.
         HandledTxs get(handled_txs): map BridgeTx<T::AccountId, T::Balance> => bool;
         /// The admin key.
-        AdminKey get(admin_key) config(): AccountKey;
+        AdminKey get(admin_key) build(|config: &GenesisConfig<T>| {
+            AccountKey::try_from(config.admin_key.encode()).unwrap()
+        }): AccountKey;
         /// Whether or not the bridge operation is frozen.
         Frozen get(frozen): bool;
         /// The bridge transaction timelock period, in blocks, since the acceptance of the
@@ -157,6 +159,8 @@ decl_storage! {
         config(signers): Vec<Signatory>;
         /// The number of required signatures in the genesis signer set.
         config(signatures_required): u64;
+        /// The number of required signatures in the genesis signer set.
+        config(admin_key): T::AccountId;
     }
 }
 
@@ -311,7 +315,8 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
-            ensure!(sender == Self::controller(), Error::<T>::BadCaller);
+            ensure!(sender == Self::controller() || AccountKey::try_from(sender.encode())? == Self::admin_key(), Error::<T>::BadCaller);
+
             ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
             if Self::frozen() {
                 if !Self::frozen_txs(&bridge_tx) {

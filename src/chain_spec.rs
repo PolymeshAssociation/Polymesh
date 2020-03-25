@@ -1,6 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use polymesh_primitives::{AccountId, IdentityId, Signature};
+use polymesh_primitives::{AccountId, AccountKey, IdentityId, Signature, Signatory};
 use polymesh_runtime::{
     asset::TickerRegistrationConfig,
     config::{
@@ -224,7 +224,10 @@ fn testnet_genesis(
             fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
         bridge: Some(BridgeConfig {
-            ..Default::default()
+            admin_key: get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+            signatures_required: 0,
+            signers: vec![],
+            timelock: 100,
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
