@@ -31,6 +31,7 @@ use frame_support::{
     StorageLinkedMap, StorageValue,
 };
 use frame_system::{self as system, EnsureSignedBy};
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer,
@@ -237,6 +238,12 @@ impl group::Trait<group::Instance2> for Test {
     type MembershipChanged = ();
 }
 
+impl protocol_fee::Trait for Test {
+    type Event = ();
+    type Currency = Balances;
+    type OnProtocolFeePayment = ();
+}
+
 impl identity::Trait for Test {
     type Event = ();
     type Proposal = Call;
@@ -246,6 +253,7 @@ impl identity::Trait for Test {
     type ChargeTxFeeTarget = Test;
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
+    type ProtocolFee = protocol_fee::Module<Test>;
 }
 
 impl pallet_transaction_payment::ChargeTxFee for Test {
