@@ -11,7 +11,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_root};
 use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, OperationName};
 use primitives::{traits::IdentityCurrency, PosRatio, Signatory};
-use sp_runtime::traits::{CheckedDiv, Saturating};
+use sp_runtime::traits::{CheckedDiv, Saturating, Zero};
 
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -122,6 +122,9 @@ impl<T: Trait> Module<T> {
     /// Computes the fee of the operation and charges it to the given signatory.
     pub fn charge_fee(signatory: &Signatory, name: &OperationName) -> DispatchResult {
         let fee = Self::compute_fee(name)?;
+        if fee.is_zero() {
+            return Ok(());
+        }
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
         Ok(())
