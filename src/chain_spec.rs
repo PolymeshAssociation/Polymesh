@@ -368,8 +368,7 @@ fn testnet_genesis(
             phantom: Default::default(),
         }),
         protocol_fee: Some(ProtocolFeeConfig {
-            base_fees: vec![],
-            coefficient: (1, 1),
+            ..Default::default()
         }),
     }
 }
