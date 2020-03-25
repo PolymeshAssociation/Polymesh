@@ -200,6 +200,7 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
+        // TODO: Remove this function. cdd_register_did should be used instead.
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             // TODO: Subtract proper fee.
@@ -1270,6 +1271,7 @@ impl<T: Trait> Module<T> {
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
         let trusted_cdd_providers = T::CddServiceProviders::get_members();
         // It will never happen in production but helpful during testing.
+        // TODO: Remove this condition
         if trusted_cdd_providers.len() == 0 {
             return true;
         }

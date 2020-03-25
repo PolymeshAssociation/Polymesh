@@ -81,7 +81,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                     }
                     return check_cdd(&<multisig::MultiSigCreator<Runtime>>::get(&multisig));
                 }
-                Err(InvalidTransaction::Payment)
+                Err(InvalidTransaction::Custom(TransactionError::CDDRequired as u8).into())
             }
             // All other calls
             _ => match caller {
@@ -101,9 +101,12 @@ impl CddAndFeeDetails<Call> for CddHandler {
                                 return Ok(Some(*caller));
                             }
                         }
+                        return Err(InvalidTransaction::Custom(
+                            TransactionError::CDDRequired as u8,
+                        )
+                        .into());
                     }
                     // Return an error if any of the above checks fail
-                    // TODO: Make errors more specific
                     Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
                 }
                 // A did was passed as the caller. The did should be charged the fee.
