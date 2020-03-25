@@ -579,7 +579,6 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
-            did_creation_fee: 250,
             ..Default::default()
         }
         .assimilate_storage(&mut storage);

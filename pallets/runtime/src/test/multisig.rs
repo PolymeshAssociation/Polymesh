@@ -13,7 +13,7 @@ use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -620,6 +620,7 @@ fn make_multisig_signer() {
             Error::IdentityNotCreator
         );
 
+        Balances::make_free_balance_be(&musig_address, PROTOCOL_OP_BASE_FEE);
         assert_ok!(MultiSig::make_multisig_signer(
             alice.clone(),
             musig_address.clone(),

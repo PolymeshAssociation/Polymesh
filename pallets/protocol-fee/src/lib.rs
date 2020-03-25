@@ -32,8 +32,10 @@ pub trait Trait: frame_system::Trait {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// Insufficient balance to pay the fee.
-        InsufficientBalance,
+        /// Insufficient identity balance to pay the fee.
+        InsufficientIdentityBalance,
+        /// Insufficient account balance to pay the fee.
+        InsufficientAccountBalance,
         /// Account ID decoding failed.
         AccountIdDecode,
         /// Division in `compute_fee` failed.
@@ -162,7 +164,7 @@ impl<T: Trait> Module<T> {
     fn withdraw_fee(signatory: &Signatory, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
         match signatory {
             Signatory::Identity(did) => T::Currency::withdraw_identity_balance(did, fee)
-                .map_err(|_| Error::<T>::InsufficientBalance.into()),
+                .map_err(|_| Error::<T>::InsufficientIdentityBalance.into()),
             Signatory::AccountKey(account) => T::Currency::withdraw(
                 &T::AccountId::decode(&mut &account.encode()[..])
                     .map_err(|_| Error::<T>::AccountIdDecode)?,
@@ -170,7 +172,7 @@ impl<T: Trait> Module<T> {
                 WithdrawReason::Fee.into(),
                 ExistenceRequirement::KeepAlive,
             )
-            .map_err(|_| Error::<T>::InsufficientBalance.into()),
+            .map_err(|_| Error::<T>::InsufficientAccountBalance.into()),
         }
     }
 }
@@ -463,7 +465,7 @@ mod tests {
                 &alice_signer,
                 &OperationName::from(b"10_k_test"),
                 7,
-            ), Error::InsufficientBalance);
+            ), Error::InsufficientAccountBalance);
         });
     }
 }

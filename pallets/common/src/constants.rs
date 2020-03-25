@@ -56,6 +56,7 @@ pub mod protocol_op {
     pub const ASSET_CREATE_TOKEN: &'static [u8] = b"asset_create_token";
     pub const DIVIDEND_NEW: &'static [u8] = b"dividend_new";
     pub const GENERAL_TM_ADD_ACTIVE_RULE: &'static [u8] = b"general_tm_add_active_rule";
+    pub const IDENTITY_REGISTER_DID: &'static [u8] = b"identity_register_did";
     pub const IDENTITY_CDD_REGISTER_DID: &'static [u8] = b"identity_cdd_register_did";
     pub const IDENTITY_ADD_CLAIM: &'static [u8] = b"identity_add_claim";
     pub const IDENTITY_SET_MASTER_KEY: &'static [u8] = b"identity_set_master_key";

@@ -48,7 +48,6 @@ use polymesh_runtime_common::{
     },
     traits::{
         asset::AcceptTransfer,
-        balances::BalancesTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
             AuthorizationNonce, LinkedKeyInfo, RawEvent, SigningItemWithAuth, TargetIdAuthorization,
@@ -76,7 +75,6 @@ use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{ExistenceRequirement, WithdrawReason},
     weights::{GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -134,9 +132,6 @@ decl_storage! {
 
         // Account => DID
         pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map AccountKey => Option<LinkedKeyInfo>;
-
-        /// How much does creating a DID cost
-        pub DidCreationFee get(fn did_creation_fee) config(): T::Balance;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
@@ -205,14 +200,11 @@ decl_module! {
         fn deposit_event() = default;
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            // TODO: Subtract proper fee.
-            let _imbalance = <T::Balances>::withdraw(
-                &sender,
-                Self::did_creation_fee(),
-                WithdrawReason::Fee.into(),
-                ExistenceRequirement::KeepAlive,
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            T::ProtocolFee::charge_fee(
+                &Signatory::AccountKey(sender_key),
+                &OperationName::from(protocol_op::IDENTITY_REGISTER_DID)
             )?;
-
             let _new_id = Self::_register_did(sender, signing_items)?;
             Ok(())
         }

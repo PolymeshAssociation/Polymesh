@@ -44,6 +44,7 @@ impl Default for MockProtocolBaseFees {
             b"asset_create_token".to_vec(),
             b"dividend_new".to_vec(),
             b"general_tm_add_active_rule".to_vec(),
+            b"identity_register_did".to_vec(),
             b"identity_cdd_register_did".to_vec(),
             b"identity_add_claim".to_vec(),
             b"identity_set_master_key".to_vec(),
@@ -158,12 +159,18 @@ impl ExtBuilder {
                     AccountKeyring::Alice.public(),
                     1_000 * self.existential_deposit,
                 ),
-                (AccountKeyring::Bob.public(), 2_000 * self.existential_deposit),
+                (
+                    AccountKeyring::Bob.public(),
+                    2_000 * self.existential_deposit,
+                ),
                 (
                     AccountKeyring::Charlie.public(),
                     3_000 * self.existential_deposit,
                 ),
-                (AccountKeyring::Dave.public(), 4_000 * self.existential_deposit),
+                (
+                    AccountKeyring::Dave.public(),
+                    4_000 * self.existential_deposit,
+                ),
                 // CDD Accounts
                 (AccountKeyring::Eve.public(), 1_000_000),
                 (AccountKeyring::Ferdie.public(), 1_000_000),
@@ -248,7 +255,6 @@ impl ExtBuilder {
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
             owner: root.clone().into(),
-            did_creation_fee: 250,
             did_records: cdd_identities,
             key_to_identity_ids: cdd_links,
             identities: vec![],
