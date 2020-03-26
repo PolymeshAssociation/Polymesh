@@ -886,7 +886,7 @@ pub fn on_offence_now(
 pub fn fix_nominator_genesis_problem(value: u128) {
     let nominator_controller_account = 100;
     let nominator_stash_account = 101;
-    let (nominator_signed, nominator_did) =
+    let (_nominator_signed, nominator_did) =
         make_account_with_balance(account_from(nominator_stash_account), value).unwrap();
 
     let service_provider_account = AccountId::from(AccountKeyring::Dave);

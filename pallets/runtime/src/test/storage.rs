@@ -385,7 +385,7 @@ pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
 pub type Timestamp = pallet_timestamp::Module<TestStorage>;
 pub type Contracts = pallet_contracts::Module<TestStorage>;
 pub type Bridge = bridge::Module<TestStorage>;
-pub type CDDServieProvider = group::Module<TestStorage, group::Instance2>;
+pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 
 pub fn make_account(
     id: AccountId,
@@ -402,7 +402,7 @@ pub fn make_account_with_balance(
     Balances::make_free_balance_be(&id, balance);
 
     // If we have CDD providers, first of them executes the registration.
-    let cdd_providers = CDDServieProvider::get_members();
+    let cdd_providers = CddServiceProvider::get_members();
     let did_registration = if let Some(cdd_provider) = cdd_providers.into_iter().nth(0) {
         let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
         Identity::cdd_register_did(Origin::signed(cdd_acc), id, Some(10), vec![])
