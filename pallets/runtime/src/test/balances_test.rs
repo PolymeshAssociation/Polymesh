@@ -1,7 +1,7 @@
 use crate::{
     runtime,
     test::{
-        storage::{make_account, EventTest, TestStorage},
+        storage::{make_account, make_account_with_balance, EventTest, TestStorage},
         ExtBuilder,
     },
     Runtime,
@@ -100,6 +100,7 @@ fn tipping_fails() {
 fn mint_subsidy_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let brr = Balances::block_rewards_reserve();
+        let _ = make_account_with_balance(brr, 0);
         assert_eq!(Balances::free_balance(&brr), 0);
         let mut ti = Balances::total_issuance();
         let alice = AccountKeyring::Alice.public();
@@ -157,6 +158,7 @@ fn issue_must_work() {
         assert_eq!(Balances::total_issuance(), init_total_issuance);
 
         let brr = Balances::block_rewards_reserve();
+        let _ = make_account_with_balance(brr, 0);
         assert_eq!(Balances::free_balance(&brr), 0);
         let mut ti = Balances::total_issuance();
         let _alice = AccountKeyring::Alice.public();
@@ -288,15 +290,15 @@ fn transfer_with_memo() {
 fn transfer_with_memo_we() {
     let alice = AccountKeyring::Alice.public();
     let bob = AccountKeyring::Bob.public();
-
     let memo_1 = Some(Memo([7u8; 32]));
+    assert!(Balances::transfer_with_memo(Origin::signed(alice), bob, 100, memo_1.clone()).is_err());
+    let _ = make_account_with_balance(bob, 0);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
         100,
         memo_1.clone()
     ));
-
     System::set_block_number(2);
     let memo_2 = Some(Memo([42u8; 32]));
     assert_ok!(Balances::transfer_with_memo(

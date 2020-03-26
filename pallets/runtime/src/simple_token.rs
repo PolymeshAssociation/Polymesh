@@ -308,6 +308,7 @@ mod tests {
         weights::DispatchInfo,
     };
 
+    use crate::cdd_check::CddChecker;
     use sp_core::{crypto::key_types, H256};
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
@@ -381,6 +382,7 @@ mod tests {
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type Identity = identity::Module<Test>;
+        type CDDChecker = CddChecker;
     }
 
     impl identity::Trait for Test {

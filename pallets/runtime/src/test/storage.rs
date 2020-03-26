@@ -1,4 +1,7 @@
-use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, statistics};
+use crate::{
+    asset, bridge, cdd_check::CddChecker, exemption, general_tm, multisig, percentage_tm,
+    statistics,
+};
 
 use pallet_committee as committee;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
@@ -132,6 +135,7 @@ impl balances::Trait for TestStorage {
     type ExistentialDeposit = ExistentialDeposit;
     type TransferFee = TransferFee;
     type Identity = identity::Module<TestStorage>;
+    type CDDChecker = CddChecker;
 }
 
 parameter_types! {

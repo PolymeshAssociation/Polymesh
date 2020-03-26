@@ -395,6 +395,7 @@ mod tests {
 
     use crate::{
         asset::{AssetType, SecurityToken, TickerRegistrationConfig},
+        cdd_check::CddChecker,
         exemption, general_tm, percentage_tm, statistics,
     };
 
@@ -482,6 +483,7 @@ mod tests {
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type Identity = identity::Module<Test>;
+        type CDDChecker = CddChecker;
     }
 
     parameter_types! {
