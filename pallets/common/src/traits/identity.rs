@@ -11,7 +11,6 @@ use polymesh_primitives::{
 
 use codec::{Decode, Encode};
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
-use frame_system;
 use pallet_transaction_payment::ChargeTxFee;
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};

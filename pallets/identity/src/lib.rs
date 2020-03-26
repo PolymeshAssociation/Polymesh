@@ -160,8 +160,8 @@ decl_storage! {
             // Add System DID: Governance committee && CDD providers
             [GOVERNANCE_COMMITTEE_ID, CDD_PROVIDERS_ID].iter()
                 .for_each(|raw_id| {
-                    let id = IdentityId::from(*raw_id.clone());
-                    let master_key = AccountKey::from(*raw_id.clone());
+                    let id = IdentityId::from(**raw_id);
+                    let master_key = AccountKey::from(**raw_id);
 
                     <DidRecords>::insert( id, DidRecord {
                         master_key,
@@ -427,7 +427,7 @@ decl_module! {
             //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
 
-            /// 1.4 charge fee
+            // 1.4 charge fee
             ensure!(
                 T::ChargeTxFeeTarget::charge_fee(
                     Signatory::from(AccountKey::try_from(sender.encode())?),
@@ -1271,7 +1271,7 @@ impl<T: Trait> Module<T> {
         Self::fetch_base_claim_with_issuer(id, claim_type, issuer, scope)
             .into_iter()
             .filter(|c| Self::is_identity_claim_not_expired_at(c, now))
-            .nth(0)
+            .next()
     }
 
     /// See `Self::fetch_cdd`.
@@ -1308,7 +1308,7 @@ impl<T: Trait> Module<T> {
                 )
             })
             .map(|id_claim| id_claim.claim_issuer)
-            .nth(0)
+            .next()
     }
 
     /// A CDD claims is considered valid if:
@@ -1581,7 +1581,7 @@ impl<T: Trait> Module<T> {
         let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope)
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
 
-        let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).nth(0);
+        let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).next();
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { issuer, scope };
         let id_claim = IdentityClaim {

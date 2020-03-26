@@ -21,7 +21,7 @@ pub enum SystematicIssuers {
 }
 
 impl SystematicIssuers {
-    pub fn as_bytes(&self) -> &[u8; 32] {
+    pub fn as_bytes(self) -> &'static [u8; 32] {
         use constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID};
 
         match self {
@@ -30,7 +30,7 @@ impl SystematicIssuers {
         }
     }
 
-    pub fn as_id(&self) -> IdentityId {
-        IdentityId::from(self.as_bytes().clone())
+    pub fn as_id(self) -> IdentityId {
+        IdentityId::from(*self.as_bytes())
     }
 }
