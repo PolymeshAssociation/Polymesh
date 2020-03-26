@@ -1285,12 +1285,6 @@ impl<T: Trait> Module<T> {
             .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))
             .collect::<Vec<_>>();
 
-        //TODO: Remove before release
-        // Added just for easier testing
-        if active_cdds.len() + inactive_not_expired_cdds.len() == 0 {
-            return Some(IdentityId::default());
-        }
-
         Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
             .filter(|id_claim| {
                 Self::is_identity_cdd_claim_valid(
