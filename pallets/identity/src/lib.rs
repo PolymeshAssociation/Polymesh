@@ -1295,7 +1295,9 @@ impl<T: Trait> Module<T> {
     /// * `leeway` : This leeway is added to now() before check if claim is expired.
     ///
     /// # Safety
-    ///     No state change is allowed in this function because this function is used within the RPC calls
+    ///
+    /// No state change is allowed in this function because this function is used within the RPC
+    /// calls.
     pub fn fetch_cdd(claim_for: IdentityId, leeway: T::Moment) -> Option<IdentityId> {
         let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
             .checked_add(&leeway)
