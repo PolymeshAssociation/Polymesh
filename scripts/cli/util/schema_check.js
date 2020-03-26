@@ -15,6 +15,8 @@ async function main() {
     types: customTypes,
     provider: ws_provider
   });
+
+process.exit();
 }
 
 main().catch(console.error);
