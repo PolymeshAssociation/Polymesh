@@ -1698,9 +1698,6 @@ impl<T: Trait> IdentityTrait for Module<T> {
 
     fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         targets.iter().for_each(|new_member| {
-            sp_runtime::print("Add systematic CDD claim:");
-            sp_runtime::print(*new_member);
-
             Self::unsafe_add_claim(
                 *new_member,
                 Claim::CustomerDueDiligence,
@@ -1712,9 +1709,6 @@ impl<T: Trait> IdentityTrait for Module<T> {
 
     fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         targets.iter().for_each(|removed_member| {
-            sp_runtime::print("Add systematic CDD claim:");
-            sp_runtime::print(*removed_member);
-
             Self::unsafe_revoke_claim(
                 *removed_member,
                 ClaimType::CustomerDueDiligence,
