@@ -2,7 +2,7 @@ const { ApiPromise, WsProvider } = require("@polkadot/api");
 const { Keyring } = require("@polkadot/keyring");
 const { cryptoWaitReady } = require("@polkadot/util-crypto");
 const BN = require("bn.js");
-
+const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 
@@ -20,7 +20,7 @@ let synced_block_ts = 0;
 let transfer_amount = 10 * 10 ** 12;
 let prepend = "demo";
 
-const senderRules1 = function(account) {
+const senderRules1 = function(trusted_did) {
     return [
     {
       rule_type: {
@@ -28,46 +28,20 @@ const senderRules1 = function(account) {
           Whitelisted: "this"
         }
       },
-      issuers: "this"
+      issuers: trusted_did
     }
   ];
 }
 
-const receiverRules1 = function(account) {
+const receiverRules1 = function(trusted_did) {
     return [
     {
-      rule_type: {
-        IsPresent: {
-          Accredited: "this"
+      "rule_type": {
+        "IsPresent": {
+          "Whitelisted": "this"
         }
       },
-      issuers: "this"
-    }
-  ];
-}
-
-const senderRules2 = function(account) {
-    return [
-    {
-      rule_type: {
-        IsPresent: {
-          Whitelisted: account
-        }
-      },
-      issuers: account
-    }
-  ];
-}
-
-const receiverRules2 = function(account) {
-    return [
-    {
-      rule_type: {
-        IsPresent: {
-          Accredited: account
-        }
-      },
-      issuers: account
+      "issuers": [trusted_did]
     }
   ];
 }
@@ -232,15 +206,47 @@ async function callback(status, events, sectionName, methodName, fail_count) {
 }
 
 async function issueTokenPerDid(api, accounts, dids, prepend) {
-  for (let i = 0; i < dids.length; i++) {
-    const ticker = `token${prepend}${i}`.toUpperCase();
+ 
+    const ticker = `token${prepend}0`.toUpperCase();
 
     const unsub = await api.tx.asset
       .createToken(ticker, ticker, 1000000, true, 0, [], "abc")
-      .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+      .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
 
-    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
-  }
+    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+  
+}
+
+async function createClaimRules(api, accounts, dids, prepend) {
+    
+ 
+    const ticker = `token${prepend}0`.toUpperCase();
+    assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+    
+    let senderRules = senderRules1(dids[1]);
+    let receiverRules = receiverRules1(dids[1]);
+    //let receiverRules = [{"whitelisted":"this", "issuers": dids[1].address}];
+
+    const unsub = await api.tx.generalTm
+      .addActiveRule(ticker, [], receiverRules)
+      .signAndSend( accounts[0], { nonce: nonces.get(accounts[0].address) });
+
+      nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+    
+  
+}
+
+async function addClaimsToDids(api, accounts, dids) {
+  
+  let claim = {"Whitelisted":"this"};
+
+      const unsub = await api.tx.identity
+      .addClaim(dids[2], claim, 0)
+      .signAndSend(accounts[1],
+        { nonce: nonces.get(accounts[1].address) });
+
+    nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
+    
 }
 
 // this object holds the required imports for all the scripts
@@ -265,8 +271,8 @@ let reqImports = {
   issueTokenPerDid,
   senderRules1,
   receiverRules1,
-  senderRules2,
-  receiverRules2
+  createClaimRules,
+  addClaimsToDids
 };
 
 export { reqImports };
