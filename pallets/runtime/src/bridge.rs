@@ -318,6 +318,7 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
+            //TODO: Review admin permissions to handle bridge txs before mainnet
             ensure!(sender == Self::controller() || sender == Self::admin(), Error::<T>::BadCaller);
 
             ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
