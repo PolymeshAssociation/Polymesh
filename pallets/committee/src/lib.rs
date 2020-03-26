@@ -357,6 +357,12 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
 }
 
 impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
+    /// This function is called when the group updates its members, and it executes the following
+    /// actions:
+    /// * It removes outgoing member's vote of each current proposal.
+    /// * It adds the Systematic CDD claim (issued by `SystematicIssuer::Committee`) to new incoming members.
+    /// * It removes the Systematic CDD claim (issued by `SystematicIssuer::Committee`) from
+    /// outgoing members.
     fn change_members_sorted(incoming: &[IdentityId], outgoing: &[IdentityId], new: &[IdentityId]) {
         // remove accounts from all current voting in motions.
         Self::proposals()
@@ -369,7 +375,7 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
             .for_each(Self::check_proposal_threshold);
 
         // Add/remove Systematic CDD claims for new/removed members.
-        let issuer = SystematicIssuers::GovernanceCommittee;
+        let issuer = SystematicIssuers::Committee;
         <identity::Module<T>>::unsafe_add_systematic_cdd_claims(incoming, issuer);
         <identity::Module<T>>::unsafe_revoke_systematic_cdd_claims(outgoing, issuer);
 
@@ -378,6 +384,8 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
 }
 
 impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
+    /// It initializes the members and adds the Systemic CDD claim (issued by
+    /// `SystematicIssuers::Committee`).
     fn initialize_members(members: &[IdentityId]) {
         if !members.is_empty() {
             assert!(
@@ -386,7 +394,7 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
             );
             <identity::Module<T>>::unsafe_add_systematic_cdd_claims(
                 members,
-                SystematicIssuers::GovernanceCommittee,
+                SystematicIssuers::Committee,
             );
             <Members<I>>::put(members);
         }

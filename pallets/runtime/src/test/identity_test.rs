@@ -43,7 +43,7 @@ type CddServiceProviders = <TestStorage as identity::Trait>::CddServiceProviders
 /// * CDD providers group.
 fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
     let claim_type = ClaimType::CustomerDueDiligence;
-    let gc_id = SystematicIssuers::GovernanceCommittee.as_id();
+    let gc_id = SystematicIssuers::Committee.as_id();
 
     Identity::fetch_claim(target, claim_type, gc_id, None).or_else(|| {
         let cdd_id = SystematicIssuers::CDDProvider.as_id();
