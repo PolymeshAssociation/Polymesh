@@ -92,8 +92,10 @@ decl_error! {
         IdentityMissing,
         /// Failure to credit the recipient account or identity.
         CannotCreditRecipient,
-        /// The origin is not the controller address.
+        /// The origin is not the controller or the admin address.
         BadCaller,
+        /// The origin is not the admin address.
+        BadAdmin,
         /// The recipient DID has no valid CDD.
         NoValidCdd,
         /// The bridge transaction proposal has already been handled and the funds minted.
@@ -141,7 +143,7 @@ decl_storage! {
         /// Handled bridge transactions.
         HandledTxs get(handled_txs): map BridgeTx<T::AccountId, T::Balance> => bool;
         /// The admin key.
-        AdminKey get(admin_key) config(): AccountKey;
+        Admin get(admin) config(): T::AccountId;
         /// Whether or not the bridge operation is frozen.
         Frozen get(frozen): bool;
         /// The bridge transaction timelock period, in blocks, since the acceptance of the
@@ -206,22 +208,25 @@ decl_module! {
         }
 
         /// Change the controller account as admin.
-        pub fn change_controller(origin, account_id: T::AccountId) -> DispatchResult {
-            Self::check_admin(origin)?;
-            <Controller<T>>::put(account_id);
+        pub fn change_controller(origin, controller: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+            <Controller<T>>::put(controller);
             Ok(())
         }
 
         /// Change the bridge admin key.
-        pub fn change_admin_key(origin, account_key: AccountKey) -> DispatchResult {
-            Self::check_admin(origin)?;
-            <AdminKey>::put(account_key);
+        pub fn change_admin(origin, admin: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+            <Admin<T>>::put(admin);
             Ok(())
         }
 
         /// Change the timelock period.
         pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
-            Self::check_admin(origin)?;
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             <Timelock<T>>::put(timelock);
             Ok(())
         }
@@ -230,13 +235,14 @@ decl_module! {
         /// available operations in the frozen state are the following admin methods:
         ///
         /// * `change_controller`,
-        /// * `change_admin_key`,
+        /// * `change_admin`,
         /// * `change_timelock`,
         /// * `unfreeze`,
         /// * `freeze_bridge_txs`,
         /// * `unfreeze_bridge_txs`.
         pub fn freeze(origin) -> DispatchResult {
-            Self::check_admin(origin)?;
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             ensure!(!Self::frozen(), Error::<T>::Frozen);
             <Frozen>::put(true);
             Self::deposit_event(RawEvent::Frozen);
@@ -245,7 +251,8 @@ decl_module! {
 
         /// Unfreezes the operation of the bridge module if it is frozen.
         pub fn unfreeze(origin) -> DispatchResult {
-            Self::check_admin(origin)?;
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             ensure!(Self::frozen(), Error::<T>::NotFrozen);
             <Frozen>::put(false);
             Self::deposit_event(RawEvent::Unfrozen);
@@ -311,7 +318,8 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
-            ensure!(sender == Self::controller(), Error::<T>::BadCaller);
+            ensure!(sender == Self::controller() || sender == Self::admin(), Error::<T>::BadCaller);
+
             ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
             if Self::frozen() {
                 if !Self::frozen_txs(&bridge_tx) {
@@ -334,7 +342,8 @@ decl_module! {
         pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
-            Self::check_admin(origin)?;
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
                 let proposal =
                     <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx.clone())).into();
@@ -351,7 +360,8 @@ decl_module! {
         pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
-            Self::check_admin(origin)?;
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
                 ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
                 ensure!(Self::frozen_txs(&bridge_tx), Error::<T>::NoSuchFrozenTx);
@@ -364,14 +374,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Performs the admin authorization check. The check is successful iff the origin is the
-        /// bridge admin key.
-        pub fn check_admin(origin) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let account_key = AccountKey::try_from(sender.encode())?;
-            ensure!(account_key == Self::admin_key(), Error::<T>::Unauthorized);
-            Ok(())
-        }
     }
 }
 

@@ -245,7 +245,7 @@ fn cannot_call_bridge_callback_extrinsics() {
         let alice = Origin::signed(alice_account);
         assert_err!(
             Bridge::change_controller(alice.clone(), alice_account),
-            Error::Unauthorized,
+            Error::BadAdmin,
         );
         let bridge_tx = BridgeTx {
             nonce: 1,
