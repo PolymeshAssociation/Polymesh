@@ -407,7 +407,7 @@ mod tests {
 
     pub struct ExtBuilder {
         base_fees: Vec<(OperationName, u128)>,
-        coefficient: PosRational,
+        coefficient: PosRatio,
     }
 
     impl Default for ExtBuilder {
