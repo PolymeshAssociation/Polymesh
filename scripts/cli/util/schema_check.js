@@ -11,12 +11,10 @@ async function main() {
 
   // Start node instance
   const ws_provider = new reqImports["WsProvider"]("ws://127.0.0.1:9944/");
-  const api = await reqImports["ApiPromise"].create({
+  await reqImports["ApiPromise"].create({
     types: customTypes,
     provider: ws_provider
   });
-
-  process.exit(); 
 }
 
 main().catch(console.error);
