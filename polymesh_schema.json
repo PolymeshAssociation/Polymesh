@@ -389,13 +389,13 @@
             "AssetAddDocument",
             "AssetCreateToken",
             "DividendNew",
-            "GeneralTmAddActiveRule"
-            "IdentityRegisterDid"
-            "IdentityCddRegisterDid"
-            "IdentityAddClaim"
-            "IdentitySetMasterKey"
-            "IdentityAddSigningItem"
-            "MipsPropose"
+            "GeneralTmAddActiveRule",
+            "IdentityRegisterDid",
+            "IdentityCddRegisterDid",
+            "IdentityAddClaim",
+            "IdentitySetMasterKey",
+            "IdentityAddSigningItem",
+            "MipsPropose",
             "VotingAddBallot"
         ]
     }
