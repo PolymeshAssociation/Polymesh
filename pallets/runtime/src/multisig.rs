@@ -590,13 +590,16 @@ impl<T: Trait> Module<T> {
                     .is_ok(),
                     Error::<T>::FailedToChargeFee
                 );
-                let who_key = AccountKey::try_from(multisig.clone().encode())?;
-                match <identity::Module<T>>::get_identity(&who_key) {
-                    Some(id) => {
-                        <identity::CurrentDid>::put(id);
-                    }
-                    _ => return Err(Error::<T>::IdentityMissing.into()),
+                let id = match &signer {
+                    Signatory::Identity(id) => Some(*id),
+                    Signatory::AccountKey(key) => <identity::Module<T>>::get_identity(key),
                 };
+                // Use the DID of the last signer as the current DID.
+                if let Some(id) = id {
+                    <identity::CurrentDid>::put(id);
+                } else {
+                    return Err(Error::<T>::IdentityMissing.into());
+                }
                 let res = match proposal
                     .dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
                 {
