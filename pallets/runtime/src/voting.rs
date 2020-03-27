@@ -620,7 +620,6 @@ mod tests {
     impl asset::Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
-        type ValidatorIdToAccountId = ConvertInto;
     }
 
     impl statistics::Trait for Test {}

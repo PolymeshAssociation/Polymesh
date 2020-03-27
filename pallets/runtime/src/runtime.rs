@@ -488,7 +488,6 @@ impl bridge::Trait for Runtime {
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
-    type ValidatorIdToAccountId = ConvertInto;
 }
 
 impl simple_token::Trait for Runtime {

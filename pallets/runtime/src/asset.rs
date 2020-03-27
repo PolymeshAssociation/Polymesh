@@ -104,7 +104,6 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Currency: Currency<Self::AccountId>;
-    type ValidatorIdToAccountId: Convert<Self::ValidatorId, Self::AccountId>;
 }
 
 /// The type of an asset represented by a token.
@@ -441,15 +440,9 @@ decl_module! {
 
             ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
 
-            // The fee is proportionaly paid to the validators and dust is burned.
-            let fee_recipients: Vec<T::AccountId> = <pallet_session::Module<T>>::validators()
-                .into_iter()
-                .map(T::ValidatorIdToAccountId::convert)
-                .collect();
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee_equal_parts(
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &signer,
                 &OperationName::from(protocol_op::ASSET_CREATE_TOKEN),
-                fee_recipients.as_slice()
             )?;
             <identity::Module<T>>::register_asset_did(&ticker)?;
 

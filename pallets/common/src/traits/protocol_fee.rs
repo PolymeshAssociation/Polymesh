@@ -31,12 +31,4 @@ pub trait ChargeProtocolFee<AccountId> {
         name: &OperationName,
         count: usize,
     ) -> DispatchResult;
-
-    /// Computes the fee of the operation, charges that fee to `signatory`, and pays it out
-    /// collectively to `recipients` in equal parts.
-    fn charge_fee_equal_parts(
-        signatory: &Signatory,
-        name: &OperationName,
-        recipients: &[AccountId],
-    ) -> DispatchResult;
 }

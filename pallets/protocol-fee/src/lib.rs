@@ -143,26 +143,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Computes the fee of the operation, charges that fee to `signatory`, and pays it out
-    /// collectively to `recipients` in equal parts.
-    pub fn charge_fee_equal_parts(
-        signatory: &Signatory,
-        name: &OperationName,
-        recipients: &[<T as frame_system::Trait>::AccountId],
-    ) -> DispatchResult {
-        let fee = Self::compute_fee(name)?;
-        let mut imbalance = Self::withdraw_fee(signatory, fee)?;
-        let num_recipients = u32::max(1, recipients.len() as u32);
-        let fee_part = imbalance.peek() / num_recipients.into();
-        for account_id in recipients {
-            let (part, rest) = imbalance.split(fee_part);
-            imbalance = rest;
-            T::Currency::resolve_creating(account_id, part);
-        }
-        // Burn the remainder of division by not resolving it.
-        Ok(())
-    }
-
     /// Withdraws a precomputed fee.
     fn withdraw_fee(signatory: &Signatory, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
         match signatory {
@@ -191,14 +171,6 @@ impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
         count: usize,
     ) -> DispatchResult {
         Self::charge_fee_batch(signatory, name, count)
-    }
-
-    fn charge_fee_equal_parts(
-        signatory: &Signatory,
-        name: &OperationName,
-        recipients: &[T::AccountId],
-    ) -> DispatchResult {
-        Self::charge_fee_equal_parts(signatory, name, recipients)
     }
 }
 

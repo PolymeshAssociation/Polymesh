@@ -315,7 +315,6 @@ impl protocol_fee::Trait for TestStorage {
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
-    type ValidatorIdToAccountId = ConvertInto;
 }
 
 parameter_types! {
