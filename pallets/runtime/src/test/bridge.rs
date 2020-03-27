@@ -36,7 +36,6 @@ fn can_issue_to_identity() {
     ExtBuilder::default()
         .existential_deposit(1_000)
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(can_issue_to_identity_we);
 }
@@ -262,7 +261,6 @@ fn can_freeze_and_unfreeze_bridge() {
     ExtBuilder::default()
         .existential_deposit(1_000)
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(do_freeze_and_unfreeze_bridge);
 }
@@ -379,7 +377,6 @@ fn can_timelock_txs() {
     ExtBuilder::default()
         .existential_deposit(1_000)
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(do_timelock_txs);
 }

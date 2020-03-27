@@ -2,11 +2,11 @@
 use crate::{
     asset, bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption, general_tm,
+    contracts_wrapper, dividend, exemption,
+    fee_details::CddHandler,
+    general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    multisig, percentage_tm, simple_token, statistics, sto_capped,
-    update_did_signed_extension::UpdateDid,
-    voting,
+    multisig, percentage_tm, simple_token, statistics, sto_capped, voting,
 };
 
 use pallet_committee as committee;
@@ -201,6 +201,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
     type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
+    type CddHandler = CddHandler;
 }
 
 parameter_types! {
@@ -514,6 +515,7 @@ impl identity::Trait for Runtime {
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;
+    type CddHandler = CddHandler;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
 }
@@ -618,7 +620,6 @@ pub type SignedExtra = (
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_contracts::CheckBlockGasLimit<Runtime>,
-    UpdateDid<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
