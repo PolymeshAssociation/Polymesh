@@ -6,7 +6,7 @@ use crate::{
 use pallet_committee as committee;
 use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::{identity::LinkedKeyInfo, protocol_fee::OperationName};
+use polymesh_runtime_common::{protocol_fee::OperationName, traits::identity::LinkedKeyInfo};
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 

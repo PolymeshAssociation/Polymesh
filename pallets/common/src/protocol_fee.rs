@@ -5,6 +5,23 @@ use polymesh_primitives::Signatory;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{fmt::Debug, prelude::*};
 
+/// Protocol fee operations.
+pub enum ProtocolOp {
+    AssetRegisterTicker,
+    AssetIssue,
+    AssetAddDocument,
+    AssetCreateToken,
+    DividendNew,
+    GeneralTmAddActiveRule,
+    IdentityRegisterDid,
+    IdentityCddRegisterDid,
+    IdentityAddClaim,
+    IdentitySetMasterKey,
+    IdentityAddSigningItem,
+    MipsPropose,
+    VotingAddBallot,
+}
+
 /// A wrapper for the name of a chargeable operation.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]

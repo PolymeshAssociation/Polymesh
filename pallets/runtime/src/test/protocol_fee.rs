@@ -6,7 +6,7 @@ use crate::test::{
 use codec::Encode;
 use frame_support::{assert_err, assert_ok};
 use polymesh_primitives::{AccountKey, Signatory};
-use polymesh_runtime_common::traits::protocol_fee::OperationName;
+use polymesh_runtime_common::protocol_fee::OperationName;
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 

@@ -48,4 +48,3 @@ pub mod balances;
 pub mod group;
 pub mod identity;
 pub mod multisig;
-pub mod protocol_fee;

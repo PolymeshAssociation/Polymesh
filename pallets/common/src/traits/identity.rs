@@ -1,6 +1,8 @@
-use crate::traits::{
-    balances, group::GroupTrait, multisig::AddSignerMultiSig, protocol_fee::ChargeProtocolFee,
-    CommonTrait, NegativeImbalance,
+use crate::{
+    traits::{
+        balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
+    },
+    ChargeProtocolFee,
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, ClaimType, IdentityClaim, IdentityId, LinkData, Permission,

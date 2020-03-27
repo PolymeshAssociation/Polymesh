@@ -46,6 +46,7 @@ use polymesh_runtime_common::{
         did::{SECURITY_TOKEN, USER},
         protocol_op,
     },
+    protocol_fee::{ChargeProtocolFee, OperationName},
     traits::{
         asset::AcceptTransfer,
         group::{GroupTrait, InactiveMember},
@@ -81,10 +82,8 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_transaction_payment::ChargeTxFee;
 use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 
-pub use polymesh_runtime_common::traits::{
-    identity::{IdentityTrait, Trait},
-    protocol_fee::{ChargeProtocolFee, OperationName},
-};
+pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
+
 pub type Event<T> = polymesh_runtime_common::traits::identity::Event<T>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -956,7 +955,7 @@ impl<T: Trait> Module<T> {
             Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
         }
         T::ProtocolFee::charge_fee(
-            &signer,
+            &Signatory::Identity(identity_to_join),
             &OperationName::from(protocol_op::IDENTITY_ADD_SIGNING_ITEM),
         )?;
         <DidRecords>::mutate(identity_to_join, |identity| {
