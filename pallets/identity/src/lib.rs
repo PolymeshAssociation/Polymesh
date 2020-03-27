@@ -184,6 +184,7 @@ decl_storage! {
 
                 <Claims>::insert(&pk, &sk, id_claim);
             }
+            // TODO: Generate CDD for BRR
         });
     }
 }

@@ -34,6 +34,7 @@ use frame_system::{self as system, EnsureSignedBy};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer,
+    balances::CheckCDD,
     group::{GroupTrait, InactiveMember},
     multisig::AddSignerMultiSig,
     CommonTrait,
@@ -217,6 +218,7 @@ impl balances::Trait for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type TransferFee = TransferFee;
     type Identity = identity::Module<Test>;
+    type CDDChecker = Test;
 }
 
 parameter_types! {
@@ -284,6 +286,12 @@ impl AcceptTransfer for Test {
 impl AddSignerMultiSig for Test {
     fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
         unimplemented!()
+    }
+}
+
+impl CheckCDD for Test {
+    fn check_key_cdd(key: &AccountKey) -> bool {
+        true
     }
 }
 
