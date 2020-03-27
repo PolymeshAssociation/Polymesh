@@ -132,7 +132,11 @@ impl<T: Trait> Module<T> {
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
-    pub fn charge_fee_batch(signatory: &Signatory, op: &ProtocolOp, count: usize) -> DispatchResult {
+    pub fn charge_fee_batch(
+        signatory: &Signatory,
+        op: &ProtocolOp,
+        count: usize,
+    ) -> DispatchResult {
         let fee = Self::compute_fee(op)?.saturating_mul(<BalanceOf<T>>::from(count as u32));
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
