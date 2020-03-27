@@ -254,6 +254,7 @@ decl_module! {
                 <NumberOfSigners<T>>::get(&sender) > <MultiSigSignsRequired<T>>::get(&sender),
                 Error::<T>::NotEnoughSigners
             );
+            ensure!(Self::is_changing_signers_allowed(&sender), Error::<T>::ChangeNotAllowed);
             <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - 1u64);
             Self::unsafe_signer_removal(sender, &signer);
             Ok(())
@@ -296,6 +297,7 @@ decl_module! {
                 <MultiSigCreator<T>>::get(&multisig) == signer_did,
                 Error::<T>::IdentityNotCreator
             );
+            ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
 
             // NB: the below check can be underflowed but that doesnt matter
@@ -326,6 +328,7 @@ decl_module! {
                 <NumberOfSigners<T>>::get(&sender) >= sigs_required,
                 Error::<T>::NotEnoughSigners
             );
+            ensure!(Self::is_changing_signers_allowed(&sender), Error::<T>::ChangeNotAllowed);
             Self::unsafe_change_sigs_required(sender, sigs_required);
             Ok(())
         }
@@ -345,6 +348,7 @@ decl_module! {
             ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
                 Error::<T>::RequiredSignaturesOutOfBounds
             );
+            ensure!(Self::is_changing_signers_allowed(&sender), Error::<T>::ChangeNotAllowed);
 
             // Collect the list of all signers present for the given multisig
             let current_signers = <MultiSigSigners<T>>::iter_prefix(&sender).collect::<Vec<Signatory>>();
@@ -465,7 +469,9 @@ decl_error! {
         /// Couldn't charge fee for the transaction
         FailedToChargeFee,
         /// Identity provided is not the multisig's creator
-        IdentityNotCreator
+        IdentityNotCreator,
+        /// Changing multisig parameters not allowed since multisig is a master key
+        ChangeNotAllowed
     }
 }
 
@@ -645,6 +651,10 @@ impl<T: Trait> Module<T> {
             Error::<T>::NoSuchMultisig
         );
         ensure!(
+            Self::is_changing_signers_allowed(&wallet_id),
+            Error::<T>::ChangeNotAllowed
+        );
+        ensure!(
             !<MultiSigSigners<T>>::exists(&wallet_id, &signer),
             Error::<T>::AlreadyASigner
         );
@@ -677,6 +687,21 @@ impl<T: Trait> Module<T> {
     /// Helper function that checks if someone is an authorized signer of a multisig or not
     pub fn ms_signers(multi_sig: T::AccountId, signer: Signatory) -> bool {
         <MultiSigSigners<T>>::exists(multi_sig, signer)
+    }
+
+    pub fn is_changing_signers_allowed(multi_sig: &T::AccountId) -> bool {
+        if <identity::Module<T>>::cdd_auth_for_master_key_rotation() {
+            if let Ok(ms_key) = AccountKey::try_from(multi_sig.clone().encode()) {
+                if let Some(did) = <identity::Module<T>>::get_identity(&ms_key) {
+                    if ms_key == <identity::Module<T>>::did_records(&did).master_key {
+                        return false;
+                    }
+                }
+            } else {
+                return false;
+            }
+        }
+        true
     }
 }
 
