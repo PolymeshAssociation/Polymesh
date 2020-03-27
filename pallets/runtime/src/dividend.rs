@@ -36,9 +36,8 @@ use crate::{asset, simple_token};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
     balances::Trait as BalancesTrait,
-    constants::protocol_op,
     identity::Trait as IdentityTrait,
-    protocol_fee::{ChargeProtocolFee, OperationName},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
@@ -169,7 +168,7 @@ decl_module! {
             let new_balance = balance.checked_sub(&amount).ok_or(Error::<T>::BalanceUnderflow)?;
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &sender,
-                &OperationName::from(protocol_op::DIVIDEND_NEW)
+                &ProtocolOp::DividendNew
             )?;
             <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
 

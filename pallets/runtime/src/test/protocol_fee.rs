@@ -6,7 +6,7 @@ use crate::test::{
 use codec::Encode;
 use frame_support::{assert_err, assert_ok};
 use polymesh_primitives::{AccountKey, Signatory};
-use polymesh_runtime_common::protocol_fee::OperationName;
+use polymesh_runtime_common::protocol_fee::ProtocolOp;
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -18,7 +18,7 @@ type ProtocolFee = polymesh_protocol_fee::Module<TestStorage>;
 fn can_compute_fee() {
     ExtBuilder::default().build().execute_with(|| {
         assert_eq!(
-            ProtocolFee::compute_fee(&OperationName::from(b"asset_issue")),
+            ProtocolFee::compute_fee(&ProtocolOp::AssetIssue),
             Ok(PROTOCOL_OP_BASE_FEE)
         );
     });
@@ -34,11 +34,11 @@ fn can_charge_fee_batch() {
             Signatory::from(AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap());
         assert_ok!(ProtocolFee::charge_fee_batch(
             &alice_signer,
-            &OperationName::from(b"asset_issue"),
+            &ProtocolOp::AssetIssue,
             7,
         ));
         assert_err!(
-            ProtocolFee::charge_fee_batch(&alice_signer, &OperationName::from(b"asset_issue"), 7,),
+            ProtocolFee::charge_fee_batch(&alice_signer, &ProtocolOp::AssetIssue, 7,),
             Error::InsufficientAccountBalance
         );
     });

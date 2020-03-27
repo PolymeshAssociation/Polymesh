@@ -68,7 +68,7 @@ use polymesh_runtime_common::{
     balances::Trait as BalancesTrait,
     constants::*,
     identity::Trait as IdentityTrait,
-    protocol_fee::{ChargeProtocolFee, OperationName},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
@@ -349,7 +349,7 @@ decl_module! {
 
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &signer,
-                &OperationName::from(protocol_op::ASSET_REGISTER_TICKER)
+                &ProtocolOp::AssetRegisterTicker
             )?;
             Self::_register_ticker(&ticker, sender, to_did, expiry);
 
@@ -442,7 +442,7 @@ decl_module! {
 
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &signer,
-                &OperationName::from(protocol_op::ASSET_CREATE_TOKEN),
+                &ProtocolOp::AssetCreateToken,
             )?;
             <identity::Module<T>>::register_asset_did(&ticker)?;
 
@@ -718,7 +718,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &signer,
-                &OperationName::from(protocol_op::ASSET_ISSUE)
+                &ProtocolOp::AssetIssue
             )?;
             Self::_mint(&ticker, sender, to_did, value)
         }
@@ -790,7 +790,7 @@ decl_module! {
             }
             <<T as IdentityTrait>::ProtocolFee>::charge_fee_batch(
                 &signer,
-                &OperationName::from(protocol_op::ASSET_ISSUE),
+                &ProtocolOp::AssetIssue,
                 investor_dids.len()
             )?;
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
@@ -1097,7 +1097,7 @@ decl_module! {
             let signer = Signatory::from(ticker_did);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee_batch(
                 &sender_signer,
-                &OperationName::from(protocol_op::ASSET_ADD_DOCUMENT),
+                &ProtocolOp::AssetAddDocument,
                 documents.len()
             )?;
             documents.into_iter().for_each(|doc| {

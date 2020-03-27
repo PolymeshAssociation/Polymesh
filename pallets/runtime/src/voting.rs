@@ -34,9 +34,8 @@ use crate::asset::{self, AssetTrait};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
-    constants::protocol_op,
     identity::Trait as IdentityTrait,
-    protocol_fee::{ChargeProtocolFee, OperationName},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
@@ -181,7 +180,7 @@ decl_module! {
             }
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &sender,
-                &OperationName::from(protocol_op::VOTING_ADD_BALLOT)
+                &ProtocolOp::VotingAddBallot
             )?;
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
                 <TotalChoices>::insert(&ticker_ballot_name, total_choices_u64);

@@ -52,7 +52,7 @@ use polymesh_runtime_common::{
     balances::Trait as BalancesTrait,
     constants::*,
     identity::Trait as IdentityTrait,
-    protocol_fee::{ChargeProtocolFee, OperationName},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
 use polymesh_runtime_identity as identity;
@@ -144,7 +144,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &Signatory::AccountKey(sender_key),
-                &OperationName::from(protocol_op::GENERAL_TM_ADD_ACTIVE_RULE)
+                &ProtocolOp::GeneralTmAddActiveRule
             )?;
             let new_rule = AssetTransferRule {
                 sender_rules: sender_rules,

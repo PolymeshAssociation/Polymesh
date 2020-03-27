@@ -6,7 +6,7 @@ use crate::{
 use pallet_committee as committee;
 use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{protocol_fee::OperationName, traits::identity::LinkedKeyInfo};
+use polymesh_runtime_common::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
@@ -33,28 +33,27 @@ impl Default for BuilderVoteThreshold {
     }
 }
 
-pub struct MockProtocolBaseFees(pub Vec<(OperationName, u128)>);
+pub struct MockProtocolBaseFees(pub Vec<(ProtocolOp, u128)>);
 
 impl Default for MockProtocolBaseFees {
     fn default() -> Self {
         let ops = vec![
-            b"asset_register_ticker".to_vec(),
-            b"asset_issue".to_vec(),
-            b"asset_add_document".to_vec(),
-            b"asset_create_token".to_vec(),
-            b"dividend_new".to_vec(),
-            b"general_tm_add_active_rule".to_vec(),
-            b"identity_register_did".to_vec(),
-            b"identity_cdd_register_did".to_vec(),
-            b"identity_add_claim".to_vec(),
-            b"identity_set_master_key".to_vec(),
-            b"identity_add_signing_item".to_vec(),
-            b"mips_propose".to_vec(),
-            b"voting_add_ballot".to_vec(),
+            ProtocolOp::AssetRegisterTicker,
+            ProtocolOp::AssetIssue,
+            ProtocolOp::AssetAddDocument,
+            ProtocolOp::AssetCreateToken,
+            ProtocolOp::DividendNew,
+            ProtocolOp::GeneralTmAddActiveRule,
+            ProtocolOp::IdentityRegisterDid,
+            ProtocolOp::IdentityCddRegisterDid,
+            ProtocolOp::IdentityAddClaim,
+            ProtocolOp::IdentitySetMasterKey,
+            ProtocolOp::IdentityAddSigningItem,
+            ProtocolOp::MipsPropose,
+            ProtocolOp::VotingAddBallot,
         ];
         let fees = ops
             .into_iter()
-            .map(OperationName)
             .zip(iter::repeat(PROTOCOL_OP_BASE_FEE))
             .collect();
         MockProtocolBaseFees(fees)

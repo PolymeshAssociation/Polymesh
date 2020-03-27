@@ -49,9 +49,8 @@ use frame_system::{self as system, ensure_signed};
 use pallet_mips_rpc_runtime_api::VoteCount;
 use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_runtime_common::{
-    constants::protocol_op,
     identity::Trait as IdentityTrait,
-    protocol_fee::{ChargeProtocolFee, OperationName},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::group::GroupTrait,
     Context,
 };
@@ -342,7 +341,7 @@ decl_module! {
             <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
             <T as IdentityTrait>::ProtocolFee::charge_fee(
                 &signer,
-                &OperationName::from(protocol_op::MIPS_PROPOSE)
+                &ProtocolOp::MipsPropose
             )?;
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);

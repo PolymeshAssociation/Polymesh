@@ -9,7 +9,7 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
 };
 use frame_system::{self as system, ensure_root};
-use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, OperationName};
+use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use primitives::{traits::IdentityCurrency, PosRatio, Signatory};
 use sp_runtime::traits::{CheckedDiv, Saturating, Zero};
 
@@ -46,7 +46,7 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as ProtocolFee {
         /// The mapping of operation names to the base fees of those operations.
-        pub BaseFees get(base_fees) config(): map OperationName => BalanceOf<T>;
+        pub BaseFees get(base_fees) config(): map ProtocolOp => BalanceOf<T>;
         /// The fee coefficient as a positive rational (numerator, denominator).
         pub Coefficient get(coefficient) config() build(|config: &GenesisConfig<T>| {
             if config.coefficient.1 == 0 {
@@ -81,17 +81,17 @@ decl_module! {
         }
 
         /// Changes the a base fee for the root origin.
-        pub fn change_base_fee(origin, name: OperationName, base_fee: BalanceOf<T>) ->
+        pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
             DispatchResult
         {
             ensure_root(origin)?;
-            <BaseFees<T>>::insert(name, base_fee);
+            <BaseFees<T>>::insert(op, base_fee);
             Ok(())
         }
 
         /// Emits an event with the fee of the operation.
-        pub fn get_fee(_origin, name: OperationName) -> DispatchResult {
-            let fee = Self::compute_fee(&name)?;
+        pub fn get_fee(_origin, op: ProtocolOp) -> DispatchResult {
+            let fee = Self::compute_fee(&op)?;
             Self::deposit_event(RawEvent::Fee(fee));
             Ok(())
         }
@@ -106,10 +106,10 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
-    pub fn compute_fee(name: &OperationName) -> ComputeFeeResult<T> {
+    pub fn compute_fee(op: &ProtocolOp) -> ComputeFeeResult<T> {
         let coefficient = Self::coefficient();
         let (numerator, denominator) = (coefficient.0, coefficient.1);
-        if let Some(fee) = Self::base_fees(name)
+        if let Some(fee) = Self::base_fees(op)
             .saturating_mul(<BalanceOf<T>>::from(numerator))
             .checked_div(&<BalanceOf<T>>::from(denominator))
         {
@@ -120,8 +120,8 @@ impl<T: Trait> Module<T> {
     }
 
     /// Computes the fee of the operation and charges it to the given signatory.
-    pub fn charge_fee(signatory: &Signatory, name: &OperationName) -> DispatchResult {
-        let fee = Self::compute_fee(name)?;
+    pub fn charge_fee(signatory: &Signatory, op: &ProtocolOp) -> DispatchResult {
+        let fee = Self::compute_fee(op)?;
         if fee.is_zero() {
             return Ok(());
         }
@@ -132,12 +132,8 @@ impl<T: Trait> Module<T> {
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
-    pub fn charge_fee_batch(
-        signatory: &Signatory,
-        name: &OperationName,
-        count: usize,
-    ) -> DispatchResult {
-        let fee = Self::compute_fee(name)?.saturating_mul(<BalanceOf<T>>::from(count as u32));
+    pub fn charge_fee_batch(signatory: &Signatory, op: &ProtocolOp, count: usize) -> DispatchResult {
+        let fee = Self::compute_fee(op)?.saturating_mul(<BalanceOf<T>>::from(count as u32));
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
         Ok(())
@@ -161,15 +157,11 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
-    fn charge_fee(signatory: &Signatory, name: &OperationName) -> DispatchResult {
-        Self::charge_fee(signatory, name)
+    fn charge_fee(signatory: &Signatory, op: &ProtocolOp) -> DispatchResult {
+        Self::charge_fee(signatory, op)
     }
 
-    fn charge_fee_batch(
-        signatory: &Signatory,
-        name: &OperationName,
-        count: usize,
-    ) -> DispatchResult {
-        Self::charge_fee_batch(signatory, name, count)
+    fn charge_fee_batch(signatory: &Signatory, op: &ProtocolOp, count: usize) -> DispatchResult {
+        Self::charge_fee_batch(signatory, op, count)
     }
 }

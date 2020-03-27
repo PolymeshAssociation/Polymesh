@@ -42,11 +42,8 @@ use polymesh_primitives::{
     PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
-    constants::{
-        did::{SECURITY_TOKEN, USER},
-        protocol_op,
-    },
-    protocol_fee::{ChargeProtocolFee, OperationName},
+    constants::did::{SECURITY_TOKEN, USER},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
         asset::AcceptTransfer,
         group::{GroupTrait, InactiveMember},
@@ -202,7 +199,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             T::ProtocolFee::charge_fee(
                 &Signatory::AccountKey(sender_key),
-                &OperationName::from(protocol_op::IDENTITY_REGISTER_DID)
+                &ProtocolOp::IdentityRegisterDid
             )?;
             let _new_id = Self::_register_did(sender, signing_items)?;
             Ok(())
@@ -237,7 +234,7 @@ decl_module! {
             ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
             T::ProtocolFee::charge_fee(
                 &Signatory::AccountKey(cdd_key),
-                &OperationName::from(protocol_op::IDENTITY_CDD_REGISTER_DID)
+                &ProtocolOp::IdentityCddRegisterDid
             )?;
 
             // Register Identity and add claim.
@@ -306,7 +303,7 @@ decl_module! {
             );
             T::ProtocolFee::charge_fee(
                 &Signatory::AccountKey(sender_key),
-                &OperationName::from(protocol_op::IDENTITY_SET_MASTER_KEY)
+                &ProtocolOp::IdentitySetMasterKey
             )?;
             <DidRecords>::mutate(did,
             |record| {
@@ -371,7 +368,7 @@ decl_module! {
             ensure!(<DidRecords>::exists(target), Error::<T>::DidMustAlreadyExist);
             T::ProtocolFee::charge_fee(
                 &Signatory::AccountKey(sender_key),
-                &OperationName::from(protocol_op::IDENTITY_ADD_CLAIM)
+                &ProtocolOp::IdentityAddClaim
             )?;
             match claim {
                 Claim::CustomerDueDiligence => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry),
@@ -394,7 +391,7 @@ decl_module! {
                 Error::<T>::DidMustAlreadyExist);
             T::ProtocolFee::charge_fee_batch(
                 &Signatory::AccountKey(sender_key),
-                &OperationName::from(protocol_op::IDENTITY_ADD_CLAIM),
+                &ProtocolOp::IdentityAddClaim,
                 claims.len()
             )?;
             claims.into_iter()
@@ -817,7 +814,7 @@ decl_module! {
             });
             T::ProtocolFee::charge_fee_batch(
                 &Signatory::AccountKey(sender_key),
-                &OperationName::from(protocol_op::IDENTITY_ADD_SIGNING_ITEM),
+                &ProtocolOp::IdentityAddSigningItem,
                 additional_keys.len()
             )?;
             // 2.2. Update that identity information and its offchain authorization nonce.
@@ -956,7 +953,7 @@ impl<T: Trait> Module<T> {
         }
         T::ProtocolFee::charge_fee(
             &Signatory::Identity(identity_to_join),
-            &OperationName::from(protocol_op::IDENTITY_ADD_SIGNING_ITEM),
+            &ProtocolOp::IdentityAddSigningItem,
         )?;
         <DidRecords>::mutate(identity_to_join, |identity| {
             identity.add_signing_items(&[SigningItem::new(signer, vec![])]);
