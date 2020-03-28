@@ -5,6 +5,8 @@ const BN = require("bn.js");
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
+const { blake2AsHex } = require('@polkadot/util-crypto');
+const { stringToU8a, u8aConcat, u8aFixLength } = require('@polkadot/util');
 
 let nonces = new Map();
 let sk_roles = [[0], [1], [2], [1, 2]];
@@ -33,12 +35,12 @@ const senderRules1 = function(trusted_did) {
   ];
 }
 
-const receiverRules1 = function(trusted_did) {
+const receiverRules1 = function(trusted_did, asset_did) {
     return [
     {
       "rule_type": {
         "IsPresent": {
-          "Whitelisted": "this"
+          "Whitelisted": asset_did
         }
       },
       "issuers": [trusted_did]
@@ -217,15 +219,15 @@ async function issueTokenPerDid(api, accounts, dids, prepend) {
   
 }
 
-async function createClaimRules(api, accounts, dids, prepend) {
+async function createClaimRules(api, accounts, dids) {
     
- 
     const ticker = `token${prepend}0`.toUpperCase();
     assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-    
-    let senderRules = senderRules1(dids[1]);
-    let receiverRules = receiverRules1(dids[1]);
-    //let receiverRules = [{"whitelisted":"this", "issuers": dids[1].address}];
+    const asset_did = blake2AsHex(
+      u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
+           ));
+  
+    let receiverRules = receiverRules1(dids[1], asset_did);
 
     const unsub = await api.tx.generalTm
       .addActiveRule(ticker, [], receiverRules)
@@ -238,7 +240,15 @@ async function createClaimRules(api, accounts, dids, prepend) {
 
 async function addClaimsToDids(api, accounts, dids) {
   
-  let claim = {"Whitelisted":"this"};
+  const ticker = `token${prepend}0`.toUpperCase();
+  assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+
+  const asset_did = blake2AsHex(
+    u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
+         ));
+
+
+  let claim = {"Whitelisted":asset_did};
 
       const unsub = await api.tx.identity
       .addClaim(dids[2], claim, 0)

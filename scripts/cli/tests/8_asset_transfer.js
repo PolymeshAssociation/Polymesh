@@ -46,7 +46,7 @@ async function main() {
 
   await reqImports["blockTillPoolEmpty"](api);
 
-  await reqImports["createClaimRules"]( api, master_keys, issuer_dids, reqImports["prepend"] );
+  await reqImports["createClaimRules"]( api, master_keys, issuer_dids );
 
   await reqImports["blockTillPoolEmpty"](api);
 
