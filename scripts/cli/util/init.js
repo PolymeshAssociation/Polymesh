@@ -22,6 +22,10 @@ let synced_block_ts = 0;
 let transfer_amount = 10 * 10 ** 12;
 let prepend = "demo";
 
+// Used for creating a single ticker 
+const ticker = `token${prepend}0`.toUpperCase();
+assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+
 const senderRules1 = function(trusted_did, receiving_did) {
     return [
     {
@@ -207,9 +211,8 @@ async function callback(status, events, sectionName, methodName, fail_count) {
   return fail_count;
 }
 
-async function issueTokenPerDid(api, accounts, dids, prepend) {
- 
-    const ticker = `token${prepend}0`.toUpperCase();
+// Creates a token for a did
+async function issueTokenPerDid(api, accounts) {
 
     const unsub = await api.tx.asset
       .createToken(ticker, ticker, 1000000, true, 0, [], "abc")
@@ -219,13 +222,16 @@ async function issueTokenPerDid(api, accounts, dids, prepend) {
   
 }
 
-async function createClaimRules(api, accounts, dids) {
-    
-    const ticker = `token${prepend}0`.toUpperCase();
-    assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-    const asset_did = blake2AsHex(
+function tickerToDid(ticker) {
+    return blake2AsHex(
       u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
            ));
+}
+
+// Creates claim rules for an asset
+async function createClaimRules(api, accounts, dids) {
+    
+    const asset_did = tickerToDid(ticker);
   
     let senderRules = senderRules1(dids[1], dids[2]);
     let receiverRules = receiverRules1(dids[1], asset_did);
@@ -239,34 +245,18 @@ async function createClaimRules(api, accounts, dids) {
   
 }
 
-async function addClaimsToDids(api, accounts, dids) {
-  
-  const ticker = `token${prepend}0`.toUpperCase();
-  assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-
-  const asset_did = blake2AsHex(
-    u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
-         ));
+// Adds claim to did
+async function addClaimsToDids(api, accounts, did, claimType, claimValue) {
 
   // Receieving Rules Claim
-  let claim = {"Whitelisted":asset_did};
+  let claim = {[claimType]: claimValue};
 
       const unsub = await api.tx.identity
-      .addClaim(dids[2], claim, null)
+      .addClaim(did, claim, null)
       .signAndSend(accounts[1],
         { nonce: nonces.get(accounts[1].address) });
 
     nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
-
-    // SenderRules Claim
-    let claim2 = {"Whitelisted":dids[2]};
-
-    const unsub2 = await api.tx.identity
-    .addClaim(dids[0], claim2, null)
-    .signAndSend(accounts[1],
-      { nonce: nonces.get(accounts[1].address) });
-
-  nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
     
 }
 
@@ -293,7 +283,9 @@ let reqImports = {
   senderRules1,
   receiverRules1,
   createClaimRules,
-  addClaimsToDids
+  addClaimsToDids,
+  ticker,
+  tickerToDid
 };
 
 export { reqImports };
