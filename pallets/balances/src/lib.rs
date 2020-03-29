@@ -640,10 +640,12 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         let brr = <BlockRewardsReserve<T>>::get();
         Self::try_mutate_account(&brr, |account| -> DispatchResult {
             if account.free > Zero::zero() {
-                account.free = account.free.saturating_sub(amount);
-                // set to 0 as `amount - (brr_balance - new_brr_balance)` will be 0
-                // where brr_balance = account.free while new_brr_balance will be `account.free.saturating_sub(amount)`
-                amount = Zero::zero();
+                let old_brr_free_balance = account.free;
+                let new_brr_free_balance = old_brr_free_balance.saturating_sub(amount);
+                account.free = new_brr_free_balance;
+                // Calculate how much amount to mint that is not available with the Brr
+                // eg. amount = 100 and the account.free = 60 then `amount_to_mint` = 40
+                amount = amount - (old_brr_free_balance - new_brr_free_balance);
             }
             <TotalIssuance<T>>::mutate(|v| *v = v.saturating_add(amount));
             Ok(())
@@ -658,9 +660,12 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         let brr = <BlockRewardsReserve<T>>::get();
         Self::try_mutate_account(&brr, |account| -> Result<NegativeImbalance<T>, ()> {
             let amount_to_mint = if account.free > Zero::zero() {
-                let new_brr_balance = account.free.saturating_sub(amount);
-                account.free = new_brr_balance;
-                amount - (account.free - new_brr_balance)
+                let old_brr_free_balance = account.free;
+                let new_brr_free_balance = old_brr_free_balance.saturating_sub(amount);
+                account.free = new_brr_free_balance;
+                // Calculate how much amount to mint that is not available with the Brr
+                // eg. amount = 100 and the account.free = 60 then `amount_to_mint` = 40
+                amount - (old_brr_free_balance - new_brr_free_balance)
             } else {
                 amount
             };
@@ -918,7 +923,6 @@ where
                 // equal and opposite cause (returned as an Imbalance), then in the
                 // instance that there's no other accounts on the system at all, we might
                 // underflow the issuance and our arithmetic will be off.
-                ensure!(!account.total().is_zero(), ());
 
                 let imbalance = if account.free <= value {
                     SignedImbalance::Positive(PositiveImbalance::new(value - account.free))

@@ -316,21 +316,29 @@ impl<T: Trait> ChargeTxFee for Module<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{ChargeTxFee, *};
     use codec::Encode;
     use frame_support::{
+        dispatch::DispatchResult,
         impl_outer_dispatch, impl_outer_origin, parameter_types,
         weights::{DispatchClass, DispatchInfo, GetDispatchInfo, Weight},
     };
     use pallet_balances::Call as BalancesCall;
     use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
+    use polymesh_runtime_common::traits::{
+        asset::AcceptTransfer, balances, identity::IdentityTrait, CommonTrait,
+    };
+    use primitives::{IdentityId, Permission};
     use sp_core::H256;
     use sp_runtime::{
         testing::{Header, TestXt},
-        traits::{BlakeTwo256, Extrinsic, IdentityLookup},
+        traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
-    use sp_std::cell::RefCell;
+    use std::cell::RefCell;
+
+    pub type AccountId = u64;
+    pub type Balance = u128;
 
     const CALL: &<Runtime as frame_system::Trait>::Call =
         &Call::Balances(BalancesCall::transfer(2, 69));
@@ -364,7 +372,7 @@ mod tests {
         type Call = Call;
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
+        type AccountId = AccountId;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
@@ -374,50 +382,92 @@ mod tests {
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
         type ModuleToIndex = ();
+        type AccountData = balances::AccountData<u128>;
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
     }
 
     parameter_types! {
-        pub const TransferFee: u64 = 0;
-        pub const CreationFee: u64 = 0;
-        pub const ExistentialDeposit: u64 = 0;
+        pub const ExistentialDeposit: u128 = 1;
+    }
+
+    impl CommonTrait for Runtime {
+        type Balance = u128;
+        type AcceptTransferTarget = Runtime;
+        type BlockRewardsReserve = pallet_balances::Module<Runtime>;
+    }
+
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 3;
     }
 
     impl pallet_balances::Trait for Runtime {
-        type Balance = u64;
-        type OnFreeBalanceZero = ();
-        type OnNewAccount = ();
-        type Event = ();
-        type TransferPayment = ();
         type DustRemoval = ();
+        type Event = ();
         type ExistentialDeposit = ExistentialDeposit;
-        type TransferFee = TransferFee;
-        type CreationFee = CreationFee;
+        type AccountStore = frame_system::Module<Runtime>;
+        type Identity = Runtime;
     }
 
     thread_local! {
-        static TRANSACTION_BASE_FEE: RefCell<u64> = RefCell::new(0);
-        static TRANSACTION_BYTE_FEE: RefCell<u64> = RefCell::new(1);
-        static WEIGHT_TO_FEE: RefCell<u64> = RefCell::new(1);
+        static TRANSACTION_BASE_FEE: RefCell<u128> = RefCell::new(0);
+        static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(1);
+        static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
+    }
+
+    impl IdentityTrait for Runtime {
+        fn get_identity(key: &AccountKey) -> Option<IdentityId> {
+            unimplemented!()
+        }
+        fn current_identity() -> Option<IdentityId> {
+            unimplemented!()
+        }
+        fn set_current_identity(id: Option<IdentityId>) {
+            unimplemented!()
+        }
+
+        fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool {
+            unimplemented!()
+        }
+        fn is_signer_authorized_with_permissions(
+            did: IdentityId,
+            signer: &Signatory,
+            permissions: Vec<Permission>,
+        ) -> bool {
+            unimplemented!()
+        }
+        fn is_master_key(did: IdentityId, key: &AccountKey) -> bool {
+            unimplemented!()
+        }
+    }
+
+    impl AcceptTransfer for Runtime {
+        fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
+            Ok(())
+        }
+        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
+            Ok(())
+        }
     }
 
     pub struct TransactionBaseFee;
-    impl Get<u64> for TransactionBaseFee {
-        fn get() -> u64 {
+    impl Get<u128> for TransactionBaseFee {
+        fn get() -> u128 {
             TRANSACTION_BASE_FEE.with(|v| *v.borrow())
         }
     }
 
     pub struct TransactionByteFee;
-    impl Get<u64> for TransactionByteFee {
-        fn get() -> u64 {
+    impl Get<u128> for TransactionByteFee {
+        fn get() -> u128 {
             TRANSACTION_BYTE_FEE.with(|v| *v.borrow())
         }
     }
 
-    pub struct WeightToFee(u64);
-    impl Convert<Weight, u64> for WeightToFee {
-        fn convert(t: Weight) -> u64 {
-            WEIGHT_TO_FEE.with(|v| *v.borrow() * (t as u64))
+    pub struct WeightToFee(u128);
+    impl Convert<Weight, u128> for WeightToFee {
+        fn convert(t: Weight) -> u128 {
+            WEIGHT_TO_FEE.with(|v| *v.borrow() * (t as u128))
         }
     }
 
@@ -430,15 +480,21 @@ mod tests {
         type FeeMultiplierUpdate = ();
     }
 
+    impl ChargeTxFee for Runtime {
+        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+            Ok(ValidTransaction::default())
+        }
+    }
+
     type Balances = pallet_balances::Module<Runtime>;
     type System = frame_system::Module<Runtime>;
     type TransactionPayment = Module<Runtime>;
 
     pub struct ExtBuilder {
-        balance_factor: u64,
-        base_fee: u64,
-        byte_fee: u64,
-        weight_to_fee: u64,
+        balance_factor: u128,
+        base_fee: u128,
+        byte_fee: u128,
+        weight_to_fee: u128,
     }
 
     impl Default for ExtBuilder {
@@ -453,13 +509,19 @@ mod tests {
     }
 
     impl ExtBuilder {
-        pub fn fees(mut self, base: u64, byte: u64, weight: u64) -> Self {
-            self.base_fee = base;
-            self.byte_fee = byte;
-            self.weight_to_fee = weight;
+        pub fn base_fee(mut self, base_fee: u128) -> Self {
+            self.base_fee = base_fee;
             self
         }
-        pub fn balance_factor(mut self, factor: u64) -> Self {
+        pub fn byte_fee(mut self, byte_fee: u128) -> Self {
+            self.byte_fee = byte_fee;
+            self
+        }
+        pub fn weight_fee(mut self, weight_to_fee: u128) -> Self {
+            self.weight_to_fee = weight_to_fee;
+            self
+        }
+        pub fn balance_factor(mut self, factor: u128) -> Self {
             self.balance_factor = factor;
             self
         }
@@ -474,15 +536,18 @@ mod tests {
                 .build_storage::<Runtime>()
                 .unwrap();
             pallet_balances::GenesisConfig::<Runtime> {
-                balances: vec![
-                    (1, 10 * self.balance_factor),
-                    (2, 20 * self.balance_factor),
-                    (3, 30 * self.balance_factor),
-                    (4, 40 * self.balance_factor),
-                    (5, 50 * self.balance_factor),
-                    (6, 60 * self.balance_factor),
-                ],
-                vesting: vec![],
+                balances: if self.balance_factor > 0 {
+                    vec![
+                        (1, 10 * self.balance_factor),
+                        (2, 20 * self.balance_factor),
+                        (3, 30 * self.balance_factor),
+                        (4, 40 * self.balance_factor),
+                        (5, 50 * self.balance_factor),
+                        (6, 60 * self.balance_factor),
+                    ]
+                } else {
+                    vec![]
+                },
             }
             .assimilate_storage(&mut t)
             .unwrap();
@@ -502,20 +567,22 @@ mod tests {
     #[test]
     fn signed_extension_transaction_payment_work() {
         ExtBuilder::default()
-            .balance_factor(10) // 100
-            .fees(5, 1, 1) // 5 fixed, 1 per byte, 1 per weight
+            .balance_factor(10)
+            .base_fee(5)
             .build()
             .execute_with(|| {
                 let len = 10;
                 assert!(ChargeTransactionPayment::<Runtime>::from(0)
                     .pre_dispatch(&1, CALL, info_from_weight(5), len)
                     .is_ok());
-                assert_eq!(Balances::free_balance(&1), 100 - 5 - 5 - 10);
+                assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 
-                assert!(ChargeTransactionPayment::<Runtime>::from(5 /* tipped */)
-                    .pre_dispatch(&2, CALL, info_from_weight(3), len)
-                    .is_ok());
-                assert_eq!(Balances::free_balance(&2), 200 - 5 - 10 - 3 - 5);
+                assert_eq!(
+                    ChargeTransactionPayment::<Runtime>::from(5 /* tipped */)
+                        .pre_dispatch(&2, CALL, info_from_weight(3), len)
+                        .is_ok(),
+                    false // Because of tipping as tipping is not allowed in Polymesh
+                );
             });
     }
 
@@ -523,7 +590,7 @@ mod tests {
     fn signed_extension_transaction_payment_is_bounded() {
         ExtBuilder::default()
             .balance_factor(1000)
-            .fees(0, 0, 1)
+            .byte_fee(0)
             .build()
             .execute_with(|| {
                 // maximum weight possible
@@ -533,7 +600,7 @@ mod tests {
                 // fee will be proportional to what is the actual maximum weight in the runtime.
                 assert_eq!(
                     Balances::free_balance(&1),
-                    (10000 - <Runtime as frame_system::Trait>::MaximumBlockWeight::get()) as u64
+                    (10000 - <Runtime as frame_system::Trait>::MaximumBlockWeight::get()) as u128
                 );
             });
     }
@@ -541,16 +608,16 @@ mod tests {
     #[test]
     fn signed_extension_allows_free_transactions() {
         ExtBuilder::default()
-            .fees(100, 1, 1)
+            .base_fee(100)
             .balance_factor(0)
             .build()
             .execute_with(|| {
                 // 1 ain't have a penny.
-                assert_eq!(Balances::free_balance(&1), 0);
+                assert_eq!(Balances::free_balance(1), 0);
 
                 let len = 100;
 
-                // like a FreeOperational
+                // This is a completely free (and thus wholly insecure/DoS-ridden) transaction.
                 let operational_transaction = DispatchInfo {
                     weight: 0,
                     class: DispatchClass::Operational,
@@ -560,7 +627,7 @@ mod tests {
                     .validate(&1, CALL, operational_transaction, len)
                     .is_ok());
 
-                // like a FreeNormal
+                // like a InsecureFreeNormal
                 let free_transaction = DispatchInfo {
                     weight: 0,
                     class: DispatchClass::Normal,
@@ -575,7 +642,7 @@ mod tests {
     #[test]
     fn signed_ext_length_fee_is_also_updated_per_congestion() {
         ExtBuilder::default()
-            .fees(5, 1, 1)
+            .base_fee(5)
             .balance_factor(10)
             .build()
             .execute_with(|| {
@@ -583,10 +650,12 @@ mod tests {
                 NextFeeMultiplier::put(Fixed64::from_rational(1, 2));
                 let len = 10;
 
-                assert!(ChargeTransactionPayment::<Runtime>::from(10) // tipped
-                    .pre_dispatch(&1, CALL, info_from_weight(3), len)
-                    .is_ok());
-                assert_eq!(Balances::free_balance(&1), 100 - 10 - 5 - (10 + 3) * 3 / 2);
+                assert_eq!(
+                    ChargeTransactionPayment::<Runtime>::from(10) // tipped
+                        .pre_dispatch(&1, CALL, info_from_weight(3), len)
+                        .is_ok(),
+                    false
+                );
             })
     }
 
@@ -595,12 +664,13 @@ mod tests {
         let call = Call::Balances(BalancesCall::transfer(2, 69));
         let origin = 111111;
         let extra = ();
-        let xt = TestXt::new(call, Some((origin, extra))).unwrap();
+        let xt = TestXt::new(call, Some((origin, extra)));
         let info = xt.get_dispatch_info();
         let ext = xt.encode();
         let len = ext.len() as u32;
         ExtBuilder::default()
-            .fees(5, 1, 2)
+            .base_fee(5)
+            .weight_fee(2)
             .build()
             .execute_with(|| {
                 // all fees should be x1.5
@@ -613,8 +683,8 @@ mod tests {
                         class: info.class,
                         partial_fee: 5 /* base */
 						+ (
-							len as u64 /* len * 1 */
-							+ info.weight.min(MaximumBlockWeight::get()) as u64 * 2 /* weight * weight_to_fee */
+							len as u128 /* len * 1 */
+							+ info.weight.min(MaximumBlockWeight::get()) as u128 * 2 /* weight * weight_to_fee */
 						) * 3 / 2
                     },
                 );
@@ -624,7 +694,8 @@ mod tests {
     #[test]
     fn compute_fee_works_without_multiplier() {
         ExtBuilder::default()
-            .fees(100, 10, 1)
+            .base_fee(100)
+            .byte_fee(10)
             .balance_factor(0)
             .build()
             .execute_with(|| {
@@ -677,7 +748,8 @@ mod tests {
     #[test]
     fn compute_fee_works_with_multiplier() {
         ExtBuilder::default()
-            .fees(100, 10, 1)
+            .base_fee(100)
+            .byte_fee(10)
             .balance_factor(0)
             .build()
             .execute_with(|| {
@@ -714,7 +786,8 @@ mod tests {
     #[test]
     fn compute_fee_does_not_overflow() {
         ExtBuilder::default()
-            .fees(100, 10, 1)
+            .base_fee(100)
+            .byte_fee(10)
             .balance_factor(0)
             .build()
             .execute_with(|| {
@@ -728,9 +801,9 @@ mod tests {
                     ChargeTransactionPayment::<Runtime>::compute_fee(
                         <u32>::max_value(),
                         dispatch_info,
-                        <u64>::max_value()
+                        <Balance>::max_value()
                     ),
-                    <u64>::max_value()
+                    <Balance>::max_value()
                 );
             });
     }

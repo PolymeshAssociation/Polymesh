@@ -31,6 +31,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", default-features = false }
+pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false}
 
 [features]
 equalize = []

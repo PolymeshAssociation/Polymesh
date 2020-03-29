@@ -405,7 +405,7 @@ decl_module! {
             //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
 
-            /// 1.4 charge fee
+            // 1.4 charge fee
             ensure!(
                 T::ChargeTxFeeTarget::charge_fee(
                     Signatory::from(AccountKey::try_from(sender.encode())?),

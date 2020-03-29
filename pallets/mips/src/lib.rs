@@ -685,16 +685,17 @@ mod tests {
     use polymesh_primitives::{IdentityId, Signatory};
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
-        asset::AcceptTransfer, multisig::AddSignerMultiSig, CommonTrait,
+        asset::AcceptTransfer, balances::AccountData, multisig::AddSignerMultiSig, CommonTrait,
     };
     use polymesh_runtime_group as group;
     use polymesh_runtime_identity as identity;
 
     use frame_support::{
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
-        parameter_types,
+        parameter_types, weights::DispatchInfo,
     };
     use sp_core::H256;
+    use sp_runtime::transaction_validity::{TransactionValidity, ValidTransaction};
     use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup, Verify},
@@ -728,9 +729,9 @@ mod tests {
 
     impl frame_system::Trait for Test {
         type Origin = Origin;
-        type Call = ();
         type Index = u64;
         type BlockNumber = u64;
+        type Call = Call;
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = AccountId;
@@ -743,6 +744,9 @@ mod tests {
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
         type ModuleToIndex = ();
+        type AccountData = AccountData<<Test as CommonTrait>::Balance>;
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
     }
 
     parameter_types! {
@@ -755,19 +759,15 @@ mod tests {
 
     impl CommonTrait for Test {
         type Balance = u128;
-        type CreationFee = CreationFee;
         type AcceptTransferTarget = Test;
         type BlockRewardsReserve = balances::Module<Test>;
     }
 
     impl balances::Trait for Test {
-        type OnFreeBalanceZero = ();
-        type OnNewAccount = ();
-        type TransferPayment = ();
         type DustRemoval = ();
         type Event = ();
         type ExistentialDeposit = ExistentialDeposit;
-        type TransferFee = TransferFee;
+        type AccountStore = frame_system::Module<Test>;
         type Identity = identity::Module<Test>;
     }
 
@@ -775,7 +775,7 @@ mod tests {
         type Event = ();
         type Proposal = Call;
         type AddSignerMultiSigTarget = Test;
-        type CddServiceProviders = Test;
+        type CddServiceProviders = group::Module<Test, group::Instance2>;
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
     }
@@ -794,10 +794,10 @@ mod tests {
 
     impl AcceptTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
+            Ok(())
         }
         fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
+            Ok(())
         }
     }
 
@@ -831,6 +831,7 @@ mod tests {
         type Event = ();
     }
 
+    /// PolymeshCommittee as an instance of group
     impl group::Trait<group::Instance1> for Test {
         type Event = ();
         type AddOrigin = frame_system::EnsureRoot<AccountId>;
@@ -839,6 +840,16 @@ mod tests {
         type ResetOrigin = frame_system::EnsureRoot<AccountId>;
         type MembershipInitialized = ();
         type MembershipChanged = committee::Module<Test, committee::Instance1>;
+    }
+
+    impl group::Trait<group::Instance2> for Test {
+        type Event = ();
+        type AddOrigin = frame_system::EnsureRoot<AccountId>;
+        type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+        type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+        type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = ();
     }
 
     pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as system::Trait>::AccountId, I>;
