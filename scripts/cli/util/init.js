@@ -22,15 +22,15 @@ let synced_block_ts = 0;
 let transfer_amount = 10 * 10 ** 12;
 let prepend = "demo";
 
-const senderRules1 = function(trusted_did) {
+const senderRules1 = function(trusted_did, receiving_did) {
     return [
     {
-      rule_type: {
-        IsPresent: {
-          Whitelisted: "this"
+      "rule_type": {
+        "IsPresent": {
+          "Whitelisted": receiving_did 
         }
       },
-      issuers: trusted_did
+      "issuers": [trusted_did]
     }
   ];
 }
@@ -227,10 +227,11 @@ async function createClaimRules(api, accounts, dids) {
       u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
            ));
   
+    let senderRules = senderRules1(dids[1], dids[2]);
     let receiverRules = receiverRules1(dids[1], asset_did);
 
     const unsub = await api.tx.generalTm
-      .addActiveRule(ticker, [], receiverRules)
+      .addActiveRule(ticker, senderRules, receiverRules)
       .signAndSend( accounts[0], { nonce: nonces.get(accounts[0].address) });
 
       nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
@@ -247,15 +248,25 @@ async function addClaimsToDids(api, accounts, dids) {
     u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
          ));
 
-
+  // Receieving Rules Claim
   let claim = {"Whitelisted":asset_did};
 
       const unsub = await api.tx.identity
-      .addClaim(dids[2], claim, 0)
+      .addClaim(dids[2], claim, null)
       .signAndSend(accounts[1],
         { nonce: nonces.get(accounts[1].address) });
 
     nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
+
+    // SenderRules Claim
+    let claim2 = {"Whitelisted":dids[2]};
+
+    const unsub2 = await api.tx.identity
+    .addClaim(dids[0], claim2, null)
+    .signAndSend(accounts[1],
+      { nonce: nonces.get(accounts[1].address) });
+
+  nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
     
 }
 

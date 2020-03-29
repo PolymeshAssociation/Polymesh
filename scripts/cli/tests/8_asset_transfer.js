@@ -36,6 +36,8 @@ async function main() {
 
   let issuer_dids = await reqImports["createIdentities"]( api, master_keys );
 
+  //await reqImports["distributePoly"]( api, issuer_dids, reqImports["transfer_amount"], testEntities[0] );
+
   await reqImports["addSigningKeys"]( api, master_keys, issuer_dids, signing_keys );
 
   await reqImports["authorizeJoinToIdentities"]( api, master_keys, issuer_dids, signing_keys );
@@ -44,13 +46,17 @@ async function main() {
 
   await reqImports["issueTokenPerDid"]( api, master_keys, issuer_dids, reqImports["prepend"] );
 
+   await reqImports["blockTillPoolEmpty"](api);
+
+  await reqImports["addClaimsToDids"](api, master_keys, issuer_dids);
+
   await reqImports["blockTillPoolEmpty"](api);
 
   await reqImports["createClaimRules"]( api, master_keys, issuer_dids );
 
   await reqImports["blockTillPoolEmpty"](api);
 
-  await reqImports["addClaimsToDids"](api, master_keys, issuer_dids);
+  await mintingAsset(api, master_keys, issuer_dids, reqImports["prepend"]);
 
   await reqImports["blockTillPoolEmpty"](api);
 
@@ -68,6 +74,38 @@ async function main() {
   }
 
   process.exit();
+}
+
+async function mintingAsset(api, accounts, dids, prepend) {
+
+const ticker = `token${prepend}0`.toUpperCase();
+assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+
+const unsub = await api.tx.asset
+  .issue(ticker, dids[2], 100, "")
+  .signAndSend(
+    accounts[0],
+    { nonce: reqImports["nonces"].get(accounts[0].address) },
+    ({ events = [], status }) => {
+      console.log(`events is ${events} and status is ${status}`);
+      if (status.isFinalized) {
+        console.log(`events is ${events} and status is ${status}`);
+        reqImports["fail_count"] = reqImports["callback"](
+          status,
+          events,
+          "",
+          "",
+          reqImports["fail_count"]
+        );
+        unsub();
+      }
+    }
+  );
+
+reqImports["nonces"].set(
+  accounts[0].address,
+  reqImports["nonces"].get(accounts[0].address).addn(1)
+);
 }
 
 async function assetTransfer(api, accounts, dids, prepend) {
