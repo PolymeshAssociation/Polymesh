@@ -11,7 +11,6 @@ use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Error = polymesh_protocol_fee::Error<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
 type ProtocolFee = polymesh_protocol_fee::Module<TestStorage>;
 
 #[test]
@@ -19,7 +18,7 @@ fn can_compute_fee() {
     ExtBuilder::default().build().execute_with(|| {
         assert_eq!(
             ProtocolFee::compute_fee(ProtocolOp::AssetIssue),
-            Ok(PROTOCOL_OP_BASE_FEE)
+            PROTOCOL_OP_BASE_FEE
         );
     });
 }

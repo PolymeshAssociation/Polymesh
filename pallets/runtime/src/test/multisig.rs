@@ -124,7 +124,6 @@ fn join_multisig() {
             true
         );
 
-        let musig_address2 = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did), bob_signer],

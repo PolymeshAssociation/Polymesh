@@ -11,14 +11,15 @@ use frame_support::{
 use frame_system::{self as system, ensure_root};
 use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use primitives::{traits::IdentityCurrency, PosRatio, Signatory};
-use sp_runtime::traits::{CheckedDiv, Saturating, Zero};
+use sp_runtime::{
+    traits::{Saturating, Zero},
+    Perbill,
+};
 
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
-/// Either the computed fee or an error.
-pub type ComputeFeeResult<T> = sp_std::result::Result<BalanceOf<T>, DispatchError>;
 /// Either an imbalance or an error.
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 
@@ -38,8 +39,6 @@ decl_error! {
         InsufficientAccountBalance,
         /// Account ID decoding failed.
         AccountIdDecode,
-        /// Division in `compute_fee` failed.
-        ComputeFee,
     }
 }
 
@@ -91,7 +90,7 @@ decl_module! {
 
         /// Emits an event with the fee of the operation.
         pub fn get_fee(_origin, op: ProtocolOp) -> DispatchResult {
-            let fee = Self::compute_fee(op)?;
+            let fee = Self::compute_fee(op);
             Self::deposit_event(RawEvent::Fee(fee));
             Ok(())
         }
@@ -106,24 +105,17 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
-    pub fn compute_fee(op: ProtocolOp) -> ComputeFeeResult<T> {
+    pub fn compute_fee(op: ProtocolOp) -> BalanceOf<T> {
         let coefficient = Self::coefficient();
-        let (numerator, denominator) = (coefficient.0, coefficient.1);
-        if let Some(fee) = Self::base_fees(op)
-            .saturating_mul(<BalanceOf<T>>::from(numerator))
-            .checked_div(&<BalanceOf<T>>::from(denominator))
-        {
-            Ok(fee)
-        } else {
-            Err(Error::<T>::ComputeFee.into())
-        }
+        let ratio = Perbill::from_rational_approximation(coefficient.0, coefficient.1);
+        ratio * Self::base_fees(op)
     }
 
     /// Computes the fee of the operation and charges it to the given signatory. The fee is then
     /// credited to the intended recipients according to the implementation of
     /// `OnProtocolFeePayment`.
     pub fn charge_fee(signatory: &Signatory, op: ProtocolOp) -> DispatchResult {
-        let fee = Self::compute_fee(op)?;
+        let fee = Self::compute_fee(op);
         if fee.is_zero() {
             return Ok(());
         }
@@ -137,7 +129,7 @@ impl<T: Trait> Module<T> {
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
     pub fn charge_fee_batch(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
-        let fee = Self::compute_fee(op)?.saturating_mul(<BalanceOf<T>>::from(count as u32));
+        let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
         Ok(())
