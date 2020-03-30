@@ -120,6 +120,23 @@ fn join_multisig() {
             MultiSig::ms_signers(musig_address.clone(), bob_signer),
             true
         );
+
+        let musig_address2 = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![Signatory::from(alice_did), bob_signer],
+            1,
+        ));
+
+        let bob_auth_id2 = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+            .next()
+            .unwrap()
+            .auth_id;
+
+        assert_err!(
+            MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id2),
+            Error::SignerAlreadyLinked
+        );
     });
 }
 
