@@ -38,8 +38,6 @@ fn create_multisig() {
             1,
         ));
 
-        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
-
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
         assert_eq!(MultiSig::ms_creator(musig_address), alice_did);
 
@@ -85,8 +83,6 @@ fn join_multisig() {
             vec![Signatory::from(alice_did), bob_signer],
             1,
         ));
-
-        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         assert_eq!(
             MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
@@ -147,8 +143,6 @@ fn change_multisig_sigs_required() {
             vec![Signatory::from(alice_did), bob_signer],
             2,
         ));
-
-        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
@@ -215,7 +209,6 @@ fn create_or_approve_change_multisig_sigs_required() {
             vec![Signatory::from(alice_did), bob_signer],
             2,
         ));
-        assert!(Identity::_register_did(musig_address.clone(), vec![]).is_ok());
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
                 .next()
@@ -275,8 +268,6 @@ fn remove_multisig_signer() {
             vec![alice_signer, bob_signer],
             1,
         ));
-
-        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 0);
 
@@ -374,8 +365,6 @@ fn add_multisig_signer() {
             1,
         ));
 
-        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
-
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
                 .next()
@@ -455,8 +444,6 @@ fn should_change_all_signers_and_sigs_required() {
             vec![Signatory::from(alice_did), Signatory::from(bob_did)],
             1,
         ));
-
-        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
@@ -751,8 +738,6 @@ fn add_multisig_signers_via_creator() {
             vec![Signatory::from(alice_did)],
             1,
         ));
-
-        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
 
         let alice_auth_id =
             <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))

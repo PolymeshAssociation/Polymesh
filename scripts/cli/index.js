@@ -432,6 +432,23 @@ async function createIdentities(api, accounts, submitBar, completeBar, fast) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.raw.asUnique);
   }
+  let did_balance = 10 * 10**12;
+  let alice = keyring.addFromUri("//Alice", { name: "Alice" });
+  let aliceRawNonce = await api.query.system.accountNonce(alice.address);
+  let alice_nonce = new BN(aliceRawNonce.toString());
+  nonces.set(alice.address, alice_nonce);
+  dids.forEach(async function(did) {
+    await api.tx.balances
+    .topUpIdentityBalance(did, did_balance)
+    .signAndSend(
+      alice,
+      { nonce: reqImports["nonces"].get(alice.address) }
+    );
+    reqImports["nonces"].set(
+      alice.address,
+      reqImports["nonces"].get(alice.address).addn(1)
+    );
+  });
   return dids;
 }
 

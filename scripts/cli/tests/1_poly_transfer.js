@@ -19,30 +19,30 @@ async function main() {
   const testEntities = await reqImports["initMain"](api);
 
   let keys = await reqImports["generateKeys"](api,5, "master");
-  
-  await reqImports["createIdentities"](api, testEntities);
-  
+
+  await reqImports["createIdentities"](api, testEntities, testEntities[0]);
+
   await distributePoly( api, keys, reqImports["transfer_amount"], testEntities[0] );
 
   await reqImports["blockTillPoolEmpty"](api);
 
-  await reqImports["createIdentities"](api, keys);
+  await reqImports["createIdentities"](api, keys, testEntities[0]);
 
   await new Promise(resolve => setTimeout(resolve, 3000));
- 
+
   if (reqImports["fail_count"] > 0) {
     console.log("Failed");
     process.exitCode = 1;
   } else {
     console.log("Passed");
   }
-  
+
   process.exit();
 }
 
 // Sends transfer_amount to accounts[] from alice
 async function distributePoly( api, accounts, transfer_amount, signingEntity ) {
-  
+
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
     const unsub = await api.tx.balances

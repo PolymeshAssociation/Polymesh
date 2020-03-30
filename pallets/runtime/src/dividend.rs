@@ -464,7 +464,7 @@ mod tests {
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-        transaction_validity::{TransactionValidity, ValidTransaction},
+        transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
         AnySignature, KeyTypeId, Perbill,
     };
     use test_client::{self, AccountKeyring};
@@ -551,7 +551,7 @@ mod tests {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
-        type Call = ();
+        type Call = Call;
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = AccountId;
@@ -678,20 +678,36 @@ mod tests {
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
+        type CddHandler = Test;
         type Public = AccountId;
         type OffChainSignature = OffChainSignature;
         type ProtocolFee = protocol_fee::Module<Test>;
     }
 
+    impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
+        fn get_valid_payer(
+            _: &Call,
+            _: &Signatory,
+        ) -> Result<Option<Signatory>, InvalidTransaction> {
+            Ok(None)
+        }
+        fn clear_context() {}
+        fn set_payer_context(_: Option<Signatory>) {}
+        fn get_payer_from_context() -> Option<Signatory> {
+            None
+        }
+        fn set_current_identity(_: &IdentityId) {}
+    }
+
     impl pallet_transaction_payment::ChargeTxFee for Test {
-        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
             Ok(ValidTransaction::default())
         }
     }
 
     impl GroupTrait<Moment> for Test {
         fn get_members() -> Vec<IdentityId> {
-            unimplemented!();
+            vec![]
         }
         fn get_inactive_members() -> Vec<InactiveMember<Moment>> {
             unimplemented!();

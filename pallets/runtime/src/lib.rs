@@ -61,8 +61,8 @@ pub mod config {
     pub type ProtocolFeeConfig = protocol_fee::GenesisConfig<crate::Runtime>;
 }
 
-pub mod update_did_signed_extension;
-pub use update_did_signed_extension::UpdateDid;
+pub mod fee_details;
+pub use fee_details::CddHandler;
 
 pub use sp_runtime::{Perbill, Permill};
 
