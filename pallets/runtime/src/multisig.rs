@@ -89,6 +89,8 @@ decl_storage! {
         pub Votes get(votes): map (T::AccountId, Signatory, u64) => bool;
         /// Maps a multisig to its creator's identity
         pub MultiSigCreator get(ms_creator): map T::AccountId => IdentityId;
+        /// Maps a key to a multisig address
+        pub KeyToMultiSig get(key_to_ms): map T::AccountId => T::AccountId;
     }
 }
 
@@ -357,7 +359,7 @@ decl_module! {
             // Removing the signers from the valid multi-signers list first
             old_signers.iter()
                 .for_each(|signer| {
-                    Self::unsafe_signer_removal(sender.clone(), signer)
+                    Self::unsafe_signer_removal(sender.clone(), signer);
                 });
 
             // Add the new signers for the given multi-sig
@@ -465,7 +467,9 @@ decl_error! {
         /// Couldn't charge fee for the transaction
         FailedToChargeFee,
         /// Identity provided is not the multisig's creator
-        IdentityNotCreator
+        IdentityNotCreator,
+        /// Signer is an account key that is already associated with a multisig
+        SignerAlreadyLinked
     }
 }
 
@@ -480,6 +484,11 @@ impl<T: Trait> Module<T> {
 
     /// Remove signer from the valid signer list for a given multisig
     fn unsafe_signer_removal(multisig: T::AccountId, signer: &Signatory) {
+        if let Signatory::AccountKey(key) = signer {
+            if let Ok(signer_key) = T::AccountId::decode(&mut &key.as_slice()[..]) {
+                <KeyToMultiSig<T>>::remove(&signer_key);
+            }
+        }
         <MultiSigSigners<T>>::remove(&multisig, signer);
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(multisig, *signer));
     }
@@ -645,6 +654,16 @@ impl<T: Trait> Module<T> {
                 Err(Error::<T>::DecodingError)
             }
         }?;
+
+        if let Signatory::AccountKey(key) = signer {
+            let signer_key = T::AccountId::decode(&mut &key.as_slice()[..])
+                .map_err(|_| Error::<T>::DecodingError)?;
+            ensure!(
+                !<KeyToMultiSig<T>>::exists(&signer_key),
+                Error::<T>::SignerAlreadyLinked
+            );
+            <KeyToMultiSig<T>>::insert(signer_key, wallet_id.clone())
+        }
 
         ensure!(
             <MultiSigSignsRequired<T>>::exists(&wallet_id),
