@@ -224,7 +224,11 @@ fn testnet_genesis(
             fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
         bridge: Some(BridgeConfig {
-            ..Default::default()
+            admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            signatures_required: 0,
+            signers: vec![],
+            timelock: 100,
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
@@ -280,6 +284,19 @@ fn testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
                     IdentityId::from(1),
                     IdentityId::from(8),
+                    None,
+                ),
+                // Alice and bob
+                (
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    IdentityId::from(42),
+                    IdentityId::from(42),
+                    None,
+                ),
+                (
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    IdentityId::from(42),
+                    IdentityId::from(1337),
                     None,
                 ),
             ],
@@ -362,7 +379,12 @@ fn testnet_genesis(
             phantom: Default::default(),
         }),
         group_Instance2: Some(CddServiceProvidersConfig {
-            active_members: vec![IdentityId::from(1), IdentityId::from(2)],
+            // sp1, sp2, alice
+            active_members: vec![
+                IdentityId::from(1),
+                IdentityId::from(2),
+                IdentityId::from(42),
+            ],
             phantom: Default::default(),
         }),
     }

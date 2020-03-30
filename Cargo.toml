@@ -9,6 +9,21 @@ edition = "2018"
 name = "polymesh"
 path = "src/main.rs"
 
+[workspace]
+members = [
+    "primitives",
+    "pallets/common",
+    "pallets/runtime",
+    "pallets/transaction-payment",
+    "pallets/staking",
+    "pallets/mips",
+    "pallets/identity",
+    "pallets/im-online",
+    "pallets/balances",
+    "pallets/committee",
+    "pallets/group",
+]
+
 [dependencies]
 polymesh-primitives = { path = "primitives" }
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets/common", default-features = false }
