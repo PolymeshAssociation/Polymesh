@@ -11,7 +11,8 @@
     "4-permission-management": "node ./tests/4_permission_management.js",
     "5-claim-management": "node ./tests/5_claim_management.js",
     "6-create-assets": "node ./tests/6_create_assets.js",
-    "test": "npm run -s 0-create-identities && npm run -s 1-poly-transfer && npm run -s 2-key-management && npm run -s 3-auth-join-did && npm run -s 4-permission-management && npm run -s 5-claim-management && npm run -s 6-create-assets"
+    "schema-test": "./util/schema_test.sh", 
+    "test": "npm run -s schema-test && npm run -s 0-create-identities && npm run -s 1-poly-transfer && npm run -s 2-key-management && npm run -s 3-auth-join-did && npm run -s 4-permission-management && npm run -s 5-claim-management && npm run -s 6-create-assets"
   },
   "author": "Polymath Network",
   "license": "UNLICENSED",

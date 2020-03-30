@@ -69,10 +69,6 @@ fn can_issue_to_identity_we() {
         ],
         2,
     ));
-    assert_eq!(
-        Identity::_register_did(controller.clone(), vec![]).is_ok(),
-        true
-    );
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |did: IdentityId| {
         <Authorizations>::iter_prefix(Signatory::from(did))
@@ -177,10 +173,6 @@ fn can_change_controller() {
             ],
             2,
         ));
-        assert_eq!(
-            Identity::_register_did(controller.clone(), vec![]).is_ok(),
-            true
-        );
         assert_eq!(MultiSig::ms_signs_required(controller), 2);
         let last_authorization = |did: IdentityId| {
             <Authorizations>::iter_prefix(Signatory::from(did))
@@ -295,10 +287,6 @@ fn do_freeze_and_unfreeze_bridge() {
         ],
         2,
     ));
-    assert_eq!(
-        Identity::_register_did(controller.clone(), vec![]).is_ok(),
-        true
-    );
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |did: IdentityId| {
         <Authorizations>::iter_prefix(Signatory::from(did))
@@ -400,10 +388,6 @@ fn do_timelock_txs() {
         vec![Signatory::from(alice_did), Signatory::from(bob_did)],
         1,
     ));
-    assert_eq!(
-        Identity::_register_did(controller.clone(), vec![]).is_ok(),
-        true
-    );
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |did: IdentityId| {
         <Authorizations>::iter_prefix(Signatory::from(did))
