@@ -119,13 +119,17 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Computes the fee of the operation and charges it to the given signatory.
+    /// Computes the fee of the operation and charges it to the given signatory. The fee is then
+    /// credited to the intended recipients according to the implementation of
+    /// `OnProtocolFeePayment`.
     pub fn charge_fee(signatory: &Signatory, op: ProtocolOp) -> DispatchResult {
         let fee = Self::compute_fee(op)?;
         if fee.is_zero() {
             return Ok(());
         }
         let imbalance = Self::withdraw_fee(signatory, fee)?;
+        // Pay the fee to the intended recipients depending on the implementation of
+        // `OnProtocolFeePayment`.
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
         Ok(())
     }
