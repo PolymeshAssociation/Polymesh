@@ -22,13 +22,13 @@ async function main() {
 
   let signing_keys = await reqImports["generateKeys"](api, 5, "signing");
 
-  await reqImports["createIdentities"](api, testEntities);
+  await reqImports["createIdentities"](api, testEntities, testEntities[0]);
 
   await reqImports["distributePoly"]( api, master_keys.concat(signing_keys), reqImports["transfer_amount"], testEntities[0] );
 
   await reqImports["blockTillPoolEmpty"](api);
 
-  let issuer_dids = await reqImports["createIdentities"](api, master_keys);
+  let issuer_dids = await reqImports["createIdentities"](api, master_keys, testEntities[0]);
 
   await addSigningKeys( api, master_keys, issuer_dids, signing_keys );
 
