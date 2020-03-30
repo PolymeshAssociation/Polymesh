@@ -164,7 +164,7 @@ use polymesh_primitives::{
     AccountKey, IdentityId, Permission, Signatory,
 };
 use polymesh_runtime_common::traits::{
-    balances::{ AccountData, BalancesTrait, Memo, RawEvent, Reasons},
+    balances::{AccountData, BalancesTrait, Memo, RawEvent, Reasons},
     identity::IdentityTrait,
     NegativeImbalance, PositiveImbalance,
 };
