@@ -28,6 +28,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
+
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -183,7 +184,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
+    type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
 
@@ -193,7 +194,7 @@ impl group::Trait<group::Instance1> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
+    type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
 
@@ -203,8 +204,8 @@ impl group::Trait<group::Instance2> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
+    type MembershipInitialized = identity::Module<TestStorage>;
+    type MembershipChanged = identity::Module<TestStorage>;
 }
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as system::Trait>::AccountId, I>;
@@ -398,6 +399,7 @@ pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
 pub type Timestamp = pallet_timestamp::Module<TestStorage>;
 pub type Contracts = pallet_contracts::Module<TestStorage>;
 pub type Bridge = bridge::Module<TestStorage>;
+pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 
 pub fn make_account(
@@ -476,4 +478,9 @@ pub fn account_from(id: u64) -> AccountId {
     enc_id.copy_from_slice(enc_id_vec.as_slice());
 
     Pair::from_seed(&enc_id).public()
+}
+
+pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
+    let key = AccountKey::from(acc.public().0);
+    Identity::get_identity(&key)
 }

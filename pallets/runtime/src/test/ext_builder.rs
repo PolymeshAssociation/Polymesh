@@ -71,8 +71,8 @@ pub struct ExtBuilder {
     monied: bool,
     vesting: bool,
     cdd_providers: Vec<Public>,
-    gen_committee_members: Vec<IdentityId>,
-    gen_committee_vote_threshold: BuilderVoteThreshold,
+    governance_committee_members: Vec<Public>,
+    governance_committee_vote_threshold: BuilderVoteThreshold,
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
 }
@@ -113,13 +113,13 @@ impl ExtBuilder {
         self
     }
 
-    pub fn committee_members(mut self, committee: Vec<IdentityId>) -> Self {
-        self.gen_committee_members = committee;
+    pub fn governance_committee(mut self, members: Vec<Public>) -> Self {
+        self.governance_committee_members = members;
         self
     }
 
-    pub fn committee_vote_threshold(mut self, threshold: (u32, u32)) -> Self {
-        self.gen_committee_vote_threshold = BuilderVoteThreshold {
+    pub fn governance_committee_vote_threshold(mut self, threshold: (u32, u32)) -> Self {
+        self.governance_committee_vote_threshold = BuilderVoteThreshold {
             numerator: threshold.0,
             denominator: threshold.1,
         };
@@ -199,17 +199,17 @@ impl ExtBuilder {
     ///  - mapping between DID and Identity info.
     ///  - mapping between an account key and its DID.
     /// Please note that generated DIDs start from 1.
-    fn make_cdd_identities(
-        &self,
+    fn make_identities(
+        accounts: &[Public],
     ) -> (
         Vec<(IdentityId, Identity)>,
         Vec<(AccountKey, LinkedKeyInfo)>,
     ) {
-        let keys = self
-            .cdd_providers
+        let keys = accounts
             .iter()
             .map(|p| AccountKey::from(p.clone().0))
             .collect::<Vec<_>>();
+
         let identities = keys
             .iter()
             .enumerate()
@@ -247,15 +247,23 @@ impl ExtBuilder {
 
         let root = AccountKeyring::Alice.public();
 
-        // Define CDD providers.
-        let (cdd_identities, cdd_links) = self.make_cdd_identities();
-        let cdd_ids: Vec<IdentityId> = cdd_identities.iter().map(|(id, _)| id.clone()).collect();
+        // Create Identitys.
+        let mut system_accounts = self
+            .cdd_providers
+            .iter()
+            .chain(self.governance_committee_members.iter())
+            .cloned()
+            .collect::<Vec<_>>();
+        system_accounts.sort();
+        system_accounts.dedup();
+
+        let (system_identities, system_links) = Self::make_identities(system_accounts.as_slice());
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
             owner: root.clone().into(),
-            did_records: cdd_identities,
-            key_to_identity_ids: cdd_links,
+            did_records: system_identities.clone(),
+            key_to_identity_ids: system_links,
             identities: vec![],
         }
         .assimilate_storage(&mut storage)
@@ -283,6 +291,19 @@ impl ExtBuilder {
         .unwrap();
 
         // CDD Service providers.
+        let cdd_ids = self
+            .cdd_providers
+            .iter()
+            .map(|key| {
+                let (id, _) = system_identities
+                    .iter()
+                    .find(|(_id, info)| info.master_key == *key)
+                    .unwrap();
+                id
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
         group::GenesisConfig::<TestStorage, group::Instance2> {
             active_members: cdd_ids,
             ..Default::default()
@@ -291,18 +312,31 @@ impl ExtBuilder {
         .unwrap();
 
         // Committee
+        let gc_ids = self
+            .governance_committee_members
+            .iter()
+            .map(|key| {
+                let (id, _) = system_identities
+                    .iter()
+                    .find(|(_id, info)| info.master_key == *key)
+                    .unwrap();
+                id
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
         group::GenesisConfig::<TestStorage, group::Instance1> {
-            active_members: self.gen_committee_members.clone(),
+            active_members: gc_ids.clone(),
             ..Default::default()
         }
         .assimilate_storage(&mut storage)
         .unwrap();
 
         committee::GenesisConfig::<TestStorage, committee::Instance1> {
-            members: self.gen_committee_members,
+            members: gc_ids,
             vote_threshold: (
-                self.gen_committee_vote_threshold.numerator,
-                self.gen_committee_vote_threshold.denominator,
+                self.governance_committee_vote_threshold.numerator,
+                self.governance_committee_vote_threshold.denominator,
             ),
             ..Default::default()
         }

@@ -37,7 +37,7 @@ impl RuleType {
         claims
             .iter()
             .map(|claim| claim.claim_type())
-            .nth(0)
+            .next()
             .unwrap_or(ClaimType::NoType)
     }
 }

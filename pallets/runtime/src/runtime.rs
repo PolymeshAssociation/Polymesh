@@ -543,8 +543,8 @@ impl group::Trait<group::Instance2> for Runtime {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
+    type MembershipInitialized = Identity;
+    type MembershipChanged = Identity;
 }
 
 impl statistics::Trait for Runtime {}
