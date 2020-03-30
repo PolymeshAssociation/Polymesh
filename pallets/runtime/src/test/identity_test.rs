@@ -20,7 +20,6 @@ use polymesh_runtime_common::{
 };
 
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::identity::{SigningItemWithAuth, TargetIdAuthorization};
 use polymesh_runtime_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 
 use codec::Encode;

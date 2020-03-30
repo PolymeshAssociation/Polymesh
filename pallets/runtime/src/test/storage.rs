@@ -400,6 +400,7 @@ pub type Timestamp = pallet_timestamp::Module<TestStorage>;
 pub type Contracts = pallet_contracts::Module<TestStorage>;
 pub type Bridge = bridge::Module<TestStorage>;
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
+pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 
 pub fn make_account(
     id: AccountId,
