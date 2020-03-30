@@ -18,7 +18,7 @@ type ProtocolFee = polymesh_protocol_fee::Module<TestStorage>;
 fn can_compute_fee() {
     ExtBuilder::default().build().execute_with(|| {
         assert_eq!(
-            ProtocolFee::compute_fee(&ProtocolOp::AssetIssue),
+            ProtocolFee::compute_fee(ProtocolOp::AssetIssue),
             Ok(PROTOCOL_OP_BASE_FEE)
         );
     });
@@ -34,11 +34,11 @@ fn can_charge_fee_batch() {
             Signatory::from(AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap());
         assert_ok!(ProtocolFee::charge_fee_batch(
             &alice_signer,
-            &ProtocolOp::AssetIssue,
+            ProtocolOp::AssetIssue,
             7,
         ));
         assert_err!(
-            ProtocolFee::charge_fee_batch(&alice_signer, &ProtocolOp::AssetIssue, 7,),
+            ProtocolFee::charge_fee_batch(&alice_signer, ProtocolOp::AssetIssue, 7,),
             Error::InsufficientAccountBalance
         );
     });

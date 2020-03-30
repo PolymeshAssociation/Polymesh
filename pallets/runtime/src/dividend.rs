@@ -168,7 +168,7 @@ decl_module! {
             let new_balance = balance.checked_sub(&amount).ok_or(Error::<T>::BalanceUnderflow)?;
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &sender,
-                &ProtocolOp::DividendNew
+                ProtocolOp::DividendNew
             )?;
             <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
 

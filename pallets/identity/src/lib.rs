@@ -203,7 +203,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             T::ProtocolFee::charge_fee(
                 &Signatory::AccountKey(sender_key),
-                &ProtocolOp::IdentityRegisterDid
+                ProtocolOp::IdentityRegisterDid
             )?;
             let new_id = Self::_register_did(sender, signing_items)?;
             // Added for easier testing. To be removed before production
@@ -243,7 +243,7 @@ decl_module! {
             ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
             T::ProtocolFee::charge_fee(
                 &Signatory::AccountKey(cdd_key),
-                &ProtocolOp::IdentityCddRegisterDid
+                ProtocolOp::IdentityCddRegisterDid
             )?;
 
             // Register Identity and add claim.
@@ -312,7 +312,7 @@ decl_module! {
             );
             T::ProtocolFee::charge_fee(
                 &Signatory::AccountKey(sender_key),
-                &ProtocolOp::IdentitySetMasterKey
+                ProtocolOp::IdentitySetMasterKey
             )?;
             <DidRecords>::mutate(did,
             |record| {
@@ -377,7 +377,7 @@ decl_module! {
             ensure!(<DidRecords>::exists(target), Error::<T>::DidMustAlreadyExist);
             T::ProtocolFee::charge_fee(
                 &Signatory::AccountKey(sender_key),
-                &ProtocolOp::IdentityAddClaim
+                ProtocolOp::IdentityAddClaim
             )?;
             match claim {
                 Claim::CustomerDueDiligence => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry),
@@ -400,7 +400,7 @@ decl_module! {
                 Error::<T>::DidMustAlreadyExist);
             T::ProtocolFee::charge_fee_batch(
                 &Signatory::AccountKey(sender_key),
-                &ProtocolOp::IdentityAddClaim,
+                ProtocolOp::IdentityAddClaim,
                 claims.len()
             )?;
             claims.into_iter()
@@ -819,7 +819,7 @@ decl_module! {
             });
             T::ProtocolFee::charge_fee_batch(
                 &Signatory::AccountKey(sender_key),
-                &ProtocolOp::IdentityAddSigningItem,
+                ProtocolOp::IdentityAddSigningItem,
                 additional_keys.len()
             )?;
             // 2.2. Update that identity information and its offchain authorization nonce.
@@ -958,7 +958,7 @@ impl<T: Trait> Module<T> {
         }
         T::ProtocolFee::charge_fee(
             &Signatory::Identity(identity_to_join),
-            &ProtocolOp::IdentityAddSigningItem,
+            ProtocolOp::IdentityAddSigningItem,
         )?;
         <DidRecords>::mutate(identity_to_join, |identity| {
             identity.add_signing_items(&[SigningItem::new(signer, vec![])]);

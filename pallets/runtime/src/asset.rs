@@ -84,7 +84,7 @@ use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
 use pallet_contracts::ExecReturnValue;
 use pallet_contracts::Gas;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Convert, Verify};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -349,7 +349,7 @@ decl_module! {
 
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &signer,
-                &ProtocolOp::AssetRegisterTicker
+                ProtocolOp::AssetRegisterTicker
             )?;
             Self::_register_ticker(&ticker, sender, to_did, expiry);
 
@@ -442,7 +442,7 @@ decl_module! {
 
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &signer,
-                &ProtocolOp::AssetCreateToken,
+                ProtocolOp::AssetCreateToken,
             )?;
             <identity::Module<T>>::register_asset_did(&ticker)?;
 
@@ -718,7 +718,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &signer,
-                &ProtocolOp::AssetIssue
+                ProtocolOp::AssetIssue
             )?;
             Self::_mint(&ticker, sender, to_did, value)
         }
@@ -790,7 +790,7 @@ decl_module! {
             }
             <<T as IdentityTrait>::ProtocolFee>::charge_fee_batch(
                 &signer,
-                &ProtocolOp::AssetIssue,
+                ProtocolOp::AssetIssue,
                 investor_dids.len()
             )?;
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
@@ -1097,7 +1097,7 @@ decl_module! {
             let signer = Signatory::from(ticker_did);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee_batch(
                 &sender_signer,
-                &ProtocolOp::AssetAddDocument,
+                ProtocolOp::AssetAddDocument,
                 documents.len()
             )?;
             documents.into_iter().for_each(|doc| {
@@ -1522,7 +1522,7 @@ decl_error! {
         SenderMustBeSigningKeyForDid,
         /// The sender must be a signing key for the DID.
         HolderMustBeSigningKeyForHolderDid,
-        /// The token has already been createod.
+        /// The token has already been created.
         TokenAlreadyCreated,
         /// The ticker length is over the limit.
         TickerTooLong,

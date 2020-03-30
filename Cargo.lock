@@ -3096,6 +3096,7 @@ dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-primitives",
+ "polymesh-protocol-fee",
  "polymesh-runtime-balances",
  "polymesh-runtime-common",
  "polymesh-runtime-group",
@@ -3641,6 +3642,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "substrate-test-runtime-client",
 ]
 
 [[package]]

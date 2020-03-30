@@ -341,7 +341,7 @@ decl_module! {
             <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
             <T as IdentityTrait>::ProtocolFee::charge_fee(
                 &signer,
-                &ProtocolOp::MipsPropose
+                ProtocolOp::MipsPropose
             )?;
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);

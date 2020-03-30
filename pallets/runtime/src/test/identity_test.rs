@@ -458,9 +458,7 @@ fn add_remove_signing_identities_with_externalities() {
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let charlie = Origin::signed(AccountKeyring::Charlie.public());
     assert_ok!(Balances::top_up_identity_balance(
         alice.clone(),
         alice_id,
@@ -897,7 +895,6 @@ fn add_identity_signers() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();

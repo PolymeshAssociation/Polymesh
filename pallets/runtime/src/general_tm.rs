@@ -144,7 +144,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &Signatory::AccountKey(sender_key),
-                &ProtocolOp::GeneralTmAddActiveRule
+                ProtocolOp::GeneralTmAddActiveRule
             )?;
             let new_rule = AssetTransferRule {
                 sender_rules: sender_rules,

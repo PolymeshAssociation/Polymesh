@@ -13,7 +13,7 @@ use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 

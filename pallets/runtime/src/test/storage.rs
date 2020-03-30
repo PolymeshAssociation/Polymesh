@@ -434,11 +434,7 @@ pub fn make_account_without_cdd(
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, 10_000_000);
-
-    Identity::_register_did(id.clone(), vec![]);
-
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
-
+    let did = Identity::_register_did(id.clone(), vec![]).expect("did");
     Ok((signed_id, did))
 }
 

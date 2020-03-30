@@ -180,7 +180,7 @@ decl_module! {
             }
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &sender,
-                &ProtocolOp::VotingAddBallot
+                ProtocolOp::VotingAddBallot
             )?;
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
                 <TotalChoices>::insert(&ticker_ballot_name, total_choices_u64);

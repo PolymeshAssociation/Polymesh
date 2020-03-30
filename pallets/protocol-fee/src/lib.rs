@@ -91,7 +91,7 @@ decl_module! {
 
         /// Emits an event with the fee of the operation.
         pub fn get_fee(_origin, op: ProtocolOp) -> DispatchResult {
-            let fee = Self::compute_fee(&op)?;
+            let fee = Self::compute_fee(op)?;
             Self::deposit_event(RawEvent::Fee(fee));
             Ok(())
         }
@@ -106,7 +106,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
-    pub fn compute_fee(op: &ProtocolOp) -> ComputeFeeResult<T> {
+    pub fn compute_fee(op: ProtocolOp) -> ComputeFeeResult<T> {
         let coefficient = Self::coefficient();
         let (numerator, denominator) = (coefficient.0, coefficient.1);
         if let Some(fee) = Self::base_fees(op)
@@ -120,7 +120,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Computes the fee of the operation and charges it to the given signatory.
-    pub fn charge_fee(signatory: &Signatory, op: &ProtocolOp) -> DispatchResult {
+    pub fn charge_fee(signatory: &Signatory, op: ProtocolOp) -> DispatchResult {
         let fee = Self::compute_fee(op)?;
         if fee.is_zero() {
             return Ok(());
@@ -132,11 +132,7 @@ impl<T: Trait> Module<T> {
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
-    pub fn charge_fee_batch(
-        signatory: &Signatory,
-        op: &ProtocolOp,
-        count: usize,
-    ) -> DispatchResult {
+    pub fn charge_fee_batch(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
         let fee = Self::compute_fee(op)?.saturating_mul(<BalanceOf<T>>::from(count as u32));
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
@@ -161,11 +157,11 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
-    fn charge_fee(signatory: &Signatory, op: &ProtocolOp) -> DispatchResult {
+    fn charge_fee(signatory: &Signatory, op: ProtocolOp) -> DispatchResult {
         Self::charge_fee(signatory, op)
     }
 
-    fn charge_fee_batch(signatory: &Signatory, op: &ProtocolOp, count: usize) -> DispatchResult {
+    fn charge_fee_batch(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
         Self::charge_fee_batch(signatory, op, count)
     }
 }
