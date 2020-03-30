@@ -473,7 +473,7 @@ decl_error! {
         /// Identity provided is not the multisig's creator
         IdentityNotCreator,
         /// Changing multisig parameters not allowed since multisig is a master key
-        ChangeNotAllowed
+        ChangeNotAllowed,
         /// Signer is an account key that is already associated with a multisig
         SignerAlreadyLinked
     }
