@@ -126,10 +126,10 @@ const createIdentities = async function(api, accounts, alice) {
   for (let i = 0; i < accounts.length; i++) {
 
       await api.tx.identity
-        .registerDid([])
-        .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+        .cddRegisterDid(accounts[i].address, 0, [])
+        .signAndSend(alice, { nonce: nonces.get(alice.address) });
 
-    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+    nonces.set(alice.address, nonces.get(alice.address).addn(1));
   }
   await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
