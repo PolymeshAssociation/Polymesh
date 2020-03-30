@@ -124,9 +124,8 @@ const createIdentities = async function(api, accounts, alice) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
-      console.log(`registering did for ${accounts[i].address}`);
       await api.tx.identity
-        .cddRegisterDid(accounts[i].address, 0, [])
+        .cddRegisterDid(accounts[i].address, null, [])
         .signAndSend(alice, { nonce: nonces.get(alice.address) });
 
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
@@ -157,7 +156,6 @@ async function distributePoly(api, accounts, transfer_amount, signingEntity) {
 
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
-    console.log(`topping up ${accounts[i].address} with ${transfer_amount}`);
 
       const unsub = await api.tx.balances
       .transfer(accounts[i].address, transfer_amount)
