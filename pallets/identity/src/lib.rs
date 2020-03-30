@@ -526,6 +526,15 @@ decl_module! {
             Ok(())
         }
 
+        pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
+            let key = AccountKey::try_from(of.encode())?;
+            if let Some(did) = Self::get_identity(&key) {
+                let cdd = Self::has_valid_cdd(did);
+                Self::deposit_event(RawEvent::CddQuery(key, did, cdd));
+            }
+            Ok(())
+        }
+
         // Manage generic authorizations
         /// Adds an authorization
         pub fn add_authorization(

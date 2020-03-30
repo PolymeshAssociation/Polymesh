@@ -560,7 +560,7 @@ impl<T: Trait> Module<T> {
         dest: &T::AccountId,
         value: T::Balance,
     ) -> Result<T::Balance, DispatchError> {
-        if !T::CDDChecker::check_key_cdd(&AccountKey::try_from(dest.encode())?) {
+        if !T::CDDChecker::check_key_cdd(&AccountKey::try_from((*dest).encode())?) {
             return Err(Error::<T>::ReceiverCddMissing.into());
         }
         let from_balance = Self::free_balance(transactor);

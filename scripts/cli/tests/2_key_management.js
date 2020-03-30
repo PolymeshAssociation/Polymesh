@@ -26,6 +26,8 @@ async function main() {
 
   let issuer_dids = await reqImports["createIdentities"](api, master_keys, testEntities[0]);
 
+  console.log(issuer_dids[0].toString());
+
   await reqImports["distributePoly"]( api, master_keys, reqImports["transfer_amount"], testEntities[0] );
 
   await reqImports["blockTillPoolEmpty"](api);
@@ -50,6 +52,7 @@ async function main() {
 async function addSigningKeys( api, accounts, dids, signing_accounts ) {
 
   for (let i = 0; i < accounts.length; i++) {
+    console.log(accounts[i].address);
     console.log("yo");
     // 1. Add Signing Item to identity.
     const unsub = await api.tx.identity
