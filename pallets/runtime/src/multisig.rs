@@ -661,16 +661,6 @@ impl<T: Trait> Module<T> {
             }
         }?;
 
-        if let Signatory::AccountKey(key) = signer {
-            let signer_key = T::AccountId::decode(&mut &key.as_slice()[..])
-                .map_err(|_| Error::<T>::DecodingError)?;
-            ensure!(
-                !<KeyToMultiSig<T>>::exists(&signer_key),
-                Error::<T>::SignerAlreadyLinked
-            );
-            <KeyToMultiSig<T>>::insert(signer_key, wallet_id.clone())
-        }
-
         ensure!(
             <MultiSigSignsRequired<T>>::exists(&wallet_id),
             Error::<T>::NoSuchMultisig
@@ -683,6 +673,17 @@ impl<T: Trait> Module<T> {
             !<MultiSigSigners<T>>::exists(&wallet_id, &signer),
             Error::<T>::AlreadyASigner
         );
+
+        if let Signatory::AccountKey(key) = signer {
+            let signer_key = T::AccountId::decode(&mut &key.as_slice()[..])
+                .map_err(|_| Error::<T>::DecodingError)?;
+            ensure!(
+                !<KeyToMultiSig<T>>::exists(&signer_key),
+                Error::<T>::SignerAlreadyLinked
+            );
+            <KeyToMultiSig<T>>::insert(signer_key, wallet_id.clone())
+        }
+
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
         <identity::Module<T>>::consume_auth(wallet_signer, signer, auth_id)?;
 
