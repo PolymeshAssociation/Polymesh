@@ -426,7 +426,7 @@ pub fn make_account_without_cdd(
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, 10_000_000);
 
-    Identity::_register_did(id.clone(), vec![]);
+    let _ = Identity::_register_did(id.clone(), vec![]);
 
     let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
 

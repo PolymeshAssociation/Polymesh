@@ -17,7 +17,6 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
-type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 

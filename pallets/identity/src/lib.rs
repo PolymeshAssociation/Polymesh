@@ -156,6 +156,7 @@ decl_storage! {
         /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Signatory;
 
+        /// It defines if authorization from a CDD provider is needed to change master key of an identity
         pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
     }
     add_extra_genesis {
