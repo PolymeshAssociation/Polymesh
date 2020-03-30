@@ -296,6 +296,7 @@ mod tests {
 
     use core::result::Result as StdResult;
     use polymesh_primitives::{IdentityId, Signatory};
+    use polymesh_protocol_fee as protocol_fee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, group::InactiveMember, multisig::AddSignerMultiSig, CommonTrait,
@@ -327,6 +328,7 @@ mod tests {
     type AccountId = <AnySignature as Verify>::Signer;
     type OffChainSignature = AnySignature;
     type Moment = <Test as pallet_timestamp::Trait>::Moment;
+    type Balances = balances::Module<Test>;
 
     #[derive(Clone, Eq, PartialEq, Debug)]
     pub struct Test;
@@ -383,6 +385,12 @@ mod tests {
         type Identity = identity::Module<Test>;
     }
 
+    impl protocol_fee::Trait for Test {
+        type Event = ();
+        type Currency = Balances;
+        type OnProtocolFeePayment = ();
+    }
+
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = Call<Test>;
@@ -393,6 +401,7 @@ mod tests {
         type CddHandler = Test;
         type Public = AccountId;
         type OffChainSignature = OffChainSignature;
+        type ProtocolFee = protocol_fee::Module<Test>;
     }
 
     impl pallet_transaction_payment::CddAndFeeDetails<Call<Test>> for Test {

@@ -24,6 +24,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 fn cdd_checks() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Bob.public()])
+        .monied(true)
         .build()
         .execute_with(|| {
             // alice does not have cdd

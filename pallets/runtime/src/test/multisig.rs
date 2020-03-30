@@ -1,12 +1,14 @@
 use crate::{
     multisig,
     test::{
+        ext_builder::PROTOCOL_OP_BASE_FEE,
         storage::{register_keyring_account, Call, TestStorage},
         ExtBuilder,
     },
 };
 
 use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
 
@@ -15,6 +17,7 @@ use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
+type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
@@ -121,7 +124,6 @@ fn join_multisig() {
             true
         );
 
-        let musig_address2 = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did), bob_signer],
@@ -456,7 +458,7 @@ fn add_multisig_signer() {
             true
         );
 
-        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
+        assert!(Identity::_register_did(musig_address.clone(), vec![], None).is_ok());
 
         assert_err!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),
@@ -600,7 +602,7 @@ fn should_change_all_signers_and_sigs_required() {
 
 #[test]
 fn make_multisig_master() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
@@ -639,7 +641,7 @@ fn make_multisig_master() {
 
 #[test]
 fn make_multisig_signer() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -662,6 +664,11 @@ fn make_multisig_signer() {
             Error::IdentityNotCreator
         );
 
+        assert_ok!(Balances::top_up_identity_balance(
+            alice.clone(),
+            alice_did,
+            PROTOCOL_OP_BASE_FEE
+        ));
         assert_ok!(MultiSig::make_multisig_signer(
             alice.clone(),
             musig_address.clone(),

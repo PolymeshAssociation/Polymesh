@@ -1,4 +1,5 @@
 use crate::test::{
+    ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{add_signing_item, register_keyring_account, TestStorage},
     ExtBuilder,
 };
@@ -7,6 +8,7 @@ use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, LinkData, Permission,
     Scope, Signatory, SigningItem, Ticker,
 };
+use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::identity::{SigningItemWithAuth, TargetIdAuthorization};
 use polymesh_runtime_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 
@@ -17,6 +19,7 @@ use test_client::AccountKeyring;
 
 use std::convert::TryFrom;
 
+type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
@@ -75,7 +78,7 @@ fn add_claims_batch() {
 /// TODO Add `Signatory::Identity(..)` test.
 #[test]
 fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let owner_signer =
             Signatory::AccountKey(AccountKey::from(AccountKeyring::Alice.public().0));
@@ -87,6 +90,11 @@ fn only_master_or_signing_keys_can_authenticate_as_an_identity() {
         let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
         let charlie_signer = Signatory::AccountKey(charlie_key);
 
+        assert_ok!(Balances::top_up_identity_balance(
+            a.clone(),
+            a_did,
+            PROTOCOL_OP_BASE_FEE
+        ));
         add_signing_item(a_did, charlie_signer);
 
         // Check master key on master and signing_keys.
@@ -226,6 +234,7 @@ fn revoking_batch_claims() {
 #[test]
 fn only_master_key_can_add_signing_key_permissions() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&only_master_key_can_add_signing_key_permissions_with_externalities);
 }
@@ -236,6 +245,11 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob = Origin::signed(AccountKeyring::Bob.public());
 
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE * 2
+    ));
     add_signing_item(alice_did, Signatory::from(charlie_key));
     add_signing_item(alice_did, Signatory::from(bob_key));
 
@@ -279,6 +293,7 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
 #[test]
 fn freeze_signing_keys_test() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&freeze_signing_keys_with_externalities);
 }
@@ -289,12 +304,16 @@ fn freeze_signing_keys_with_externalities() {
         AccountKey::from(AccountKeyring::Charlie.public().0),
         AccountKey::from(AccountKeyring::Dave.public().0),
     );
-    let bob = Origin::signed(AccountKeyring::Bob.public());
-
     // Add signing keys.
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
+    let bob = Origin::signed(AccountKeyring::Bob.public());
 
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE * 2
+    ));
     add_signing_item(alice_did, Signatory::from(bob_key));
     add_signing_item(alice_did, Signatory::from(charlie_key));
 
@@ -316,6 +335,11 @@ fn freeze_signing_keys_with_externalities() {
     );
 
     // Add new signing keys.
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
     add_signing_item(alice_did, Signatory::from(dave_key));
 
     // update permission of frozen keys.
@@ -342,6 +366,7 @@ fn freeze_signing_keys_with_externalities() {
 #[test]
 fn remove_frozen_signing_keys_test() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&remove_frozen_signing_keys_with_externalities);
 }
@@ -358,7 +383,17 @@ fn remove_frozen_signing_keys_with_externalities() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
     add_signing_item(alice_did, Signatory::from(bob_key));
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
     add_signing_item(alice_did, Signatory::from(charlie_key));
 
     // Freeze all signing keys
@@ -377,6 +412,7 @@ fn remove_frozen_signing_keys_with_externalities() {
 #[test]
 fn enforce_uniqueness_keys_in_identity_tests() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&enforce_uniqueness_keys_in_identity);
 }
@@ -384,10 +420,16 @@ fn enforce_uniqueness_keys_in_identity_tests() {
 fn enforce_uniqueness_keys_in_identity() {
     // Register identities
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
     let _bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // Check external signed key uniqueness.
     let charlie_key = AccountKey::from(AccountKeyring::Charlie.public().0);
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_id,
+        PROTOCOL_OP_BASE_FEE
+    ));
     add_signing_item(alice_id, Signatory::from(charlie_key));
     let auth_id = Identity::add_auth(
         Signatory::from(AccountKey::from(AccountKeyring::Alice.public().0)),
@@ -407,6 +449,7 @@ fn enforce_uniqueness_keys_in_identity() {
 #[test]
 fn add_remove_signing_identities() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&add_remove_signing_identities_with_externalities);
 }
@@ -415,9 +458,12 @@ fn add_remove_signing_identities_with_externalities() {
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_id,
+        PROTOCOL_OP_BASE_FEE * 2
+    ));
     add_signing_item(alice_id, Signatory::from(bob_id));
     add_signing_item(alice_id, Signatory::from(charlie_id));
 
@@ -846,9 +892,11 @@ fn cdd_register_did_test_we() {
 
 #[test]
 fn add_identity_signers() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        let alice = Origin::signed(AccountKeyring::Alice.public());
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let alice_identity_signer = Signatory::from(alice_did);
         let alice_acc_signer =
@@ -879,6 +927,11 @@ fn add_identity_signers() {
             None,
         );
 
+        assert_ok!(Balances::top_up_identity_balance(
+            alice.clone(),
+            alice_did,
+            PROTOCOL_OP_BASE_FEE
+        ));
         assert_ok!(Identity::join_identity(
             bob_identity_signer,
             auth_id_for_acc_to_id
@@ -891,6 +944,11 @@ fn add_identity_signers() {
             None,
         );
 
+        assert_ok!(Balances::top_up_identity_balance(
+            charlie.clone(),
+            charlie_did,
+            PROTOCOL_OP_BASE_FEE
+        ));
         assert_ok!(Identity::join_identity(
             bob_identity_signer,
             auth_id_for_acc2_to_id
@@ -903,6 +961,11 @@ fn add_identity_signers() {
             None,
         );
 
+        assert_ok!(Balances::top_up_identity_balance(
+            alice.clone(),
+            alice_did,
+            PROTOCOL_OP_BASE_FEE
+        ));
         assert_ok!(Identity::join_identity(
             dave_acc_signer,
             auth_id_for_acc1_to_acc

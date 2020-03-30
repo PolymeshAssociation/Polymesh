@@ -5,6 +5,7 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
+polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }

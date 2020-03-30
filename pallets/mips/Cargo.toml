@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false  }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false  }
+polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
 polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
@@ -37,7 +38,7 @@ equalize = []
 default = ["std", "equalize"]
 no_std = []
 only-staking = []
-std = [ 
+std = [
 	"serde_derive",
 	"serde/std",
 	"codec/std",
