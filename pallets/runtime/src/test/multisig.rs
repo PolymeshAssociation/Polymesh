@@ -428,7 +428,7 @@ fn add_multisig_signer() {
 
         let root = Origin::system(frame_system::RawOrigin::Root);
 
-        Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true);
+        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             charlie.clone(),
             charlie_auth_id
@@ -446,7 +446,7 @@ fn add_multisig_signer() {
             Error::ChangeNotAllowed
         );
 
-        Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false);
+        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false).is_ok());
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
