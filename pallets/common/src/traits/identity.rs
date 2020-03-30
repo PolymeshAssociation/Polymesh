@@ -9,7 +9,7 @@ use polymesh_primitives::{
 use codec::{Decode, Encode};
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
 use frame_system;
-use pallet_transaction_payment::ChargeTxFee;
+use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 #[cfg(feature = "std")]
@@ -81,6 +81,8 @@ pub trait Trait:
     >;
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
+    /// Used to check and update CDD
+    type CddHandler: CddAndFeeDetails<Self::Call>;
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
@@ -170,6 +172,8 @@ pub trait IdentityTrait {
     fn get_identity(key: &AccountKey) -> Option<IdentityId>;
     fn current_identity() -> Option<IdentityId>;
     fn set_current_identity(id: Option<IdentityId>);
+    fn current_payer() -> Option<Signatory>;
+    fn set_current_payer(payer: Option<Signatory>);
 
     fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool;
     fn is_signer_authorized_with_permissions(

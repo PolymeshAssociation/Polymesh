@@ -24,7 +24,7 @@ use sp_core::{
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-    transaction_validity::{TransactionValidity, ValidTransaction},
+    transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
 use std::convert::TryFrom;
@@ -40,6 +40,7 @@ impl_outer_dispatch! {
         multisig::MultiSig,
         pallet_contracts::Contracts,
         bridge::Bridge,
+        asset::Asset,
     }
 }
 
@@ -99,7 +100,7 @@ impl frame_system::Trait for TestStorage {
     type Header = Header;
     type Event = Event;
 
-    type Call = ();
+    type Call = Call;
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type MaximumBlockLength = MaximumBlockLength;
@@ -149,9 +150,21 @@ impl multisig::Trait for TestStorage {
 }
 
 impl pallet_transaction_payment::ChargeTxFee for TestStorage {
-    fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+    fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }
+}
+
+impl pallet_transaction_payment::CddAndFeeDetails<Call> for TestStorage {
+    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+        Ok(None)
+    }
+    fn clear_context() {}
+    fn set_payer_context(_: Option<Signatory>) {}
+    fn get_payer_from_context() -> Option<Signatory> {
+        None
+    }
+    fn set_current_identity(_: &IdentityId) {}
 }
 
 parameter_types! {
@@ -225,6 +238,7 @@ impl identity::Trait for TestStorage {
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
+    type CddHandler = TestStorage;
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
 }
@@ -406,6 +420,19 @@ pub fn make_account_with_balance(
     Ok((signed_id, did))
 }
 
+pub fn make_account_without_cdd(
+    id: AccountId,
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
+    let signed_id = Origin::signed(id.clone());
+    Balances::make_free_balance_be(&id, 10_000_000);
+
+    Identity::_register_did(id.clone(), vec![]);
+
+    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+
+    Ok((signed_id, did))
+}
+
 pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'static str> {
     register_keyring_account_with_balance(acc, 10_000_000)
 }
@@ -416,6 +443,13 @@ pub fn register_keyring_account_with_balance(
 ) -> Result<IdentityId, &'static str> {
     let acc_pub = acc.public();
     make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
+}
+
+pub fn register_keyring_account_without_cdd(
+    acc: AccountKeyring,
+) -> Result<IdentityId, &'static str> {
+    let acc_pub = acc.public();
+    make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
 pub fn add_signing_item(did: IdentityId, signer: Signatory) {

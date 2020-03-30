@@ -77,7 +77,7 @@ use frame_support::{
     weights::{GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-use pallet_transaction_payment::ChargeTxFee;
+use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 
 pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
@@ -122,6 +122,9 @@ decl_storage! {
 
         /// It stores the current identity for current transaction.
         pub CurrentDid: Option<IdentityId>;
+
+        /// It stores the current gas fee payer for the current transaction
+        pub CurrentPayer: Option<Signatory>;
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(blake2_256) Claim1stKey, blake2_256(Claim2ndKey) => IdentityClaim;
@@ -197,6 +200,7 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
+        // TODO: Remove this function. cdd_register_did should be used instead.
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             // TODO: Subtract proper fee.
@@ -207,7 +211,12 @@ decl_module! {
                 ExistenceRequirement::KeepAlive,
             )?;
 
-            let _new_id = Self::_register_did(sender, signing_items)?;
+            let new_id = Self::_register_did(sender, signing_items)?;
+            // Added for easier testing. To be removed before production
+            let cdd_providers = T::CddServiceProviders::get_members();
+            if cdd_providers.len() > 0 {
+                Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_providers[0], None)?;
+            }
             Ok(())
         }
 
@@ -409,15 +418,11 @@ decl_module! {
             }
 
             // 1.3. Check that target_did has a CDD.
-            // Please keep in mind that `current_did` is double-checked:
-            //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
-            //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
 
             /// 1.4 charge fee
             ensure!(
                 T::ChargeTxFeeTarget::charge_fee(
-                    Signatory::from(AccountKey::try_from(sender.encode())?),
                     proposal.encode().len().try_into().unwrap_or_default(),
                     proposal.get_dispatch_info(),
                 )
@@ -426,7 +431,7 @@ decl_module! {
             );
 
             // 2. Actions
-            Context::set_current_identity::<Self>(Some(target_did));
+            T::CddHandler::set_current_identity(&target_did);
 
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
@@ -1264,6 +1269,13 @@ impl<T: Trait> Module<T> {
     /// See `Self::fetch_cdd`.
     #[inline]
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
+        let trusted_cdd_providers = T::CddServiceProviders::get_members();
+        // It will never happen in production but helpful during testing.
+        // TODO: Remove this condition
+        if trusted_cdd_providers.len() == 0 {
+            return true;
+        }
+
         Self::fetch_cdd(claim_for, T::Moment::zero()).is_some()
     }
 
@@ -1622,6 +1634,32 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::RevokedClaim(target, claim_type, issuer));
         Ok(())
     }
+
+    /// Returns an auth id if it is present and not expired.
+    pub fn get_non_expired_auth(
+        target: &Signatory,
+        auth_id: &u64,
+    ) -> Option<Authorization<T::Moment>> {
+        if !<Authorizations<T>>::exists(target, auth_id) {
+            return None;
+        }
+        let auth = <Authorizations<T>>::get(target, auth_id);
+        if let Some(expiry) = auth.expiry {
+            let now = <pallet_timestamp::Module<T>>::get();
+            if expiry > now {
+                return None;
+            }
+        }
+        Some(auth)
+    }
+
+    /// Returns identity of a signatory
+    pub fn get_identity_of_signatory(signer: &Signatory) -> Option<IdentityId> {
+        match signer {
+            Signatory::AccountKey(key) => Self::get_identity(&key),
+            Signatory::Identity(did) => Some(*did),
+        }
+    }
 }
 
 impl<T: Trait> Module<T> {
@@ -1666,6 +1704,18 @@ impl<T: Trait> IdentityTrait for Module<T> {
             <CurrentDid>::put(id);
         } else {
             <CurrentDid>::kill();
+        }
+    }
+
+    fn current_payer() -> Option<Signatory> {
+        <CurrentPayer>::get()
+    }
+
+    fn set_current_payer(payer: Option<Signatory>) {
+        if let Some(payer) = payer {
+            <CurrentPayer>::put(payer);
+        } else {
+            <CurrentPayer>::kill();
         }
     }
 

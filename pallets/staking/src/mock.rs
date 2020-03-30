@@ -53,7 +53,7 @@ use sp_runtime::testing::{sr25519::Public, Header, UintAuthorityId};
 use sp_runtime::traits::{
     Convert, IdentityLookup, OnInitialize, OpaqueKeys, SaturatedConversion, Verify,
 };
-use sp_runtime::transaction_validity::{TransactionValidity, ValidTransaction};
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{AnySignature, KeyTypeId, Perbill};
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -179,7 +179,7 @@ impl frame_system::Trait for Test {
     type Origin = Origin;
     type Index = u64;
     type BlockNumber = BlockNumber;
-    type Call = ();
+    type Call = Call;
     type Hash = H256;
     type Hashing = ::sp_runtime::traits::BlakeTwo256;
     type AccountId = AccountId;
@@ -244,12 +244,25 @@ impl identity::Trait for Test {
     type CddServiceProviders = Test;
     type Balances = balances::Module<Test>;
     type ChargeTxFeeTarget = Test;
+    type CddHandler = Test;
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
 }
 
+impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
+    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+        Ok(None)
+    }
+    fn clear_context() {}
+    fn set_payer_context(_: Option<Signatory>) {}
+    fn get_payer_from_context() -> Option<Signatory> {
+        None
+    }
+    fn set_current_identity(_: &IdentityId) {}
+}
+
 impl pallet_transaction_payment::ChargeTxFee for Test {
-    fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+    fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }
 }
