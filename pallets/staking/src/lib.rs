@@ -1286,6 +1286,7 @@ decl_module! {
 
                     let nominations = Nominations {
                         targets,
+                        // initial nominations are considered submitted at era 0. See `Nominations` doc
                         submitted_in: Self::current_era().unwrap_or(0),
                         suppressed: false,
                     };

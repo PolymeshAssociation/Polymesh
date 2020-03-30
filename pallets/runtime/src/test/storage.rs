@@ -132,8 +132,6 @@ impl frame_system::Trait for TestStorage {
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = 0;
-    pub const TransferFee: u64 = 0;
-    pub const CreationFee: u64 = 0;
     pub const TransactionBaseFee: u64 = 0;
     pub const TransactionByteFee: u64 = 0;
 }

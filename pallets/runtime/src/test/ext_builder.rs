@@ -119,22 +119,6 @@ impl ExtBuilder {
         }
     }
 
-    // fn make_vesting(&self) -> Vec<(Public, u64, u64, u128)> {
-    //     if self.vesting && self.monied {
-    //         vec![
-    //             (
-    //                 AccountKeyring::Alice.public(),
-    //                 0,
-    //                 10,
-    //                 5 * self.existential_deposit,
-    //             ),
-    //             (AccountKeyring::Bob.public(), 10, 20, 0),
-    //         ]
-    //     } else {
-    //         vec![]
-    //     }
-    // }
-
     /// It generates, based on CDD providers, a pair of vectors whose contain:
     ///  - mapping between DID and Identity info.
     ///  - mapping between an account key and its DID.

@@ -17,8 +17,8 @@
 //! Test utilities
 
 use crate::{
-    inflation, EraIndex, GenesisConfig, Module, Nominators, RewardDestination, StakerStatus, Trait,
-    ValidatorPrefs,
+	EraIndex, GenesisConfig, Module, Trait, StakerStatus, ValidatorPrefs, RewardDestination,
+	Nominators, inflation, SessionInterface, Exposure, ErasStakers, ErasRewardPoints
 };
 use chrono::prelude::Utc;
 use codec::{Decode, Encode};
@@ -28,12 +28,13 @@ use frame_support::{
     impl_outer_dispatch, impl_outer_origin, parameter_types,
     traits::{Currency, FindAuthor, Get},
     weights::{DispatchInfo, Weight},
-    StorageLinkedMap, StorageValue,
+    StorageLinkedMap, StorageValue, StorageMap,
+	StorageDoubleMap, ord_parameter_types,
 };
 use frame_system::{self as system, EnsureSignedBy};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
-    asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
+    asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, balances::AccountData,
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity::{self as identity};
@@ -48,7 +49,7 @@ use sp_io;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{sr25519::Public, Header, UintAuthorityId};
 use sp_runtime::traits::{
-    Convert, IdentityLookup, OnInitialize, OpaqueKeys, SaturatedConversion, Verify,
+    Convert, IdentityLookup, OnInitialize, OnFinalize, OpaqueKeys, SaturatedConversion, Verify,
 };
 use sp_runtime::transaction_validity::{TransactionValidity, ValidTransaction};
 use sp_runtime::{AnySignature, KeyTypeId, Perbill};
@@ -171,50 +172,47 @@ parameter_types! {
     pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 impl frame_system::Trait for Test {
-    type Origin = Origin;
-    type Index = u64;
-    type BlockNumber = BlockNumber;
-    type Call = ();
-    type Hash = H256;
-    type Hashing = ::sp_runtime::traits::BlakeTwo256;
-    type AccountId = AccountId;
-    type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
-    type Event = ();
-    type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type AvailableBlockRatio = AvailableBlockRatio;
-    type MaximumBlockLength = MaximumBlockLength;
-    type Version = ();
-    type ModuleToIndex = ();
+	type Origin = Origin;
+	type Index = u64;
+	type BlockNumber = BlockNumber;
+	type Call = ();
+	type Hash = H256;
+	type Hashing = ::sp_runtime::traits::BlakeTwo256;
+	type AccountId = AccountId;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Header = Header;
+	type Event = ();
+	type BlockHashCount = BlockHashCount;
+	type MaximumBlockWeight = MaximumBlockWeight;
+	type AvailableBlockRatio = AvailableBlockRatio;
+	type MaximumBlockLength = MaximumBlockLength;
+	type Version = ();
+	type ModuleToIndex = ();
+	type AccountData = AccountData<Balance>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
 }
 
 impl CommonTrait for Test {
     type Balance = Balance;
-    type CreationFee = CreationFee;
     type AcceptTransferTarget = Test;
     type BlockRewardsReserve = balances::Module<Test>;
 }
 
 parameter_types! {
-    pub const TransferFee: Balance = 0;
-    pub const CreationFee: Balance = 0;
     pub const TransactionBaseFee: Balance = 0;
     pub const TransactionByteFee: Balance = 0;
 }
 
 impl balances::Trait for Test {
-    type OnFreeBalanceZero = Staking;
-    type OnNewAccount = ();
-    type Event = ();
     type DustRemoval = ();
-    type TransferPayment = ();
+    type Event = ();
     type ExistentialDeposit = ExistentialDeposit;
-    type TransferFee = TransferFee;
+    type AccountStore = frame_system::Module<Test>;
     type Identity = identity::Module<Test>;
 }
 
-parameter_types! {
+ord_parameter_types! {
     pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
     pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
     pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -236,7 +234,7 @@ impl identity::Trait for Test {
     type Event = ();
     type Proposal = Call;
     type AddSignerMultiSigTarget = Test;
-    type CddServiceProviders = Test;
+    type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = balances::Module<Test>;
     type ChargeTxFeeTarget = Test;
 }
@@ -269,50 +267,54 @@ impl AddSignerMultiSig for Test {
 }
 
 parameter_types! {
-    pub const Period: BlockNumber = 1;
-    pub const Offset: BlockNumber = 0;
-    pub const UncleGenerations: u64 = 0;
-    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
+	pub const Period: BlockNumber = 1;
+	pub const Offset: BlockNumber = 0;
+	pub const UncleGenerations: u64 = 0;
+	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
 impl pallet_session::Trait for Test {
-    type OnSessionEnding = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
-    type Keys = UintAuthorityId;
-    type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-    type SessionHandler = TestSessionHandler;
-    type Event = ();
-    type ValidatorId = AccountId;
-    type ValidatorIdOf = crate::StashOf<Test>;
-    type SelectInitialValidators = Staking;
-    type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+	type Event = ();
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = crate::StashOf<Test>;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
+	type SessionHandler = TestSessionHandler;
+	type Keys = UintAuthorityId;
+	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 }
 
 impl pallet_session::historical::Trait for Test {
-    type FullIdentification = crate::Exposure<AccountId, Balance>;
-    type FullIdentificationOf = crate::ExposureOf<Test>;
+	type FullIdentification = crate::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = crate::ExposureOf<Test>;
 }
 impl pallet_authorship::Trait for Test {
-    type FindAuthor = Author11;
-    type UncleGenerations = UncleGenerations;
-    type FilterUncle = ();
-    type EventHandler = Module<Test>;
+	type FindAuthor = Author11;
+	type UncleGenerations = UncleGenerations;
+	type FilterUncle = ();
+	type EventHandler = Module<Test>;
 }
+
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
+
 impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
 }
+
 parameter_types! {
     pub const EpochDuration: u64 = 10;
     pub const ExpectedBlockTime: u64 = 1;
 }
+
 impl pallet_babe::Trait for Test {
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
 }
+
 pallet_staking_reward_curve::build! {
     const I_NPOS: PiecewiseLinear<'static> = curve!(
         min_inflation: 0_025_000,
@@ -323,15 +325,22 @@ pallet_staking_reward_curve::build! {
         test_precision: 0_005_000,
     );
 }
+
 parameter_types! {
     pub const SessionsPerEra: SessionIndex = 3;
     pub const BondingDuration: EraIndex = 3;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
+    pub const MaxNominatorRewardedPerValidator: u32 = 64;
+}
+
+ord_parameter_types! {
     pub const OneThousand: Public = account_from(1000);
     pub const TwoThousand: Public = account_from(2000);
     pub const ThreeThousand: Public = account_from(3000);
     pub const FourThousand: Public = account_from(4000);
+    pub const FiveThousand: Public = account_from(5000);
 }
+
 impl Trait for Test {
     type Currency = balances::Module<Self>;
     type Time = pallet_timestamp::Module<Self>;
@@ -346,10 +355,12 @@ impl Trait for Test {
     type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
+    type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
     type RequiredComplianceOrigin = EnsureSignedBy<ThreeThousand, Self::AccountId>;
     type RequiredCommissionOrigin = EnsureSignedBy<FourThousand, Self::AccountId>;
+    type RequiredChangeHistoryDepthOrigin = EnsureSignedBy<FiveThousand, Self::AccountId>;
 }
 
 pub struct ExtBuilder {
@@ -434,7 +445,7 @@ impl ExtBuilder {
             .collect::<Vec<_>>();
 
         let account_key_ring: BTreeMap<u64, Public> =
-            [10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999]
+            [1,2,3,4,10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999, 1005]
                 .iter()
                 .map(|id| (*id, account_from(*id)))
                 .collect();
@@ -445,6 +456,10 @@ impl ExtBuilder {
                 (AccountKeyring::Bob.public(), 20 * balance_factor),
                 (AccountKeyring::Charlie.public(), 300 * balance_factor),
                 (AccountKeyring::Dave.public(), 400 * balance_factor),
+                (account_key_ring.get(&1).unwrap().clone(), 10 * balance_factor),
+				(account_key_ring.get(&2).unwrap().clone(), 20 * balance_factor),
+				(account_key_ring.get(&3).unwrap().clone(), 300 * balance_factor),
+				(account_key_ring.get(&4).unwrap().clone(), 400 * balance_factor),
                 (account_key_ring.get(&10).unwrap().clone(), balance_factor),
                 (
                     account_key_ring.get(&11).unwrap().clone(),
@@ -479,7 +494,58 @@ impl ExtBuilder {
                     1_000_000_000_000,
                 ),
             ],
-            vesting: vec![],
+        }
+        .assimilate_storage(&mut storage);
+
+        group::GenesisConfig::<Test, group::Instance2> {
+            members: vec![IdentityId::from(1), IdentityId::from(2)],
+            phantom: Default::default(),
+        }.assimilate_storage(&mut storage);
+
+        let _ = identity::GenesisConfig::<Test> {
+            owner: AccountKeyring::Alice.public().into(),
+            did_creation_fee: 250,
+            identities: vec![
+                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                /// Provide Identity
+                (
+                    account_key_ring.get(&1005).unwrap().clone(),
+                    IdentityId::from(1),
+                    IdentityId::from(1),
+                    None,
+                ),
+                (
+                    account_key_ring.get(&11).unwrap().clone(),
+                    IdentityId::from(1),
+                    IdentityId::from(11),
+                    None,
+                ),
+                (
+                    account_key_ring.get(&21).unwrap().clone(),
+                    IdentityId::from(1),
+                    IdentityId::from(21),
+                    None,
+                ),
+                (
+                    account_key_ring.get(&31).unwrap().clone(),
+                    IdentityId::from(1),
+                    IdentityId::from(31),
+                    None,
+                ),
+                (
+                    account_key_ring.get(&41).unwrap().clone(),
+                    IdentityId::from(1),
+                    IdentityId::from(41),
+                    None,
+                ),
+                (
+                    account_key_ring.get(&101).unwrap().clone(),
+                    IdentityId::from(1),
+                    IdentityId::from(101),
+                    None,
+                ),
+            ],
+            ..Default::default()
         }
         .assimilate_storage(&mut storage);
 
@@ -503,7 +569,6 @@ impl ExtBuilder {
             vec![]
         };
         let _ = GenesisConfig::<Test> {
-            current_era: 0,
             stakers: vec![
                 // (stash, controller, staked_amount, status)
                 (
@@ -550,18 +615,10 @@ impl ExtBuilder {
             keys: validators
                 .iter()
                 .map(|x| {
-                    let acc_pub = account_key_ring.get(x).unwrap().clone();
                     let uint_auth_id = UintAuthorityId(*x);
-                    (acc_pub, uint_auth_id)
+                    (account_from(*x), account_from(*x), uint_auth_id)
                 })
                 .collect(),
-        }
-        .assimilate_storage(&mut storage);
-
-        let _ = identity::GenesisConfig::<Test> {
-            owner: AccountKeyring::Alice.public().into(),
-            did_creation_fee: 250,
-            ..Default::default()
         }
         .assimilate_storage(&mut storage);
 
@@ -592,52 +649,40 @@ pub fn account_from(id: u64) -> AccountId {
     Pair::from_seed(&enc_id).public()
 }
 
-pub fn check_exposure_all() {
-    Staking::current_elected()
-        .into_iter()
-        .for_each(|acc| check_exposure(acc));
+pub fn check_exposure_all(era: EraIndex) {
+    ErasStakers::<Test>::iter_prefix(era).for_each(check_exposure)
 }
 
-pub fn check_nominator_all() {
-    <Nominators<Test>>::enumerate().for_each(|(acc, _)| check_nominator_exposure(acc));
+pub fn check_nominator_all(era: EraIndex) {
+    <Nominators<Test>>::enumerate()
+		.for_each(|(acc, _)| check_nominator_exposure(era, acc));
 }
 
 /// Check for each selected validator: expo.total = Sum(expo.other) + expo.own
-pub fn check_exposure(stash: AccountId) {
-    assert_is_stash(stash);
-    let expo = Staking::stakers(&stash);
+pub fn check_exposure(expo: Exposure<AccountId, Balance>) {
     assert_eq!(
-        expo.total as u128,
-        expo.own as u128 + expo.others.iter().map(|e| e.value as u128).sum::<u128>(),
-        "wrong total exposure for {:?}: {:?}",
-        stash,
-        expo,
-    );
+		expo.total as u128, expo.own as u128 + expo.others.iter().map(|e| e.value as u128).sum::<u128>(),
+		"wrong total exposure {:?}", expo,
+	);
 }
 
 /// Check that for each nominator: slashable_balance > sum(used_balance)
 /// Note: we might not consume all of a nominator's balance, but we MUST NOT over spend it.
-pub fn check_nominator_exposure(stash: AccountId) {
+pub fn check_nominator_exposure(era: EraIndex, stash: AccountId) {
     assert_is_stash(stash);
     let mut sum = 0;
-    Staking::current_elected()
-        .iter()
-        .map(|v| Staking::stakers(v))
-        .for_each(|e| {
-            e.others
-                .iter()
-                .filter(|i| i.who == stash)
-                .for_each(|i| sum += i.value)
-        });
+    ErasStakers::<Test>::iter_prefix(era)
+		.for_each(|exposure| {
+			exposure.others.iter()
+				.filter(|i| i.who == stash)
+				.for_each(|i| sum += i.value)
+		});
     let nominator_stake = Staking::slashable_balance_of(&stash);
     // a nominator cannot over-spend.
     assert!(
-        nominator_stake >= sum,
-        "failed: Nominator({}) stake({}) >= sum divided({})",
-        stash,
-        nominator_stake,
-        sum,
-    );
+		nominator_stake >= sum,
+		"failed: Nominator({}) stake({}) >= sum divided({})", stash, nominator_stake, sum,
+	);
 }
 
 pub fn assert_is_stash(acc: AccountId) {
@@ -647,13 +692,10 @@ pub fn assert_is_stash(acc: AccountId) {
 pub fn assert_ledger_consistent(stash_acc: u64) {
     let stash = account_from(stash_acc);
     assert_is_stash(stash);
-    let ledger = Staking::ledger(account_from(stash_acc - 1)).unwrap();
+	let ledger = Staking::ledger(account_from(stash_acc - 1)).unwrap();
 
-    let real_total: Balance = ledger
-        .unlocking
-        .iter()
-        .fold(ledger.active, |a, c| a + c.value);
-    assert_eq!(real_total, ledger.total);
+	let real_total: Balance = ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
+	assert_eq!(real_total, ledger.total);
 }
 
 pub fn get_account_key_ring(acc: u64) -> Public {
@@ -676,6 +718,8 @@ pub fn bond_validator(acc: u64, val: u128) {
         val,
         RewardDestination::Controller
     ));
+    create_did_and_add_claim(stash);
+    assert_ok!(Staking::add_potential_validator(Origin::system(frame_system::RawOrigin::Root), stash));
     assert_ok!(Staking::validate(
         Origin::signed(controller),
         ValidatorPrefs::default()
@@ -694,6 +738,7 @@ pub fn bond_nominator(acc: u64, val: u128, target: Vec<AccountId>) {
         val,
         RewardDestination::Controller
     ));
+    create_did_and_add_claim(stash);
     assert_ok!(Staking::nominate(Origin::signed(controller), target));
 }
 
@@ -749,6 +794,11 @@ pub fn fix_nominator_genesis(cdd_sp: IdentityId, did: IdentityId, acc: u64) {
     );
 }
 
+pub fn create_did_and_add_claim(stash: AccountId) {
+    Balances::make_free_balance_be(&account_from(1005), 1_000_000);
+    assert_ok!(Identity::cdd_register_did(Origin::signed(account_from(1005)), stash, None, vec![]));
+}
+
 pub fn make_account(
     id: AccountId,
 ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
@@ -775,12 +825,11 @@ pub fn advance_session() {
 }
 
 pub fn start_session(session_index: SessionIndex) {
-    // Compensate for session delay
-    let session_index = session_index + 1;
     for i in Session::current_index()..session_index {
-        System::set_block_number((i + 1).into());
-        Timestamp::set_timestamp(System::block_number() * 1000);
-        Session::on_initialize(System::block_number());
+        Staking::on_finalize(System::block_number());
+		System::set_block_number((i + 1).into());
+		Timestamp::set_timestamp(System::block_number() * 1000);
+		Session::on_initialize(System::block_number());
     }
 
     assert_eq!(Session::current_index(), session_index);
@@ -788,13 +837,13 @@ pub fn start_session(session_index: SessionIndex) {
 
 pub fn start_era(era_index: EraIndex) {
     start_session((era_index * 3).into());
-    assert_eq!(Staking::current_era(), era_index);
+    assert_eq!(Staking::active_era().unwrap().index, era_index);
 }
 
 pub fn current_total_payout_for_duration(duration: u64) -> u128 {
     inflation::compute_total_payout(
         <Test as Trait>::RewardCurve::get(),
-        <Module<Test>>::slot_stake() * 2,
+        Staking::eras_total_stake(Staking::active_era().unwrap().index),
         Balances::total_issuance().saturating_sub(Balances::block_rewards_reserve_balance()),
         duration,
     )
@@ -802,12 +851,9 @@ pub fn current_total_payout_for_duration(duration: u64) -> u128 {
 }
 
 pub fn reward_all_elected() {
-    let rewards = <Module<Test>>::current_elected()
-        .iter()
-        .map(|v| (*v, 1))
-        .collect::<Vec<_>>();
-
-    <Module<Test>>::reward_by_ids(rewards)
+	let rewards = <Test as Trait>::SessionInterface::validators().into_iter()
+		.map(|v| (v, 1));
+	<Module<Test>>::reward_by_ids(rewards)
 }
 
 pub fn validator_controllers() -> Vec<AccountId> {
@@ -818,43 +864,65 @@ pub fn validator_controllers() -> Vec<AccountId> {
 }
 
 pub fn on_offence_in_era(
-    offenders: &[OffenceDetails<
-        AccountId,
-        pallet_session::historical::IdentificationTuple<Test>,
-    >],
-    slash_fraction: &[Perbill],
-    era: EraIndex,
+	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
+	slash_fraction: &[Perbill],
+	era: EraIndex,
 ) {
-    let bonded_eras = crate::BondedEras::get();
-    for &(bonded_era, start_session) in bonded_eras.iter() {
-        if bonded_era == era {
-            Staking::on_offence(offenders, slash_fraction, start_session);
-            return;
-        } else if bonded_era > era {
-            break;
-        }
-    }
+	let bonded_eras = crate::BondedEras::get();
+	for &(bonded_era, start_session) in bonded_eras.iter() {
+		if bonded_era == era {
+			Staking::on_offence(offenders, slash_fraction, start_session);
+			return
+		} else if bonded_era > era {
+			break
+		}
+	}
 
-    if Staking::current_era() == era {
-        Staking::on_offence(
-            offenders,
-            slash_fraction,
-            Staking::current_era_start_session_index(),
-        );
-    } else {
-        panic!("cannot slash in era {}", era);
-    }
+	if Staking::active_era().unwrap().index == era {
+		Staking::on_offence(offenders, slash_fraction, Staking::eras_start_session_index(era).unwrap());
+	} else {
+		panic!("cannot slash in era {}", era);
+	}
 }
 
 pub fn on_offence_now(
-    offenders: &[OffenceDetails<
-        AccountId,
-        pallet_session::historical::IdentificationTuple<Test>,
-    >],
-    slash_fraction: &[Perbill],
+	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
+	slash_fraction: &[Perbill],
 ) {
-    let now = Staking::current_era();
-    on_offence_in_era(offenders, slash_fraction, now)
+	let now = Staking::active_era().unwrap().index;
+	on_offence_in_era(offenders, slash_fraction, now)
+}
+
+/// Make all validator and nominator request their payment
+pub fn make_all_reward_payment(era: EraIndex) {
+	let validators_with_reward = ErasRewardPoints::<Test>::get(era).individual.keys()
+		.cloned()
+		.collect::<Vec<_>>();
+
+	// reward nominators
+	let mut nominator_controllers = HashMap::new();
+	for validator in Staking::eras_reward_points(era).individual.keys() {
+		let validator_exposure = Staking::eras_stakers_clipped(era, validator);
+		for (nom_index, nom) in validator_exposure.others.iter().enumerate() {
+			if let Some(nom_ctrl) = Staking::bonded(nom.who) {
+				nominator_controllers.entry(nom_ctrl)
+					.or_insert(vec![])
+					.push((validator.clone(), nom_index as u32));
+			}
+		}
+	}
+	for (nominator_controller, validators_with_nom_index) in nominator_controllers {
+		assert_ok!(Staking::payout_nominator(
+			Origin::signed(nominator_controller),
+			era,
+			validators_with_nom_index,
+		));
+	}
+
+	// reward validators
+	for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
+		assert_ok!(Staking::payout_validator(Origin::signed(validator_controller), era));
+	}
 }
 
 pub fn fix_nominator_genesis_problem(value: u128) {
