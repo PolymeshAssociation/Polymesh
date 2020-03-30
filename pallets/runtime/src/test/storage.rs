@@ -2,6 +2,7 @@ use crate::{asset, bridge, exemption, general_tm, multisig, percentage_tm, stati
 
 use pallet_committee as committee;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -62,6 +63,7 @@ impl_outer_event! {
         group DefaultInstance<T>,
         committee Instance1<T>,
         committee DefaultInstance<T>,
+        protocol_fee<T>,
     }
 }
 
@@ -242,6 +244,7 @@ impl identity::Trait for TestStorage {
     type CddHandler = TestStorage;
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
+    type ProtocolFee = protocol_fee::Module<TestStorage>;
 }
 
 impl AddSignerMultiSig for TestStorage {
@@ -318,6 +321,12 @@ impl general_tm::Trait for TestStorage {
     type Asset = asset::Module<TestStorage>;
 }
 
+impl protocol_fee::Trait for TestStorage {
+    type Event = Event;
+    type Currency = Balances;
+    type OnProtocolFeePayment = ();
+}
+
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
@@ -390,7 +399,6 @@ pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
 pub type Timestamp = pallet_timestamp::Module<TestStorage>;
 pub type Contracts = pallet_contracts::Module<TestStorage>;
 pub type Bridge = bridge::Module<TestStorage>;
-pub type CDDServieProvider = group::Module<TestStorage, group::Instance2>;
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 
 pub fn make_account(
@@ -408,7 +416,7 @@ pub fn make_account_with_balance(
     Balances::make_free_balance_be(&id, balance);
 
     // If we have CDD providers, first of them executes the registration.
-    let cdd_providers = CDDServieProvider::get_members();
+    let cdd_providers = CddServiceProvider::get_members();
     let did_registration = if let Some(cdd_provider) = cdd_providers.into_iter().nth(0) {
         let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
         Identity::cdd_register_did(Origin::signed(cdd_acc), id, Some(10), vec![])
@@ -427,12 +435,7 @@ pub fn make_account_without_cdd(
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, 10_000_000);
-
-    let _ = Identity::_register_did(id.clone(), vec![])
-        .map_err(|_| "Identity::_register_did has failed")?;
-
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
-
+    let did = Identity::_register_did(id.clone(), vec![], None).expect("did");
     Ok((signed_id, did))
 }
 

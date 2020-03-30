@@ -11,6 +11,9 @@ pub use context::Context;
 pub mod batch_dispatch_info;
 pub use batch_dispatch_info::BatchDispatchInfo;
 
+pub mod protocol_fee;
+pub use protocol_fee::ChargeProtocolFee;
+
 use core::convert::From;
 use polymesh_primitives::IdentityId;
 

@@ -32,7 +32,8 @@ pallet-timestamp = { package ="pallet-timestamp", git = "https://github.com/pari
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve" }
 substrate-test-utils = { package ="substrate-test-utils", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
 chrono = { version = "0.4.10", default-features = false }
-pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
+pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false }
+polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
 
 [features]
 equalize = []

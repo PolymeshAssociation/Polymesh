@@ -31,6 +31,7 @@ use frame_support::{
     StorageLinkedMap, StorageValue,
 };
 use frame_system::{self as system, EnsureSignedBy};
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer,
@@ -237,6 +238,12 @@ impl group::Trait<group::Instance2> for Test {
     type MembershipChanged = ();
 }
 
+impl protocol_fee::Trait for Test {
+    type Event = ();
+    type Currency = Balances;
+    type OnProtocolFeePayment = ();
+}
+
 impl identity::Trait for Test {
     type Event = ();
     type Proposal = Call;
@@ -247,6 +254,7 @@ impl identity::Trait for Test {
     type CddHandler = Test;
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
+    type ProtocolFee = protocol_fee::Module<Test>;
 }
 
 impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
@@ -592,7 +600,6 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
-            did_creation_fee: 250,
             ..Default::default()
         }
         .assimilate_storage(&mut storage);
@@ -892,7 +899,7 @@ pub fn on_offence_now(
 pub fn fix_nominator_genesis_problem(value: u128) {
     let nominator_controller_account = 100;
     let nominator_stash_account = 101;
-    let (nominator_signed, nominator_did) =
+    let (_nominator_signed, nominator_did) =
         make_account_with_balance(account_from(nominator_stash_account), value).unwrap();
 
     let service_provider_account = AccountId::from(AccountKeyring::Dave);

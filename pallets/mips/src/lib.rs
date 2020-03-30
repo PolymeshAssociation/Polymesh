@@ -47,9 +47,12 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_mips_rpc_runtime_api::VoteCount;
-use polymesh_primitives::AccountKey;
+use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_runtime_common::{
-    identity::Trait as IdentityTrait, traits::group::GroupTrait, Context,
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::group::GroupTrait,
+    Context,
 };
 use polymesh_runtime_identity as identity;
 use sp_runtime::{
@@ -319,6 +322,8 @@ decl_module! {
             description: Option<MipDescription>,
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
+            let proposer_key = AccountKey::try_from(proposer.encode())?;
+            let signer = Signatory::from(proposer_key);
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Pre conditions: caller must have min balance
@@ -333,8 +338,11 @@ decl_module! {
             );
 
             // Reserve the minimum deposit
-            T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
-
+            <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+            <T as IdentityTrait>::ProtocolFee::charge_fee(
+                &signer,
+                ProtocolOp::MipsPropose
+            )?;
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
 
@@ -394,7 +402,7 @@ decl_module! {
                 }
 
                 // Reserve the deposit
-                T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+                <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
                 <Deposits<T>>::mutate(proposal_hash, |deposits| deposits.push((proposer.clone(), deposit)));
 
@@ -587,7 +595,7 @@ impl<T: Trait> Module<T> {
                     <Deposits<T>>::take(&proposal_hash);
 
                 for (depositor, deposit) in deposits.iter() {
-                    T::Currency::unreserve(depositor, *deposit);
+                    <T as Trait>::Currency::unreserve(depositor, *deposit);
                 }
             }
 

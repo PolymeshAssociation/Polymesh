@@ -160,7 +160,7 @@ fn non_issuers_cant_create_tokens() {
         // Expected token entry
         let _ = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -185,7 +185,7 @@ fn valid_transfers_pass() {
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -235,7 +235,7 @@ fn valid_custodian_allowance() {
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -414,7 +414,7 @@ fn valid_custodian_allowance_of() {
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -467,7 +467,7 @@ fn valid_custodian_allowance_of() {
         );
 
         let msg = SignData {
-            custodian_did: custodian_did,
+            custodian_did,
             holder_did: investor1_did,
             ticker,
             value: 50_00_00 as u128,
@@ -607,7 +607,7 @@ fn checkpoints_fuzz_test() {
             // Expected token entry
             let token = SecurityToken {
                 name: vec![0x01].into(),
-                owner_did: owner_did,
+                owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
@@ -705,7 +705,7 @@ fn register_ticker() {
 
         let token = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
