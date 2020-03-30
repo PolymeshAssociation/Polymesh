@@ -2,8 +2,7 @@ use crate::{
     traits::{
         balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
     },
-    SystematicIssuers,
-    ChargeProtocolFee,
+    ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, ClaimType, IdentityClaim, IdentityId, LinkData, Permission,
