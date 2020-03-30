@@ -1,6 +1,6 @@
 use crate::traits::identity::IdentityTrait;
 
-use polymesh_primitives::{AccountKey, IdentityId};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use sp_runtime::DispatchError;
 
 /// Helper class to access to some context information.
@@ -17,6 +17,14 @@ impl Context {
 
     pub fn set_current_identity<I: IdentityTrait>(id: Option<IdentityId>) {
         I::set_current_identity(id)
+    }
+
+    pub fn current_payer<I: IdentityTrait>() -> Option<Signatory> {
+        I::current_payer()
+    }
+
+    pub fn set_current_payer<I: IdentityTrait>(payer: Option<Signatory>) {
+        I::set_current_payer(payer)
     }
 
     /// It gets the current identity and if it is none, it will use the identity from `key`.

@@ -131,7 +131,7 @@ decl_storage! {
                 return Default::default();
             }
             <multisig::Module<T>>::create_multisig_account(
-                Default::default(),
+                config.creator.clone(),
                 config.signers.as_slice(),
                 config.signatures_required
             ).expect("cannot create the bridge multisig")
@@ -155,6 +155,9 @@ decl_storage! {
             linked_map T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
     }
     add_extra_genesis {
+        // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
+        /// AccountId of the multisig creator. Set to Alice for easier testing.
+        config(creator): T::AccountId;
         /// The set of initial signers from which a multisig address is created at genesis time.
         config(signers): Vec<Signatory>;
         /// The number of required signatures in the genesis signer set.

@@ -120,7 +120,7 @@ const blockTillPoolEmpty = async function(api) {
 
 // Create a new DID for each of accounts[]
 // precondition - accounts all have enough POLY
-const createIdentities = async function(api, accounts) {
+const createIdentities = async function(api, accounts, alice) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
@@ -135,6 +135,19 @@ const createIdentities = async function(api, accounts) {
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.raw.asUnique);
+  }
+  let did_balance = 10 * 10**12;
+  for (let i = 0; i < dids.length; i++) {
+    await api.tx.balances
+      .topUpIdentityBalance(dids[i], did_balance)
+      .signAndSend(
+        alice,
+        { nonce: reqImports["nonces"].get(alice.address) }
+      );
+    reqImports["nonces"].set(
+      alice.address,
+      reqImports["nonces"].get(alice.address).addn(1)
+    );
   }
   return dids;
 };
@@ -177,7 +190,12 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
     const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
-    const last_auth_id = auths[auths.length - 1].auth_id;
+    let last_auth_id = 0;
+    for (let i = 0; i < auths.length; i++) {
+      if (auths[i][1].auth_id.toNumber() > last_auth_id) {
+        last_auth_id = auths[i][1].auth_id.toNumber()
+      }
+    }
     const unsub = await api.tx.identity
       .joinIdentityAsKey([last_auth_id])
       .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });

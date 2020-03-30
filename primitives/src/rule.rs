@@ -55,7 +55,7 @@ impl From<RuleType> for Rule {
     fn from(rule_type: RuleType) -> Self {
         Rule {
             rule_type,
-            issuers: vec![],
+            issuers: Vec::<IdentityId>::new(),
         }
     }
 }
