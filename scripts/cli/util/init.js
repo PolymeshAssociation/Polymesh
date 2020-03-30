@@ -175,7 +175,7 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
     // 1. Add Signing Item to identity.
 
     const unsub = await api.tx.identity
-    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
+    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
     .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
 
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
