@@ -225,6 +225,7 @@ fn testnet_genesis(
         }),
         bridge: Some(BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
             signatures_required: 0,
             signers: vec![],
             timelock: 100,
