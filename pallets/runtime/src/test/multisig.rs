@@ -353,6 +353,10 @@ fn add_multisig_signer() {
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
             Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+        let charlie_signer = Signatory::from(
+            AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
+        );
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -392,6 +396,16 @@ fn add_multisig_signer() {
             call
         ));
 
+        let call2 = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer(
+            charlie_signer,
+        )));
+
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.clone(),
+            musig_address.clone(),
+            call2
+        ));
+
         assert_eq!(
             MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             true
@@ -407,12 +421,31 @@ fn add_multisig_signer() {
             .unwrap()
             .auth_id;
 
+        let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(charlie_signer)
+            .next()
+            .unwrap()
+            .auth_id;
+
         let root = Origin::system(frame_system::RawOrigin::Root);
+
         Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true);
+        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+            charlie.clone(),
+            charlie_auth_id
+        ));
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), charlie_signer),
+            true
+        );
+
+        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
+
         assert_err!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),
             Error::ChangeNotAllowed
         );
+
         Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false);
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
