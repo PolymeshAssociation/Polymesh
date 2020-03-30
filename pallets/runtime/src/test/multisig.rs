@@ -458,7 +458,7 @@ fn add_multisig_signer() {
             true
         );
 
-        assert!(Identity::_register_did(musig_address.clone(), vec![],).is_ok());
+        assert!(Identity::_register_did(musig_address.clone(), vec![], None).is_ok());
 
         assert_err!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),
