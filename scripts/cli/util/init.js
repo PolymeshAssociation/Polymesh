@@ -26,12 +26,12 @@ let prepend = "demo";
 const ticker = `token${prepend}0`.toUpperCase();
 assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-const senderRules1 = function(trusted_did, receiving_did) {
+const senderRules1 = function(trusted_did, asset_did) {
     return [
     {
       "rule_type": {
         "IsPresent": {
-          "Whitelisted": receiving_did 
+          "Whitelisted": asset_did 
         }
       },
       "issuers": [trusted_did]
@@ -233,7 +233,7 @@ async function createClaimRules(api, accounts, dids) {
     
     const asset_did = tickerToDid(ticker);
   
-    let senderRules = senderRules1(dids[1], dids[2]);
+    let senderRules = senderRules1(dids[1], asset_did);
     let receiverRules = receiverRules1(dids[1], asset_did);
 
     const unsub = await api.tx.generalTm

@@ -49,7 +49,7 @@ async function main() {
   await reqImports.addClaimsToDids( api, master_keys, issuer_dids[2], "Whitelisted", asset_did );
 
   // senderRules Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[0], "Whitelisted", issuer_dids[2] );
+  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[0], "Whitelisted", asset_did );
 
   await reqImports.createClaimRules( api, master_keys, issuer_dids );
 
@@ -108,13 +108,7 @@ async function assetTransfer(api, accounts, dids) {
          
           if (status.isFinalized) {
            
-            reqImports.fail_count = reqImports.callback(
-              status,
-              events,
-              "",
-              "",
-              reqImports.fail_count
-            );
+            reqImports.fail_count = reqImports.callback( status, events, "","", reqImports.fail_count);
             unsub();
           }
         }
