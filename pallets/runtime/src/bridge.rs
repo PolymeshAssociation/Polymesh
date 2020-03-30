@@ -131,7 +131,7 @@ decl_storage! {
                 return Default::default();
             }
             <multisig::Module<T>>::create_multisig_account(
-                config.creator,
+                config.creator.clone(),
                 config.signers.as_slice(),
                 config.signatures_required
             ).expect("cannot create the bridge multisig")
