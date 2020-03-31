@@ -453,9 +453,9 @@ mod tests {
     impl CddAndFeeDetails<Call> for Runtime {
         fn get_valid_payer(
             _: &Call,
-            _: &Signatory,
+            caller: &Signatory,
         ) -> Result<Option<Signatory>, InvalidTransaction> {
-            Ok(None)
+            Ok(Some(*caller))
         }
         fn clear_context() {}
         fn set_payer_context(_: Option<Signatory>) {}
@@ -466,7 +466,7 @@ mod tests {
     }
 
     impl IdentityTrait for Runtime {
-        fn get_identity(key: &AccountKey) -> Option<IdentityId> {
+        fn get_identity(_key: &AccountKey) -> Option<IdentityId> {
             unimplemented!()
         }
         fn current_payer() -> Option<Signatory> {
@@ -479,17 +479,17 @@ mod tests {
             unimplemented!()
         }
         fn set_current_payer(_payer: Option<Signatory>) {}
-        fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool {
+        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory) -> bool {
             unimplemented!()
         }
         fn is_signer_authorized_with_permissions(
-            did: IdentityId,
-            signer: &Signatory,
-            permissions: Vec<Permission>,
+            _did: IdentityId,
+            _signer: &Signatory,
+            _permissions: Vec<Permission>,
         ) -> bool {
             unimplemented!()
         }
-        fn is_master_key(did: IdentityId, key: &AccountKey) -> bool {
+        fn is_master_key(_did: IdentityId, _key: &AccountKey) -> bool {
             unimplemented!()
         }
 
