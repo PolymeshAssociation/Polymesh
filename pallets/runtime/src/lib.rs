@@ -25,11 +25,10 @@ mod simple_token;
 
 pub mod runtime;
 mod sto_capped;
-mod utils;
 mod voting;
 pub use runtime::{
     api, Asset, Authorship, AvailableBlockRatio, Balances, Bridge, Contracts, MaximumBlockWeight,
-    NegativeImbalance, Runtime, RuntimeApi, SessionKeys, System, TargetBlockFullness,
+    NegativeImbalance, ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, TargetBlockFullness,
     TransactionPayment,
 };
 #[cfg(feature = "std")]
@@ -39,6 +38,7 @@ pub use runtime::{native_version, WASM_BINARY};
 pub mod config {
 
     use pallet_committee as committee;
+    use polymesh_protocol_fee as protocol_fee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_identity as identity;
 
@@ -58,10 +58,11 @@ pub mod config {
     pub type SystemConfig = frame_system::GenesisConfig;
     pub type GenesisConfig = crate::runtime::GenesisConfig;
     pub type SessionConfig = pallet_session::GenesisConfig<crate::Runtime>;
+    pub type ProtocolFeeConfig = protocol_fee::GenesisConfig<crate::Runtime>;
 }
 
-pub mod update_did_signed_extension;
-pub use update_did_signed_extension::UpdateDid;
+pub mod fee_details;
+pub use fee_details::CddHandler;
 
 pub use sp_runtime::{Perbill, Permill};
 

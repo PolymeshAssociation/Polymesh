@@ -8,7 +8,10 @@ use polymesh_runtime::{
         ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
         SudoConfig, SystemConfig,
     },
-    runtime::{CddServiceProvidersConfig, CommitteeMembershipConfig, PolymeshCommitteeConfig},
+    runtime::{
+        CddServiceProvidersConfig, CommitteeMembershipConfig, PolymeshCommitteeConfig,
+        ProtocolFeeConfig,
+    },
     Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
@@ -222,19 +225,22 @@ fn testnet_genesis(
             ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
-                registration_length: Some(5184000000),
+                registration_length: Some(5_184_000_000),
             },
             fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
         bridge: Some(BridgeConfig {
-            ..Default::default()
+            admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            signatures_required: 0,
+            signers: vec![],
+            timelock: 100,
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
-            did_creation_fee: 250,
             identities: vec![
-                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                /// Service providers
+                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // Service providers
                 (
                     get_account_id_from_seed::<sr25519::Public>("service_provider_1"),
                     IdentityId::from(1),
@@ -247,7 +253,7 @@ fn testnet_genesis(
                     IdentityId::from(2),
                     None,
                 ),
-                /// Governance committee members
+                // Governance committee members
                 (
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_1"),
                     IdentityId::from(1),
@@ -266,7 +272,7 @@ fn testnet_genesis(
                     IdentityId::from(5),
                     None,
                 ),
-                /// Validators
+                // Validators
                 (
                     get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
                     IdentityId::from(2),
@@ -283,6 +289,19 @@ fn testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
                     IdentityId::from(1),
                     IdentityId::from(8),
+                    None,
+                ),
+                // Alice and bob
+                (
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    IdentityId::from(42),
+                    IdentityId::from(42),
+                    None,
+                ),
+                (
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    IdentityId::from(42),
+                    IdentityId::from(1337),
                     None,
                 ),
             ],
@@ -328,7 +347,7 @@ fn testnet_genesis(
         }),
         pallet_mips: Some(MipsConfig {
             min_proposal_deposit: 5000,
-            quorum_threshold: 100000,
+            quorum_threshold: 100_000,
             proposal_duration: 50,
         }),
         pallet_im_online: Some(ImOnlineConfig {
@@ -350,7 +369,7 @@ fn testnet_genesis(
             gas_price: 1 * MILLICENTS,
         }),
         group_Instance1: Some(CommitteeMembershipConfig {
-            members: vec![],
+            active_members: vec![],
             phantom: Default::default(),
         }),
         committee_Instance1: Some(PolymeshCommitteeConfig {
@@ -363,8 +382,16 @@ fn testnet_genesis(
             phantom: Default::default(),
         }),
         group_Instance2: Some(CddServiceProvidersConfig {
-            members: vec![IdentityId::from(1), IdentityId::from(2)],
+            // sp1, sp2, alice
+            active_members: vec![
+                IdentityId::from(1),
+                IdentityId::from(2),
+                IdentityId::from(42),
+            ],
             phantom: Default::default(),
+        }),
+        protocol_fee: Some(ProtocolFeeConfig {
+            ..Default::default()
         }),
     }
 }

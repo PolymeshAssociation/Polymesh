@@ -21,7 +21,7 @@ use crate::{
     Nominators, RewardDestination, SessionInterface, StakerStatus, Trait, ValidatorPrefs,
 };
 use chrono::prelude::Utc;
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
@@ -31,15 +31,19 @@ use frame_support::{
     StorageDoubleMap, StorageLinkedMap, StorageMap, StorageValue,
 };
 use frame_system::{self as system, EnsureSignedBy};
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
-    asset::AcceptTransfer, balances::AccountData, group::GroupTrait, multisig::AddSignerMultiSig,
+    asset::AcceptTransfer,
+    balances::AccountData,
+    group::{GroupTrait, InactiveMember},
+    multisig::AddSignerMultiSig,
     CommonTrait,
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity::{self as identity};
 use primitives::traits::BlockRewardsReserveCurrency;
-use primitives::{AccountKey, IdentityClaimData, IdentityId, Signatory};
+use primitives::{AccountKey, Claim, IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
@@ -50,8 +54,9 @@ use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{sr25519::Public, Header, UintAuthorityId};
 use sp_runtime::traits::{
     Convert, IdentityLookup, OnFinalize, OnInitialize, OpaqueKeys, SaturatedConversion, Verify,
+    Zero,
 };
-use sp_runtime::transaction_validity::{TransactionValidity, ValidTransaction};
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{AnySignature, KeyTypeId, Perbill};
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -68,6 +73,8 @@ use test_client::AccountKeyring;
 pub type AccountId = <AnySignature as Verify>::Signer;
 pub type BlockNumber = u64;
 pub type Balance = u128;
+type OffChainSignature = AnySignature;
+type Moment = <Test as pallet_timestamp::Trait>::Moment;
 
 /// Simple structure that exposes how u64 currency can be represented as... u64.
 pub struct CurrencyToVoteHandler;
@@ -175,7 +182,7 @@ impl frame_system::Trait for Test {
     type Origin = Origin;
     type Index = u64;
     type BlockNumber = BlockNumber;
-    type Call = ();
+    type Call = Call;
     type Hash = H256;
     type Hashing = ::sp_runtime::traits::BlakeTwo256;
     type AccountId = AccountId;
@@ -230,6 +237,12 @@ impl group::Trait<group::Instance2> for Test {
     type MembershipChanged = ();
 }
 
+impl protocol_fee::Trait for Test {
+    type Event = ();
+    type Currency = Balances;
+    type OnProtocolFeePayment = ();
+}
+
 impl identity::Trait for Test {
     type Event = ();
     type Proposal = Call;
@@ -237,17 +250,76 @@ impl identity::Trait for Test {
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = balances::Module<Test>;
     type ChargeTxFeeTarget = Test;
+    type CddHandler = Test;
+    type Public = AccountId;
+    type OffChainSignature = OffChainSignature;
+    type ProtocolFee = protocol_fee::Module<Test>;
+}
+
+impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
+    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+        Ok(None)
+    }
+    fn clear_context() {}
+    fn set_payer_context(_: Option<Signatory>) {}
+    fn get_payer_from_context() -> Option<Signatory> {
+        None
+    }
+    fn set_current_identity(_: &IdentityId) {}
 }
 
 impl pallet_transaction_payment::ChargeTxFee for Test {
-    fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+    fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }
 }
 
-impl GroupTrait for Test {
+impl GroupTrait<Moment> for Test {
     fn get_members() -> Vec<IdentityId> {
-        return Group::members();
+        return Group::active_members();
+    }
+
+    fn get_inactive_members() -> Vec<InactiveMember<Moment>> {
+        vec![]
+    }
+
+    fn disable_member(
+        _who: IdentityId,
+        _expiry: Option<Moment>,
+        _at: Option<Moment>,
+    ) -> DispatchResult {
+        unimplemented!();
+    }
+
+    fn get_active_members() -> Vec<IdentityId> {
+        Self::get_members()
+    }
+
+    /// Current set size
+    fn member_count() -> usize {
+        Self::get_members().len()
+    }
+
+    fn is_member(member_id: &IdentityId) -> bool {
+        Self::get_members().contains(member_id)
+    }
+
+    /// It returns the current "active members" and any "inactive member" which its
+    /// expiration time-stamp is greater than `moment`.
+    fn get_valid_members_at(moment: Moment) -> Vec<IdentityId> {
+        Self::get_active_members()
+            .into_iter()
+            .chain(
+                Self::get_inactive_members()
+                    .into_iter()
+                    .filter(|m| !Self::is_member_expired(&m, moment))
+                    .map(|m| m.id),
+            )
+            .collect::<Vec<_>>()
+    }
+
+    fn is_member_expired(member: &InactiveMember<Moment>, now: Moment) -> bool {
+        false
     }
 }
 
@@ -511,14 +583,13 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage);
 
         group::GenesisConfig::<Test, group::Instance2> {
-            members: vec![IdentityId::from(1), IdentityId::from(2)],
+            active_members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }
         .assimilate_storage(&mut storage);
 
         let _ = identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
-            did_creation_fee: 250,
             identities: vec![
                 /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 /// Provide Identity
@@ -777,7 +848,7 @@ pub fn add_nominator_claim(
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         idendity_id,
-        IdentityClaimData::CustomerDueDiligence,
+        Claim::CustomerDueDiligence,
         Some((now.timestamp() as u64 + 10000_u64).into()),
     ));
 }
@@ -789,11 +860,10 @@ pub fn add_nominator_claim_with_expiry(
     expiry: u64,
 ) {
     let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id.clone());
-    let now = Utc::now();
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         idendity_id,
-        IdentityClaimData::CustomerDueDiligence,
+        Claim::CustomerDueDiligence,
         Some(expiry.into()),
     ));
 }
@@ -847,6 +917,12 @@ pub fn make_account_with_balance(
     let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
 
     Ok((signed_id, did))
+}
+
+pub fn check_cdd(id: AccountId) -> Result<bool, &'static str> {
+    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+    let is_cdd = Identity::fetch_cdd(did, Zero::zero()).is_some();
+    Ok(is_cdd)
 }
 
 pub fn advance_session() {
@@ -975,7 +1051,7 @@ pub fn make_all_reward_payment(era: EraIndex) {
 pub fn fix_nominator_genesis_problem(value: u128) {
     let nominator_controller_account = 100;
     let nominator_stash_account = 101;
-    let (nominator_signed, nominator_did) =
+    let (_nominator_signed, nominator_did) =
         make_account_with_balance(account_from(nominator_stash_account), value).unwrap();
 
     let service_provider_account = AccountId::from(AccountKeyring::Dave);

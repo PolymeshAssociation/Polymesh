@@ -301,16 +301,15 @@ fn vote() {
             None
         ));
 
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
+        let sender_rules = vec![];
+        let receiver_rules = vec![];
 
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             token_owner_acc.clone(),
             ticker,
-            asset_rule
+            sender_rules,
+            receiver_rules
         ));
 
         assert_ok!(Asset::transfer(

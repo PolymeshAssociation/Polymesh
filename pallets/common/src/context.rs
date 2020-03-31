@@ -1,6 +1,6 @@
 use crate::traits::identity::IdentityTrait;
 
-use polymesh_primitives::{AccountKey, IdentityId};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use sp_runtime::DispatchError;
 
 /// Helper class to access to some context information.
@@ -19,8 +19,16 @@ impl Context {
         I::set_current_identity(id)
     }
 
+    pub fn current_payer<I: IdentityTrait>() -> Option<Signatory> {
+        I::current_payer()
+    }
+
+    pub fn set_current_payer<I: IdentityTrait>(payer: Option<Signatory>) {
+        I::set_current_payer(payer)
+    }
+
     /// It gets the current identity and if it is none, it will use the identity from `key`.
-    /// This funtion is a helper tool for testing where SignedExtension is not used and
+    /// This function is a helper tool for testing where SignedExtension is not used and
     /// `current_identity` is always none.
     pub fn current_identity_or<I: IdentityTrait>(
         key: &AccountKey,
@@ -92,6 +100,9 @@ mod test {
         ) -> bool {
             false
         }
+
+        fn unsafe_add_systematic_cdd_claims(_targets: &[IdentityId]) {}
+        fn unsafe_revoke_systematic_cdd_claims(_targets: &[IdentityId]) {}
     }
 
     #[test]

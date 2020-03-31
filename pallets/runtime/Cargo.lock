@@ -2396,6 +2396,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
+ "polymesh-protocol-fee",
  "polymesh-runtime-balances",
  "polymesh-runtime-common",
  "polymesh-runtime-group",
@@ -2851,6 +2852,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-protocol-fee"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-common",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "polymesh-runtime"
 version = "0.6.0"
 dependencies = [
@@ -2893,6 +2910,7 @@ dependencies = [
  "pallet-treasury",
  "parity-scale-codec",
  "polymesh-primitives",
+ "polymesh-protocol-fee",
  "polymesh-runtime-balances",
  "polymesh-runtime-common",
  "polymesh-runtime-group",
@@ -2953,6 +2971,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-session",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -2998,6 +3017,7 @@ dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-primitives",
+ "polymesh-protocol-fee",
  "polymesh-runtime-common",
  "polymesh-runtime-identity-rpc-runtime-api",
  "serde",

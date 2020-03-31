@@ -4,9 +4,9 @@ use crate::{
 };
 
 use pallet_committee as committee;
-use polymesh_primitives::{AccountKey, Identity, IdentityId};
+use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::identity::LinkedKeyInfo;
+use polymesh_runtime_common::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
@@ -14,7 +14,10 @@ use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use test_client::AccountKeyring;
 
-use std::{cell::RefCell, convert::From};
+use std::{cell::RefCell, convert::From, iter};
+
+/// A prime number fee to test the split between multiple recipients.
+pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
 
 struct BuilderVoteThreshold {
     pub numerator: u32,
@@ -30,6 +33,33 @@ impl Default for BuilderVoteThreshold {
     }
 }
 
+pub struct MockProtocolBaseFees(pub Vec<(ProtocolOp, u128)>);
+
+impl Default for MockProtocolBaseFees {
+    fn default() -> Self {
+        let ops = vec![
+            ProtocolOp::AssetRegisterTicker,
+            ProtocolOp::AssetIssue,
+            ProtocolOp::AssetAddDocument,
+            ProtocolOp::AssetCreateToken,
+            ProtocolOp::DividendNew,
+            ProtocolOp::GeneralTmAddActiveRule,
+            ProtocolOp::IdentityRegisterDid,
+            ProtocolOp::IdentityCddRegisterDid,
+            ProtocolOp::IdentityAddClaim,
+            ProtocolOp::IdentitySetMasterKey,
+            ProtocolOp::IdentityAddSigningItem,
+            ProtocolOp::MipsPropose,
+            ProtocolOp::VotingAddBallot,
+        ];
+        let fees = ops
+            .into_iter()
+            .zip(iter::repeat(PROTOCOL_OP_BASE_FEE))
+            .collect();
+        MockProtocolBaseFees(fees)
+    }
+}
+
 #[derive(Default)]
 pub struct ExtBuilder {
     transaction_base_fee: u128,
@@ -39,8 +69,10 @@ pub struct ExtBuilder {
     monied: bool,
     vesting: bool,
     cdd_providers: Vec<Public>,
-    gen_committee_members: Vec<IdentityId>,
-    gen_committee_vote_threshold: BuilderVoteThreshold,
+    governance_committee_members: Vec<Public>,
+    governance_committee_vote_threshold: BuilderVoteThreshold,
+    protocol_base_fees: MockProtocolBaseFees,
+    protocol_coefficient: PosRatio,
 }
 
 thread_local! {
@@ -71,13 +103,13 @@ impl ExtBuilder {
         self
     }
 
-    pub fn committee_members(mut self, committee: Vec<IdentityId>) -> Self {
-        self.gen_committee_members = committee;
+    pub fn governance_committee(mut self, members: Vec<Public>) -> Self {
+        self.governance_committee_members = members;
         self
     }
 
-    pub fn committee_vote_threshold(mut self, threshold: (u32, u32)) -> Self {
-        self.gen_committee_vote_threshold = BuilderVoteThreshold {
+    pub fn governance_committee_vote_threshold(mut self, threshold: (u32, u32)) -> Self {
+        self.governance_committee_vote_threshold = BuilderVoteThreshold {
             numerator: threshold.0,
             denominator: threshold.1,
         };
@@ -87,6 +119,16 @@ impl ExtBuilder {
     /// It sets `providers` as CDD providers.
     pub fn cdd_providers(mut self, providers: Vec<Public>) -> Self {
         self.cdd_providers = providers;
+        self
+    }
+
+    pub fn set_protocol_base_fees(mut self, fees: MockProtocolBaseFees) -> Self {
+        self.protocol_base_fees = fees;
+        self
+    }
+
+    pub fn set_protocol_coefficient(mut self, coefficient: (u32, u32)) -> Self {
+        self.protocol_coefficient = PosRatio::from(coefficient);
         self
     }
 
@@ -102,14 +144,20 @@ impl ExtBuilder {
             vec![
                 (
                     AccountKeyring::Alice.public(),
-                    10 * self.existential_deposit,
+                    1_000 * self.existential_deposit,
                 ),
-                (AccountKeyring::Bob.public(), 20 * self.existential_deposit),
+                (
+                    AccountKeyring::Bob.public(),
+                    2_000 * self.existential_deposit,
+                ),
                 (
                     AccountKeyring::Charlie.public(),
-                    30 * self.existential_deposit,
+                    3_000 * self.existential_deposit,
                 ),
-                (AccountKeyring::Dave.public(), 40 * self.existential_deposit),
+                (
+                    AccountKeyring::Dave.public(),
+                    4_000 * self.existential_deposit,
+                ),
                 // CDD Accounts
                 (AccountKeyring::Eve.public(), 1_000_000),
                 (AccountKeyring::Ferdie.public(), 1_000_000),
@@ -123,17 +171,17 @@ impl ExtBuilder {
     ///  - mapping between DID and Identity info.
     ///  - mapping between an account key and its DID.
     /// Please note that generated DIDs start from 1.
-    fn make_cdd_identities(
-        &self,
+    fn make_identities(
+        accounts: &[Public],
     ) -> (
         Vec<(IdentityId, Identity)>,
         Vec<(AccountKey, LinkedKeyInfo)>,
     ) {
-        let keys = self
-            .cdd_providers
+        let keys = accounts
             .iter()
             .map(|p| AccountKey::from(p.clone().0))
             .collect::<Vec<_>>();
+
         let identities = keys
             .iter()
             .enumerate()
@@ -171,16 +219,23 @@ impl ExtBuilder {
 
         let root = AccountKeyring::Alice.public();
 
-        // Define CDD providers.
-        let (cdd_identities, cdd_links) = self.make_cdd_identities();
-        let cdd_ids: Vec<IdentityId> = cdd_identities.iter().map(|(id, _)| id.clone()).collect();
+        // Create Identitys.
+        let mut system_accounts = self
+            .cdd_providers
+            .iter()
+            .chain(self.governance_committee_members.iter())
+            .cloned()
+            .collect::<Vec<_>>();
+        system_accounts.sort();
+        system_accounts.dedup();
+
+        let (system_identities, system_links) = Self::make_identities(system_accounts.as_slice());
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
             owner: root.clone().into(),
-            did_creation_fee: 250,
-            did_records: cdd_identities,
-            key_to_identity_ids: cdd_links,
+            did_records: system_identities.clone(),
+            key_to_identity_ids: system_links,
             identities: vec![],
         }
         .assimilate_storage(&mut storage)
@@ -207,28 +262,61 @@ impl ExtBuilder {
         .unwrap();
 
         // CDD Service providers.
+        let cdd_ids = self
+            .cdd_providers
+            .iter()
+            .map(|key| {
+                let (id, _) = system_identities
+                    .iter()
+                    .find(|(_id, info)| info.master_key == *key)
+                    .unwrap();
+                id
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
         group::GenesisConfig::<TestStorage, group::Instance2> {
-            members: cdd_ids,
+            active_members: cdd_ids,
             ..Default::default()
         }
         .assimilate_storage(&mut storage)
         .unwrap();
 
         // Committee
+        let gc_ids = self
+            .governance_committee_members
+            .iter()
+            .map(|key| {
+                let (id, _) = system_identities
+                    .iter()
+                    .find(|(_id, info)| info.master_key == *key)
+                    .unwrap();
+                id
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
         group::GenesisConfig::<TestStorage, group::Instance1> {
-            members: self.gen_committee_members.clone(),
+            active_members: gc_ids.clone(),
             ..Default::default()
         }
         .assimilate_storage(&mut storage)
         .unwrap();
 
         committee::GenesisConfig::<TestStorage, committee::Instance1> {
-            members: self.gen_committee_members,
+            members: gc_ids,
             vote_threshold: (
-                self.gen_committee_vote_threshold.numerator,
-                self.gen_committee_vote_threshold.denominator,
+                self.governance_committee_vote_threshold.numerator,
+                self.governance_committee_vote_threshold.denominator,
             ),
             ..Default::default()
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        polymesh_protocol_fee::GenesisConfig::<TestStorage> {
+            base_fees: self.protocol_base_fees.0,
+            coefficient: self.protocol_coefficient,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

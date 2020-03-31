@@ -1,16 +1,17 @@
 use crate::{
     asset, bridge, dividend, exemption, general_tm, multisig, percentage_tm, simple_token,
-    statistics, utils, voting,
+    statistics, voting,
 };
 
 use codec::Encode;
 use frame_support::{
-    dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
+    assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
     parameter_types, traits::Currency, weights::DispatchInfo,
 };
 use frame_system::{self as system, EnsureSignedBy};
 use pallet_committee as committee;
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory, Ticker};
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait, multisig::AddSignerMultiSig,
@@ -27,7 +28,7 @@ use sp_runtime::{
     impl_opaque_keys,
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-    transaction_validity::{TransactionValidity, ValidTransaction},
+    transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
 use std::cell::RefCell;
@@ -56,6 +57,7 @@ impl_outer_dispatch! {
         multisig::MultiSig,
         pallet_contracts::Contracts,
         bridge::Bridge,
+        asset::Asset,
     }
 }
 
@@ -80,6 +82,7 @@ impl_outer_event! {
         dividend<T>,
         simple_token<T>,
         frame_system<T>,
+        protocol_fee<T>,
     }
 }
 
@@ -110,7 +113,7 @@ parameter_types! {
 
 impl frame_system::Trait for TestStorage {
     type AccountId = AccountId;
-    type Call = ();
+    type Call = Call;
     type Lookup = Lookup;
     type Index = Index;
     type BlockNumber = BlockNumber;
@@ -169,9 +172,21 @@ impl simple_token::Trait for TestStorage {
 }
 
 impl pallet_transaction_payment::ChargeTxFee for TestStorage {
-    fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+    fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }
+}
+
+impl pallet_transaction_payment::CddAndFeeDetails<Call> for TestStorage {
+    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+        Ok(None)
+    }
+    fn clear_context() {}
+    fn set_payer_context(_: Option<Signatory>) {}
+    fn get_payer_from_context() -> Option<Signatory> {
+        None
+    }
+    fn set_current_identity(_: &IdentityId) {}
 }
 
 parameter_types! {
@@ -188,7 +203,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
+    type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
 
@@ -199,7 +214,7 @@ impl group::Trait<group::Instance1> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
+    type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
 
@@ -209,8 +224,8 @@ impl group::Trait<group::Instance2> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
+    type MembershipInitialized = identity::Module<TestStorage>;
+    type MembershipChanged = identity::Module<TestStorage>;
 }
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as system::Trait>::AccountId, I>;
@@ -246,6 +261,10 @@ impl identity::Trait for TestStorage {
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
+    type CddHandler = TestStorage;
+    type Public = AccountId;
+    type OffChainSignature = OffChainSignature;
+    type ProtocolFee = protocol_fee::Module<TestStorage>;
 }
 
 impl AddSignerMultiSig for TestStorage {
@@ -320,6 +339,12 @@ impl general_tm::Trait for TestStorage {
     type Asset = asset::Module<TestStorage>;
 }
 
+impl protocol_fee::Trait for TestStorage {
+    type Event = Event;
+    type Currency = Balances;
+    type OnProtocolFeePayment = ();
+}
+
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
@@ -345,16 +370,6 @@ impl exemption::Trait for TestStorage {
 impl voting::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
-}
-
-impl utils::Trait for TestStorage {
-    type Public = AccountId;
-    type OffChainSignature = OffChainSignature;
-    fn validator_id_to_account_id(
-        v: <Self as pallet_session::Trait>::ValidatorId,
-    ) -> Self::AccountId {
-        v
-    }
 }
 
 thread_local! {
@@ -429,7 +444,8 @@ pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
 pub type Timestamp = pallet_timestamp::Module<TestStorage>;
 pub type Contracts = pallet_contracts::Module<TestStorage>;
 pub type Bridge = bridge::Module<TestStorage>;
-pub type CDDServieProvider = group::Module<TestStorage, group::Instance2>;
+pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
+pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 
 pub fn make_account(
     id: AccountId,
@@ -446,7 +462,7 @@ pub fn make_account_with_balance(
     Balances::make_free_balance_be(&id, balance);
 
     // If we have CDD providers, first of them executes the registration.
-    let cdd_providers = CDDServieProvider::get_members();
+    let cdd_providers = CddServiceProvider::get_members();
     let did_registration = if let Some(cdd_provider) = cdd_providers.into_iter().nth(0) {
         let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
         Identity::cdd_register_did(Origin::signed(cdd_acc), id, Some(10), vec![])
@@ -456,6 +472,15 @@ pub fn make_account_with_balance(
     let _ = did_registration.map_err(|_| "Register DID failed")?;
     let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
 
+    Ok((signed_id, did))
+}
+
+pub fn make_account_without_cdd(
+    id: AccountId,
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
+    let signed_id = Origin::signed(id.clone());
+    Balances::make_free_balance_be(&id, 10_000_000);
+    let did = Identity::_register_did(id.clone(), vec![], None).expect("did");
     Ok((signed_id, did))
 }
 
@@ -471,6 +496,24 @@ pub fn register_keyring_account_with_balance(
     make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
 }
 
+pub fn register_keyring_account_without_cdd(
+    acc: AccountKeyring,
+) -> Result<IdentityId, &'static str> {
+    let acc_pub = acc.public();
+    make_account_without_cdd(acc_pub).map(|(_, id)| id)
+}
+
+pub fn add_signing_item(did: IdentityId, signer: Signatory) {
+    let master_key = Identity::did_records(&did).master_key;
+    let auth_id = Identity::add_auth(
+        Signatory::from(master_key),
+        signer,
+        AuthorizationData::JoinIdentity(did),
+        None,
+    );
+    assert_ok!(Identity::join_identity(signer, auth_id));
+}
+
 pub fn account_from(id: u64) -> AccountId {
     let mut enc_id_vec = id.encode();
     enc_id_vec.resize_with(32, Default::default);
@@ -479,4 +522,9 @@ pub fn account_from(id: u64) -> AccountId {
     enc_id.copy_from_slice(enc_id_vec.as_slice());
 
     Pair::from_seed(&enc_id).public()
+}
+
+pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
+    let key = AccountKey::from(acc.public().0);
+    Identity::get_identity(&key)
 }

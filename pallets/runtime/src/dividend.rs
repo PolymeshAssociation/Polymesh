@@ -31,10 +31,15 @@
 //!
 //! - `get_dividend` - Returns details about a dividend
 
-use crate::{asset, simple_token, utils};
+use crate::{asset, simple_token};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait, Context};
+use polymesh_runtime_common::{
+    balances::Trait as BalancesTrait,
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    CommonTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
@@ -47,12 +52,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
-    asset::Trait
-    + BalancesTrait
-    + simple_token::Trait
-    + frame_system::Trait
-    + utils::Trait
-    + pallet_timestamp::Trait
+    asset::Trait + BalancesTrait + simple_token::Trait + frame_system::Trait + pallet_timestamp::Trait
 {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -166,6 +166,10 @@ decl_module! {
 
             // Subtract the amount
             let new_balance = balance.checked_sub(&amount).ok_or(Error::<T>::BalanceUnderflow)?;
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
+                &sender,
+                ProtocolOp::DividendNew
+            )?;
             <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
 
             // Insert dividend entry into storage

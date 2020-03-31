@@ -23,7 +23,7 @@
 //!
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
-use crate::{asset::AssetTrait, exemption, utils};
+use crate::{asset::AssetTrait, exemption};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{constants::*, CommonTrait, Context};
@@ -39,7 +39,7 @@ use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + utils::Trait + exemption::Trait {
+pub trait Trait: frame_system::Trait + exemption::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -132,7 +132,7 @@ impl<T: Trait> Module<T> {
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
         // TODO: Mould the integer into the module identity
-        if let Some(to_did) = to_did_opt.clone() {
+        if let Some(to_did) = to_did_opt {
             let is_exempted = <exemption::Module<T>>::is_exempted(&ticker, 2, to_did);
             if max_percentage != 0 && !is_exempted {
                 let new_balance = (T::Asset::balance(&ticker, to_did))

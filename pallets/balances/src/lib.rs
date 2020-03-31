@@ -111,7 +111,7 @@
 //! ```
 //! use frame_support::traits::Currency;
 //! # pub trait Trait: frame_system::Trait {
-//! # 	type Currency: Currency<Self::AccountId>;
+//! # type Currency: Currency<Self::AccountId>;
 //! # }
 //!
 //! pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -126,18 +126,18 @@
 //! use frame_support::traits::{WithdrawReasons, LockableCurrency};
 //! use sp_runtime::traits::Bounded;
 //! pub trait Trait: frame_system::Trait {
-//! 	type Currency: LockableCurrency<Self::AccountId, Moment=Self::BlockNumber>;
+//! type Currency: LockableCurrency<Self::AccountId, Moment=Self::BlockNumber>;
 //! }
 //! # struct StakingLedger<T: Trait> {
-//! # 	stash: <T as frame_system::Trait>::AccountId,
-//! # 	total: <<T as Trait>::Currency as frame_support::traits::Currency<<T as frame_system::Trait>::AccountId>>::Balance,
-//! # 	phantom: std::marker::PhantomData<T>,
+//!     # stash: <T as frame_system::Trait>::AccountId,
+//!     # total: <<T as Trait>::Currency as frame_support::traits::Currency<<T as frame_system::Trait>::AccountId>>::Balance,
+//!     # phantom: std::marker::PhantomData<T>,
 //! # }
 //! # const STAKING_ID: [u8; 8] = *b"staking ";
 //!
 //! fn update_ledger<T: Trait>(
-//! 	controller: &T::AccountId,
-//! 	ledger: &StakingLedger<T>
+//!     controller: &T::AccountId,
+//!     ledger: &StakingLedger<T>
 //! ) {
 //! 	T::Currency::set_lock(
 //! 		STAKING_ID,
@@ -159,6 +159,7 @@
 //! * Total issued balanced of all accounts should be less than `Trait::Balance::max_value()`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
 use polymesh_primitives::{
     traits::{BlockRewardsReserveCurrency, IdentityCurrency},
     AccountKey, IdentityId, Permission, Signatory,

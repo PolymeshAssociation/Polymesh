@@ -31,7 +31,6 @@ use crate::{
     asset::AssetTrait,
     general_tm,
     simple_token::{self, SimpleTokenTrait},
-    utils,
 };
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
@@ -50,7 +49,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + utils::Trait + BalancesTrait + general_tm::Trait
+    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + general_tm::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -278,13 +277,13 @@ decl_module! {
             // Update storage values
             Self::_update_storage(
                 ticker,
-                sto_id.clone(),
-                did.clone(),
+                sto_id,
+                did,
                 token_amount_value.1,
                 token_amount_value.0,
                 Ticker::default(),
                 0.into(),
-                selected_sto.clone()
+                selected_sto
             )?;
 
             Ok(())
@@ -304,7 +303,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
 
-            /// Check that sender is allowed to act on behalf of `did`
+            // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
                 Error::<T>::SenderMustBeSigningKeyForDid
@@ -379,7 +378,7 @@ decl_module! {
             );
             // Make sure spender has enough balance
             ensure!(
-                T::SimpleTokenTrait::balance_of(simple_token_ticker, did.clone()) >= value,
+                T::SimpleTokenTrait::balance_of(simple_token_ticker, did) >= value,
                 Error::<T>::InsufficientBalance
             );
 
@@ -394,7 +393,7 @@ decl_module! {
                 .ok_or(Error::<T>::SoldTokensOverflow)?;
 
             let simple_token_investment =
-                Self::simple_token_token_spent((ticker, simple_token_ticker, sto_id, did.clone()))
+                Self::simple_token_token_spent((ticker, simple_token_ticker, sto_id, did))
                 .checked_add(&token_amount_value.1)
                 .ok_or(Error::<T>::InvestmentOverflow)?;
 
@@ -406,13 +405,13 @@ decl_module! {
             // Update storage values
             Self::_update_storage(
                 ticker,
-                sto_id.clone(),
-                did.clone(),
+                sto_id,
+                did,
                 token_amount_value.1,
                 token_amount_value.0,
                 simple_token_ticker,
                 simple_token_investment,
-                selected_sto.clone()
+                selected_sto
             )?;
             Ok(())
         }
@@ -551,7 +550,7 @@ impl<T: Trait> Module<T> {
         // Store Investment DATA
         let mut investor_holder = Self::investment_data((ticker, sto_id, did));
         if investor_holder.investor_did == IdentityId::default() {
-            investor_holder.investor_did = did.clone();
+            investor_holder.investor_did = did;
         }
         investor_holder.tokens_purchased = investor_holder
             .tokens_purchased

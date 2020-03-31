@@ -432,6 +432,23 @@ async function createIdentities(api, accounts, submitBar, completeBar, fast) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.raw.asUnique);
   }
+  let did_balance = 10 * 10**12;
+  let alice = keyring.addFromUri("//Alice", { name: "Alice" });
+  let aliceRawNonce = await api.query.system.accountNonce(alice.address);
+  let alice_nonce = new BN(aliceRawNonce.toString());
+  nonces.set(alice.address, alice_nonce);
+  dids.forEach(async function(did) {
+    await api.tx.balances
+    .topUpIdentityBalance(did, did_balance)
+    .signAndSend(
+      alice,
+      { nonce: reqImports["nonces"].get(alice.address) }
+    );
+    reqImports["nonces"].set(
+      alice.address,
+      reqImports["nonces"].get(alice.address).addn(1)
+    );
+  });
   return dids;
 }
 
@@ -440,28 +457,21 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
   fail_type["ADD SIGNING KEY"] = 0;
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
-    let signing_item = {
-      signer: {
-          AccountKey: signing_accounts[i].publicKey 
-      },
-      signer_type: 0,
-      roles: []
-    }
     if (fast) {
       const unsub = await api.tx.identity
-      .addSigningItems([signing_item])
+      .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-        .addSigningItems([signing_item])
+      .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
         .signAndSend(accounts[i],
           { nonce: nonces.get(accounts[i].address) },
           ({ events = [], status }) => {
           if (status.isFinalized) {
             let tx_ok = false;
             events.forEach(({ phase, event: { data, method, section } }) => {
-              if (section == "identity" && method == "NewSigningItems") {
+              if (section == "identity" && method == "NewAuthorization") {
                 tx_ok = true;
                 completeBar.increment();
               }
@@ -484,23 +494,25 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
 async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
   fail_type["AUTH SIGNING KEY"] = 0;
   for (let i = 0; i < accounts.length; i++) {
+    const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
+    const last_auth_id = auths[auths.length - 1].auth_id;
     // 1. Authorize
     if (fast) {
         const unsub = await api.tx.identity
-            .authorizeJoinToIdentity(dids[i])
+            .joinIdentityAsKey([last_auth_id])
             .signAndSend(signing_accounts[i],
                 { nonce: nonces.get(signing_accounts[i].address) });
         nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
     } else {
         const unsub = await api.tx.identity
-        .authorizeJoinToIdentity(dids[i])
+        .joinIdentityAsKey([last_auth_id])
         .signAndSend(signing_accounts[i],
           { nonce: nonces.get(signing_accounts[i].address) },
           ({ events = [], status }) => {
           if (status.isFinalized) {
             let tx_ok = false;
             events.forEach(({ phase, event: { data, method, section } }) => {
-              if (section == "identity" && method == "SignerJoinedToIdentityApproved") {
+              if (section == "identity" && method == "NewSigningItems") {
                 tx_ok = true;
                 completeBar.increment();
               }

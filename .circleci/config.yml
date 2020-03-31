@@ -28,7 +28,7 @@ jobs:
             - v2-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
-          command: cargo build -j 1 --release
+          command: cargo build --release || cargo build -j 1 --release
           no_output_timeout: 4h
       - save_cache:
           key: v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
@@ -75,6 +75,16 @@ jobs:
           command: cargo test
           working_directory: ./primitives
           no_output_timeout: 60m
+      - run:
+          name: mips tests
+          command: cargo test
+          working_directory: ./pallets/mips
+          no_output_timeout: 60m
+      - run:
+          name: transaction-payment tests
+          command: cargo test
+          working_directory: ./pallets/transaction-payment
+          no_output_timeout: 60m
       - save_cache:
           key: v4-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
@@ -96,16 +106,17 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v2-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
-            - v2-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
-            - v2-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v3-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}-{{ checksum "./scripts/cli/yarn.lock" }}
+            - v3-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./scripts/cli/yarn.lock" }}
+            - v3-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
             - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
             - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - v2-cli-cache-{{ checksum "./rust.version" }}
+            - v3-cli-cache-{{ checksum "./rust.version" }}
             - v2-release-cache-{{ checksum "./rust.version" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
-          command: cargo build -j 1 --release
+          command: cargo build --release || cargo build -j 1 --release
           no_output_timeout: 4h
       - run:
           name: cli node instance
@@ -120,9 +131,9 @@ jobs:
           name: cli scripts test
           command: npm test
           working_directory: ./scripts/cli
-          no_output_timeout: 30m
+          no_output_timeout: 10m
       - save_cache:
-          key: v2-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}-{{ checksum "./scripts/cli/package-lock.json" }}
+          key: v3-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}-{{ checksum "./scripts/cli/yarn.lock" }}
           paths:
             - "~/.cargo"
             - "./target"

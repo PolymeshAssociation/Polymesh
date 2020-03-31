@@ -42,7 +42,7 @@ use frame_support::{
     weights::{DispatchInfo, GetDispatchInfo, Weight},
 };
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-use primitives::{traits::IdentityCurrency, AccountKey, Signatory, TransactionError};
+use primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory, TransactionError};
 use sp_runtime::{
     traits::{Convert, SaturatedConversion, Saturating, SignedExtension, Zero},
     transaction_validity::{
@@ -77,6 +77,10 @@ pub trait Trait: frame_system::Trait {
 
     /// Update the multiplier of the next block, based on the previous block's weight.
     type FeeMultiplierUpdate: Convert<Multiplier, Multiplier>;
+
+    // Polymesh note: This was specifically added for Polymesh
+    /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
+    type CddHandler: CddAndFeeDetails<Self::Call>;
 }
 
 decl_storage! {
@@ -224,11 +228,11 @@ where
     fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
         Ok(())
     }
-
+    // Polymesh note: Almost all of this function was re written to enforce zero tip and charge fee to proper payer.
     fn validate(
         &self,
         who: &Self::AccountId,
-        _call: &Self::Call,
+        call: &Self::Call,
         info: Self::DispatchInfo,
         len: usize,
     ) -> TransactionValidity {
@@ -237,38 +241,66 @@ where
             // This is enforced to curb front running.
             return InvalidTransaction::Custom(TransactionError::ZeroTip as u8).into();
         }
-        let fee = Self::compute_fee(len as u32, info, 0u32.into());
         let encoded_transactor =
             AccountKey::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
-        let imbalance;
-        if let Some(did) = T::Currency::charge_fee_to_identity(&encoded_transactor) {
-            sp_runtime::print("Charging fee to identity");
-            imbalance = T::Currency::withdraw_identity_balance(&did, fee)
-                .map_err(|_| InvalidTransaction::Payment)?;
-        } else {
-            imbalance = T::Currency::withdraw(
-                who,
-                fee,
-                WithdrawReason::TransactionPayment.into(),
-                ExistenceRequirement::KeepAlive,
-            )
-            .map_err(|_| InvalidTransaction::Payment)?;
-        }
-        T::OnTransactionPayment::on_unbalanced(imbalance);
+        let fee = Self::compute_fee(len as u32, info, 0u32.into());
+        if let Some(payer) =
+            T::CddHandler::get_valid_payer(call, &Signatory::from(encoded_transactor))?
+        {
+            let imbalance;
+            match payer {
+                Signatory::AccountKey(key) => {
+                    let payer_key = T::AccountId::decode(&mut &key.as_slice()[..])
+                        .map_err(|_| InvalidTransaction::Payment)?;
+                    imbalance = T::Currency::withdraw(
+                        &payer_key,
+                        fee,
+                        WithdrawReason::TransactionPayment.into(),
+                        ExistenceRequirement::KeepAlive,
+                    )
+                    .map_err(|_| InvalidTransaction::Payment)?;
+                }
+                Signatory::Identity(did) => {
+                    imbalance = T::Currency::withdraw_identity_balance(&did, fee)
+                        .map_err(|_| InvalidTransaction::Payment)?;
+                }
+            }
+            T::OnTransactionPayment::on_unbalanced(imbalance);
+            T::CddHandler::set_payer_context(Some(payer));
+        };
         let mut r = ValidTransaction::default();
         // NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
         // will be a bit more than setting the priority to tip. For now, this is enough.
         r.priority = fee.saturated_into::<TransactionPriority>();
         Ok(r)
     }
+
+    /// It clears the identity and payer in the context after transaction.
+    fn post_dispatch(_pre: Self::Pre, _info: Self::DispatchInfo, _len: usize) {
+        T::CddHandler::clear_context();
+    }
 }
 
+// Polymesh note: This was specifically added for Polymesh
+pub trait CddAndFeeDetails<Call> {
+    fn get_valid_payer(
+        call: &Call,
+        caller: &Signatory,
+    ) -> Result<Option<Signatory>, InvalidTransaction>;
+    fn clear_context();
+    fn set_payer_context(payer: Option<Signatory>);
+    fn get_payer_from_context() -> Option<Signatory>;
+    fn set_current_identity(did: &IdentityId);
+}
+
+// Polymesh note: This was specifically added for Polymesh
 pub trait ChargeTxFee {
-    fn charge_fee(who: Signatory, len: u32, info: DispatchInfo) -> TransactionValidity;
+    fn charge_fee(len: u32, info: DispatchInfo) -> TransactionValidity;
 }
 
+// Polymesh note: This was specifically added for Polymesh
 impl<T: Trait> ChargeTxFee for Module<T> {
-    fn charge_fee(who: Signatory, len: u32, info: DispatchInfo) -> TransactionValidity {
+    fn charge_fee(len: u32, info: DispatchInfo) -> TransactionValidity {
         let fee = if info.pays_fee {
             let len = <BalanceOf<T>>::from(len);
             let per_byte = T::TransactionByteFee::get();
@@ -297,19 +329,21 @@ impl<T: Trait> ChargeTxFee for Module<T> {
         } else {
             Zero::zero()
         };
-        let imbalance = match who {
-            Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
+        if let Some(who) = T::CddHandler::get_payer_from_context() {
+            let imbalance = match who {
+                Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
+                    .map_err(|_| InvalidTransaction::Payment),
+                Signatory::AccountKey(account) => T::Currency::withdraw(
+                    &T::AccountId::decode(&mut &account.encode()[..])
+                        .map_err(|_| InvalidTransaction::Payment)?,
+                    fee,
+                    WithdrawReason::TransactionPayment.into(),
+                    ExistenceRequirement::KeepAlive,
+                )
                 .map_err(|_| InvalidTransaction::Payment),
-            Signatory::AccountKey(account) => T::Currency::withdraw(
-                &T::AccountId::decode(&mut &account.encode()[..])
-                    .map_err(|_| InvalidTransaction::Payment)?,
-                fee,
-                WithdrawReason::TransactionPayment.into(),
-                ExistenceRequirement::KeepAlive,
-            )
-            .map_err(|_| InvalidTransaction::Payment),
-        }?;
-        T::OnTransactionPayment::on_unbalanced(imbalance);
+            }?;
+            T::OnTransactionPayment::on_unbalanced(imbalance);
+        }
         Ok(ValidTransaction::default())
     }
 }
@@ -325,8 +359,9 @@ mod tests {
     };
     use pallet_balances::Call as BalancesCall;
     use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-    use polymesh_runtime_common::traits::{
-        asset::AcceptTransfer, balances, identity::IdentityTrait, CommonTrait,
+    use polymesh_runtime_common::{
+        traits::{asset::AcceptTransfer, balances, identity::IdentityTrait, CommonTrait},
+        SystematicIssuers,
     };
     use primitives::{IdentityId, Permission};
     use sp_core::H256;
@@ -415,17 +450,35 @@ mod tests {
         static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
     }
 
+    impl CddAndFeeDetails<Call> for Runtime {
+        fn get_valid_payer(
+            _: &Call,
+            _: &Signatory,
+        ) -> Result<Option<Signatory>, InvalidTransaction> {
+            Ok(None)
+        }
+        fn clear_context() {}
+        fn set_payer_context(_: Option<Signatory>) {}
+        fn get_payer_from_context() -> Option<Signatory> {
+            None
+        }
+        fn set_current_identity(_: &IdentityId) {}
+    }
+
     impl IdentityTrait for Runtime {
         fn get_identity(key: &AccountKey) -> Option<IdentityId> {
             unimplemented!()
         }
+        fn current_payer() -> Option<Signatory> {
+            None
+        }
         fn current_identity() -> Option<IdentityId> {
             unimplemented!()
         }
-        fn set_current_identity(id: Option<IdentityId>) {
+        fn set_current_identity(_id: Option<IdentityId>) {
             unimplemented!()
         }
-
+        fn set_current_payer(_payer: Option<Signatory>) {}
         fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool {
             unimplemented!()
         }
@@ -438,6 +491,13 @@ mod tests {
         }
         fn is_master_key(did: IdentityId, key: &AccountKey) -> bool {
             unimplemented!()
+        }
+
+        fn unsafe_add_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
+        fn unsafe_revoke_systematic_cdd_claims(
+            _targets: &[IdentityId],
+            _issuer: SystematicIssuers,
+        ) {
         }
     }
 
@@ -478,10 +538,11 @@ mod tests {
         type TransactionByteFee = TransactionByteFee;
         type WeightToFee = WeightToFee;
         type FeeMultiplierUpdate = ();
+        type CddHandler = Runtime;
     }
 
     impl ChargeTxFee for Runtime {
-        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
             Ok(ValidTransaction::default())
         }
     }

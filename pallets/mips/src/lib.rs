@@ -47,9 +47,13 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_mips_rpc_runtime_api::VoteCount;
-use polymesh_primitives::AccountKey;
+use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_common::{
-    identity::Trait as IdentityTrait, traits::group::GroupTrait, Context,
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::group::GroupTrait,
+    Context,
 };
 use polymesh_runtime_identity as identity;
 use sp_runtime::{
@@ -159,7 +163,7 @@ pub struct PolymeshReferendumInfo<Hash: Parameter> {
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait {
+pub trait Trait: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
     /// Currency type for this module.
     type Currency: ReservableCurrency<Self::AccountId>
         + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
@@ -171,7 +175,7 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
     /// Committee
-    type GovernanceCommittee: GroupTrait;
+    type GovernanceCommittee: GroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -319,6 +323,8 @@ decl_module! {
             description: Option<MipDescription>,
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
+            let proposer_key = AccountKey::try_from(proposer.encode())?;
+            let signer = Signatory::from(proposer_key);
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Pre conditions: caller must have min balance
@@ -333,8 +339,11 @@ decl_module! {
             );
 
             // Reserve the minimum deposit
-            T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
-
+            <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+            <T as IdentityTrait>::ProtocolFee::charge_fee(
+                &signer,
+                ProtocolOp::MipsPropose
+            )?;
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
 
@@ -394,7 +403,7 @@ decl_module! {
                 }
 
                 // Reserve the deposit
-                T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+                <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
                 <Deposits<T>>::mutate(proposal_hash, |deposits| deposits.push((proposer.clone(), deposit)));
 
@@ -445,7 +454,7 @@ decl_module! {
                 proposal_hash,
             ));
 
-            Self::close_proposal(index, proposal_hash.clone());
+            Self::close_proposal(index, proposal_hash);
         }
 
         /// Governance committee can make a proposal that automatically becomes a referendum on
@@ -471,7 +480,7 @@ decl_module! {
             Self::create_referendum(
                 index,
                 MipsPriority::High,
-                proposal_hash.clone(),
+                proposal_hash,
                 *proposal
             );
         }
@@ -515,7 +524,7 @@ impl<T: Trait> Module<T> {
         // Find all matured proposals...
         for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
             // Tally votes and create referendums
-            Self::tally_votes(index, hash.clone());
+            Self::tally_votes(index, hash);
 
             // And close proposals
             Self::close_proposal(index, hash);
@@ -544,7 +553,7 @@ impl<T: Trait> Module<T> {
                     Self::create_referendum(
                         index,
                         MipsPriority::Normal,
-                        proposal_hash.clone(),
+                        proposal_hash,
                         mip.proposal,
                     );
                 }
@@ -568,17 +577,13 @@ impl<T: Trait> Module<T> {
         };
 
         <ReferendumMetadata<T>>::mutate(|metadata| metadata.push(ri));
-        <Referendums<T>>::insert(proposal_hash.clone(), proposal);
+        <Referendums<T>>::insert(proposal_hash, proposal);
 
-        Self::deposit_event(RawEvent::ReferendumCreated(
-            index,
-            priority.clone(),
-            proposal_hash.clone(),
-        ));
+        Self::deposit_event(RawEvent::ReferendumCreated(index, priority, proposal_hash));
 
         // If committee size is too small, enact it.
         if T::GovernanceCommittee::member_count() < 2 {
-            Self::prepare_to_dispatch(proposal_hash.clone());
+            Self::prepare_to_dispatch(proposal_hash);
         }
     }
 
@@ -591,13 +596,13 @@ impl<T: Trait> Module<T> {
                     <Deposits<T>>::take(&proposal_hash);
 
                 for (depositor, deposit) in deposits.iter() {
-                    T::Currency::unreserve(depositor, *deposit);
+                    <T as Trait>::Currency::unreserve(depositor, *deposit);
                 }
             }
 
             if <Proposals<T>>::take(&proposal_hash).is_some() {
                 <Voting<T>>::remove(&proposal_hash);
-                let hash = proposal_hash.clone();
+                let hash = proposal_hash;
                 <ProposalMetadata<T>>::mutate(|metadata| {
                     metadata.retain(|m| m.proposal_hash != hash)
                 });
@@ -613,7 +618,7 @@ impl<T: Trait> Module<T> {
             let result = match referendum.dispatch(system::RawOrigin::Root.into()) {
                 Ok(_) => true,
                 Err(e) => {
-                    let e: DispatchError = e.into();
+                    let e: DispatchError = e;
                     sp_runtime::print(e);
                     false
                 }
@@ -665,8 +670,8 @@ impl<T: Trait> Module<T> {
         let mut indices = Vec::new();
         for meta in Self::proposal_meta().into_iter() {
             if let Some(votes) = Self::voting(&meta.proposal_hash) {
-                if votes.ayes.iter().position(|(a, _)| a == &address).is_some()
-                    || votes.nays.iter().position(|(a, _)| a == &address).is_some()
+                if votes.ayes.iter().any(|(a, _)| a == &address)
+                    || votes.nays.iter().any(|(a, _)| a == &address)
                 {
                     indices.push(votes.index);
                 }
@@ -687,7 +692,7 @@ mod tests {
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer, balances::AccountData, multisig::AddSignerMultiSig, CommonTrait,
     };
-    use polymesh_runtime_group as group;
+    use polymesh_runtime_group::{self as group, InactiveMember};
     use polymesh_runtime_identity as identity;
 
     use frame_support::{
@@ -695,12 +700,15 @@ mod tests {
         parameter_types, weights::DispatchInfo,
     };
     use sp_core::H256;
-    use sp_runtime::transaction_validity::{TransactionValidity, ValidTransaction};
+    use sp_runtime::transaction_validity::{
+        InvalidTransaction, TransactionValidity, ValidTransaction,
+    };
     use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup, Verify},
         AnySignature, Perbill,
     };
+
     use test_client::AccountKeyring;
 
     impl_outer_origin! {
@@ -771,6 +779,12 @@ mod tests {
         type Identity = identity::Module<Test>;
     }
 
+    impl protocol_fee::Trait for Test {
+        type Event = ();
+        type Currency = Balances;
+        type OnProtocolFeePayment = ();
+    }
+
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = Call;
@@ -778,10 +792,29 @@ mod tests {
         type CddServiceProviders = group::Module<Test, group::Instance2>;
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
+        type CddHandler = Test;
+        type Public = AccountId;
+        type OffChainSignature = AnySignature;
+        type ProtocolFee = protocol_fee::Module<Test>;
+    }
+
+    impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
+        fn get_valid_payer(
+            _: &Call,
+            _: &Signatory,
+        ) -> Result<Option<Signatory>, InvalidTransaction> {
+            Ok(None)
+        }
+        fn clear_context() {}
+        fn set_payer_context(_: Option<Signatory>) {}
+        fn get_payer_from_context() -> Option<Signatory> {
+            None
+        }
+        fn set_current_identity(_: &IdentityId) {}
     }
 
     impl pallet_transaction_payment::ChargeTxFee for Test {
-        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
             Ok(ValidTransaction::default())
         }
     }
@@ -817,9 +850,23 @@ mod tests {
         pub const ProposalDuration: u32 = 10;
     }
 
-    impl group::GroupTrait for Test {
+    impl group::GroupTrait<<Test as pallet_timestamp::Trait>::Moment> for Test {
         fn get_members() -> Vec<IdentityId> {
             unimplemented!()
+        }
+
+        /// It returns inactive members who are not expired yet.
+        fn get_inactive_members() -> Vec<InactiveMember<<Test as pallet_timestamp::Trait>::Moment>>
+        {
+            unimplemented!()
+        }
+
+        fn disable_member(
+            _who: IdentityId,
+            _expiry: Option<<Test as pallet_timestamp::Trait>::Moment>,
+            _at: Option<<Test as pallet_timestamp::Trait>::Moment>,
+        ) -> DispatchResult {
+            Ok(())
         }
     }
 

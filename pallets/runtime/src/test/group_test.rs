@@ -1,5 +1,5 @@
 use crate::test::{
-    storage::{make_account, TestStorage},
+    storage::{get_identity_id, make_account, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use polymesh_primitives::IdentityId;
@@ -14,20 +14,27 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn query_membership_works() {
-    let committee = (1..3).map(IdentityId::from).collect::<Vec<_>>();
+    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
 
     ExtBuilder::default()
-        .committee_members(committee.clone())
+        .governance_committee(committee)
         .build()
         .execute_with(|| {
-            assert_eq!(CommitteeGroup::members(), committee);
+            let committee = [
+                get_identity_id(AccountKeyring::Bob).unwrap(),
+                get_identity_id(AccountKeyring::Alice).unwrap(),
+            ]
+            .to_vec();
+
+            assert_eq!(CommitteeGroup::get_members(), committee);
         });
 }
 
 #[test]
 fn add_member_works() {
+    let committee = [AccountKeyring::Alice.public()].to_vec();
     ExtBuilder::default()
-        .committee_members(vec![IdentityId::from(3)])
+        .governance_committee(committee)
         .build()
         .execute_with(add_member_works_we)
 }
@@ -40,30 +47,32 @@ fn add_member_works_we() {
         CommitteeGroup::add_member(non_root, IdentityId::from(3)),
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
+
+    let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
     assert_noop!(
-        CommitteeGroup::add_member(root.clone(), IdentityId::from(3)),
+        CommitteeGroup::add_member(root.clone(), alice_id),
         group::Error::<TestStorage, group::Instance1>::DuplicateMember
     );
     assert_ok!(CommitteeGroup::add_member(root, IdentityId::from(4)));
     assert_eq!(
-        CommitteeGroup::members(),
-        vec![IdentityId::from(3), IdentityId::from(4)]
+        CommitteeGroup::get_members(),
+        vec![alice_id, IdentityId::from(4)]
     );
 }
 
 #[test]
 fn remove_member_works() {
-    let committee = (1..=3).map(IdentityId::from).collect::<Vec<_>>();
+    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
 
     ExtBuilder::default()
-        .committee_members(committee)
+        .governance_committee(committee)
         .build()
         .execute_with(remove_member_works_we)
 }
 
 fn remove_member_works_we() {
     let root = Origin::system(frame_system::RawOrigin::Root);
-    let non_root = Origin::signed(AccountKeyring::Bob.public());
+    let non_root = Origin::signed(AccountKeyring::Charlie.public());
 
     assert_noop!(
         CommitteeGroup::remove_member(non_root, IdentityId::from(3)),
@@ -73,29 +82,31 @@ fn remove_member_works_we() {
         CommitteeGroup::remove_member(root.clone(), IdentityId::from(5)),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
     );
-    assert_ok!(CommitteeGroup::remove_member(root, IdentityId::from(3)));
-    assert_eq!(
-        CommitteeGroup::members(),
-        vec![IdentityId::from(1), IdentityId::from(2),]
-    );
+    let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
+    let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
+    assert_ok!(CommitteeGroup::remove_member(root, alice_id));
+    assert_eq!(CommitteeGroup::get_members(), [bob_id].to_vec());
 }
 
 #[test]
 fn swap_member_works() {
-    let committee = (1..=3).map(IdentityId::from).collect::<Vec<_>>();
+    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
 
     ExtBuilder::default()
-        .committee_members(committee)
+        .governance_committee(committee)
         .build()
         .execute_with(swap_member_works_we);
 }
 
 fn swap_member_works_we() {
     let root = Origin::system(frame_system::RawOrigin::Root);
-    let non_root = Origin::signed(AccountKeyring::Bob.public());
+    let non_root = Origin::signed(AccountKeyring::Charlie.public());
+    let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
+    let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
+    let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     assert_noop!(
-        CommitteeGroup::swap_member(non_root, IdentityId::from(1), IdentityId::from(5)),
+        CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5)),
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
     assert_noop!(
@@ -103,39 +114,24 @@ fn swap_member_works_we() {
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
     );
     assert_noop!(
-        CommitteeGroup::swap_member(root.clone(), IdentityId::from(1), IdentityId::from(3)),
+        CommitteeGroup::swap_member(root.clone(), alice_id, bob_id),
         group::Error::<TestStorage, group::Instance1>::DuplicateMember
     );
+    assert_ok!(CommitteeGroup::swap_member(root.clone(), bob_id, bob_id));
+    assert_eq!(CommitteeGroup::get_members(), [bob_id, alice_id].to_vec());
     assert_ok!(CommitteeGroup::swap_member(
         root.clone(),
-        IdentityId::from(2),
-        IdentityId::from(2)
+        alice_id,
+        charlie_id
     ));
-    assert_eq!(
-        CommitteeGroup::members(),
-        (1..=3).map(IdentityId::from).collect::<Vec<_>>()
-    );
-    assert_ok!(CommitteeGroup::swap_member(
-        root.clone(),
-        IdentityId::from(1),
-        IdentityId::from(6)
-    ));
-    assert_eq!(
-        CommitteeGroup::members(),
-        [
-            IdentityId::from(2),
-            IdentityId::from(3),
-            IdentityId::from(6)
-        ]
-        .to_vec()
-    );
+    assert_eq!(CommitteeGroup::get_members(), [bob_id, charlie_id].to_vec());
 }
 
 #[test]
 fn reset_members_works() {
-    let committee = (1..=3).map(IdentityId::from).collect::<Vec<_>>();
+    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
     ExtBuilder::default()
-        .committee_members(committee)
+        .governance_committee(committee)
         .build()
         .execute_with(reset_members_works_we);
 }
@@ -150,7 +146,7 @@ fn reset_members_works_we() {
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
     assert_ok!(CommitteeGroup::reset_members(root, new_committee.clone()));
-    assert_eq!(CommitteeGroup::members(), new_committee);
+    assert_eq!(CommitteeGroup::get_members(), new_committee);
 }
 
 #[test]
@@ -200,4 +196,62 @@ fn rage_quit_we() {
         group::Error::<TestStorage, group::Instance1>::LastMemberCannotQuit
     );
     assert_eq!(CommitteeGroup::is_member(&alice_did), true);
+}
+
+#[test]
+fn disable_member() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(disable_member_we);
+}
+
+fn disable_member_we() {
+    let root = Origin::system(frame_system::RawOrigin::Root);
+
+    let alice_acc = AccountKeyring::Alice.public();
+    let (_, alice_id) = make_account(alice_acc).unwrap();
+    let bob_acc = AccountKeyring::Bob.public();
+    let (_, bob_id) = make_account(bob_acc).unwrap();
+    let charlie_acc = AccountKeyring::Charlie.public();
+    let (_, charlie_id) = make_account(charlie_acc).unwrap();
+
+    // 0. Create group
+    let mut committee = vec![alice_id, bob_id, charlie_id];
+    committee.sort();
+    assert_ok!(CommitteeGroup::reset_members(
+        root.clone(),
+        committee.clone()
+    ));
+
+    assert_eq!(CommitteeGroup::get_members(), committee);
+
+    // Revoke.
+    assert_ok!(CommitteeGroup::disable_member(
+        root.clone(),
+        bob_id,
+        None,
+        None
+    ));
+    assert_eq!(CommitteeGroup::get_members(), vec![charlie_id, alice_id]);
+    assert_eq!(
+        CommitteeGroup::get_valid_members(),
+        vec![charlie_id, alice_id, bob_id]
+    );
+
+    // Revoke at
+    assert_ok!(CommitteeGroup::disable_member(
+        root.clone(),
+        charlie_id,
+        Some(10),
+        None
+    ));
+    assert_eq!(CommitteeGroup::get_members(), vec![alice_id]);
+    assert_eq!(
+        CommitteeGroup::get_valid_members_at(10),
+        vec![alice_id, bob_id]
+    );
+    assert_eq!(
+        CommitteeGroup::get_valid_members_at(9),
+        vec![alice_id, charlie_id, bob_id]
+    );
 }

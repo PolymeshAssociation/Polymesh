@@ -30,13 +30,14 @@
 //! - `vote` - Casts a vote.
 //! - `cancel_ballot` - Cancels an existing ballot.
 
-use crate::{
-    asset::{self, AssetTrait},
-    utils,
-};
+use crate::asset::{self, AssetTrait};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{identity::Trait as IdentityTrait, CommonTrait, Context};
+use polymesh_runtime_common::{
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    CommonTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use codec::{Decode, Encode};
@@ -47,9 +48,7 @@ use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// The module's configuration trait.
-pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + utils::Trait + IdentityTrait
-{
+pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
@@ -168,7 +167,7 @@ decl_module! {
 
             ensure!(now < ballot_details.voting_end, Error::<T>::InvalidDate);
             ensure!(ballot_details.voting_end > ballot_details.voting_start, Error::<T>::InvalidDate);
-            ensure!(ballot_details.motions.len() > 0, Error::<T>::NoMotions);
+            ensure!(!ballot_details.motions.is_empty(), Error::<T>::NoMotions);
 
             // NB: Checkpoint ID is not verified here to allow creating ballots that will become active in future.
             // Voting will only be allowed on checkpoints that exist.
@@ -176,10 +175,13 @@ decl_module! {
             let mut total_choices:usize = 0usize;
 
             for motion in &ballot_details.motions {
-                ensure!(motion.choices.len() > 0, Error::<T>::NoChoicesInMotions);
+                ensure!(!motion.choices.is_empty(), Error::<T>::NoChoicesInMotions);
                 total_choices += motion.choices.len();
             }
-
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
+                &sender,
+                ProtocolOp::VotingAddBallot
+            )?;
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
                 <TotalChoices>::insert(&ticker_ballot_name, total_choices_u64);
             } else {

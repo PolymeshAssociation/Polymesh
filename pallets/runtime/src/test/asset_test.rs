@@ -160,7 +160,7 @@ fn non_issuers_cant_create_tokens() {
         // Expected token entry
         let _ = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -185,7 +185,7 @@ fn valid_transfers_pass() {
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -207,16 +207,12 @@ fn valid_transfers_pass() {
             None
         ));
 
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
-
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
 
         assert_ok!(Asset::transfer(
@@ -239,7 +235,7 @@ fn valid_custodian_allowance() {
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -269,16 +265,12 @@ fn valid_custodian_allowance() {
             token.total_supply
         );
 
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
-
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
         let funding_round1: FundingRoundName = b"Round One".into();
         assert_ok!(Asset::set_funding_round(
@@ -422,7 +414,7 @@ fn valid_custodian_allowance_of() {
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -452,16 +444,12 @@ fn valid_custodian_allowance_of() {
             token.total_supply
         );
 
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
-
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
 
         // Mint some tokens to investor1
@@ -479,7 +467,7 @@ fn valid_custodian_allowance_of() {
         );
 
         let msg = SignData {
-            custodian_did: custodian_did,
+            custodian_did,
             holder_did: investor1_did,
             ticker,
             value: 50_00_00 as u128,
@@ -619,7 +607,7 @@ fn checkpoints_fuzz_test() {
             // Expected token entry
             let token = SecurityToken {
                 name: vec![0x01].into(),
-                owner_did: owner_did,
+                owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
@@ -640,16 +628,12 @@ fn checkpoints_fuzz_test() {
                 None
             ));
 
-            let asset_rule = general_tm::AssetRule {
-                sender_rules: vec![],
-                receiver_rules: vec![],
-            };
-
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
                 owner_signed.clone(),
                 ticker,
-                asset_rule
+                vec![],
+                vec![]
             ));
 
             let mut owner_balance: [u128; 100] = [1_000_000; 100];
@@ -721,7 +705,7 @@ fn register_ticker() {
 
         let token = SecurityToken {
             name: vec![0x01].into(),
-            owner_did: owner_did,
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -1747,15 +1731,13 @@ fn freeze_unfreeze_asset() {
             vec![],
             None
         ));
+
         // Allow all transfers.
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
         assert_ok!(GeneralTM::add_active_rule(
             alice_signed.clone(),
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
         assert_err!(
             Asset::freeze(bob_signed.clone(), ticker),
