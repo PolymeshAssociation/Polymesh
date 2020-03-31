@@ -8,7 +8,10 @@ use polymesh_runtime::{
         ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
         SudoConfig, SystemConfig,
     },
-    runtime::{CddServiceProvidersConfig, CommitteeMembershipConfig, PolymeshCommitteeConfig},
+    runtime::{
+        CddServiceProvidersConfig, CommitteeMembershipConfig, PolymeshCommitteeConfig,
+        ProtocolFeeConfig,
+    },
     Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
 use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
@@ -232,7 +235,6 @@ fn testnet_genesis(
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
-            did_creation_fee: 250,
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
@@ -386,6 +388,9 @@ fn testnet_genesis(
                 IdentityId::from(42),
             ],
             phantom: Default::default(),
+        }),
+        protocol_fee: Some(ProtocolFeeConfig {
+            ..Default::default()
         }),
     }
 }

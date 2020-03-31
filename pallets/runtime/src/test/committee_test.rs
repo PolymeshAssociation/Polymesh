@@ -1,9 +1,8 @@
 use crate::test::{
-    storage::{make_account, Call, EventTest, TestStorage},
+    storage::{get_identity_id, make_account, Call, EventTest, TestStorage},
     ExtBuilder,
 };
 use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
-use polymesh_primitives::IdentityId;
 use polymesh_runtime_group::{self as group};
 use polymesh_runtime_identity as identity;
 
@@ -21,17 +20,20 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn motions_basic_environment_works() {
-    let committee = (1..=3).map(IdentityId::from).collect::<Vec<_>>();
+    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
     ExtBuilder::default()
-        .committee_members(committee)
+        .governance_committee(committee)
         .build()
         .execute_with(motions_basic_environment_works_we);
 }
 
 fn motions_basic_environment_works_we() {
-    System::set_block_number(1);
+    let committee = [AccountKeyring::Alice, AccountKeyring::Bob]
+        .iter()
+        .map(|key| get_identity_id(*key).unwrap())
+        .collect::<Vec<_>>();
 
-    let committee = (1..=3).map(IdentityId::from).collect::<Vec<_>>();
+    System::set_block_number(1);
     assert_eq!(Committee::members(), committee);
     assert_eq!(Committee::proposals(), vec![]);
 }
@@ -292,7 +294,7 @@ fn voting_works_we() {
 #[test]
 fn changing_vote_threshold_works() {
     ExtBuilder::default()
-        .committee_vote_threshold((1, 1))
+        .governance_committee_vote_threshold((1, 1))
         .build()
         .execute_with(changing_vote_threshold_works_we);
 }
@@ -310,7 +312,7 @@ fn changing_vote_threshold_works_we() {
 #[test]
 fn rage_quit() {
     ExtBuilder::default()
-        .committee_vote_threshold((2, 3))
+        .governance_committee_vote_threshold((2, 3))
         .build()
         .execute_with(rage_quit_we);
 }

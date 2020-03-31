@@ -43,9 +43,13 @@ pub mod fee {
 /// DID-related.
 pub mod did {
     /// prefix for user dids
-    pub const USER: [u8; 5] = *b"USER:";
+    pub const USER: &[u8; 5] = b"USER:";
     /// prefix for security token dids
-    pub const SECURITY_TOKEN: [u8; 15] = *b"SECURITY_TOKEN:";
+    pub const SECURITY_TOKEN: &[u8; 15] = b"SECURITY_TOKEN:";
+    /// Governan Committee DID. It is used in systematic CDD claim for Governance Commite members.
+    pub const GOVERNANCE_COMMITTEE_ID: &[u8; 32] = b"system:governance_committee\0\0\0\0\0";
+    /// CDD Providers DID. It is used in systematic CDD claim for CDD Providers.
+    pub const CDD_PROVIDERS_ID: &[u8; 32] = b"system:customer_due_diligence\0\0\0";
 }
 
 // ERC1400 transfer status codes

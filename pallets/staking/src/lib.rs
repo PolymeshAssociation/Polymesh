@@ -819,7 +819,7 @@ decl_storage! {
         build(|config: &GenesisConfig<T>| {
             for &(ref stash, ref controller, balance, ref status) in &config.stakers {
                 assert!(
-                    T::Currency::free_balance(&stash) >= balance,
+                    <T as Trait>::Currency::free_balance(&stash) >= balance,
                     "Stash does not have enough balance to bond."
                 );
                 let _ = <Module<T>>::bond(
@@ -952,7 +952,7 @@ decl_module! {
         /// Take the origin account as a stash and lock up `value` of its balance. `controller` will
         /// be the account that controls it.
         ///
-        /// `value` must be more than the `minimum_balance` specified by `T::Currency`.
+        /// `value` must be more than the `minimum_balance` specified by `<T as Trait>::Currency`.
         ///
         /// The dispatch origin for this call must be _Signed_ by the stash account.
         ///
@@ -984,7 +984,7 @@ decl_module! {
 
             // reject a bond which is considered to be _dust_.
             // Not needed this check as we removes the Exestential deposit concept
-            if value < T::Currency::minimum_balance() {
+            if value < <T as Trait>::Currency::minimum_balance() {
                 Err(Error::<T>::InsufficientValue)?
             }
 
@@ -993,7 +993,7 @@ decl_module! {
             <Bonded<T>>::insert(&stash, &controller);
             <Payee<T>>::insert(&stash, payee);
 
-            let stash_balance = T::Currency::free_balance(&stash);
+            let stash_balance = <T as Trait>::Currency::free_balance(&stash);
             let value = value.min(stash_balance);
             let item = StakingLedger { stash, total: value, active: value, unlocking: vec![] };
             Self::update_ledger(&controller, &item);
@@ -1020,7 +1020,7 @@ decl_module! {
             let controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
             let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 
-            let stash_balance = T::Currency::free_balance(&stash);
+            let stash_balance = <T as Trait>::Currency::free_balance(&stash);
 
             if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
                 let extra = extra.min(max_additional);
@@ -1032,7 +1032,7 @@ decl_module! {
 
         /// Schedule a portion of the stash to be unlocked ready for transfer out after the bond
         /// period ends. If this leaves an amount actively bonded less than
-        /// T::Currency::minimum_balance(), then it is increased to the full amount.
+        /// <T as Trait>::Currency::minimum_balance(), then it is increased to the full amount.
         ///
         /// Once the unlock period is done, you can call `withdraw_unbonded` to actually move
         /// the funds out of management ready for transfer.
@@ -1092,7 +1092,7 @@ decl_module! {
                 // left. We can now safely remove this.
                 let stash = ledger.stash;
                 // remove the lock.
-                T::Currency::remove_lock(STAKING_ID, &stash);
+                <T as Trait>::Currency::remove_lock(STAKING_ID, &stash);
                 // remove all staking-related information.
                 Self::kill_stash(&stash);
             } else {
@@ -1454,7 +1454,7 @@ decl_module! {
             ensure_root(origin)?;
 
             // remove the lock.
-            T::Currency::remove_lock(STAKING_ID, &stash);
+            <T as Trait>::Currency::remove_lock(STAKING_ID, &stash);
             // remove all staking-related information.
             Self::kill_stash(&stash);
         }
@@ -1524,7 +1524,7 @@ impl<T: Trait> Module<T> {
         controller: &T::AccountId,
         ledger: &StakingLedger<T::AccountId, BalanceOf<T>>,
     ) {
-        T::Currency::set_lock(
+        <T as Trait>::Currency::set_lock(
             STAKING_ID,
             &ledger.stash,
             ledger.total,
@@ -1551,15 +1551,17 @@ impl<T: Trait> Module<T> {
         let dest = Self::payee(stash);
         match dest {
             RewardDestination::Controller => Self::bonded(stash).and_then(|controller| {
-                T::Currency::deposit_into_existing(&controller, amount).ok()
+                <T as Trait>::Currency::deposit_into_existing(&controller, amount).ok()
             }),
-            RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
+            RewardDestination::Stash => {
+                <T as Trait>::Currency::deposit_into_existing(stash, amount).ok()
+            }
             RewardDestination::Staked => Self::bonded(stash)
                 .and_then(|c| Self::ledger(&c).map(|l| (c, l)))
                 .and_then(|(controller, mut l)| {
                     l.active += amount;
                     l.total += amount;
-                    let r = T::Currency::deposit_into_existing(stash, amount).ok();
+                    let r = <T as Trait>::Currency::deposit_into_existing(stash, amount).ok();
                     Self::update_ledger(&controller, &l);
                     r
                 }),
@@ -1642,8 +1644,8 @@ impl<T: Trait> Module<T> {
                 total_rewarded_stake.clone(),
                 // Total available issuance which is the total issuance less the block rewards
                 // reserve balance.
-                T::Currency::total_issuance()
-                    .saturating_sub(T::Currency::block_rewards_reserve_balance()),
+                <T as Trait>::Currency::total_issuance()
+                    .saturating_sub(<T as Trait>::Currency::block_rewards_reserve_balance()),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
                 era_duration.saturated_into::<u64>(),
             );
@@ -1665,7 +1667,9 @@ impl<T: Trait> Module<T> {
             Self::deposit_event(RawEvent::Reward(total_payout, rest));
 
             T::Reward::on_unbalanced(total_imbalance);
-            T::RewardRemainder::on_unbalanced(T::Currency::issue_using_block_rewards_reserve(rest));
+            T::RewardRemainder::on_unbalanced(
+                <T as Trait>::Currency::issue_using_block_rewards_reserve(rest),
+            );
         }
 
         // Increment current era.
@@ -2023,7 +2027,7 @@ impl<T: Trait> Module<T> {
             ledger.active -= value;
 
             // Avoid there being a dust balance left in the staking system.
-            if ledger.active < T::Currency::minimum_balance() {
+            if ledger.active < <T as Trait>::Currency::minimum_balance() {
                 value += ledger.active;
                 ledger.active = Zero::zero();
             }

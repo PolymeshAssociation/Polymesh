@@ -1,12 +1,14 @@
 use crate::{
     multisig,
     test::{
+        ext_builder::PROTOCOL_OP_BASE_FEE,
         storage::{register_keyring_account, Call, TestStorage},
         ExtBuilder,
     },
 };
 
 use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
 
@@ -15,6 +17,7 @@ use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
+type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
@@ -369,6 +372,10 @@ fn add_multisig_signer() {
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
             Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+        let charlie_signer = Signatory::from(
+            AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
+        );
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -408,6 +415,16 @@ fn add_multisig_signer() {
             call
         ));
 
+        let call2 = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer(
+            charlie_signer,
+        )));
+
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.clone(),
+            musig_address.clone(),
+            call2
+        ));
+
         assert_eq!(
             MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             true
@@ -422,6 +439,33 @@ fn add_multisig_signer() {
             .next()
             .unwrap()
             .auth_id;
+
+        let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(charlie_signer)
+            .next()
+            .unwrap()
+            .auth_id;
+
+        let root = Origin::system(frame_system::RawOrigin::Root);
+
+        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
+        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+            charlie.clone(),
+            charlie_auth_id
+        ));
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), charlie_signer),
+            true
+        );
+
+        assert!(Identity::_register_did(musig_address.clone(), vec![], None).is_ok());
+
+        assert_err!(
+            MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),
+            Error::ChangeNotAllowed
+        );
+
+        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false).is_ok());
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
@@ -558,7 +602,7 @@ fn should_change_all_signers_and_sigs_required() {
 
 #[test]
 fn make_multisig_master() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
@@ -597,7 +641,7 @@ fn make_multisig_master() {
 
 #[test]
 fn make_multisig_signer() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -620,6 +664,11 @@ fn make_multisig_signer() {
             Error::IdentityNotCreator
         );
 
+        assert_ok!(Balances::top_up_identity_balance(
+            alice.clone(),
+            alice_did,
+            PROTOCOL_OP_BASE_FEE
+        ));
         assert_ok!(MultiSig::make_multisig_signer(
             alice.clone(),
             musig_address.clone(),

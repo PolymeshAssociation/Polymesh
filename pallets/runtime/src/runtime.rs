@@ -14,6 +14,7 @@ use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
     Signature, SigningItem, Ticker,
 };
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
@@ -202,6 +203,12 @@ impl pallet_transaction_payment::Trait for Runtime {
     type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
     type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
     type CddHandler = CddHandler;
+}
+
+impl protocol_fee::Trait for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type OnProtocolFeePayment = DealWithFees;
 }
 
 parameter_types! {
@@ -518,6 +525,7 @@ impl identity::Trait for Runtime {
     type CddHandler = CddHandler;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
+    type ProtocolFee = protocol_fee::Module<Runtime>;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -538,8 +546,8 @@ impl group::Trait<group::Instance2> for Runtime {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
+    type MembershipInitialized = Identity;
+    type MembershipChanged = Identity;
 }
 
 impl statistics::Trait for Runtime {}
@@ -597,7 +605,8 @@ construct_runtime!(
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        Statistic: statistics::{Module, Call, Storage },
+        Statistic: statistics::{Module, Call, Storage},
+        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 

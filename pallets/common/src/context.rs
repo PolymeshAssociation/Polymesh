@@ -100,6 +100,9 @@ mod test {
         ) -> bool {
             false
         }
+
+        fn unsafe_add_systematic_cdd_claims(_targets: &[IdentityId]) {}
+        fn unsafe_revoke_systematic_cdd_claims(_targets: &[IdentityId]) {}
     }
 
     #[test]

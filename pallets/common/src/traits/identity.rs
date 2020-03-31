@@ -1,5 +1,8 @@
-use crate::traits::{
-    balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
+use crate::{
+    traits::{
+        balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
+    },
+    ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, ClaimType, IdentityClaim, IdentityId, LinkData, Permission,
@@ -8,7 +11,6 @@ use polymesh_primitives::{
 
 use codec::{Decode, Encode};
 use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
-use frame_system;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -86,6 +88,7 @@ pub trait Trait:
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
+    type ProtocolFee: ChargeProtocolFee<<Self as frame_system::Trait>::AccountId>;
 }
 // rustfmt adds a commna after Option<Moment> in NewAuthorization and it breaks compilation
 #[rustfmt::skip]
@@ -185,4 +188,14 @@ pub trait IdentityTrait {
         permissions: Vec<Permission>,
     ) -> bool;
     fn is_master_key(did: IdentityId, key: &AccountKey) -> bool;
+
+    /// It adds a systematic CDD claim for each `target` identity.
+    ///
+    /// It is used when we add a new member to CDD providers or Governance Committee.
+    fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
+
+    /// It removes the systematic CDD claim for each `target` identity.
+    ///
+    /// It is used when we remove a member from CDD providers or Governance Committee.
+    fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
 }
