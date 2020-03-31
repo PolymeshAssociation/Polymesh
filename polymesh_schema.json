@@ -381,7 +381,7 @@
         "id": "IdentityId",
         "deactivated_at": "Moment",
         "expiry": "Option<Moment>"
-    }
+    },
     "ProtocolOp": {
         "_enum": [
             "AssetRegisterTicker",
