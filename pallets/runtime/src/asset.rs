@@ -221,17 +221,14 @@ pub struct TickerRegistrationConfig<U> {
 
 /// struct to store user/identity balance
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct AssetBalance<U> {
+pub struct AssetBalance<T> {
     pub identity: IdentityId,
-    pub balance: U,
+    pub balance: T,
 }
 
 impl<T> AssetBalance<T> {
     fn from(identity: IdentityId, balance: T) -> Self {
-        AssetBalance {
-            identity: identity,
-            balance: balance,
-        }
+        AssetBalance { identity, balance }
     }
 }
 
@@ -1760,7 +1757,7 @@ impl<T: Trait> Module<T> {
 
     /// Get the asset `id` balance of `who`.
     pub fn balance(ticker: &Ticker, did: &IdentityId) -> T::Balance {
-        Self::balance_of(&ticker, &did).balance
+        Self::balance_of(ticker, did).balance
     }
 
     // Get the total supply of an asset `id`
