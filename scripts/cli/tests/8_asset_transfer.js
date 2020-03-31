@@ -1,22 +1,24 @@
 // Set options as a parameter, environment variable, or rc file.
 require = require("esm")(module /*, options*/);
-const assert = require("assert");
 module.exports = require("../util/init.js");
 
 let { reqImports } = require("../util/init.js");
 
+// Sets the default exit code to fail unless the script runs successfully
+process.exitCode = 1;
+
 async function main() {
   // Schema path
-  const filePath = reqImports["path"].join(
+  const filePath = reqImports.path.join(
     __dirname + "/../../../polymesh_schema.json"
   );
   const customTypes = JSON.parse(
-    reqImports["fs"].readFileSync(filePath, "utf8")
+    reqImports.fs.readFileSync(filePath, "utf8")
   );
 
   // Start node instance
-  const ws_provider = new reqImports["WsProvider"]("ws://127.0.0.1:9944/");
-  const api = await reqImports["ApiPromise"].create({
+  const ws_provider = new reqImports.WsProvider("ws://127.0.0.1:9944/");
+  const api = await reqImports.ApiPromise.create({
     types: customTypes,
     provider: ws_provider
   });
@@ -57,11 +59,11 @@ async function main() {
 
   await assetTransfer( api, master_keys, issuer_dids );
 
-  await reqImports["blockTillPoolEmpty"](api);
+  await reqImports.blockTillPoolEmpty(api);
 
   await new Promise(resolve => setTimeout(resolve, 3000));
 
-  if (reqImports["fail_count"] > 0) {
+  if (reqImports.fail_count > 0) {
     console.log("Failed");
     process.exitCode = 1;
   } else {
@@ -79,20 +81,17 @@ const unsub = await api.tx.asset
     accounts[0],
     { nonce: reqImports.nonces.get(accounts[0].address) },
     ({ events = [], status }) => {
-     
-      if (status.isFinalized) {
-       
-        reqImports.fail_count = reqImports.callback(
-          status,
-          events,
-          "",
-          "",
-          reqImports.fail_count
-        );
-        unsub();
-      }
+
+    if (status.isFinalized) {
+
+      // Loop through Vec<EventRecord> to display all events
+      events.forEach(({ phase, event: { data, method, section } }) => {
+       if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
+      });
+
+      unsub();
     }
-  );
+  });
 
 reqImports.nonces.set(accounts[0].address, reqImports.nonces.get(accounts[0].address).addn(1));
 }
@@ -108,7 +107,10 @@ async function assetTransfer(api, accounts, dids) {
          
           if (status.isFinalized) {
            
-            reqImports.fail_count = reqImports.callback( status, events, "","", reqImports.fail_count);
+            // Loop through Vec<EventRecord> to display all events
+            events.forEach(({ phase, event: { data, method, section } }) => {
+              if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
+            });
             unsub();
           }
         }

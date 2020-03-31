@@ -1,5 +1,4 @@
-const { ApiPromise, WsProvider } = require("@polkadot/api");
-const { Keyring } = require("@polkadot/keyring");
+const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
 const { cryptoWaitReady } = require("@polkadot/util-crypto");
 const BN = require("bn.js");
 const assert = require("assert");

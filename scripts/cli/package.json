@@ -18,8 +18,9 @@
   "author": "Polymath Network",
   "license": "UNLICENSED",
   "dependencies": {
-    "@polkadot/api": "^1.6.1",
-    "@polkadot/keyring": "^1.8.1",
+    "@polkadot/api": "1.6.2",
+    "@polkadot/util": "^2.6.2",
+    "@polkadot/util-crypto": "^2.6.2",
     "cli-progress": "^3.6.0",
     "command-line-args": "^5.1.1",
     "esm": "^3.2.25",
