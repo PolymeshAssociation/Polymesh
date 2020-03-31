@@ -65,9 +65,9 @@ async function main() {
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
-    process.exitCode = 1;
   } else {
     console.log("Passed");
+    process.exitCode = 0;
   }
 
   process.exit();
@@ -113,6 +113,7 @@ async function assetTransfer(api, accounts, dids) {
             });
             unsub();
           }
+
         }
       );
 

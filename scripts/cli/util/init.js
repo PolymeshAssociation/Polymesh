@@ -194,22 +194,6 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
   return dids;
 }
 
-// Used to make the functions in scripts more efficient
-async function callback(status, events, sectionName, methodName, fail_count) {
-  let new_did_ok = false;
-  events.forEach(({ phase, event: { data, method, section } }) => {
-    if (section == sectionName && method == methodName) {
-      new_did_ok = true;
-    }
-  });
-
-  if (!new_did_ok) {
-    fail_count++;
-  }
-
-  return fail_count;
-}
-
 // Creates a token for a did
 async function issueTokenPerDid(api, accounts) {
 
@@ -221,6 +205,7 @@ async function issueTokenPerDid(api, accounts) {
   
 }
 
+// Returns the asset did 
 function tickerToDid(ticker) {
     return blake2AsHex(
       u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
@@ -261,29 +246,29 @@ async function addClaimsToDids(api, accounts, did, claimType, claimValue) {
 
 // this object holds the required imports for all the scripts
 let reqImports = {
-  path,
   ApiPromise,
   WsProvider,
-  createIdentities,
-  initMain,
-  blockTillPoolEmpty,
-  generateKeys,
+  path,
   fs,
   callback,
   nonces,
   transfer_amount,
   fail_count,
+  sk_roles,
+  prepend,
+  ticker,
+  createIdentities,
+  initMain,
+  blockTillPoolEmpty,
+  generateKeys,
   distributePoly,
   addSigningKeys,
   authorizeJoinToIdentities,
-  sk_roles,
-  prepend,
   issueTokenPerDid,
   senderRules1,
   receiverRules1,
   createClaimRules,
   addClaimsToDids,
-  ticker,
   tickerToDid
 };
 
