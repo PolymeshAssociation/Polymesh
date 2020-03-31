@@ -221,6 +221,14 @@ fn valid_transfers_pass() {
             alice_did,
             500
         ));
+
+        let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix(ticker);
+        let balance_owner = cap_table.next().unwrap();
+        let balance_alice = cap_table.next().unwrap();
+        assert_eq!(balance_owner.identity, owner_did);
+        assert_eq!(balance_owner.balance, 1_000_000 - 500);
+        assert_eq!(balance_alice.identity, alice_did);
+        assert_eq!(balance_alice.balance, 500);
     })
 }
 
@@ -349,10 +357,7 @@ fn valid_custodian_allowance() {
             140_00_00 as u128
         ));
 
-        assert_eq!(
-            Asset::balance(&ticker, &investor2_did),
-            140_00_00 as u128
-        );
+        assert_eq!(Asset::balance(&ticker, &investor2_did), 140_00_00 as u128);
 
         // Try to Transfer the tokens beyond the limit
         assert_noop!(
@@ -461,10 +466,7 @@ fn valid_custodian_allowance_of() {
             vec![0x0]
         ));
 
-        assert_eq!(
-            Asset::balance(&ticker, &investor1_did),
-            200_00_00 as u128
-        );
+        assert_eq!(Asset::balance(&ticker, &investor1_did), 200_00_00 as u128);
 
         let msg = SignData {
             custodian_did,
@@ -539,10 +541,7 @@ fn valid_custodian_allowance_of() {
             140_00_00 as u128
         ));
 
-        assert_eq!(
-            Asset::balance(&ticker, &investor2_did),
-            140_00_00 as u128
-        );
+        assert_eq!(Asset::balance(&ticker, &investor2_did), 140_00_00 as u128);
 
         // Try to Transfer the tokens beyond the limit
         assert_noop!(
