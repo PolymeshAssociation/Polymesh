@@ -33,7 +33,11 @@
 use crate::asset::{self, AssetTrait};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{identity::Trait as IdentityTrait, CommonTrait, Context};
+use polymesh_runtime_common::{
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    CommonTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use codec::{Decode, Encode};
@@ -174,7 +178,10 @@ decl_module! {
                 ensure!(!motion.choices.is_empty(), Error::<T>::NoChoicesInMotions);
                 total_choices += motion.choices.len();
             }
-
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
+                &sender,
+                ProtocolOp::VotingAddBallot
+            )?;
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
                 <TotalChoices>::insert(&ticker_ballot_name, total_choices_u64);
             } else {
@@ -377,12 +384,13 @@ mod tests {
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-        transaction_validity::{TransactionValidity, ValidTransaction},
+        transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
         AnySignature, KeyTypeId, Perbill,
     };
     use std::result::Result;
     use test_client::{self, AccountKeyring};
 
+    use polymesh_protocol_fee as protocol_fee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer,
@@ -439,7 +447,7 @@ mod tests {
         type Lookup = IdentityLookup<AccountId>;
         type Header = Header;
         type Event = ();
-        type Call = ();
+        type Call = Call;
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
@@ -567,19 +575,36 @@ mod tests {
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
+        type CddHandler = Test;
         type Public = AccountId;
         type OffChainSignature = OffChainSignature;
+        type ProtocolFee = protocol_fee::Module<Test>;
+    }
+
+    impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
+        fn get_valid_payer(
+            _: &Call,
+            _: &Signatory,
+        ) -> Result<Option<Signatory>, InvalidTransaction> {
+            Ok(None)
+        }
+        fn clear_context() {}
+        fn set_payer_context(_: Option<Signatory>) {}
+        fn get_payer_from_context() -> Option<Signatory> {
+            None
+        }
+        fn set_current_identity(_: &IdentityId) {}
     }
 
     impl pallet_transaction_payment::ChargeTxFee for Test {
-        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
             Ok(ValidTransaction::default())
         }
     }
 
     impl GroupTrait<Moment> for Test {
         fn get_members() -> Vec<IdentityId> {
-            unimplemented!();
+            vec![]
         }
 
         fn get_inactive_members() -> Vec<InactiveMember<Moment>> {
@@ -599,6 +624,12 @@ mod tests {
         fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
             unimplemented!()
         }
+    }
+
+    impl protocol_fee::Trait for Test {
+        type Event = ();
+        type Currency = Balances;
+        type OnProtocolFeePayment = ();
     }
 
     impl asset::Trait for Test {

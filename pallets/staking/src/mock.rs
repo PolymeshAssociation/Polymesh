@@ -31,6 +31,7 @@ use frame_support::{
     StorageLinkedMap, StorageValue,
 };
 use frame_system::{self as system, EnsureSignedBy};
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer,
@@ -53,7 +54,7 @@ use sp_runtime::testing::{sr25519::Public, Header, UintAuthorityId};
 use sp_runtime::traits::{
     Convert, IdentityLookup, OnInitialize, OpaqueKeys, SaturatedConversion, Verify,
 };
-use sp_runtime::transaction_validity::{TransactionValidity, ValidTransaction};
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{AnySignature, KeyTypeId, Perbill};
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -179,7 +180,7 @@ impl frame_system::Trait for Test {
     type Origin = Origin;
     type Index = u64;
     type BlockNumber = BlockNumber;
-    type Call = ();
+    type Call = Call;
     type Hash = H256;
     type Hashing = ::sp_runtime::traits::BlakeTwo256;
     type AccountId = AccountId;
@@ -237,6 +238,12 @@ impl group::Trait<group::Instance2> for Test {
     type MembershipChanged = ();
 }
 
+impl protocol_fee::Trait for Test {
+    type Event = ();
+    type Currency = Balances;
+    type OnProtocolFeePayment = ();
+}
+
 impl identity::Trait for Test {
     type Event = ();
     type Proposal = Call;
@@ -244,12 +251,26 @@ impl identity::Trait for Test {
     type CddServiceProviders = Test;
     type Balances = balances::Module<Test>;
     type ChargeTxFeeTarget = Test;
+    type CddHandler = Test;
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
+    type ProtocolFee = protocol_fee::Module<Test>;
+}
+
+impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
+    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+        Ok(None)
+    }
+    fn clear_context() {}
+    fn set_payer_context(_: Option<Signatory>) {}
+    fn get_payer_from_context() -> Option<Signatory> {
+        None
+    }
+    fn set_current_identity(_: &IdentityId) {}
 }
 
 impl pallet_transaction_payment::ChargeTxFee for Test {
-    fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+    fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }
 }
@@ -579,7 +600,6 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
-            did_creation_fee: 250,
             ..Default::default()
         }
         .assimilate_storage(&mut storage);
@@ -879,7 +899,7 @@ pub fn on_offence_now(
 pub fn fix_nominator_genesis_problem(value: u128) {
     let nominator_controller_account = 100;
     let nominator_stash_account = 101;
-    let (nominator_signed, nominator_did) =
+    let (_nominator_signed, nominator_did) =
         make_account_with_balance(account_from(nominator_stash_account), value).unwrap();
 
     let service_provider_account = AccountId::from(AccountKeyring::Dave);

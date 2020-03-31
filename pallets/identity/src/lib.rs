@@ -42,17 +42,17 @@ use polymesh_primitives::{
     PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
-    constants::did::{SECURITY_TOKEN, USER},
+    constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
         asset::AcceptTransfer,
-        balances::BalancesTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
             AuthorizationNonce, LinkedKeyInfo, RawEvent, SigningItemWithAuth, TargetIdAuthorization,
         },
         multisig::AddSignerMultiSig,
     },
-    Context,
+    Context, SystematicIssuers,
 };
 
 use codec::{Decode, Encode};
@@ -67,20 +67,20 @@ use sp_runtime::{
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
-// use sp_arithmetic::traits::Zero;
 
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{ExistenceRequirement, WithdrawReason},
+    traits::{ChangeMembers, ExistenceRequirement, InitializeMembers, WithdrawReason},
     weights::{GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-use pallet_transaction_payment::ChargeTxFee;
+use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 
 pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
+
 pub type Event<T> = polymesh_runtime_common::traits::identity::Event<T>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -123,14 +123,14 @@ decl_storage! {
         /// It stores the current identity for current transaction.
         pub CurrentDid: Option<IdentityId>;
 
+        /// It stores the current gas fee payer for the current transaction
+        pub CurrentPayer: Option<Signatory>;
+
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(blake2_256) Claim1stKey, blake2_256(Claim2ndKey) => IdentityClaim;
 
         // Account => DID
         pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map AccountKey => Option<LinkedKeyInfo>;
-
-        /// How much does creating a DID cost
-        pub DidCreationFee get(fn did_creation_fee) config(): T::Balance;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
@@ -153,11 +153,25 @@ decl_storage! {
         /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_256) Signatory, blake2_256(u64) => Signatory;
 
+        /// It defines if authorization from a CDD provider is needed to change master key of an identity
         pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         build(|config: &GenesisConfig<T>| {
+            // Add System DID: Governance committee && CDD providers
+            [GOVERNANCE_COMMITTEE_ID, CDD_PROVIDERS_ID].iter()
+                .for_each(|raw_id| {
+                    let id = IdentityId::from(**raw_id);
+                    let master_key = AccountKey::from(**raw_id);
+
+                    <DidRecords>::insert( id, DidRecord {
+                        master_key,
+                        ..Default::default()
+                    });
+                });
+
+            //  Other
             for &(ref master_account_id, issuer, did, expiry) in &config.identities {
                 // Direct storage change for registering the DID and providing the claim
                 let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
@@ -197,17 +211,21 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
+
+        // TODO: Remove this function. cdd_register_did should be used instead.
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            // TODO: Subtract proper fee.
-            let _imbalance = <T::Balances>::withdraw(
-                &sender,
-                Self::did_creation_fee(),
-                WithdrawReason::Fee.into(),
-                ExistenceRequirement::KeepAlive,
+            let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+            let new_id = Self::_register_did(
+                sender,
+                signing_items,
+                Some((&signer, ProtocolOp::IdentityRegisterDid))
             )?;
-
-            let _new_id = Self::_register_did(sender, signing_items)?;
+            // Added for easier testing. To be removed before production
+            let cdd_providers = T::CddServiceProviders::get_members();
+            if cdd_providers.len() > 0 {
+                Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_providers[0], None);
+            }
             Ok(())
         }
 
@@ -237,11 +255,15 @@ decl_module! {
             let cdd_id = Context::current_identity_or::<Self>(&cdd_key)?;
 
             let cdd_providers = T::CddServiceProviders::get_members();
-            ensure!( cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
-
+            ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
             // Register Identity and add claim.
-            let new_id = Self::_register_did(target_account, signing_items)?;
-            Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, cdd_claim_expiry)
+            let new_id = Self::_register_did(
+                target_account,
+                signing_items,
+                Some((&Signatory::AccountKey(cdd_key), ProtocolOp::IdentityCddRegisterDid))
+            )?;
+            Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, cdd_claim_expiry);
+            Ok(())
         }
 
         /// It invalidates any claim generated by `cdd` from `disable_from` timestamps.
@@ -303,7 +325,10 @@ decl_module! {
                 Self::can_key_be_linked_to_did(&new_key, SignatoryType::External),
                 Error::<T>::AlreadyLinked
             );
-
+            T::ProtocolFee::charge_fee(
+                &Signatory::AccountKey(sender_key),
+                ProtocolOp::IdentitySetMasterKey
+            )?;
             <DidRecords>::mutate(did,
             |record| {
                 (*record).master_key = new_key;
@@ -367,9 +392,16 @@ decl_module! {
             ensure!(<DidRecords>::exists(target), Error::<T>::DidMustAlreadyExist);
 
             match claim {
-                Claim::CustomerDueDiligence => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry),
-                _ => Self::unsafe_add_claim(target, claim, issuer, expiry)
-            }
+                Claim::CustomerDueDiligence => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry)?,
+                _ => {
+                  T::ProtocolFee::charge_fee(
+                      &Signatory::AccountKey(sender_key),
+                      ProtocolOp::IdentityAddClaim
+                  )?;
+                  Self::unsafe_add_claim(target, claim, issuer, expiry)
+              }
+            };
+            Ok(())
         }
 
         /// Adds a new batch of claim records or edits an existing one. Only called by
@@ -381,16 +413,22 @@ decl_module! {
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
-
             // Check input claims.
             ensure!( claims.iter().all(
                 |batch_claim_item| <DidRecords>::exists(batch_claim_item.target)),
                 Error::<T>::DidMustAlreadyExist);
 
-            claims.into_iter()
-                .map( |bci| Self::unsafe_add_claim(bci.target, bci.claim, issuer, bci.expiry))
-                .collect::<Result<Vec<_>, DispatchError>>()
-                .map( |_| ())
+            T::ProtocolFee::charge_fee_batch(
+                &Signatory::AccountKey(sender_key),
+                ProtocolOp::IdentityAddClaim,
+                claims.len()
+            )?;
+            claims
+                .into_iter()
+                .for_each(|bci| {
+                    Self::unsafe_add_claim(bci.target, bci.claim, issuer, bci.expiry)
+                });
+            Ok(())
         }
 
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResult {
@@ -409,15 +447,11 @@ decl_module! {
             }
 
             // 1.3. Check that target_did has a CDD.
-            // Please keep in mind that `current_did` is double-checked:
-            //  - by `SignedExtension` (`update_did_signed_extension`) on 0 level nested call, or
-            //  - by next code, as `target_did`, on N-level nested call, where N is equal or greater that 1.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
 
-            /// 1.4 charge fee
+            // 1.4 charge fee
             ensure!(
                 T::ChargeTxFeeTarget::charge_fee(
-                    Signatory::from(AccountKey::try_from(sender.encode())?),
                     proposal.encode().len().try_into().unwrap_or_default(),
                     proposal.get_dispatch_info(),
                 )
@@ -426,7 +460,7 @@ decl_module! {
             );
 
             // 2. Actions
-            Context::set_current_identity::<Self>(Some(target_did));
+            T::CddHandler::set_current_identity(&target_did);
 
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
@@ -454,7 +488,8 @@ decl_module! {
             let claim_type = claim.claim_type();
             let scope = claim.as_scope().cloned();
 
-            Self::unsafe_revoke_claim(target, claim_type, issuer, scope)
+            Self::unsafe_revoke_claim(target, claim_type, issuer, scope);
+            Ok(())
         }
 
         /// Revoke multiple claims in a batch
@@ -469,13 +504,12 @@ decl_module! {
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
 
             claims.into_iter()
-                .map( |bci| {
+                .for_each( |bci| {
                     let claim_type = bci.claim.claim_type();
                     let scope = bci.claim.as_scope().cloned();
                     Self::unsafe_revoke_claim(bci.target, claim_type, issuer, scope)
-                })
-                .collect::<Result<Vec<_>, DispatchError>>()
-                .map( |_| ())
+                });
+            Ok(())
         }
 
         /// It sets permissions for an specific `target_key` key.
@@ -649,7 +683,7 @@ decl_module! {
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
-                        _ => return Err(Error::<T>::UnknownAuthorization.into())
+                        _ => Err(Error::<T>::UnknownAuthorization.into())
                     }
                 },
                 Signatory::AccountKey(key) => {
@@ -660,7 +694,7 @@ decl_module! {
                             Self::accept_master_key_rotation(key , auth_id, None),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(key), auth_id),
-                        _ => return Err(Error::<T>::UnknownAuthorization.into())
+                        _ => Err(Error::<T>::UnknownAuthorization.into())
                     }
                 }
             }
@@ -739,9 +773,11 @@ decl_module! {
         /// Failure
         ///     - It can only called by master key owner.
         ///     - Keys should be able to linked to any identity.
-        pub fn add_signing_items_with_authorization( origin,
-                expires_at: T::Moment,
-                additional_keys: Vec<SigningItemWithAuth>) -> DispatchResult {
+        pub fn add_signing_items_with_authorization(
+            origin,
+            expires_at: T::Moment,
+            additional_keys: Vec<SigningItemWithAuth>
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let id = Context::current_identity_or::<Self>(&sender_key)?;
@@ -795,22 +831,28 @@ decl_module! {
                     return Err(Error::<T>::InvalidAccountKey.into());
                 }
             }
-
+            // 1.999. Charge the fee.
+            T::ProtocolFee::charge_fee_batch(
+                &Signatory::AccountKey(sender_key),
+                ProtocolOp::IdentityAddSigningItem,
+                additional_keys.len()
+            )?;
             // 2.1. Link keys to identity
             additional_keys.iter().for_each( |si_with_auth| {
-                let si = & si_with_auth.signing_item;
+                let si = &si_with_auth.signing_item;
                 if let Signatory::AccountKey(ref key) = si.signer {
                     Self::link_key_to_did( key, si.signer_type, id);
                 }
             });
-
             // 2.2. Update that identity information and its offchain authorization nonce.
-            <DidRecords>::mutate( id, |record| {
-                let keys = additional_keys.iter().map( |si_with_auth| si_with_auth.signing_item.clone())
+            <DidRecords>::mutate(id, |record| {
+                let keys = additional_keys
+                    .iter()
+                    .map(|si_with_auth| si_with_auth.signing_item.clone())
                     .collect::<Vec<_>>();
-                (*record).add_signing_items( &keys[..]);
+                (*record).add_signing_items(&keys[..]);
             });
-            <OffChainAuthorizationNonce>::mutate( id, |offchain_nonce| {
+            <OffChainAuthorizationNonce>::mutate(id, |offchain_nonce| {
                 *offchain_nonce = authorization.nonce + 1;
             });
 
@@ -934,9 +976,17 @@ impl<T: Trait> Module<T> {
                 Self::can_key_be_linked_to_did(&key, SignatoryType::External),
                 Error::<T>::AlreadyLinked
             );
+            T::ProtocolFee::charge_fee(
+                &Signatory::Identity(identity_to_join),
+                ProtocolOp::IdentityAddSigningItem,
+            )?;
             Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
+        } else {
+            T::ProtocolFee::charge_fee(
+                &Signatory::Identity(identity_to_join),
+                ProtocolOp::IdentityAddSigningItem,
+            )?;
         }
-
         <DidRecords>::mutate(identity_to_join, |identity| {
             identity.add_signing_items(&[SigningItem::new(signer, vec![])]);
         });
@@ -1081,7 +1131,7 @@ impl<T: Trait> Module<T> {
             Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
             Self::unsafe_master_key_rotation(sender_key, rotation_for_did, optional_cdd_auth_id)
         } else {
-            return Err(Error::<T>::UnknownAuthorization.into());
+            Err(Error::<T>::UnknownAuthorization.into())
         }
     }
 
@@ -1138,7 +1188,7 @@ impl<T: Trait> Module<T> {
         // Replace master key of the owner that initiated key rotation
         <DidRecords>::mutate(rotation_for_did, |record| {
             Self::unlink_key_to_did(&(*record).master_key, rotation_for_did);
-            (*record).master_key = sender_key.clone();
+            (*record).master_key = sender_key;
         });
 
         Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
@@ -1258,12 +1308,19 @@ impl<T: Trait> Module<T> {
         Self::fetch_base_claim_with_issuer(id, claim_type, issuer, scope)
             .into_iter()
             .filter(|c| Self::is_identity_claim_not_expired_at(c, now))
-            .nth(0)
+            .next()
     }
 
     /// See `Self::fetch_cdd`.
     #[inline]
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
+        let trusted_cdd_providers = T::CddServiceProviders::get_members();
+        // It will never happen in production but helpful during testing.
+        // TODO: Remove this condition
+        if trusted_cdd_providers.len() == 0 {
+            return true;
+        }
+
         Self::fetch_cdd(claim_for, T::Moment::zero()).is_some()
     }
 
@@ -1273,7 +1330,9 @@ impl<T: Trait> Module<T> {
     /// * `leeway` : This leeway is added to now() before check if claim is expired.
     ///
     /// # Safety
-    ///     No state change is allowed in this function because this function is used within the RPC calls
+    ///
+    /// No state change is allowed in this function because this function is used within the RPC
+    /// calls.
     pub fn fetch_cdd(claim_for: IdentityId, leeway: T::Moment) -> Option<IdentityId> {
         let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
             .checked_add(&leeway)
@@ -1295,7 +1354,7 @@ impl<T: Trait> Module<T> {
                 )
             })
             .map(|id_claim| id_claim.claim_issuer)
-            .nth(0)
+            .next()
     }
 
     /// A CDD claims is considered valid if:
@@ -1498,6 +1557,7 @@ impl<T: Trait> Module<T> {
     pub fn _register_did(
         sender: T::AccountId,
         signing_items: Vec<SigningItem>,
+        protocol_fee_data: Option<(&Signatory, ProtocolOp)>,
     ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
         // NB: this does not guarantee randomness
@@ -1537,6 +1597,11 @@ impl<T: Trait> Module<T> {
             }
         }
 
+        // 1.999. Charge the given fee.
+        if let Some((payee, op)) = protocol_fee_data {
+            T::ProtocolFee::charge_fee(payee, op)?;
+        }
+
         // 2. Apply changes to our extrinsics.
         // 2.1. Link  master key and add pre-authorized signing keys
         Self::link_key_to_did(&master_key, SignatoryType::External, did);
@@ -1561,14 +1626,14 @@ impl<T: Trait> Module<T> {
         claim: Claim,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
-    ) -> DispatchResult {
+    ) {
         let claim_type = claim.claim_type();
         let scope = claim.as_scope().cloned();
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
         let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope)
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
 
-        let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).nth(0);
+        let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).next();
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { issuer, scope };
         let id_claim = IdentityClaim {
@@ -1581,8 +1646,6 @@ impl<T: Trait> Module<T> {
 
         <Claims>::insert(&pk, &sk, id_claim.clone());
         Self::deposit_event(RawEvent::NewClaims(target, id_claim));
-
-        Ok(())
     }
 
     /// It ensures that CDD claim issuer is a valid CDD provider before add the claim.
@@ -1601,7 +1664,8 @@ impl<T: Trait> Module<T> {
             Error::<T>::UnAuthorizedCddProvider
         );
 
-        Self::unsafe_add_claim(target, claim, issuer, expiry)
+        Self::unsafe_add_claim(target, claim, issuer, expiry);
+        Ok(())
     }
 
     pub fn is_identity_exists(did: &IdentityId) -> bool {
@@ -1614,13 +1678,38 @@ impl<T: Trait> Module<T> {
         claim_type: ClaimType,
         issuer: IdentityId,
         scope: Option<Scope>,
-    ) -> DispatchResult {
+    ) {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { scope, issuer };
 
         <Claims>::remove(&pk, &sk);
         Self::deposit_event(RawEvent::RevokedClaim(target, claim_type, issuer));
-        Ok(())
+    }
+
+    /// Returns an auth id if it is present and not expired.
+    pub fn get_non_expired_auth(
+        target: &Signatory,
+        auth_id: &u64,
+    ) -> Option<Authorization<T::Moment>> {
+        if !<Authorizations<T>>::exists(target, auth_id) {
+            return None;
+        }
+        let auth = <Authorizations<T>>::get(target, auth_id);
+        if let Some(expiry) = auth.expiry {
+            let now = <pallet_timestamp::Module<T>>::get();
+            if expiry > now {
+                return None;
+            }
+        }
+        Some(auth)
+    }
+
+    /// Returns identity of a signatory
+    pub fn get_identity_of_signatory(signer: &Signatory) -> Option<IdentityId> {
+        match signer {
+            Signatory::AccountKey(key) => Self::get_identity(&key),
+            Signatory::Identity(did) => Some(*did),
+        }
     }
 }
 
@@ -1669,6 +1758,18 @@ impl<T: Trait> IdentityTrait for Module<T> {
         }
     }
 
+    fn current_payer() -> Option<Signatory> {
+        <CurrentPayer>::get()
+    }
+
+    fn set_current_payer(payer: Option<Signatory>) {
+        if let Some(payer) = payer {
+            <CurrentPayer>::put(payer);
+        } else {
+            <CurrentPayer>::kill();
+        }
+    }
+
     fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool {
         Self::is_signer_authorized(did, signer)
     }
@@ -1683,5 +1784,46 @@ impl<T: Trait> IdentityTrait for Module<T> {
         permissions: Vec<Permission>,
     ) -> bool {
         Self::is_signer_authorized_with_permissions(did, signer, permissions)
+    }
+
+    fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
+        targets.iter().for_each(|new_member| {
+            Self::unsafe_add_claim(
+                *new_member,
+                Claim::CustomerDueDiligence,
+                issuer.as_id(),
+                None,
+            )
+        });
+    }
+
+    fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
+        targets.iter().for_each(|removed_member| {
+            Self::unsafe_revoke_claim(
+                *removed_member,
+                ClaimType::CustomerDueDiligence,
+                issuer.as_id(),
+                None,
+            )
+        });
+    }
+}
+
+impl<T: Trait> ChangeMembers<IdentityId> for Module<T> {
+    fn change_members_sorted(
+        incoming: &[IdentityId],
+        outgoing: &[IdentityId],
+        _new: &[IdentityId],
+    ) {
+        // Add/remove Systematic CDD claims for new/removed members.
+        let issuer = SystematicIssuers::CDDProvider;
+        Self::unsafe_add_systematic_cdd_claims(incoming, issuer);
+        Self::unsafe_revoke_systematic_cdd_claims(outgoing, issuer);
+    }
+}
+
+impl<T: Trait> InitializeMembers<IdentityId> for Module<T> {
+    fn initialize_members(members: &[IdentityId]) {
+        Self::unsafe_add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
     }
 }

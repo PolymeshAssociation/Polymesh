@@ -37,7 +37,7 @@ impl RuleType {
         claims
             .iter()
             .map(|claim| claim.claim_type())
-            .nth(0)
+            .next()
             .unwrap_or(ClaimType::NoType)
     }
 }
@@ -55,7 +55,7 @@ impl From<RuleType> for Rule {
     fn from(rule_type: RuleType) -> Self {
         Rule {
             rule_type,
-            issuers: vec![],
+            issuers: Vec::<IdentityId>::new(),
         }
     }
 }

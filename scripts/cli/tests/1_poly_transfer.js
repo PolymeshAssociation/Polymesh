@@ -23,13 +23,13 @@ async function main() {
 
   let keys = await reqImports.generateKeys(api,5, "master");
   
-  await reqImports.createIdentities(api, testEntities);
+  await reqImports.createIdentities(api, testEntities, testEntities[0]);
   
   await distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.blockTillPoolEmpty(api);
 
-  await reqImports.createIdentities(api, keys);
+  await reqImports.createIdentities(api, keys, testEntities[0]);
 
   await new Promise(resolve => setTimeout(resolve, 3000));
  
@@ -39,13 +39,13 @@ async function main() {
     console.log("Passed");
     process.exitCode = 0;
   }
-  
+
   process.exit();
 }
 
 // Sends transfer_amount to accounts[] from alice
 async function distributePoly( api, accounts, transfer_amount, signingEntity ) {
-  
+
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
     const unsub = await api.tx.balances
@@ -67,7 +67,7 @@ async function distributePoly( api, accounts, transfer_amount, signingEntity ) {
       );
 
     reqImports.nonces.set( signingEntity.address, reqImports.nonces.get(signingEntity.address).addn(1));
-    
+
   }
 }
 

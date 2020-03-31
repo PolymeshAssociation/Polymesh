@@ -66,13 +66,13 @@ pub trait Predicate {
 
 /// It creates a predicate to evaluate the existential of `claim` in the context.
 #[inline]
-pub fn exists<'a>(claim: &'a Claim) -> ExistentialPredicate<'a> {
+pub fn exists(claim: &'_ Claim) -> ExistentialPredicate<'_> {
     ExistentialPredicate { claim }
 }
 
 /// It creates a predicate to evaluate if any of `claims` are found in the context.
 #[inline]
-pub fn any<'a>(claims: &'a [Claim]) -> AnyPredicate<'a> {
+pub fn any(claims: &'_ [Claim]) -> AnyPredicate<'_> {
     AnyPredicate { claims }
 }
 

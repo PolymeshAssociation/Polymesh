@@ -1,10 +1,10 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{
-    asset, bridge, contracts_wrapper, dividend, exemption, general_tm,
+    asset, bridge, contracts_wrapper, dividend, exemption,
+    fee_details::CddHandler,
+    general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    multisig, percentage_tm, simple_token, statistics, sto_capped,
-    update_did_signed_extension::UpdateDid,
-    voting,
+    multisig, percentage_tm, simple_token, statistics, sto_capped, voting,
 };
 
 use pallet_committee as committee;
@@ -12,6 +12,7 @@ use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
     Signature, SigningItem, Ticker,
 };
+use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
@@ -198,6 +199,13 @@ impl pallet_transaction_payment::Trait for Runtime {
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
     type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness>;
+    type CddHandler = CddHandler;
+}
+
+impl protocol_fee::Trait for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type OnProtocolFeePayment = DealWithFees;
 }
 
 parameter_types! {
@@ -511,8 +519,10 @@ impl identity::Trait for Runtime {
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;
+    type CddHandler = CddHandler;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
+    type ProtocolFee = protocol_fee::Module<Runtime>;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -533,8 +543,8 @@ impl group::Trait<group::Instance2> for Runtime {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
+    type MembershipInitialized = Identity;
+    type MembershipChanged = Identity;
 }
 
 impl statistics::Trait for Runtime {}
@@ -592,7 +602,8 @@ construct_runtime!(
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>, Config<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        Statistic: statistics::{Module, Call, Storage },
+        Statistic: statistics::{Module, Call, Storage},
+        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 
@@ -615,7 +626,6 @@ pub type SignedExtra = (
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_contracts::CheckBlockGasLimit<Runtime>,
-    UpdateDid<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;

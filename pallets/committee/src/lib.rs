@@ -32,8 +32,8 @@ use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_common::{
     group::{GroupTrait, InactiveMember},
-    identity::Trait as IdentityTrait,
-    Context,
+    identity::{IdentityTrait, Trait as IdentityModuleTrait},
+    Context, SystematicIssuers,
 };
 use polymesh_runtime_identity as identity;
 use sp_core::u32_trait::Value as U32;
@@ -46,7 +46,7 @@ pub type ProposalIndex = u32;
 /// The number of committee members
 pub type MemberCount = u32;
 
-pub trait Trait<I>: frame_system::Trait + IdentityTrait {
+pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
     /// The outer origin type.
     type Origin: From<RawOrigin<Self::AccountId, I>>;
 
@@ -357,11 +357,13 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
 }
 
 impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
-    fn change_members_sorted(
-        _incoming: &[IdentityId],
-        outgoing: &[IdentityId],
-        new: &[IdentityId],
-    ) {
+    /// This function is called when the group updates its members, and it executes the following
+    /// actions:
+    /// * It removes outgoing member's vote of each current proposal.
+    /// * It adds the Systematic CDD claim (issued by `SystematicIssuer::Committee`) to new incoming members.
+    /// * It removes the Systematic CDD claim (issued by `SystematicIssuer::Committee`) from
+    /// outgoing members.
+    fn change_members_sorted(incoming: &[IdentityId], outgoing: &[IdentityId], new: &[IdentityId]) {
         // remove accounts from all current voting in motions.
         Self::proposals()
             .into_iter()
@@ -372,16 +374,27 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
             })
             .for_each(Self::check_proposal_threshold);
 
+        // Add/remove Systematic CDD claims for new/removed members.
+        let issuer = SystematicIssuers::Committee;
+        <identity::Module<T>>::unsafe_add_systematic_cdd_claims(incoming, issuer);
+        <identity::Module<T>>::unsafe_revoke_systematic_cdd_claims(outgoing, issuer);
+
         <Members<I>>::put(new);
     }
 }
 
 impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
+    /// It initializes the members and adds the Systemic CDD claim (issued by
+    /// `SystematicIssuers::Committee`).
     fn initialize_members(members: &[IdentityId]) {
         if !members.is_empty() {
             assert!(
                 <Members<I>>::get().is_empty(),
                 "Members are already initialized!"
+            );
+            <identity::Module<T>>::unsafe_add_systematic_cdd_claims(
+                members,
+                SystematicIssuers::Committee,
             );
             <Members<I>>::put(members);
         }

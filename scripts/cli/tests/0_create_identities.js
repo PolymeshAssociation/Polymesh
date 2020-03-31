@@ -23,13 +23,13 @@ async function main() {
 
   let keys = await reqImports.generateKeys(api,5, "master");
   
-  await createIdentities(api, testEntities);
+  await createIdentities(api, testEntities, testEntities[0]);
  
   await reqImports.distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
  
   await reqImports.blockTillPoolEmpty(api);
  
-  await createIdentities(api, keys);
+  await createIdentities(api, keys, testEntities[0]);
  
   await new Promise(resolve => setTimeout(resolve, 3000));
   
@@ -44,8 +44,8 @@ async function main() {
 }
 
 // Create a new DID for each of accounts[]
-async function createIdentities(api, accounts) {
- 
+async function createIdentities(api, accounts, alice) {
+
     let dids = [];
       for (let i = 0; i < accounts.length; i++) {
         const unsub = await api.tx.identity
@@ -73,8 +73,21 @@ async function createIdentities(api, accounts) {
         const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
         dids.push(d.raw.asUnique);
       }
+      let did_balance = 10 * 10**12;
+      for (let i = 0; i < dids.length; i++) {
+        await api.tx.balances
+          .topUpIdentityBalance(dids[i], did_balance)
+          .signAndSend(
+            alice,
+            { nonce: reqImports.nonces.get(alice.address) }
+          );
+        reqImports.nonces.set(
+          alice.address,
+          reqImports.nonces.get(alice.address).addn(1)
+        );
+      }
       return dids;
-  
+
 }
 
 main().catch(console.error);

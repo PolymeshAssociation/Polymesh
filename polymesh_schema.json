@@ -1,6 +1,7 @@
 {
     "IdentityId":"H256",
     "Ticker": "[u8; 12]",
+    "PosRatio": "(u32, u32)",
     "DocumentName": "Text",
     "DocumentUri": "Text",
     "DocumentHash": "Text",
@@ -127,7 +128,7 @@
     },
     "ClaimType": {
         "_enum": {
-            "Accredited": "", 
+            "Accredited": "",
             "Affiliate": "",
             "BuyLockup": "",
             "SellLockup": "",
@@ -156,12 +157,12 @@
         "rule_id": "u32"
     },
     "RuleType": {
-        "_enum": { 
+        "_enum": {
             "IsPresent" : "Claim",
             "IsAbsent": "Claim",
             "IsAnyOf": "Vec<Claim>",
             "IsNoneOf": "Vec<Claim>"
-        } 
+        }
     },
     "Rule": {
         "rule_type": "RuleType",
@@ -380,5 +381,22 @@
         "id": "IdentityId",
         "deactivated_at": "Moment",
         "expiry": "Option<Moment>"
+    }
+    "ProtocolOp": {
+        "_enum": [
+            "AssetRegisterTicker",
+            "AssetIssue",
+            "AssetAddDocument",
+            "AssetCreateToken",
+            "DividendNew",
+            "GeneralTmAddActiveRule",
+            "IdentityRegisterDid",
+            "IdentityCddRegisterDid",
+            "IdentityAddClaim",
+            "IdentitySetMasterKey",
+            "IdentityAddSigningItem",
+            "MipsPropose",
+            "VotingAddBallot"
+        ]
     }
 }

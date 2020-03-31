@@ -157,10 +157,9 @@ decl_module! {
             if remove == add { return Ok(()) }
 
             let mut members = <ActiveMembers<I>>::get();
-            let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NoSuchMember)?;
-            members[location] = add;
-
-            let _location = members.binary_search(&add).err().ok_or(Error::<T, I>::DuplicateMember)?;
+            let remove_location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NoSuchMember)?;
+            let _add_location = members.binary_search(&add).err().ok_or(Error::<T, I>::DuplicateMember)?;
+            members[remove_location] = add;
             members.sort();
             <ActiveMembers<I>>::put(&members);
 

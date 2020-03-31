@@ -1,8 +1,8 @@
 use crate::{
-    asset::{self as asset, AssetType, Error as AssetError, SecurityToken},
+    asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName},
     general_tm::{self as general_tm, AssetTransferRule, Error as GTMError},
     test::{
-        storage::{make_account, TestStorage},
+        storage::{make_account, register_keyring_account, TestStorage},
         ExtBuilder,
     },
 };
@@ -10,7 +10,7 @@ use crate::{
 use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group::{self as group};
-use polymesh_runtime_identity::{self as identity};
+use polymesh_runtime_identity::{self as identity, BatchAddClaimItem};
 
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_ok, traits::Currency};
@@ -24,8 +24,35 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type GeneralTM = general_tm::Module<TestStorage>;
 type CDDGroup = group::Module<TestStorage, group::Instance2>;
-
+type Moment = u64;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+
+fn make_ticker_env(owner: AccountKeyring, token_name: TokenName) -> Ticker {
+    let owner_id = register_keyring_account(owner.clone()).unwrap();
+
+    // 1. Create a token.
+    let token = SecurityToken {
+        name: token_name,
+        owner_did: owner_id,
+        total_supply: 1_000_000,
+        divisible: true,
+        ..Default::default()
+    };
+
+    let ticker = Ticker::from(token.name.0.as_slice());
+    assert_ok!(Asset::create_token(
+        Origin::signed(owner.public()),
+        token.name.clone(),
+        ticker,
+        token.total_supply,
+        true,
+        token.asset_type.clone(),
+        vec![],
+        None
+    ));
+
+    ticker
+}
 
 #[test]
 fn should_add_and_verify_asset_rule() {
@@ -741,31 +768,14 @@ fn scope_asset_rules() {
 }
 fn scope_asset_rules_we() {
     // 0. Create accounts
-    let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_id) = make_account(token_owner_acc).unwrap();
-    let cdd_acc = AccountKeyring::Bob.public();
-    let (cdd_signed, cdd_id) = make_account(cdd_acc).unwrap();
-    let user_acc = AccountKeyring::Charlie.public();
-    let (_, user_id) = make_account(user_acc).unwrap();
+    let owner = AccountKeyring::Alice;
+    let owner_signed = Origin::signed(owner.public());
+    let cdd_signed = Origin::signed(AccountKeyring::Bob.public());
+    let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
-    let token = SecurityToken {
-        name: vec![0x01].into(),
-        owner_did: token_owner_id.clone(),
-        total_supply: 1_000_000,
-        divisible: true,
-        ..Default::default()
-    };
-    let ticker = Ticker::from(token.name.0.as_slice());
-    assert_ok!(Asset::create_token(
-        token_owner_signed.clone(),
-        token.name.clone(),
-        ticker,
-        token.total_supply,
-        true,
-        token.asset_type.clone(),
-        vec![],
-        None
-    ));
+    let ticker = make_ticker_env(owner, vec![0x01].into());
+
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_rules = vec![Rule {
@@ -773,7 +783,7 @@ fn scope_asset_rules_we() {
         issuers: vec![cdd_id],
     }];
     assert_ok!(GeneralTM::add_active_rule(
-        token_owner_signed.clone(),
+        owner_signed.clone(),
         ticker,
         vec![],
         receiver_rules
@@ -781,7 +791,7 @@ fn scope_asset_rules_we() {
     // 3. Validate behaviour.
     // 3.1. Invalid transfer because missing jurisdiction.
     assert_err!(
-        Asset::transfer(token_owner_signed.clone(), ticker, user_id, 100),
+        Asset::transfer(owner_signed.clone(), ticker, user_id, 100),
         AssetError::<TestStorage>::InvalidTransfer
     );
     // 3.2. Add jurisdiction and transfer will be OK.
@@ -791,10 +801,274 @@ fn scope_asset_rules_we() {
         Claim::Affiliate(scope),
         None
     ));
-    assert_ok!(Asset::transfer(
-        token_owner_signed.clone(),
+    assert_ok!(Asset::transfer(owner_signed.clone(), ticker, user_id, 100));
+}
+
+#[test]
+fn gtm_test_case_9() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(gtm_test_case_9_we);
+}
+/// Is any of: KYC’d, Affiliate, Accredited, Whitelisted
+fn gtm_test_case_9_we() {
+    // 0. Create accounts
+    let owner = Origin::signed(AccountKeyring::Alice.public());
+    let issuer = Origin::signed(AccountKeyring::Bob.public());
+    let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+    // 1. Create a token.
+    let ticker = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    // 2. Set up rules for Asset transfer.
+    let scope = Identity::get_token_did(&ticker).unwrap();
+    let receiver_rules = vec![Rule {
+        rule_type: RuleType::IsAnyOf(vec![
+            Claim::KnowYourCustomer(scope),
+            Claim::Affiliate(scope),
+            Claim::Accredited(scope),
+            Claim::Whitelisted(scope),
+        ]),
+        issuers: vec![issuer_id],
+    }];
+    assert_ok!(GeneralTM::add_active_rule(
+        owner.clone(),
         ticker,
-        user_id,
-        100
+        vec![],
+        receiver_rules
     ));
+
+    // 3. Validate behaviour.
+    let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
+    let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
+
+    // 3.1. Charlie has a 'KnowYourCustomer' Claim.
+    assert_ok!(Identity::add_claim(
+        issuer.clone(),
+        charlie,
+        Claim::KnowYourCustomer(scope),
+        None
+    ));
+    assert_ok!(Asset::transfer(owner.clone(), ticker, charlie, 100));
+
+    // 3.2. Dave has a 'Affiliate' Claim
+    assert_ok!(Identity::add_claim(
+        issuer.clone(),
+        dave,
+        Claim::Affiliate(scope),
+        None
+    ));
+    assert_ok!(Asset::transfer(owner.clone(), ticker, dave, 100));
+
+    // 3.3. Eve has a 'Whitelisted' Claim
+    assert_ok!(Identity::add_claim(
+        issuer.clone(),
+        eve,
+        Claim::Whitelisted(scope),
+        None
+    ));
+    assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
+}
+
+#[test]
+fn gtm_test_case_11() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(gtm_test_case_11_we);
+}
+
+// Is any of: KYC’d, Affiliate, Accredited, Whitelisted, is none of: Jurisdiction=x, y, z,
+fn gtm_test_case_11_we() {
+    // 0. Create accounts
+    let owner = Origin::signed(AccountKeyring::Alice.public());
+    let issuer = Origin::signed(AccountKeyring::Bob.public());
+    let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+    // 1. Create a token.
+    let ticker = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    // 2. Set up rules for Asset transfer.
+    let scope = Identity::get_token_did(&ticker).unwrap();
+    let receiver_rules = vec![
+        Rule {
+            rule_type: RuleType::IsAnyOf(vec![
+                Claim::KnowYourCustomer(scope),
+                Claim::Affiliate(scope),
+                Claim::Accredited(scope),
+                Claim::Whitelisted(scope),
+            ]),
+            issuers: vec![issuer_id],
+        },
+        Rule {
+            rule_type: RuleType::IsNoneOf(vec![
+                Claim::Jurisdiction(b"USA".into(), scope),
+                Claim::Jurisdiction(b"North Kore".into(), scope),
+            ]),
+            issuers: vec![issuer_id],
+        },
+    ];
+    assert_ok!(GeneralTM::add_active_rule(
+        owner.clone(),
+        ticker,
+        vec![],
+        receiver_rules
+    ));
+
+    // 3. Validate behaviour.
+    let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
+    let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
+
+    // 3.1. Charlie has a 'KnowYourCustomer' Claim.
+    assert_ok!(Identity::add_claim(
+        issuer.clone(),
+        charlie,
+        Claim::KnowYourCustomer(scope),
+        None
+    ));
+    assert_ok!(Asset::transfer(owner.clone(), ticker, charlie, 100));
+
+    // 3.2. Dave has a 'Affiliate' Claim but he is from USA
+    assert_ok!(Identity::add_claim(
+        issuer.clone(),
+        dave,
+        Claim::Affiliate(scope),
+        None
+    ));
+    assert_ok!(Identity::add_claim(
+        issuer.clone(),
+        dave,
+        Claim::Jurisdiction(b"USA".into(), scope),
+        None
+    ));
+    assert_err!(
+        Asset::transfer(owner.clone(), ticker, dave, 100),
+        AssetError::<TestStorage>::InvalidTransfer
+    );
+
+    // 3.3. Eve has a 'Whitelisted' Claim
+    assert_ok!(Identity::add_claim(
+        issuer.clone(),
+        eve,
+        Claim::Whitelisted(scope),
+        None
+    ));
+    assert_ok!(Identity::add_claim(
+        issuer.clone(),
+        eve,
+        Claim::Jurisdiction(b"UK".into(), scope),
+        None
+    ));
+    assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
+}
+
+#[test]
+fn gtm_test_case_13() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(gtm_test_case_13_we);
+}
+
+// Must be KYC’d, is any of: Affiliate, Whitelisted, Accredited, is none of: Jurisdiction=x, y, z, etc.
+fn gtm_test_case_13_we() {
+    // 0. Create accounts
+    let owner = Origin::signed(AccountKeyring::Alice.public());
+    let issuer = Origin::signed(AccountKeyring::Bob.public());
+    let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+    // 1. Create a token.
+    let ticker = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    // 2. Set up rules for Asset transfer.
+    let scope = Identity::get_token_did(&ticker).unwrap();
+    let receiver_rules = vec![
+        Rule {
+            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
+            issuers: vec![issuer_id],
+        },
+        Rule {
+            rule_type: RuleType::IsAnyOf(vec![
+                Claim::Affiliate(scope),
+                Claim::Accredited(scope),
+                Claim::Whitelisted(scope),
+            ]),
+            issuers: vec![issuer_id],
+        },
+        Rule {
+            rule_type: RuleType::IsNoneOf(vec![
+                Claim::Jurisdiction(b"USA".into(), scope),
+                Claim::Jurisdiction(b"North Kore".into(), scope),
+            ]),
+            issuers: vec![issuer_id],
+        },
+    ];
+    assert_ok!(GeneralTM::add_active_rule(
+        owner.clone(),
+        ticker,
+        vec![],
+        receiver_rules
+    ));
+
+    // 3. Validate behaviour.
+    let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
+    let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
+
+    // 3.1. Charlie has a 'KnowYourCustomer' Claim BUT he does not have any of { 'Affiliate',
+    //   'Accredited', 'Whitelisted'}.
+    assert_ok!(Identity::add_claim(
+        issuer.clone(),
+        charlie,
+        Claim::KnowYourCustomer(scope),
+        None
+    ));
+    assert_err!(
+        Asset::transfer(owner.clone(), ticker, charlie, 100),
+        AssetError::<TestStorage>::InvalidTransfer
+    );
+
+    // 3.2. Dave has a 'Affiliate' Claim but he is from USA
+    let dave_claims = vec![
+        BatchAddClaimItem::<Moment> {
+            target: dave,
+            claim: Claim::Whitelisted(scope),
+            expiry: None,
+        },
+        BatchAddClaimItem::<Moment> {
+            target: dave,
+            claim: Claim::KnowYourCustomer(scope),
+            expiry: None,
+        },
+        BatchAddClaimItem::<Moment> {
+            target: dave,
+            claim: Claim::Jurisdiction(b"USA".into(), scope),
+            expiry: None,
+        },
+    ];
+
+    assert_ok!(Identity::add_claims_batch(issuer.clone(), dave_claims));
+    assert_err!(
+        Asset::transfer(owner.clone(), ticker, dave, 100),
+        AssetError::<TestStorage>::InvalidTransfer
+    );
+
+    // 3.3. Eve has a 'Whitelisted' Claim
+    let eve_claims = vec![
+        BatchAddClaimItem::<Moment> {
+            target: eve,
+            claim: Claim::Whitelisted(scope),
+            expiry: None,
+        },
+        BatchAddClaimItem::<Moment> {
+            target: eve,
+            claim: Claim::KnowYourCustomer(scope),
+            expiry: None,
+        },
+        BatchAddClaimItem::<Moment> {
+            target: eve,
+            claim: Claim::Jurisdiction(b"UK".into(), scope),
+            expiry: None,
+        },
+    ];
+
+    assert_ok!(Identity::add_claims_batch(issuer.clone(), eve_claims));
+    assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
 }

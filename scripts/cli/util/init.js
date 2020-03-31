@@ -126,7 +126,7 @@ const blockTillPoolEmpty = async function (api) {
 
 // Create a new DID for each of accounts[]
 // precondition - accounts all have enough POLY
-const createIdentities = async function (api, accounts) {
+const createIdentities = async function (api, accounts, alice) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
@@ -140,6 +140,19 @@ const createIdentities = async function (api, accounts) {
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.raw.asUnique);
+  }
+  let did_balance = 10 * 10**12;
+  for (let i = 0; i < dids.length; i++) {
+    await api.tx.balances
+      .topUpIdentityBalance(dids[i], did_balance)
+      .signAndSend(
+        alice,
+        { nonce: reqImports["nonces"].get(alice.address) }
+      );
+    reqImports["nonces"].set(
+      alice.address,
+      reqImports["nonces"].get(alice.address).addn(1)
+    );
   }
   return dids;
 };
@@ -250,7 +263,6 @@ let reqImports = {
   WsProvider,
   path,
   fs,
-  callback,
   nonces,
   transfer_amount,
   fail_count,

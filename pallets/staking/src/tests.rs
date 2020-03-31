@@ -1980,7 +1980,7 @@ fn on_free_balance_zero_stash_removes_nominator() {
             // stash - 11
             // controller - 10
             let (nominator_signed, nominator_did) =
-                make_account_with_balance(account_from(11), 256250).unwrap();
+                make_account_with_balance(account_from(11), 256000).unwrap();
 
             let service_provider_account = AccountId::from(AccountKeyring::Bob);
             let (service_provider_signed, service_provider_did) =
@@ -3416,7 +3416,7 @@ fn garbage_collection_after_slashing() {
 #[test]
 fn garbage_collection_on_window_pruning() {
     ExtBuilder::default().build().execute_with(|| {
-        fix_nominator_genesis_problem(2250);
+        fix_nominator_genesis_problem(2000);
         start_era(1);
 
         assert_eq!(Balances::free_balance(&account_from(11)), 1000);
@@ -3479,7 +3479,7 @@ fn garbage_collection_on_window_pruning() {
 #[test]
 fn slashing_nominators_by_span_max() {
     ExtBuilder::default().build().execute_with(|| {
-        fix_nominator_genesis_problem(2250);
+        fix_nominator_genesis_problem(2000);
         start_era(1);
         start_era(2);
         start_era(3);
@@ -3687,7 +3687,7 @@ fn deferred_slashes_are_deferred() {
                 "free balance of the 101 nominator: {:?}",
                 Balances::free_balance(&account_from(101))
             );
-            fix_nominator_genesis_problem(2250);
+            fix_nominator_genesis_problem(2000);
             start_era(1);
 
             assert_eq!(Balances::free_balance(&account_from(11)), 1000);
@@ -3744,7 +3744,7 @@ fn remove_deferred() {
         .slash_defer_duration(2)
         .build()
         .execute_with(|| {
-            fix_nominator_genesis_problem(2250);
+            fix_nominator_genesis_problem(2000);
             start_era(1);
 
             assert_eq!(Balances::free_balance(&account_from(11)), 1000);

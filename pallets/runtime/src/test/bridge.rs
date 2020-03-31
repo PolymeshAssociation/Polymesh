@@ -17,7 +17,6 @@ type Bridge = bridge::Module<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Authorizations = identity::Authorizations<TestStorage>;
-type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type System = frame_system::Module<TestStorage>;
@@ -36,7 +35,6 @@ fn can_issue_to_identity() {
     ExtBuilder::default()
         .existential_deposit(1_000)
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(can_issue_to_identity_we);
 }
@@ -70,10 +68,6 @@ fn can_issue_to_identity_we() {
         ],
         2,
     ));
-    assert_eq!(
-        Identity::_register_did(controller.clone(), vec![]).is_ok(),
-        true
-    );
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |did: IdentityId| {
         <Authorizations>::iter_prefix(Signatory::from(did))
@@ -178,10 +172,6 @@ fn can_change_controller() {
             ],
             2,
         ));
-        assert_eq!(
-            Identity::_register_did(controller.clone(), vec![]).is_ok(),
-            true
-        );
         assert_eq!(MultiSig::ms_signs_required(controller), 2);
         let last_authorization = |did: IdentityId| {
             <Authorizations>::iter_prefix(Signatory::from(did))
@@ -245,7 +235,7 @@ fn cannot_call_bridge_callback_extrinsics() {
         let alice = Origin::signed(alice_account);
         assert_err!(
             Bridge::change_controller(alice.clone(), alice_account),
-            Error::Unauthorized,
+            Error::BadAdmin,
         );
         let bridge_tx = BridgeTx {
             nonce: 1,
@@ -262,7 +252,6 @@ fn can_freeze_and_unfreeze_bridge() {
     ExtBuilder::default()
         .existential_deposit(1_000)
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(do_freeze_and_unfreeze_bridge);
 }
@@ -297,10 +286,6 @@ fn do_freeze_and_unfreeze_bridge() {
         ],
         2,
     ));
-    assert_eq!(
-        Identity::_register_did(controller.clone(), vec![]).is_ok(),
-        true
-    );
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |did: IdentityId| {
         <Authorizations>::iter_prefix(Signatory::from(did))
@@ -379,7 +364,6 @@ fn can_timelock_txs() {
     ExtBuilder::default()
         .existential_deposit(1_000)
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(do_timelock_txs);
 }
@@ -403,10 +387,6 @@ fn do_timelock_txs() {
         vec![Signatory::from(alice_did), Signatory::from(bob_did)],
         1,
     ));
-    assert_eq!(
-        Identity::_register_did(controller.clone(), vec![]).is_ok(),
-        true
-    );
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |did: IdentityId| {
         <Authorizations>::iter_prefix(Signatory::from(did))

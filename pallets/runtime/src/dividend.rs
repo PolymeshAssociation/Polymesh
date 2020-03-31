@@ -34,7 +34,12 @@
 use crate::{asset, simple_token};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait, Context};
+use polymesh_runtime_common::{
+    balances::Trait as BalancesTrait,
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    CommonTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
@@ -161,6 +166,10 @@ decl_module! {
 
             // Subtract the amount
             let new_balance = balance.checked_sub(&amount).ok_or(Error::<T>::BalanceUnderflow)?;
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
+                &sender,
+                ProtocolOp::DividendNew
+            )?;
             <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
 
             // Insert dividend entry into storage
@@ -455,7 +464,7 @@ mod tests {
     use sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys, Verify},
-        transaction_validity::{TransactionValidity, ValidTransaction},
+        transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
         AnySignature, KeyTypeId, Perbill,
     };
     use test_client::{self, AccountKeyring};
@@ -467,6 +476,7 @@ mod tests {
     use system::EnsureSignedBy;
 
     use polymesh_primitives::IdentityId;
+    use polymesh_protocol_fee as protocol_fee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
         asset::AcceptTransfer,
@@ -541,7 +551,7 @@ mod tests {
         type Origin = Origin;
         type Index = u64;
         type BlockNumber = u64;
-        type Call = ();
+        type Call = Call;
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = AccountId;
@@ -638,6 +648,12 @@ mod tests {
         type Event = ();
     }
 
+    impl protocol_fee::Trait for Test {
+        type Event = ();
+        type Currency = Balances;
+        type OnProtocolFeePayment = ();
+    }
+
     impl asset::Trait for Test {
         type Event = ();
         type Currency = balances::Module<Test>;
@@ -662,19 +678,36 @@ mod tests {
         type CddServiceProviders = Test;
         type Balances = balances::Module<Test>;
         type ChargeTxFeeTarget = Test;
+        type CddHandler = Test;
         type Public = AccountId;
         type OffChainSignature = OffChainSignature;
+        type ProtocolFee = protocol_fee::Module<Test>;
+    }
+
+    impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
+        fn get_valid_payer(
+            _: &Call,
+            _: &Signatory,
+        ) -> Result<Option<Signatory>, InvalidTransaction> {
+            Ok(None)
+        }
+        fn clear_context() {}
+        fn set_payer_context(_: Option<Signatory>) {}
+        fn get_payer_from_context() -> Option<Signatory> {
+            None
+        }
+        fn set_current_identity(_: &IdentityId) {}
     }
 
     impl pallet_transaction_payment::ChargeTxFee for Test {
-        fn charge_fee(_who: Signatory, _len: u32, _info: DispatchInfo) -> TransactionValidity {
+        fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
             Ok(ValidTransaction::default())
         }
     }
 
     impl GroupTrait<Moment> for Test {
         fn get_members() -> Vec<IdentityId> {
-            unimplemented!();
+            vec![]
         }
         fn get_inactive_members() -> Vec<InactiveMember<Moment>> {
             unimplemented!();
@@ -839,7 +872,6 @@ mod tests {
             .unwrap();
         identity::GenesisConfig::<Test> {
             owner: AccountKeyring::Alice.public().into(),
-            did_creation_fee: 250,
             ..Default::default()
         }
         .assimilate_storage(&mut t)
