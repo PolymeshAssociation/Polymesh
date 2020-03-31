@@ -227,7 +227,7 @@ pub struct AssetBalance<T> {
 }
 
 impl<T> AssetBalance<T> {
-    fn from(identity: IdentityId, balance: T) -> Self {
+    fn new(identity: IdentityId, balance: T) -> Self {
         AssetBalance { identity, balance }
     }
 }
@@ -472,7 +472,7 @@ decl_module! {
                 link_id: link,
             };
             <Tokens<T>>::insert(&ticker, token);
-            <BalanceOf<T>>::insert(ticker, did, AssetBalance::from(did, total_supply));
+            <BalanceOf<T>>::insert(ticker, did, AssetBalance::new(did, total_supply));
             Self::deposit_event(RawEvent::IssuedToken(
                 ticker,
                 total_supply,
@@ -800,7 +800,7 @@ decl_module! {
             // Update investor balances and emit events quoting the updated total token balance issued.
             for i in 0..investor_dids.len() {
                 Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
-                <BalanceOf<T>>::insert(ticker, investor_dids[i], AssetBalance::from(investor_dids[i], updated_balances[i]));
+                <BalanceOf<T>>::insert(ticker, investor_dids[i], AssetBalance::new(investor_dids[i], updated_balances[i]));
                 <statistics::Module<T>>::update_transfer_stats( &ticker, None, Some(updated_balances[i]), values[i]);
                 Self::deposit_event(RawEvent::Issued(
                     ticker,
@@ -856,7 +856,7 @@ decl_module! {
 
             Self::_update_checkpoint(&ticker, did, burner_balance);
 
-            <BalanceOf<T>>::insert(ticker, did, AssetBalance::from(did, updated_burner_balance));
+            <BalanceOf<T>>::insert(ticker, did, AssetBalance::new(did, updated_burner_balance));
             <Tokens<T>>::insert(&ticker, token);
             <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
 
@@ -918,7 +918,7 @@ decl_module! {
             Self::_update_checkpoint(&ticker, did, burner_balance);
 
             <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
-            <BalanceOf<T>>::insert(&ticker, &did, AssetBalance::from(did, updated_burner_balance));
+            <BalanceOf<T>>::insert(&ticker, &did, AssetBalance::new(did, updated_burner_balance));
             <Tokens<T>>::insert(&ticker, token);
             <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
 
@@ -962,7 +962,7 @@ decl_module! {
 
             Self::_update_checkpoint(&ticker, token_holder_did, burner_balance);
 
-            <BalanceOf<T>>::insert(&ticker, &token_holder_did, AssetBalance::from(token_holder_did, updated_burner_balance));
+            <BalanceOf<T>>::insert(&ticker, &token_holder_did, AssetBalance::new(token_holder_did, updated_burner_balance));
             <Tokens<T>>::insert(&ticker, token);
             <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
 
@@ -1906,14 +1906,14 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(
             ticker,
             &from_did,
-            AssetBalance::from(from_did, updated_from_balance),
+            AssetBalance::new(from_did, updated_from_balance),
         );
 
         // increase receiver's balance
         <BalanceOf<T>>::insert(
             ticker,
             &to_did,
-            AssetBalance::from(to_did, updated_to_balance),
+            AssetBalance::new(to_did, updated_to_balance),
         );
 
         // Update statistic info.
@@ -2012,7 +2012,7 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(
             ticker,
             &to_did,
-            AssetBalance::from(to_did, updated_to_balance),
+            AssetBalance::new(to_did, updated_to_balance),
         );
         <Tokens<T>>::insert(ticker, token);
         let round = Self::funding_round(ticker);
