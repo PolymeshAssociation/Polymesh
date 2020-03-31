@@ -268,7 +268,7 @@ decl_storage! {
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
         pub Tokens get(fn token_details): map Ticker => SecurityToken<T::Balance>;
         /// Used to store the securityToken balance corresponds to ticker and Identity
-        /// (ticker, DID) -> balance
+        /// (ticker, DID) -> AssetBalance
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_256) Ticker, blake2_256(IdentityId) => AssetBalance<T::Balance>;
         /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
         pub Identifiers get(fn identifiers): map (Ticker, IdentifierType) => AssetIdentifier;
