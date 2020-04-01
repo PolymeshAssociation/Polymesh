@@ -1,10 +1,10 @@
 use codec::{Codec, Decode, Encode};
 use frame_support::{
-    traits::{Get, LockIdentifier, WithdrawReasons},
+    traits::{LockIdentifier, WithdrawReasons},
     Parameter,
 };
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
-use sp_arithmetic::traits::{CheckedSub, Saturating, SimpleArithmetic};
+use sp_arithmetic::traits::{AtLeast32Bit, CheckedSub, Saturating};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;
 
@@ -21,7 +21,7 @@ pub trait CommonTrait: frame_system::Trait {
     /// The balance of an account.
     type Balance: Parameter
         + Member
-        + SimpleArithmetic
+        + AtLeast32Bit
         + CheckedSub
         + Codec
         + Default
@@ -31,9 +31,6 @@ pub trait CommonTrait: frame_system::Trait {
         + Debug
         + From<u128>
         + From<Self::BlockNumber>;
-
-    /// The fee required to create an account.
-    type CreationFee: Get<Self::Balance>;
 
     type AcceptTransferTarget: asset::AcceptTransfer;
 

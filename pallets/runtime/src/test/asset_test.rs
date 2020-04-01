@@ -66,7 +66,7 @@ fn issuers_can_create_and_rename_tokens() {
             ..Default::default()
         };
         let ticker = Ticker::from(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
@@ -115,7 +115,7 @@ fn issuers_can_create_and_rename_tokens() {
         token.link_id = Asset::token_details(ticker).link_id;
         // A correct entry is added
         assert_eq!(Asset::token_details(ticker), token);
-        assert!(<identity::DidRecords>::exists(
+        assert!(<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
@@ -824,7 +824,7 @@ fn transfer_ticker() {
             auth_id_alice
         ));
 
-        assert!(!<identity::Links<TestStorage>>::exists(
+        assert!(!<identity::Links<TestStorage>>::contains_key(
             Signatory::from(old_ticker.owner),
             old_ticker.link_id
         ));
@@ -941,11 +941,11 @@ fn transfer_token_ownership() {
             auth_id_alice
         ));
         assert_eq!(Asset::token_details(&ticker).owner_did, alice_did);
-        assert!(!<identity::Links<TestStorage>>::exists(
+        assert!(!<identity::Links<TestStorage>>::contains_key(
             Signatory::from(old_ticker.owner),
             old_ticker.link_id
         ));
-        assert!(!<identity::Links<TestStorage>>::exists(
+        assert!(!<identity::Links<TestStorage>>::contains_key(
             Signatory::from(old_token.owner_did),
             old_token.link_id
         ));
@@ -1032,7 +1032,7 @@ fn update_identifiers() {
             ..Default::default()
         };
         let ticker = Ticker::from(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1087,7 +1087,7 @@ fn adding_removing_documents() {
 
         let ticker = Ticker::from(token.name.as_slice());
 
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
 
@@ -1222,7 +1222,7 @@ fn add_extension_successfully() {
         };
 
         let ticker = Ticker::from(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1287,7 +1287,7 @@ fn add_same_extension_should_fail() {
         };
 
         let ticker = Ticker::from(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1357,7 +1357,7 @@ fn should_successfully_archive_extension() {
         };
 
         let ticker = Ticker::from(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1432,7 +1432,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
         };
 
         let ticker = Ticker::from(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1512,7 +1512,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
         };
 
         let ticker = Ticker::from(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1553,7 +1553,7 @@ fn should_successfuly_unarchive_an_extension() {
         };
 
         let ticker = Ticker::from(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1638,7 +1638,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         };
 
         let ticker = Ticker::from(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";

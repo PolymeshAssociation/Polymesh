@@ -1,12 +1,9 @@
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use pallet_staking_rpc_runtime_api::StakingApi as StakingRuntimeApi;
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{
-    generic::BlockId,
-    traits::{Block as BlockT, ProvideRuntimeApi},
-    Perbill,
-};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT, Perbill};
 use std::sync::Arc;
 
 #[rpc]
@@ -52,7 +49,7 @@ impl<C, Block> StakingApi<<Block as BlockT>::Hash> for Staking<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
-    C: ProvideRuntimeApi,
+    C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
     C::Api: StakingRuntimeApi<Block>,
 {
