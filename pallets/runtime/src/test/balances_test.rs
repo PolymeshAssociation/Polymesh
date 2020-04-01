@@ -349,6 +349,6 @@ fn transfer_with_memo_we() {
         },
     ];
     let sys_events = System::events();
-    assert_eq!(sys_events[2], expected_events[0]);
-    assert_eq!(sys_events[3], expected_events[1]);
+    assert_eq!(sys_events[3], expected_events[0]);
+    assert_eq!(sys_events[4], expected_events[1]);
 }

@@ -659,14 +659,6 @@ impl<T: Trait> Module<T> {
             }
         }?;
 
-        if let Signatory::AccountKey(key) = signer {
-            ensure!(
-                !<KeyToMultiSig<T>>::exists(&key),
-                Error::<T>::SignerAlreadyLinked
-            );
-            <KeyToMultiSig<T>>::insert(key, wallet_id.clone())
-        }
-
         ensure!(
             <MultiSigSignsRequired<T>>::exists(&wallet_id),
             Error::<T>::NoSuchMultisig
