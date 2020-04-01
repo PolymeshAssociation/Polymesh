@@ -21,6 +21,7 @@
 // -`set_members()` dispatchable get removed and members are maintained by the group module
 // - New instance of the group module is being added and assigned committee instance to
 // `MembershipInitialized` & `MembershipChanged` trait
+// - If MotionDuration > 0 then only the `close()` dispatchable or Prime member functionality will be used.
 
 //! # Committee Module
 //!
@@ -49,7 +50,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, Dispatchable, Parameter},
     ensure,
-    traits::{ChangeMembers, InitializeMembers},
+    traits::{ChangeMembers, Get, InitializeMembers},
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
@@ -61,7 +62,7 @@ use polymesh_runtime_common::{
 };
 use polymesh_runtime_identity as identity;
 use sp_core::u32_trait::Value as U32;
-use sp_runtime::traits::{EnsureOrigin, Hash};
+use sp_runtime::traits::{EnsureOrigin, Hash, Zero};
 use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// Simple index type for proposal counting.
@@ -82,6 +83,9 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// The time-out for council motions.
+    type MotionDuration: Get<Self::BlockNumber>;
 }
 
 /// Origin for the committee module.
@@ -98,13 +102,15 @@ pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::Accoun
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 /// Info for keeping track of a motion being voted on.
-pub struct PolymeshVotes<IdentityId> {
+pub struct PolymeshVotes<IdentityId, BlockNumber> {
     /// The proposal's unique index.
     pub index: ProposalIndex,
     /// The current set of committee members that approved it.
     pub ayes: Vec<IdentityId>,
     /// The current set of committee members that rejected it.
     pub nays: Vec<IdentityId>,
+    /// The hard end time of this vote.
+    pub end: BlockNumber,
 }
 
 decl_storage! {
@@ -115,13 +121,16 @@ decl_storage! {
         pub ProposalOf get(fn proposal_of):
             map hasher(blake2_256) T::Hash => Option<<T as Trait<I>>::Proposal>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        pub Voting get(fn voting): map hasher(blake2_256) T::Hash => Option<PolymeshVotes<IdentityId>>;
+        pub Voting get(fn voting): map hasher(blake2_256) T::Hash => Option<PolymeshVotes<IdentityId, T::BlockNumber>>;
         /// Proposals so far.
         pub ProposalCount get(fn proposal_count): u32;
         /// The current members of the committee.
         pub Members get(fn members) config(): Vec<IdentityId>;
         /// Vote threshold for an approval.
         pub VoteThreshold get(fn vote_threshold) config(): (u32, u32);
+        /// The member who provides the default vote for any other members that do not vote before
+        /// the timeout. If None, then no member has that privilege.
+        pub Prime get(fn prime): Option<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -146,6 +155,8 @@ decl_event!(
         Rejected(Hash, MemberCount, MemberCount, MemberCount),
         /// A motion was executed; `bool` is true if returned without error.
         Executed(Hash, bool),
+        /// A proposal was closed after its duration was up.
+        Closed(Hash, MemberCount, MemberCount),
     }
 );
 
@@ -171,6 +182,10 @@ decl_error! {
         MismatchedVotingIndex,
         /// Proportion must be a rational number.
         InvalidProportion,
+        /// The close call is made too early, before the end of the voting.
+        TooEarly,
+        /// When MotionDuration is set to 0
+        NotAllowed
     }
 }
 
@@ -233,8 +248,8 @@ decl_module! {
                 <ProposalCount<I>>::mutate(|i| *i += 1);
                 <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
                 <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
-
-                let votes = PolymeshVotes { index, ayes: vec![did], nays: vec![] };
+                let end = system::Module::<T>::block_number() + T::MotionDuration::get();
+                let votes = PolymeshVotes { index, ayes: vec![did], nays: vec![], end: end };
                 <Voting<T, I>>::insert(proposal_hash, votes);
 
                 Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
@@ -288,6 +303,54 @@ decl_module! {
             Self::check_proposal_threshold(proposal);
             Ok(())
         }
+
+        /// May be called by any signed account after the voting duration has ended in order to
+        /// finish voting and close the proposal.
+        ///
+        /// Abstentions are counted as rejections unless there is a prime member set and the prime
+        /// member cast an approval.
+        ///
+        /// - the weight of `proposal` preimage.
+        /// - up to three events deposited.
+        /// - one read, two removals, one mutation. (plus three static reads.)
+        /// - computation and i/o `O(P + L + M)` where:
+        ///   - `M` is number of members,
+        ///   - `P` is number of active proposals,
+        ///   - `L` is the encoded length of `proposal` preimage.
+        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
+            let _ = ensure_signed(origin)?;
+
+            let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
+            // POLYMESH-NOTE- Change specific to Polymesh
+            ensure!(T::MotionDuration::get() > Zero::zero(), Error::<T, I>::NotAllowed);
+            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
+            ensure!(system::Module::<T>::block_number() >= voting.end, Error::<T, I>::TooEarly);
+
+            // default to true only if there's a prime and they voted in favour.
+            let default = Self::prime().map_or(
+                false,
+                |who| voting.ayes.iter().any(|a| a == &who),
+            );
+
+            let mut no_votes = voting.nays.len() as MemberCount;
+            let mut yes_votes = voting.ayes.len() as MemberCount;
+            let seats = Self::members().len() as MemberCount;
+            let abstentions = seats - (yes_votes + no_votes);
+            match default {
+                true => yes_votes += abstentions,
+                false => no_votes += abstentions,
+            }
+
+            Self::deposit_event(RawEvent::Closed(proposal, yes_votes, no_votes));
+            let threshold = <VoteThreshold<I>>::get();
+
+            let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
+            let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
+            if approved || rejected {
+                Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal);
+            }
+        }
     }
 }
 
@@ -340,25 +403,49 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
 
             if approved || rejected {
-                if approved {
-                    Self::deposit_event(RawEvent::Approved(proposal, yes_votes, no_votes, seats));
-
-                    // execute motion, assuming it exists.
-                    if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
-                        let origin = RawOrigin::Members(yes_votes, seats).into();
-                        let ok = p.dispatch(origin).is_ok();
-                        Self::deposit_event(RawEvent::Executed(proposal, ok));
-                    }
-                } else {
-                    // rejected
-                    Self::deposit_event(RawEvent::Rejected(proposal, yes_votes, no_votes, seats));
-                }
-
-                // remove vote
-                <Voting<T, I>>::remove(&proposal);
-                <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
+                Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal);
             }
         }
+    }
+
+    /// Weight:
+    /// If `approved`:
+    /// - the weight of `proposal` preimage.
+    /// - two events deposited.
+    /// - two removals, one mutation.
+    /// - computation and i/o `O(P + L)` where:
+    ///   - `P` is number of active proposals,
+    ///   - `L` is the encoded length of `proposal` preimage.
+    ///
+    /// If not `approved`:
+    /// - one event deposited.
+    /// Two removals, one mutation.
+    /// Computation and i/o `O(P)` where:
+    /// - `P` is number of active proposals
+    fn finalize_proposal(
+        approved: bool,
+        seats: MemberCount,
+        yes_votes: MemberCount,
+        no_votes: MemberCount,
+        proposal: T::Hash,
+    ) {
+        if approved {
+            Self::deposit_event(RawEvent::Approved(proposal, yes_votes, no_votes, seats));
+
+            // execute motion, assuming it exists.
+            if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
+                let origin = RawOrigin::Members(yes_votes, seats).into();
+                let ok = p.dispatch(origin).is_ok();
+                Self::deposit_event(RawEvent::Executed(proposal, ok));
+            }
+        } else {
+            // rejected
+            Self::deposit_event(RawEvent::Rejected(proposal, yes_votes, no_votes, seats));
+        }
+
+        // remove vote
+        <Voting<T, I>>::remove(&proposal);
+        <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
     }
 }
 

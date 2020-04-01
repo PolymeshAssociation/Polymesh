@@ -27,7 +27,7 @@ polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-core = { package ="sp-core", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 polymesh-runtime-balances = { package ="polymesh-runtime-balances", path = "../balances" }
-polymesh-runtime-group = { pacakge = "polymesh-runtime-group", path = "../group"}
+polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group"}
 pallet-timestamp = { package ="pallet-timestamp", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve" }
 substrate-test-utils = { package ="substrate-test-utils", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }

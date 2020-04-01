@@ -87,6 +87,8 @@ decl_storage! {
         /// Identities that are part of this group, known as "Active members".
         pub ActiveMembers get(fn active_members) config(): Vec<IdentityId>;
         pub InactiveMembers get(fn inactive_members): Vec<InactiveMember<T::Moment>>;
+        /// The current prime member, if one exists.
+        pub Prime get(fn prime): Option<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -194,7 +196,7 @@ decl_module! {
                 &[remove],
                 &members[..],
             );
-
+            Self::rejig_prime(&members);
             Self::deposit_event(RawEvent::MembersSwapped(remove, add));
         }
 
@@ -211,7 +213,8 @@ decl_module! {
             let mut new_members = members.clone();
             new_members.sort();
             <ActiveMembers<I>>::mutate(|m| {
-                T::MembershipChanged::set_members_sorted(&members[..], m);
+                T::MembershipChanged::set_members_sorted(&new_members[..], m);
+                Self::rejig_prime(&new_members);
                 *m = new_members;
             });
 
@@ -251,6 +254,23 @@ decl_module! {
 
             Ok(())
         }
+
+        /// Set the prime member. Must be a current member.
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn set_prime(origin, who: IdentityId) {
+            T::PrimeOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            <ActiveMembers<I>>::get().binary_search(&who).ok().ok_or(Error::<T, I>::NoSuchMember)?;
+            Prime::<I>::put(&who);
+            T::MembershipChanged::set_prime(Some(who));
+        }
+
+        /// Remove the prime member if it exists.
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn clear_prime(origin) {
+            T::PrimeOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            Prime::<I>::kill();
+            T::MembershipChanged::set_prime(None);
+        }
     }
 }
 
@@ -270,6 +290,15 @@ decl_error! {
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
+    fn rejig_prime(members: &[IdentityId]) {
+        if let Some(prime) = Prime::<I>::get() {
+            match members.binary_search(&prime) {
+                Ok(_) => T::MembershipChanged::set_prime(Some(prime)),
+                Err(_) => Prime::<I>::kill(),
+            }
+        }
+    }
+
     /// It returns the current "active members" and any "valid member" which its revocation
     /// time-stamp is in the future.
     pub fn get_valid_members() -> Vec<IdentityId> {
@@ -319,6 +348,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         <ActiveMembers<I>>::put(&members);
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
+        Self::rejig_prime(&members);
         Self::deposit_event(RawEvent::MemberRemoved(who));
         Ok(())
     }

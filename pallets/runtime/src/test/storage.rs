@@ -203,6 +203,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
@@ -214,6 +215,7 @@ impl group::Trait<group::Instance1> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
@@ -224,6 +226,7 @@ impl group::Trait<group::Instance2> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = identity::Module<TestStorage>;
     type MembershipChanged = identity::Module<TestStorage>;
 }
@@ -238,6 +241,7 @@ impl<I> From<CommitteeOrigin<TestStorage, I>> for Origin {
 
 parameter_types! {
     pub const CommitteeRoot: AccountId = AccountId::from(AccountKeyring::Alice);
+    pub const MotionDuration: BlockNumber = 0u64;
 }
 
 impl committee::Trait<committee::Instance1> for TestStorage {
@@ -245,6 +249,7 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type Proposal = Call;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
+    type MotionDuration = MotionDuration;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -252,6 +257,7 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type Proposal = Call;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
+    type MotionDuration = MotionDuration;
 }
 
 impl identity::Trait for TestStorage {

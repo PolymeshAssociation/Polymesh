@@ -319,12 +319,16 @@ impl pallet_staking::Trait for Runtime {
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
+parameter_types! {
+    pub const MotionDuration: BlockNumber = 0;
+}
 type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
+    type MotionDuration = MotionDuration;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -334,6 +338,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
 }
@@ -568,6 +573,7 @@ impl group::Trait<group::Instance2> for Runtime {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
 }

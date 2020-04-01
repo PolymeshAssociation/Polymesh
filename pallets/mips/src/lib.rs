@@ -885,6 +885,7 @@ mod tests {
         type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
         type SwapOrigin = frame_system::EnsureRoot<AccountId>;
         type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+        type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
         type MembershipInitialized = ();
         type MembershipChanged = committee::Module<Test, committee::Instance1>;
     }
@@ -895,6 +896,7 @@ mod tests {
         type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
         type SwapOrigin = frame_system::EnsureRoot<AccountId>;
         type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+        type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
         type MembershipInitialized = ();
         type MembershipChanged = ();
     }
@@ -907,11 +909,16 @@ mod tests {
         }
     }
 
+    parameter_types! {
+        pub const MotionDuration: BlockNumber = 0;
+    }
+
     impl committee::Trait<committee::Instance1> for Test {
         type Origin = Origin;
         type Proposal = Call;
         type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
         type Event = ();
+        type MotionDuration = MotionDuration;
     }
 
     type Identity = identity::Module<Test>;
