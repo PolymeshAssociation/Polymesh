@@ -394,12 +394,12 @@ decl_module! {
             match claim {
                 Claim::CustomerDueDiligence => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry)?,
                 _ => {
-                T::ProtocolFee::charge_fee(
-                &Signatory::AccountKey(sender_key),
-                ProtocolOp::IdentityAddClaim
-                )?;
-                Self::unsafe_add_claim(target, claim, issuer, expiry)
-            }
+                    T::ProtocolFee::charge_fee(
+                    &Signatory::AccountKey(sender_key),
+                    ProtocolOp::IdentityAddClaim
+                    )?;
+                    Self::unsafe_add_claim(target, claim, issuer, expiry)
+                }
             };
             Ok(())
         }

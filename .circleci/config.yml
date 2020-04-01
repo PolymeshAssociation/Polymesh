@@ -94,6 +94,8 @@ jobs:
             - "./pallets/group/target"
             - "./pallets/im-online/target"
             - "./primitives/target"
+            - "./pallets/mips/target"
+            - "./pallets/transaction-payment/target"
   cli:
     docker:
       - image: maxsam4/rust
