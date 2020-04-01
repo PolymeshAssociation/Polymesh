@@ -1,7 +1,7 @@
 use crate::{multisig, Runtime};
 
 use polymesh_primitives::AccountKey;
-use polymesh_runtime_common::traits::balances::CheckCDD;
+use polymesh_runtime_common::traits::balances::CheckCdd;
 use polymesh_runtime_identity as identity;
 
 use codec::{Decode, Encode};
@@ -13,7 +13,7 @@ type Identity = identity::Module<Runtime>;
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
 pub struct CddChecker;
 
-impl CheckCDD for CddChecker {
+impl CheckCdd for CddChecker {
     fn check_key_cdd(key: &AccountKey) -> bool {
         if let Some(did) = Identity::get_identity(&key) {
             if Identity::has_valid_cdd(did) {

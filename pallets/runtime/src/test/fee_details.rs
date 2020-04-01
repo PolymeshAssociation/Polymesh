@@ -56,7 +56,7 @@ fn cdd_checks() {
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
                     &alice_did_signatory
                 ),
-                InvalidTransaction::Custom(TransactionError::CDDRequired as u8)
+                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
 
             // call to accept being a multisig signer should fail when invalid auth
@@ -85,7 +85,7 @@ fn cdd_checks() {
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
                     &alice_key_signatory
                 ),
-                InvalidTransaction::Custom(TransactionError::CDDRequired as u8)
+                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
 
             // call to accept being a multisig signer should succeed when authorizer has a valid cdd but signer key does not

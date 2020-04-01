@@ -491,7 +491,7 @@ mod tests {
         type ExistentialDeposit = ExistentialDeposit;
         type TransferFee = TransferFee;
         type Identity = identity::Module<Test>;
-        type CDDChecker = CddChecker;
+        type CddChecker = CddChecker;
     }
 
     parameter_types! {

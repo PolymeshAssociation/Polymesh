@@ -35,7 +35,7 @@ use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer,
-    balances::CheckCDD,
+    balances::CheckCdd,
     group::{GroupTrait, InactiveMember},
     multisig::AddSignerMultiSig,
     CommonTrait,
@@ -219,7 +219,7 @@ impl balances::Trait for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type TransferFee = TransferFee;
     type Identity = identity::Module<Test>;
-    type CDDChecker = Test;
+    type CddChecker = Test;
 }
 
 parameter_types! {
@@ -310,7 +310,7 @@ impl AddSignerMultiSig for Test {
     }
 }
 
-impl CheckCDD for Test {
+impl CheckCdd for Test {
     fn check_key_cdd(key: &AccountKey) -> bool {
         true
     }

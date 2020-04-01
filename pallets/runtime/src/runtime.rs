@@ -183,7 +183,7 @@ impl balances::Trait for Runtime {
     type ExistentialDeposit = ExistentialDeposit;
     type TransferFee = TransferFee;
     type Identity = Identity;
-    type CDDChecker = CddChecker;
+    type CddChecker = CddChecker;
 }
 
 parameter_types! {

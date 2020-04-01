@@ -65,7 +65,7 @@ pub trait Trait: CommonTrait {
     type Identity: IdentityTrait;
 
     /// Used to check if an account is linked to a CDD'd identity
-    type CDDChecker: CheckCDD;
+    type CddChecker: CheckCdd;
 }
 
 pub trait BalancesTrait<A, B, NI> {
@@ -77,6 +77,6 @@ pub trait BalancesTrait<A, B, NI> {
     ) -> sp_std::result::Result<NI, DispatchError>;
 }
 
-pub trait CheckCDD {
+pub trait CheckCdd {
     fn check_key_cdd(key: &AccountKey) -> bool;
 }

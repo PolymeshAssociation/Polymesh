@@ -139,7 +139,7 @@ impl balances::Trait for TestStorage {
     type ExistentialDeposit = ExistentialDeposit;
     type TransferFee = TransferFee;
     type Identity = identity::Module<TestStorage>;
-    type CDDChecker = CddChecker;
+    type CddChecker = CddChecker;
 }
 
 parameter_types! {
