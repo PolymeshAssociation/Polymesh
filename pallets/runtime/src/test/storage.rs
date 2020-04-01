@@ -8,6 +8,7 @@ use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait,
 };
 
+use pallet_mips as mips;
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
@@ -54,6 +55,7 @@ impl_outer_event! {
         percentage_tm<T>,
         bridge<T>,
         asset<T>,
+        mips<T>,
         pallet_contracts<T>,
         pallet_session,
         general_tm,
@@ -390,6 +392,14 @@ impl pallet_session::Trait for TestStorage {
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 }
 
+impl mips::Trait for TestStorage {
+    type Currency = balances::Module<Self>;
+    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
+    type GovernanceCommittee = Committee;
+    type Event = Event;
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
@@ -401,6 +411,7 @@ pub type Contracts = pallet_contracts::Module<TestStorage>;
 pub type Bridge = bridge::Module<TestStorage>;
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
+pub type Committee = committee::Module<TestStorage, committee::Instance1>;
 
 pub fn make_account(
     id: AccountId,
