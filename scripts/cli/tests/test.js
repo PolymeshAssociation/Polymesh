@@ -27,17 +27,17 @@ async function main() {
 
 //Create alice (carry-over from the keyring section)
 const alice = keyring.addFromUri('//Alice', { name: 'Alice' });
-let aliceRawNonce = await api.query.system.accountNonce(alice.address);
+let aliceRawNonce = (await api.query.system.account(alice.address)).nonce;
 let alice_nonce = new BN(aliceRawNonce.toString());
 nonces.set(alice.address, alice_nonce);
 
 // const bob = keyring.addFromUri('//Bob', { name: 'Bob' });
-// let bobRawNonce = await api.query.system.accountNonce(bob.address);
+// let bobRawNonce = (await api.query.system.account(bob.address)).nonce;
 // let bob_nonce = new BN(bobRawNonce.toString());
 // nonces.set(bob.address, bob_nonce);
 
 let sammy = keyring.addFromUri('//Sammy', { name: 'Sammy' });
-let sammyRawNonce = await api.query.system.accountNonce(sammy.address);
+let sammyRawNonce = (await api.query.system.account(sammy.address)).nonce;
 let sammy_nonce = new BN(sammyRawNonce.toString());
 nonces.set(sammy.address, sammy_nonce);
 

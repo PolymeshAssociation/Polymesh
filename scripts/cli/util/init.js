@@ -57,7 +57,7 @@ let generateEntity = async function(api, name) {
   let entity = [];
   await cryptoWaitReady();
   entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, { name: `${name}` });
-  let entityRawNonce = await api.query.system.accountNonce(entity.address);
+  let entityRawNonce = (await api.query.system.account(entity.address)).nonce;
   let entity_nonce = new BN(entityRawNonce.toString());
   nonces.set(entity.address, entity_nonce);
 
@@ -74,9 +74,7 @@ const generateKeys = async function(api, numberOfKeys, keyPrepend) {
         name: i.toString()
       })
     );
-    let accountRawNonce = await api.query.system.accountNonce(
-      keys[i].address
-    );
+    let accountRawNonce = (await api.query.system.account(keys[i].address)).nonce;
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(keys[i].address, account_nonce);
   }
