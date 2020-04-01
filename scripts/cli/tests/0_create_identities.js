@@ -48,7 +48,7 @@ async function createIdentities(api, accounts, alice) {
     let dids = [];
       for (let i = 0; i < accounts.length; i++) {
         const unsub = await api.tx.identity
-          .cddRegisterDid(accounts[i].address, 0, [])
+          .cddRegisterDid(accounts[i].address, null, [])
           .signAndSend(
             alice,
             { nonce: reqImports["nonces"].get(alice.address) },
