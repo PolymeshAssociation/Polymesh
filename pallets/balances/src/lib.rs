@@ -375,12 +375,13 @@ decl_module! {
         )  -> DispatchResult {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            let fee = Self::transfer_core( &transactor, &dest, value)?;
+            let fee = Self::safe_transfer_core( &transactor, &dest, value)?;
             Self::deposit_event(RawEvent::Transfer(
                     transactor, dest, value, fee));
             Ok(())
         }
 
+        // Polymesh specific change
         pub fn transfer_with_memo(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
@@ -389,7 +390,7 @@ decl_module! {
         )  -> DispatchResult {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            let fee = Self::transfer_core( &transactor, &dest, value)?;
+            let fee = Self::safe_transfer_core( &transactor, &dest, value)?;
 
             if let Some(memo) = memo {
                 Self::deposit_event(RawEvent::TransferWithMemo(
@@ -402,6 +403,7 @@ decl_module! {
             Ok(())
         }
 
+        // Polymesh specific change
         /// Move some poly from balance of self to balance of an identity.
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn top_up_identity_balance(
@@ -425,6 +427,7 @@ decl_module! {
             };
         }
 
+        // Polymesh specific change
         /// Claim back poly from an identity. Can only be called by master key of the identity.
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn reclaim_identity_balance(
@@ -445,12 +448,28 @@ decl_module! {
             return Ok(())
         }
 
+        // Polymesh specific change
         /// Change setting that governs if user pays fee via their own balance or identity's balance.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn change_charge_did_flag(origin, charge_did: bool) {
             let transactor = ensure_signed(origin)?;
             let encoded_transactor = AccountKey::try_from(transactor.encode())?;
             <ChargeDid>::insert(encoded_transactor, charge_did);
+        }
+
+        // Polymesh specific change
+        /// Move some poly from balance of self to balance of BRR.
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        pub fn top_up_brr_balance(
+            origin,
+            #[compact] value: T::Balance
+        ) -> DispatchResult {
+            let transactor = ensure_signed(origin)?;
+            let dest = Self::block_rewards_reserve();
+            let fee = Self::transfer_core(&transactor, &dest, value)?;
+            Self::deposit_event(RawEvent::Transfer(
+                    transactor, dest, value, fee));
+            Ok(())
         }
 
         /// Set the balances of a given account.
@@ -550,6 +569,19 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::NewAccount(who.clone(), balance));
     }
 
+    // Polymesh specific change
+    /// Checks CDD and then only performs the transfer
+    fn safe_transfer_core(
+        transactor: &T::AccountId,
+        dest: &T::AccountId,
+        value: T::Balance,
+    ) -> Result<T::Balance, DispatchError> {
+        if !T::CDDChecker::check_key_cdd(&AccountKey::try_from((*dest).encode())?) {
+            return Err(Error::<T>::ReceiverCddMissing.into());
+        }
+        Self::transfer_core(transactor, dest, value)
+    }
+
     /// Common funtionality for transfers.
     /// It does not emit any event.
     ///
@@ -560,9 +592,6 @@ impl<T: Trait> Module<T> {
         dest: &T::AccountId,
         value: T::Balance,
     ) -> Result<T::Balance, DispatchError> {
-        if !T::CDDChecker::check_key_cdd(&AccountKey::try_from((*dest).encode())?) {
-            return Err(Error::<T>::ReceiverCddMissing.into());
-        }
         let from_balance = Self::free_balance(transactor);
         let to_balance = Self::free_balance(dest);
         let would_create = to_balance.is_zero();
@@ -744,7 +773,7 @@ where
         value: Self::Balance,
         _existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        let fee = Self::transfer_core(transactor, dest, value)?;
+        let fee = Self::safe_transfer_core(transactor, dest, value)?;
 
         if transactor != dest {
             Self::deposit_event(RawEvent::Transfer(
