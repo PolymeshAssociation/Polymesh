@@ -75,6 +75,16 @@ jobs:
           command: cargo test
           working_directory: ./primitives
           no_output_timeout: 60m
+      - run:
+          name: mips tests
+          command: cargo test
+          working_directory: ./pallets/mips
+          no_output_timeout: 60m
+      - run:
+          name: transaction-payment tests
+          command: cargo test
+          working_directory: ./pallets/transaction-payment
+          no_output_timeout: 60m
       - save_cache:
           key: v4-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
@@ -84,6 +94,8 @@ jobs:
             - "./pallets/group/target"
             - "./pallets/im-online/target"
             - "./primitives/target"
+            - "./pallets/mips/target"
+            - "./pallets/transaction-payment/target"
   cli:
     docker:
       - image: maxsam4/rust
