@@ -681,13 +681,11 @@ impl<T: Trait> Module<T> {
         );
 
         if let Signatory::AccountKey(key) = signer {
-            let signer_key = T::AccountId::decode(&mut &key.as_slice()[..])
-                .map_err(|_| Error::<T>::DecodingError)?;
             ensure!(
-                !<KeyToMultiSig<T>>::exists(&signer_key),
+                !<KeyToMultiSig<T>>::exists(&key),
                 Error::<T>::SignerAlreadyLinked
             );
-            <KeyToMultiSig<T>>::insert(signer_key, wallet_id.clone())
+            <KeyToMultiSig<T>>::insert(key, wallet_id.clone())
         }
 
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
