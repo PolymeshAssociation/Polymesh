@@ -9,20 +9,8 @@ let { reqImports } = require("../util/init.js");
 process.exitCode = 1;
 
 async function main() {
-  // Schema path
-  const filePath = reqImports.path.join(
-    __dirname + "/../../../polymesh_schema.json"
-  );
-  const customTypes = JSON.parse(
-    reqImports.fs.readFileSync(filePath, "utf8")
-  );
-
-  // Start node instance
-  const ws_provider = new reqImports.WsProvider("ws://127.0.0.1:9944/");
-  const api = await reqImports.ApiPromise.create({
-    types: customTypes,
-    provider: ws_provider
-  });
+  
+  const api = await reqImports.createApi();
 
   const testEntities = await reqImports.initMain(api);
 
