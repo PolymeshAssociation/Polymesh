@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-// Modified by Polymath Inc - 16th November 2020
+// Modified by Polymath Inc - 16th March 2020
 // Added ability to manage balances of identities with the balances module
 // In Polymesh, POLY balances can be held at either the identity or account level
 // Implement `BlockRewardsReserveCurrency` trait in the balances module.

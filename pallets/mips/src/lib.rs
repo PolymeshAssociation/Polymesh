@@ -716,6 +716,7 @@ mod tests {
     }
 
     type AccountId = <AnySignature as Verify>::Signer;
+    type BlockNumber = u64;
 
     impl_outer_dispatch! {
         pub enum Call for Test where origin: Origin {
@@ -738,7 +739,7 @@ mod tests {
     impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
-        type BlockNumber = u64;
+        type BlockNumber = BlockNumber;
         type Call = Call;
         type Hash = H256;
         type Hashing = BlakeTwo256;
