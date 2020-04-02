@@ -72,7 +72,7 @@ use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{ChangeMembers, ExistenceRequirement, InitializeMembers, WithdrawReason},
+    traits::{ChangeMembers, InitializeMembers},
     weights::{GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
