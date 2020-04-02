@@ -1,13 +1,12 @@
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
-use sp_io;
-use sp_runtime::traits::Printable;
 #[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
+use sp_runtime::traits::Printable;
 use sp_std::prelude::*;
 
-const _POLY_DID_PREFIX: &'static str = "did:poly:";
+const _POLY_DID_PREFIX: &str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
 const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
 const UUID_LEN: usize = 32usize;
@@ -104,7 +103,7 @@ impl From<[u8; UUID_LEN]> for IdentityId {
 
 impl Printable for IdentityId {
     fn print(&self) {
-        sp_io::misc::print_utf8("did:poly:".as_bytes());
+        sp_io::misc::print_utf8(b"did:poly:");
         sp_io::misc::print_hex(&self.0);
     }
 }

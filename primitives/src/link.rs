@@ -5,7 +5,7 @@ use codec::{Decode, Encode};
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum LinkData {
-    /// Represents a document (name, URI, hash)
+    /// Represents a document (name, URI, content_hash)
     DocumentOwned(Document),
     /// Represents a ticker ownership
     TickerOwned(Ticker),

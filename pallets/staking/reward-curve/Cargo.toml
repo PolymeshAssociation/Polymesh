@@ -8,10 +8,10 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
-syn = { version = "1.0.7", features = ["full", "visit"] }
+syn = { version = "1.0.16", features = ["full", "visit"] }
 quote = "1.0"
-proc-macro2 = "1.0.6"
+proc-macro2 = "1.0.9"
 proc-macro-crate = "0.1.4"
 
 [dev-dependencies]
-sp-runtime = { version = "2.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8' }

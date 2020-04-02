@@ -4,7 +4,8 @@
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, traits::Get,
 };
-use frame_system::{self as system, ensure_signed, offchain};
+use codec::{Encode, Decode};
+use frame_system::{self as system, ensure_signed, ensure_none, offchain};
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::{offchain::storage::StorageValueRef, traits::SaturatedConversion};
 
@@ -31,7 +32,7 @@ pub mod crypto {
     app_crypto!(sr25519, KEY_TYPE);
 }
 
-pub trait Trait: frame_system::Trait /*pallet_staking::Trait*/ {
+pub trait Trait: frame_system::Trait + pallet_staking::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     /// The overarching dispatch call type
@@ -46,21 +47,7 @@ pub trait Trait: frame_system::Trait /*pallet_staking::Trait*/ {
 
 decl_storage! {
     trait Store for Module<T: Trait> as CddOffchainWorker {
-        // List of nominators
-        // TODO: Used for mocking only. Will be removed once substrate get updated to recent master
-        Nominators get(fn nominators): linked_map hasher(blake2_256) T::AccountId => bool;
-    }
-    add_extra_genesis {
-        config(stashIds): Vec<T::AccountId>;
-        build(|config: &GenesisConfig<T>| {
-            for &(ref stash) in &config.stashIds {
-                <Module<T>>::add_nominator(
-                    // TODO: change origin to committee
-                    frame_system::RawOrigin::Root.into(),
-                    stash.clone()
-                ).ok();
-            }
-        });
+        
     }
 }
 
@@ -72,7 +59,7 @@ decl_event! {
         AccountId = <T as frame_system::Trait>::AccountId,
     {
         /// Event generated when nominators get removed from the `Staking` storage
-        InvalidateNominators(BlockNumber, Vec<AccountId>),
+        InvalidateNominators(BlockNumber, AccountId),
     }
 }
 
@@ -83,20 +70,6 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
-        // TODO: Only used for mock -- Need to removed after upgrade to latest substrate
-        fn add_nominator(_origin, nominators: T::AccountId) -> DispatchResult {
-            <Nominators<T>>::insert(nominators, true);
-            Ok(())
-        }
-
-        // TODO: Only used for mock -- Need to removed after upgrade to latest substrate
-        fn remove_nominator(origin, nominators: Vec<T::AccountId>) -> DispatchResult {
-            let caller = ensure_signed(origin)?;
-            for nominator in nominators.iter() {
-                <Nominators<T>>::insert(nominator, false);
-            }
-            Ok(())
-        }
 
         fn offchain_worker(block: T::BlockNumber) {
             // Print the debug statement to know that offchain worker initiated
@@ -106,11 +79,7 @@ decl_module! {
 
                 // Fetch all the nominators whose cdd claim get expired or expiry remaining time is less
                 // than the `BufferInterval`. List of the Vec<Stash> get retrieved from the staking module
-                // TODO: Need to un-comment this when pallets get updated to the latest master (Substrate)
-                // let invalid_nominators = <pallet_staking::Module<T>>::fetch_invalid_cdd_nominators((T::BufferInterval::get()).saturated_into::<u64>());
-                // TODO: Only used for mock -- Need to removed after upgrade to latest substrate
-                let invalid_nominators = Self::fetch_invalid_nominators();
-
+                let invalid_nominators = <pallet_staking::Module<T>>::fetch_invalid_cdd_nominators((T::BufferInterval::get()).saturated_into::<u64>());
                 // Avoid calling signed transaction when invalid nominators length
                 // is 0.
                 if invalid_nominators.len() > 0 {
@@ -136,19 +105,17 @@ impl<T: Trait> Module<T> {
         if !T::SubmitSignedTransaction::can_sign() && sp_io::offchain::is_validator() {
             return Err(Error::<T>::NoLocalAccountAvailable.into());
         }
-        // Retrieve value of invalidate nominators get passed to the `validate_kyc_expiry_nominators`
+        // Retrieve value of invalidate nominators get passed to the `validate_cdd_expiry_nominators`
         // i.e a public dispatchable in the staking pallet. It will be used to remove all the
         // nominators whom cdd claim got expired.
         // Here we specify the function to be called back on-chain in next block import.
-        // TODO: Need to un-comment this when pallets get updated to the latest master (Substrate)
-        // let call = pallet_staking::Call<T>::validate_kyc_expiry_nominators(invalid_nominators.clone());
-        let call = Call::remove_nominator(invalid_nominators.clone());
+        let call = pallet_staking::Call::<T>::validate_cdd_expiry_nominators(invalid_nominators.clone());
 
         // Using `SubmitTransaction` associated type we create and submit a transaction
         // representing the call, we've just created.
         // Submit signed will return a vector of results for all accounts that were found in the
         // local keystore with expected `KEY_TYPE`.
-        let _ = T::SubmitSignedTransaction::submit_signed(call);
+        //let _ = T::SubmitSignedTransaction::submit_signed(call);
         Self::deposit_event(RawEvent::InvalidateNominators(
             <frame_system::Module<T>>::block_number(),
             invalid_nominators,
@@ -175,21 +142,5 @@ impl<T: Trait> Module<T> {
             Err(()) => false,
             Ok(Err(_)) => false,
         }
-    }
-
-    // TODO: Only used for mock -- Need to removed after upgrade to latest substrate
-    /// Returns the mock invalid nominators list
-    fn fetch_invalid_nominators() -> Vec<T::AccountId> {
-        let invalidate_nominators = <Nominators<T>>::enumerate()
-            .into_iter()
-            .filter_map(|(stash, status)| {
-                if status {
-                    return Some(stash);
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<T::AccountId>>();
-        return invalidate_nominators;
     }
 }

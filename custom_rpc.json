@@ -1,0 +1,100 @@
+{
+    "identity": [{
+        "name": "isIdentityHasValidCdd",
+        "description": "use to tell whether the given did has valid cdd claim or not",
+        "params": [{
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": "true"
+        },
+        {
+            "name": "did",
+            "type": "H256",
+            "isOptional": "false"
+        },
+        {
+            "name": "buffer_time",
+            "type": "u64",
+            "isOptional": "true"
+        }]
+    },
+    {
+        "name": "getAssetDid",
+        "description": "function is used to query the given ticker DID",
+        "params": [{
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": "true"
+        },
+        {
+            "name": "ticker",
+            "type": "[u8; 12]",
+            "isOptional": "false"
+        }]
+    },
+    {
+        "name": "getDidRecords",
+        "description": "Used to get the did record values for a given DID",
+        "params": [{
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": "true"
+        },
+        {
+            "name": "did",
+            "type": "H256",
+            "isOptional": "false"
+        }]
+    }],
+    "mips":[{
+        "name": "getVotes",
+        "description": "Summary of votes of a proposal given by index",
+        "params": [{
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": "true"
+        },
+        {
+            "name": "index",
+            "type": "u32",
+            "isOptional": "false"
+        }]
+    },
+    {
+        "name": "proposedBy",
+        "description": "Retrieves proposal indices started by address",
+        "params": [{
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": "true"
+        },
+        {
+            "name": "address",
+            "type": "AccountId",
+            "isOptional": "false"
+        }]
+    },
+    {
+        "name": "votedOn",
+        "description": "Retrieves proposal address indices voted on",
+        "params": [{
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": "true"
+        },
+        {
+            "name": "address",
+            "type": "AccountId",
+            "isOptional": "false"
+        }]
+    }],
+    "staking": [{
+        "name": "getCurve",
+        "description": "Retrieves curves parameters",
+        "params": [{
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": "true"
+        }]
+    }]
+}

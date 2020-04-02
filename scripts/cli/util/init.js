@@ -1,5 +1,6 @@
 const { ApiPromise, WsProvider } = require("@polkadot/api");
 const { Keyring } = require("@polkadot/keyring");
+const { cryptoWaitReady } = require("@polkadot/util-crypto");
 const BN = require("bn.js");
 const cli = require("command-line-args");
 const cliProg = require("cli-progress");
@@ -41,8 +42,6 @@ let n_claims = opts.claims;
 let prepend = opts.prepend;
 let fast = opts.fast;
 
-const keyring = new Keyring({ type: "sr25519" });
-
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
   let entities = [];
@@ -56,8 +55,9 @@ async function initMain(api) {
 
 let generateEntity = async function(api, name) {
   let entity = [];
-  entity = keyring.addFromUri(`//${name}`, { name: `${name}` });
-  let entityRawNonce = await api.query.system.accountNonce(entity.address);
+  await cryptoWaitReady();
+  entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, { name: `${name}` });
+  let entityRawNonce = (await api.query.system.account(entity.address)).nonce;
   let entity_nonce = new BN(entityRawNonce.toString());
   nonces.set(entity.address, entity_nonce);
 
@@ -67,15 +67,14 @@ let generateEntity = async function(api, name) {
 
 const generateKeys = async function(api, numberOfKeys, keyPrepend) {
   let keys = [];
+  await cryptoWaitReady();
   for (let i = 0; i < numberOfKeys; i++) {
     keys.push(
-      keyring.addFromUri("//" + keyPrepend + i.toString(), {
+      new Keyring({ type: "sr25519" }).addFromUri("//" + keyPrepend + i.toString(), {
         name: i.toString()
       })
     );
-    let accountRawNonce = await api.query.system.accountNonce(
-      keys[i].address
-    );
+    let accountRawNonce = (await api.query.system.account(keys[i].address)).nonce;
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(keys[i].address, account_nonce);
   }
@@ -119,21 +118,34 @@ const blockTillPoolEmpty = async function(api) {
 
 // Create a new DID for each of accounts[]
 // precondition - accounts all have enough POLY
-const createIdentities = async function(api, accounts) {
+const createIdentities = async function(api, accounts, alice) {
   let dids = [];
-   
+
   for (let i = 0; i < accounts.length; i++) {
-    
+
       await api.tx.identity
         .registerDid([])
         .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
-    
+
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
   await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.raw.asUnique);
+  }
+  let did_balance = 10 * 10**12;
+  for (let i = 0; i < dids.length; i++) {
+    await api.tx.balances
+      .topUpIdentityBalance(dids[i], did_balance)
+      .signAndSend(
+        alice,
+        { nonce: reqImports["nonces"].get(alice.address) }
+      );
+    reqImports["nonces"].set(
+      alice.address,
+      reqImports["nonces"].get(alice.address).addn(1)
+    );
   }
   return dids;
 };
@@ -143,13 +155,13 @@ async function distributePoly(api, accounts, transfer_amount, signingEntity) {
 
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
-      
+
       const unsub = await api.tx.balances
       .transfer(accounts[i].address, transfer_amount)
       .signAndSend(
         signingEntity,
         { nonce: nonces.get(signingEntity.address) });
-     
+
     nonces.set(signingEntity.address, nonces.get(signingEntity.address).addn(1));
   }
 
@@ -157,46 +169,43 @@ async function distributePoly(api, accounts, transfer_amount, signingEntity) {
 
 // Attach a signing key to each DID
 async function addSigningKeys(api, accounts, dids, signing_accounts) {
- 
+
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
-    let signing_item = {
-      signer: {
-          AccountKey: signing_accounts[i].publicKey
-      },
-      signer_type: 0,
-      roles: []
-    };
-  
-      const unsub = await api.tx.identity
-      .addSigningItems([signing_item])
-      .signAndSend(accounts[i],
-        { nonce: nonces.get(accounts[i].address) });
-    
+
+    const unsub = await api.tx.identity
+    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
+    .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
-   
+
   }
 }
 
 // Authorizes the join of signing keys to a DID
 async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) {
-  
+
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
-   
-        const unsub = await api.tx.identity
-            .authorizeJoinToIdentity(dids[i])
-            .signAndSend(signing_accounts[i],
-                { nonce: nonces.get(signing_accounts[i].address) });
-        nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
+    const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
+    let last_auth_id = 0;
+    for (let i = 0; i < auths.length; i++) {
+      if (auths[i][1].auth_id.toNumber() > last_auth_id) {
+        last_auth_id = auths[i][1].auth_id.toNumber()
+      }
+    }
+    const unsub = await api.tx.identity
+      .joinIdentityAsKey([last_auth_id])
+      .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
+    nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
   }
 
   return dids;
 }
 
-// Used to make the functions in scripts more efficient 
+// Used to make the functions in scripts more efficient
 async function callback(status, events, sectionName, methodName, fail_count) {
- 
+
     let new_did_ok = false;
     events.forEach(({ phase, event: { data, method, section } }) => {
       if (section == sectionName && method == methodName) {
@@ -211,7 +220,7 @@ async function callback(status, events, sectionName, methodName, fail_count) {
   return fail_count;
 }
 
-// this object holds the required imports for all the scripts 
+// this object holds the required imports for all the scripts
 let reqImports = {
   path,
   ApiPromise,

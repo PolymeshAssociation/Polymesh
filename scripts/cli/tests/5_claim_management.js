@@ -23,14 +23,14 @@ async function main() {
   let signing_keys = await reqImports["generateKeys"](api, 5, "signing");
 
   let claim_keys = await reqImports["generateKeys"](api, 5, "claim");
-  
-  await reqImports["createIdentities"](api, testEntities);
-  
+
+  await reqImports["createIdentities"](api, testEntities, testEntities[0]);
+
   await reqImports["distributePoly"]( api, master_keys.concat(signing_keys).concat(claim_keys), reqImports["transfer_amount"], testEntities[0] );
 
   await reqImports["blockTillPoolEmpty"](api);
 
-  let issuer_dids = await reqImports["createIdentities"](api, master_keys);
+  let issuer_dids = await reqImports["createIdentities"](api, master_keys, testEntities[0]);
 
   await reqImports["addSigningKeys"]( api, master_keys, issuer_dids, signing_keys );
 
@@ -38,7 +38,7 @@ async function main() {
 
   await reqImports["blockTillPoolEmpty"](api);
 
-  let claim_issuer_dids = await reqImports["createIdentities"](api, claim_keys);
+  let claim_issuer_dids = await reqImports["createIdentities"](api, claim_keys, testEntities[0]);
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids);
 
@@ -60,11 +60,9 @@ async function main() {
 async function addClaimsToDids(api, accounts, dids, claim_dids) {
     //accounts should have the same length as claim_dids
     for (let i = 0; i < dids.length; i++) {
-      
-      let claim_value = {data_type: 0, value: "0"};
-  
+
         const unsub = await api.tx.identity
-        .addClaim(dids[i], 0, claim_dids[i%claim_dids.length], 0, claim_value)
+        .addClaim(dids[i], 0, 0)
         .signAndSend(accounts[i%claim_dids.length],
           { nonce: reqImports["nonces"].get(accounts[i%claim_dids.length].address) },
           ({ events = [], status }) => {
@@ -73,7 +71,7 @@ async function addClaimsToDids(api, accounts, dids, claim_dids) {
             unsub();
           }
         });
-    
+
       reqImports["nonces"].set(accounts[i%claim_dids.length].address, reqImports["nonces"].get(accounts[i%claim_dids.length].address).addn(1));
     }
   }

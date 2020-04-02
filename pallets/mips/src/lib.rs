@@ -34,6 +34,7 @@
 //! ### Public Functions
 //!
 //! - `end_block` - Returns details of the token
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -44,12 +45,22 @@ use frame_support::{
     weights::SimpleDispatchInfo,
     Parameter,
 };
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_signed};
+use pallet_mips_rpc_runtime_api::VoteCount;
+use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_protocol_fee as protocol_fee;
+use polymesh_runtime_common::{
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::group::GroupTrait,
+    Context,
+};
+use polymesh_runtime_identity as identity;
 use sp_runtime::{
     traits::{Dispatchable, EnsureOrigin, Hash, Zero},
     DispatchError,
 };
-use sp_std::{prelude::*, vec};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// Mesh Improvement Proposal index. Used offchain.
 pub type MipsIndex = u32;
@@ -80,9 +91,24 @@ impl<T: AsRef<[u8]>> From<T> for Url {
     }
 }
 
+/// A wrapper for a proposal description.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MipDescription(pub Vec<u8>);
+
+impl<T: AsRef<[u8]>> From<T> for MipDescription {
+    fn from(s: T) -> Self {
+        let s = s.as_ref();
+        let mut v = Vec::with_capacity(s.len());
+        v.extend_from_slice(s);
+        MipDescription(v)
+    }
+}
+
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct MipsMetadata<BlockNumber: Parameter, Hash: Parameter> {
+pub struct MipsMetadata<AcccountId: Parameter, BlockNumber: Parameter, Hash: Parameter> {
+    /// The creator
+    proposer: AcccountId,
     /// The proposal's unique index.
     index: MipsIndex,
     /// When voting will end.
@@ -91,6 +117,8 @@ pub struct MipsMetadata<BlockNumber: Parameter, Hash: Parameter> {
     proposal_hash: Hash,
     /// The proposal url for proposal discussion.
     url: Option<Url>,
+    /// The proposal description.
+    description: Option<MipDescription>,
 }
 
 /// For keeping track of proposal being voted on.
@@ -132,17 +160,22 @@ pub struct PolymeshReferendumInfo<Hash: Parameter> {
     proposal_hash: Hash,
 }
 
+type Identity<T> = identity::Module<T>;
+
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
     /// Currency type for this module.
     type Currency: ReservableCurrency<Self::AccountId>
         + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 
-    /// A proposal is a dispatchable call
-    type Proposal: Parameter + Dispatchable<Origin = Self::Origin>;
-
-    /// Required origin for enacting a referundum.
+    /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Origin for enacting a referundum.
+    type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Committee
+    type GovernanceCommittee: GroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -164,26 +197,30 @@ decl_storage! {
         pub ProposalCount get(fn proposal_count): u32;
 
         /// The hashes of the active proposals.
-        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::BlockNumber, T::Hash>>;
+        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::AccountId, T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
-        /// proposal hash -> (deposit, proposer)
-        pub Deposits get(fn deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
+        /// proposal hash -> (proposer, deposit)
+        pub Deposits get(fn deposit_of): map hasher(blake2_256) T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
-        pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
+        pub Proposals get(fn proposals): map hasher(blake2_256) T::Hash => Option<MIP<T::Proposal>>;
+
+        /// Lookup proposal hash by a proposal's index
+        /// MIP index -> proposal hash
+        pub ProposalByIndex get(fn proposal_by_index): map hasher(blake2_256) MipsIndex => T::Hash;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        /// proposal hash -> voting info
-        pub Voting get(fn voting): map T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
+        /// proposal hash -> vote count
+        pub Voting get(fn voting): map hasher(blake2_256) T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
         pub ReferendumMetadata get(fn referendum_meta): Vec<PolymeshReferendumInfo<T::Hash>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
-        pub Referendums get(fn referendums): map T::Hash => Option<T::Proposal>;
+        pub Referendums get(fn referendums): map hasher(blake2_256) T::Hash => Option<T::Proposal>;
     }
 }
 
@@ -217,6 +254,14 @@ decl_error! {
         InsufficientDeposit,
         /// when voter vote gain
         DuplicateVote,
+        /// Duplicate proposal.
+        DuplicateProposal,
+        /// The proposal does not exist.
+        NoSuchProposal,
+        /// Mismatched proposal index.
+        MismatchedProposalIndex,
+        /// Not part of governance committee.
+        NotACommitteeMember,
     }
 }
 
@@ -224,7 +269,6 @@ decl_error! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -236,10 +280,7 @@ decl_module! {
         /// * `deposit` the new min deposit required to start a proposal
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -251,10 +292,7 @@ decl_module! {
         /// * `threshold` the new quorum threshold amount value
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             <QuorumThreshold<T>>::put(threshold);
         }
 
@@ -265,10 +303,7 @@ decl_module! {
         /// * `duration` proposal duration in blocks
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         fn set_proposal_duration(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             <ProposalDuration<T>>::put(duration);
         }
 
@@ -280,26 +315,45 @@ decl_module! {
         /// * `deposit` minimum deposit value
         /// * `url` a link to a website for proposal discussion
         #[weight = SimpleDispatchInfo::FixedNormal(5_000_000)]
-        pub fn propose(origin, proposal: Box<T::Proposal>, deposit: BalanceOf<T>, url: Option<Url>) -> DispatchResult {
+        pub fn propose(
+            origin,
+            proposal: Box<T::Proposal>,
+            deposit: BalanceOf<T>,
+            url: Option<Url>,
+            description: Option<MipDescription>,
+        ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
+            let proposer_key = AccountKey::try_from(proposer.encode())?;
+            let signer = Signatory::from(proposer_key);
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Pre conditions: caller must have min balance
-            ensure!(deposit >= Self::min_proposal_deposit(), "deposit is less than minimum required to start a proposal");
+            ensure!(
+                deposit >= Self::min_proposal_deposit(),
+                Error::<T>::InsufficientDeposit
+            );
             // Proposal must be new
-            ensure!(!<Proposals<T>>::exists(proposal_hash), "duplicate proposals are not allowed");
+            ensure!(
+                !<Proposals<T>>::contains_key(proposal_hash),
+                Error::<T>::DuplicateProposal
+            );
 
             // Reserve the minimum deposit
-            T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
-
+            <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+            <T as IdentityTrait>::ProtocolFee::charge_fee(
+                &signer,
+                ProtocolOp::MipsPropose
+            )?;
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
 
             let proposal_meta = MipsMetadata {
+                proposer: proposer.clone(),
                 index,
                 end: <system::Module<T>>::block_number() + Self::proposal_duration(),
                 proposal_hash,
-                url
+                url,
+                description,
             };
             <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
 
@@ -307,9 +361,10 @@ decl_module! {
 
             let mip = MIP {
                 index,
-                proposal: *proposal
+                proposal: *proposal,
             };
             <Proposals<T>>::insert(proposal_hash, mip);
+            <ProposalByIndex<T>>::insert(index, proposal_hash);
 
             let vote = PolymeshVotes {
                 index,
@@ -334,8 +389,8 @@ decl_module! {
         pub fn vote(origin, proposal_hash: T::Hash, index: MipsIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
 
-            let mut voting = Self::voting(&proposal_hash).ok_or("proposal does not exist")?;
-            ensure!(voting.index == index, "mismatched proposal index");
+            let mut voting = Self::voting(&proposal_hash).ok_or(Error::<T>::NoSuchProposal)?;
+            ensure!(voting.index == index, Error::<T>::MismatchedProposalIndex);
 
             let position_yes = voting.ayes.iter().position(|(a, _)| a == &proposer);
             let position_no = voting.nays.iter().position(|(a, _)| a == &proposer);
@@ -348,7 +403,7 @@ decl_module! {
                 }
 
                 // Reserve the deposit
-                T::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+                <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
                 <Deposits<T>>::mutate(proposal_hash, |deposits| deposits.push((proposer.clone(), deposit)));
 
@@ -364,28 +419,28 @@ decl_module! {
         /// a proposal at any time.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn kill_proposal(origin, index: MipsIndex, proposal_hash: T::Hash) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
 
-            let mip = Self::proposals(&proposal_hash).ok_or("proposal does not exist")?;
-            ensure!(mip.index == index, "mismatched proposal index");
+            let mip = Self::proposals(&proposal_hash).ok_or(Error::<T>::NoSuchProposal)?;
+            ensure!(mip.index == index, Error::<T>::MismatchedProposalIndex);
 
             Self::close_proposal(index, proposal_hash);
         }
 
-        /// An emergency stop measure to kill a proposal. Governance committee can kill
-        /// a proposal at any time.
+        /// Any governance committee member can fast track a proposal and turn it into a referendum
+        /// that will be voted on by the committee.
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
         pub fn fast_track_proposal(origin, index: MipsIndex, proposal_hash: T::Hash) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+            ensure!(
+                T::GovernanceCommittee::is_member(&did),
+                Error::<T>::NotACommitteeMember
+            );
 
             let mip = Self::proposals(&proposal_hash).ok_or("proposal does not exist")?;
-            ensure!(mip.index == index, "mismatched proposal index");
+            ensure!(mip.index == index, Error::<T>::MismatchedProposalIndex);
 
             Self::create_referendum(
                 index,
@@ -399,23 +454,25 @@ decl_module! {
                 proposal_hash,
             ));
 
-            Self::close_proposal(index, proposal_hash.clone());
+            Self::close_proposal(index, proposal_hash);
         }
 
-        /// An emergency proposal that bypasses network voting process. Governance committee can make
-        /// a proposal that automatically becomes a referendum on which the committee can vote on.
+        /// Governance committee can make a proposal that automatically becomes a referendum on
+        /// which the committee can vote on.
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        pub fn emergency_referendum(origin, proposal: Box<T::Proposal>) {
-            // Proposal must originate from the committee
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+        pub fn submit_referendum(origin, proposal: Box<T::Proposal>) {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+            ensure!(
+                T::GovernanceCommittee::is_member(&did),
+                Error::<T>::NotACommitteeMember
+            );
 
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Proposal must be new
-            ensure!(!<Proposals<T>>::exists(proposal_hash), "proposal from committee already exists");
+            ensure!(!<Proposals<T>>::contains_key(proposal_hash), Error::<T>::DuplicateProposal);
 
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
@@ -423,7 +480,7 @@ decl_module! {
             Self::create_referendum(
                 index,
                 MipsPriority::High,
-                proposal_hash.clone(),
+                proposal_hash,
                 *proposal
             );
         }
@@ -431,10 +488,7 @@ decl_module! {
         /// Moves a referendum instance into dispatch queue.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn enact_referendum(origin, proposal_hash: T::Hash) {
-            T::CommitteeOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| Error::<T>::BadOrigin)?;
+            T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
 
             Self::prepare_to_dispatch(proposal_hash);
         }
@@ -470,7 +524,7 @@ impl<T: Trait> Module<T> {
         // Find all matured proposals...
         for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
             // Tally votes and create referendums
-            Self::tally_votes(index, hash.clone());
+            Self::tally_votes(index, hash);
 
             // And close proposals
             Self::close_proposal(index, hash);
@@ -499,7 +553,7 @@ impl<T: Trait> Module<T> {
                     Self::create_referendum(
                         index,
                         MipsPriority::Normal,
-                        proposal_hash.clone(),
+                        proposal_hash,
                         mip.proposal,
                     );
                 }
@@ -507,8 +561,9 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Create a referendum object from a proposal.
-    /// Committee votes on this referendum instance
+    /// Create a referendum object from a proposal. If governance committee is composed of less
+    /// than 2 members, enact it immediately. Otherwise, committee votes on this referendum and
+    /// decides whether it should be enacted.
     fn create_referendum(
         index: MipsIndex,
         priority: MipsPriority,
@@ -522,34 +577,36 @@ impl<T: Trait> Module<T> {
         };
 
         <ReferendumMetadata<T>>::mutate(|metadata| metadata.push(ri));
-        <Referendums<T>>::insert(proposal_hash.clone(), proposal);
+        <Referendums<T>>::insert(proposal_hash, proposal);
 
-        Self::deposit_event(RawEvent::ReferendumCreated(
-            index,
-            priority.clone(),
-            proposal_hash.clone(),
-        ));
+        Self::deposit_event(RawEvent::ReferendumCreated(index, priority, proposal_hash));
+
+        // If committee size is too small, enact it.
+        if T::GovernanceCommittee::member_count() < 2 {
+            Self::prepare_to_dispatch(proposal_hash);
+        }
     }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
     /// All deposits are unlocked and returned to respective stakers.
     fn close_proposal(index: MipsIndex, proposal_hash: T::Hash) {
         if <Voting<T>>::get(proposal_hash).is_some() {
-            if <Deposits<T>>::exists(&proposal_hash) {
+            if <Deposits<T>>::contains_key(&proposal_hash) {
                 let deposits: Vec<(T::AccountId, BalanceOf<T>)> =
                     <Deposits<T>>::take(&proposal_hash);
 
                 for (depositor, deposit) in deposits.iter() {
-                    T::Currency::unreserve(depositor, *deposit);
+                    <T as Trait>::Currency::unreserve(depositor, *deposit);
                 }
             }
 
             if <Proposals<T>>::take(&proposal_hash).is_some() {
                 <Voting<T>>::remove(&proposal_hash);
-                let hash = proposal_hash.clone();
+                let hash = proposal_hash;
                 <ProposalMetadata<T>>::mutate(|metadata| {
                     metadata.retain(|m| m.proposal_hash != hash)
                 });
+                <ProposalByIndex<T>>::remove(index);
 
                 Self::deposit_event(RawEvent::ProposalClosed(index, hash));
             }
@@ -561,7 +618,7 @@ impl<T: Trait> Module<T> {
             let result = match referendum.dispatch(system::RawOrigin::Root.into()) {
                 Ok(_) => true,
                 Err(e) => {
-                    let e: DispatchError = e.into();
+                    let e: DispatchError = e;
                     sp_runtime::print(e);
                     false
                 }
@@ -571,34 +628,95 @@ impl<T: Trait> Module<T> {
     }
 }
 
+impl<T: Trait> Module<T> {
+    /// Retrieve votes for a proposal represented by MipsIndex `index`.
+    pub fn get_votes(index: MipsIndex) -> VoteCount<BalanceOf<T>>
+    where
+        T: Send + Sync,
+        BalanceOf<T>: Send + Sync,
+    {
+        let proposal_hash: T::Hash = <ProposalByIndex<T>>::get(index);
+        if let Some(voting) = <Voting<T>>::get(&proposal_hash) {
+            let aye_stake = voting
+                .ayes
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, ayes| acc + ayes.1);
+
+            let nay_stake = voting
+                .nays
+                .iter()
+                .fold(<BalanceOf<T>>::zero(), |acc, nays| acc + nays.1);
+
+            VoteCount::Success {
+                ayes: aye_stake,
+                nays: nay_stake,
+            }
+        } else {
+            VoteCount::ProposalNotFound
+        }
+    }
+
+    /// Retrieve proposals made by `address`.
+    pub fn proposed_by(address: T::AccountId) -> Vec<MipsIndex> {
+        Self::proposal_meta()
+            .into_iter()
+            .filter(|meta| meta.proposer == address)
+            .map(|meta| meta.index)
+            .collect()
+    }
+
+    /// Retrieve proposals `address` voted on
+    pub fn voted_on(address: T::AccountId) -> Vec<MipsIndex> {
+        let mut indices = Vec::new();
+        for meta in Self::proposal_meta().into_iter() {
+            if let Some(votes) = Self::voting(&meta.proposal_hash) {
+                if votes.ayes.iter().any(|(a, _)| a == &address)
+                    || votes.nays.iter().any(|(a, _)| a == &address)
+                {
+                    indices.push(votes.index);
+                }
+            }
+        }
+        indices
+    }
+}
+
 // tests for this module
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use pallet_committee as committee;
     use polymesh_primitives::{IdentityId, Signatory};
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{
-        asset::AcceptTransfer, multisig::AddSignerMultiSig, CommonTrait,
+        asset::AcceptTransfer, balances::AccountData, multisig::AddSignerMultiSig, CommonTrait,
     };
-    use polymesh_runtime_group as group;
+    use polymesh_runtime_group::{self as group, InactiveMember};
     use polymesh_runtime_identity as identity;
 
     use frame_support::{
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
-        parameter_types,
+        parameter_types, weights::DispatchInfo,
     };
-    use frame_system::EnsureSignedBy;
     use sp_core::H256;
+    use sp_runtime::transaction_validity::{
+        InvalidTransaction, TransactionValidity, ValidTransaction,
+    };
     use sp_runtime::{
         testing::Header,
-        traits::{BlakeTwo256, IdentityLookup},
-        Perbill,
+        traits::{BlakeTwo256, IdentityLookup, Verify},
+        AnySignature, Perbill,
     };
+
+    use test_client::AccountKeyring;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
     }
+
+    type AccountId = <AnySignature as Verify>::Signer;
+    type BlockNumber = u64;
 
     impl_outer_dispatch! {
         pub enum Call for Test where origin: Origin {
@@ -621,11 +739,11 @@ mod tests {
     impl frame_system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
-        type BlockNumber = u64;
-        type Call = ();
+        type BlockNumber = BlockNumber;
+        type Call = Call;
         type Hash = H256;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
+        type AccountId = AccountId;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
@@ -635,6 +753,9 @@ mod tests {
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
         type ModuleToIndex = ();
+        type AccountData = AccountData<<Test as CommonTrait>::Balance>;
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
     }
 
     parameter_types! {
@@ -647,36 +768,55 @@ mod tests {
 
     impl CommonTrait for Test {
         type Balance = u128;
-        type CreationFee = CreationFee;
         type AcceptTransferTarget = Test;
         type BlockRewardsReserve = balances::Module<Test>;
     }
 
     impl balances::Trait for Test {
-        type OnFreeBalanceZero = ();
-        type OnNewAccount = ();
-        type Event = ();
         type DustRemoval = ();
-        type TransferPayment = ();
+        type Event = ();
         type ExistentialDeposit = ExistentialDeposit;
-        type TransferFee = TransferFee;
+        type AccountStore = frame_system::Module<Test>;
         type Identity = identity::Module<Test>;
+    }
+
+    impl protocol_fee::Trait for Test {
+        type Event = ();
+        type Currency = Balances;
+        type OnProtocolFeePayment = ();
     }
 
     impl identity::Trait for Test {
         type Event = ();
         type Proposal = Call;
         type AddSignerMultiSigTarget = Test;
-        type KycServiceProviders = Test;
+        type CddServiceProviders = group::Module<Test, group::Instance2>;
         type Balances = balances::Module<Test>;
+        type ChargeTxFeeTarget = Test;
+        type CddHandler = Test;
+        type Public = AccountId;
+        type OffChainSignature = AnySignature;
+        type ProtocolFee = protocol_fee::Module<Test>;
     }
 
-    impl group::GroupTrait for Test {
-        fn get_members() -> Vec<IdentityId> {
-            unimplemented!()
+    impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
+        fn get_valid_payer(
+            _: &Call,
+            _: &Signatory,
+        ) -> Result<Option<Signatory>, InvalidTransaction> {
+            Ok(None)
         }
-        fn is_member(_did: &IdentityId) -> bool {
-            unimplemented!()
+        fn clear_context() {}
+        fn set_payer_context(_: Option<Signatory>) {}
+        fn get_payer_from_context() -> Option<Signatory> {
+            None
+        }
+        fn set_current_identity(_: &IdentityId) {}
+    }
+
+    impl pallet_transaction_payment::ChargeTxFee for Test {
+        fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
+            Ok(ValidTransaction::default())
         }
     }
 
@@ -688,10 +828,10 @@ mod tests {
 
     impl AcceptTransfer for Test {
         fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
+            Ok(())
         }
         fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
+            Ok(())
         }
     }
 
@@ -709,44 +849,97 @@ mod tests {
         pub const MinimumProposalDeposit: u128 = 50;
         pub const QuorumThreshold: u128 = 70;
         pub const ProposalDuration: u32 = 10;
-        pub const One: u64 = 1;
-        pub const Two: u64 = 2;
-        pub const Three: u64 = 3;
-        pub const Four: u64 = 4;
-        pub const Five: u64 = 5;
+    }
+
+    impl group::GroupTrait<<Test as pallet_timestamp::Trait>::Moment> for Test {
+        fn get_members() -> Vec<IdentityId> {
+            unimplemented!()
+        }
+
+        /// It returns inactive members who are not expired yet.
+        fn get_inactive_members() -> Vec<InactiveMember<<Test as pallet_timestamp::Trait>::Moment>>
+        {
+            unimplemented!()
+        }
+
+        fn disable_member(
+            _who: IdentityId,
+            _expiry: Option<<Test as pallet_timestamp::Trait>::Moment>,
+            _at: Option<<Test as pallet_timestamp::Trait>::Moment>,
+        ) -> DispatchResult {
+            Ok(())
+        }
     }
 
     impl Trait for Test {
         type Currency = balances::Module<Self>;
-        type Proposal = Call;
-        type CommitteeOrigin = EnsureSignedBy<One, u64>;
+        type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+        type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
+        type GovernanceCommittee = Committee;
         type Event = ();
+    }
+
+    /// PolymeshCommittee as an instance of group
+    impl group::Trait<group::Instance1> for Test {
+        type Event = ();
+        type AddOrigin = frame_system::EnsureRoot<AccountId>;
+        type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+        type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+        type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+        type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
+        type MembershipInitialized = ();
+        type MembershipChanged = committee::Module<Test, committee::Instance1>;
     }
 
     impl group::Trait<group::Instance2> for Test {
         type Event = ();
-        type AddOrigin = EnsureSignedBy<One, u64>;
-        type RemoveOrigin = EnsureSignedBy<Two, u64>;
-        type SwapOrigin = EnsureSignedBy<Three, u64>;
-        type ResetOrigin = EnsureSignedBy<Four, u64>;
+        type AddOrigin = frame_system::EnsureRoot<AccountId>;
+        type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+        type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+        type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+        type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
         type MembershipInitialized = ();
         type MembershipChanged = ();
     }
 
+    pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as system::Trait>::AccountId, I>;
+
+    impl<I> From<CommitteeOrigin<Test, I>> for Origin {
+        fn from(_co: CommitteeOrigin<Test, I>) -> Origin {
+            Origin::system(frame_system::RawOrigin::Root)
+        }
+    }
+
+    parameter_types! {
+        pub const MotionDuration: BlockNumber = 0;
+    }
+
+    impl committee::Trait<committee::Instance1> for Test {
+        type Origin = Origin;
+        type Proposal = Call;
+        type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+        type Event = ();
+        type MotionDuration = MotionDuration;
+    }
+
+    type Identity = identity::Module<Test>;
     type System = system::Module<Test>;
     type Balances = balances::Module<Test>;
+    type Group = group::Module<Test, group::Instance1>;
+    type Committee = committee::Module<Test, committee::Instance1>;
     type Mips = Module<Test>;
 
     fn new_test_ext() -> sp_io::TestExternalities {
-        let mut t = system::GenesisConfig::default()
+        let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 
-        balances::GenesisConfig::<Test> {
-            balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
-            vesting: vec![],
+        committee::GenesisConfig::<Test, committee::Instance1> {
+            members: vec![],
+            vote_threshold: (1, 1),
+            ..Default::default()
         }
-        .assimilate_storage(&mut t)
+        .assimilate_storage(&mut storage)
         .unwrap();
 
         GenesisConfig::<Test> {
@@ -754,9 +947,10 @@ mod tests {
             quorum_threshold: 70,
             proposal_duration: 10,
         }
-        .assimilate_storage(&mut t)
+        .assimilate_storage(&mut storage)
         .unwrap();
-        t.into()
+
+        sp_io::TestExternalities::new(storage)
     }
 
     fn next_block() {
@@ -774,40 +968,60 @@ mod tests {
         Call::System(system::Call::remark(value.encode()))
     }
 
+    pub fn make_account_with_balance(
+        id: AccountId,
+        balance: <Test as CommonTrait>::Balance,
+    ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
+        let signed_id = Origin::signed(id.clone());
+        Balances::make_free_balance_be(&id, balance);
+
+        Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
+        let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+
+        Ok((signed_id, did))
+    }
+
     #[test]
-    fn should_start_a_proposal() {
+    fn starting_a_proposal_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
+
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
 
             // Error when min deposit requirements are not met
             assert_err!(
                 Mips::propose(
-                    Origin::signed(6),
+                    alice_signer.clone(),
                     Box::new(proposal.clone()),
                     40,
-                    Some(proposal_url.clone())
+                    Some(proposal_url.clone()),
+                    Some(proposal_desc.clone())
                 ),
-                "deposit is less than minimum required to start a proposal"
+                Error::<Test>::InsufficientDeposit
             );
 
             // Account 6 starts a proposal with min deposit
             assert_ok!(Mips::propose(
-                Origin::signed(6),
-                Box::new(proposal.clone()),
+                alice_signer.clone(),
+                Box::new(proposal),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url),
+                Some(proposal_desc)
             ));
 
-            assert_eq!(Balances::free_balance(&6), 10);
+            assert_eq!(Balances::free_balance(&alice_acc), 10);
 
+            assert_eq!(Mips::proposed_by(alice_acc.clone()), vec![0]);
             assert_eq!(
                 Mips::voting(&hash),
                 Some(PolymeshVotes {
                     index: 0,
-                    ayes: vec![(6, 50)],
+                    ayes: vec![(alice_acc, 50)],
                     nays: vec![],
                 })
             );
@@ -815,101 +1029,126 @@ mod tests {
     }
 
     #[test]
-    fn should_close_a_proposal() {
+    fn closing_a_proposal_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
 
-            // Account 6 starts a proposal with min deposit
+            // Voting majority
+            let root = Origin::system(frame_system::RawOrigin::Root);
+
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
+
+            // Alice starts a proposal with min deposit
             assert_ok!(Mips::propose(
-                Origin::signed(6),
+                alice_signer.clone(),
                 Box::new(proposal.clone()),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url.clone()),
+                Some(proposal_desc)
             ));
 
-            assert_eq!(Balances::free_balance(&6), 10);
+            assert_eq!(Balances::free_balance(&alice_acc), 10);
 
             assert_eq!(
                 Mips::voting(&hash),
                 Some(PolymeshVotes {
                     index,
-                    ayes: vec![(6, 50)],
+                    ayes: vec![(alice_acc.clone(), 50)],
                     nays: vec![],
                 })
             );
 
-            assert_ok!(Mips::kill_proposal(Origin::signed(1), index, hash));
+            assert_ok!(Mips::kill_proposal(root, index, hash));
 
-            assert_eq!(Balances::free_balance(&6), 60);
+            assert_eq!(Balances::free_balance(&alice_acc), 60);
 
             assert_eq!(Mips::voting(&hash), None);
         });
     }
 
     #[test]
-    fn should_create_a_referendum() {
+    fn creating_a_referendum_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
+
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
+            let bob_acc = AccountKeyring::Bob.public();
+            let (bob_signer, _) = make_account_with_balance(bob_acc, 50).unwrap();
 
             assert_ok!(Mips::propose(
-                Origin::signed(6),
+                alice_signer.clone(),
                 Box::new(proposal.clone()),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url),
+                Some(proposal_desc)
             ));
 
-            assert_ok!(Mips::vote(Origin::signed(5), hash, 0, true, 50));
+            assert_ok!(Mips::vote(bob_signer.clone(), hash, 0, true, 50));
 
             assert_eq!(
                 Mips::voting(&hash),
                 Some(PolymeshVotes {
                     index: 0,
-                    ayes: vec![(6, 50), (5, 50)],
+                    ayes: vec![(alice_acc.clone(), 50), (bob_acc.clone(), 50)],
                     nays: vec![]
                 })
             );
 
-            assert_eq!(Balances::free_balance(&5), 0);
-            assert_eq!(Balances::free_balance(&6), 10);
+            assert_eq!(Balances::free_balance(&alice_acc), 10);
+            assert_eq!(Balances::free_balance(&bob_acc), 0);
 
             fast_forward_to(20);
 
             assert_eq!(Mips::referendums(&hash), Some(proposal));
 
-            assert_eq!(Balances::free_balance(&5), 50);
-            assert_eq!(Balances::free_balance(&6), 60);
+            assert_eq!(Balances::free_balance(&alice_acc), 60);
+            assert_eq!(Balances::free_balance(&bob_acc), 50);
         });
     }
 
     #[test]
-    fn should_enact_a_referendum() {
+    fn enacting_a_referendum_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
+
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
+            let bob_acc = AccountKeyring::Bob.public();
+            let (bob_signer, _) = make_account_with_balance(bob_acc, 50).unwrap();
+
+            // Voting majority
+            let root = Origin::system(frame_system::RawOrigin::Root);
 
             assert_ok!(Mips::propose(
-                Origin::signed(6),
+                alice_signer.clone(),
                 Box::new(proposal.clone()),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url.clone()),
+                Some(proposal_desc)
             ));
 
-            assert_ok!(Mips::vote(Origin::signed(5), hash, 0, true, 50));
+            assert_ok!(Mips::vote(bob_signer.clone(), hash, 0, true, 50));
 
             assert_eq!(
                 Mips::voting(&hash),
                 Some(PolymeshVotes {
                     index: 0,
-                    ayes: vec![(6, 50), (5, 50)],
+                    ayes: vec![(alice_acc.clone(), 50), (bob_acc.clone(), 50)],
                     nays: vec![]
                 })
             );
@@ -919,62 +1158,92 @@ mod tests {
             assert_eq!(Mips::referendums(&hash), Some(proposal));
 
             assert_err!(
-                Mips::enact_referendum(Origin::signed(5), hash),
+                Mips::enact_referendum(bob_signer.clone(), hash),
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(Mips::enact_referendum(Origin::signed(1), hash));
+            assert_ok!(Mips::enact_referendum(root, hash));
         });
     }
 
     #[test]
-    fn should_fast_track_a_proposal() {
+    fn fast_tracking_a_proposal_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
             let proposal_url: Url = b"www.abc.com".into();
+            let proposal_desc: MipDescription = b"Test description".into();
+
+            let root = Origin::system(frame_system::RawOrigin::Root);
+
+            // Alice and Bob are committee members
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, alice_did) = make_account_with_balance(alice_acc, 60).unwrap();
+            let bob_acc = AccountKeyring::Bob.public();
+            let (bob_signer, bob_did) = make_account_with_balance(bob_acc, 50).unwrap();
+
+            let charlie_acc = AccountKeyring::Charlie.public();
+            let (charlie_signer, _) = make_account_with_balance(charlie_acc, 60).unwrap();
+
+            Group::reset_members(root.clone(), vec![alice_did, bob_did]).unwrap();
+
+            assert_eq!(Committee::members(), vec![alice_did, bob_did]);
 
             assert_ok!(Mips::propose(
-                Origin::signed(6),
+                charlie_signer.clone(),
                 Box::new(proposal.clone()),
                 50,
-                Some(proposal_url.clone())
+                Some(proposal_url.clone()),
+                Some(proposal_desc)
             ));
 
-            assert_ok!(Mips::vote(Origin::signed(5), hash, index, true, 50));
+            assert_ok!(Mips::vote(bob_signer.clone(), hash, index, true, 50));
 
-            assert_ok!(Mips::fast_track_proposal(Origin::signed(1), index, hash));
+            // only a committee member can fast track a proposal
+            assert_err!(
+                Mips::fast_track_proposal(charlie_signer.clone(), index, hash),
+                Error::<Test>::NotACommitteeMember
+            );
+
+            // Alice can fast track because she is a GC member
+            assert_ok!(Mips::fast_track_proposal(alice_signer.clone(), index, hash));
 
             fast_forward_to(20);
 
             assert_eq!(Mips::referendums(&hash), Some(proposal));
 
             assert_err!(
-                Mips::enact_referendum(Origin::signed(5), hash),
+                Mips::enact_referendum(bob_signer.clone(), hash),
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(Mips::enact_referendum(Origin::signed(1), hash));
+            assert_ok!(Mips::enact_referendum(root, hash));
         });
     }
 
     #[test]
-    fn should_enact_an_emergency_referendum() {
+    fn submit_referendum_works() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             let proposal = make_proposal(42);
             let index = 0;
             let hash = BlakeTwo256::hash_of(&proposal);
 
-            assert_err!(
-                Mips::emergency_referendum(Origin::signed(6), Box::new(proposal.clone())),
-                Error::<Test>::BadOrigin
-            );
+            let root = Origin::system(frame_system::RawOrigin::Root);
 
-            assert_ok!(Mips::emergency_referendum(
-                Origin::signed(1),
+            // Alice and Bob are committee members
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, alice_did) = make_account_with_balance(alice_acc, 60).unwrap();
+
+            Group::reset_members(root.clone(), vec![alice_did]).unwrap();
+
+            assert_eq!(Committee::members(), vec![alice_did]);
+
+            // Alice is a committee member
+            assert_ok!(Mips::submit_referendum(
+                alice_signer.clone(),
                 Box::new(proposal.clone())
             ));
 
@@ -992,27 +1261,37 @@ mod tests {
             );
 
             assert_err!(
-                Mips::enact_referendum(Origin::signed(5), hash),
+                Mips::enact_referendum(alice_signer.clone(), hash),
                 Error::<Test>::BadOrigin
             );
 
-            assert_ok!(Mips::enact_referendum(Origin::signed(1), hash));
+            assert_ok!(Mips::enact_referendum(root, hash));
         });
     }
 
     #[test]
-    fn should_update_mips_variables() {
+    fn updating_mips_variables_works() {
         new_test_ext().execute_with(|| {
+            let root = Origin::system(frame_system::RawOrigin::Root);
+
+            let alice_acc = AccountKeyring::Alice.public();
+            let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
+
+            // config variables can be updated only through committee
             assert_eq!(Mips::min_proposal_deposit(), 50);
-            assert_ok!(Mips::set_min_proposal_deposit(Origin::signed(1), 10));
+            assert_err!(
+                Mips::set_min_proposal_deposit(alice_signer.clone(), 10),
+                Error::<Test>::BadOrigin
+            );
+            assert_ok!(Mips::set_min_proposal_deposit(root.clone(), 10));
             assert_eq!(Mips::min_proposal_deposit(), 10);
 
             assert_eq!(Mips::quorum_threshold(), 70);
-            assert_ok!(Mips::set_quorum_threshold(Origin::signed(1), 100));
+            assert_ok!(Mips::set_quorum_threshold(root.clone(), 100));
             assert_eq!(Mips::quorum_threshold(), 100);
 
             assert_eq!(Mips::proposal_duration(), 10);
-            assert_ok!(Mips::set_proposal_duration(Origin::signed(1), 100));
+            assert_ok!(Mips::set_proposal_duration(root.clone(), 100));
             assert_eq!(Mips::proposal_duration(), 100);
         });
     }

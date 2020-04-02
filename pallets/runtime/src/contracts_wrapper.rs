@@ -19,7 +19,7 @@ use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::traits::Currency;
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use frame_system::ensure_signed;
 use pallet_contracts::{CodeHash, Gas, Schedule};
 use sp_runtime::traits::StaticLookup;
@@ -35,7 +35,14 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
-        pub CodeHashDid: map CodeHash<T> => Option<IdentityId>;
+        pub CodeHashDid: map hasher(blake2_256) CodeHash<T> => Option<IdentityId>;
+    }
+}
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// The sender must be a signing key for the DID.
+        SenderMustBeSigningKeyForDid,
     }
 }
 
@@ -45,6 +52,7 @@ decl_module! {
     // Wrap dispatchable functions for contracts so that we can add additional gating logic
     // TODO: Figure out how to remove dispatchable calls from the underlying contracts module
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = Error<T>;
 
         // Simply forwards to the `update_schedule` function in the Contract module.
         pub fn update_schedule(origin, schedule: Schedule) -> DispatchResult {
@@ -63,7 +71,10 @@ decl_module! {
             let signer = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
 
             // Call underlying function
             let new_origin = frame_system::RawOrigin::Signed(sender).into();
