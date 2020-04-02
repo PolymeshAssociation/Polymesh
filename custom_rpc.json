@@ -16,7 +16,8 @@
             "name": "buffer_time",
             "type": "u64",
             "isOptional": "true"
-        }]
+        }],
+        "type": "CddStatus"
     },
     {
         "name": "getAssetDid",
@@ -30,7 +31,8 @@
             "name": "ticker",
             "type": "[u8; 12]",
             "isOptional": "false"
-        }]
+        }],
+        "type": "AssetDidResult"
     },
     {
         "name": "getDidRecords",
@@ -44,7 +46,8 @@
             "name": "did",
             "type": "H256",
             "isOptional": "false"
-        }]
+        }],
+        "type": "DidRecords"
     }],
     "mips":[{
         "name": "getVotes",
@@ -58,7 +61,8 @@
             "name": "index",
             "type": "u32",
             "isOptional": "false"
-        }]
+        }],
+        "type": "CappedVoteCount"
     },
     {
         "name": "proposedBy",
@@ -72,7 +76,8 @@
             "name": "address",
             "type": "AccountId",
             "isOptional": "false"
-        }]
+        }],
+        "type": "Vec<u32>"
     },
     {
         "name": "votedOn",
@@ -86,7 +91,8 @@
             "name": "address",
             "type": "AccountId",
             "isOptional": "false"
-        }]
+        }],
+        "type":"Vec<u32>"
     }],
     "staking": [{
         "name": "getCurve",
@@ -95,6 +101,7 @@
             "name": "blockHash",
             "type": "Hash",
             "isOptional": "true"
-        }]
+        }],
+        "type": "Vec<(Perbill, Perbill)>"
     }]
 }
