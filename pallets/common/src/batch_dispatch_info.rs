@@ -38,8 +38,8 @@ impl<T> ClassifyDispatch<T> for BatchDispatchInfo {
     }
 }
 
-impl PaysFee for BatchDispatchInfo {
-    fn pays_fee(&self) -> bool {
+impl<T> PaysFee<T> for BatchDispatchInfo {
+    fn pays_fee(&self, _target: T) -> bool {
         true
     }
 }

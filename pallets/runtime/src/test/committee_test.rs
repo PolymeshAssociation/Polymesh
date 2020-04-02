@@ -64,6 +64,7 @@ fn propose_works_we() {
         alice_signer.clone(),
         Box::new(proposal.clone())
     ));
+    let blockNumber = System::block_number();
     assert_eq!(Committee::proposals(), vec![hash]);
     assert_eq!(Committee::proposal_of(&hash), Some(proposal));
     assert_eq!(
@@ -71,7 +72,8 @@ fn propose_works_we() {
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did],
-            nays: vec![]
+            nays: vec![],
+            end: blockNumber
         })
     );
 }
@@ -216,12 +218,14 @@ fn motions_revoting_works_we() {
         alice_signer.clone(),
         Box::new(proposal.clone())
     ));
+    let blockNumber = System::block_number();
     assert_eq!(
         Committee::voting(&hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did],
-            nays: vec![]
+            nays: vec![],
+            end: blockNumber
         })
     );
     assert_noop!(
@@ -234,12 +238,14 @@ fn motions_revoting_works_we() {
         0,
         false
     ));
+    let blockNumber = System::block_number();
     assert_eq!(
         Committee::voting(&hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![],
-            nays: vec![alice_did]
+            nays: vec![alice_did],
+            end: blockNumber
         })
     );
     assert_noop!(
@@ -272,21 +278,25 @@ fn voting_works_we() {
         charlie_signer.clone(),
         Box::new(proposal.clone())
     ));
+    let blockNumber = System::block_number();
     assert_eq!(
         Committee::voting(&hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![charlie_did],
-            nays: vec![]
+            nays: vec![],
+            end: blockNumber
         })
     );
     assert_ok!(Committee::vote(bob_signer.clone(), hash.clone(), 0, false));
+    let blockNumber = System::block_number();
     assert_eq!(
         Committee::voting(&hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![charlie_did],
-            nays: vec![bob_did]
+            nays: vec![bob_did],
+            end: blockNumber
         })
     );
 }
@@ -352,12 +362,14 @@ fn rage_quit_we() {
         0,
         false
     ));
+    let blockNumber = System::block_number();
     assert_eq!(
         Committee::voting(&proposal_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did, bob_did],
-            nays: vec![charlie_did]
+            nays: vec![charlie_did],
+            end: blockNumber
         })
     );
 
@@ -365,12 +377,14 @@ fn rage_quit_we() {
     assert_eq!(Committee::is_member(&bob_did), true);
     assert_ok!(CommitteeGroup::abdicate_membership(bob_signer.clone()));
     assert_eq!(Committee::is_member(&bob_did), false);
+    let blockNumber = System::block_number();
     assert_eq!(
         Committee::voting(&proposal_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did],
-            nays: vec![charlie_did]
+            nays: vec![charlie_did],
+            end: blockNumber
         })
     );
 
@@ -380,12 +394,14 @@ fn rage_quit_we() {
     assert_ok!(CommitteeGroup::abdicate_membership(charlie_signer.clone()));
     assert_eq!(Committee::is_member(&charlie_did), false);
     // TODO: Only one member, voting should be approved.
+    let blockNumber = System::block_number();
     assert_eq!(
         Committee::voting(&proposal_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did],
-            nays: vec![]
+            nays: vec![],
+            end: blockNumber
         })
     );
 

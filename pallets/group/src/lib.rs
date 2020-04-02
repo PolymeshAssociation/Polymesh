@@ -1,3 +1,29 @@
+// Copyright 2017-2019 Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+// Modified by Polymath Inc - 23rd March 2020
+// This module is inspired by the `membership` module of the substrate framework
+// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/membership
+// It get customize as per the Polymesh requirements
+// - Change member type from `AccountId` to `IdentityId`.
+// - Remove `change_key` function from the implementation in the favour of "User can hold only single identity on Polymesh blockchain".
+// - Remove the logic of prime member logic that will lead the removal of `set_prime()` & `clear_prime()` dispatchable.
+// - Add `abdicate_membership()` dispatchable to allows a caller member to unilaterally quit without this
+// being subject to a GC vote.
+
 //! # Group Module
 //!
 //! The Group module is used to manage a set of identities. A group of identities can be a
@@ -61,6 +87,8 @@ decl_storage! {
         /// Identities that are part of this group, known as "Active members".
         pub ActiveMembers get(fn active_members) config(): Vec<IdentityId>;
         pub InactiveMembers get(fn inactive_members): Vec<InactiveMember<T::Moment>>;
+        /// The current prime member, if one exists.
+        pub Prime get(fn prime): Option<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -168,7 +196,7 @@ decl_module! {
                 &[remove],
                 &members[..],
             );
-
+            Self::rejig_prime(&members);
             Self::deposit_event(RawEvent::MembersSwapped(remove, add));
         }
 
@@ -185,7 +213,8 @@ decl_module! {
             let mut new_members = members.clone();
             new_members.sort();
             <ActiveMembers<I>>::mutate(|m| {
-                T::MembershipChanged::set_members_sorted(&members[..], m);
+                T::MembershipChanged::set_members_sorted(&new_members[..], m);
+                Self::rejig_prime(&new_members);
                 *m = new_members;
             });
 
@@ -225,6 +254,23 @@ decl_module! {
 
             Ok(())
         }
+
+        /// Set the prime member. Must be a current member.
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn set_prime(origin, who: IdentityId) {
+            T::PrimeOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            <ActiveMembers<I>>::get().binary_search(&who).ok().ok_or(Error::<T, I>::NoSuchMember)?;
+            Prime::<I>::put(&who);
+            T::MembershipChanged::set_prime(Some(who));
+        }
+
+        /// Remove the prime member if it exists.
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn clear_prime(origin) {
+            T::PrimeOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            Prime::<I>::kill();
+            T::MembershipChanged::set_prime(None);
+        }
     }
 }
 
@@ -234,9 +280,9 @@ decl_error! {
         OnlyMasterKeyAllowed,
         /// Incorrect origin.
         BadOrigin,
-        /// Group member was added alredy.
+        /// Group member was added already.
         DuplicateMember,
-        /// Can't remove a member that doesnt exist.
+        /// Can't remove a member that doesn't exist.
         NoSuchMember,
         /// Last member of the committee can not quit.
         LastMemberCannotQuit,
@@ -244,6 +290,15 @@ decl_error! {
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
+    fn rejig_prime(members: &[IdentityId]) {
+        if let Some(prime) = Prime::<I>::get() {
+            match members.binary_search(&prime) {
+                Ok(_) => T::MembershipChanged::set_prime(Some(prime)),
+                Err(_) => Prime::<I>::kill(),
+            }
+        }
+    }
+
     /// It returns the current "active members" and any "valid member" which its revocation
     /// time-stamp is in the future.
     pub fn get_valid_members() -> Vec<IdentityId> {
@@ -293,6 +348,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         <ActiveMembers<I>>::put(&members);
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
+        Self::rejig_prime(&members);
         Self::deposit_event(RawEvent::MemberRemoved(who));
         Ok(())
     }

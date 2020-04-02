@@ -330,7 +330,6 @@ fn transfer_with_memo_we() {
                 alice.clone(),
                 bob.clone(),
                 100,
-                0,
                 memo_1.unwrap(),
             )),
             topics: vec![],
@@ -341,13 +340,22 @@ fn transfer_with_memo_we() {
                 alice,
                 bob,
                 200,
-                0,
                 memo_2.unwrap(),
             )),
             topics: vec![],
         },
+        EventRecord {
+            phase: Phase::ApplyExtrinsic(0),
+            event: EventTest::balances(BalancesRawEvent::Transfer(alice, bob, 300)),
+            topics: vec![],
+        },
     ];
-    let sys_events = System::events();
-    assert_eq!(sys_events[3], expected_events[0]);
-    assert_eq!(sys_events[4], expected_events[1]);
+    // Ignoring `frame_system` events
+    let system_events = System::events();
+    let emitted_events = vec![
+        system_events[12].clone(),
+        system_events[13].clone(),
+        system_events[14].clone(),
+    ];
+    assert_eq!(emitted_events, expected_events);
 }
