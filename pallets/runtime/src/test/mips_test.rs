@@ -466,7 +466,7 @@ fn amend_mips_details_during_cool_off_period_we() {
             amount: 60
         }
     );
-    assert_ok!(Mips::bound_additional_deposit(alice.clone(), 0, 100));
+    assert_ok!(Mips::bond_additional_deposit(alice.clone(), 0, 100));
     assert_eq!(
         Mips::deposit_of(&hash, &alice_acc),
         DepositInfo {
@@ -474,7 +474,7 @@ fn amend_mips_details_during_cool_off_period_we() {
             amount: 160
         }
     );
-    assert_ok!(Mips::unbound_deposit(alice.clone(), 0, 50));
+    assert_ok!(Mips::unbond_deposit(alice.clone(), 0, 50));
     assert_eq!(
         Mips::deposit_of(&hash, &alice_acc),
         DepositInfo {
@@ -483,7 +483,7 @@ fn amend_mips_details_during_cool_off_period_we() {
         }
     );
     assert_err!(
-        Mips::unbound_deposit(alice.clone(), 0, 90),
+        Mips::unbond_deposit(alice.clone(), 0, 90),
         Error::<TestStorage>::InsufficientDeposit
     );
 

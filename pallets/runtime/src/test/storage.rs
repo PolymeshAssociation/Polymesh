@@ -8,10 +8,10 @@ use frame_support::{
     assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
     parameter_types, traits::Currency, weights::DispatchInfo,
 };
-use frame_system::{self as system, EnsureSignedBy};
+use frame_system::{self as system};
 use pallet_committee as committee;
 use pallet_mips as mips;
-use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
 use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
