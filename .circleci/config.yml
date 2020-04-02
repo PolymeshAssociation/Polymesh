@@ -47,55 +47,33 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v4-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - v4-test-cache-{{ checksum "./rust.version" }}
-            - v3-test-cache-{{ checksum "./rust.version" }}
+            - v6-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v6-test-cache-{{ checksum "./rust.version" }}
       - run:
-          name: runtime tests
-          command: cargo test
-          working_directory: ./pallets/runtime
-          no_output_timeout: 60m
-      - run:
-          name: staking tests
-          command: cargo test
-          working_directory: ./pallets/staking
-          no_output_timeout: 60m
-      - run:
-          name: group tests
-          command: cargo test
-          working_directory: ./pallets/group
-          no_output_timeout: 60m
-      - run:
-          name: im-online tests
-          command: cargo test
-          working_directory: ./pallets/im-online
-          no_output_timeout: 60m
-      - run:
-          name: primitives tests
-          command: cargo test
-          working_directory: ./primitives
-          no_output_timeout: 60m
-      - run:
-          name: mips tests
-          command: cargo test
-          working_directory: ./pallets/mips
-          no_output_timeout: 60m
-      - run:
-          name: transaction-payment tests
-          command: cargo test
-          working_directory: ./pallets/transaction-payment
-          no_output_timeout: 60m
+          name: Tests
+          command: >-
+            cargo test
+            --package polymesh-runtime
+            --package pallet-staking
+            --package polymesh-runtime-group
+            --package pallet-im-online
+            --package polymesh-primitives
+            --package pallet-mips-rpc
+            --package pallet-transaction-payment ||
+            cargo test -j 1
+            --package polymesh-runtime
+            --package pallet-staking
+            --package polymesh-runtime-group
+            --package pallet-im-online
+            --package polymesh-primitives
+            --package pallet-mips-rpc
+            --package pallet-transaction-payment
+          no_output_timeout: 30m
       - save_cache:
-          key: v4-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: v6-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
-            - "./pallets/runtime/target"
-            - "./pallets/staking/target"
-            - "./pallets/group/target"
-            - "./pallets/im-online/target"
-            - "./primitives/target"
-            - "./pallets/mips/target"
-            - "./pallets/transaction-payment/target"
+            - "./target"
   cli:
     docker:
       - image: maxsam4/rust
@@ -108,14 +86,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v3-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}-{{ checksum "./scripts/cli/yarn.lock" }}
-            - v3-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./scripts/cli/yarn.lock" }}
-            - v3-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}
-            - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - v3-cli-cache-{{ checksum "./rust.version" }}
-            - v2-release-cache-{{ checksum "./rust.version" }}
-            - v2-cli-cache-{{ checksum "./rust.version" }}
+            - v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
       - run:
           name: Build release
           command: cargo build --release || cargo build -j 1 --release
@@ -135,7 +106,7 @@ jobs:
           working_directory: ./scripts/cli
           no_output_timeout: 10m
       - save_cache:
-          key: v3-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}-{{ checksum "./Cargo.lock" }}-{{ checksum "./scripts/cli/yarn.lock" }}
+          key: v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -169,7 +140,6 @@ workflows:
   commit:
     jobs:
       - lint
-      - clippy
       - cli
       - test
   daily-builds:
