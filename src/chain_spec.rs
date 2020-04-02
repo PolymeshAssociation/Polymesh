@@ -23,9 +23,10 @@ use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
-
-type AccountPublic = <Signature as Verify>::Signer;
+use sp_runtime::{
+    traits::{IdentifyAccount, Verify},
+    PerThing,
+};
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::ChainSpec<GenesisConfig>;
@@ -49,6 +50,8 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
         .expect("static values are valid; qed")
         .public()
 }
+
+type AccountPublic = <Signature as Verify>::Signer;
 
 /// Helper function to generate an account ID from seed
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
@@ -314,11 +317,9 @@ fn testnet_genesis(
                 .cloned()
                 .map(|k| (k, 1 << 55))
                 .collect(),
-            vesting: vec![],
         }),
-        pallet_indices: Some(IndicesConfig {
-            ids: endowed_accounts.clone(),
-        }),
+        pallet_treasury: Some(Default::default()),
+        pallet_indices: Some(IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(SudoConfig { key: root_key }),
         pallet_session: Some(SessionConfig {
             keys: initial_authorities
@@ -326,13 +327,13 @@ fn testnet_genesis(
                 .map(|x| {
                     (
                         x.0.clone(),
+                        x.0.clone(),
                         session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
                     )
                 })
                 .collect::<Vec<_>>(),
         }),
         pallet_staking: Some(StakingConfig {
-            current_era: 0,
             minimum_validator_count: 1,
             validator_count: 2,
             stakers: initial_authorities
@@ -341,7 +342,7 @@ fn testnet_genesis(
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: Perbill::from_percent(10),
-            validator_commission: Commission::Global(Perbill::from_rational_approximation(
+            validator_commission: Commission::Global(PerThing::from_rational_approximation(
                 1u64, 4u64,
             )),
             min_bond_threshold: 0,
@@ -397,4 +398,11 @@ fn testnet_genesis(
             ..Default::default()
         }),
     }
+}
+
+pub fn load_spec(id: &str) -> Result<Option<ChainSpec>, String> {
+    Ok(match Alternative::from(id) {
+        Some(spec) => Some(spec.load()?),
+        None => None,
+    })
 }

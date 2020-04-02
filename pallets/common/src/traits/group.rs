@@ -67,16 +67,19 @@ pub trait Trait<I>: frame_system::Trait + pallet_timestamp::Trait + IdentityTrai
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Required origin for adding a member (though can always be Root).
-    type AddOrigin: EnsureOrigin<Self::Origin>;
+    type AddOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
     /// Required origin for removing a member (though can always be Root).
-    type RemoveOrigin: EnsureOrigin<Self::Origin>;
+    type RemoveOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
     /// Required origin for adding and removing a member in a single action.
-    type SwapOrigin: EnsureOrigin<Self::Origin>;
+    type SwapOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
     /// Required origin for resetting membership.
-    type ResetOrigin: EnsureOrigin<Self::Origin>;
+    type ResetOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+
+    /// Required origin for setting or resetting the prime member.
+    type PrimeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
     /// The receiver of the signal for when the membership has been initialized. This happens pre-
     /// genesis and will usually be the same as `MembershipChanged`. If you need to do something

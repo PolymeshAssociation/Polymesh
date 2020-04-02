@@ -713,8 +713,10 @@ fn removing_authorizations() {
             bob_did,
             auth_id
         ));
-        assert!(!<identity::AuthorizationsGiven>::exists(alice_did, auth_id));
-        assert!(!<identity::Authorizations<TestStorage>>::exists(
+        assert!(!<identity::AuthorizationsGiven>::contains_key(
+            alice_did, auth_id
+        ));
+        assert!(!<identity::Authorizations<TestStorage>>::contains_key(
             bob_did, auth_id
         ));
     });

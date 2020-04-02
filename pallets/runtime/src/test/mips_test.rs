@@ -283,7 +283,7 @@ fn fast_tracking_a_proposal_works_we() {
 
     Group::reset_members(root.clone(), vec![alice_did, bob_did]).unwrap();
 
-    assert_eq!(Committee::members(), vec![alice_did, bob_did]);
+    assert_eq!(Committee::members(), vec![bob_did, alice_did]);
 
     assert_ok!(Mips::propose(
         charlie_signer.clone(),

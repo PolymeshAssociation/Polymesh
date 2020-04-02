@@ -220,27 +220,26 @@ decl_storage! {
 
         /// Those who have locked a deposit.
         /// proposal (hash, proposer) -> deposit
-        // pub Deposits get(fn deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
-        pub Deposits get(fn deposit_of): double_map hasher(blake2_256) T::Hash,  blake2_256(T::AccountId) => DepositInfo<T::AccountId, BalanceOf<T>>;
+        pub Deposits get(fn deposit_of): double_map hasher(blake2_256) T::Hash, hasher(blake2_256) T::AccountId => DepositInfo<T::AccountId, BalanceOf<T>>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
-        pub Proposals get(fn proposals): map T::Hash => Option<MIP<T::Proposal>>;
+        pub Proposals get(fn proposals): map hasher(blake2_256) T::Hash => Option<MIP<T::Proposal>>;
 
         /// Lookup proposal hash by a proposal's index
         /// MIP index -> proposal hash
-        pub ProposalByIndex get(fn proposal_by_index): map MipsIndex => T::Hash;
+        pub ProposalByIndex get(fn proposal_by_index): map hasher(blake2_256) MipsIndex => T::Hash;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal hash -> vote count
-        pub Voting get(fn voting): map T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
+        pub Voting get(fn voting): map hasher(blake2_256) T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
         pub ReferendumMetadata get(fn referendum_meta): Vec<PolymeshReferendumInfo<T::Hash>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
-        pub Referendums get(fn referendums): map T::Hash => Option<T::Proposal>;
+        pub Referendums get(fn referendums): map hasher(blake2_256) T::Hash => Option<T::Proposal>;
     }
 }
 
@@ -358,7 +357,7 @@ decl_module! {
             );
             // Proposal must be new
             ensure!(
-                !<Proposals<T>>::exists(proposal_hash),
+                !<Proposals<T>>::contains_key(proposal_hash),
                 Error::<T>::DuplicateProposal
             );
 
@@ -625,7 +624,7 @@ decl_module! {
             let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Proposal must be new
-            ensure!(!<Proposals<T>>::exists(proposal_hash), Error::<T>::DuplicateProposal);
+            ensure!(!<Proposals<T>>::contains_key(proposal_hash), Error::<T>::DuplicateProposal);
 
             let index = Self::proposal_count();
             <ProposalCount>::mutate(|i| *i += 1);
@@ -838,231 +837,5 @@ impl<T: Trait> Module<T> {
             }
         }
         indices
-    }
-}
-
-// tests for this module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use pallet_committee as committee;
-    use polymesh_primitives::{IdentityId, Signatory};
-    use polymesh_runtime_balances as balances;
-    use polymesh_runtime_common::traits::{
-        asset::AcceptTransfer, multisig::AddSignerMultiSig, CommonTrait,
-    };
-    use polymesh_runtime_group as group;
-    use polymesh_runtime_identity as identity;
-
-    use frame_support::{
-        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
-        parameter_types,
-    };
-    use sp_core::H256;
-    use sp_runtime::{
-        testing::Header,
-        traits::{BlakeTwo256, IdentityLookup, Verify},
-        AnySignature, Perbill,
-    };
-    use test_client::AccountKeyring;
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
-
-    type AccountId = <AnySignature as Verify>::Signer;
-
-    impl_outer_dispatch! {
-        pub enum Call for Test where origin: Origin {
-            balances::Balances,
-            system::System,
-            mips::Mips,
-        }
-    }
-
-    #[derive(Clone, Eq, PartialEq, Debug)]
-    pub struct Test;
-
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub const MaximumBlockWeight: u32 = 1024;
-        pub const MaximumBlockLength: u32 = 2 * 1024;
-        pub const AvailableBlockRatio: Perbill = Perbill::one();
-    }
-
-    impl frame_system::Trait for Test {
-        type Origin = Origin;
-        type Call = ();
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type AccountId = AccountId;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type BlockHashCount = BlockHashCount;
-        type MaximumBlockWeight = MaximumBlockWeight;
-        type MaximumBlockLength = MaximumBlockLength;
-        type AvailableBlockRatio = AvailableBlockRatio;
-        type Version = ();
-        type ModuleToIndex = ();
-    }
-
-    parameter_types! {
-        pub const ExistentialDeposit: u64 = 0;
-        pub const TransferFee: u64 = 0;
-        pub const CreationFee: u64 = 0;
-        pub const TransactionBaseFee: u64 = 0;
-        pub const TransactionByteFee: u64 = 0;
-    }
-
-    impl CommonTrait for Test {
-        type Balance = u128;
-        type CreationFee = CreationFee;
-        type AcceptTransferTarget = Test;
-        type BlockRewardsReserve = balances::Module<Test>;
-    }
-
-    impl balances::Trait for Test {
-        type OnFreeBalanceZero = ();
-        type OnNewAccount = ();
-        type TransferPayment = ();
-        type DustRemoval = ();
-        type Event = ();
-        type ExistentialDeposit = ExistentialDeposit;
-        type TransferFee = TransferFee;
-        type Identity = identity::Module<Test>;
-    }
-
-    impl identity::Trait for Test {
-        type Event = ();
-        type Proposal = Call;
-        type AddSignerMultiSigTarget = Test;
-        type CddServiceProviders = Test;
-        type Balances = balances::Module<Test>;
-        type ChargeTxFeeTarget = Test;
-        type CddHandler = Test;
-    }
-
-    impl pallet_transaction_payment::ChargeTxFee for Test {
-        fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
-            Ok(ValidTransaction::default())
-        }
-    }
-
-    impl AddSignerMultiSig for Test {
-        fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-    }
-
-    impl AcceptTransfer for Test {
-        fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-        fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
-            unimplemented!()
-        }
-    }
-
-    parameter_types! {
-        pub const MinimumPeriod: u64 = 3;
-    }
-
-    impl pallet_timestamp::Trait for Test {
-        type Moment = u64;
-        type OnTimestampSet = ();
-        type MinimumPeriod = MinimumPeriod;
-    }
-
-    parameter_types! {
-        pub const MinimumProposalDeposit: u128 = 50;
-        pub const QuorumThreshold: u128 = 70;
-        pub const ProposalDuration: u32 = 10;
-    }
-
-    impl group::GroupTrait for Test {
-        fn get_members() -> Vec<IdentityId> {
-            unimplemented!()
-        }
-    }
-
-    impl Trait for Test {
-        type Currency = balances::Module<Self>;
-        type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
-        type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
-        type GovernanceCommittee = Committee;
-        type Event = ();
-    }
-
-    impl group::Trait<group::Instance1> for Test {
-        type Event = ();
-        type AddOrigin = frame_system::EnsureRoot<AccountId>;
-        type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
-        type SwapOrigin = frame_system::EnsureRoot<AccountId>;
-        type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-        type MembershipInitialized = ();
-        type MembershipChanged = committee::Module<Test, committee::Instance1>;
-    }
-
-    pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as system::Trait>::AccountId, I>;
-
-    impl<I> From<CommitteeOrigin<Test, I>> for Origin {
-        fn from(_co: CommitteeOrigin<Test, I>) -> Origin {
-            Origin::system(frame_system::RawOrigin::Root)
-        }
-    }
-
-    impl committee::Trait<committee::Instance1> for Test {
-        type Origin = Origin;
-        type Proposal = Call;
-        type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
-        type Event = ();
-    }
-
-    type Identity = identity::Module<Test>;
-    type System = system::Module<Test>;
-    type Balances = balances::Module<Test>;
-    type Group = group::Module<Test, group::Instance1>;
-    type Committee = committee::Module<Test, committee::Instance1>;
-    type Mips = Module<Test>;
-
-    fn new_test_ext() -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
-
-        committee::GenesisConfig::<Test, committee::Instance1> {
-            members: vec![],
-            vote_threshold: (1, 1),
-            ..Default::default()
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        GenesisConfig::<Test> {
-            min_proposal_deposit: 50,
-            quorum_threshold: 70,
-            proposal_duration: 10,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        sp_io::TestExternalities::new(storage)
-    }
-
-    pub fn make_account_with_balance(
-        id: AccountId,
-        balance: <Test as CommonTrait>::Balance,
-    ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
-        let signed_id = Origin::signed(id.clone());
-        Balances::make_free_balance_be(&id, balance);
-
-        Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
-        let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
-
-        Ok((signed_id, did))
     }
 }
