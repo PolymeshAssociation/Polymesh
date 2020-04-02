@@ -4,10 +4,11 @@ use jsonrpc_derive::rpc;
 pub use pallet_mips_rpc_runtime_api::{
     self as runtime_api, CappedVoteCount, MipsApi as MipsRuntimeApi, VoteCount,
 };
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
     generic::BlockId,
-    traits::{Block as BlockT, ProvideRuntimeApi, UniqueSaturatedInto},
+    traits::{Block as BlockT, UniqueSaturatedInto},
 };
 use sp_std::{prelude::*, vec::Vec};
 use std::sync::Arc;
@@ -57,7 +58,7 @@ impl<C, Block, AccountId, Balance> MipsApi<<Block as BlockT>::Hash, AccountId, B
 where
     Block: BlockT,
     C: Send + Sync + 'static,
-    C: ProvideRuntimeApi,
+    C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
     C::Api: MipsRuntimeApi<Block, AccountId, Balance>,
     AccountId: Codec,

@@ -13,7 +13,7 @@ use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use primitives::{traits::IdentityCurrency, PosRatio, Signatory};
 use sp_runtime::{
     traits::{Saturating, Zero},
-    Perbill,
+    PerThing, Perbill,
 };
 
 type BalanceOf<T> =
@@ -45,7 +45,7 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as ProtocolFee {
         /// The mapping of operation names to the base fees of those operations.
-        pub BaseFees get(base_fees) config(): map ProtocolOp => BalanceOf<T>;
+        pub BaseFees get(base_fees) config(): map hasher(blake2_256) ProtocolOp => BalanceOf<T>;
         /// The fee coefficient as a positive rational (numerator, denominator).
         pub Coefficient get(coefficient) config() build(|config: &GenesisConfig<T>| {
             if config.coefficient.1 == 0 {
