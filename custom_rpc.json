@@ -9,7 +9,7 @@
         },
         {
             "name": "did",
-            "type": "H256",
+            "type": "[u8; 32]",
             "isOptional": "false"
         },
         {
@@ -44,7 +44,7 @@
         },
         {
             "name": "did",
-            "type": "H256",
+            "type": "[u8; 32]",
             "isOptional": "false"
         }],
         "type": "DidRecords"
@@ -92,7 +92,7 @@
             "type": "AccountId",
             "isOptional": "false"
         }],
-        "type":"Vec<u32>"
+        "type": "Vec<u32>"
     }],
     "staking": [{
         "name": "getCurve",
