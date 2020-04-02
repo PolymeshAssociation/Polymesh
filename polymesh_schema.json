@@ -398,9 +398,5 @@
             "MipsPropose",
             "VotingAddBallot"
         ]
-    },
-    "AssetBalance": {
-        "identity": "IdentityId",
-        "balance": "Balance"
     }
 }
