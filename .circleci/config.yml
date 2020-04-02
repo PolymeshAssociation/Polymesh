@@ -47,8 +47,8 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v5-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
-            - v5-test-cache-{{ checksum "./rust.version" }}
+            - v6-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v6-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: Tests
           command: >-
@@ -59,10 +59,18 @@ jobs:
             --package pallet-im-online
             --package polymesh-primitives
             --package pallet-mips-rpc
+            --package pallet-transaction-payment ||
+            cargo test -j 1
+            --package polymesh-runtime
+            --package pallet-staking
+            --package polymesh-runtime-group
+            --package pallet-im-online
+            --package polymesh-primitives
+            --package pallet-mips-rpc
             --package pallet-transaction-payment
           no_output_timeout: 20m
       - save_cache:
-          key: v5-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: v6-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -78,7 +86,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v4-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
       - run:
           name: Build release
           command: cargo build --release || cargo build -j 1 --release
@@ -98,7 +106,7 @@ jobs:
           working_directory: ./scripts/cli
           no_output_timeout: 10m
       - save_cache:
-          key: v4-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./pallets/runtime/Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
