@@ -64,21 +64,21 @@ pub struct BenchmarkCmd {
 
     /// The execution strategy that should be used for benchmarks
     #[structopt(
-		long = "execution",
-		value_name = "STRATEGY",
-		possible_values = &ExecutionStrategy::variants(),
-		case_insensitive = true,
-	)]
+        long = "execution",
+        value_name = "STRATEGY",
+        possible_values = &ExecutionStrategy::variants(),
+        case_insensitive = true,
+    )]
     pub execution: Option<ExecutionStrategy>,
 
     /// Method for executing Wasm runtime code.
     #[structopt(
-		long = "wasm-execution",
-		value_name = "METHOD",
-		possible_values = &WasmExecutionMethod::enabled_variants(),
-		case_insensitive = true,
-		default_value = "Interpreted"
-	)]
+        long = "wasm-execution",
+        value_name = "METHOD",
+        possible_values = &WasmExecutionMethod::enabled_variants(),
+        case_insensitive = true,
+        default_value = "Interpreted"
+    )]
     pub wasm_method: WasmExecutionMethod,
 }
 
@@ -137,14 +137,14 @@ impl BenchmarkCmd {
             Ok(results) => {
                 // Print benchmark metadata
                 println!(
-					"Pallet: {:?}, Extrinsic: {:?}, Lowest values: {:?}, Highest values: {:?}, Steps: {:?}, Repeat: {:?}",
-					self.pallet,
-					self.extrinsic,
-					self.lowest_range_values,
-					self.highest_range_values,
-					self.steps,
-					self.repeat,
-				);
+                    "Pallet: {:?}, Extrinsic: {:?}, Lowest values: {:?}, Highest values: {:?}, Steps: {:?}, Repeat: {:?}",
+                    self.pallet,
+                    self.extrinsic,
+                    self.lowest_range_values,
+                    self.highest_range_values,
+                    self.steps,
+                    self.repeat,
+                );
 
                 // Print the table header
                 results[0]

@@ -1,10 +1,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::asset::*;
+use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
-use sp_std::prelude::*;
-use frame_benchmarking::{benchmarks, account};
 use polymesh_primitives::Ticker;
+use sp_std::prelude::*;
 
 use Module as Benchmark;
 
