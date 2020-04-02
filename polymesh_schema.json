@@ -242,6 +242,10 @@
         "description": "Option<MipDescription>",
         "cool_off_until": "u32"
     },
+    "DepositInfo": {
+        "owner": "AccountKey",
+        "amount": "Balance"
+    },
     "PolymeshVotes": {
         "index": "u32",
         "ayes": "Vec<(IdentityId, Balance)>",
