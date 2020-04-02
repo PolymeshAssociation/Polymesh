@@ -297,8 +297,6 @@ fn fast_tracking_a_proposal_works_we() {
         Mips::vote(bob_signer.clone(), hash, index, true, 50),
         Error::<TestStorage>::ProposalOnCoolOffPeriod
     );
-    fast_forward_to(101);
-    assert_ok!(Mips::vote(bob_signer.clone(), hash, index, true, 50));
 
     // only a committee member can fast track a proposal
     assert_err!(

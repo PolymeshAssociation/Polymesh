@@ -162,8 +162,7 @@ pub struct PolymeshReferendumInfo<Hash: Parameter> {
     pub proposal_hash: Hash,
 }
 
-/// TODO
-/// * It seems a perfect case for `Blake2_128Contact`/`Twox64Contact`.
+/// Information about deposit.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct DepositInfo<AccountId, Balance>
@@ -171,7 +170,9 @@ where
     AccountId: Default,
     Balance: Default,
 {
+    /// Owner of the deposit.
     pub owner: AccountId,
+    /// Amount. It can be updated during the cool off period.
     pub amount: Balance,
 }
 
@@ -296,7 +297,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Change the minimum proposal deposit amount required to start a proposal. Only Governance/
+        /// Change the minimum proposal deposit amount required to start a proposal. Only Governance
         /// committee is allowed to change this value.
         ///
         /// # Arguments
@@ -408,8 +409,12 @@ decl_module! {
             Ok(())
         }
 
-        /// TODO
-        ///  * Amend MIP details or Cancel.
+        /// It amends the `url` and the `description` of the proposal with index `index`.
+        ///
+        /// # Errors
+        /// * `BadOrigin`: Only the owner of the proposal can amend it.
+        /// * `ProposalIsInmutable`: A proposals is mutable only during its cool off period.
+        ///
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn amend_proposal(
                 origin,
@@ -442,9 +447,11 @@ decl_module! {
 
         /// It cancels the proposal of the index `index`.
         ///
-        /// Proposals can be cancelled only during its _cool-off period_.
+        /// Proposals can be cancelled only during its _cool-off period.
+        ///
         /// # Errors
-        /// * `ProposalIsNotCancelable` if the proposal's _cool-off period_ is over.
+        /// * `BadOrigin`: Only the owner of the proposal can amend it.
+        /// * `ProposalIsInmutable`: A Proposal is mutable only during its cool off period.
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn cancel_proposal(origin, index: MipsIndex) -> DispatchResult {
             // 0. Initial info.
@@ -458,13 +465,19 @@ decl_module! {
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
 
-            // 3. Remove proposal and its deps: .
+            // 3. Close that proposal.
             Self::close_proposal( index, meta.proposal_hash);
             Ok(())
         }
 
+        /// Id bonds an additional deposit to proposal with index `index`.
+        /// That amount is added to the current deposit.
+        ///
+        /// # Errors
+        /// * `BadOrigin`: Only the owner of the proposal can bond an additional deposit.
+        /// * `ProposalIsInmutable`: A Proposal is mutable only during its cool off period.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
-        pub fn bound_additional_deposit(origin,
+        pub fn bond_additional_deposit(origin,
             index: MipsIndex,
             additional_deposit: BalanceOf<T>
         ) -> DispatchResult {
@@ -489,8 +502,15 @@ decl_module! {
             Ok(())
         }
 
+        /// It unbonds any amount from the deposit of the proposal with index `index`.
+        ///
+        /// # Errors
+        /// * `BadOrigin`: Only the owner of the proposal can release part of the deposit.
+        /// * `ProposalIsInmutable`: A Proposal is mutable only during its cool off period.
+        /// * `InsufficientDeposit`: If the final deposit will be less that the minimum deposit for
+        /// a proposal.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
-        pub fn unbound_deposit(origin,
+        pub fn unbond_deposit(origin,
             index: MipsIndex,
             amount: BalanceOf<T>
         ) -> DispatchResult {
@@ -514,7 +534,7 @@ decl_module! {
             let diff_amount = depo_info.amount - new_deposit;
             depo_info.amount = new_deposit;
 
-            // 3.1. Unreserve and unpdate deposit info.
+            // 3.1. Unreserve and update deposit info.
             <T as Trait>::Currency::unreserve(&depo_info.owner, diff_amount);
             <Deposits<T>>::insert(&meta.proposal_hash, &proposer, depo_info);
             Ok(())
@@ -756,7 +776,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// It unreserve
+    /// It returns back each deposit to their owners for an specific `proposal_hash`.
     fn unreserve_deposits(proposal_hash: &T::Hash) {
         <Deposits<T>>::iter_prefix(proposal_hash).for_each(|depo_info| {
             let _ = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
@@ -777,6 +797,8 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// It returns the proposal metadata of proposal with index `index` or
+    /// a `MismatchedProposalIndex` error.
     fn proposal_meta_by_index(
         index: MipsIndex,
     ) -> Result<MipsMetadata<T::AccountId, T::BlockNumber, T::Hash>, DispatchError> {
