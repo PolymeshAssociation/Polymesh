@@ -20,7 +20,7 @@ impl CheckCdd for CddChecker {
                 return true;
             }
         }
-        if <multisig::KeyToMultiSig<Runtime>>::exists(&key) {
+        if <multisig::KeyToMultiSig<Runtime>>::contains_key(&key) {
             let ms = <multisig::KeyToMultiSig<Runtime>>::get(&key);
             if let Ok(ms_key) = AccountKey::try_from(ms.encode()) {
                 if let Some(did) = Identity::get_identity(&ms_key) {
