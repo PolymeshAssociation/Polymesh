@@ -698,6 +698,7 @@ mod tests {
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
         parameter_types, weights::DispatchInfo,
     };
+    use polymesh_protocol_fee as protocol_fee;
     use sp_core::H256;
     use sp_runtime::transaction_validity::{
         InvalidTransaction, TransactionValidity, ValidTransaction,
