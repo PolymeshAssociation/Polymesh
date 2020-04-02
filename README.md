@@ -63,13 +63,34 @@ npm install
 
 This uses pm2 to run a local three node network to demonstrate simple consensus.
 
+# Unit Tests
+
+Unit tests are packaged with the Rust code. To run these, you can execute:  
+
+```bash
+cargo test --package polymesh-runtime
+cargo test --package pallet-staking
+cargo test --package polymesh-runtime-group
+cargo test --package pallet-im-online
+cargo test --package polymesh-primitives
+cargo test --package pallet-mips-rpc
+cargo test --package pallet-transaction-payment
+cargo test --package polymesh-runtime
+cargo test --package pallet-staking
+cargo test --package polymesh-runtime-group
+cargo test --package pallet-im-online
+cargo test --package polymesh-primitives
+cargo test --package pallet-mips-rpc
+cargo test --package pallet-transaction-payment
+```
+
 # Initialise
 
-You can seed the network with some identities, claims, signing keys and assets run.
+You can seed the network with some identities, claims, signing keys and assets by running the functional test.  
 
 ```bash
 cd scripts/cli
-node ./index.js -n 2 -t 1 -d /tmp/pmesh-primary-node
+node run test
 ```
 
 See [README](https://github.com/PolymathNetwork/Polymesh/tree/master/scripts/cli) for details.
