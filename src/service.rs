@@ -11,8 +11,6 @@ use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_service::{error::Error as ServiceError, AbstractService, Configuration, ServiceBuilder};
 use sp_inherents::InherentDataProviders;
-
-use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
 // Our native executor instance.
@@ -236,7 +234,6 @@ pub fn new_full(
 pub fn new_light(
     config: Configuration<GenesisConfig>,
 ) -> Result<impl AbstractService, ServiceError> {
-    type RpcExtension = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
     let inherent_data_providers = InherentDataProviders::new();
 
     let service = ServiceBuilder::new_light::<Block, RuntimeApi, Executor>(config)?
