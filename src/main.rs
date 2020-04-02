@@ -7,11 +7,10 @@ mod chain_spec;
 #[macro_use]
 mod service;
 mod cli;
+mod command;
 
-pub use sc_cli::{error, IntoExit, VersionInfo};
-
-fn main() {
-    let version = VersionInfo {
+fn main() -> sc_cli::Result<()> {
+    let version = sc_cli::VersionInfo {
         name: "Polymesh Node",
         commit: env!("VERGEN_SHA_SHORT"),
         version: env!("CARGO_PKG_VERSION"),
@@ -19,10 +18,8 @@ fn main() {
         author: "Anonymous",
         description: "Polymesh Node",
         support_url: "https://polymath.network/",
+        copyright_start_year: 2017,
     };
 
-    if let Err(e) = cli::run(::std::env::args(), cli::Exit, version) {
-        eprintln!("Fatal error: {}\n\n{:?}", e, e);
-        std::process::exit(1)
-    }
+    command::run(version)
 }

@@ -72,7 +72,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
             | Call::MultiSig(multisig::Call::create_proposal_as_key(multisig, ..))
             | Call::MultiSig(multisig::Call::approve_as_key(multisig, ..)) => {
                 sp_runtime::print("multisig stuff");
-                if <multisig::MultiSigSigners<Runtime>>::exists(multisig, caller) {
+                if <multisig::MultiSigSigners<Runtime>>::contains_key(multisig, caller) {
                     if let Some(did) = Identity::get_identity(
                         &AccountKey::try_from(multisig.encode())
                             .map_err(|_| InvalidTransaction::Payment)?,
@@ -154,7 +154,7 @@ fn is_auth_valid(
                     if let Signatory::AccountKey(multisig) = auth.authorized_by {
                         let ms = AccountId::decode(&mut &multisig.as_slice()[..])
                             .map_err(|_| InvalidTransaction::Payment)?;
-                        if <multisig::MultiSigCreator<Runtime>>::exists(&ms) {
+                        if <multisig::MultiSigCreator<Runtime>>::contains_key(&ms) {
                             // make sure that the multisig is attached to an identity with valid CDD
                             if let Some(did) = Identity::get_identity(
                                 &AccountKey::try_from(ms.encode())

@@ -5,13 +5,14 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "1.0.0" }
-jsonrpc-core = "14.0.3"
-jsonrpc-core-client = "14.0.3"
-jsonrpc-derive = "14.0.3"
-sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-rpc = { package = "sp-rpc", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-serde = { version = "1.0.101", features = ["derive"] }
-sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-blockchain = { package = "sp-blockchain", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+codec = { package = "parity-scale-codec", version = "1.2.0" }
+jsonrpc-core = "14.0.5"
+jsonrpc-core-client = "14.0.5"
+jsonrpc-derive = "14.0.5"
+sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-rpc = { package = "sp-rpc", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+serde = { version = "1.0.104", features = ["derive"] }
+sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-blockchain = { package = "sp-blockchain", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-transaction-payment-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
+sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }

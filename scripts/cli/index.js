@@ -105,17 +105,17 @@ async function main() {
   current_storage_size = initial_storage_size;
 
   alice = keyring.addFromUri("//Alice", { name: "Alice" });
-  let aliceRawNonce = await api.query.system.accountNonce(alice.address);
+  let aliceRawNonce = (await api.query.system.account(alice.address)).nonce;
   let alice_nonce = new BN(aliceRawNonce.toString());
   nonces.set(alice.address, alice_nonce);
 
   bob = keyring.addFromUri("//Bob", { name: "Bob" });
-  let bobRawNonce = await api.query.system.accountNonce(bob.address);
+  let bobRawNonce = (await api.query.system.account(bob.address)).nonce;
   let bob_nonce = new BN(bobRawNonce.toString());
   nonces.set(bob.address, bob_nonce);
 
   dave = keyring.addFromUri("//Dave", { name: "Dave" });
-  let daveRawNonce = await api.query.system.accountNonce(dave.address);
+  let daveRawNonce = (await api.query.system.account(dave.address)).nonce;
   let dave_nonce = new BN(daveRawNonce.toString());
   nonces.set(dave.address, dave_nonce);
 
@@ -126,7 +126,7 @@ async function main() {
     master_keys.push(
       keyring.addFromUri("//IssuerMK" + prepend + i.toString(), { name: i.toString() })
     );
-    let accountRawNonce = await api.query.system.accountNonce(master_keys[i].address);
+    let accountRawNonce = (await api.query.system.account(master_keys[i].address)).nonce;
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(master_keys[i].address, account_nonce);
   }
@@ -137,7 +137,7 @@ async function main() {
     signing_keys.push(
       keyring.addFromUri("//IssuerSK" + prepend + i.toString(), { name: i.toString() })
     );
-    let accountRawNonce = await api.query.system.accountNonce(signing_keys[i].address);
+    let accountRawNonce = (await api.query.system.account(signing_keys[i].address)).nonce;
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(signing_keys[i].address, account_nonce);
   }
@@ -153,7 +153,7 @@ async function main() {
     claim_keys.push(
       keyring.addFromUri("//ClaimIssuerMK" + prepend + i.toString(), { name: i.toString() })
     );
-    let claimIssuerRawNonce = await api.query.system.accountNonce(claim_keys[i].address);
+    let claimIssuerRawNonce = (await api.query.system.account(claim_keys[i].address)).nonce;
     let account_nonce = new BN(claimIssuerRawNonce.toString());
     nonces.set(claim_keys[i].address, account_nonce);
   }
@@ -434,7 +434,7 @@ async function createIdentities(api, accounts, submitBar, completeBar, fast) {
   }
   let did_balance = 10 * 10**12;
   let alice = keyring.addFromUri("//Alice", { name: "Alice" });
-  let aliceRawNonce = await api.query.system.accountNonce(alice.address);
+  let aliceRawNonce = (await api.query.system.account(alice.address)).nonce;
   let alice_nonce = new BN(aliceRawNonce.toString());
   nonces.set(alice.address, alice_nonce);
   dids.forEach(async function(did) {
