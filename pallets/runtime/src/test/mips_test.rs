@@ -1,13 +1,14 @@
 use crate::{
     asset,
     test::{
-        storage::{make_account_with_balance, Call, TestStorage},
+        storage::{make_account, make_account_with_balance, Call, TestStorage},
         ExtBuilder,
     },
 };
 use pallet_committee as committee;
 use pallet_mips::{
-    self as mips, Error, MipDescription, MipsPriority, PolymeshReferendumInfo, PolymeshVotes, Url,
+    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority,
+    PolymeshReferendumInfo, PolymeshVotes, Url,
 };
 use polymesh_primitives::Ticker;
 use polymesh_runtime_balances as balances;
@@ -401,4 +402,156 @@ fn updating_mips_variables_works_we() {
     assert_eq!(Mips::proposal_duration(), 10);
     assert_ok!(Mips::set_proposal_duration(root.clone(), 100));
     assert_eq!(Mips::proposal_duration(), 100);
+}
+
+#[test]
+fn amend_mips_details_during_cool_off_period() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(amend_mips_details_during_cool_off_period_we);
+}
+
+fn amend_mips_details_during_cool_off_period_we() {
+    let proposal = make_proposal(42);
+    let hash = BlakeTwo256::hash_of(&proposal);
+    let proposal_url: Url = b"www.abc.com".into();
+    let proposal_desc: MipDescription = b"Test description".into();
+
+    let (alice, _) = make_account(AccountKeyring::Alice.public()).unwrap();
+    let (bob, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+
+    // 1. Create Mips proposal
+    assert_ok!(Mips::propose(
+        alice.clone(),
+        Box::new(proposal),
+        60,
+        Some(proposal_url),
+        Some(proposal_desc)
+    ));
+    fast_forward_to(50);
+
+    // 2. Amend proposal during cool-off.
+    let new_url: Url = b"www.xyz.com".into();
+    let new_desc: MipDescription = b"New description".into();
+    assert_ok!(Mips::amend_proposal(
+        alice.clone(),
+        0,
+        Some(new_url.clone()),
+        Some(new_desc.clone())
+    ));
+
+    assert_err!(
+        Mips::amend_proposal(bob.clone(), 0, None, None),
+        Error::<TestStorage>::BadOrigin
+    );
+
+    assert_eq!(
+        Mips::proposal_meta(),
+        vec![MipsMetadata {
+            proposer: AccountKeyring::Alice.public(),
+            index: 0,
+            cool_off_until: 101,
+            end: 111,
+            proposal_hash: hash,
+            url: Some(new_url),
+            description: Some(new_desc)
+        }]
+    );
+
+    // 3. Bound/Unbound additional POLYX.
+    let alice_acc = AccountKeyring::Alice.public();
+    assert_eq!(
+        Mips::deposit_of(&hash, &alice_acc),
+        DepositInfo {
+            owner: alice_acc.clone(),
+            amount: 60
+        }
+    );
+    assert_ok!(Mips::bound_additional_deposit(alice.clone(), 0, 100));
+    assert_eq!(
+        Mips::deposit_of(&hash, &alice_acc),
+        DepositInfo {
+            owner: alice_acc.clone(),
+            amount: 160
+        }
+    );
+    assert_ok!(Mips::unbound_deposit(alice.clone(), 0, 50));
+    assert_eq!(
+        Mips::deposit_of(&hash, &alice_acc),
+        DepositInfo {
+            owner: alice_acc.clone(),
+            amount: 110
+        }
+    );
+    assert_err!(
+        Mips::unbound_deposit(alice.clone(), 0, 90),
+        Error::<TestStorage>::InsufficientDeposit
+    );
+
+    // 4. Move out the cool-off period and ensure Mips is inmutable.
+    fast_forward_to(103);
+    assert_err!(
+        Mips::amend_proposal(alice.clone(), 0, None, None),
+        Error::<TestStorage>::ProposalIsInmutable
+    );
+}
+
+#[test]
+fn cancel_mips_during_cool_off_period() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(cancel_mips_during_cool_off_period_we);
+}
+
+fn cancel_mips_during_cool_off_period_we() {
+    let alice_proposal = make_proposal(42);
+    let bob_proposal = make_proposal(1);
+    let proposal_url: Url = b"www.abc.com".into();
+    let proposal_desc: MipDescription = b"Test description".into();
+
+    let (alice, _) = make_account(AccountKeyring::Alice.public()).unwrap();
+    let (bob, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+
+    // 1. Create Mips proposals
+    assert_ok!(Mips::propose(
+        alice.clone(),
+        Box::new(alice_proposal),
+        60,
+        Some(proposal_url),
+        Some(proposal_desc)
+    ));
+
+    assert_ok!(Mips::propose(
+        bob.clone(),
+        Box::new(bob_proposal.clone()),
+        60,
+        None,
+        None
+    ));
+
+    // 2. Cancel Alice's proposal during cool-off period.
+    fast_forward_to(50);
+    assert_ok!(Mips::cancel_proposal(alice.clone(), 0));
+
+    // 3. Try to cancel Bob's proposal after cool-off period.
+    fast_forward_to(101);
+    assert_err!(
+        Mips::cancel_proposal(bob.clone(), 1),
+        Error::<TestStorage>::ProposalIsInmutable
+    );
+
+    // 4. Double check current proposals
+    assert_eq!(
+        Mips::proposal_meta(),
+        vec![MipsMetadata {
+            proposer: AccountKeyring::Bob.public(),
+            index: 1,
+            cool_off_until: 101,
+            end: 111,
+            proposal_hash: BlakeTwo256::hash_of(&bob_proposal),
+            url: None,
+            description: None
+        }]
+    );
 }

@@ -56,7 +56,7 @@ use polymesh_runtime_common::{
 };
 use polymesh_runtime_identity as identity;
 use sp_runtime::{
-    traits::{Dispatchable, EnsureOrigin, Hash, Zero},
+    traits::{CheckedSub, Dispatchable, EnsureOrigin, Hash, Zero},
     DispatchError,
 };
 use sp_std::{convert::TryFrom, prelude::*, vec};
@@ -104,23 +104,23 @@ impl<T: AsRef<[u8]>> From<T> for MipDescription {
 }
 
 /// Represents a proposal metadata
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct MipsMetadata<AcccountId: Parameter, BlockNumber: Parameter, Hash: Parameter> {
     /// The creator
-    proposer: AcccountId,
+    pub proposer: AcccountId,
     /// The proposal's unique index.
-    index: MipsIndex,
+    pub index: MipsIndex,
     /// When voting will end.
-    end: BlockNumber,
+    pub end: BlockNumber,
     /// The proposal being voted on.
-    proposal_hash: Hash,
+    pub proposal_hash: Hash,
     /// The proposal url for proposal discussion.
-    url: Option<Url>,
+    pub url: Option<Url>,
     /// The proposal description.
-    description: Option<MipDescription>,
+    pub description: Option<MipDescription>,
     /// This proposal allows any changes
     /// During Cool-off period, proposal owner can amend any MIP detail or cancel the entire
-    cool_off_until: BlockNumber,
+    pub cool_off_until: BlockNumber,
 }
 
 /// For keeping track of proposal being voted on.
@@ -160,6 +160,19 @@ pub struct PolymeshReferendumInfo<Hash: Parameter> {
     pub priority: MipsPriority,
     /// The proposal being voted on.
     pub proposal_hash: Hash,
+}
+
+/// TODO
+/// * It seems a perfect case for `Blake2_128Contact`/`Twox64Contact`.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct DepositInfo<AccountId, Balance>
+where
+    AccountId: Default,
+    Balance: Default,
+{
+    pub owner: AccountId,
+    pub amount: Balance,
 }
 
 type Identity<T> = identity::Module<T>;
@@ -206,8 +219,9 @@ decl_storage! {
         pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::AccountId, T::BlockNumber, T::Hash>>;
 
         /// Those who have locked a deposit.
-        /// proposal hash -> (deposit, proposer)
-        pub Deposits get(fn deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
+        /// proposal (hash, proposer) -> deposit
+        // pub Deposits get(fn deposit_of): map T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
+        pub Deposits get(fn deposit_of): double_map hasher(blake2_256) T::Hash,  blake2_256(T::AccountId) => DepositInfo<T::AccountId, BalanceOf<T>>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
@@ -371,7 +385,11 @@ decl_module! {
             };
             <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
 
-            <Deposits<T>>::insert(proposal_hash, vec![(proposer.clone(), deposit)]);
+            let deposit_info = DepositInfo {
+                owner: proposer.clone(),
+                amount: deposit
+            };
+            <Deposits<T>>::insert(&proposal_hash, &proposer, deposit_info);
 
             let mip = MIP {
                 index,
@@ -394,7 +412,7 @@ decl_module! {
         /// TODO
         ///  * Amend MIP details or Cancel.
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
-        pub fn update_proposal(
+        pub fn amend_proposal(
                 origin,
                 index: MipsIndex,
                 url: Option<Url>,
@@ -432,10 +450,7 @@ decl_module! {
         pub fn cancel_proposal(origin, index: MipsIndex) -> DispatchResult {
             // 0. Initial info.
             let proposer = ensure_signed(origin)?;
-            let meta = // Self::proposal_meta_by_index(index)?;
-                Self::proposal_meta().into_iter()
-                .find( |meta| meta.index == index)
-                .ok_or( Error::<T>::MismatchedProposalIndex)?;
+            let meta = Self::proposal_meta_by_index(index)?;
 
             // 1. Only owner can cancel it.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
@@ -445,14 +460,64 @@ decl_module! {
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
 
             // 3. Remove proposal and its deps: .
-            // 3.1. Remove voting, proposal & its index, metadata & proposal count
-            <Voting<T>>::remove(&meta.proposal_hash);
-            <ProposalByIndex<T>>::remove(index);
-            <Proposals<T>>::remove(&meta.proposal_hash);
-            <ProposalCount>::mutate(|count| *count -= 1);
+            Self::close_proposal( index, meta.proposal_hash);
+            Ok(())
+        }
 
-            // 3.3. Unreserve deposits
-            Self::unreserve_deposits(&meta.proposal_hash);
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        pub fn bound_additional_deposit(origin,
+            index: MipsIndex,
+            additional_deposit: BalanceOf<T>
+        ) -> DispatchResult {
+            let proposer = ensure_signed(origin)?;
+            let meta = Self::proposal_meta_by_index(index)?;
+
+            // 1. Only owner can cancel it.
+            ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
+
+            // 2. Proposal can be cancelled *ONLY* during its cool-off period.
+            let curr_block_number = <system::Module<T>>::block_number();
+            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
+
+            // 3. Reserve extra deposit & update deposit info for this proposal
+            <T as Trait>::Currency::reserve(&proposer, additional_deposit)
+                .map_err(|_| Error::<T>::InsufficientDeposit)?;
+
+            <Deposits<T>>::mutate(
+                &meta.proposal_hash,
+                &proposer,
+                |depo_info| depo_info.amount += additional_deposit);
+            Ok(())
+        }
+
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        pub fn unbound_deposit(origin,
+            index: MipsIndex,
+            amount: BalanceOf<T>
+        ) -> DispatchResult {
+            let proposer = ensure_signed(origin)?;
+            let meta = Self::proposal_meta_by_index(index)?;
+
+            // 1. Only owner can cancel it.
+            ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
+
+            // 2. Proposal can be cancelled *ONLY* during its cool-off period.
+            let curr_block_number = <system::Module<T>>::block_number();
+            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
+
+            // 3. Double-check that `amount` is valid.
+            let mut depo_info = <Deposits<T>>::get(&meta.proposal_hash, &proposer);
+            let new_deposit = depo_info.amount.checked_sub(&amount)
+                    .ok_or_else(|| Error::<T>::InsufficientDeposit)?;
+            ensure!(
+                new_deposit >= Self::min_proposal_deposit(),
+                Error::<T>::InsufficientDeposit);
+            let diff_amount = depo_info.amount - new_deposit;
+            depo_info.amount = new_deposit;
+
+            // 3.1. Unreserve and unpdate deposit info.
+            <T as Trait>::Currency::unreserve(&depo_info.owner, diff_amount);
+            <Deposits<T>>::insert(&meta.proposal_hash, &proposer, depo_info);
             Ok(())
         }
 
@@ -467,10 +532,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn vote(origin, proposal_hash: T::Hash, index: MipsIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
-            let meta = // Self::proposal_meta_by_index(index)?;
-                Self::proposal_meta().into_iter()
-                .find( |meta| meta.index == index)
-                .ok_or( Error::<T>::MismatchedProposalIndex)?;
+            let meta = Self::proposal_meta_by_index(index)?;
 
             // No one should be able to vote during the proposal cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
@@ -492,7 +554,11 @@ decl_module! {
                 // Reserve the deposit
                 <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
-                <Deposits<T>>::mutate(proposal_hash, |deposits| deposits.push((proposer.clone(), deposit)));
+                let depo_info = DepositInfo {
+                    owner: proposer.clone(),
+                    amount: deposit,
+                };
+                <Deposits<T>>::insert(&proposal_hash, &proposer, depo_info);
 
                 <Voting<T>>::remove(&proposal_hash);
                 <Voting<T>>::insert(&proposal_hash, voting);
@@ -693,13 +759,9 @@ impl<T: Trait> Module<T> {
 
     /// It unreserve
     fn unreserve_deposits(proposal_hash: &T::Hash) {
-        if <Deposits<T>>::exists(proposal_hash) {
-            <Deposits<T>>::take(proposal_hash)
-                .into_iter()
-                .for_each(|(depositor, deposit)| {
-                    let _ = <T as Trait>::Currency::unreserve(&depositor, deposit);
-                });
-        }
+        <Deposits<T>>::iter_prefix(proposal_hash).for_each(|depo_info| {
+            let _ = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
+        });
     }
 
     fn prepare_to_dispatch(hash: T::Hash) {
