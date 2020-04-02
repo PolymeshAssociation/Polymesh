@@ -30,13 +30,13 @@ Build Wasm and native code:
 ```bash
 cargo build --release
 ```
-# Debug 
+# Debug
 
 ## Environment
 
 Install GDB for your distribution.
 
-## Build 
+## Build
 
 Binary should be built in *debug mode*, using `cargo build` without `--release` parameter:
 ```
@@ -94,7 +94,7 @@ You can start a development chain with:
 ```
 
 
-Detailed logs may be shown by running the node with the following environment variables set:  
+Detailed logs may be shown by running the node with the following environment variables set:
 `RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node`.
 
 To access the Polymesh Chain using the [Polkadot JS Apps Interface](https://polkadot.js.org/apps/#/explorer) do the following:
@@ -147,6 +147,14 @@ node run test
 
 See [README](https://github.com/PolymathNetwork/Polymesh/tree/master/scripts/cli) for details.
 
+# Benchmark
+
+Polymesh runtime benchmarks can be run with
+
+```bash
+cargo run --release --features runtime-benchmarks
+```
+
 # License
 
 [LICENSE](https://github.com/PolymathNetwork/Polymesh/blob/master/LICENSE)
@@ -155,6 +163,6 @@ See [README](https://github.com/PolymathNetwork/Polymesh/tree/master/scripts/cli
 
 Polymesh is built on [Substrate](https://www.parity.io/what-is-substrate/).
 
-# Links    
+# Links
 
 - [Polymath Website](https://polymath.network)

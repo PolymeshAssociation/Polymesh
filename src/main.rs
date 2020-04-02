@@ -1,8 +1,9 @@
-//! Polymesh CLI library.
+//! Polymesh CLI binary.
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
+mod benchmarking_cli;
 mod chain_spec;
 #[macro_use]
 mod service;
@@ -21,5 +22,5 @@ fn main() -> sc_cli::Result<()> {
         copyright_start_year: 2017,
     };
 
-    command::run(version)
+    command::run(std::env::args(), version)
 }
