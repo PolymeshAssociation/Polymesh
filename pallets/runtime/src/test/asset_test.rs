@@ -221,6 +221,12 @@ fn valid_transfers_pass() {
             alice_did,
             500
         ));
+
+        let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix(ticker);
+        let balance_alice = cap_table.next().unwrap();
+        let balance_owner = cap_table.next().unwrap();
+        assert_eq!(balance_owner, 1_000_000 - 500);
+        assert_eq!(balance_alice, 500);
     })
 }
 
@@ -261,7 +267,7 @@ fn valid_custodian_allowance() {
         ));
 
         assert_eq!(
-            Asset::balance_of((ticker, token.owner_did)),
+            Asset::balance(&ticker, &token.owner_did),
             token.total_supply
         );
 
@@ -295,7 +301,7 @@ fn valid_custodian_allowance() {
         // Check the expected default behaviour of the map.
         let no_such_round: FundingRoundName = b"No such round".into();
         assert_eq!(Asset::issued_in_funding_round((ticker, no_such_round)), 0);
-        assert_eq!(Asset::balance_of((ticker, investor1_did)), num_tokens1);
+        assert_eq!(Asset::balance(&ticker, &investor1_did), num_tokens1);
 
         // Failed to add custodian because of insufficient balance
         assert_noop!(
@@ -349,10 +355,7 @@ fn valid_custodian_allowance() {
             140_00_00 as u128
         ));
 
-        assert_eq!(
-            Asset::balance_of((ticker, investor2_did)),
-            140_00_00 as u128
-        );
+        assert_eq!(Asset::balance(&ticker, &investor2_did), 140_00_00 as u128);
 
         // Try to Transfer the tokens beyond the limit
         assert_noop!(
@@ -440,7 +443,7 @@ fn valid_custodian_allowance_of() {
         ));
 
         assert_eq!(
-            Asset::balance_of((ticker, token.owner_did)),
+            Asset::balance(&ticker, &token.owner_did),
             token.total_supply
         );
 
@@ -461,10 +464,7 @@ fn valid_custodian_allowance_of() {
             vec![0x0]
         ));
 
-        assert_eq!(
-            Asset::balance_of((ticker, investor1_did)),
-            200_00_00 as u128
-        );
+        assert_eq!(Asset::balance(&ticker, &investor1_did), 200_00_00 as u128);
 
         let msg = SignData {
             custodian_did,
@@ -539,10 +539,7 @@ fn valid_custodian_allowance_of() {
             140_00_00 as u128
         ));
 
-        assert_eq!(
-            Asset::balance_of((ticker, investor2_did)),
-            140_00_00 as u128
-        );
+        assert_eq!(Asset::balance(&ticker, &investor2_did), 140_00_00 as u128);
 
         // Try to Transfer the tokens beyond the limit
         assert_noop!(
@@ -1926,7 +1923,7 @@ fn freeze_unfreeze_asset() {
  *
  *                        // Check that the issuer's balance corresponds to total supply
  *                        assert_eq!(
- *                            Asset::balance_of((token_struct.name, token_struct.owner)),
+ *                            Asset::balance((token_struct.name, token_struct.owner)),
  *                            token_struct.total_supply
  *                        );
  *
