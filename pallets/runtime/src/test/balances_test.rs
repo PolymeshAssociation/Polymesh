@@ -24,6 +24,7 @@ use test_client::AccountKeyring;
 pub type Balances = balances::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Error = balances::Error<TestStorage>;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
@@ -104,7 +105,6 @@ fn mint_subsidy_works() {
         .build()
         .execute_with(|| {
             let brr = Balances::block_rewards_reserve();
-            let _ = make_account_with_balance(brr, 0);
             assert_eq!(Balances::free_balance(&brr), 0);
             let mut ti = Balances::total_issuance();
             let alice = AccountKeyring::Alice.public();
@@ -118,13 +118,8 @@ fn mint_subsidy_works() {
             balance_alice = balance_alice + 10;
 
             // Funding BRR
-            let eve = AccountKeyring::Eve.public();
-            assert_ok!(<Balances as Currency<_>>::transfer(
-                &eve,
-                &brr,
-                500,
-                ExistenceRequirement::AllowDeath
-            ));
+            let eve_signed = Origin::signed(AccountKeyring::Eve.public());
+            assert_ok!(Balances::top_up_brr_balance(eve_signed, 500,));
             assert_eq!(Balances::free_balance(&brr), 500);
             assert_eq!(Balances::total_issuance(), ti);
 
@@ -166,7 +161,6 @@ fn issue_must_work() {
             assert_eq!(Balances::total_issuance(), init_total_issuance);
 
             let brr = Balances::block_rewards_reserve();
-            let _ = make_account_with_balance(brr, 0);
             assert_eq!(Balances::free_balance(&brr), 0);
             let mut ti = Balances::total_issuance();
             let _alice = AccountKeyring::Alice.public();
@@ -180,12 +174,17 @@ fn issue_must_work() {
 
             // Funding BRR
             let eve = AccountKeyring::Eve.public();
-            assert_ok!(<Balances as Currency<_>>::transfer(
-                &eve,
-                &brr,
-                500,
-                ExistenceRequirement::AllowDeath
-            ));
+            assert_err!(
+                <Balances as Currency<_>>::transfer(
+                    &eve,
+                    &brr,
+                    500,
+                    ExistenceRequirement::AllowDeath
+                ),
+                Error::ReceiverCddMissing
+            );
+            let eve_signed = Origin::signed(AccountKeyring::Eve.public());
+            assert_ok!(Balances::top_up_brr_balance(eve_signed, 500,));
             assert_eq!(Balances::free_balance(&brr), 500);
             assert_eq!(Balances::total_issuance(), ti);
 

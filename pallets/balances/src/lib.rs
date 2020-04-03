@@ -309,7 +309,7 @@ decl_module! {
         ) {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            Self::transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
+            Self::safe_transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
         }
 
         /// Transfer the native currency with the help of identifier string
@@ -325,9 +325,10 @@ decl_module! {
         ) {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            Self::transfer_core(&transactor, &dest, value, memo, ExistenceRequirement::AllowDeath)?;
+            Self::safe_transfer_core(&transactor, &dest, value, memo, ExistenceRequirement::AllowDeath)?;
         }
 
+        // Polymesh specific change
         /// Move some poly from balance of self to balance of an identity.
         /// no-op when,
         /// - value is zero
@@ -356,6 +357,7 @@ decl_module! {
             };
         }
 
+        // Polymesh specific change
         /// Claim back poly from an identity. Can only be called by master key of the identity.
         /// no-op when,
         /// - value is zero
@@ -379,6 +381,7 @@ decl_module! {
             return Ok(())
         }
 
+        // Polymesh specific change
         /// Change setting that governs if user pays fee via their own balance or identity's balance.
         ///
         /// # </weight>
@@ -387,6 +390,18 @@ decl_module! {
             let transactor = ensure_signed(origin)?;
             let encoded_transactor = AccountKey::try_from(transactor.encode())?;
             <ChargeDid>::insert(encoded_transactor, charge_did);
+        }
+
+        // Polymesh specific change
+        /// Move some poly from balance of self to balance of BRR.
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        pub fn top_up_brr_balance(
+            origin,
+            #[compact] value: T::Balance
+        ) {
+            let transactor = ensure_signed(origin)?;
+            let dest = Self::block_rewards_reserve();
+            Self::transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
         }
 
         /// Set the balances of a given account.
@@ -570,6 +585,26 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    // Polymesh specific change
+    /// Checks CDD and then only performs the transfer
+    fn safe_transfer_core(
+        transactor: &T::AccountId,
+        dest: &T::AccountId,
+        value: T::Balance,
+        memo: Option<Memo>,
+        existence_requirement: ExistenceRequirement,
+    ) -> DispatchResult {
+        if !T::CddChecker::check_key_cdd(&AccountKey::try_from((*dest).encode())?) {
+            return Err(Error::<T>::ReceiverCddMissing.into());
+        }
+        Self::transfer_core(transactor, dest, value, memo, existence_requirement)
+    }
+
+    /// Common funtionality for transfers.
+    /// It does not emit any event.
+    ///
+    /// # Return
+    /// On sucess, It will return the applied feed.
     // Transfer some free balance from `transactor` to `dest`.
     // Is a no-op if value to be transferred is zero or the `transactor` is the same as `dest`.
     fn transfer_core(
@@ -579,9 +614,6 @@ impl<T: Trait> Module<T> {
         memo: Option<Memo>,
         _existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        if !T::CddChecker::check_key_cdd(&AccountKey::try_from((*dest).encode())?) {
-            return Err(Error::<T>::ReceiverCddMissing.into());
-        }
         if value.is_zero() || transactor == dest {
             return Ok(());
         }
@@ -788,7 +820,7 @@ where
         value: Self::Balance,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        Self::transfer_core(transactor, dest, value, None, existence_requirement)?;
+        Self::safe_transfer_core(transactor, dest, value, None, existence_requirement)?;
         Ok(())
     }
 
