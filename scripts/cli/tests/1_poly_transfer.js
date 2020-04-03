@@ -22,11 +22,11 @@ async function main() {
 
   await reqImports["createIdentities"](api, testEntities, testEntities[0]);
 
+  await reqImports["createIdentities"](api, keys, testEntities[0]);
+
   await distributePoly( api, keys, reqImports["transfer_amount"], testEntities[0] );
 
   await reqImports["blockTillPoolEmpty"](api);
-
-  await reqImports["createIdentities"](api, keys, testEntities[0]);
 
   await new Promise(resolve => setTimeout(resolve, 3000));
 
