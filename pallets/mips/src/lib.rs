@@ -781,6 +781,7 @@ impl<T: Trait> Module<T> {
         <Deposits<T>>::iter_prefix(proposal_hash).for_each(|depo_info| {
             let _ = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
         });
+        <Deposits<T>>::remove_prefix(proposal_hash);
     }
 
     fn prepare_to_dispatch(hash: T::Hash) {
