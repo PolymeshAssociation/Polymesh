@@ -14,10 +14,6 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let keys = await reqImports.generateKeys(api,5, "master");
-  
-  await createIdentities(api, testEntities, testEntities[0]);
-
-  await reqImports.blockTillPoolEmpty(api);
 
   await createIdentities(api, keys, testEntities[0]);
 
@@ -25,7 +21,7 @@ async function main() {
 
   await reqImports.blockTillPoolEmpty(api);
 
-  await new Promise(resolve => setTimeout(resolve, 3000));
+  await new Promise(resolve => setTimeout(resolve, 7000));
   
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -56,7 +52,6 @@ async function createIdentities(api, accounts, alice) {
                   else if ( section === "system" && method === "ExtrinsicFailed" ) {
                     console.log(` ${phase}: ${section}.${method}:: ${data}`);
                   }
-                  reqImports.fail_count--;
                 });
                 unsub();
               }

@@ -17,8 +17,6 @@ async function main() {
 
   let signing_keys = await reqImports.generateKeys(api, 5, "signing");
 
-  await reqImports.createIdentities(api, testEntities, testEntities[0]);
-
   await reqImports.distributePoly( api, master_keys.concat(signing_keys), reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.blockTillPoolEmpty(api);
@@ -31,7 +29,7 @@ async function main() {
 
   await reqImports.blockTillPoolEmpty(api);
 
-  await new Promise(resolve => setTimeout(resolve, 3000));
+  await new Promise(resolve => setTimeout(resolve, 7000));
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");

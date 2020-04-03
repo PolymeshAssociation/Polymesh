@@ -15,15 +15,13 @@ async function main() {
 
   let keys = await reqImports.generateKeys(api,5, "master");
   
-  await reqImports.createIdentities(api, testEntities, testEntities[0]);
-  
   await distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.blockTillPoolEmpty(api);
 
   await reqImports.createIdentities(api, keys, testEntities[0]);
 
-  await new Promise(resolve => setTimeout(resolve, 3000));
+  await new Promise(resolve => setTimeout(resolve, 7000));
  
   if (reqImports.fail_count > 0) {
     console.log("Failed");

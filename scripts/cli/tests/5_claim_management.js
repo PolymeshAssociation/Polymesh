@@ -19,8 +19,6 @@ async function main() {
 
   let claim_keys = await reqImports.generateKeys(api, 5, "claim");
 
-  await reqImports.createIdentities(api, testEntities, testEntities[0]);
-
   let claim_issuer_dids = await reqImports.createIdentities(api, claim_keys, testEntities[0]);
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
@@ -41,7 +39,7 @@ async function main() {
 
   await reqImports.blockTillPoolEmpty(api);
 
-  await new Promise(resolve => setTimeout(resolve, 3000));
+  await new Promise(resolve => setTimeout(resolve, 7000));
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
