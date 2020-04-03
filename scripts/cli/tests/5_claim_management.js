@@ -68,7 +68,7 @@ async function addClaimsToDids(api, accounts, dids, claim_dids) {
           { nonce: reqImports["nonces"].get(accounts[i%claim_dids.length].address) },
           ({ events = [], status }) => {
           if (status.isFinalized) {
-            reqImports["fail_count"] = reqImports["callback"](status, events, "identity", "NewClaims", reqImports["fail_count"]);
+            reqImports["fail_count"] = reqImports["callback"](status, events, "identity", "NewClaim", reqImports["fail_count"]);
             unsub();
           }
         });
