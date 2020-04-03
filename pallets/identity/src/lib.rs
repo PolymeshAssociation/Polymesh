@@ -72,7 +72,7 @@ use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{ChangeMembers, ExistenceRequirement, InitializeMembers, WithdrawReason},
+    traits::{ChangeMembers, InitializeMembers},
     weights::{GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -198,6 +198,7 @@ decl_storage! {
 
                 <Claims>::insert(&pk, &sk, id_claim);
             }
+            // TODO: Generate CDD for BRR
         });
     }
 }
@@ -551,6 +552,15 @@ decl_module! {
             let did = Context::current_identity_or::<Self>(&sender_key)?;
 
             Self::deposit_event(RawEvent::DidQuery(sender_key, did));
+            Ok(())
+        }
+
+        pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
+            let key = AccountKey::try_from(of.encode())?;
+            if let Some(did) = Self::get_identity(&key) {
+                let cdd = Self::has_valid_cdd(did);
+                Self::deposit_event(RawEvent::CddQuery(key, did, cdd));
+            }
             Ok(())
         }
 
