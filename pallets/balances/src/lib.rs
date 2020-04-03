@@ -241,18 +241,18 @@ decl_storage! {
         /// is ever zero, then the entry *MUST* be removed.
         ///
         /// NOTE: This is only used in the case that this module is used to store balances.
-        pub Account: map hasher(blake2_256) T::AccountId => AccountData<T::Balance>;
+        pub Account: map hasher(blake2_128_concat) T::AccountId => AccountData<T::Balance>;
 
         /// Any liquidity locks on some account balances.
         /// NOTE: Should only be accessed when setting, changing and freeing a lock.
-        pub Locks get(fn locks): map hasher(blake2_256) T::AccountId => Vec<BalanceLock<T::Balance>>;
+        pub Locks get(fn locks): map hasher(blake2_128_concat) T::AccountId => Vec<BalanceLock<T::Balance>>;
 
         /// Balance held by the identity. It can be spent by its signing keys.
-        pub IdentityBalance get(identity_balance): map hasher(blake2_256) IdentityId => T::Balance;
+        pub IdentityBalance get(identity_balance): map hasher(blake2_128_concat) IdentityId => T::Balance;
 
         // Polymesh-Note : Change to facilitate the DID charging
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
-        pub ChargeDid get(charge_did): map hasher(blake2_256) AccountKey => bool;
+        pub ChargeDid get(charge_did): map hasher(twox_64_concat) AccountKey => bool;
 
         // Polymesh-Note : Change to facilitate the BRR functionality
         /// AccountId of the block rewards reserve

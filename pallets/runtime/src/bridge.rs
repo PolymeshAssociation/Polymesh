@@ -137,11 +137,11 @@ decl_storage! {
             ).expect("cannot create the bridge multisig")
         }): T::AccountId;
         /// Pending issuance transactions to identities.
-        PendingTxs get(fn pending_txs): map hasher(blake2_256) IdentityId => Vec<BridgeTx<T::AccountId, T::Balance>>;
+        PendingTxs get(fn pending_txs): map hasher(blake2_128_concat) IdentityId => Vec<BridgeTx<T::AccountId, T::Balance>>;
         /// Frozen transactions.
-        FrozenTxs get(fn frozen_txs): map hasher(blake2_256) BridgeTx<T::AccountId, T::Balance> => bool;
+        FrozenTxs get(fn frozen_txs): map hasher(blake2_128_concat) BridgeTx<T::AccountId, T::Balance> => bool;
         /// Handled bridge transactions.
-        HandledTxs get(fn handled_txs): map hasher(blake2_256) BridgeTx<T::AccountId, T::Balance> => bool;
+        HandledTxs get(fn handled_txs): map hasher(blake2_128_concat) BridgeTx<T::AccountId, T::Balance> => bool;
         /// The admin key.
         Admin get(fn admin) config(): T::AccountId;
         /// Whether or not the bridge operation is frozen.
@@ -152,7 +152,7 @@ decl_storage! {
         /// The list of timelocked transactions with the block numbers in which those transactions
         /// become unlocked.
         TimelockedTxs get(fn timelocked_txs):
-            linked_map hasher(blake2_256) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
+            linked_map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
     }
     add_extra_genesis {
         // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
