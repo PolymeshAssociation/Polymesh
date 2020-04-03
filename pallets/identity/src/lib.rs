@@ -1664,7 +1664,7 @@ impl<T: Trait> Module<T> {
         };
 
         <Claims>::insert(&pk, &sk, id_claim.clone());
-        Self::deposit_event(RawEvent::NewClaims(target, id_claim));
+        Self::deposit_event(RawEvent::NewClaim(target, id_claim));
     }
 
     /// It ensures that CDD claim issuer is a valid CDD provider before add the claim.

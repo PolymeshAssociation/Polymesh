@@ -121,7 +121,7 @@ decl_event!(
         RemovedClaimIssuer(IdentityId, IdentityId),
 
         /// DID, claims
-        NewClaims(IdentityId, IdentityClaim),
+        NewClaim(IdentityId, IdentityClaim),
 
         /// DID, ClaimType, Claim Issuer
         RevokedClaim(IdentityId, IdentityClaim),
