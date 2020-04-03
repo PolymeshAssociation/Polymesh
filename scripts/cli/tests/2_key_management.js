@@ -24,11 +24,11 @@ async function main() {
 
   await reqImports["createIdentities"](api, testEntities, testEntities[0]);
 
-  await reqImports["distributePoly"]( api, master_keys.concat(signing_keys), reqImports["transfer_amount"], testEntities[0] );
+  let issuer_dids = await reqImports["createIdentities"](api, master_keys, testEntities[0]);
+
+  await reqImports["distributePoly"]( api, master_keys, reqImports["transfer_amount"], testEntities[0] );
 
   await reqImports["blockTillPoolEmpty"](api);
-
-  let issuer_dids = await reqImports["createIdentities"](api, master_keys, testEntities[0]);
 
   await addSigningKeys( api, master_keys, issuer_dids, signing_keys );
 
@@ -52,7 +52,7 @@ async function addSigningKeys( api, accounts, dids, signing_accounts ) {
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
     const unsub = await api.tx.identity
-      .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
+      .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
       .signAndSend(
         accounts[i],
         { nonce: reqImports["nonces"].get(accounts[i].address) },

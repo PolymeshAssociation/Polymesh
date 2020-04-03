@@ -2,7 +2,7 @@ use crate::{
     multisig,
     test::{
         ext_builder::PROTOCOL_OP_BASE_FEE,
-        storage::{register_keyring_account, Call, TestStorage},
+        storage::{make_account_without_cdd, register_keyring_account, Call, TestStorage},
         ExtBuilder,
     },
 };
@@ -13,7 +13,7 @@ use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok, StorageDoubleMap, StorageMap};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -70,7 +70,6 @@ fn create_multisig() {
 fn join_multisig() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
@@ -146,7 +145,6 @@ fn join_multisig() {
 fn change_multisig_sigs_required() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
@@ -270,7 +268,6 @@ fn create_or_approve_change_multisig_sigs_required() {
 fn remove_multisig_signer() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let alice_signer = Signatory::from(alice_did);
         let bob = Origin::signed(AccountKeyring::Bob.public());
@@ -367,7 +364,6 @@ fn remove_multisig_signer() {
 fn add_multisig_signer() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =

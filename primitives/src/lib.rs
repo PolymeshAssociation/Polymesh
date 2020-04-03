@@ -146,7 +146,7 @@ pub enum TransactionError {
     /// Transaction needs an Identity associated to an account.
     MissingIdentity = 1,
     /// CDD is required
-    CDDRequired = 2,
+    CddRequired = 2,
     /// Invalid auth id
     InvalidAuthorization = 3,
 }

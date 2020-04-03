@@ -1,6 +1,8 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{
-    asset, bridge, contracts_wrapper, dividend, exemption,
+    asset, bridge,
+    cdd_check::CddChecker,
+    contracts_wrapper, dividend, exemption,
     fee_details::CddHandler,
     general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
@@ -23,11 +25,10 @@ use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
 use frame_support::{
-    construct_runtime, parameter_types, debug,
+    construct_runtime, debug, parameter_types,
     traits::{Currency, Randomness, SplitTwoWays},
     weights::Weight,
 };
-use pallet_elections::VoteIndex;
 use sp_api::impl_runtime_apis;
 use sp_core::u32_trait::{_1, _2, _4};
 use sp_runtime::curve::PiecewiseLinear;
@@ -36,7 +37,10 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
 };
 use sp_runtime::{
-    traits::{BlakeTwo256, Block as BlockT, NumberFor, OpaqueKeys, StaticLookup, Verify, SaturatedConversion, Extrinsic},
+    traits::{
+        BlakeTwo256, Block as BlockT, Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup,
+        Verify,
+    },
     MultiSignature,
 };
 use sp_std::prelude::*;
@@ -188,6 +192,7 @@ impl balances::Trait for Runtime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<Runtime>;
     type Identity = Identity;
+    type CddChecker = CddChecker;
 }
 
 parameter_types! {
@@ -615,10 +620,7 @@ impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for 
         public: Self::Public,
         account: AccountId,
         index: Index,
-    ) -> Option<(
-        Call,
-        <UncheckedExtrinsic as Extrinsic>::SignaturePayload,
-    )> {
+    ) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
         // take the biggest period possible.
         let period = BlockHashCount::get()
             .checked_next_power_of_two()

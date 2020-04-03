@@ -61,6 +61,8 @@ pub mod config {
     pub type ProtocolFeeConfig = protocol_fee::GenesisConfig<crate::Runtime>;
 }
 
+pub mod cdd_check;
+pub use cdd_check::CddChecker;
 pub mod fee_details;
 pub use fee_details::CddHandler;
 
