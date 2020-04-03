@@ -5,8 +5,8 @@ use crate::{
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, ClaimType, IdentityClaim, IdentityId, LinkData, Permission,
-    Signatory, SigningItem, Ticker,
+    AccountKey, AuthorizationData, IdentityClaim, IdentityId, LinkData, Permission, Signatory,
+    SigningItem, Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -124,7 +124,7 @@ decl_event!(
         NewClaims(IdentityId, IdentityClaim),
 
         /// DID, ClaimType, Claim Issuer
-        RevokedClaim(IdentityId, ClaimType, IdentityId),
+        RevokedClaim(IdentityId, IdentityClaim),
 
         /// DID
         NewIssuer(IdentityId),

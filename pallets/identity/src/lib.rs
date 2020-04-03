@@ -1697,9 +1697,9 @@ impl<T: Trait> Module<T> {
     ) {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { scope, issuer };
-
+        let claim = <Claims>::get(&pk, &sk);
         <Claims>::remove(&pk, &sk);
-        Self::deposit_event(RawEvent::RevokedClaim(target, claim_type, issuer));
+        Self::deposit_event(RawEvent::RevokedClaim(target, claim));
     }
 
     /// Returns an auth id if it is present and not expired.
