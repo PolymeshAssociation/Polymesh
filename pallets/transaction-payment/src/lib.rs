@@ -360,7 +360,12 @@ mod tests {
     use pallet_balances::Call as BalancesCall;
     use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
     use polymesh_runtime_common::{
-        traits::{asset::AcceptTransfer, balances, identity::IdentityTrait, CommonTrait},
+        traits::{
+            asset::AcceptTransfer,
+            balances::{self, AccountData, CheckCdd},
+            identity::IdentityTrait,
+            CommonTrait,
+        },
         SystematicIssuers,
     };
     use primitives::{IdentityId, Permission};
@@ -442,6 +447,13 @@ mod tests {
         type ExistentialDeposit = ExistentialDeposit;
         type AccountStore = frame_system::Module<Runtime>;
         type Identity = Runtime;
+        type CddChecker = Runtime;
+    }
+
+    impl CheckCdd for Runtime {
+        fn check_key_cdd(key: &AccountKey) -> bool {
+            true
+        }
     }
 
     thread_local! {

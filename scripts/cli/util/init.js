@@ -10,7 +10,7 @@ const { stringToU8a, u8aConcat, u8aFixLength } = require('@polkadot/util');
 let nonces = new Map();
 let sk_roles = [[0], [1], [2], [1, 2]];
 
-let fail_count = 0;
+let fail_count = 1;
 let block_sizes = {};
 let block_times = {};
 
@@ -144,11 +144,11 @@ const createIdentities = async function (api, accounts, alice) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
-    await api.tx.identity
-      .registerDid([])
-      .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+      await api.tx.identity
+        .cddRegisterDid(accounts[i].address, null, [])
+        .signAndSend(alice, { nonce: nonces.get(alice.address) });
 
-    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+    nonces.set(alice.address, nonces.get(alice.address).addn(1));
   }
   await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
@@ -191,8 +191,8 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
     // 1. Add Signing Item to identity.
 
     const unsub = await api.tx.identity
-      .addAuthorizationAsKey({ AccountKey: signing_accounts[i].publicKey }, { JoinIdentity: dids[i] }, 0)
-      .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
+    .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
 
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }

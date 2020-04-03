@@ -90,7 +90,7 @@ decl_storage! {
         /// Maps a multisig to its creator's identity
         pub MultiSigCreator get(fn ms_creator): map hasher(blake2_256) T::AccountId => IdentityId;
         /// Maps a key to a multisig address
-        pub KeyToMultiSig get(fn key_to_ms): map hasher(blake2_256) T::AccountId => T::AccountId;
+        pub KeyToMultiSig get(key_to_ms): map hasher(blake2_256) AccountKey => T::AccountId;
     }
 }
 
@@ -491,9 +491,7 @@ impl<T: Trait> Module<T> {
     /// Remove signer from the valid signer list for a given multisig
     fn unsafe_signer_removal(multisig: T::AccountId, signer: &Signatory) {
         if let Signatory::AccountKey(key) = signer {
-            if let Ok(signer_key) = T::AccountId::decode(&mut &key.as_slice()[..]) {
-                <KeyToMultiSig<T>>::remove(&signer_key);
-            }
+            <KeyToMultiSig<T>>::remove(key);
         }
         <MultiSigSigners<T>>::remove(&multisig, signer);
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(multisig, *signer));
@@ -675,13 +673,11 @@ impl<T: Trait> Module<T> {
         );
 
         if let Signatory::AccountKey(key) = signer {
-            let signer_key = T::AccountId::decode(&mut &key.as_slice()[..])
-                .map_err(|_| Error::<T>::DecodingError)?;
             ensure!(
-                !<KeyToMultiSig<T>>::contains_key(&signer_key),
+                !<KeyToMultiSig<T>>::contains_key(&key),
                 Error::<T>::SignerAlreadyLinked
             );
-            <KeyToMultiSig<T>>::insert(signer_key, wallet_id.clone())
+            <KeyToMultiSig<T>>::insert(key, wallet_id.clone())
         }
 
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
