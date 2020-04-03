@@ -11,6 +11,7 @@ use sp_runtime::traits::SaturatedConversion;
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
 };
+use sp_std::prelude::*;
 
 #[cfg(test)]
 mod mock;
@@ -139,7 +140,7 @@ impl<T: Trait> Module<T> {
     fn remove_invalidate_nominators(
         block: T::BlockNumber,
         invalid_nominators: Vec<T::AccountId>,
-    ) -> Result<(), String> {
+    ) -> Result<(), &'static str> {
         use frame_system::offchain::{SubmitSignedTransaction, SubmitUnsignedTransaction};
         // First we validate whether the transaction proposer is validator or not.
         // if yes then only the transaction get proposed otherwise not.

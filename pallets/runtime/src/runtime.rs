@@ -23,7 +23,7 @@ use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
 use frame_support::{
-    construct_runtime, parameter_types,
+    construct_runtime, parameter_types, debug,
     traits::{Currency, Randomness, SplitTwoWays},
     weights::Weight,
 };
@@ -36,7 +36,7 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
 };
 use sp_runtime::{
-    traits::{BlakeTwo256, Block as BlockT, NumberFor, OpaqueKeys, StaticLookup, Verify},
+    traits::{BlakeTwo256, Block as BlockT, NumberFor, OpaqueKeys, StaticLookup, Verify, SaturatedConversion, Extrinsic},
     MultiSignature,
 };
 use sp_std::prelude::*;
@@ -605,7 +605,7 @@ impl pallet_cdd_offchain_worker::Trait for Runtime {
 }
 
 impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtime {
-    type Public = <Signature as traits::Verify>::Signer;
+    type Public = <Signature as Verify>::Signer;
     type Signature = Signature;
 
     fn create_transaction<
@@ -617,7 +617,7 @@ impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for 
         index: Index,
     ) -> Option<(
         Call,
-        <UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload,
+        <UncheckedExtrinsic as Extrinsic>::SignaturePayload,
     )> {
         // take the biggest period possible.
         let period = BlockHashCount::get()
