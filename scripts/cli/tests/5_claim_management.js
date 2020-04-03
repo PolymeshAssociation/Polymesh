@@ -26,19 +26,21 @@ async function main() {
 
   await reqImports["createIdentities"](api, testEntities, testEntities[0]);
 
+  let claim_issuer_dids = await reqImports["createIdentities"](api, claim_keys, testEntities[0]);
+
+  let issuer_dids = await reqImports["createIdentities"](api, master_keys, testEntities[0]);
+
   await reqImports["distributePoly"]( api, master_keys.concat(signing_keys).concat(claim_keys), reqImports["transfer_amount"], testEntities[0] );
 
   await reqImports["blockTillPoolEmpty"](api);
 
-  let issuer_dids = await reqImports["createIdentities"](api, master_keys, testEntities[0]);
-
   await reqImports["addSigningKeys"]( api, master_keys, issuer_dids, signing_keys );
+
+  await reqImports["blockTillPoolEmpty"](api);
 
   await reqImports["authorizeJoinToIdentities"]( api, master_keys, issuer_dids, signing_keys);
 
   await reqImports["blockTillPoolEmpty"](api);
-
-  let claim_issuer_dids = await reqImports["createIdentities"](api, claim_keys, testEntities[0]);
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids);
 
@@ -60,7 +62,6 @@ async function main() {
 async function addClaimsToDids(api, accounts, dids, claim_dids) {
     //accounts should have the same length as claim_dids
     for (let i = 0; i < dids.length; i++) {
-
         const unsub = await api.tx.identity
         .addClaim(dids[i], 0, 0)
         .signAndSend(accounts[i%claim_dids.length],

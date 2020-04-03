@@ -79,9 +79,8 @@ impl CddAndFeeDetails<Call> for CddHandler {
                     ) {
                         return check_cdd(&did);
                     }
-                    return check_cdd(&<multisig::MultiSigCreator<Runtime>>::get(&multisig));
                 }
-                Err(InvalidTransaction::Custom(TransactionError::CDDRequired as u8).into())
+                Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
             // All other calls
             _ => match caller {
@@ -102,7 +101,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                             }
                         }
                         return Err(InvalidTransaction::Custom(
-                            TransactionError::CDDRequired as u8,
+                            TransactionError::CddRequired as u8,
                         )
                         .into());
                     }
@@ -161,8 +160,12 @@ fn is_auth_valid(
                                     .map_err(|_| InvalidTransaction::Payment)?,
                             ) {
                                 return check_cdd(&did);
+                            } else {
+                                return Err(InvalidTransaction::Custom(
+                                    TransactionError::MissingIdentity as u8,
+                                )
+                                .into());
                             }
-                            return check_cdd(&&<multisig::MultiSigCreator<Runtime>>::get(&ms));
                         }
                     }
                 }
@@ -198,6 +201,6 @@ fn check_cdd(did: &IdentityId) -> Result<Option<Signatory>, InvalidTransaction> 
         return Ok(Some(Signatory::from(*did)));
     } else {
         sp_runtime::print("ERROR: This transaction requires an Identity");
-        Err(InvalidTransaction::Custom(TransactionError::CDDRequired as u8).into())
+        Err(InvalidTransaction::Custom(TransactionError::CddRequired as u8).into())
     }
 }

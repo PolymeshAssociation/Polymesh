@@ -165,7 +165,7 @@ use polymesh_primitives::{
     AccountKey, IdentityId, Permission, Signatory,
 };
 use polymesh_runtime_common::traits::{
-    balances::{AccountData, BalancesTrait, Memo, RawEvent, Reasons},
+    balances::{AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons},
     identity::IdentityTrait,
     NegativeImbalance, PositiveImbalance,
 };
@@ -211,6 +211,8 @@ decl_error! {
         KeepAlive,
         /// AccountId is not attached with Identity
         UnAuthorized,
+        /// Receiver does not have a valid CDD
+        ReceiverCddMissing
     }
 }
 
@@ -577,6 +579,9 @@ impl<T: Trait> Module<T> {
         memo: Option<Memo>,
         _existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
+        if !T::CddChecker::check_key_cdd(&AccountKey::try_from((*dest).encode())?) {
+            return Err(Error::<T>::ReceiverCddMissing.into());
+        }
         if value.is_zero() || transactor == dest {
             return Ok(());
         }

@@ -54,7 +54,6 @@ async function main() {
 async function issueTokenPerDid(api, accounts, dids, prepend) {
 
     for (let i = 0; i < dids.length; i++) {
-
       const ticker = `token${prepend}${i}`.toUpperCase();
       assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 

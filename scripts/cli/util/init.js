@@ -122,12 +122,11 @@ const createIdentities = async function(api, accounts, alice) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
-
       await api.tx.identity
-        .registerDid([])
-        .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+        .cddRegisterDid(accounts[i].address, null, [])
+        .signAndSend(alice, { nonce: nonces.get(alice.address) });
 
-    nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
+    nonces.set(alice.address, nonces.get(alice.address).addn(1));
   }
   await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
@@ -174,7 +173,7 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
     // 1. Add Signing Item to identity.
 
     const unsub = await api.tx.identity
-    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
+    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
     .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
 
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
