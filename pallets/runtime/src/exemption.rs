@@ -25,7 +25,7 @@ pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
 decl_storage! {
     trait Store for Module<T: Trait> as exemption {
         // Mapping -> ExemptionList[ticker][TM][DID] = true/false
-        ExemptionList get(fn exemption_list): map hasher(blake2_256) (Ticker, u16, IdentityId) => bool;
+        ExemptionList get(fn exemption_list): map hasher(blake2_128_concat) (Ticker, u16, IdentityId) => bool;
     }
 }
 
