@@ -147,8 +147,11 @@ decl_event!(
             Option<Moment>
         ),
 
-        /// Authorization revoked or consumed. (auth_id, authorized_identity)
-        AuthorizationRemoved(u64, Signatory),
+        /// Authorization revoked by the authorizer (auth_id, authorized_identity)
+        AuthorizationRevoked(u64, Signatory),
+
+        /// Authorization rejected by the user who was authorized (auth_id, authorized_identity)
+        AuthorizationRejected(u64, Signatory),
 
         /// Authorization consumed. (auth_id, authorized_identity)
         AuthorizationConsumed(u64, Signatory),
