@@ -614,9 +614,6 @@ impl<T: Trait> Module<T> {
         memo: Option<Memo>,
         _existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        if !T::CddChecker::check_key_cdd(&AccountKey::try_from((*dest).encode())?) {
-            return Err(Error::<T>::ReceiverCddMissing.into());
-        }
         if value.is_zero() || transactor == dest {
             return Ok(());
         }
