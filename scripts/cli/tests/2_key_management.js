@@ -57,6 +57,9 @@ async function addSigningKeys( api, accounts, dids, signing_accounts ) {
             // Loop through Vec<EventRecord> to display all events
             events.forEach(({ phase, event: { data, method, section } }) => {
               if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
+              else if ( section === "system" && method === "ExtrinsicFailed" ) {
+                console.log(` ${phase}: ${section}.${method}:: ${data}`);
+              }
             });
             unsub();
           }

@@ -51,6 +51,9 @@ async function distributePoly( api, accounts, transfer_amount, signingEntity ) {
             // Loop through Vec<EventRecord> to display all events
             events.forEach(({ phase, event: { data, method, section } }) => {
               if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
+              else if ( section === "system" && method === "ExtrinsicFailed" ) {
+                console.log(` ${phase}: ${section}.${method}:: ${data}`);
+              }
             });
             unsub();
           }
