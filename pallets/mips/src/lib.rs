@@ -200,26 +200,26 @@ decl_storage! {
 
         /// Those who have locked a deposit.
         /// proposal hash -> (proposer, deposit)
-        pub Deposits get(fn deposit_of): map hasher(blake2_256) T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
+        pub Deposits get(fn deposit_of): map hasher(twox_64_concat) T::Hash => Vec<(T::AccountId, BalanceOf<T>)>;
 
         /// Actual proposal for a given hash, if it's current.
         /// proposal hash -> proposal
-        pub Proposals get(fn proposals): map hasher(blake2_256) T::Hash => Option<MIP<T::Proposal>>;
+        pub Proposals get(fn proposals): map hasher(twox_64_concat) T::Hash => Option<MIP<T::Proposal>>;
 
         /// Lookup proposal hash by a proposal's index
         /// MIP index -> proposal hash
-        pub ProposalByIndex get(fn proposal_by_index): map hasher(blake2_256) MipsIndex => T::Hash;
+        pub ProposalByIndex get(fn proposal_by_index): map hasher(twox_64_concat) MipsIndex => T::Hash;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal hash -> vote count
-        pub Voting get(fn voting): map hasher(blake2_256) T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
+        pub Voting get(fn voting): map hasher(twox_64_concat) T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
 
         /// Active referendums.
         pub ReferendumMetadata get(fn referendum_meta): Vec<PolymeshReferendumInfo<T::Hash>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal hash -> proposal
-        pub Referendums get(fn referendums): map hasher(blake2_256) T::Hash => Option<T::Proposal>;
+        pub Referendums get(fn referendums): map hasher(twox_64_concat) T::Hash => Option<T::Proposal>;
     }
 }
 

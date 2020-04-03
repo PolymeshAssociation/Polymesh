@@ -785,23 +785,23 @@ decl_storage! {
         pub Invulnerables get(fn invulnerables) config(): Vec<T::AccountId>;
 
         /// Map from all locked "stash" accounts to the controller account.
-        pub Bonded get(fn bonded): map hasher(blake2_256) T::AccountId => Option<T::AccountId>;
+        pub Bonded get(fn bonded): map hasher(twox_64_concat) T::AccountId => Option<T::AccountId>;
 
         /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
         pub Ledger get(fn ledger):
-            map hasher(blake2_256) T::AccountId
+            map hasher(blake2_128_concat) T::AccountId
             => Option<StakingLedger<T::AccountId, BalanceOf<T>>>;
 
         /// Where the reward payment should be made. Keyed by stash.
-        pub Payee get(fn payee): map hasher(blake2_256) T::AccountId => RewardDestination;
+        pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => RewardDestination;
 
         /// The map from (wannabe) validator stash key to the preferences of that validator.
         pub Validators get(fn validators):
-            linked_map hasher(blake2_256) T::AccountId => ValidatorPrefs;
+            linked_map hasher(twox_64_concat) T::AccountId => ValidatorPrefs;
 
         /// The map from nominator stash key to the set of stash keys of all validators to nominate.
         pub Nominators get(fn nominators):
-            linked_map hasher(blake2_256) T::AccountId => Option<Nominations<T::AccountId>>;
+            linked_map hasher(twox_64_concat) T::AccountId => Option<Nominations<T::AccountId>>;
 
         /// The current era index.
         ///
@@ -817,7 +817,7 @@ decl_storage! {
 
         /// The session index at which the era start for the last `HISTORY_DEPTH` eras
         pub ErasStartSessionIndex get(fn eras_start_session_index):
-            map hasher(blake2_256) EraIndex => Option<SessionIndex>;
+            map hasher(twox_64_concat) EraIndex => Option<SessionIndex>;
 
         /// Exposure of validator at era.
         ///
@@ -857,17 +857,17 @@ decl_storage! {
         ///
         /// Eras that haven't finished yet or has been removed doesn't have reward.
         pub ErasValidatorReward get(fn eras_validator_reward):
-            map hasher(blake2_256) EraIndex => Option<BalanceOf<T>>;
+            map hasher(twox_64_concat) EraIndex => Option<BalanceOf<T>>;
 
         /// Rewards for the last `HISTORY_DEPTH` eras.
         /// If reward hasn't been set or has been removed then 0 reward is returned.
         pub ErasRewardPoints get(fn eras_reward_points):
-            map hasher(blake2_256) EraIndex => EraRewardPoints<T::AccountId>;
+            map hasher(twox_64_concat) EraIndex => EraRewardPoints<T::AccountId>;
 
         /// The total amount staked for the last `HISTORY_DEPTH` eras.
         /// If total hasn't been set or has been removed then 0 stake is returned.
         pub ErasTotalStake get(fn eras_total_stake):
-            map hasher(blake2_256) EraIndex => BalanceOf<T>;
+            map hasher(twox_64_concat) EraIndex => BalanceOf<T>;
 
         /// True if the next session change will be a new era regardless of index.
         pub ForceEra get(fn force_era) config(): Forcing;
@@ -883,7 +883,7 @@ decl_storage! {
 
         /// All unapplied slashes that are queued for later.
         pub UnappliedSlashes:
-            map hasher(blake2_256) EraIndex => Vec<UnappliedSlash<T::AccountId, BalanceOf<T>>>;
+            map hasher(twox_64_concat) EraIndex => Vec<UnappliedSlash<T::AccountId, BalanceOf<T>>>;
 
         /// A mapping from still-bonded eras to the first session index of that era.
         ///
@@ -894,21 +894,21 @@ decl_storage! {
         /// All slashing events on validators, mapped by era to the highest slash proportion
         /// and slash value of the era.
         ValidatorSlashInEra:
-            double_map hasher(blake2_256) EraIndex, hasher(twox_128) T::AccountId
+            double_map hasher(twox_64_concat) EraIndex, hasher(twox_64_concat) T::AccountId
             => Option<(Perbill, BalanceOf<T>)>;
 
         /// All slashing events on nominators, mapped by era to the highest slash value of the era.
         NominatorSlashInEra:
-            double_map hasher(blake2_256) EraIndex, hasher(twox_128) T::AccountId
+            double_map hasher(twox_64_concat) EraIndex, hasher(twox_64_concat) T::AccountId
             => Option<BalanceOf<T>>;
 
         /// Slashing spans for stash accounts.
-        SlashingSpans: map hasher(blake2_256) T::AccountId => Option<slashing::SlashingSpans>;
+        SlashingSpans: map hasher(twox_64_concat) T::AccountId => Option<slashing::SlashingSpans>;
 
         /// Records information about the maximum slash of a stash within a slashing span,
         /// as well as how much reward has been paid out.
         SpanSlash:
-            map hasher(blake2_256) (T::AccountId, slashing::SpanIndex)
+            map hasher(twox_64_concat) (T::AccountId, slashing::SpanIndex)
             => slashing::SpanRecord<BalanceOf<T>>;
 
         /// The earliest era for which we have a pending, unapplied slash.
@@ -916,7 +916,7 @@ decl_storage! {
 
         /// The map from (wannabe) validators to the status of compliance
         pub PermissionedValidators get(permissioned_validators):
-            linked_map hasher(blake2_256) T::AccountId => Option<PermissionedValidator>;
+            linked_map hasher(twox_64_concat) T::AccountId => Option<PermissionedValidator>;
 
         /// Commision rate to be used by all validators.
         pub ValidatorCommission get(fn validator_commission) config(): Commission;
