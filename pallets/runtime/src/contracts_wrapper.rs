@@ -35,7 +35,7 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
-        pub CodeHashDid: map hasher(blake2_256) CodeHash<T> => Option<IdentityId>;
+        pub CodeHashDid: map hasher(twox_64_concat) CodeHash<T> => Option<IdentityId>;
     }
 }
 

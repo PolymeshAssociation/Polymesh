@@ -45,7 +45,7 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as ProtocolFee {
         /// The mapping of operation names to the base fees of those operations.
-        pub BaseFees get(base_fees) config(): map hasher(blake2_256) ProtocolOp => BalanceOf<T>;
+        pub BaseFees get(base_fees) config(): map hasher(twox_64_concat) ProtocolOp => BalanceOf<T>;
         /// The fee coefficient as a positive rational (numerator, denominator).
         pub Coefficient get(coefficient) config() build(|config: &GenesisConfig<T>| {
             if config.coefficient.1 == 0 {
