@@ -79,25 +79,25 @@ decl_storage! {
     trait Store for Module<T: Trait> as StoCapped {
         /// Tokens can have multiple whitelists that (for now) check entries individually within each other
         /// (ticker, sto_id) -> STO
-        StosByToken get(fn stos_by_token): map hasher(blake2_256) (Ticker, u32) => STO<T::Balance,T::Moment>;
+        StosByToken get(fn stos_by_token): map hasher(blake2_128_concat) (Ticker, u32) => STO<T::Balance,T::Moment>;
         /// It returns the sto count corresponds to its ticker
         /// ticker -> sto count
-        StoCount get(fn sto_count): map hasher(blake2_256) Ticker => u32;
+        StoCount get(fn sto_count): map hasher(blake2_128_concat) Ticker => u32;
         /// List of SimpleToken tokens which will be accepted as the fund raised type for the STO
         /// (asset_ticker, sto_id, index) -> simple_token_ticker
-        AllowedTokens get(fn allowed_tokens): map hasher(blake2_256) (Ticker, u32, u32) => Ticker;
+        AllowedTokens get(fn allowed_tokens): map hasher(blake2_128_concat) (Ticker, u32, u32) => Ticker;
         /// To track the index of the token address for the given STO
         /// (Asset_ticker, sto_id, simple_token_ticker) -> index
-        TokenIndexForSTO get(fn token_index_for_sto): map hasher(blake2_256) (Ticker, u32, Ticker) => Option<u32>;
+        TokenIndexForSTO get(fn token_index_for_sto): map hasher(blake2_128_concat) (Ticker, u32, Ticker) => Option<u32>;
         /// To track the no of different tokens allowed as fund raised type for the given STO
         /// (asset_ticker, sto_id) -> count
-        TokensCountForSto get(fn tokens_count_for_sto): map hasher(blake2_256) (Ticker, u32) => u32;
+        TokensCountForSto get(fn tokens_count_for_sto): map hasher(blake2_128_concat) (Ticker, u32) => u32;
         /// To track the investment data of the investor corresponds to ticker
         /// (asset_ticker, sto_id, DID) -> Investment structure
-        InvestmentData get(fn investment_data): map hasher(blake2_256) (Ticker, u32, IdentityId) => Investment<T::Balance, T::Moment>;
+        InvestmentData get(fn investment_data): map hasher(blake2_128_concat) (Ticker, u32, IdentityId) => Investment<T::Balance, T::Moment>;
         /// To track the investment amount of the investor corresponds to ticker using SimpleToken
         /// (asset_ticker, simple_token_ticker, sto_id, accountId) -> Invested balance
-        SimpleTokenSpent get(fn simple_token_token_spent): map hasher(blake2_256) (Ticker, Ticker, u32, IdentityId) => T::Balance;
+        SimpleTokenSpent get(fn simple_token_token_spent): map hasher(blake2_128_concat) (Ticker, Ticker, u32, IdentityId) => T::Balance;
     }
 }
 
