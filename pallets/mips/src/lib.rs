@@ -689,13 +689,8 @@ mod tests {
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
         parameter_types, weights::DispatchInfo,
     };
-    use frame_support::{
-        assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
-        parameter_types, weights::DispatchInfo,
-    };
     use pallet_committee as committee;
     use polymesh_primitives::{IdentityId, Signatory};
-    use polymesh_protocol_fee as protocol_fee;
     use polymesh_protocol_fee as protocol_fee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_common::traits::{

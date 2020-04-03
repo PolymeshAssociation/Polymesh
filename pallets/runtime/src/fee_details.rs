@@ -79,9 +79,8 @@ impl CddAndFeeDetails<Call> for CddHandler {
                     ) {
                         return check_cdd(&did);
                     }
-                    return check_cdd(&<multisig::MultiSigCreator<Runtime>>::get(&multisig));
                 }
-                Err(InvalidTransaction::Custom(TransactionError::CddRequired as u8).into())
+                Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
             // All other calls
             _ => match caller {
@@ -161,8 +160,12 @@ fn is_auth_valid(
                                     .map_err(|_| InvalidTransaction::Payment)?,
                             ) {
                                 return check_cdd(&did);
+                            } else {
+                                return Err(InvalidTransaction::Custom(
+                                    TransactionError::MissingIdentity as u8,
+                                )
+                                .into());
                             }
-                            return check_cdd(&&<multisig::MultiSigCreator<Runtime>>::get(&ms));
                         }
                     }
                 }
