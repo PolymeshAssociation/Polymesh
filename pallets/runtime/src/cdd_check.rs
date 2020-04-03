@@ -15,22 +15,21 @@ pub struct CddChecker;
 
 impl CheckCdd for CddChecker {
     fn check_key_cdd(key: &AccountKey) -> bool {
+        // An account is that is a signing key or the master key of an Identity
         if let Some(did) = Identity::get_identity(&key) {
             if Identity::has_valid_cdd(did) {
                 return true;
             }
         }
+        // An account that is NOT a signing key or the master key of an Identity
+        // but is a signer of a multisig that is a signing/master key of an Identity
         if <multisig::KeyToMultiSig<Runtime>>::contains_key(&key) {
             let ms = <multisig::KeyToMultiSig<Runtime>>::get(&key);
             if let Ok(ms_key) = AccountKey::try_from(ms.encode()) {
                 if let Some(did) = Identity::get_identity(&ms_key) {
-                    if Identity::has_valid_cdd(did) {
-                        return true;
-                    }
+                    return Identity::has_valid_cdd(did);
                 }
             }
-            let ms_creator_did = <multisig::MultiSigCreator<Runtime>>::get(ms);
-            return Identity::has_valid_cdd(ms_creator_did);
         }
         return false;
     }
