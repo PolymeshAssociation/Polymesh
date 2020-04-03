@@ -7,6 +7,7 @@ use frame_support::{
     traits::{ExistenceRequirement, Get, OnUnbalanced, StoredMap, WithdrawReason, WithdrawReasons},
 };
 use frame_system::{self as system};
+use polymesh_primitives::AccountKey;
 use sp_runtime::{traits::Saturating, RuntimeDebug};
 use sp_std::ops::BitOr;
 
@@ -131,6 +132,9 @@ pub trait Trait: CommonTrait {
 
     /// Used to charge fee to identity rather than user directly
     type Identity: IdentityTrait;
+
+    /// Used to check if an account is linked to a CDD'd identity
+    type CddChecker: CheckCdd;
 }
 
 pub trait BalancesTrait<A, B, NI> {
@@ -140,4 +144,8 @@ pub trait BalancesTrait<A, B, NI> {
         reasons: WithdrawReasons,
         _liveness: ExistenceRequirement,
     ) -> sp_std::result::Result<NI, DispatchError>;
+}
+
+pub trait CheckCdd {
+    fn check_key_cdd(key: &AccountKey) -> bool;
 }
