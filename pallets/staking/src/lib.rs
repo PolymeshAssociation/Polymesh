@@ -1734,6 +1734,9 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // PUBLIC IMMUTABLES
 
+    /// POLYMESH-NOTE: This change is polymesh specific to query the list of all invalidate nominators
+    /// It is recommended to not call this function onchain. It is a non-deterministic function that is
+    /// suitable for offchain workers only.
     pub fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
         let invalid_nominators = <Nominators<T>>::enumerate()
             .into_iter()
@@ -1741,8 +1744,12 @@ impl<T: Trait> Module<T> {
                 if let Ok(key_id) = AccountKey::try_from(nominator_stash_key.encode()) {
                     if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(key_id))
                     {
-                        let is_cdded = <identity::Module<T>>::has_valid_cdd(nominate_identity);
-                        if !is_cdded {
+                        if (<identity::Module<T>>::fetch_cdd(
+                            nominate_identity,
+                            buffer.saturated_into::<T::Moment>(),
+                        ))
+                        .is_some()
+                        {
                             return Some(nominator_stash_key);
                         }
                     }
@@ -1751,6 +1758,28 @@ impl<T: Trait> Module<T> {
             })
             .collect::<Vec<T::AccountId>>();
         return invalid_nominators;
+    }
+
+    /// POLYMESH-NOTE: This is Polymesh specific change
+    /// Here we are assuming that passed targets are always be a those nominators whose cdd
+    /// claim get expired or going to expire after the `buffer_time`.
+    pub fn unsafe_validate_cdd_expiry_nominators(targets: Vec<T::AccountId>) -> DispatchResult {
+        // Iterate provided list of accountIds (These accountIds should be stash type account)
+        for target in targets.iter() {
+            // Unbonding the balance that bonded with the controller account of a Stash account
+            // This unbonded amount only be accessible after completion of the BondingDuration
+            // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
+
+            let controller = Self::bonded(target).ok_or("not a stash")?;
+            let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
+            let active_balance = ledger.active;
+            if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
+                Self::unbond_balance(controller, &mut ledger, active_balance);
+                // Free the nominator from the valid nominator list
+                <Nominators<T>>::remove(target);
+            }
+        }
+        Ok(())
     }
 
     /// The total balance that can be slashed from a stash account as of right now.
