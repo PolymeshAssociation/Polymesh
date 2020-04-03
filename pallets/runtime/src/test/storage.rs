@@ -1,6 +1,6 @@
 use crate::{
-    asset, bridge, dividend, exemption, general_tm, multisig, percentage_tm, simple_token,
-    statistics, voting,
+    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, multisig, percentage_tm,
+    simple_token, statistics, voting,
 };
 
 use codec::Encode;
@@ -151,6 +151,7 @@ impl balances::Trait for TestStorage {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<TestStorage>;
     type Identity = identity::Module<TestStorage>;
+    type CddChecker = CddChecker;
 }
 
 parameter_types! {

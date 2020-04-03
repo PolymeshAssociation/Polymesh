@@ -1,6 +1,8 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{
-    asset, bridge, contracts_wrapper, dividend, exemption,
+    asset, bridge,
+    cdd_check::CddChecker,
+    contracts_wrapper, dividend, exemption,
     fee_details::CddHandler,
     general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
@@ -187,6 +189,7 @@ impl balances::Trait for Runtime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<Runtime>;
     type Identity = Identity;
+    type CddChecker = CddChecker;
 }
 
 parameter_types! {

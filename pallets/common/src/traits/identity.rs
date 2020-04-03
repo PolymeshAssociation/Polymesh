@@ -132,6 +132,9 @@ decl_event!(
         /// DID queried
         DidQuery(AccountKey, IdentityId),
 
+        /// CDD queried
+        CddQuery(AccountKey, IdentityId, bool),
+
         /// Asset DID queried
         AssetDid(Ticker, IdentityId),
 

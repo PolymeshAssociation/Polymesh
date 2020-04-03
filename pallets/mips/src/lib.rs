@@ -685,20 +685,22 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
-    use pallet_committee as committee;
-    use polymesh_primitives::{IdentityId, Signatory};
-    use polymesh_runtime_balances as balances;
-    use polymesh_runtime_common::traits::{
-        asset::AcceptTransfer, balances::AccountData, multisig::AddSignerMultiSig, CommonTrait,
-    };
-    use polymesh_runtime_group::{self as group, InactiveMember};
-    use polymesh_runtime_identity as identity;
-
     use frame_support::{
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
         parameter_types, weights::DispatchInfo,
     };
+    use pallet_committee as committee;
+    use polymesh_primitives::{IdentityId, Signatory};
     use polymesh_protocol_fee as protocol_fee;
+    use polymesh_runtime_balances as balances;
+    use polymesh_runtime_common::traits::{
+        asset::AcceptTransfer,
+        balances::{AccountData, CheckCdd},
+        multisig::AddSignerMultiSig,
+        CommonTrait,
+    };
+    use polymesh_runtime_group::{self as group, InactiveMember};
+    use polymesh_runtime_identity as identity;
     use sp_core::H256;
     use sp_runtime::transaction_validity::{
         InvalidTransaction, TransactionValidity, ValidTransaction,
@@ -778,6 +780,7 @@ mod tests {
         type ExistentialDeposit = ExistentialDeposit;
         type AccountStore = frame_system::Module<Test>;
         type Identity = identity::Module<Test>;
+        type CddChecker = Test;
     }
 
     impl protocol_fee::Trait for Test {
@@ -832,6 +835,12 @@ mod tests {
         }
         fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
             Ok(())
+        }
+    }
+
+    impl CheckCdd for Test {
+        fn check_key_cdd(key: &AccountKey) -> bool {
+            true
         }
     }
 

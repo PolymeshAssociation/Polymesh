@@ -22,11 +22,13 @@ async function main() {
 
   await createIdentities(api, testEntities, testEntities[0]);
 
-  await reqImports["distributePoly"]( api, keys, reqImports["transfer_amount"], testEntities[0] );
-
   await reqImports["blockTillPoolEmpty"](api);
 
   await createIdentities(api, keys, testEntities[0]);
+
+  await reqImports["distributePoly"]( api, keys, reqImports["transfer_amount"], testEntities[0] );
+
+  await reqImports["blockTillPoolEmpty"](api);
 
   await new Promise(resolve => setTimeout(resolve, 3000));
 
@@ -46,10 +48,10 @@ async function createIdentities(api, accounts, alice) {
     let dids = [];
       for (let i = 0; i < accounts.length; i++) {
         const unsub = await api.tx.identity
-          .registerDid([])
+          .cddRegisterDid(accounts[i].address, null, [])
           .signAndSend(
-            accounts[i],
-            { nonce: reqImports["nonces"].get(accounts[i].address) },
+            alice,
+            { nonce: reqImports["nonces"].get(alice.address) },
             ({ events = [], status }) => {
               if (status.isFinalized) {
                 reqImports["fail_count"] = reqImports["callback"](status, events, "identity", "NewDid", reqImports["fail_count"]);
@@ -58,7 +60,7 @@ async function createIdentities(api, accounts, alice) {
             }
           );
 
-        reqImports["nonces"].set(accounts[i].address, reqImports["nonces"].get(accounts[i].address).addn(1));
+        reqImports["nonces"].set(alice.address, reqImports["nonces"].get(alice.address).addn(1));
       }
       await reqImports["blockTillPoolEmpty"](api);
       for (let i = 0; i < accounts.length; i++) {
