@@ -114,22 +114,22 @@ type Identity<T> = identity::Module<T>;
 decl_storage! {
     trait Store for Module<T: Trait> as Voting {
         /// Mapping of ticker and ballot name -> ballot details
-        pub Ballots get(fn ballots): linked_map hasher(blake2_256) (Ticker, Vec<u8>) => Ballot<T::Moment>;
+        pub Ballots get(fn ballots): linked_map hasher(blake2_128_concat) (Ticker, Vec<u8>) => Ballot<T::Moment>;
 
         /// Helper data to make voting cheaper.
         /// (ticker, BallotName) -> NoOfChoices
-        pub TotalChoices get(fn total_choices): map hasher(blake2_256) (Ticker, Vec<u8>) => u64;
+        pub TotalChoices get(fn total_choices): map hasher(blake2_128_concat) (Ticker, Vec<u8>) => u64;
 
         /// (Ticker, BallotName, DID) -> Vector of vote weights.
         /// weight at 0 index means weight for choice 1 of motion 1.
         /// weight at 1 index means weight for choice 2 of motion 1.
         /// User must enter 0 vote weight if they don't want to vote for a choice.
-        pub Votes get(fn votes): map hasher(blake2_256) (Ticker, Vec<u8>, IdentityId) => Vec<T::Balance>;
+        pub Votes get(fn votes): map hasher(blake2_128_concat) (Ticker, Vec<u8>, IdentityId) => Vec<T::Balance>;
 
         /// (Ticker, BallotName) -> Vector of current vote weights.
         /// weight at 0 index means weight for choice 1 of motion 1.
         /// weight at 1 index means weight for choice 2 of motion 1.
-        pub Results get(fn results): map hasher(blake2_256) (Ticker, Vec<u8>) => Vec<T::Balance>;
+        pub Results get(fn results): map hasher(blake2_128_concat) (Ticker, Vec<u8>) => Vec<T::Balance>;
     }
 }
 

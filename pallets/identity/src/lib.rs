@@ -115,10 +115,10 @@ decl_storage! {
         Owner get(fn owner) config(): T::AccountId;
 
         /// DID -> identity info
-        pub DidRecords get(fn did_records) config(): map hasher(blake2_256) IdentityId => DidRecord;
+        pub DidRecords get(fn did_records) config(): map hasher(twox_64_concat) IdentityId => DidRecord;
 
         /// DID -> bool that indicates if signing keys are frozen.
-        pub IsDidFrozen get(fn is_did_frozen): map hasher(blake2_256) IdentityId => bool;
+        pub IsDidFrozen get(fn is_did_frozen): map hasher(twox_64_concat) IdentityId => bool;
 
         /// It stores the current identity for current transaction.
         pub CurrentDid: Option<IdentityId>;
@@ -127,31 +127,31 @@ decl_storage! {
         pub CurrentPayer: Option<Signatory>;
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
-        pub Claims: double_map hasher(blake2_256) Claim1stKey, hasher(blake2_256) Claim2ndKey => IdentityClaim;
+        pub Claims: double_map hasher(blake2_128_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
 
         // Account => DID
-        pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map hasher(blake2_256) AccountKey => Option<LinkedKeyInfo>;
+        pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map hasher(blake2_128_concat) AccountKey => Option<LinkedKeyInfo>;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
 
         /// Pre-authorize join to Identity.
-        pub PreAuthorizedJoinDid get(fn pre_authorized_join_did): map hasher(blake2_256) Signatory => Vec<PreAuthorizedKeyInfo>;
+        pub PreAuthorizedJoinDid get(fn pre_authorized_join_did): map hasher(blake2_128_concat) Signatory => Vec<PreAuthorizedKeyInfo>;
 
         /// Authorization nonce per Identity. Initially is 0.
-        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(blake2_256) IdentityId => AuthorizationNonce;
+        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(twox_64_concat) IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
-        pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked): map hasher(blake2_256) (Signatory, TargetIdAuthorization<T::Moment>) => bool;
+        pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked): map hasher(blake2_128_concat) (Signatory, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity/key has
-        pub Authorizations: double_map hasher(blake2_256) Signatory, hasher(blake2_256) u64 => Authorization<T::Moment>;
+        pub Authorizations: double_map hasher(blake2_128_concat) Signatory, hasher(twox_64_concat) u64 => Authorization<T::Moment>;
 
         /// All links that an identity/key has
-        pub Links: double_map hasher(blake2_256) Signatory, hasher(blake2_256) u64 => Link<T::Moment>;
+        pub Links: double_map hasher(blake2_128_concat) Signatory, hasher(twox_64_concat) u64 => Link<T::Moment>;
 
         /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
-        pub AuthorizationsGiven: double_map hasher(blake2_256) Signatory, hasher(blake2_256) u64 => Signatory;
+        pub AuthorizationsGiven: double_map hasher(blake2_128_concat) Signatory, hasher(twox_64_concat) u64 => Signatory;
 
         /// It defines if authorization from a CDD provider is needed to change master key of an identity
         pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;

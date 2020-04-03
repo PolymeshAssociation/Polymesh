@@ -305,12 +305,12 @@ decl_storage! {
         /// For each session index, we keep a mapping of `AuthIndex`
         /// to `offchain::OpaqueNetworkState`.
         ReceivedHeartbeats get(fn received_heartbeats):
-            double_map hasher(blake2_256) SessionIndex, hasher(blake2_256) AuthIndex => Option<Vec<u8>>;
+            double_map hasher(twox_64_concat) SessionIndex, hasher(twox_64_concat) AuthIndex => Option<Vec<u8>>;
 
         /// For each session index, we keep a mapping of `T::ValidatorId` to the
         /// number of blocks authored by the given authority.
         AuthoredBlocks get(fn authored_blocks):
-            double_map hasher(blake2_256) SessionIndex, hasher(blake2_256) T::ValidatorId => u32;
+            double_map hasher(twox_64_concat) SessionIndex, hasher(twox_64_concat) T::ValidatorId => u32;
 
         /// Config parameters for slash fraction
         SlashingParams get(fn slashing_params) config(): OfflineSlashingParams;
