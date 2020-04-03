@@ -27,7 +27,6 @@ use frame_support::{
     traits::{Currency, Randomness, SplitTwoWays},
     weights::Weight,
 };
-use pallet_elections::VoteIndex;
 use sp_api::impl_runtime_apis;
 use sp_core::u32_trait::{_1, _2, _4};
 use sp_runtime::curve::PiecewiseLinear;
@@ -36,7 +35,7 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
 };
 use sp_runtime::{
-    traits::{BlakeTwo256, Block as BlockT, NumberFor, OpaqueKeys, StaticLookup, Verify},
+    traits::{BlakeTwo256, Block as BlockT, OpaqueKeys, StaticLookup, Verify},
     MultiSignature,
 };
 use sp_std::prelude::*;

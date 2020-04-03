@@ -48,7 +48,6 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use pallet_mips_rpc_runtime_api::VoteCount;
 use polymesh_primitives::{AccountKey, Signatory};
-use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_common::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -699,6 +698,7 @@ mod tests {
         assert_err, assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_origin,
         parameter_types, weights::DispatchInfo,
     };
+    use polymesh_protocol_fee as protocol_fee;
     use sp_core::H256;
     use sp_runtime::transaction_validity::{
         InvalidTransaction, TransactionValidity, ValidTransaction,
