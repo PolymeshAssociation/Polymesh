@@ -150,6 +150,9 @@ decl_event!(
         /// Authorization revoked or consumed. (auth_id, authorized_identity)
         AuthorizationRemoved(u64, Signatory),
 
+        /// Authorization consumed. (auth_id, authorized_identity)
+        AuthorizationConsumed(u64, Signatory),
+
         /// MasterKey changed (Requestor DID, New MasterKey)
         MasterKeyChanged(IdentityId, AccountKey),
 

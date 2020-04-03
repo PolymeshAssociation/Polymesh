@@ -1062,7 +1062,10 @@ impl<T: Trait> Module<T> {
             ensure!(expiry > now, AuthorizationError::Expired);
         }
 
-        Self::remove_auth(target, auth_id, auth.authorized_by);
+        <Authorizations<T>>::remove(target, auth_id);
+        <AuthorizationsGiven>::remove(auth.authorized_by, auth_id);
+
+        Self::deposit_event(RawEvent::AuthorizationConsumed(auth_id, target));
         Ok(())
     }
 
