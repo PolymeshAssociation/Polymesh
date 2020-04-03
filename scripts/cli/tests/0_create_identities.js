@@ -21,7 +21,7 @@ async function main() {
 
   await reqImports.blockTillPoolEmpty(api);
 
-  await new Promise(resolve => setTimeout(resolve, 7000));
+  await new Promise(resolve => setTimeout(resolve, 10000));
   
   if (reqImports.fail_count > 0) {
     console.log("Failed");
