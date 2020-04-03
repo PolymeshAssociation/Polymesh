@@ -33,6 +33,8 @@ fn cdd_checks() {
                 AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap(),
             );
             let alice_did_signatory = Signatory::from(alice_did);
+            let alice = Origin::signed(AccountKeyring::Alice.public());
+            let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
             // charlie has valid cdd
             let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
@@ -40,6 +42,8 @@ fn cdd_checks() {
                 AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
             );
             let charlie_did_signatory = Signatory::from(charlie_did);
+            let musig_address2 =
+                MultiSig::get_next_multisig_address(AccountKeyring::Charlie.public());
 
             // register did bypasses cdd checks
             assert_eq!(
@@ -68,11 +72,15 @@ fn cdd_checks() {
                 InvalidTransaction::Custom(TransactionError::InvalidAuthorization as u8)
             );
 
-            // call to accept being a multisig signer should fail when authorizer does not have valid cdd (expired)
+            // call to accept being a multisig signer should fail when authorizer does not have a valid cdd (expired)
             assert_ok!(MultiSig::create_multisig(
-                Origin::signed(AccountKeyring::Alice.public()),
+                alice.clone(),
                 vec![alice_key_signatory],
                 1,
+            ));
+            assert_ok!(MultiSig::make_multisig_signer(
+                Origin::signed(AccountKeyring::Charlie.public()),
+                musig_address2.clone(),
             ));
             let alice_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(
                 Signatory::from(alice_key_signatory),
@@ -101,6 +109,20 @@ fn cdd_checks() {
             .next()
             .unwrap()
             .auth_id;
+            // Call to multisig proposal should fail if multisig is not currently attached to an identity
+            assert_err!(
+                CddHandler::get_valid_payer(
+                    &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
+                    &alice_key_signatory
+                ),
+                InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
+            );
+
+            assert_ok!(MultiSig::make_multisig_signer(
+                Origin::signed(AccountKeyring::Charlie.public()),
+                musig_address.clone(),
+            ));
+
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),

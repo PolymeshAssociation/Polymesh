@@ -80,7 +80,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                         return check_cdd(&did);
                     }
                 }
-                Err(InvalidTransaction::Custom(TransactionError::CddRequired as u8).into())
+                Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
             // All other calls
             _ => match caller {
