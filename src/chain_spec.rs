@@ -14,7 +14,10 @@ use polymesh_runtime::{
     },
     Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
-use polymesh_runtime_common::constants::currency::{MILLICENTS, POLY};
+use polymesh_runtime_common::constants::{
+    currency::{MILLICENTS, POLY},
+    time::HOURS,
+};
 use sc_service::Properties;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -349,6 +352,7 @@ fn testnet_genesis(
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
+            proposal_cool_off_period: HOURS * 6,
         }),
         pallet_im_online: Some(ImOnlineConfig {
             slashing_params: OfflineSlashingParams {

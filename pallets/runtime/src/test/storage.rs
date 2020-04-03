@@ -8,9 +8,10 @@ use frame_support::{
     assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
     parameter_types, traits::Currency, weights::DispatchInfo,
 };
-use frame_system::{self as system, EnsureSignedBy};
+use frame_system::{self as system};
 use pallet_committee as committee;
-use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory, Ticker};
+use pallet_mips as mips;
+use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
 use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{
@@ -69,6 +70,7 @@ impl_outer_event! {
         percentage_tm<T>,
         bridge<T>,
         asset<T>,
+        mips<T>,
         pallet_contracts<T>,
         pallet_session,
         general_tm,
@@ -442,6 +444,14 @@ impl dividend::Trait for TestStorage {
     type Event = Event;
 }
 
+impl mips::Trait for TestStorage {
+    type Currency = balances::Module<Self>;
+    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
+    type GovernanceCommittee = Committee;
+    type Event = Event;
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
@@ -453,6 +463,7 @@ pub type Contracts = pallet_contracts::Module<TestStorage>;
 pub type Bridge = bridge::Module<TestStorage>;
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
+pub type Committee = committee::Module<TestStorage, committee::Instance1>;
 
 pub fn make_account(
     id: AccountId,
