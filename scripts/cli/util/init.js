@@ -161,9 +161,16 @@ const createIdentities = async function (api, accounts, alice) {
   }
   let did_balance = 10 * 10**12;
   for (let i = 0; i < dids.length; i++) {
-    let nonceObjTwo = {nonce: nonces.get(alice.address)};
-    const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
-    await sendTransaction(transactionTwo, alice, nonceObjTwo);
+    // let nonceObjTwo = {nonce: nonces.get(alice.address)};
+    // const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
+    // await sendTransaction(transactionTwo, alice, nonceObjTwo);
+
+    await api.tx.balances
+      .topUpIdentityBalance(dids[i], did_balance)
+      .signAndSend(
+        alice,
+        { nonce: reqImports["nonces"].get(alice.address) }
+      );
 
     reqImports["nonces"].set(
       alice.address,
