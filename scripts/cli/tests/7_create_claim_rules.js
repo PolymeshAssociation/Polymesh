@@ -32,10 +32,6 @@ async function main() {
 
   await createClaimRules( api, master_keys, issuer_dids, reqImports.prepend );
 
-  await reqImports.blockTillPoolEmpty(api);
-
-  await new Promise(resolve => setTimeout(resolve, 7000));
-
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -55,27 +51,13 @@ async function createClaimRules(api, accounts, dids, prepend) {
     let senderRules = reqImports.senderRules1(accounts[i].address);
     let receiverRules = reqImports.receiverRules1(accounts[i].address);
 
-    const unsub = await api.tx.generalTm
-      .addActiveRule(ticker, senderRules, receiverRules)
-      .signAndSend(
-        accounts[i],
-        { nonce: reqImports.nonces.get(accounts[i].address) },
-        ({ events = [], status }) => {
-            
-          if (status.isFinalized) {
-            // Loop through Vec<EventRecord> to display all events
-            events.forEach(({ phase, event: { data, method, section } }) => {
-              if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-              else if ( section === "system" && method === "ExtrinsicFailed" ) {
-                console.log(` ${phase}: ${section}.${method}:: ${data}`);
-              }
-            });
-            unsub();
-          }
-
-        }
-      );
-
+    
+    let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
+    const transaction = await api.tx.generalTm.addActiveRule(ticker, senderRules, receiverRules);
+    const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
+     
     reqImports.nonces.set( accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
   }
 }

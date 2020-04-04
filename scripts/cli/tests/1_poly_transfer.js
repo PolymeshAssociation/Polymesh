@@ -16,12 +16,6 @@ async function main() {
   let keys = await reqImports.generateKeys(api,5, "master");
   
   await distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
-
-  await reqImports.blockTillPoolEmpty(api);
-
-  await reqImports.createIdentities(api, keys, testEntities[0]);
-
-  await new Promise(resolve => setTimeout(resolve, 7000));
  
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -38,26 +32,12 @@ async function distributePoly( api, accounts, transfer_amount, signingEntity ) {
 
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
-    const unsub = await api.tx.balances
-      .transfer(accounts[i].address, transfer_amount)
-      .signAndSend(
-        signingEntity,
-        { nonce: reqImports.nonces.get(signingEntity.address) },
-        ({ events = [], status }) => {
-
-          if (status.isFinalized) {
-            // Loop through Vec<EventRecord> to display all events
-            events.forEach(({ phase, event: { data, method, section } }) => {
-              if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-              else if ( section === "system" && method === "ExtrinsicFailed" ) {
-                console.log(` ${phase}: ${section}.${method}:: ${data}`);
-              }
-            });
-            unsub();
-          }
-        }
-
-      );
+   
+    let nonceObj = {nonce: reqImports.nonces.get(signingEntity.address)};
+    const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
+    const result = await reqImports.sendTransaction(transaction, signingEntity, nonceObj);  
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
 
     reqImports.nonces.set( signingEntity.address, reqImports.nonces.get(signingEntity.address).addn(1));
 

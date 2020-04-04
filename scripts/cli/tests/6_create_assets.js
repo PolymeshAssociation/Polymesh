@@ -30,10 +30,6 @@ async function main() {
 
   await issueTokenPerDid(api, master_keys, issuer_dids, reqImports.prepend);
 
-  await reqImports.blockTillPoolEmpty(api);
-
-  await new Promise(resolve => setTimeout(resolve, 7000));
-
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -50,24 +46,12 @@ async function issueTokenPerDid(api, accounts, dids, prepend) {
       const ticker = `token${prepend}${i}`.toUpperCase();
       assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-        const unsub = await api.tx.asset
-        .createToken(ticker, ticker, 1000000, true, 0, [], "abc")
-        .signAndSend(accounts[i],
-          { nonce: reqImports.nonces.get(accounts[i].address) },
-          ({ events = [], status }) => {
-
-          if (status.isFinalized) {
-            // Loop through Vec<EventRecord> to display all events
-            events.forEach(({ phase, event: { data, method, section } }) => {
-              if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-              else if ( section === "system" && method === "ExtrinsicFailed" ) {
-                console.log(` ${phase}: ${section}.${method}:: ${data}`);
-              }
-            });
-            unsub();
-          }
-
-        });
+        
+        let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
+        const transaction = api.tx.asset.createToken(ticker, ticker, 1000000, true, 0, [], "abc");
+        const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+        const passed = result.findRecord('system', 'ExtrinsicSuccess');
+        if (passed) reqImports.fail_count--;
       
       reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
     }

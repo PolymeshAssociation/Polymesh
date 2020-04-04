@@ -45,10 +45,6 @@ async function main() {
 
   await assetTransfer( api, master_keys, issuer_dids );
 
-  await reqImports.blockTillPoolEmpty(api);
-
-  await new Promise(resolve => setTimeout(resolve, 7000));
-
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -61,50 +57,23 @@ async function main() {
 
 async function mintingAsset(api, accounts, dids) {
 
-const unsub = await api.tx.asset
-  .issue(reqImports.ticker, dids[2], 100, "")
-  .signAndSend(
-    accounts[0],
-    { nonce: reqImports.nonces.get(accounts[0].address) },
-    ({ events = [], status }) => {
-
-    if (status.isFinalized) {
-
-      // Loop through Vec<EventRecord> to display all events
-      events.forEach(({ phase, event: { data, method, section } }) => {
-       if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-      });
-
-      unsub();
-    }
-  });
+    
+    let nonceObj = {nonce: reqImports.nonces.get(accounts[0].address)};
+    const transaction = await api.tx.asset.issue(reqImports.ticker, dids[2], 100, "");
+    const result = await reqImports.sendTransaction(transaction, accounts[0], nonceObj);  
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
 
 reqImports.nonces.set(accounts[0].address, reqImports.nonces.get(accounts[0].address).addn(1));
 }
 
 async function assetTransfer(api, accounts, dids) {
 
-    const unsub = await api.tx.asset
-      .transfer(reqImports.ticker, dids[2], 100)
-      .signAndSend(
-        accounts[0],
-        { nonce: reqImports.nonces.get(accounts[0].address) },
-        ({ events = [], status }) => {
-         
-          if (status.isFinalized) {
-           
-            // Loop through Vec<EventRecord> to display all events
-            events.forEach(({ phase, event: { data, method, section } }) => {
-              if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-              else if ( section === "system" && method === "ExtrinsicFailed" ) {
-                console.log(` ${phase}: ${section}.${method}:: ${data}`);
-              }
-            });
-            unsub();
-          }
-
-        }
-      );
+    let nonceObj = {nonce: reqImports.nonces.get(accounts[0].address)};
+    const transaction = await api.tx.asset.transfer(reqImports.ticker, dids[2], 100);
+    const result = await reqImports.sendTransaction(transaction, accounts[0], nonceObj);  
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
 
     reqImports.nonces.set( accounts[0].address, reqImports.nonces.get(accounts[0].address).addn(1));
   

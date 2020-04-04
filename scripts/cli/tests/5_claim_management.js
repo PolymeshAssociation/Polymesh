@@ -37,10 +37,6 @@ async function main() {
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids);
 
-  await reqImports.blockTillPoolEmpty(api);
-
-  await new Promise(resolve => setTimeout(resolve, 7000));
-
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -55,24 +51,12 @@ async function main() {
 async function addClaimsToDids(api, accounts, dids, claim_dids) {
     //accounts should have the same length as claim_dids
     for (let i = 0; i < dids.length; i++) {
-        const unsub = await api.tx.identity
-        .addClaim(dids[i], 0, 0)
-        .signAndSend(accounts[i%claim_dids.length],
-          { nonce: reqImports.nonces.get(accounts[i%claim_dids.length].address) },
-          ({ events = [], status }) => {
-
-          if (status.isFinalized) {
-            // Loop through Vec<EventRecord> to display all events
-            events.forEach(({ phase, event: { data, method, section } }) => {
-              if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-              else if ( section === "system" && method === "ExtrinsicFailed" ) {
-                console.log(` ${phase}: ${section}.${method}:: ${data}`);
-              }
-            });
-            unsub();
-          }
-
-        });
+        
+        let nonceObj = {nonce: reqImports.nonces.get(accounts[i%claim_dids.length].address)};
+        const transaction = await api.tx.identity.addClaim(dids[i], 0, 0);
+        const result = await reqImports.sendTransaction(transaction, accounts[i%claim_dids.length], nonceObj);  
+        const passed = result.findRecord('system', 'ExtrinsicSuccess');
+        if (passed) reqImports.fail_count--;
 
       reqImports.nonces.set(accounts[i%claim_dids.length].address, reqImports.nonces.get(accounts[i%claim_dids.length].address).addn(1));
     }

@@ -18,10 +18,6 @@ async function main() {
   await createIdentities(api, keys, testEntities[0]);
 
   await reqImports.distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
-
-  await reqImports.blockTillPoolEmpty(api);
-
-  await new Promise(resolve => setTimeout(resolve, 7000));
   
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -35,29 +31,14 @@ async function main() {
 
 // Create a new DID for each of accounts[]
 async function createIdentities(api, accounts, alice) {
-
+  
     let dids = [];
       for (let i = 0; i < accounts.length; i++) {
-        const unsub = await api.tx.identity
-          .cddRegisterDid(accounts[i].address, null, [])
-          .signAndSend(
-            alice,
-            { nonce: reqImports.nonces.get(alice.address) },
-            ({ events = [], status }) => {
-
-              if (status.isFinalized) {
-                // Loop through Vec<EventRecord> to display all events
-                events.forEach(({ phase, event: { data, method, section } }) => {
-                  if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-                  else if ( section === "system" && method === "ExtrinsicFailed" ) {
-                    console.log(` ${phase}: ${section}.${method}:: ${data}`);
-                  }
-                });
-                unsub();
-              }
-
-            }
-          );
+        let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
+        const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, null, []);
+        const result = await reqImports.sendTransaction(transaction, alice, nonceObj);  
+        const passed = result.findRecord('system', 'ExtrinsicSuccess');
+        if (passed) reqImports.fail_count--;
 
         reqImports.nonces.set(alice.address, reqImports.nonces.get(alice.address).addn(1));
       }
@@ -68,16 +49,13 @@ async function createIdentities(api, accounts, alice) {
       }
       let did_balance = 10 * 10**12;
       for (let i = 0; i < dids.length; i++) {
-        await api.tx.balances
-          .topUpIdentityBalance(dids[i], did_balance)
-          .signAndSend(
-            alice,
-            { nonce: reqImports.nonces.get(alice.address) }
-          );
-        reqImports.nonces.set(
-          alice.address,
-          reqImports.nonces.get(alice.address).addn(1)
-        );
+        let nonceObjTwo = {nonce: reqImports.nonces.get(alice.address)};
+        const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
+        const result = await reqImports.sendTransaction(transactionTwo, alice, nonceObjTwo);  
+        const passed = result.findRecord('system', 'ExtrinsicSuccess');
+        if (passed) reqImports.fail_count--;
+
+        reqImports.nonces.set( alice.address, reqImports.nonces.get(alice.address).addn(1));
       }
       return dids;
 

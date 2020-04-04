@@ -31,10 +31,6 @@ async function main() {
 
   await addSigningKeyRoles(api, master_keys, issuer_dids, signing_keys);
 
-  await reqImports.blockTillPoolEmpty(api);
-
-  await new Promise(resolve => setTimeout(resolve, 7000));
-
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -51,23 +47,12 @@ async function addSigningKeyRoles(api, accounts, dids, signing_accounts) {
     for (let i = 0; i < accounts.length; i++) {
       let signer = {  AccountKey: signing_accounts[i].publicKey };
 
-        const unsub = await api.tx.identity
-        .setPermissionToSigner(signer, reqImports.sk_roles[i%reqImports.sk_roles.length])
-        .signAndSend(accounts[i],
-          { nonce: reqImports.nonces.get(accounts[i].address) },
-          ({ events = [], status }) => {
-
-          if (status.isFinalized) {
-            // Loop through Vec<EventRecord> to display all events
-            events.forEach(({ phase, event: { data, method, section } }) => {
-              if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-              else if ( section === "system" && method === "ExtrinsicFailed" ) {
-                console.log(` ${phase}: ${section}.${method}:: ${data}`);
-              }
-            });
-            unsub();
-          }
-        });
+        
+        let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
+        const transaction = api.tx.identity.setPermissionToSigner(signer, reqImports.sk_roles[i%reqImports.sk_roles.length]);
+        const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+        const passed = result.findRecord('system', 'ExtrinsicSuccess');
+        if (passed) reqImports.fail_count--;
       
       reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
     }

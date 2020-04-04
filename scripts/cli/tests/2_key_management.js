@@ -25,10 +25,6 @@ async function main() {
 
   await addSigningKeys( api, master_keys, issuer_dids, signing_keys );
 
-  await reqImports.blockTillPoolEmpty(api);
-
-  await new Promise(resolve => setTimeout(resolve, 10000));
-
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -43,27 +39,14 @@ async function main() {
 async function addSigningKeys( api, accounts, dids, signing_accounts ) {
 
   for (let i = 0; i < accounts.length; i++) {
+
+
     // 1. Add Signing Item to identity.
-    const unsub = await api.tx.identity
-      .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
-      .signAndSend(
-        accounts[i],
-        { nonce: reqImports.nonces.get(accounts[i].address) },
-        ({ events = [], status }) => {
-
-          if (status.isFinalized) {
-            // Loop through Vec<EventRecord> to display all events
-            events.forEach(({ phase, event: { data, method, section } }) => {
-              if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-              else if ( section === "system" && method === "ExtrinsicFailed" ) {
-                console.log(` ${phase}: ${section}.${method}:: ${data}`);
-              }
-            });
-            unsub();
-          }
-        }
-
-      );
+    let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
+    const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
+    const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
 
     reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
   }

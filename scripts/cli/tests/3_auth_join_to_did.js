@@ -27,10 +27,6 @@ async function main() {
 
   await authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys);
 
-  await reqImports.blockTillPoolEmpty(api);
-
-  await new Promise(resolve => setTimeout(resolve, 7000));
-
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -53,24 +49,12 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
         last_auth_id = auths[i][1].auth_id.toNumber()
       }
     }
-    const unsub = await api.tx.identity
-    .joinIdentityAsKey(last_auth_id)
-    .signAndSend(signing_accounts[i],
-      { nonce: reqImports.nonces.get(signing_accounts[i].address) },
-      ({ events = [], status }) => {
-
-      if (status.isFinalized) {
-        // Loop through Vec<EventRecord> to display all events
-        events.forEach(({ phase, event: { data, method, section } }) => {
-          if ( section === "system" && method === "ExtrinsicSuccess" )  reqImports.fail_count--;
-          else if ( section === "system" && method === "ExtrinsicFailed" ) {
-            console.log(` ${phase}: ${section}.${method}:: ${data}`);
-          }
-        });
-        unsub();
-      }
-
-    });
+    
+    let nonceObj = {nonce: reqImports.nonces.get(signing_accounts[i].address)};
+    const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
+    const result = await reqImports.sendTransaction(transaction, signing_accounts[i], nonceObj);  
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
   }
 
   return dids;

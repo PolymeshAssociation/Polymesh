@@ -144,6 +144,10 @@ const createIdentities = async function (api, accounts, alice) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
+    // let nonceObj = {nonce: nonces.get(alice.address)};
+    // const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, null, []);
+    // await sendTransaction(transaction, alice, nonceObj);
+
       await api.tx.identity
         .cddRegisterDid(accounts[i].address, null, [])
         .signAndSend(alice, { nonce: nonces.get(alice.address) });
@@ -157,12 +161,10 @@ const createIdentities = async function (api, accounts, alice) {
   }
   let did_balance = 10 * 10**12;
   for (let i = 0; i < dids.length; i++) {
-    await api.tx.balances
-      .topUpIdentityBalance(dids[i], did_balance)
-      .signAndSend(
-        alice,
-        { nonce: reqImports["nonces"].get(alice.address) }
-      );
+    let nonceObjTwo = {nonce: nonces.get(alice.address)};
+    const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
+    await sendTransaction(transactionTwo, alice, nonceObjTwo);
+
     reqImports["nonces"].set(
       alice.address,
       reqImports["nonces"].get(alice.address).addn(1)
@@ -175,11 +177,10 @@ const createIdentities = async function (api, accounts, alice) {
 async function distributePoly(api, accounts, transfer_amount, signingEntity) {
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
-    const unsub = await api.tx.balances
-      .transfer(accounts[i].address, transfer_amount)
-      .signAndSend(
-        signingEntity,
-        { nonce: nonces.get(signingEntity.address) });
+
+    let nonceObj = {nonce: nonces.get(signingEntity.address)};
+    const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
+    await sendTransaction(transaction, signingEntity, nonceObj); 
 
     nonces.set(signingEntity.address, nonces.get(signingEntity.address).addn(1));
   }
@@ -189,6 +190,10 @@ async function distributePoly(api, accounts, transfer_amount, signingEntity) {
 async function addSigningKeys(api, accounts, dids, signing_accounts) {
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
+
+    // let nonceObj = {nonce: nonces.get(accounts[i].address)};
+    // const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
+    // await sendTransaction(transaction, accounts[i], nonceObj); 
 
     const unsub = await api.tx.identity
     .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
@@ -212,6 +217,11 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
         last_auth_id = auths[i][1].auth_id.toNumber()
       }
     }
+
+    // let nonceObj = {nonce: nonces.get(signing_accounts[i].address)};
+    // const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
+    // await sendTransaction(transaction, signing_accounts[i], nonceObj); 
+
     const unsub = await api.tx.identity
       .joinIdentityAsKey([last_auth_id])
       .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
@@ -223,6 +233,10 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
 
 // Creates a token for a did
 async function issueTokenPerDid(api, accounts) {
+
+  // let nonceObj = {nonce: nonces.get(accounts[0].address)};
+  // const transaction = api.tx.asset.createToken(ticker, ticker, 1000000, true, 0, [], "abc");
+  // await sendTransaction(transaction, accounts[0], nonceObj); 
 
     const unsub = await api.tx.asset
       .createToken(ticker, ticker, 1000000, true, 0, [], "abc")
@@ -247,9 +261,9 @@ async function createClaimRules(api, accounts, dids) {
     let senderRules = senderRules1(dids[1], asset_did);
     let receiverRules = receiverRules1(dids[1], asset_did);
 
-    const unsub = await api.tx.generalTm
-      .addActiveRule(ticker, senderRules, receiverRules)
-      .signAndSend( accounts[0], { nonce: nonces.get(accounts[0].address) });
+    let nonceObj = {nonce: nonces.get(accounts[0].address)};
+    const transaction = api.tx.generalTm.addActiveRule(ticker, senderRules, receiverRules);
+    await sendTransaction(transaction, accounts[0], nonceObj); 
 
       nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
     
@@ -262,14 +276,76 @@ async function addClaimsToDids(api, accounts, did, claimType, claimValue) {
   // Receieving Rules Claim
   let claim = {[claimType]: claimValue};
 
-      const unsub = await api.tx.identity
-      .addClaim(did, claim, null)
-      .signAndSend(accounts[1],
-        { nonce: nonces.get(accounts[1].address) });
+      
+    let nonceObj = {nonce: nonces.get(accounts[1].address)};
+    const transaction = api.tx.identity.addClaim(did, claim, null);
+    await sendTransaction(transaction, accounts[1], nonceObj);  
 
     nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
     
 }
+
+function sendTransaction(transaction, signer, nonceObj) {
+  return new Promise((resolve, reject) => {
+    
+    const gettingUnsub = transaction.signAndSend(signer, nonceObj, receipt => {
+     
+      const { status } = receipt;
+     
+      if (receipt.isCompleted) {
+       
+        /*
+         * isCompleted === isFinalized || isError, which means
+         * no further updates, so we unsubscribe
+         */
+        gettingUnsub.then(unsub => {
+         
+          unsub();
+         
+        });
+       
+        if (receipt.isInBlock) {
+          
+          // tx included in a block and finalized
+          const failed = receipt.findRecord('system', 'ExtrinsicFailed');
+          
+          if (failed) {
+            
+            // get revert message from event
+            let message = "";
+            const dispatchError = failed.event.data[0];
+            
+            if (dispatchError.isModule) {
+              
+              // known error
+              const mod = dispatchError.asModule;
+              const { section, name, documentation } = mod.registry.findMetaError(
+                new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
+              );
+              
+              message = `${section}.${name}: ${documentation.join(' ')}`;
+            } else if (dispatchError.isBadOrigin) {  
+              message = 'Bad origin';
+            } else if (dispatchError.isCannotLookup) {  
+              message = 'Could not lookup information required to validate the transaction';
+            } else {
+              message = 'Unknown error';
+            }
+            
+            reject(new Error(message));
+          } else {
+            
+            resolve(receipt);
+          }
+        } else if (receipt.isError) {
+          
+          reject(new Error('Transaction Aborted'));
+          
+        }
+      }
+    });
+  });
+} 
 
 // this object holds the required imports for all the scripts
 let reqImports = {
@@ -296,7 +372,8 @@ let reqImports = {
   receiverRules1,
   createClaimRules,
   addClaimsToDids,
-  tickerToDid
+  tickerToDid,
+  sendTransaction
 };
 
 export { reqImports };
