@@ -185,9 +185,15 @@ async function distributePoly(api, accounts, transfer_amount, signingEntity) {
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
 
-    let nonceObj = {nonce: nonces.get(signingEntity.address)};
-    const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
-    await sendTransaction(transaction, signingEntity, nonceObj); 
+    // let nonceObj = {nonce: nonces.get(signingEntity.address)};
+    // const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
+    // await sendTransaction(transaction, signingEntity, nonceObj); 
+
+    const unsub = await api.tx.balances
+      .transfer(accounts[i].address, transfer_amount)
+      .signAndSend(
+        signingEntity,
+        { nonce: nonces.get(signingEntity.address) });
 
     nonces.set(signingEntity.address, nonces.get(signingEntity.address).addn(1));
   }

@@ -14,6 +14,8 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let keys = await reqImports.generateKeys(api,5, "master");
+
+  await reqImports.createIdentities(api, keys, testEntities[0]);
   
   await distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
  

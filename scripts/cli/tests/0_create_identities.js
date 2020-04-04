@@ -17,7 +17,7 @@ async function main() {
 
   await createIdentities(api, keys, testEntities[0]);
 
-  await reqImports.distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
+ // await reqImports.distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
   
   if (reqImports.fail_count > 0) {
     console.log("Failed");
