@@ -11,14 +11,17 @@
     "4-permission-management": "node ./tests/4_permission_management.js",
     "5-claim-management": "node ./tests/5_claim_management.js",
     "6-create-assets": "node ./tests/6_create_assets.js",
+    "7-create-claim-rules": "node ./tests/7_create_claim_rules.js",
+    "8-asset-transfer": "node ./tests/8_asset_transfer.js",
     "schema-test": "./util/schema_test.sh", 
-    "test": "npm run -s schema-test && npm run -s 0-create-identities && npm run -s 1-poly-transfer && npm run -s 2-key-management && npm run -s 3-auth-join-did && npm run -s 4-permission-management && npm run -s 5-claim-management && npm run -s 6-create-assets"
+    "test": "npm run -s schema-test && npm run -s 0-create-identities && npm run -s 1-poly-transfer && npm run -s 2-key-management && npm run -s 3-auth-join-did && npm run -s 4-permission-management && npm run -s 5-claim-management && npm run -s 6-create-assets && npm run -s 7-create-claim-rules && npm run -s 8-asset-transfer"
   },
   "author": "Polymath Network",
   "license": "UNLICENSED",
   "dependencies": {
     "@polkadot/api": "1.8.1",
-    "@polkadot/keyring": "^2.6.2",
+    "@polkadot/util": "^2.6.2",
+    "@polkadot/util-crypto": "^2.6.2",
     "cli-progress": "^3.6.0",
     "command-line-args": "^5.1.1",
     "esm": "^3.2.25",
