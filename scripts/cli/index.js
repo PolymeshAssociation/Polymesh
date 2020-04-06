@@ -673,7 +673,7 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, compl
         if (status.isFinalized) {
           let new_claim_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
-            if (section == "identity" && method == "NewClaims") {
+            if (section == "identity" && method == "NewClaim") {
               new_claim_ok = true;
               completeBar.increment();
             }

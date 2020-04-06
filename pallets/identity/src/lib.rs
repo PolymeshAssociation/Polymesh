@@ -196,7 +196,8 @@ decl_storage! {
                     claim: Claim::CustomerDueDiligence,
                 };
 
-                <Claims>::insert(&pk, &sk, id_claim);
+                <Claims>::insert(&pk, &sk, id_claim.clone());
+                <Module<T>>::deposit_event(RawEvent::NewClaim(did, id_claim));
             }
             // TODO: Generate CDD for BRR
         });
@@ -626,12 +627,12 @@ decl_module! {
                 Error::<T>::AuthorizationDoesNotExist
             );
             let auth = <Authorizations<T>>::get(target, auth_id);
+            let revoked = auth.authorized_by.eq_either(&from_did, &sender_key);
             ensure!(
-                auth.authorized_by.eq_either(&from_did, &sender_key) ||
-                    target.eq_either(&from_did, &sender_key),
+                revoked || target.eq_either(&from_did, &sender_key),
                 Error::<T>::Unauthorized
             );
-            Self::remove_auth(target, auth_id, auth.authorized_by);
+            Self::remove_auth(target, auth_id, auth.authorized_by, revoked);
 
             Ok(())
         }
@@ -644,6 +645,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did = Context::current_identity_or::<Self>(&sender_key)?;
             let mut auths = Vec::with_capacity(auth_identifiers.len());
+            let mut revoked = Vec::with_capacity(auth_identifiers.len());
             for i in 0..auth_identifiers.len() {
                 let auth_identifier = &auth_identifiers[i];
                 ensure!(
@@ -651,16 +653,16 @@ decl_module! {
                     Error::<T>::AuthorizationDoesNotExist
                 );
                 auths.push(<Authorizations<T>>::get(&auth_identifier.0, &auth_identifier.1));
+                revoked.push(auths[i].authorized_by.eq_either(&from_did, &sender_key));
                 ensure!(
-                    auths[i].authorized_by.eq_either(&from_did, &sender_key) ||
-                        auth_identifier.0.eq_either(&from_did, &sender_key),
+                    revoked[i] || auth_identifier.0.eq_either(&from_did, &sender_key),
                     Error::<T>::Unauthorized
                 );
             }
 
             for i in 0..auth_identifiers.len() {
                 let auth_identifier = &auth_identifiers[i];
-                Self::remove_auth(auth_identifier.0, auth_identifier.1, auths[i].authorized_by);
+                Self::remove_auth(auth_identifier.0, auth_identifier.1, auths[i].authorized_by, revoked[i]);
 
             }
 
@@ -1041,11 +1043,14 @@ impl<T: Trait> Module<T> {
 
     /// Remove any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
-    pub fn remove_auth(target: Signatory, auth_id: u64, authorizer: Signatory) {
+    pub fn remove_auth(target: Signatory, auth_id: u64, authorizer: Signatory, revoked: bool) {
         <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven>::remove(authorizer, auth_id);
-
-        Self::deposit_event(RawEvent::AuthorizationRemoved(auth_id, target));
+        if revoked {
+            Self::deposit_event(RawEvent::AuthorizationRevoked(auth_id, target));
+        } else {
+            Self::deposit_event(RawEvent::AuthorizationRejected(auth_id, target));
+        }
     }
 
     /// Consumes an authorization.
@@ -1062,7 +1067,10 @@ impl<T: Trait> Module<T> {
             ensure!(expiry > now, AuthorizationError::Expired);
         }
 
-        Self::remove_auth(target, auth_id, auth.authorized_by);
+        <Authorizations<T>>::remove(target, auth_id);
+        <AuthorizationsGiven>::remove(auth.authorized_by, auth_id);
+
+        Self::deposit_event(RawEvent::AuthorizationConsumed(auth_id, target));
         Ok(())
     }
 
@@ -1661,7 +1669,7 @@ impl<T: Trait> Module<T> {
         };
 
         <Claims>::insert(&pk, &sk, id_claim.clone());
-        Self::deposit_event(RawEvent::NewClaims(target, id_claim));
+        Self::deposit_event(RawEvent::NewClaim(target, id_claim));
     }
 
     /// It ensures that CDD claim issuer is a valid CDD provider before add the claim.
@@ -1697,9 +1705,9 @@ impl<T: Trait> Module<T> {
     ) {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { scope, issuer };
-
+        let claim = <Claims>::get(&pk, &sk);
         <Claims>::remove(&pk, &sk);
-        Self::deposit_event(RawEvent::RevokedClaim(target, claim_type, issuer));
+        Self::deposit_event(RawEvent::RevokedClaim(target, claim));
     }
 
     /// Returns an auth id if it is present and not expired.

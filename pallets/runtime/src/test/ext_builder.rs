@@ -4,6 +4,7 @@ use crate::{
 };
 
 use pallet_committee as committee;
+use pallet_mips as mips;
 use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
@@ -317,6 +318,15 @@ impl ExtBuilder {
         polymesh_protocol_fee::GenesisConfig::<TestStorage> {
             base_fees: self.protocol_base_fees.0,
             coefficient: self.protocol_coefficient,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        mips::GenesisConfig::<TestStorage> {
+            min_proposal_deposit: 50,
+            quorum_threshold: 70,
+            proposal_duration: 10,
+            proposal_cool_off_period: 100,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

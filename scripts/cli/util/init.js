@@ -1,21 +1,16 @@
-const { ApiPromise, WsProvider } = require("@polkadot/api");
-const { Keyring } = require("@polkadot/keyring");
+const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
 const { cryptoWaitReady } = require("@polkadot/util-crypto");
 const BN = require("bn.js");
-const cli = require("command-line-args");
-const cliProg = require("cli-progress");
-const childProc = require("child_process");
-const colors = require("colors");
-
+const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
+const { blake2AsHex } = require('@polkadot/util-crypto');
+const { stringToU8a, u8aConcat, u8aFixLength } = require('@polkadot/util');
 
-// Updated by the CLI option
-let STORAGE_DIR;
 let nonces = new Map();
 let sk_roles = [[0], [1], [2], [1, 2]];
 
-let fail_count = 0;
+let fail_count = 1;
 let block_sizes = {};
 let block_times = {};
 
@@ -24,23 +19,37 @@ let synced_block_ts = 0;
 
 // Amount to seed each key with
 let transfer_amount = 10 * 10 ** 12;
+let prepend = "demo";
 
-// Parse CLI args and compute tx count
-const opts = {
-  accounts: 5,
-  claim_accounts: 5,
-  claims: 5,
-  prepend: "demo",
-  fast: false,
-  dir: "/tmp/pmesh-primary-node"
-};
+// Used for creating a single ticker 
+const ticker = `token${prepend}0`.toUpperCase();
+assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-// CLI args variables
-let n_accounts = opts.accounts;
-let n_claim_accounts = opts.claim_accounts;
-let n_claims = opts.claims;
-let prepend = opts.prepend;
-let fast = opts.fast;
+const senderRules1 = function(trusted_did, asset_did) {
+    return [
+    {
+      "rule_type": {
+        "IsPresent": {
+          "Whitelisted": asset_did 
+        }
+      },
+      "issuers": [trusted_did]
+    }
+  ];
+}
+
+const receiverRules1 = function(trusted_did, asset_did) {
+    return [
+    {
+      "rule_type": {
+        "IsPresent": {
+          "Whitelisted": asset_did
+        }
+      },
+      "issuers": [trusted_did]
+    }
+  ];
+}
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
@@ -53,7 +62,21 @@ async function initMain(api) {
   return entities;
 }
 
-let generateEntity = async function(api, name) {
+const createApi = async function() {
+  // Schema path
+  const filePath = reqImports.path.join(__dirname + "/../../../polymesh_schema.json");
+  const customTypes = JSON.parse(reqImports.fs.readFileSync(filePath, "utf8"));
+
+  // Start node instance
+  const ws_provider = new reqImports.WsProvider("ws://127.0.0.1:9944/");
+  const api = await reqImports.ApiPromise.create({
+    types: customTypes,
+    provider: ws_provider
+  });
+  return api;
+}
+
+let generateEntity = async function (api, name) {
   let entity = [];
   await cryptoWaitReady();
   entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, { name: `${name}` });
@@ -61,11 +84,10 @@ let generateEntity = async function(api, name) {
   let entity_nonce = new BN(entityRawNonce.toString());
   nonces.set(entity.address, entity_nonce);
 
-    return entity;
+  return entity;
 };
 
-
-const generateKeys = async function(api, numberOfKeys, keyPrepend) {
+const generateKeys = async function (api, numberOfKeys, keyPrepend) {
   let keys = [];
   await cryptoWaitReady();
   for (let i = 0; i < numberOfKeys; i++) {
@@ -81,7 +103,7 @@ const generateKeys = async function(api, numberOfKeys, keyPrepend) {
   return keys;
 };
 
-const blockTillPoolEmpty = async function(api) {
+const blockTillPoolEmpty = async function (api) {
   let prev_block_pending = 0;
   let done_something = false;
   let done = false;
@@ -118,10 +140,14 @@ const blockTillPoolEmpty = async function(api) {
 
 // Create a new DID for each of accounts[]
 // precondition - accounts all have enough POLY
-const createIdentities = async function(api, accounts, alice) {
+const createIdentities = async function (api, accounts, alice) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
+    // let nonceObj = {nonce: nonces.get(alice.address)};
+    // const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, null, []);
+    // await sendTransaction(transaction, alice, nonceObj);
+
       await api.tx.identity
         .cddRegisterDid(accounts[i].address, null, [])
         .signAndSend(alice, { nonce: nonces.get(alice.address) });
@@ -135,12 +161,17 @@ const createIdentities = async function(api, accounts, alice) {
   }
   let did_balance = 10 * 10**12;
   for (let i = 0; i < dids.length; i++) {
+    // let nonceObjTwo = {nonce: nonces.get(alice.address)};
+    // const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
+    // await sendTransaction(transactionTwo, alice, nonceObjTwo);
+
     await api.tx.balances
       .topUpIdentityBalance(dids[i], did_balance)
       .signAndSend(
         alice,
         { nonce: reqImports["nonces"].get(alice.address) }
       );
+
     reqImports["nonces"].set(
       alice.address,
       reqImports["nonces"].get(alice.address).addn(1)
@@ -151,11 +182,14 @@ const createIdentities = async function(api, accounts, alice) {
 
 // Sends transfer_amount to accounts[] from alice
 async function distributePoly(api, accounts, transfer_amount, signingEntity) {
-
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
 
-      const unsub = await api.tx.balances
+    // let nonceObj = {nonce: nonces.get(signingEntity.address)};
+    // const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
+    // await sendTransaction(transaction, signingEntity, nonceObj); 
+
+    const unsub = await api.tx.balances
       .transfer(accounts[i].address, transfer_amount)
       .signAndSend(
         signingEntity,
@@ -163,21 +197,22 @@ async function distributePoly(api, accounts, transfer_amount, signingEntity) {
 
     nonces.set(signingEntity.address, nonces.get(signingEntity.address).addn(1));
   }
-
 }
 
 // Attach a signing key to each DID
 async function addSigningKeys(api, accounts, dids, signing_accounts) {
-
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
+
+    // let nonceObj = {nonce: nonces.get(accounts[i].address)};
+    // const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
+    // await sendTransaction(transaction, accounts[i], nonceObj); 
 
     const unsub = await api.tx.identity
     .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
     .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
 
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
-
   }
 }
 
@@ -186,13 +221,20 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
 
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
-    const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
+    const auths = await api.query.identity.authorizations.entries({
+      AccountKey: signing_accounts[i].publicKey
+    });
     let last_auth_id = 0;
     for (let i = 0; i < auths.length; i++) {
       if (auths[i][1].auth_id.toNumber() > last_auth_id) {
         last_auth_id = auths[i][1].auth_id.toNumber()
       }
     }
+
+    // let nonceObj = {nonce: nonces.get(signing_accounts[i].address)};
+    // const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
+    // await sendTransaction(transaction, signing_accounts[i], nonceObj); 
+
     const unsub = await api.tx.identity
       .joinIdentityAsKey([last_auth_id])
       .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
@@ -202,45 +244,149 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
   return dids;
 }
 
-// Used to make the functions in scripts more efficient
-async function callback(status, events, sectionName, methodName, fail_count) {
+// Creates a token for a did
+async function issueTokenPerDid(api, accounts) {
 
-    let new_did_ok = false;
-    events.forEach(({ phase, event: { data, method, section } }) => {
-      if (section == sectionName && method == methodName) {
-        new_did_ok = true;
+  // let nonceObj = {nonce: nonces.get(accounts[0].address)};
+  // const transaction = api.tx.asset.createToken(ticker, ticker, 1000000, true, 0, [], "abc");
+  // await sendTransaction(transaction, accounts[0], nonceObj); 
+
+    const unsub = await api.tx.asset
+      .createToken(ticker, ticker, 1000000, true, 0, [], "abc")
+      .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
+
+    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+  
+}
+
+// Returns the asset did 
+function tickerToDid(ticker) {
+    return blake2AsHex(
+      u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
+           ));
+}
+
+// Creates claim rules for an asset
+async function createClaimRules(api, accounts, dids) {
+    
+    const asset_did = tickerToDid(ticker);
+  
+    let senderRules = senderRules1(dids[1], asset_did);
+    let receiverRules = receiverRules1(dids[1], asset_did);
+
+    let nonceObj = {nonce: nonces.get(accounts[0].address)};
+    const transaction = api.tx.generalTm.addActiveRule(ticker, senderRules, receiverRules);
+    await sendTransaction(transaction, accounts[0], nonceObj); 
+
+      nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+    
+  
+}
+
+// Adds claim to did
+async function addClaimsToDids(api, accounts, did, claimType, claimValue) {
+
+  // Receieving Rules Claim
+  let claim = {[claimType]: claimValue};
+
+      
+    let nonceObj = {nonce: nonces.get(accounts[1].address)};
+    const transaction = api.tx.identity.addClaim(did, claim, null);
+    await sendTransaction(transaction, accounts[1], nonceObj);  
+
+    nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
+    
+}
+
+function sendTransaction(transaction, signer, nonceObj) {
+  return new Promise((resolve, reject) => {
+    
+    const gettingUnsub = transaction.signAndSend(signer, nonceObj, receipt => {
+     
+      const { status } = receipt;
+     
+      if (receipt.isCompleted) {
+       
+        /*
+         * isCompleted === isFinalized || isError, which means
+         * no further updates, so we unsubscribe
+         */
+        gettingUnsub.then(unsub => {
+         
+          unsub();
+         
+        });
+       
+        if (receipt.isInBlock) {
+          
+          // tx included in a block and finalized
+          const failed = receipt.findRecord('system', 'ExtrinsicFailed');
+          
+          if (failed) {
+            
+            // get revert message from event
+            let message = "";
+            const dispatchError = failed.event.data[0];
+            
+            if (dispatchError.isModule) {
+              
+              // known error
+              const mod = dispatchError.asModule;
+              const { section, name, documentation } = mod.registry.findMetaError(
+                new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
+              );
+              
+              message = `${section}.${name}: ${documentation.join(' ')}`;
+            } else if (dispatchError.isBadOrigin) {  
+              message = 'Bad origin';
+            } else if (dispatchError.isCannotLookup) {  
+              message = 'Could not lookup information required to validate the transaction';
+            } else {
+              message = 'Unknown error';
+            }
+            
+            reject(new Error(message));
+          } else {
+            
+            resolve(receipt);
+          }
+        } else if (receipt.isError) {
+          
+          reject(new Error('Transaction Aborted'));
+          
+        }
       }
     });
-
-    if (!new_did_ok) {
-      fail_count++;
-    }
-
-  return fail_count;
-}
+  });
+} 
 
 // this object holds the required imports for all the scripts
 let reqImports = {
-  path,
   ApiPromise,
   WsProvider,
+  path,
+  fs,
+  nonces,
+  transfer_amount,
+  fail_count,
+  sk_roles,
+  prepend,
+  ticker,
+  createApi,
   createIdentities,
   initMain,
   blockTillPoolEmpty,
   generateKeys,
-  fs,
-  callback,
-  nonces,
-  transfer_amount,
-  fail_count,
   distributePoly,
   addSigningKeys,
   authorizeJoinToIdentities,
-  sk_roles,
-  prepend
-}
-
-
-export {
-  reqImports
+  issueTokenPerDid,
+  senderRules1,
+  receiverRules1,
+  createClaimRules,
+  addClaimsToDids,
+  tickerToDid,
+  sendTransaction
 };
+
+export { reqImports };
