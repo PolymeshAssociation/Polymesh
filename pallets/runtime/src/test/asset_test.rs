@@ -889,7 +889,7 @@ fn transfer_token_ownership() {
         let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
         let token_name = vec![0x01, 0x01];
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+        let ticker = Ticker::try_from(token_name.as_slice()).unwrap();
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
             token_name.into(),
@@ -1090,7 +1090,6 @@ fn adding_removing_documents() {
         ));
 
         let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         let ticker_did = Identity::get_token_did(&ticker).unwrap();
 
         // Issuance is successful

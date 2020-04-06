@@ -30,7 +30,7 @@ impl TryFrom<&[u8]> for Ticker {
             return Err("ticker too long".into());
         }
         let mut inner = [0u8; TICKER_LEN];
-        inner.copy_from_slice(s);
+        inner[..len].copy_from_slice(s);
         inner.make_ascii_uppercase();
         // Check whether the given ticker contains no lowercase characters and return an error
         // otherwise.

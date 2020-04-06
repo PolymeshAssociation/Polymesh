@@ -476,7 +476,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let ticker = Ticker::from(token.name.0.as_slice());
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
     assert_ok!(Asset::create_token(
@@ -696,7 +696,7 @@ fn jurisdiction_asset_rules_we() {
         divisible: true,
         ..Default::default()
     };
-    let ticker = Ticker::from(token.name.0.as_slice());
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
     assert_ok!(Asset::create_token(
         token_owner_signed.clone(),
         token.name.clone(),
