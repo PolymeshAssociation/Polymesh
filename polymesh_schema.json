@@ -23,6 +23,7 @@
         "_enum": {
             "Isin": "",
             "Cusip": "",
+            "Cins": "",
             "Custom": "Vec<u8>"
         }
     },

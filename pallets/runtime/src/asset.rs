@@ -127,6 +127,7 @@ impl Default for AssetType {
 pub enum IdentifierType {
     Isin,
     Cusip,
+    Cins,
     Custom(Vec<u8>),
 }
 
