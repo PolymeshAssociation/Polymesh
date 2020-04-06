@@ -64,7 +64,6 @@ let generateEntity = async function(api, name) {
     return entity;
 };
 
-
 const generateKeys = async function(api, numberOfKeys, keyPrepend) {
   let keys = [];
   await cryptoWaitReady();
@@ -80,6 +79,21 @@ const generateKeys = async function(api, numberOfKeys, keyPrepend) {
   }
   return keys;
 };
+
+const generateStashKeys = async function(api, accounts) {
+  let keys = [];
+  await cryptoWaitReady();
+  for (let i = 0; i < accounts.length; i++) {
+    keys.push(
+      new Keyring({ type: "sr25519" }).addFromUri(`//${accounts[i]}//stash`, { name: `${accounts[i]+ "_stash"}`
+      })
+    );
+    let accountRawNonce = (await api.query.system.account(keys[i].address)).nonce;
+    let account_nonce = new BN(accountRawNonce.toString());
+    nonces.set(keys[i].address, account_nonce);
+  }
+  return keys;
+}
 
 const blockTillPoolEmpty = async function(api) {
   let prev_block_pending = 0;
@@ -119,11 +133,16 @@ const blockTillPoolEmpty = async function(api) {
 // Create a new DID for each of accounts[]
 // precondition - accounts all have enough POLY
 const createIdentities = async function(api, accounts, alice) {
+    return await createIdentitiesWithExpiry(api, accounts, alice, []);
+};
+
+const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
+      let expiry = expiry.length == 0 ? null : expiries[i];
       await api.tx.identity
-        .cddRegisterDid(accounts[i].address, null, [])
+        .cddRegisterDid(accounts[i].address, expiry, [])
         .signAndSend(alice, { nonce: nonces.get(alice.address) });
 
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
@@ -147,7 +166,7 @@ const createIdentities = async function(api, accounts, alice) {
     );
   }
   return dids;
-};
+}
 
 // Sends transfer_amount to accounts[] from alice
 async function distributePoly(api, accounts, transfer_amount, signingEntity) {
@@ -237,7 +256,9 @@ let reqImports = {
   addSigningKeys,
   authorizeJoinToIdentities,
   sk_roles,
-  prepend
+  prepend,
+  generateStashKeys,
+  generateEntity
 }
 
 

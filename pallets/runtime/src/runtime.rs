@@ -47,6 +47,7 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 use frame_system::offchain::TransactionSubmitter;
+use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -586,8 +587,7 @@ impl group::Trait<group::Instance2> for Runtime {
 impl statistics::Trait for Runtime {}
 
 /// A runtime transaction submitter for the cdd_offchain_worker
-type SubmitTransactionCdd =
-    TransactionSubmitter<pallet_cdd_offchain_worker::crypto::Public, Runtime, UncheckedExtrinsic>;
+type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
 
 parameter_types! {
     pub const CoolingInterval: BlockNumber = 3;
@@ -595,6 +595,8 @@ parameter_types! {
 }
 
 impl pallet_cdd_offchain_worker::Trait for Runtime {
+    /// SignerId
+    type SignerId = CddOffchainWorkerId;
     /// The overarching event type.
     type Event = Event;
     /// The overarching dispatch call type
@@ -605,8 +607,6 @@ impl pallet_cdd_offchain_worker::Trait for Runtime {
     type BufferInterval = BufferInterval;
     /// The type submit transactions.
     type SubmitUnsignedTransaction = SubmitTransactionCdd;
-    /// Signed transaction type.
-    type SubmitSignedTransaction = SubmitTransactionCdd;
 }
 
 impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtime {
