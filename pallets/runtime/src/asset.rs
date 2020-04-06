@@ -247,60 +247,60 @@ decl_storage! {
         FeeCollector get(fn fee_collector) config(): T::AccountId;
         /// Ticker registration details
         /// (ticker) -> TickerRegistration
-        pub Tickers get(fn ticker_registration): map hasher(blake2_256) Ticker => TickerRegistration<T::Moment>;
+        pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => TickerRegistration<T::Moment>;
         /// Ticker registration config
         /// (ticker) -> TickerRegistrationConfig
         pub TickerConfig get(fn ticker_registration_config) config(): TickerRegistrationConfig<T::Moment>;
         /// details of the token corresponding to the token ticker
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
-        pub Tokens get(fn token_details): map hasher(blake2_256) Ticker => SecurityToken<T::Balance>;
+        pub Tokens get(fn token_details): map hasher(blake2_128_concat) Ticker => SecurityToken<T::Balance>;
         /// Used to store the securityToken balance corresponds to ticker and Identity
         /// (ticker, DID) -> Balance
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
         /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
-        pub Identifiers get(fn identifiers): map hasher(blake2_256) (Ticker, IdentifierType) => AssetIdentifier;
+        pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
         /// (ticker, sender (DID), spender(DID)) -> allowance amount
-        Allowance get(fn allowance): map hasher(blake2_256) (Ticker, IdentityId, IdentityId) => T::Balance;
+        Allowance get(fn allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// cost in base currency to create a token
         AssetCreationFee get(fn asset_creation_fee) config(): T::Balance;
         /// cost in base currency to register a ticker
         TickerRegistrationFee get(fn ticker_registration_fee) config(): T::Balance;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
-        pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_256) Ticker => u64;
+        pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
         /// Total supply of the token at the checkpoint
         /// (ticker, checkpointId) -> total supply at given checkpoint
-        pub CheckpointTotalSupply get(fn total_supply_at): map hasher(blake2_256) (Ticker, u64) => T::Balance;
+        pub CheckpointTotalSupply get(fn total_supply_at): map hasher(blake2_128_concat) (Ticker, u64) => T::Balance;
         /// Balance of a DID at a checkpoint
         /// (ticker, DID, checkpoint ID) -> Balance of a DID at a checkpoint
-        CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_256) (Ticker, IdentityId, u64) => T::Balance;
+        CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_128_concat) (Ticker, IdentityId, u64) => T::Balance;
         /// Last checkpoint updated for a DID's balance
         /// (ticker, DID) -> List of checkpoints where user balance changed
-        UserCheckpoints get(fn user_checkpoints): map hasher(blake2_256) (Ticker, IdentityId) => Vec<u64>;
+        UserCheckpoints get(fn user_checkpoints): map hasher(blake2_128_concat) (Ticker, IdentityId) => Vec<u64>;
         /// Allowance provided to the custodian
         /// (ticker, token holder, custodian) -> balance
-        pub CustodianAllowance get(fn custodian_allowance): map hasher(blake2_256) (Ticker, IdentityId, IdentityId) => T::Balance;
+        pub CustodianAllowance get(fn custodian_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Total custodian allowance for a given token holder
         /// (ticker, token holder) -> balance
-        pub TotalCustodyAllowance get(fn total_custody_allowance): map hasher(blake2_256) (Ticker, IdentityId) => T::Balance;
+        pub TotalCustodyAllowance get(fn total_custody_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId) => T::Balance;
         /// Store the nonce for off chain signature to increase the custody allowance
         /// (ticker, token holder, nonce) -> bool
-        AuthenticationNonce get(fn authentication_nonce): map hasher(blake2_256) (Ticker, IdentityId, u16) => bool;
+        AuthenticationNonce get(fn authentication_nonce): map hasher(blake2_128_concat) (Ticker, IdentityId, u16) => bool;
         /// The name of the current funding round.
         /// ticker -> funding round
-        FundingRound get(fn funding_round): map hasher(blake2_256) Ticker => FundingRoundName;
+        FundingRound get(fn funding_round): map hasher(blake2_128_concat) Ticker => FundingRoundName;
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
-        IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_256) (Ticker, FundingRoundName) => T::Balance;
+        IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => T::Balance;
         /// List of Smart extension added for the given tokens
         /// ticker, AccountId (SE address) -> SmartExtension detail
-        pub ExtensionDetails get(fn extension_details): map hasher(blake2_256) (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
+        pub ExtensionDetails get(fn extension_details): map hasher(blake2_128_concat) (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
         /// List of Smart extension added for the given tokens and for the given type
         /// ticker, type of SE -> address/AccountId of SE
-        pub Extensions get(fn extensions): map hasher(blake2_256) (Ticker, SmartExtensionType) => Vec<T::AccountId>;
+        pub Extensions get(fn extensions): map hasher(blake2_128_concat) (Ticker, SmartExtensionType) => Vec<T::AccountId>;
         /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
-        pub Frozen get(fn frozen): map hasher(blake2_256) Ticker => bool;
+        pub Frozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
     }
 }
 

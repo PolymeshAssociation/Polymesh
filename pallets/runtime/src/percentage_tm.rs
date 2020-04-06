@@ -56,7 +56,7 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as PercentageTM {
-        MaximumPercentageEnabledForToken get(fn maximum_percentage_enabled_for_token): map hasher(blake2_256) Ticker => u16;
+        MaximumPercentageEnabledForToken get(fn maximum_percentage_enabled_for_token): map hasher(blake2_128_concat) Ticker => u16;
     }
 }
 

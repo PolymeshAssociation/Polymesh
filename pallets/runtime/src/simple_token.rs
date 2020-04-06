@@ -64,13 +64,13 @@ pub struct SimpleTokenRecord<U> {
 decl_storage! {
     trait Store for Module<T: Trait> as SimpleToken {
         /// Mapping from (ticker, owner DID, spender DID) to allowance amount
-        Allowance get(fn allowance): map hasher(blake2_256) (Ticker, IdentityId, IdentityId) => T::Balance;
+        Allowance get(fn allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Mapping from (ticker, owner DID) to their balance
-        pub BalanceOf get(fn balance_of): map hasher(blake2_256) (Ticker, IdentityId) => T::Balance;
+        pub BalanceOf get(fn balance_of): map hasher(blake2_128_concat) (Ticker, IdentityId) => T::Balance;
         /// The cost to create a new simple token
         CreationFee get(fn creation_fee) config(): T::Balance;
         /// The details associated with each simple token
-        Tokens get(fn tokens): map hasher(blake2_256) Ticker => SimpleTokenRecord<T::Balance>;
+        Tokens get(fn tokens): map hasher(blake2_128_concat) Ticker => SimpleTokenRecord<T::Balance>;
     }
 }
 

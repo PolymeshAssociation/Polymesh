@@ -5,8 +5,8 @@ use crate::{
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, ClaimType, IdentityClaim, IdentityId, LinkData, Permission,
-    Signatory, SigningItem, Ticker,
+    AccountKey, AuthorizationData, IdentityClaim, IdentityId, LinkData, Permission, Signatory,
+    SigningItem, Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -121,10 +121,10 @@ decl_event!(
         RemovedClaimIssuer(IdentityId, IdentityId),
 
         /// DID, claims
-        NewClaims(IdentityId, IdentityClaim),
+        NewClaim(IdentityId, IdentityClaim),
 
         /// DID, ClaimType, Claim Issuer
-        RevokedClaim(IdentityId, ClaimType, IdentityId),
+        RevokedClaim(IdentityId, IdentityClaim),
 
         /// DID
         NewIssuer(IdentityId),
@@ -147,8 +147,14 @@ decl_event!(
             Option<Moment>
         ),
 
-        /// Authorization revoked or consumed. (auth_id, authorized_identity)
-        AuthorizationRemoved(u64, Signatory),
+        /// Authorization revoked by the authorizer (auth_id, authorized_identity)
+        AuthorizationRevoked(u64, Signatory),
+
+        /// Authorization rejected by the user who was authorized (auth_id, authorized_identity)
+        AuthorizationRejected(u64, Signatory),
+
+        /// Authorization consumed. (auth_id, authorized_identity)
+        AuthorizationConsumed(u64, Signatory),
 
         /// MasterKey changed (Requestor DID, New MasterKey)
         MasterKeyChanged(IdentityId, AccountKey),

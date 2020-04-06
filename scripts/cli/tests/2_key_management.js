@@ -4,25 +4,18 @@ module.exports = require("../util/init.js");
 
 let { reqImports } = require("../util/init.js");
 
+// Sets the default exit code to fail unless the script runs successfully
+process.exitCode = 1;
+
 async function main() {
-  // Schema path
-  const filePath = reqImports["path"].join(__dirname + "/../../../polymesh_schema.json");
-  const customTypes = JSON.parse(reqImports["fs"].readFileSync(filePath, "utf8"));
+ 
+  const api = await reqImports.createApi();
 
-  // Start node instance
-  const ws_provider = new reqImports["WsProvider"]("ws://127.0.0.1:9944/");
-  const api = await reqImports["ApiPromise"].create({
-    types: customTypes,
-    provider: ws_provider
-  });
+  const testEntities = await reqImports.initMain(api);
 
-  const testEntities = await reqImports["initMain"](api);
+  let master_keys = await reqImports.generateKeys(api,5, "master");
 
-  let master_keys = await reqImports["generateKeys"](api,5, "master");
-
-  let signing_keys = await reqImports["generateKeys"](api, 5, "signing");
-
-  await reqImports["createIdentities"](api, testEntities, testEntities[0]);
+  let signing_keys = await reqImports.generateKeys(api, 5, "signing");
 
   let issuer_dids = await reqImports["createIdentities"](api, master_keys, testEntities[0]);
 
@@ -32,15 +25,11 @@ async function main() {
 
   await addSigningKeys( api, master_keys, issuer_dids, signing_keys );
 
-  await reqImports["blockTillPoolEmpty"](api);
-
-  await new Promise(resolve => setTimeout(resolve, 3000));
-
-  if (reqImports["fail_count"] > 0) {
+  if (reqImports.fail_count > 0) {
     console.log("Failed");
-    process.exitCode = 1;
   } else {
     console.log("Passed");
+    process.exitCode = 0;
   }
 
   process.exit();
@@ -50,21 +39,16 @@ async function main() {
 async function addSigningKeys( api, accounts, dids, signing_accounts ) {
 
   for (let i = 0; i < accounts.length; i++) {
-    // 1. Add Signing Item to identity.
-    const unsub = await api.tx.identity
-      .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
-      .signAndSend(
-        accounts[i],
-        { nonce: reqImports["nonces"].get(accounts[i].address) },
-        ({ events = [], status }) => {
-          if (status.isFinalized) {
-            reqImports["fail_count"] = reqImports["callback"](status, events, "identity", "NewAuthorization", reqImports["fail_count"]);
-            unsub();
-          }
-        }
-      );
 
-    reqImports["nonces"].set(accounts[i].address, reqImports["nonces"].get(accounts[i].address).addn(1));
+
+    // 1. Add Signing Item to identity.
+    let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
+    const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
+    const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
+
+    reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
   }
 }
 
