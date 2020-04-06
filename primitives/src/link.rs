@@ -5,7 +5,7 @@ use codec::{Decode, Encode};
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum LinkData {
-    /// Represents a document (name, URI, hash)
+    /// Represents a document (name, URI, content_hash)
     DocumentOwned(Document),
     /// Represents a ticker ownership
     TickerOwned(Ticker),
@@ -30,11 +30,6 @@ pub struct Link<U> {
     /// time when this Link expires. optional.
     pub expiry: Option<U>,
 
-    // Extra data to allow iterating over the Links.
-    /// Link number of the next Link.
-    /// Link number starts with 1.
-    pub next_link: u64,
-    /// Link number of the previous Link.
-    /// Link number starts with 1.
-    pub previous_link: u64,
+    /// Link id of this link
+    pub link_id: u64,
 }

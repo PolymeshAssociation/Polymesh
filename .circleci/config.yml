@@ -10,7 +10,6 @@ jobs:
       - run:
           name: Check formatting
           command: ./scripts/rustfmt.sh
-          working_directory: .
   build:
     docker:
       - image: maxsam4/rust
@@ -18,24 +17,23 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - build-cache-{{ checksum "./Cargo.lock" }}
-      - run:
-          name: Build rocksdb
-          command: cargo build -p rocksdb -j 1 --release
-          working_directory: .
+            - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v2-release-cache-{{ checksum "./rust.version" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
-          command: cargo build -j 1 --release
-          working_directory: .
+          command: cargo build --release || cargo build -j 1 --release
+          no_output_timeout: 4h
       - save_cache:
-          key: build-cache-{{ checksum "./Cargo.lock" }}
+          key: v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
-            - "./pallets/runtime/target"
-            - "./pallets/runtime/wasm/target"
   test:
     docker:
       - image: maxsam4/rust
@@ -43,26 +41,104 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - debug-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}
+            - v6-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v6-test-cache-{{ checksum "./rust.version" }}
       - run:
-          name: runtime tests
-          command: cd pallets/runtime && cargo test && cd ../..
-          working_directory: .
+          name: Tests
+          command: >-
+            cargo test
+            --package polymesh-runtime
+            --package pallet-staking
+            --package polymesh-runtime-group
+            --package pallet-im-online
+            --package polymesh-primitives
+            --package pallet-mips-rpc
+            --package pallet-transaction-payment ||
+            cargo test -j 1
+            --package polymesh-runtime
+            --package pallet-staking
+            --package polymesh-runtime-group
+            --package pallet-im-online
+            --package polymesh-primitives
+            --package pallet-mips-rpc
+            --package pallet-transaction-payment
+          no_output_timeout: 30m
       - save_cache:
-          key: debug-cache-{{ checksum "./pallets/runtime/Cargo.lock" }}
+          key: v6-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
-            - "./pallets/runtime/target"
-            - "./pallets/runtime/wasm/target"
+  cli:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Build release
+          command: cargo build --release || cargo build -j 1 --release
+          no_output_timeout: 4h
+      - run:
+          name: cli node instance
+          command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
+          background: true
+      - run:
+          name: cli scripts install
+          command: npm install
+          working_directory: ./scripts/cli
+          no_output_timeout: 30m
+      - run:
+          name: cli scripts test
+          command: npm test
+          working_directory: ./scripts/cli
+          no_output_timeout: 10m
+      - save_cache:
+          key: v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
+            - "./scripts/cli/node_modules"
+  clippy:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc +nightly --version > rust.version
+      - restore_cache:
+          keys:
+            - v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v3-clippy-cache-{{ checksum "./rust.version" }}
+      - run:
+          name: run clippy
+          command: cargo +nightly clippy -j 1
+          no_output_timeout: 60m
+      - save_cache:
+          key: v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
 workflows:
   version: 2
   commit:
     jobs:
       - lint
-      - build
+      - cli
       - test
   daily-builds:
     triggers:

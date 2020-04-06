@@ -1,6 +1,6 @@
-use crate::traits::{BlockRewardsReserveTrait, CommonTrait};
-
+use crate::traits::CommonTrait;
 use frame_support::traits::{Imbalance, TryDrop};
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_std::{mem, result};
 
@@ -60,7 +60,7 @@ impl<T: CommonTrait> Imbalance<T::Balance> for PositiveImbalance<T> {
         mem::forget(other);
     }
 
-    fn offset(self, other: NegativeImbalance<T>) -> result::Result<Self, NegativeImbalance<T>> {
+    fn offset(self, other: Self::Opposite) -> result::Result<Self, Self::Opposite> {
         let (a, b) = (self.0, other.0);
         mem::forget((self, other));
 
@@ -136,7 +136,7 @@ impl<T: CommonTrait> Imbalance<T::Balance> for NegativeImbalance<T> {
         mem::forget(other);
     }
 
-    fn offset(self, other: PositiveImbalance<T>) -> result::Result<Self, PositiveImbalance<T>> {
+    fn offset(self, other: Self::Opposite) -> result::Result<Self, Self::Opposite> {
         let (a, b) = (self.0, other.0);
         mem::forget((self, other));
 

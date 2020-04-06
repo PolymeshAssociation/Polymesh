@@ -1,10 +1,14 @@
 {
     "IdentityId":"H256",
     "Ticker": "[u8; 12]",
+    "PosRatio": "(u32, u32)",
+    "DocumentName": "Text",
+    "DocumentUri": "Text",
+    "DocumentHash": "Text",
     "Document": {
-        "name": "Vec<u8>",
-        "uri": "Vec<u8>",
-        "hash": "Vec<u8>"
+        "name": "DocumentName",
+        "uri": "DocumentUri",
+        "content_hash": "DocumentHash"
     },
     "AssetType": {
         "_enum": {
@@ -22,8 +26,11 @@
             "Custom": "Vec<u8>"
         }
     },
+    "TokenName": "Text",
+    "AssetIdentifier": "Text",
+    "FundingRoundName": "Text",
     "SecurityToken": {
-        "name": "Vec<u8>",
+        "name": "TokenName",
         "total_supply": "Balance",
         "owner_did": "IdentityId",
         "divisible": "bool",
@@ -48,8 +55,7 @@
     "Link": {
         "link_data": "LinkData",
         "expiry": "Option<Moment>",
-        "next_link": "u64",
-        "previous_link": "u64"
+        "link_id": "u64"
     },
     "LinkData": {
        "_enum": {
@@ -90,7 +96,7 @@
             "Investor",
             "NodeRunner",
             "PM",
-            "KYCAMLClaimIssuer",
+            "CDDAMLClaimIssuer",
             "AccreditedInvestorClaimIssuer",
             "VerifiedIdentityClaimIssuer"
         ]
@@ -104,55 +110,63 @@
         "master_key": "AccountKey",
         "signing_items": "Vec<SigningItem>"
     },
+    "JurisdictionName": "Text",
+    "Scope": "IdentityId",
     "Claim": {
+        "_enum": {
+            "Accredited": "Scope",
+            "Affiliate": "Scope",
+            "BuyLockup": "Scope",
+            "SellLockup": "Scope",
+            "CustomerDueDiligence": "",
+            "KnowYourCustomer": "Scope",
+            "Jurisdiction": "(JurisdictionName, Scope)",
+            "Whitelisted": "Scope",
+            "Blacklisted": "Scope",
+            "NoData": ""
+        }
+    },
+    "ClaimType": {
+        "_enum": {
+            "Accredited": "",
+            "Affiliate": "",
+            "BuyLockup": "",
+            "SellLockup": "",
+            "CustomerDueDiligence": "",
+            "KnowYourCustomer": "",
+            "Jurisdiction": "",
+            "Whitelisted": "",
+            "Blacklisted": "",
+            "NoType": ""
+        }
+    },
+    "IdentityClaim": {
+        "claim_issuer": "IdentityId",
         "issuance_date": "Moment",
-        "expiry": "Moment",
-        "claim_value": "ClaimValue"
+        "last_update_date": "Moment",
+        "expiry": "Option<Moment>",
+        "claim": "Claim"
     },
-    "ClaimMetaData": {
-        "claim_key": "Vec<u8>",
-        "claim_issuer": "IdentityId"
+    "IdentityClaimKey": {
+        "id": "IdentityId",
+        "claim_type": "ClaimType"
     },
-    "ClaimValue": {
-        "data_type": "DataTypes",
-        "value": "Vec<u8>"
+    "AssetTransferRule": {
+        "sender_rules": "Vec<Rule>",
+        "receiver_rules":"Vec<Rule>",
+        "rule_id": "u32"
     },
-    "ClaimRecord": {
-        "did": "IdentityId",
-        "claim_key": "Vec<u8>",
-        "expiry": "Moment",
-        "claim_value": "ClaimValue"
+    "RuleType": {
+        "_enum": {
+            "IsPresent" : "Claim",
+            "IsAbsent": "Claim",
+            "IsAnyOf": "Vec<Claim>",
+            "IsNoneOf": "Vec<Claim>"
+        }
     },
-    "DataTypes": {
-        "_enum": [
-            "U8",
-            "U16",
-            "U32",
-            "U64",
-            "U128",
-            "Bool",
-            "VecU8"
-        ]
-    },
-    "AssetRule": {
-        "sender_rules": "Vec<RuleData>",
-        "receiver_rules":"Vec<RuleData>"
-    },
-    "Operators": {
-        "_enum": [
-            "EqualTo",
-            "NotEqualTo",
-            "LessThan",
-            "GreaterThan",
-            "LessOrEqualTo",
-            "GreaterOrEqualTo"
-        ]
-    },
-    "RuleData": {
-        "key": "Vec<u8>",
-        "value": "Vec<u8>",
-        "trusted_issuers": "Vec<IdentityId>",
-        "operator": "Operators"
+    "Rule": {
+        "rule_type": "RuleType",
+        "issuers": "Vec<IdentityId>"
     },
     "STO": {
         "beneficiary_did": "IdentityId",
@@ -180,7 +194,7 @@
         "active": "bool",
         "maturates_at": "Option<u64>",
         "expires_at": "Option<u64>",
-        "payout_currency": "Option<Vec<u8>>",
+        "payout_currency": "Option<Ticker>",
         "checkpoint_id": "u64"
     },
     "TargetIdAuthorization": {
@@ -204,10 +218,12 @@
         "value": "Balance",
         "nonce": "u16"
     },
+    "MotionTitle": "Text",
+    "MotionInfoLink": "Text",
     "Motion": {
-        "title": "Vec<u8>",
-        "info_link": "Vec<u8>",
-        "choices": "Vec<Vec<u8>>"
+        "title": "MotionTitle",
+        "info_link": "MotionInfoLink",
+        "choices": "Vec<MotionTitle>"
     },
     "Ballot": {
         "checkpoint_id": "u64",
@@ -215,10 +231,20 @@
         "voting_end": "Moment",
         "motions": "Vec<Motion>"
     },
+    "Url": "Text",
+    "MipDescription": "Text",
     "MipsMetadata": {
+        "proposer": "AccountKey",
         "index": "u32",
-        "end": "u64",
-        "proposal_hash": "Hash"
+        "end": "u32",
+        "proposal_hash": "Hash",
+        "url": "Option<Url>",
+        "description": "Option<MipDescription>",
+        "cool_off_until": "u32"
+    },
+    "DepositInfo": {
+        "owner": "AccountKey",
+        "amount": "Balance"
     },
     "PolymeshVotes": {
         "index": "u32",
@@ -252,10 +278,9 @@
     },
     "Authorization": {
         "authorization_data": "AuthorizationData",
-        "authorized_by": "IdentityId",
+        "authorized_by": "Signatory",
         "expiry": "Option<Moment>",
-        "next_authorization": "u64",
-        "previous_authorization": "u64"
+        "auth_id": "u64"
     },
     "AuthorizationData": {
         "_enum": {
@@ -264,9 +289,14 @@
             "TransferTicker": "Ticker",
             "AddMultiSigSigner": "",
             "TransferTokenOwnership": "Ticker",
+            "JoinIdentity": "IdentityId",
             "Custom": "Vec<u8>",
             "NoData": ""
         }
+    },
+    "AuthIdentifier": {
+        "signatory": "Signatory",
+        "auth_id": "u64"
     },
     "Compliance": {
         "_enum": [
@@ -281,9 +311,10 @@
             "Custom": "Vec<u8>"
         }
     },
+    "SmartExtensionName": "Text",
     "SmartExtension": {
         "extension_type": "SmartExtensionType",
-        "extension_name": "Vec<u8>",
+        "extension_name": "SmartExtensionName",
         "extension_id": "IdentityId",
         "is_archive": "bool"
     },
@@ -300,5 +331,77 @@
             "Individual": "",
             "Global": "u32"
         }
+    },
+    "RestrictionResult": {
+        "_enum": [
+            "Valid",
+            "Invalid",
+            "ForceValid"
+        ]
+    },
+    "Memo": "[u8;32]",
+    "IssueRecipient": {
+        "_enum": {
+            "Account": "AccountKey",
+            "Identity": "IdentityId"
+        }
+    },
+    "BridgeTx": {
+        "nonce": "u64",
+        "recipient": "IssueRecipient",
+        "value": "u128",
+        "tx_hash": "H256"
+    },
+    "PendingTx": {
+        "did": "IdentityId",
+        "bridge_tx": "BridgeTx"
+    },
+    "OfflineSlashingParams": {
+        "max_offline_percent": "u32",
+        "constant": "u32",
+        "max_slash_percent": "u32"
+    },
+    "AssetTransferRules": {
+        "is_paused": "bool",
+        "rules": "Vec<AssetTransferRule>"
+    },
+    "Claim1stKey": {
+        "target": "IdentityId",
+        "claim_type": "ClaimType"
+    },
+    "Claim2ndKey": {
+        "issuer": "IdentityId",
+        "scope": "Option<Scope>"
+    },
+    "BatchAddClaimItem": {
+        "target": "IdentityId",
+        "claim": "Claim",
+        "expiry": "Option<u64>"
+    },
+    "BatchRevokeClaimItem": {
+        "target": "IdentityId",
+        "claim": "Claim"
+    },
+    "InactiveMember" : {
+        "id": "IdentityId",
+        "deactivated_at": "Moment",
+        "expiry": "Option<Moment>"
+    },
+    "ProtocolOp": {
+        "_enum": [
+            "AssetRegisterTicker",
+            "AssetIssue",
+            "AssetAddDocument",
+            "AssetCreateToken",
+            "DividendNew",
+            "GeneralTmAddActiveRule",
+            "IdentityRegisterDid",
+            "IdentityCddRegisterDid",
+            "IdentityAddClaim",
+            "IdentitySetMasterKey",
+            "IdentityAddSigningItem",
+            "MipsPropose",
+            "VotingAddBallot"
+        ]
     }
 }

@@ -105,17 +105,17 @@ async function main() {
   current_storage_size = initial_storage_size;
 
   alice = keyring.addFromUri("//Alice", { name: "Alice" });
-  let aliceRawNonce = await api.query.system.accountNonce(alice.address);
+  let aliceRawNonce = (await api.query.system.account(alice.address)).nonce;
   let alice_nonce = new BN(aliceRawNonce.toString());
   nonces.set(alice.address, alice_nonce);
 
   bob = keyring.addFromUri("//Bob", { name: "Bob" });
-  let bobRawNonce = await api.query.system.accountNonce(bob.address);
+  let bobRawNonce = (await api.query.system.account(bob.address)).nonce;
   let bob_nonce = new BN(bobRawNonce.toString());
   nonces.set(bob.address, bob_nonce);
 
   dave = keyring.addFromUri("//Dave", { name: "Dave" });
-  let daveRawNonce = await api.query.system.accountNonce(dave.address);
+  let daveRawNonce = (await api.query.system.account(dave.address)).nonce;
   let dave_nonce = new BN(daveRawNonce.toString());
   nonces.set(dave.address, dave_nonce);
 
@@ -126,7 +126,7 @@ async function main() {
     master_keys.push(
       keyring.addFromUri("//IssuerMK" + prepend + i.toString(), { name: i.toString() })
     );
-    let accountRawNonce = await api.query.system.accountNonce(master_keys[i].address);
+    let accountRawNonce = (await api.query.system.account(master_keys[i].address)).nonce;
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(master_keys[i].address, account_nonce);
   }
@@ -137,7 +137,7 @@ async function main() {
     signing_keys.push(
       keyring.addFromUri("//IssuerSK" + prepend + i.toString(), { name: i.toString() })
     );
-    let accountRawNonce = await api.query.system.accountNonce(signing_keys[i].address);
+    let accountRawNonce = (await api.query.system.account(signing_keys[i].address)).nonce;
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(signing_keys[i].address, account_nonce);
   }
@@ -153,7 +153,7 @@ async function main() {
     claim_keys.push(
       keyring.addFromUri("//ClaimIssuerMK" + prepend + i.toString(), { name: i.toString() })
     );
-    let claimIssuerRawNonce = await api.query.system.accountNonce(claim_keys[i].address);
+    let claimIssuerRawNonce = (await api.query.system.account(claim_keys[i].address)).nonce;
     let account_nonce = new BN(claimIssuerRawNonce.toString());
     nonces.set(claim_keys[i].address, account_nonce);
   }
@@ -216,7 +216,7 @@ async function main() {
 
   let issuer_dids = await createIdentities(api, master_keys, init_bars[4], init_bars[5], fast);
 
-  
+
 
   await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7], fast);
   await authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys, init_bars[16], init_bars[17], fast);
@@ -432,6 +432,23 @@ async function createIdentities(api, accounts, submitBar, completeBar, fast) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.raw.asUnique);
   }
+  let did_balance = 10 * 10**12;
+  let alice = keyring.addFromUri("//Alice", { name: "Alice" });
+  let aliceRawNonce = (await api.query.system.account(alice.address)).nonce;
+  let alice_nonce = new BN(aliceRawNonce.toString());
+  nonces.set(alice.address, alice_nonce);
+  dids.forEach(async function(did) {
+    await api.tx.balances
+    .topUpIdentityBalance(did, did_balance)
+    .signAndSend(
+      alice,
+      { nonce: reqImports["nonces"].get(alice.address) }
+    );
+    reqImports["nonces"].set(
+      alice.address,
+      reqImports["nonces"].get(alice.address).addn(1)
+    );
+  });
   return dids;
 }
 
@@ -440,28 +457,21 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
   fail_type["ADD SIGNING KEY"] = 0;
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
-    let signing_item = {
-      signer: {
-          key: signing_accounts[i].publicKey 
-      },
-      signer_type: 0,
-      roles: []
-    }
     if (fast) {
       const unsub = await api.tx.identity
-      .addSigningItems(dids[i], [signing_item])
+      .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-        .addSigningItems(dids[i], [signing_item])
+      .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, 0)
         .signAndSend(accounts[i],
           { nonce: nonces.get(accounts[i].address) },
           ({ events = [], status }) => {
           if (status.isFinalized) {
             let tx_ok = false;
             events.forEach(({ phase, event: { data, method, section } }) => {
-              if (section == "identity" && method == "NewSigningItems") {
+              if (section == "identity" && method == "NewAuthorization") {
                 tx_ok = true;
                 completeBar.increment();
               }
@@ -484,23 +494,25 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
 async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
   fail_type["AUTH SIGNING KEY"] = 0;
   for (let i = 0; i < accounts.length; i++) {
+    const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
+    const last_auth_id = auths[auths.length - 1].auth_id;
     // 1. Authorize
     if (fast) {
         const unsub = await api.tx.identity
-            .authorizeJoinToIdentity(dids[i])
+            .joinIdentityAsKey([last_auth_id])
             .signAndSend(signing_accounts[i],
                 { nonce: nonces.get(signing_accounts[i].address) });
         nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
     } else {
         const unsub = await api.tx.identity
-        .authorizeJoinToIdentity(dids[i])
+        .joinIdentityAsKey([last_auth_id])
         .signAndSend(signing_accounts[i],
           { nonce: nonces.get(signing_accounts[i].address) },
           ({ events = [], status }) => {
           if (status.isFinalized) {
             let tx_ok = false;
             events.forEach(({ phase, event: { data, method, section } }) => {
-              if (section == "identity" && method == "SignerJoinedToIdentityApproved") {
+              if (section == "identity" && method == "NewSigningItems") {
                 tx_ok = true;
                 completeBar.increment();
               }
@@ -526,15 +538,15 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, 
 async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
   fail_type["SET SIGNING KEY ROLES"] = 0;
   for (let i = 0; i < accounts.length; i++) {
-    let signer = { key: signing_accounts[i].publicKey };
+    let signer = { AccountKey: signing_accounts[i].publicKey };
     if (fast) {
       const unsub = await api.tx.identity
-      .setPermissionToSigner(dids[i], signer, sk_roles[i%sk_roles.length])
+      .setPermissionToSigner( signer, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.identity
-      .setPermissionToSigner(dids[i], signer, sk_roles[i%sk_roles.length])
+      .setPermissionToSigner( signer, sk_roles[i%sk_roles.length])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
@@ -571,12 +583,12 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
     const ticker = `token${prepend}${i}`;
     if (fast) {
       const unsub = await api.tx.asset
-      .createToken(dids[i], ticker, ticker, 1000000, true, 0, [])
+      .createToken( ticker, ticker, 1000000, true, 0, [])
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) });
     } else {
       const unsub = await api.tx.asset
-      .createToken(dids[i], ticker, ticker, 1000000, true, 0, [])
+      .createToken( ticker, ticker, 1000000, true, 0, [], "abc")
       .signAndSend(accounts[i],
         { nonce: nonces.get(accounts[i].address) },
         ({ events = [], status }) => {
@@ -604,15 +616,15 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
 }
 
  // Takes in a number for the amount of claims to be produces
-// then creates a batch of claims based on that number. 
+// then creates a batch of claims based on that number.
 async function addClaimsBatchToDid(api, accounts, claim_did, n_claims) {
 
     // Holds the batch of claims
-    let claims = []; 
+    let claims = [];
 
     // Stores the value of each claim
-    let claim_record = {did: claim_did[0], claim_key: "test", expiry: 0, claim_value: {data_type: 0, value: "0"}};
-    
+    let claim_record = (claim_did[0], 0, 0);
+
     // This fills the claims array with claim_values up to n_claims amount
     for (let i = 0; i < n_claims; i++) {
       claims.push( claim_record );
@@ -627,7 +639,7 @@ async function addClaimsBatchToDid(api, accounts, claim_did, n_claims) {
 
 
       //unsub();
-    
+
 }
 
 async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, completeBar, fast) {
@@ -638,7 +650,6 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, compl
     ///pub struct ClaimValue {
     // pub data_type: DataTypes,
     // pub value: Vec<u8>,
-    let claim_value = {data_type: 0, value: "0"};
     // for (let j = 0; j < n_claims; j++) {
     //   claims.push({
     //     topic: 0,
@@ -649,20 +660,20 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, compl
 
     if (fast) {
       const unsub = await api.tx.identity
-      .addClaim(dids[i], 0, claim_dids[i%claim_dids.length], 0, claim_value)
+      .addClaim(dids[i], 0, 0)
       .signAndSend(accounts[i%claim_dids.length],
         { nonce: nonces.get(accounts[i%claim_dids.length].address) });
     } else {
 
       const unsub = await api.tx.identity
-      .addClaim(dids[i], 0, claim_dids[i%claim_dids.length], 0, claim_value)
+      .addClaim(dids[i], 0, 0)
       .signAndSend(accounts[i%claim_dids.length],
         { nonce: nonces.get(accounts[i%claim_dids.length].address) },
         ({ events = [], status }) => {
         if (status.isFinalized) {
           let new_claim_ok = false;
           events.forEach(({ phase, event: { data, method, section } }) => {
-            if (section == "identity" && method == "NewClaims") {
+            if (section == "identity" && method == "NewClaim") {
               new_claim_ok = true;
               completeBar.increment();
             }

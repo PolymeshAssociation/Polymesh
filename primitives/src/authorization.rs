@@ -7,7 +7,7 @@ use frame_support::dispatch::DispatchError;
 /// Authorization data for two step prcoesses.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationData {
-    /// KYC provider's attestation to change master key
+    /// CDD provider's attestation to change master key
     AttestMasterKeyRotation(IdentityId),
     /// Authorization to change master key
     RotateMasterKey(IdentityId),
@@ -17,6 +17,8 @@ pub enum AuthorizationData {
     AddMultiSigSigner,
     /// Authorization to transfer a token's ownership
     TransferTokenOwnership(Ticker),
+    /// Authorization to join an Identity
+    JoinIdentity(IdentityId),
     /// Any other authorization
     Custom(Ticker),
     /// No authorization data
@@ -65,11 +67,10 @@ pub struct Authorization<U> {
     /// time when this authorization expires. optional.
     pub expiry: Option<U>,
 
-    // Extra data to allow iterating over the authorizations.
-    /// Authorization number of the next Authorization.
-    /// Authorization number starts with 1.
-    pub next_authorization: u64,
-    /// Authorization number of the previous Authorization.
-    /// Authorization number starts with 1.
-    pub previous_authorization: u64,
+    /// Authorization id of this authorization
+    pub auth_id: u64,
 }
+
+/// Data required to fetch and authorization
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct AuthIdentifier(pub Signatory, pub u64);

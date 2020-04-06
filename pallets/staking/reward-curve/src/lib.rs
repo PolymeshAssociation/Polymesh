@@ -27,7 +27,7 @@ use syn::parse::{Parse, ParseStream};
 ///   Expressed in millionth, must be between 0_100_000 and 0_900_000.
 ///
 /// - `falloff`: Known as `decay_rate` in the literature. A co-efficient dictating the strength of
-///   the global incentivisation to get the `ideal_stake`. A higher number results in less typical
+///   the global incentivization to get the `ideal_stake`. A higher number results in less typical
 ///   inflation at the cost of greater volatility for validators.
 ///   Expressed in millionth, must be between 0 and 1_000_000.
 ///
@@ -45,14 +45,14 @@ use syn::parse::{Parse, ParseStream};
 /// use sp_runtime::curve::PiecewiseLinear;
 ///
 /// pallet_staking_reward_curve::build! {
-/// 	const I_NPOS: PiecewiseLinear<'static> = curve!(
-/// 		min_inflation: 0_025_000,
-/// 		max_inflation: 0_100_000,
-/// 		ideal_stake: 0_500_000,
-/// 		falloff: 0_050_000,
-/// 		max_piece_count: 40,
-/// 		test_precision: 0_005_000,
-/// 	);
+/// const I_NPOS: PiecewiseLinear<'static> = curve!(
+///    min_inflation: 0_025_000,
+///    max_inflation: 0_100_000,
+///    ideal_stake: 0_500_000,
+///    falloff: 0_050_000,
+///    max_piece_count: 40,
+///    test_precision: 0_005_000,
+/// );
 /// }
 /// ```
 #[proc_macro]
@@ -300,7 +300,7 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
     points.push((0, inpos.i_0));
     points.push((inpos.x_ideal, inpos.i_ideal_times_x_ideal));
 
-    // For each point p: (next_p.0 - p.0) < segment_lenght && (next_p.1 - p.1) < segment_lenght.
+    // For each point p: (next_p.0 - p.0) < segment_length && (next_p.1 - p.1) < segment_length.
     // This ensures that the total number of segment doesn't overflow max_piece_count.
     let max_length = (input.max_inflation - input.min_inflation + 1_000_000 - inpos.x_ideal)
         / (input.max_piece_count - 1);
@@ -417,7 +417,7 @@ fn generate_test_module(input: &INposInput) -> TokenStream2 {
 
 			#[test]
 			fn reward_curve_precision() {
-				for &base in [MILLION, u32::max_value()].into_iter() {
+				for &base in [MILLION, u32::max_value()].iter() {
 					let number_of_check = 100_000.min(base);
 					for check_index in 0..=number_of_check {
 						let i = (check_index as u64 * base as u64 / number_of_check as u64) as u32;

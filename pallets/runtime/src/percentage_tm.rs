@@ -23,21 +23,23 @@
 //!
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
 
-use crate::{asset::AssetTrait, exemption, utils};
+use crate::{asset::AssetTrait, exemption};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{constants::*, CommonTrait};
+use polymesh_runtime_common::{constants::*, CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use core::result::Result as StdResult;
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + utils::Trait + exemption::Trait {
+pub trait Trait: frame_system::Trait + exemption::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -54,9 +56,28 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as PercentageTM {
-        MaximumPercentageEnabledForToken get(fn maximum_percentage_enabled_for_token): map Ticker => u16;
+        MaximumPercentageEnabledForToken get(fn maximum_percentage_enabled_for_token): map hasher(blake2_128_concat) Ticker => u16;
     }
 }
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// The sender must be a signing key for the DID.
+        SenderMustBeSigningKeyForDid,
+        /// The sender is not a token owner.
+        NotAnOwner,
+        /// Recipient balance overflow.
+        RecipientBalanceOverflow,
+        /// Multiplication overflow.
+        MultiplicationOverflow,
+        /// Division failed.
+        DivisionFailed,
+        /// Percentage multiplication overflow.
+        PercentageMultiplicationOverflow,
+    }
+}
+
+type Identity<T> = identity::Module<T>;
 
 decl_module! {
     /// The module declaration.
@@ -64,12 +85,17 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Set a maximum percentage that can be owned by a single investor
-        fn toggle_maximum_percentage_restriction(origin, did: IdentityId, ticker: Ticker, max_percentage: u16) -> DispatchResult  {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        fn toggle_maximum_percentage_restriction(origin, ticker: Ticker, max_percentage: u16) -> DispatchResult  {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
+
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
-            ensure!(Self::is_owner(&ticker, did),"Sender DID must be the token owner");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             // if max_percentage == 0 then it means we are disallowing the percentage transfer restriction to that ticker.
 
             //PABLO: TODO: Move all the max % logic to a new module and call that one instead of holding all the different logics in just one module.
@@ -106,23 +132,23 @@ impl<T: Trait> Module<T> {
         // check whether the to address is in the exemption list or not
         // 2 refers to percentageTM
         // TODO: Mould the integer into the module identity
-        if let Some(to_did) = to_did_opt.clone() {
+        if let Some(to_did) = to_did_opt {
             let is_exempted = <exemption::Module<T>>::is_exempted(&ticker, 2, to_did);
             if max_percentage != 0 && !is_exempted {
                 let new_balance = (T::Asset::balance(&ticker, to_did))
                     .checked_add(&value)
-                    .ok_or("Balance of to will get overflow")?;
+                    .ok_or(Error::<T>::RecipientBalanceOverflow)?;
                 let total_supply = T::Asset::total_supply(&ticker);
 
                 let percentage_balance = (new_balance
                     .checked_mul(&((10 as u128).pow(18)).into())
-                    .ok_or("unsafe multiplication")?)
+                    .ok_or(Error::<T>::MultiplicationOverflow)?)
                 .checked_div(&total_supply)
-                .ok_or("unsafe division")?;
+                .ok_or(Error::<T>::DivisionFailed)?;
 
                 let allowed_token_amount = (max_percentage as u128)
                     .checked_mul((10 as u128).pow(16))
-                    .ok_or("unsafe percentage multiplication")?;
+                    .ok_or(Error::<T>::PercentageMultiplicationOverflow)?;
 
                 if percentage_balance > allowed_token_amount.into() {
                     sp_runtime::print(

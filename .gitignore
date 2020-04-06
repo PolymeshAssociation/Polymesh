@@ -10,3 +10,4 @@ node_modules
 
 # IDE artifacts
 .idea
+.vscode

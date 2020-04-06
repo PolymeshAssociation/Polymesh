@@ -5,28 +5,35 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
-serde = { version = "1.0.101", optional = true }
-safe-mix = { version = "1.0.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
-sp-keyring = { package = "sp-keyring", git = "https://github.com/paritytech/substrate", optional = true, default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421"}
-sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-phragmen = { package = "sp-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-staking = { package = "sp-staking", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-pallet-session = { package = "pallet-session", features = ["historical"], git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-pallet-authorship = { package = "pallet-authorship", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+serde = { version = "1.0.104", optional = true }
+safe-mix = { version = "1.0.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
+sp-keyring = { package = "sp-keyring", git = "https://github.com/paritytech/substrate", optional = true, default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"}
+sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-phragmen = { package = "sp-phragmen", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"}
+sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-staking = { package = "sp-staking", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-session = { package = "pallet-session", features = ["historical"], git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-authorship = { package = "pallet-authorship", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
-pallet-babe = { package = "pallet-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-babe = { package = "pallet-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
+polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false}
 
 [dev-dependencies]
-sp-core = { package ="sp-core", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-pallet-balances = { package ="pallet-balances", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-pallet-timestamp = { package ="pallet-timestamp", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-core = { package ="sp-core", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+polymesh-runtime-balances = { package ="polymesh-runtime-balances", path = "../balances" }
+polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group"}
+pallet-timestamp = { package ="pallet-timestamp", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve" }
-substrate-test-utils = { package ="substrate-test-utils", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+substrate-test-utils = { package ="substrate-test-utils", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+chrono = { version = "0.4.10", default-features = false }
+pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false }
+polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
 
 [features]
 equalize = []
@@ -48,4 +55,6 @@ std = [
 	"pallet-authorship/std",
 	"primitives/std",
 	"pallet-babe/std",
+	"polymesh-runtime-common/std",
+	"polymesh-runtime-identity/std"
 ]

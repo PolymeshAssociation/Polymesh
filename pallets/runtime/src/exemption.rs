@@ -1,32 +1,46 @@
-use crate::{
-    asset::{self, AssetTrait},
-    utils,
-};
+use crate::asset::{self, AssetTrait};
 
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait};
+use polymesh_runtime_common::{
+    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + utils::Trait + BalancesTrait + IdentityTrait {
+pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::Balance>;
+    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as exemption {
         // Mapping -> ExemptionList[ticker][TM][DID] = true/false
-        ExemptionList get(fn exemption_list): map (Ticker, u16, IdentityId) => bool;
+        ExemptionList get(fn exemption_list): map hasher(blake2_128_concat) (Ticker, u16, IdentityId) => bool;
     }
 }
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// The sender must be a signing key for the DID.
+        SenderMustBeSigningKeyForDid,
+        /// The sender is not a token owner.
+        NotAnOwner,
+        /// No change in the state.
+        NoChange
+    }
+}
+
+type Identity<T> = identity::Module<T>;
 
 // The module's dispatchable functions.
 decl_module! {
@@ -36,17 +50,22 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        fn modify_exemption_list(origin, did: IdentityId, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
-            ticker.canonize();
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        fn modify_exemption_list(origin, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
+
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
 
-            ensure!(Self::is_owner(&ticker, did), "Sender must be the token owner");
-            let ticker_asset_holder_did = (ticker, _tm, asset_holder_did.clone());
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
+            let ticker_asset_holder_did = (ticker, _tm, asset_holder_did);
             let is_exempted = Self::exemption_list(&ticker_asset_holder_did);
-            ensure!(is_exempted != exempted, "No change in the state");
+            ensure!(is_exempted != exempted, Error::<T>::NoChange);
 
             <ExemptionList>::insert(&ticker_asset_holder_did, exempted);
             Self::deposit_event(Event::ModifyExemptionList(ticker, _tm, asset_holder_did, exempted));

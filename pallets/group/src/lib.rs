@@ -1,7 +1,33 @@
+// Copyright 2017-2019 Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+// Modified by Polymath Inc - 23rd March 2020
+// This module is inspired by the `membership` module of the substrate framework
+// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/membership
+// It get customize as per the Polymesh requirements
+// - Change member type from `AccountId` to `IdentityId`.
+// - Remove `change_key` function from the implementation in the favour of "User can hold only single identity on Polymesh blockchain".
+// - Remove the logic of prime member logic that will lead the removal of `set_prime()` & `clear_prime()` dispatchable.
+// - Add `abdicate_membership()` dispatchable to allows a caller member to unilaterally quit without this
+// being subject to a GC vote.
+
 //! # Group Module
 //!
 //! The Group module is used to manage a set of identities. A group of identities can be a
-//! collection of KYC providers, council members for governance and so on. This is an instantiable
+//! collection of CDD providers, council members for governance and so on. This is an instantiable
 //! module.
 //!
 //! ## Overview
@@ -13,6 +39,17 @@
 //! - Swam members
 //! - Reset group members
 //!
+//! ## Active and Inactive members
+//! There are two kinds of members:
+//!  - Active: Members who can *act* on behalf of this group. For instance, any active CDD providers can
+//!  generate CDD claims.
+//!  - Inactive: Members who were active previously but at some point they were disabled. Each
+//!  inactive member has two timestamps:
+//!     - `deactivated_at`: It indicates the moment when this member was disabled. Any claim generated *after*
+//!     this moment is considered as invalid.
+//!     - `expiry`: It is the moment when it should be removed completely from this group. From
+//!     that moment any claim is considered invalid (as a group claim).
+//!
 //! ### Dispatchable Functions
 //!
 //! - `add_member` - Adds a new identity to the group.
@@ -22,33 +59,44 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polymesh_primitives::IdentityId;
-pub use polymesh_runtime_common::group::{GroupTrait, RawEvent, Trait};
+use polymesh_primitives::{AccountKey, IdentityId};
+pub use polymesh_runtime_common::{
+    group::{GroupTrait, InactiveMember, RawEvent, Trait},
+    Context,
+};
+use polymesh_runtime_identity as identity;
 
 use frame_support::{
-    decl_module, decl_storage,
+    codec::Encode,
+    decl_error, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
     traits::{ChangeMembers, InitializeMembers},
     weights::SimpleDispatchInfo,
     StorageValue,
 };
-use frame_system::{self as system, ensure_root};
+use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::EnsureOrigin;
-use sp_std::prelude::*;
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub type Event<T, I> = polymesh_runtime_common::group::Event<T, I>;
+type Identity<T> = identity::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
-        /// Identities that are part of this group
-        pub Members get(fn members) config(): Vec<IdentityId>;
+        /// Identities that are part of this group, known as "Active members".
+        pub ActiveMembers get(fn active_members) config(): Vec<IdentityId>;
+        pub InactiveMembers get(fn inactive_members): Vec<InactiveMember<T::Moment>>;
+        /// The current prime member, if one exists.
+        pub Prime get(fn prime): Option<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
         build(|config: &Self| {
-            let mut members = config.members.clone();
+            let mut members = config.active_members.clone();
             members.sort();
             T::MembershipInitialized::initialize_members(&members);
-            <Members<I>>::put(members);
+            <ActiveMembers<I>>::put(members);
         })
     }
 }
@@ -58,7 +106,35 @@ decl_module! {
         for enum Call
         where origin: T::Origin
     {
+        type Error = Error<T, I>;
+
         fn deposit_event() = default;
+
+        /// It disables a member at specific moment.
+        ///
+        /// Please note that if member is already revoked (a "valid member"), its revocation
+        /// time-stamp will be updated.
+        ///
+        /// Any disabled member should NOT allow to act like an active member of the group. For
+        /// instance, a disabled CDD member should NOT be able to generate a CDD claim. However any
+        /// generated claim issued before `at` would be considered as a valid one.
+        ///
+        /// If you want to invalidate any generated claim, you should use `Self::remove_member`.
+        ///
+        /// # Arguments
+        /// * `at` Revocation time-stamp.
+        /// * `who` Target member of the group.
+        /// * `expiry` Time-stamp when `who` is removed from CDD. As soon as it is expired, the
+        /// generated claims will be "invalid" as `who` is not considered a member of the group.
+        pub fn disable_member( origin,
+            who: IdentityId,
+            expiry: Option<T::Moment>,
+            at: Option<T::Moment>
+        ) -> DispatchResult {
+            T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+
+            <Self as GroupTrait<T::Moment>>::disable_member(who, expiry, at)
+        }
 
         /// Add a member `who` to the set. May only be called from `AddOrigin` or root.
         ///
@@ -67,15 +143,12 @@ decl_module! {
         /// * `who` IdentityId to be added to the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn add_member(origin, who: IdentityId) {
-            T::AddOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+            T::AddOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
-            let mut members = <Members<I>>::get();
-            let location = members.binary_search(&who).err().ok_or("already a member")?;
+            let mut members = <ActiveMembers<I>>::get();
+            let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
             members.insert(location, who.clone());
-            <Members<I>>::put(&members);
+            <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
 
@@ -84,24 +157,18 @@ decl_module! {
 
         /// Remove a member `who` from the set. May only be called from `RemoveOrigin` or root.
         ///
+        /// Any claim previously generated by this member is not valid as a group claim. For
+        /// instance, if a CDD member group generated a claim for a target identity and then it is
+        /// removed, that claim will be invalid.
+        /// In case you want to keep the validity of generated claims, you have to use `Self::disable_member` function
+        ///
         /// # Arguments
         /// * `origin` Origin representing `RemoveOrigin` or root
         /// * `who` IdentityId to be removed from the group.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn remove_member(origin, who: IdentityId) {
-            T::RemoveOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
-
-            let mut members = <Members<I>>::get();
-            let location = members.binary_search(&who).ok().ok_or("not a member")?;
-            members.remove(location);
-            <Members<I>>::put(&members);
-
-            T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
-
-            Self::deposit_event(RawEvent::MemberRemoved(who));
+        pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
+            T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            Self::unsafe_remove_member(who)
         }
 
         /// Swap out one member `remove` for another `add`.
@@ -112,29 +179,24 @@ decl_module! {
         /// * `remove` IdentityId to be removed from the group.
         /// * `add` IdentityId to be added in place of `remove`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn swap_member(origin, remove: IdentityId, add: IdentityId) {
-            T::SwapOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+        pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
+            T::SwapOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
             if remove == add { return Ok(()) }
 
-            let mut members = <Members<I>>::get();
-
-            let location = members.binary_search(&remove).ok().ok_or("not a member")?;
-            members[location] = add.clone();
-
-            let _location = members.binary_search(&add).err().ok_or("already a member")?;
+            let mut members = <ActiveMembers<I>>::get();
+            let remove_location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NoSuchMember)?;
+            let _add_location = members.binary_search(&add).err().ok_or(Error::<T, I>::DuplicateMember)?;
+            members[remove_location] = add;
             members.sort();
-            <Members<I>>::put(&members);
+            <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(
                 &[add],
                 &[remove],
                 &members[..],
             );
-
+            Self::rejig_prime(&members);
             Self::deposit_event(RawEvent::MembersSwapped(remove, add));
         }
 
@@ -145,296 +207,208 @@ decl_module! {
         /// * `origin` Origin representing `ResetOrigin` or root
         /// * `members` New set of identities
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn reset_members(origin, members: Vec<IdentityId>) {
-            T::ResetOrigin::try_origin(origin)
-                .map(|_| ())
-                .or_else(ensure_root)
-                .map_err(|_| "bad origin")?;
+        pub fn reset_members(origin, members: Vec<IdentityId>) {
+            T::ResetOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
             let mut new_members = members.clone();
             new_members.sort();
-            <Members<I>>::mutate(|m| {
-                T::MembershipChanged::set_members_sorted(&members[..], m);
+            <ActiveMembers<I>>::mutate(|m| {
+                T::MembershipChanged::set_members_sorted(&new_members[..], m);
+                Self::rejig_prime(&new_members);
                 *m = new_members;
             });
 
             Self::deposit_event(RawEvent::MembersReset(members));
         }
+
+        /// It allows a caller member to unilaterally quit without this
+        /// being subject to a GC vote.
+        ///
+        /// # Arguments
+        /// * `origin` Member of committee who wants to quit.
+        /// # Error
+        /// * Only master key can abdicate.
+        /// * Last member of a group
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        pub fn abdicate_membership(origin) -> DispatchResult {
+            let who = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
+
+            ensure!(<Identity<T>>::is_master_key(remove_id, &who),
+                Error::<T,I>::OnlyMasterKeyAllowed);
+
+            let mut members = Self::get_members();
+            ensure!(members.contains(&remove_id),
+                Error::<T,I>::NoSuchMember);
+            ensure!( members.len() > 1,
+                Error::<T,I>::LastMemberCannotQuit);
+
+            members.retain( |id| *id != remove_id);
+            <ActiveMembers<I>>::put(&members);
+
+            T::MembershipChanged::change_members_sorted(
+                &[],
+                &[remove_id],
+                &members[..],
+            );
+
+            Ok(())
+        }
+
+        /// Set the prime member. Must be a current member.
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn set_prime(origin, who: IdentityId) {
+            T::PrimeOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            <ActiveMembers<I>>::get().binary_search(&who).ok().ok_or(Error::<T, I>::NoSuchMember)?;
+            Prime::<I>::put(&who);
+            T::MembershipChanged::set_prime(Some(who));
+        }
+
+        /// Remove the prime member if it exists.
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        fn clear_prime(origin) {
+            T::PrimeOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            Prime::<I>::kill();
+            T::MembershipChanged::set_prime(None);
+        }
+    }
+}
+
+decl_error! {
+    pub enum Error for Module<T: Trait<I>, I: Instance> {
+        /// Only master key of the identity is allowed.
+        OnlyMasterKeyAllowed,
+        /// Incorrect origin.
+        BadOrigin,
+        /// Group member was added already.
+        DuplicateMember,
+        /// Can't remove a member that doesn't exist.
+        NoSuchMember,
+        /// Last member of the committee can not quit.
+        LastMemberCannotQuit,
+    }
+}
+
+impl<T: Trait<I>, I: Instance> Module<T, I> {
+    fn rejig_prime(members: &[IdentityId]) {
+        if let Some(prime) = Prime::<I>::get() {
+            match members.binary_search(&prime) {
+                Ok(_) => T::MembershipChanged::set_prime(Some(prime)),
+                Err(_) => Prime::<I>::kill(),
+            }
+        }
+    }
+
+    /// It returns the current "active members" and any "valid member" which its revocation
+    /// time-stamp is in the future.
+    pub fn get_valid_members() -> Vec<IdentityId> {
+        let now = <pallet_timestamp::Module<T>>::get();
+        Self::get_valid_members_at(now)
+    }
+
+    /// Remove a member `who` as "active" or "inactive" member.
+    ///
+    /// # Arguments
+    /// * `who` IdentityId to be removed from the group.
+    fn unsafe_remove_member(who: IdentityId) -> DispatchResult {
+        Self::unsafe_remove_active_member(who).or(Self::unsafe_remove_inactive_member(who))
+    }
+
+    /// Remove `who` as "inactive member"
+    ///
+    /// # Errors
+    /// * `NoSuchMember` if `who` is not part of *inactive members*.
+    fn unsafe_remove_inactive_member(who: IdentityId) -> DispatchResult {
+        let inactive_who = InactiveMember::<T::Moment>::from(who);
+        let mut members = <InactiveMembers<T, I>>::get();
+        let position = members
+            .binary_search(&inactive_who)
+            .ok()
+            .ok_or(Error::<T, I>::NoSuchMember)?;
+
+        members.swap_remove(position);
+
+        <InactiveMembers<T, I>>::put(&members);
+        Self::deposit_event(RawEvent::MemberRemoved(who));
+        Ok(())
+    }
+
+    /// Remove `who` as "active member"
+    ///
+    /// # Errors
+    /// * `NoSuchMember` if `who` is not part of *active members*.
+    fn unsafe_remove_active_member(who: IdentityId) -> DispatchResult {
+        let mut members = <ActiveMembers<I>>::get();
+        let location = members
+            .binary_search(&who)
+            .ok()
+            .ok_or(Error::<T, I>::NoSuchMember)?;
+
+        members.remove(location);
+        <ActiveMembers<I>>::put(&members);
+
+        T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
+        Self::rejig_prime(&members);
+        Self::deposit_event(RawEvent::MemberRemoved(who));
+        Ok(())
     }
 }
 
 /// Retrieve all members of this group
 /// Is the given `IdentityId` a valid member?
-impl<T: Trait<I>, I: Instance> GroupTrait for Module<T, I> {
+impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
+    /// It returns only the "active members".
+    #[inline]
     fn get_members() -> Vec<IdentityId> {
-        return Self::members();
+        Self::active_members()
     }
 
-    fn is_member(did: &IdentityId) -> bool {
-        Self::members().iter().any(|id| id == did)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use frame_support::{
-        assert_noop, assert_ok, impl_outer_origin, parameter_types, traits::InitializeMembers,
-    };
-    use frame_system::{self as system, EnsureSignedBy};
-    use sp_core::H256;
-    use sp_std::cell::RefCell;
-
-    use sp_runtime::{
-        testing::Header,
-        traits::{BlakeTwo256, IdentityLookup},
-        Perbill,
-    };
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
+    /// It returns inactive members who are not expired yet.
+    #[inline]
+    fn get_inactive_members() -> Vec<InactiveMember<T::Moment>> {
+        let now = <pallet_timestamp::Module<T>>::get();
+        Self::inactive_members()
+            .into_iter()
+            .filter(|member| !Self::is_member_expired(member, now))
+            .collect::<Vec<_>>()
     }
 
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct Test;
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub const MaximumBlockWeight: u32 = 1024;
-        pub const MaximumBlockLength: u32 = 2 * 1024;
-        pub const AvailableBlockRatio: Perbill = Perbill::one();
-    }
+    fn disable_member(
+        who: IdentityId,
+        expiry: Option<T::Moment>,
+        at: Option<T::Moment>,
+    ) -> DispatchResult {
+        Self::unsafe_remove_active_member(who)?;
 
-    impl frame_system::Trait for Test {
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Call = ();
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type BlockHashCount = BlockHashCount;
-        type MaximumBlockWeight = MaximumBlockWeight;
-        type MaximumBlockLength = MaximumBlockLength;
-        type AvailableBlockRatio = AvailableBlockRatio;
-        type Version = ();
-        type ModuleToIndex = ();
-    }
-    parameter_types! {
-        pub const One: u64 = 1;
-        pub const Two: u64 = 2;
-        pub const Three: u64 = 3;
-        pub const Four: u64 = 4;
-        pub const Five: u64 = 5;
-    }
+        let deactivated_at = at.unwrap_or_else(|| <pallet_timestamp::Module<T>>::get());
+        let inactive_member = InactiveMember {
+            id: who,
+            expiry,
+            deactivated_at,
+        };
 
-    thread_local! {
-        static MEMBERS: RefCell<Vec<IdentityId>> = RefCell::new(vec![]);
-    }
+        <InactiveMembers<T, I>>::mutate(|members| {
+            // Remove expired members.
+            let now = <pallet_timestamp::Module<T>>::get();
+            members.retain(|m| {
+                if !Self::is_member_expired(m, now) {
+                    true
+                } else {
+                    Self::deposit_event(RawEvent::MemberRemoved(who));
+                    false
+                }
+            });
 
-    pub struct TestChangeMembers;
-    impl ChangeMembers<IdentityId> for TestChangeMembers {
-        fn change_members_sorted(
-            incoming: &[IdentityId],
-            outgoing: &[IdentityId],
-            new: &[IdentityId],
-        ) {
-            let mut old_plus_incoming = MEMBERS.with(|m| m.borrow().to_vec());
-            old_plus_incoming.extend_from_slice(incoming);
-            old_plus_incoming.sort();
-            let mut new_plus_outgoing = new.to_vec();
-            new_plus_outgoing.extend_from_slice(outgoing);
-            new_plus_outgoing.sort();
-            assert_eq!(old_plus_incoming, new_plus_outgoing);
-
-            MEMBERS.with(|m| *m.borrow_mut() = new.to_vec());
-        }
-    }
-    impl InitializeMembers<IdentityId> for TestChangeMembers {
-        fn initialize_members(members: &[IdentityId]) {
-            MEMBERS.with(|m| *m.borrow_mut() = members.to_vec());
-        }
-    }
-
-    impl Trait<DefaultInstance> for Test {
-        type Event = ();
-        type AddOrigin = EnsureSignedBy<One, u64>;
-        type RemoveOrigin = EnsureSignedBy<Two, u64>;
-        type SwapOrigin = EnsureSignedBy<Three, u64>;
-        type ResetOrigin = EnsureSignedBy<Four, u64>;
-        type MembershipInitialized = TestChangeMembers;
-        type MembershipChanged = TestChangeMembers;
-    }
-
-    type Group = Module<Test>;
-
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn new_test_ext() -> sp_io::TestExternalities {
-        let mut t = system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
-
-        // We use default for brevity, but you can configure as desired if needed.
-        GenesisConfig::<Test> {
-            members: vec![
-                IdentityId::from(1),
-                IdentityId::from(2),
-                IdentityId::from(3),
-            ],
-            ..Default::default()
-        }
-        .assimilate_storage(&mut t)
-        .unwrap();
-        t.into()
-    }
-
-    #[test]
-    fn query_membership_works() {
-        new_test_ext().execute_with(|| {
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3)
-                ]
-            );
-            assert_eq!(
-                MEMBERS.with(|m| m.borrow().clone()),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3)
-                ]
-            );
+            // Update inactive member
+            if let Some(idx) = members.binary_search(&inactive_member).ok() {
+                members[idx] = inactive_member;
+            } else {
+                members.push(inactive_member);
+                members.sort();
+            }
         });
-    }
 
-    #[test]
-    fn add_member_works() {
-        new_test_ext().execute_with(|| {
-            assert_noop!(
-                Group::add_member(Origin::signed(5), IdentityId::from(3)),
-                "bad origin"
-            );
-            assert_noop!(
-                Group::add_member(Origin::signed(1), IdentityId::from(3)),
-                "already a member"
-            );
-            assert_ok!(Group::add_member(Origin::signed(1), IdentityId::from(4)));
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3),
-                    IdentityId::from(4)
-                ]
-            );
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
-        });
-    }
-
-    #[test]
-    fn remove_member_works() {
-        new_test_ext().execute_with(|| {
-            assert_noop!(
-                Group::remove_member(Origin::signed(5), IdentityId::from(3)),
-                "bad origin"
-            );
-            assert_noop!(
-                Group::remove_member(Origin::signed(2), IdentityId::from(5)),
-                "not a member"
-            );
-            assert_ok!(Group::remove_member(Origin::signed(2), IdentityId::from(3)));
-            assert_eq!(
-                Group::members(),
-                vec![IdentityId::from(1), IdentityId::from(2),]
-            );
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
-        });
-    }
-
-    #[test]
-    fn swap_member_works() {
-        new_test_ext().execute_with(|| {
-            assert_noop!(
-                Group::swap_member(Origin::signed(5), IdentityId::from(1), IdentityId::from(5)),
-                "bad origin"
-            );
-            assert_noop!(
-                Group::swap_member(Origin::signed(3), IdentityId::from(5), IdentityId::from(6)),
-                "not a member"
-            );
-            assert_noop!(
-                Group::swap_member(Origin::signed(3), IdentityId::from(1), IdentityId::from(3)),
-                "already a member"
-            );
-            assert_ok!(Group::swap_member(
-                Origin::signed(3),
-                IdentityId::from(2),
-                IdentityId::from(2)
-            ));
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(1),
-                    IdentityId::from(2),
-                    IdentityId::from(3)
-                ]
-            );
-            assert_ok!(Group::swap_member(
-                Origin::signed(3),
-                IdentityId::from(1),
-                IdentityId::from(6)
-            ));
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(2),
-                    IdentityId::from(3),
-                    IdentityId::from(6),
-                ]
-            );
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
-        });
-    }
-
-    #[test]
-    fn reset_members_works() {
-        new_test_ext().execute_with(|| {
-            assert_noop!(
-                Group::reset_members(
-                    Origin::signed(1),
-                    vec![
-                        IdentityId::from(4),
-                        IdentityId::from(5),
-                        IdentityId::from(6),
-                    ]
-                ),
-                "bad origin"
-            );
-            assert_ok!(Group::reset_members(
-                Origin::signed(4),
-                vec![
-                    IdentityId::from(4),
-                    IdentityId::from(5),
-                    IdentityId::from(6),
-                ]
-            ));
-            assert_eq!(
-                Group::members(),
-                vec![
-                    IdentityId::from(4),
-                    IdentityId::from(5),
-                    IdentityId::from(6),
-                ]
-            );
-            assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Group::members());
-        });
+        Self::deposit_event(RawEvent::MemberRevoked(who));
+        Ok(())
     }
 }

@@ -1,11 +1,12 @@
+use crate::{AccountKey, IdentityId};
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     prelude::Vec,
     vec,
 };
-
-use crate::{AccountKey, IdentityId};
 
 // use crate::entity::IgnoredCaseString;
 
@@ -16,6 +17,7 @@ use crate::{AccountKey, IdentityId};
 ///     - [Polymesh: Roles/Permissions](https://docs.google.com/document/d/12u-rMavow4fvidsFlLcLe7DAXuqWk8XUHOBV9kw05Z8/)
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Permission {
     Full,
     Admin,
@@ -27,6 +29,7 @@ pub enum Permission {
 /// Signing key type.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum SignatoryType {
     External,
     Identity,
@@ -44,6 +47,7 @@ impl Default for SignatoryType {
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Signatory {
     Identity(IdentityId),
     AccountKey(AccountKey),
@@ -120,6 +124,7 @@ impl Ord for Signatory {
 /// A signing key contains a type and a group of permissions.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SigningItem {
     pub signer: Signatory,
     pub signer_type: SignatoryType,
@@ -141,8 +146,7 @@ impl SigningItem {
     pub fn has_permission(&self, permission: Permission) -> bool {
         self.permissions
             .iter()
-            .find(|&r| permission == *r || *r == Permission::Full)
-            .is_some()
+            .any(|r| permission == *r || *r == Permission::Full)
     }
 }
 

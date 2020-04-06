@@ -1,4 +1,7 @@
 use codec::{Decode, Encode};
+use sp_core::sr25519::Public;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, PartialOrd},
     convert::TryFrom,
@@ -13,7 +16,8 @@ const KEY_SIZE: usize = 32;
 /// It stores a simple key.
 /// It uses fixed size to avoid dynamic memory allocation.
 #[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Copy, Clone, Debug)]
-pub struct AccountKey([u8; KEY_SIZE]);
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct AccountKey(pub [u8; KEY_SIZE]);
 
 impl AccountKey {
     /// It returns this key as a byte slice.
@@ -88,6 +92,12 @@ impl PartialEq<&[u8]> for AccountKey {
 impl PartialEq<Vec<u8>> for AccountKey {
     fn eq(&self, other: &Vec<u8>) -> bool {
         self == &other.as_slice()
+    }
+}
+
+impl PartialEq<Public> for AccountKey {
+    fn eq(&self, other: &Public) -> bool {
+        self == &&other.0[..]
     }
 }
 

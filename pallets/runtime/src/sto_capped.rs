@@ -31,24 +31,25 @@ use crate::{
     asset::AssetTrait,
     general_tm,
     simple_token::{self, SimpleTokenTrait},
-    utils,
 };
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait};
+use polymesh_runtime_common::{balances::Trait as BalancesTrait, CommonTrait, Context};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::traits::Currency;
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + utils::Trait + BalancesTrait + general_tm::Trait
+    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + general_tm::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -78,27 +79,72 @@ decl_storage! {
     trait Store for Module<T: Trait> as StoCapped {
         /// Tokens can have multiple whitelists that (for now) check entries individually within each other
         /// (ticker, sto_id) -> STO
-        StosByToken get(fn stos_by_token): map (Ticker, u32) => STO<T::Balance,T::Moment>;
+        StosByToken get(fn stos_by_token): map hasher(blake2_128_concat) (Ticker, u32) => STO<T::Balance,T::Moment>;
         /// It returns the sto count corresponds to its ticker
         /// ticker -> sto count
-        StoCount get(fn sto_count): map Ticker => u32;
+        StoCount get(fn sto_count): map hasher(blake2_128_concat) Ticker => u32;
         /// List of SimpleToken tokens which will be accepted as the fund raised type for the STO
         /// (asset_ticker, sto_id, index) -> simple_token_ticker
-        AllowedTokens get(fn allowed_tokens): map (Ticker, u32, u32) => Ticker;
+        AllowedTokens get(fn allowed_tokens): map hasher(blake2_128_concat) (Ticker, u32, u32) => Ticker;
         /// To track the index of the token address for the given STO
         /// (Asset_ticker, sto_id, simple_token_ticker) -> index
-        TokenIndexForSTO get(fn token_index_for_sto): map (Ticker, u32, Ticker) => Option<u32>;
+        TokenIndexForSTO get(fn token_index_for_sto): map hasher(blake2_128_concat) (Ticker, u32, Ticker) => Option<u32>;
         /// To track the no of different tokens allowed as fund raised type for the given STO
         /// (asset_ticker, sto_id) -> count
-        TokensCountForSto get(fn tokens_count_for_sto): map (Ticker, u32) => u32;
+        TokensCountForSto get(fn tokens_count_for_sto): map hasher(blake2_128_concat) (Ticker, u32) => u32;
         /// To track the investment data of the investor corresponds to ticker
         /// (asset_ticker, sto_id, DID) -> Investment structure
-        InvestmentData get(fn investment_data): map (Ticker, u32, IdentityId) => Investment<T::Balance, T::Moment>;
+        InvestmentData get(fn investment_data): map hasher(blake2_128_concat) (Ticker, u32, IdentityId) => Investment<T::Balance, T::Moment>;
         /// To track the investment amount of the investor corresponds to ticker using SimpleToken
         /// (asset_ticker, simple_token_ticker, sto_id, accountId) -> Invested balance
-        SimpleTokenSpent get(fn simple_token_token_spent): map (Ticker, Ticker, u32, IdentityId) => T::Balance;
+        SimpleTokenSpent get(fn simple_token_token_spent): map hasher(blake2_128_concat) (Ticker, Ticker, u32, IdentityId) => T::Balance;
     }
 }
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// The sender must be a signing key for the DID.
+        SenderMustBeSigningKeyForDid,
+        /// The sender is not a token owner.
+        NotAnOwner,
+        /// Prevalidation checks failed.
+        PrevalidationFailed,
+        /// Insufficient sender balance.
+        InsufficientBalance,
+        /// The STO has already started.
+        StoAlreadyStarted,
+        /// The sender is not authorized to perform the given operation.
+        Unauthorized,
+        /// The STO has already reached the given state.
+        AlreadyInThatState,
+        /// An overflow in the new token count.
+        StoCountOverflow,
+        /// An overflow in the new token count.
+        TokenCountOverflow,
+        /// An underflow in the new token count.
+        TokenCountUnderflow,
+        /// The given token is not a permitted investment currency.
+        TokenIsNotPermitted,
+        /// An overflow while calculating sold tokens.
+        SoldTokensOverflow,
+        /// An overflow while updating the simple token investment.
+        InvestmentOverflow,
+        /// An invalid STO ID.
+        InvalidStoId,
+        /// The STO has already been paused.
+        AlreadyPaused,
+        /// The STO is already active.
+        AlreadyActive,
+        /// The STO is paused.
+        Paused,
+        /// The STO has not started or has already ended.
+        NotStartedOrAlreadyEnded,
+        /// Division failed.
+        DivisionFailed,
+    }
+}
+
+type Identity<T> = identity::Module<T>;
 
 decl_module! {
     /// The module declaration.
@@ -111,7 +157,6 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner who wants to initialize the sto
-        /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `beneficiary_did` DID which holds all the funds collected
         /// * `cap` Total amount of tokens allowed for sale
@@ -121,7 +166,6 @@ decl_module! {
         /// * `simple_token_ticker` Ticker of the simple token
         pub fn launch_sto(
             origin,
-            did: IdentityId,
             ticker: Ticker,
             beneficiary_did: IdentityId,
             cap: T::Balance,
@@ -130,14 +174,18 @@ decl_module! {
             end_date: T::Moment,
             simple_token_ticker: Ticker
         ) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
 
-            ticker.canonize();
             let sold:T::Balance = 0.into();
-            ensure!(Self::is_owner(&ticker, did),"Sender must be the token owner");
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             let sto = STO {
                 beneficiary_did,
@@ -152,10 +200,10 @@ decl_module! {
             let sto_count = Self::sto_count(ticker);
             let new_sto_count = sto_count
                 .checked_add(1)
-                .ok_or("overflow in calculating next sto count")?;
+                .ok_or(Error::<T>::StoCountOverflow)?;
 
             let token_count = Self::tokens_count_for_sto((ticker, sto_count));
-            let new_token_count = token_count.checked_add(1).ok_or("overflow new token count value")?;
+            let new_token_count = token_count.checked_add(1).ok_or(Error::<T>::TokenCountOverflow)?;
 
             <StosByToken<T>>::insert((ticker, sto_count), sto);
             <StoCount>::insert(ticker, new_sto_count);
@@ -181,20 +229,28 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
-        pub fn buy_tokens(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance ) -> DispatchResult {
+        pub fn buy_tokens(origin, ticker: Ticker, sto_id: u32, value: T::Balance ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender_signer = Signatory::AccountKey(sender_key);
+
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender_signer), "sender must be a signing key for DID");
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender_signer),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
 
-            ticker.canonize();
             let mut selected_sto = Self::stos_by_token((ticker, sto_id));
             // Pre validation checks
-            ensure!(Self::_pre_validation(&ticker, did, selected_sto.clone()).is_ok(), "Invalidate investment");
+            ensure!(
+                Self::_pre_validation(&ticker, did, selected_sto.clone()).is_ok(),
+                Error::<T>::PrevalidationFailed
+            );
             // Make sure sender has enough balance
             let sender_balance = <balances::Module<T> as Currency<_>>::free_balance(&sender);
-            ensure!(sender_balance >= value,"Insufficient funds");
+            ensure!(sender_balance >= value, Error::<T>::InsufficientBalance);
 
             // Get the invested amount of investment currency and amount of ST tokens minted as a return of investment
             let token_amount_value = Self::_get_invested_amount_and_tokens(
@@ -205,10 +261,10 @@ decl_module! {
 
             selected_sto.sold = selected_sto.sold
                 .checked_add(&token_amount_value.0)
-                .ok_or("overflow while calculating tokens sold")?;
+                .ok_or(Error::<T>::SoldTokensOverflow)?;
 
             // Mint tokens and update STO
-            T::Asset::_mint_from_sto(&ticker, did, token_amount_value.0)?;
+            T::Asset::_mint_from_sto(&ticker, sender, did, token_amount_value.0)?;
 
             // Transfer poly to token owner
             // TODO: transfer between DIDs
@@ -221,13 +277,13 @@ decl_module! {
             // Update storage values
             Self::_update_storage(
                 ticker,
-                sto_id.clone(),
-                did.clone(),
+                sto_id,
+                did,
                 token_amount_value.1,
                 token_amount_value.0,
-                Ticker::from_slice(&[0]),
+                Ticker::default(),
                 0.into(),
-                selected_sto.clone()
+                selected_sto
             )?;
 
             Ok(())
@@ -238,23 +294,29 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
-        /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in.
         /// * `simple_token_ticker` Ticker of the stable coin
         /// * `modify_status` Boolean to know whether the provided simple token ticker will be used or not.
-        pub fn modify_allowed_tokens(origin, did: IdentityId, ticker: Ticker, sto_id: u32, simple_token_ticker: Ticker, modify_status: bool) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn modify_allowed_tokens(origin, ticker: Ticker, sto_id: u32, simple_token_ticker: Ticker, modify_status: bool) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
-            /// Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
+            // Check that sender is allowed to act on behalf of `did`
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             let selected_sto = Self::stos_by_token((ticker, sto_id));
             let now = <pallet_timestamp::Module<T>>::get();
             // Right now we are only allowing the issuer to change the configuration only before the STO start not after the start
             // or STO should be in non-active stage
-            ensure!(now < selected_sto.start_date || !selected_sto.active, "STO is already started");
-            ensure!(Self::is_owner(&ticker, did), "Not authorised to execute this function");
+            ensure!(
+                now < selected_sto.start_date || !selected_sto.active,
+                Error::<T>::StoAlreadyStarted
+            );
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             let token_index = Self::token_index_for_sto((ticker, sto_id, simple_token_ticker));
             let token_count = Self::tokens_count_for_sto((ticker, sto_id));
@@ -264,15 +326,15 @@ decl_module! {
                 false => true,
             };
 
-            ensure!(current_status != modify_status, "Already in that state");
+            ensure!(current_status != modify_status, Error::<T>::AlreadyInThatState);
 
             if modify_status {
-                let new_count = token_count.checked_add(1).ok_or("overflow new token count value")?;
+                let new_count = token_count.checked_add(1).ok_or(Error::<T>::TokenCountOverflow)?;
                 <TokenIndexForSTO>::insert((ticker, sto_id, simple_token_ticker), new_count);
                 <AllowedTokens>::insert((ticker, sto_id, new_count), simple_token_ticker);
                 <TokensCountForSto>::insert((ticker, sto_id), new_count);
             } else {
-                let new_count = token_count.checked_sub(1).ok_or("underflow new token count value")?;
+                let new_count = token_count.checked_sub(1).ok_or(Error::<T>::TokenCountUnderflow)?;
                 <TokenIndexForSTO>::insert((ticker, sto_id, simple_token_ticker), new_count);
                 <AllowedTokens>::insert((ticker, sto_id, new_count), Ticker::default());
                 <TokensCountForSto>::insert((ticker, sto_id), new_count);
@@ -288,24 +350,37 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the investor
-        /// * `did` DID of the investor
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLY wants to invest in
         /// * `simple_token_ticker` Ticker of the simple token
-        pub fn buy_tokens_by_simple_token(origin, did: IdentityId, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn buy_tokens_by_simple_token(origin, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let spender = Signatory::AccountKey(sender_key);
 
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
+            // Check that spender is allowed to act on behalf of `did`
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &spender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             // Check whether given token is allowed as investment currency or not
-            ensure!(Self::token_index_for_sto((ticker, sto_id, simple_token_ticker)) != None, "Given token is not a permitted investment currency");
+            ensure!(
+                Self::token_index_for_sto((ticker, sto_id, simple_token_ticker)) != None,
+                Error::<T>::TokenIsNotPermitted
+            );
             let mut selected_sto = Self::stos_by_token((ticker, sto_id));
             // Pre validation checks
-            ensure!(Self::_pre_validation(&ticker, did, selected_sto.clone()).is_ok(), "Invalidate investment");
-            // Make sure sender has enough balance
-            ensure!(T::SimpleTokenTrait::balance_of(simple_token_ticker, did.clone()) >= value, "Insufficient balance");
+            ensure!(
+                Self::_pre_validation(&ticker, did, selected_sto.clone()).is_ok(),
+                Error::<T>::PrevalidationFailed
+            );
+            // Make sure spender has enough balance
+            ensure!(
+                T::SimpleTokenTrait::balance_of(simple_token_ticker, did) >= value,
+                Error::<T>::InsufficientBalance
+            );
 
             // Get the invested amount of investment currency and amount of ST tokens minted as a return of investment
             let token_amount_value = Self::_get_invested_amount_and_tokens(
@@ -315,27 +390,28 @@ decl_module! {
 
             selected_sto.sold = selected_sto.sold
                 .checked_add(&token_amount_value.0)
-                .ok_or("overflow while calculating tokens sold")?;
+                .ok_or(Error::<T>::SoldTokensOverflow)?;
 
-            let simple_token_investment = (Self::simple_token_token_spent((ticker, simple_token_ticker, sto_id, did.clone())))
-                                    .checked_add(&token_amount_value.1)
-                                    .ok_or("overflow while updating the simple_token investment value")?;
+            let simple_token_investment =
+                Self::simple_token_token_spent((ticker, simple_token_ticker, sto_id, did))
+                .checked_add(&token_amount_value.1)
+                .ok_or(Error::<T>::InvestmentOverflow)?;
 
             // Mint tokens and update STO
-            let _minted_tokes = T::Asset::_mint_from_sto(&ticker, did, token_amount_value.0);
+            let _minted_tokes = T::Asset::_mint_from_sto(&ticker, sender, did, token_amount_value.0);
             // Transfer the simple_token invested token to beneficiary account
             T::SimpleTokenTrait::transfer(did, &simple_token_ticker, selected_sto.beneficiary_did, token_amount_value.1)?;
 
             // Update storage values
             Self::_update_storage(
                 ticker,
-                sto_id.clone(),
-                did.clone(),
+                sto_id,
+                did,
                 token_amount_value.1,
                 token_amount_value.0,
                 simple_token_ticker,
                 simple_token_investment,
-                selected_sto.clone()
+                selected_sto
             )?;
             Ok(())
         }
@@ -345,21 +421,24 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
-        /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to paused
-        pub fn pause_sto(origin, did: IdentityId, ticker: Ticker, sto_id: u32) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn pause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             // Check valid STO id
-            ensure!(Self::sto_count(ticker) >= sto_id, "Invalid sto id");
+            ensure!(Self::sto_count(ticker) >= sto_id, Error::<T>::InvalidStoId);
             // Access the STO data
             let mut selected_sto = Self::stos_by_token((ticker, sto_id));
             // Check the flag
-            ensure!(selected_sto.active, "Already paused");
+            ensure!(selected_sto.active, Error::<T>::AlreadyPaused);
             // Change the flag
             selected_sto.active = false;
             // Update the storage
@@ -372,21 +451,24 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner
-        /// * `did` DID of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to un paused
-        pub fn unpause_sto(origin, did: IdentityId, ticker: Ticker, sto_id: u32) -> DispatchResult {
-            let sender = Signatory::AccountKey(AccountKey::try_from(ensure_signed(origin)?.encode())?);
+        pub fn unpause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = Signatory::AccountKey(sender_key);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), "sender must be a signing key for DID");
-            ticker.canonize();
+            ensure!(
+                <identity::Module<T>>::is_signer_authorized(did, &sender),
+                Error::<T>::SenderMustBeSigningKeyForDid
+            );
             // Check valid STO id
-            ensure!(Self::sto_count(ticker) >= sto_id, "Invalid sto id");
+            ensure!(Self::sto_count(ticker) >= sto_id, Error::<T>::InvalidStoId);
             // Access the STO data
             let mut selected_sto = Self::stos_by_token((ticker, sto_id));
             // Check the flag
-            ensure!(!selected_sto.active, "Already in the active state");
+            ensure!(!selected_sto.active, Error::<T>::AlreadyActive);
             // Change the flag
             selected_sto.active = true;
             // Update the storage
@@ -421,12 +503,12 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         // TODO: Validate that buyer is whitelisted for primary issuance.
         // Check whether the sto is unpaused or not
-        ensure!(selected_sto.active, "sto is paused");
+        ensure!(selected_sto.active, Error::<T>::Paused);
         // Check whether the sto is already ended
         let now = <pallet_timestamp::Module<T>>::get();
         ensure!(
             now >= selected_sto.start_date && now <= selected_sto.end_date,
-            "STO has not started or already ended"
+            Error::<T>::NotStartedOrAlreadyEnded
         );
         Ok(())
     }
@@ -438,11 +520,11 @@ impl<T: Trait> Module<T> {
         // Calculate tokens to mint
         let mut token_conversion = invested_amount
             .checked_mul(&selected_sto.rate.into())
-            .ok_or("overflow in calculating tokens")?;
+            .ok_or(Error::<T>::InvestmentOverflow)?;
         let allowed_token_sold = selected_sto
             .cap
             .checked_sub(&selected_sto.sold)
-            .ok_or("underflow while calculating the amount of token sold")?;
+            .ok_or(Error::<T>::SoldTokensOverflow)?;
         let mut allowed_value = invested_amount;
         // Make sure there's still an allocation
         // Instead of reverting, buy up to the max and refund excess amount of investment currency.
@@ -450,7 +532,7 @@ impl<T: Trait> Module<T> {
             token_conversion = allowed_token_sold;
             allowed_value = token_conversion
                 .checked_div(&selected_sto.rate.into())
-                .ok_or("incorrect division")?;
+                .ok_or(Error::<T>::DivisionFailed)?;
         }
         Ok((token_conversion, allowed_value))
     }
@@ -468,12 +550,12 @@ impl<T: Trait> Module<T> {
         // Store Investment DATA
         let mut investor_holder = Self::investment_data((ticker, sto_id, did));
         if investor_holder.investor_did == IdentityId::default() {
-            investor_holder.investor_did = did.clone();
+            investor_holder.investor_did = did;
         }
         investor_holder.tokens_purchased = investor_holder
             .tokens_purchased
             .checked_add(&new_tokens_minted)
-            .ok_or("overflow while updating the invested amount")?;
+            .ok_or(Error::<T>::InvestmentOverflow)?;
         investor_holder.last_purchase_date = <pallet_timestamp::Module<T>>::get();
 
         if simple_token_ticker != Ticker::default() {
@@ -485,7 +567,7 @@ impl<T: Trait> Module<T> {
             investor_holder.amount_paid = investor_holder
                 .amount_paid
                 .checked_add(&investment_amount)
-                .ok_or("overflow while updating the invested amount")?;
+                .ok_or(Error::<T>::InvestmentOverflow)?;
         }
         <StosByToken<T>>::insert((ticker, sto_id), selected_sto);
         // Emit Event

@@ -5,9 +5,10 @@
 
 use sp_runtime::{generic, MultiSignature};
 
-pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Verify};
-
-pub use codec::Compact;
+pub use codec::{Compact, Decode, Encode};
+pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
@@ -34,6 +35,23 @@ pub type Hash = sp_core::H256;
 
 /// Index of a transaction in the relay chain. 32-bit should be plenty.
 pub type Index = u32;
+
+/// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Encode, Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PosRatio(pub u32, pub u32);
+
+impl Default for PosRatio {
+    fn default() -> Self {
+        PosRatio(1, 1)
+    }
+}
+
+impl From<(u32, u32)> for PosRatio {
+    fn from((n, d): (u32, u32)) -> Self {
+        PosRatio(n, d)
+    }
+}
 
 /// The balance of an account.
 /// 128-bits (or 38 significant decimal figures) will allow for 10m currency (10^7) at a resolution
@@ -71,6 +89,11 @@ pub use identity_id::IdentityId;
 pub mod identity;
 pub use identity::Identity;
 
+/// Claim information.
+/// Each claim is associated with this kind of record.
+pub mod identity_claim;
+pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scope};
+
 /// Key is strong type which stores bytes representing the key.
 pub mod account_key;
 pub use account_key::AccountKey;
@@ -87,6 +110,7 @@ pub use pre_authorized_key_info::PreAuthorizedKeyInfo;
 pub mod authorization;
 /// Pub Traits
 pub mod traits;
+pub use authorization::AuthIdentifier;
 pub use authorization::Authorization;
 pub use authorization::AuthorizationData;
 pub use authorization::AuthorizationError;
@@ -99,12 +123,20 @@ pub use link::LinkData;
 pub mod ticker;
 pub use ticker::Ticker;
 
+/// This module defines types used by smart extensions
 pub mod smart_extension;
-pub use smart_extension::SmartExtension;
-pub use smart_extension::SmartExtensionType;
+pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType};
 
 pub mod document;
-pub use document::Document;
+pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
+
+/// Rules for claims.
+pub mod rule;
+pub use rule::{Rule, RuleType};
+
+/// Predicate calculation for Claims.
+pub mod predicate;
+pub use predicate::{AndPredicate, Context, NotPredicate, OrPredicate, Predicate};
 
 /// Represents custom transaction errors.
 #[repr(u8)]
@@ -113,6 +145,8 @@ pub enum TransactionError {
     ZeroTip = 0,
     /// Transaction needs an Identity associated to an account.
     MissingIdentity = 1,
-    /// KYC is required
-    RequiredKYC = 2,
+    /// CDD is required
+    CddRequired = 2,
+    /// Invalid auth id
+    InvalidAuthorization = 3,
 }

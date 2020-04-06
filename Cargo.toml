@@ -9,50 +9,79 @@ edition = "2018"
 name = "polymesh"
 path = "src/main.rs"
 
+[workspace]
+members = [
+    "primitives",
+    "pallets/common",
+    "pallets/runtime",
+    "pallets/transaction-payment",
+    "pallets/transaction-payment/rpc",
+    "pallets/transaction-payment/rpc/runtime-api",
+    "pallets/staking",
+    "pallets/staking/rpc",
+    "pallets/staking/rpc/runtime-api",
+    "pallets/staking/reward-curve",
+    "pallets/mips",
+    "pallets/mips/rpc",
+    "pallets/mips/rpc/runtime-api",
+    "pallets/identity",
+    "pallets/identity/rpc",
+    "pallets/identity/rpc/runtime-api",
+    "pallets/im-online",
+    "pallets/balances",
+    "pallets/committee",
+    "pallets/group",
+    "pallets/protocol-fee"
+]
+
 [dependencies]
 polymesh-primitives = { path = "primitives" }
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets/common", default-features = false }
 polymesh-runtime = { path = "pallets/runtime" }
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
+pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
+pallet-mips-rpc = { package = "pallet-mips-rpc", path = "pallets/mips/rpc", default-features = false }
+polymesh-runtime-identity-rpc = { package = "polymesh-runtime-identity-rpc", path = "pallets/identity/rpc", default-features = false }
+im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
+polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "pallets/protocol-fee", default-features = false }
 
-
-parking_lot = "0.9.0"
-tokio = "0.1.22"
-ctrlc = { version = "3.1.3", features = ["termination"] }
+parking_lot = "0.10.0"
+tokio = "0.2.13"
+ctrlc = { version = "3.1.4", features = ["termination"] }
 lazy_static = "1.4.0"
 log = "0.4.8"
-futures = "0.3.1"
-futures01 = { package = "futures", version = "0.1.29" }
+futures = "0.3.4"
 hex-literal = "0.2.1"
-jsonrpc-core = "14.0.3"
-serde_json = '1.0.0'
+jsonrpc-core = "14.0.5"
+serde_json = '1.0.48'
+structopt = "0.3.12"
 
-sc-rpc = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-io = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-client = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-client-db = { package = "sc-client-db", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-executor = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-network = { package = "sc-network", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-consensus = { package = "sp-consensus", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-grandpa = { package = "sc-finality-grandpa", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-grandpa-primitives = { package = "sp-finality-grandpa", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-inherents = { package = "sp-inherents", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-service = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-cli = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-telemetry = { package = "sc-telemetry", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-transaction-pool = { package = "sc-transaction-pool", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-keystore = { git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-im-online = { package = "pallet-im-online", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-consensus-babe = { package = "sc-consensus-babe", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-consensus-babe = { package = "sp-consensus-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-basic-authority = { package = "sc-basic-authority", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sc-authority-discovery = { package = "sc-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-sp-authority-discovery = { package = "sp-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
-contracts-rpc = { package = "pallet-contracts-rpc", git = "https://github.com/paritytech/substrate", rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-io = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-client = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-client-db = { package = "sc-client-db", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-executor = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-network = { package = "sc-network", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-consensus = { package = "sp-consensus", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+grandpa = { package = "sc-finality-grandpa", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+grandpa-primitives = { package = "sp-finality-grandpa", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-inherents = { package = "sp-inherents", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-service = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-cli = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-telemetry = { package = "sc-telemetry", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-transaction-pool = { package = "sc-transaction-pool", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-keystore = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-consensus-babe = { package = "sc-consensus-babe", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-consensus-babe = { package = "sp-consensus-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-basic-authorship = { package = "sc-basic-authorship", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-authority-discovery = { package = "sc-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-authority-discovery = { package = "sp-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+contracts-rpc = { package = "pallet-contracts-rpc", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
 [build-dependencies]
-vergen = "3.0.4"
+vergen = "3.1.0"

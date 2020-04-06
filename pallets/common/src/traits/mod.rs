@@ -1,9 +1,10 @@
 use codec::{Codec, Decode, Encode};
 use frame_support::{
-    traits::{Get, LockIdentifier, WithdrawReasons},
+    traits::{LockIdentifier, WithdrawReasons},
     Parameter,
 };
-use sp_arithmetic::traits::{CheckedSub, Saturating, SimpleArithmetic};
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
+use sp_arithmetic::traits::{AtLeast32Bit, CheckedSub, Saturating};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;
 
@@ -16,16 +17,11 @@ pub struct BalanceLock<Balance, BlockNumber> {
     pub reasons: WithdrawReasons,
 }
 
-pub trait BlockRewardsReserveTrait<B> {
-    fn drop_positive_imbalance(amount: B);
-    fn drop_negative_imbalance(amount: B);
-}
-
 pub trait CommonTrait: frame_system::Trait {
     /// The balance of an account.
     type Balance: Parameter
         + Member
-        + SimpleArithmetic
+        + AtLeast32Bit
         + CheckedSub
         + Codec
         + Default
@@ -36,12 +32,9 @@ pub trait CommonTrait: frame_system::Trait {
         + From<u128>
         + From<Self::BlockNumber>;
 
-    /// The fee required to create an account.
-    type CreationFee: Get<Self::Balance>;
-
     type AcceptTransferTarget: asset::AcceptTransfer;
 
-    type BlockRewardsReserve: BlockRewardsReserveTrait<Self::Balance>;
+    type BlockRewardsReserve: BlockRewardsReserveCurrency<Self::Balance, NegativeImbalance<Self>>;
 }
 
 pub mod imbalances;

@@ -1,5 +1,5 @@
 use crate::{
-    asset::{self, AssetType, IdentifierType, SecurityToken, SignData},
+    asset::{self, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData},
     general_tm,
     test::{
         storage::{make_account, TestStorage},
@@ -14,14 +14,20 @@ use polymesh_primitives::{
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_identity as identity;
 
-use codec::Encode;
-use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageMap};
-use sp_runtime::AnySignature;
-use test_client::AccountKeyring;
-
 use chrono::prelude::Utc;
+use codec::Encode;
+use frame_support::{
+    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
+};
+use hex_literal::hex;
+use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
-use std::convert::TryFrom;
+use sp_runtime::AnySignature;
+use std::{
+    convert::{TryFrom, TryInto},
+    mem,
+};
+use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -33,29 +39,41 @@ type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 
 #[test]
+fn check_the_test_hex() {
+    ExtBuilder::default().build().execute_with(|| {
+        let selector: [u8; 4] = (FunctionSelectorHasher::keccak256("verify_transfer".as_bytes())
+            [0..4])
+            .try_into()
+            .unwrap();
+        println!("{:#X}", u32::from_be_bytes(selector));
+        let data = hex!("D9386E41");
+        println!("{:?}", data);
+    });
+}
+
+#[test]
 fn issuers_can_create_and_rename_tokens() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
-        let funding_round_name = b"round1".to_vec();
+        let funding_round_name: FundingRoundName = b"round1".into();
         // Expected token entry
         let mut token = SecurityToken {
-            name: vec![0x01],
+            name: vec![0x01].into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        let ticker = Ticker::from(token.name.as_slice());
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+        let ticker = Ticker::from(token.name.as_slice());
         assert_err!(
             Asset::create_token(
                 owner_signed.clone(),
-                owner_did,
                 token.name.clone(),
                 ticker,
                 1_000_000_000_000_000_000_000_000, // Total supply over the limit
@@ -64,13 +82,12 @@ fn issuers_can_create_and_rename_tokens() {
                 identifiers.clone(),
                 Some(funding_round_name.clone())
             ),
-            "Total supply above the limit"
+            AssetError::TotalSupplyAboveLimit
         );
 
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -80,24 +97,25 @@ fn issuers_can_create_and_rename_tokens() {
             Some(funding_round_name.clone())
         ));
 
-        let token_link = Identity::links((
+        let token_link = Identity::get_link(
             Signatory::from(owner_did),
             Asset::token_details(ticker).link_id,
-        ));
+        );
         assert_eq!(token_link.link_data, LinkData::TokenOwned(ticker));
         assert_eq!(token_link.expiry, None);
 
-        let ticker_link = Identity::links((
+        let ticker_link = Identity::get_link(
             Signatory::from(owner_did),
             Asset::ticker_registration(ticker).link_id,
-        ));
+        );
+
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
         assert_eq!(ticker_link.expiry, None);
 
         token.link_id = Asset::token_details(ticker).link_id;
         // A correct entry is added
         assert_eq!(Asset::token_details(ticker), token);
-        assert!(<identity::DidRecords>::exists(
+        assert!(<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
@@ -105,14 +123,14 @@ fn issuers_can_create_and_rename_tokens() {
         // Unauthorized identities cannot rename the token.
         let (eve_signed, _eve_did) = make_account(AccountKeyring::Eve.public()).unwrap();
         assert_err!(
-            Asset::rename_token(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef]),
-            "sender must be a signing key for the token owner DID"
+            Asset::rename_token(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
+            AssetError::SenderMustBeSigningKeyForDid
         );
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token);
         // Rename the token and check storage has been updated.
-        let mut renamed_token = SecurityToken {
-            name: vec![0x42],
+        let renamed_token = SecurityToken {
+            name: vec![0x42].into(),
             owner_did: token.owner_did,
             total_supply: token.total_supply,
             divisible: token.divisible,
@@ -141,8 +159,8 @@ fn non_issuers_cant_create_tokens() {
 
         // Expected token entry
         let _ = SecurityToken {
-            name: vec![0x01],
-            owner_did: owner_did,
+            name: vec![0x01].into(),
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
@@ -166,21 +184,20 @@ fn valid_transfers_pass() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: vec![0x01],
-            owner_did: owner_did,
+            name: vec![0x01].into(),
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
 
         let (_, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -190,26 +207,26 @@ fn valid_transfers_pass() {
             None
         ));
 
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
-
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
-            owner_did,
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
 
         assert_ok!(Asset::transfer(
             owner_signed.clone(),
-            owner_did,
             ticker,
             alice_did,
             500
         ));
+
+        let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix(ticker);
+        let balance_alice = cap_table.next().unwrap();
+        let balance_owner = cap_table.next().unwrap();
+        assert_eq!(balance_owner, 1_000_000 - 500);
+        assert_eq!(balance_alice, 500);
     })
 }
 
@@ -223,14 +240,14 @@ fn valid_custodian_allowance() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: vec![0x01],
-            owner_did: owner_did,
+            name: vec![0x01].into(),
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
 
         let (investor1_signed, investor1_did) = make_account(AccountKeyring::Bob.public()).unwrap();
         let (investor2_signed, investor2_did) =
@@ -240,7 +257,6 @@ fn valid_custodian_allowance() {
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -251,26 +267,20 @@ fn valid_custodian_allowance() {
         ));
 
         assert_eq!(
-            Asset::balance_of((ticker, token.owner_did)),
+            Asset::balance(&ticker, &token.owner_did),
             token.total_supply
         );
-
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
 
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
-            owner_did,
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
-        let funding_round1 = b"Round One".to_vec();
+        let funding_round1: FundingRoundName = b"Round One".into();
         assert_ok!(Asset::set_funding_round(
             owner_signed.clone(),
-            owner_did,
             ticker,
             funding_round1.clone()
         ));
@@ -278,7 +288,6 @@ fn valid_custodian_allowance() {
         let num_tokens1: u128 = 2_000_000;
         assert_ok!(Asset::issue(
             owner_signed.clone(),
-            owner_did,
             ticker,
             investor1_did,
             num_tokens1,
@@ -290,11 +299,9 @@ fn valid_custodian_allowance() {
             num_tokens1
         );
         // Check the expected default behaviour of the map.
-        assert_eq!(
-            Asset::issued_in_funding_round((ticker, b"No such round".to_vec())),
-            0
-        );
-        assert_eq!(Asset::balance_of((ticker, investor1_did)), num_tokens1,);
+        let no_such_round: FundingRoundName = b"No such round".into();
+        assert_eq!(Asset::issued_in_funding_round((ticker, no_such_round)), 0);
+        assert_eq!(Asset::balance(&ticker, &investor1_did), num_tokens1);
 
         // Failed to add custodian because of insufficient balance
         assert_noop!(
@@ -305,7 +312,7 @@ fn valid_custodian_allowance() {
                 custodian_did,
                 250_00_00 as u128
             ),
-            "Insufficient balance of holder did"
+            AssetError::InsufficientBalance
         );
 
         // Failed to add/increase the custodian allowance because of Invalid custodian did
@@ -318,7 +325,7 @@ fn valid_custodian_allowance() {
                 custodian_did_not_register,
                 50_00_00 as u128
             ),
-            "Invalid custodian DID"
+            AssetError::InvalidCustodianDid
         );
 
         // Add custodian
@@ -343,27 +350,22 @@ fn valid_custodian_allowance() {
         // Transfer the token upto the limit
         assert_ok!(Asset::transfer(
             investor1_signed.clone(),
-            investor1_did,
             ticker,
             investor2_did,
             140_00_00 as u128
         ));
 
-        assert_eq!(
-            Asset::balance_of((ticker, investor2_did)),
-            140_00_00 as u128
-        );
+        assert_eq!(Asset::balance(&ticker, &investor2_did), 140_00_00 as u128);
 
         // Try to Transfer the tokens beyond the limit
         assert_noop!(
             Asset::transfer(
                 investor1_signed.clone(),
-                investor1_did,
                 ticker,
                 investor2_did,
                 50_00_00 as u128
             ),
-            "Insufficient balance for transfer"
+            AssetError::InsufficientBalance
         );
 
         // Should fail to transfer the token by the custodian because of invalid signing key
@@ -376,7 +378,7 @@ fn valid_custodian_allowance() {
                 investor2_did,
                 45_00_00 as u128
             ),
-            "sender must be a signing key for DID"
+            AssetError::SenderMustBeSigningKeyForDid
         );
 
         // Should fail to transfer the token by the custodian because of insufficient allowance
@@ -389,7 +391,7 @@ fn valid_custodian_allowance() {
                 investor2_did,
                 55_00_00 as u128
             ),
-            "Insufficient allowance"
+            AssetError::InsufficientAllowance
         );
 
         // Successfully transfer by the custodian
@@ -414,14 +416,14 @@ fn valid_custodian_allowance_of() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: vec![0x01],
-            owner_did: owner_did,
+            name: vec![0x01].into(),
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
 
         let (investor1_signed, investor1_did) = make_account(AccountKeyring::Bob.public()).unwrap();
         let (investor2_signed, investor2_did) =
@@ -431,7 +433,6 @@ fn valid_custodian_allowance_of() {
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -442,40 +443,31 @@ fn valid_custodian_allowance_of() {
         ));
 
         assert_eq!(
-            Asset::balance_of((ticker, token.owner_did)),
+            Asset::balance(&ticker, &token.owner_did),
             token.total_supply
         );
-
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
 
         // Allow all transfers
         assert_ok!(GeneralTM::add_active_rule(
             owner_signed.clone(),
-            owner_did,
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
 
         // Mint some tokens to investor1
         assert_ok!(Asset::issue(
             owner_signed.clone(),
-            owner_did,
             ticker,
             investor1_did,
             200_00_00 as u128,
             vec![0x0]
         ));
 
-        assert_eq!(
-            Asset::balance_of((ticker, investor1_did)),
-            200_00_00 as u128
-        );
+        assert_eq!(Asset::balance(&ticker, &investor1_did), 200_00_00 as u128);
 
         let msg = SignData {
-            custodian_did: custodian_did,
+            custodian_did,
             holder_did: investor1_did,
             ticker,
             value: 50_00_00 as u128,
@@ -520,7 +512,7 @@ fn valid_custodian_allowance_of() {
                 1,
                 OffChainSignature::from(investor1_key.sign(&msg.encode()))
             ),
-            "Signature already used"
+            AssetError::SignatureAlreadyUsed
         );
 
         // use the same signature with the different nonce should fail
@@ -536,33 +528,28 @@ fn valid_custodian_allowance_of() {
                 3,
                 OffChainSignature::from(investor1_key.sign(&msg.encode()))
             ),
-            "Invalid signature"
+            AssetError::InvalidSignature
         );
 
         // Transfer the token upto the limit
         assert_ok!(Asset::transfer(
             investor1_signed.clone(),
-            investor1_did,
             ticker,
             investor2_did,
             140_00_00 as u128
         ));
 
-        assert_eq!(
-            Asset::balance_of((ticker, investor2_did)),
-            140_00_00 as u128
-        );
+        assert_eq!(Asset::balance(&ticker, &investor2_did), 140_00_00 as u128);
 
         // Try to Transfer the tokens beyond the limit
         assert_noop!(
             Asset::transfer(
                 investor1_signed.clone(),
-                investor1_did,
                 ticker,
                 investor2_did,
                 50_00_00 as u128
             ),
-            "Insufficient balance for transfer"
+            AssetError::InsufficientBalance
         );
 
         // Should fail to transfer the token by the custodian because of invalid signing key
@@ -575,7 +562,7 @@ fn valid_custodian_allowance_of() {
                 investor2_did,
                 45_00_00 as u128
             ),
-            "sender must be a signing key for DID"
+            AssetError::SenderMustBeSigningKeyForDid
         );
 
         // Should fail to transfer the token by the custodian because of insufficient allowance
@@ -588,7 +575,7 @@ fn valid_custodian_allowance_of() {
                 investor2_did,
                 55_00_00 as u128
             ),
-            "Insufficient allowance"
+            AssetError::InsufficientAllowance
         );
 
         // Successfully transfer by the custodian
@@ -616,20 +603,19 @@ fn checkpoints_fuzz_test() {
 
             // Expected token entry
             let token = SecurityToken {
-                name: vec![0x01],
-                owner_did: owner_did,
+                name: vec![0x01].into(),
+                owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-            let ticker = Ticker::from_slice(token.name.as_slice());
+            let ticker = Ticker::from(token.name.as_slice());
             let (_, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
             // Issuance is successful
             assert_ok!(Asset::create_token(
                 owner_signed.clone(),
-                owner_did,
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -639,17 +625,12 @@ fn checkpoints_fuzz_test() {
                 None
             ));
 
-            let asset_rule = general_tm::AssetRule {
-                sender_rules: vec![],
-                receiver_rules: vec![],
-            };
-
             // Allow all transfers
             assert_ok!(GeneralTM::add_active_rule(
                 owner_signed.clone(),
-                owner_did,
                 ticker,
-                asset_rule
+                vec![],
+                vec![]
             ));
 
             let mut owner_balance: [u128; 100] = [1_000_000; 100];
@@ -666,19 +647,9 @@ fn checkpoints_fuzz_test() {
                     }
                     owner_balance[j] -= 1;
                     bob_balance[j] += 1;
-                    assert_ok!(Asset::transfer(
-                        owner_signed.clone(),
-                        owner_did,
-                        ticker,
-                        bob_did,
-                        1
-                    ));
+                    assert_ok!(Asset::transfer(owner_signed.clone(), ticker, bob_did, 1));
                 }
-                assert_ok!(Asset::create_checkpoint(
-                    owner_signed.clone(),
-                    owner_did,
-                    ticker,
-                ));
+                assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker,));
                 let x: u64 = u64::try_from(j).unwrap();
                 assert_eq!(
                     Asset::get_balance_at(ticker, owner_did, 0),
@@ -730,19 +701,18 @@ fn register_ticker() {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let token = SecurityToken {
-            name: vec![0x01],
-            owner_did: owner_did,
+            name: vec![0x01].into(),
+            owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let identifiers = vec![(IdentifierType::Custom(b"check".to_vec()), b"me".to_vec())];
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let identifiers = vec![(IdentifierType::Custom(b"check".to_vec()), b"me".into())];
+        let ticker = Ticker::from(token.name.as_slice());
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -761,35 +731,36 @@ fn register_ticker() {
         }
 
         assert_err!(
-            Asset::register_ticker(owner_signed.clone(), Ticker::from_slice(&[0x01])),
-            "token already created"
+            Asset::register_ticker(owner_signed.clone(), Ticker::from(&[0x01][..])),
+            AssetError::TokenAlreadyCreated
         );
 
         assert_err!(
             Asset::register_ticker(
                 owner_signed.clone(),
-                Ticker::from_slice(&[0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01])
+                Ticker::from(&[0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01][..])
             ),
-            "ticker length over the limit"
+            AssetError::TickerTooLong
         );
 
-        let ticker = Ticker::from_slice(&[0x01, 0x01]);
+        let ticker = Ticker::from(&[0x01, 0x01][..]);
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
 
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
-        let ticker_link = Identity::links((
+        let ticker_link = Identity::get_link(
             Signatory::from(owner_did),
             Asset::ticker_registration(ticker).link_id,
-        ));
+        );
+
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
 
         let (alice_signed, _) = make_account(AccountKeyring::Alice.public()).unwrap();
 
         assert_err!(
             Asset::register_ticker(alice_signed.clone(), ticker),
-            "ticker registered to someone else"
+            AssetError::TickerAlreadyRegistered
         );
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
@@ -812,19 +783,19 @@ fn transfer_ticker() {
         let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
         let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
-        let ticker = Ticker::from_slice(&[0x01, 0x01]);
+        let ticker = Ticker::from(&[0x01, 0x01][..]);
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
-        Identity::add_auth(
+        let auth_id_alice = Identity::add_auth(
             Signatory::from(owner_did),
             Signatory::from(alice_did),
             AuthorizationData::TransferTicker(ticker),
             None,
         );
 
-        Identity::add_auth(
+        let auth_id_bob = Identity::add_auth(
             Signatory::from(owner_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
@@ -835,68 +806,68 @@ fn transfer_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice_did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
 
-        let mut auth_id = Identity::last_authorization(Signatory::from(alice_did));
-
         assert_err!(
-            Asset::accept_ticker_transfer(alice_signed.clone(), auth_id + 1),
+            Asset::accept_ticker_transfer(alice_signed.clone(), auth_id_alice + 1),
             "Authorization does not exist"
         );
 
         let old_ticker = Asset::ticker_registration(ticker);
         let old_ticker_link =
-            Identity::links((Signatory::from(old_ticker.owner), old_ticker.link_id));
+            Identity::get_link(Signatory::from(old_ticker.owner), old_ticker.link_id);
         assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
 
-        assert_ok!(Asset::accept_ticker_transfer(alice_signed.clone(), auth_id));
+        assert_ok!(Asset::accept_ticker_transfer(
+            alice_signed.clone(),
+            auth_id_alice
+        ));
 
-        assert!(!<identity::Links<TestStorage>>::exists((
+        assert!(!<identity::Links<TestStorage>>::contains_key(
             Signatory::from(old_ticker.owner),
             old_ticker.link_id
-        )));
+        ));
 
-        let ticker_link = Identity::links((
+        let ticker_link = Identity::get_link(
             Signatory::from(alice_did),
             Asset::ticker_registration(ticker).link_id,
-        ));
+        );
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
 
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
-            Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
+            Asset::accept_ticker_transfer(bob_signed.clone(), auth_id_bob),
             "Illegal use of Authorization"
         );
 
-        Identity::add_auth(
+        let mut auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 - 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
+
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
             "Authorization expired"
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
+
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id),
             AssetError::NoTickerTransferAuth
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
+
         assert_ok!(Asset::accept_ticker_transfer(bob_signed.clone(), auth_id));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
@@ -917,11 +888,10 @@ fn transfer_token_ownership() {
         let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
         let token_name = vec![0x01, 0x01];
-        let ticker = Ticker::from_slice(token_name.as_slice());
+        let ticker = Ticker::from(token_name.as_slice());
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
-            token_name.clone(),
+            token_name.into(),
             ticker,
             1_000_000,
             true,
@@ -930,14 +900,14 @@ fn transfer_token_ownership() {
             None
         ));
 
-        Identity::add_auth(
+        let auth_id_alice = Identity::add_auth(
             Signatory::from(owner_did),
             Signatory::from(alice_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             None,
         );
 
-        Identity::add_auth(
+        let auth_id_bob = Identity::add_auth(
             Signatory::from(owner_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
@@ -946,97 +916,96 @@ fn transfer_token_ownership() {
 
         assert_eq!(Asset::token_details(&ticker).owner_did, owner_did);
 
-        let mut auth_id = Identity::last_authorization(Signatory::from(alice_did));
-
         assert_err!(
-            Asset::accept_token_ownership_transfer(alice_signed.clone(), auth_id + 1),
+            Asset::accept_token_ownership_transfer(alice_signed.clone(), auth_id_alice + 1),
             "Authorization does not exist"
         );
 
         let old_ticker = Asset::ticker_registration(ticker);
         let old_ticker_link =
-            Identity::links((Signatory::from(old_ticker.owner), old_ticker.link_id));
+            Identity::get_link(Signatory::from(old_ticker.owner), old_ticker.link_id);
+
         assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
 
         let old_token = Asset::token_details(ticker);
         let old_token_link =
-            Identity::links((Signatory::from(old_token.owner_did), old_token.link_id));
+            Identity::get_link(Signatory::from(old_token.owner_did), old_token.link_id);
+
         assert_eq!(old_token_link.link_data, LinkData::TokenOwned(ticker));
 
         assert_ok!(Asset::accept_token_ownership_transfer(
             alice_signed.clone(),
-            auth_id
+            auth_id_alice
         ));
         assert_eq!(Asset::token_details(&ticker).owner_did, alice_did);
-        assert!(!<identity::Links<TestStorage>>::exists((
+        assert!(!<identity::Links<TestStorage>>::contains_key(
             Signatory::from(old_ticker.owner),
             old_ticker.link_id
-        )));
-        assert!(!<identity::Links<TestStorage>>::exists((
+        ));
+        assert!(!<identity::Links<TestStorage>>::contains_key(
             Signatory::from(old_token.owner_did),
             old_token.link_id
-        )));
+        ));
 
-        let ticker_link = Identity::links((
+        let ticker_link = Identity::get_link(
             Signatory::from(alice_did),
             Asset::ticker_registration(ticker).link_id,
-        ));
+        );
         assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
-        let token_link = Identity::links((
+        let token_link = Identity::get_link(
             Signatory::from(alice_did),
             Asset::token_details(ticker).link_id,
-        ));
+        );
         assert_eq!(token_link.link_data, LinkData::TokenOwned(ticker));
 
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
         assert_err!(
-            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
+            Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id_bob),
             "Illegal use of Authorization"
         );
 
-        Identity::add_auth(
+        let mut auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             Some(now.timestamp() as u64 - 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
+
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             "Authorization expired"
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
+
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
             AssetError::NotTickerOwnershipTransferAuth
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
-            AuthorizationData::TransferTokenOwnership(Ticker::from_slice(&[0x50])),
+            AuthorizationData::TransferTokenOwnership(Ticker::from(&[0x50][..])),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
+
         assert_err!(
             Asset::accept_token_ownership_transfer(bob_signed.clone(), auth_id),
-            "Token does not exist"
+            AssetError::NoSuchToken
         );
 
-        Identity::add_auth(
+        auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             Some(now.timestamp() as u64 + 100),
         );
-        auth_id = Identity::last_authorization(Signatory::from(bob_did));
+
         assert_ok!(Asset::accept_token_ownership_transfer(
             bob_signed.clone(),
             auth_id
@@ -1052,22 +1021,21 @@ fn update_identifiers() {
 
         // Expected token entry
         let mut token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from_slice(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        let ticker = Ticker::from(token.name.as_slice());
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1082,16 +1050,15 @@ fn update_identifiers() {
         assert_eq!(Asset::token_details(ticker), token);
         assert_eq!(
             Asset::identifiers((ticker, IdentifierType::Cusip)),
-            identifier_value1.to_vec()
+            identifier_value1.into()
         );
         let identifier_value2 = b"XYZ555";
         let updated_identifiers = vec![
             (IdentifierType::Cusip, Default::default()),
-            (IdentifierType::Isin, identifier_value2.to_vec()),
+            (IdentifierType::Isin, identifier_value2.into()),
         ];
         assert_ok!(Asset::update_identifiers(
             owner_signed.clone(),
-            owner_did,
             ticker,
             updated_identifiers.clone(),
         ));
@@ -1107,7 +1074,7 @@ fn adding_removing_documents() {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let token = SecurityToken {
-            name: vec![0x01],
+            name: vec![0x01].into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1115,20 +1082,19 @@ fn adding_removing_documents() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let ticker = Ticker::from(token.name.as_slice());
 
-        assert!(!<identity::DidRecords>::exists(
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
 
-        let identifiers = vec![(IdentifierType::default(), b"undefined".to_vec())];
-        let ticker = Ticker::from_slice(token.name.as_slice());
+        let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+        let ticker = Ticker::from(token.name.as_slice());
         let ticker_did = Identity::get_token_did(&ticker).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1140,111 +1106,126 @@ fn adding_removing_documents() {
 
         let documents = vec![
             Document {
-                name: b"A".to_vec(),
-                uri: b"www.a.com".to_vec(),
-                hash: b"0x1".to_vec(),
+                name: b"A".into(),
+                uri: b"www.a.com".into(),
+                content_hash: b"0x1".into(),
             },
             Document {
-                name: b"B".to_vec(),
-                uri: b"www.b.com".to_vec(),
-                hash: b"0x2".to_vec(),
+                name: b"B".into(),
+                uri: b"www.b.com".into(),
+                content_hash: b"0x2".into(),
             },
         ];
 
         assert_ok!(Asset::add_documents(
             owner_signed.clone(),
-            owner_did,
             ticker,
             documents
         ));
 
-        let last_id = Identity::last_link(Signatory::from(ticker_did));
-        let last_doc = Identity::links((Signatory::from(ticker_did), last_id));
+        let mut docs = <identity::Links<TestStorage>>::iter_prefix(Signatory::from(ticker_did));
+        let mut doc1 = docs.next().unwrap();
+        let mut doc2 = docs.next().unwrap();
+        if doc1.link_id > doc2.link_id {
+            mem::swap(&mut doc1, &mut doc2);
+        }
 
         assert_eq!(
-            last_doc.link_data,
+            doc1.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"B".to_vec(),
-                uri: b"www.b.com".to_vec(),
-                hash: b"0x2".to_vec()
+                name: b"A".into(),
+                uri: b"www.a.com".into(),
+                content_hash: b"0x1".into(),
             })
         );
-        assert_eq!(last_doc.next_link, 0);
-        assert_eq!(last_doc.expiry, None);
+        assert_eq!(doc1.expiry, None);
 
-        let doc_ids = vec![last_id, last_doc.previous_link];
+        assert_eq!(
+            doc2.link_data,
+            LinkData::DocumentOwned(Document {
+                name: b"B".into(),
+                uri: b"www.b.com".into(),
+                content_hash: b"0x2".into()
+            })
+        );
+
+        assert_eq!(doc2.expiry, None);
 
         assert_ok!(Asset::update_documents(
             owner_signed.clone(),
-            owner_did,
             ticker,
             vec![
                 (
-                    doc_ids[0],
+                    doc1.link_id,
                     Document {
-                        name: b"C".to_vec(),
-                        uri: b"www.c.com".to_vec(),
-                        hash: b"0x3".to_vec(),
+                        name: b"C".into(),
+                        uri: b"www.c.com".into(),
+                        content_hash: b"0x3".into(),
                     }
                 ),
                 (
-                    doc_ids[1],
+                    doc2.link_id,
                     Document {
-                        name: b"D".to_vec(),
-                        uri: b"www.d.com".to_vec(),
-                        hash: b"0x4".to_vec(),
+                        name: b"D".into(),
+                        uri: b"www.d.com".into(),
+                        content_hash: b"0x4".into(),
                     }
                 ),
             ]
         ));
 
-        let last_id = Identity::last_link(Signatory::from(ticker_did));
-        let last_doc = Identity::links((Signatory::from(ticker_did), last_id));
+        docs = <identity::Links<TestStorage>>::iter_prefix(Signatory::from(ticker_did));
+        doc1 = docs.next().unwrap();
+        doc2 = docs.next().unwrap();
+        if doc1.link_id > doc2.link_id {
+            mem::swap(&mut doc1, &mut doc2);
+        }
 
         assert_eq!(
-            last_doc.link_data,
+            doc1.link_data,
             LinkData::DocumentOwned(Document {
-                name: b"C".to_vec(),
-                uri: b"www.c.com".to_vec(),
-                hash: b"0x3".to_vec(),
+                name: b"C".into(),
+                uri: b"www.c.com".into(),
+                content_hash: b"0x3".into(),
             })
         );
 
-        assert_ok!(Asset::remove_documents(
-            owner_signed.clone(),
-            owner_did,
-            ticker,
-            doc_ids
-        ));
+        assert_eq!(doc1.expiry, None);
 
-        assert_eq!(Identity::last_link(Signatory::from(ticker_did)), 0);
+        assert_eq!(
+            doc2.link_data,
+            LinkData::DocumentOwned(Document {
+                name: b"D".into(),
+                uri: b"www.d.com".into(),
+                content_hash: b"0x4".into(),
+            })
+        );
+        assert_eq!(doc2.expiry, None);
     });
 }
 
 #[test]
 fn add_extension_successfully() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let (owner_signed, _) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
-            owner_did,
+            name: b"TEST".into(),
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        let ticker = Ticker::from(token.name.as_slice());
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1255,12 +1236,12 @@ fn add_extension_successfully() {
         ));
 
         // Add smart extension
-        let extension_name = b"PTM";
+        let extension_name = b"PTM".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::TransferManager,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1294,7 +1275,7 @@ fn add_same_extension_should_fail() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1302,15 +1283,14 @@ fn add_same_extension_should_fail() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        let ticker = Ticker::from(token.name.as_slice());
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1321,12 +1301,12 @@ fn add_same_extension_should_fail() {
         ));
 
         // Add smart extension
-        let extension_name = b"PTM";
+        let extension_name = b"PTM".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::TransferManager,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1365,7 +1345,7 @@ fn should_successfully_archive_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1373,15 +1353,14 @@ fn should_successfully_archive_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        let ticker = Ticker::from(token.name.as_slice());
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1391,12 +1370,12 @@ fn should_successfully_archive_extension() {
             None
         ));
         // Add smart extension
-        let extension_name = b"STO";
+        let extension_name = b"STO".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1441,7 +1420,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1449,15 +1428,14 @@ fn should_fail_to_archive_an_already_archived_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        let ticker = Ticker::from(token.name.as_slice());
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1467,12 +1445,12 @@ fn should_fail_to_archive_an_already_archived_extension() {
             None
         ));
         // Add smart extension
-        let extension_name = b"STO";
+        let extension_name = b"STO".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1522,7 +1500,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1530,15 +1508,14 @@ fn should_fail_to_archive_a_non_existent_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        let ticker = Ticker::from(token.name.as_slice());
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1552,7 +1529,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
 
         assert_err!(
             Asset::archive_extension(owner_signed.clone(), ticker, extension_id),
-            "Smart extension not exists"
+            AssetError::NoSuchSmartExtension
         );
     });
 }
@@ -1564,7 +1541,7 @@ fn should_successfuly_unarchive_an_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1572,15 +1549,14 @@ fn should_successfuly_unarchive_an_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        let ticker = Ticker::from(token.name.as_slice());
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1590,12 +1566,12 @@ fn should_successfuly_unarchive_an_extension() {
             None
         ));
         // Add smart extension
-        let extension_name = b"STO";
+        let extension_name = b"STO".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1650,7 +1626,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
 
         // Expected token entry
         let token = SecurityToken {
-            name: b"TEST".to_vec(),
+            name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1658,15 +1634,14 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             ..Default::default()
         };
 
-        let ticker = Ticker::from_slice(token.name.as_slice());
-        assert!(!<identity::DidRecords>::exists(
+        let ticker = Ticker::from(token.name.as_slice());
+        assert!(!<identity::DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.to_vec())];
+        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
         assert_ok!(Asset::create_token(
             owner_signed.clone(),
-            owner_did,
             token.name.clone(),
             ticker,
             token.total_supply,
@@ -1676,12 +1651,12 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             None
         ));
         // Add smart extension
-        let extension_name = b"STO";
+        let extension_name = b"STO".into();
         let extension_id = AccountKeyring::Bob.public();
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
-            extension_name: extension_name.to_vec(),
+            extension_name,
             extension_id: extension_id.clone(),
             is_archive: false,
         };
@@ -1742,11 +1717,10 @@ fn freeze_unfreeze_asset() {
         let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
         let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
         let token_name = b"COOL";
-        let ticker = Ticker::from_slice(token_name);
+        let ticker = Ticker::from(&token_name[..]);
         assert_ok!(Asset::create_token(
             alice_signed.clone(),
-            alice_did,
-            token_name.to_vec(),
+            token_name.into(),
             ticker,
             1_000_000,
             true,
@@ -1754,74 +1728,67 @@ fn freeze_unfreeze_asset() {
             vec![],
             None
         ));
+
         // Allow all transfers.
-        let asset_rule = general_tm::AssetRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-        };
         assert_ok!(GeneralTM::add_active_rule(
             alice_signed.clone(),
-            alice_did,
             ticker,
-            asset_rule
+            vec![],
+            vec![]
         ));
         assert_err!(
             Asset::freeze(bob_signed.clone(), ticker),
-            "sender must be a signing key for the token owner DID"
+            AssetError::SenderMustBeSigningKeyForDid
         );
         assert_err!(
             Asset::unfreeze(alice_signed.clone(), ticker),
-            "asset must be frozen"
+            AssetError::NotFrozen
         );
         assert_ok!(Asset::freeze(alice_signed.clone(), ticker));
         assert_err!(
             Asset::freeze(alice_signed.clone(), ticker),
-            "asset must not already be frozen"
+            AssetError::AlreadyFrozen
+        );
+
+        // Attempt to mint tokens.
+        assert_err!(
+            Asset::issue(alice_signed.clone(), ticker, bob_did, 1, vec![]),
+            "Frozen"
+        );
+        assert_err!(
+            Asset::transfer(alice_signed.clone(), ticker, bob_did, 1),
+            "Frozen"
         );
         // Attempt to transfer token ownership.
-        Identity::add_auth(
+        let auth_id = Identity::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
             AuthorizationData::TransferTokenOwnership(ticker),
             None,
         );
-        let auth_id = Identity::last_authorization(Signatory::from(bob_did));
-        // Attempt to mint tokens.
-        assert_err!(
-            Asset::issue(alice_signed.clone(), alice_did, ticker, bob_did, 1, vec![]),
-            "asset is frozen"
-        );
+
         assert_ok!(Asset::accept_token_ownership_transfer(
             bob_signed.clone(),
             auth_id
         ));
-        assert_err!(
-            Asset::transfer(alice_signed.clone(), alice_did, ticker, bob_did, 1),
-            "asset is frozen"
-        );
+
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
-            Asset::batch_issue(bob_signed.clone(), bob_did, ticker, vec![bob_did], vec![1]),
-            "asset is frozen"
+            Asset::batch_issue(bob_signed.clone(), ticker, vec![bob_did], vec![1]),
+            "Frozen"
         );
         // `batch_issue` fails with the empty vector of investors with a different error message.
         assert_err!(
-            Asset::batch_issue(bob_signed.clone(), bob_did, ticker, vec![], vec![]),
-            "list of investors is empty"
+            Asset::batch_issue(bob_signed.clone(), ticker, vec![], vec![]),
+            AssetError::NoInvestors
         );
         assert_ok!(Asset::unfreeze(bob_signed.clone(), ticker));
         assert_err!(
             Asset::unfreeze(bob_signed.clone(), ticker),
-            "asset must be frozen"
+            AssetError::NotFrozen
         );
         // Transfer some balance.
-        assert_ok!(Asset::transfer(
-            alice_signed.clone(),
-            alice_did,
-            ticker,
-            bob_did,
-            1
-        ));
+        assert_ok!(Asset::transfer(alice_signed.clone(), ticker, bob_did, 1));
     });
 }
 
@@ -1956,7 +1923,7 @@ fn freeze_unfreeze_asset() {
  *
  *                        // Check that the issuer's balance corresponds to total supply
  *                        assert_eq!(
- *                            Asset::balance_of((token_struct.name, token_struct.owner)),
+ *                            Asset::balance((token_struct.name, token_struct.owner)),
  *                            token_struct.total_supply
  *                        );
  *
