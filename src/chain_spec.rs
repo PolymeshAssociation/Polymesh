@@ -16,7 +16,7 @@ use polymesh_runtime::{
 };
 use polymesh_runtime_common::constants::{
     currency::{MILLICENTS, POLY},
-    time::HOURS,
+    time::{DAYS, HOURS},
 };
 use sc_service::Properties;
 use serde_json::json;
