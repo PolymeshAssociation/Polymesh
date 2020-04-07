@@ -62,7 +62,8 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for Test where origin: Origin {
         identity::Identity,
-        Module::CddOffchainWorker,
+        pallet_staking::Staking,
+        cddoffchainworker::CddOffchainWorker,
     }
 }
 
@@ -452,27 +453,10 @@ impl pallet_staking::Trait for Test {
 
 pub type Extrinsic = TestXt<Call, ()>;
 pub type SubmitTransaction =
-    frame_system::offchain::TransactionSubmitter<crypto::SignerId, Test, Extrinsic>;
-
-impl frame_system::offchain::CreateTransaction<Test, Extrinsic> for Test {
-    type Public = sp_core::sr25519::Public;
-    type Signature = sp_core::sr25519::Signature;
-
-    fn create_transaction<F: frame_system::offchain::Signer<Self::Public, Self::Signature>>(
-        call: <Extrinsic as ExtrinsicsT>::Call,
-        _public: Self::Public,
-        _account: <Test as frame_system::Trait>::AccountId,
-        nonce: <Test as frame_system::Trait>::Index,
-    ) -> Option<(
-        <Extrinsic as ExtrinsicsT>::Call,
-        <Extrinsic as ExtrinsicsT>::SignaturePayload,
-    )> {
-        Some((call, (nonce, ())))
-    }
-}
+    frame_system::offchain::TransactionSubmitter<crypto::SignerId, Call, Extrinsic>;
 
 impl Trait for Test {
-    type SignerId = crypto::SignerId;
+    type SignerId = UintAuthorityId;
     type Event = ();
     type Call = Call;
     type SubmitUnsignedTransaction = SubmitTransaction;
@@ -762,4 +746,15 @@ pub fn account_from(id: u64) -> AccountId {
     enc_id.copy_from_slice(enc_id_vec.as_slice());
 
     Pair::from_seed(&enc_id).public()
+}
+
+
+pub fn create_did_and_add_claim(stash: AccountId, expiry: u64) {
+    Balances::make_free_balance_be(&account_from(1005), 1_000_000);
+    assert_ok!(Identity::cdd_register_did(
+        Origin::signed(account_from(1005)),
+        stash,
+        Some(expiry.saturated_into::<Moment>()),
+        vec![]
+    ));
 }

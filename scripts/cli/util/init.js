@@ -152,7 +152,7 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
     // const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, null, []);
     // await sendTransaction(transaction, alice, nonceObj);
 
-      let expiry = expiry.length == 0 ? null : expiries[i];
+      let expiry = expiries.length == 0 ? null : expiries[i];
       await api.tx.identity
         .cddRegisterDid(accounts[i].address, expiry, [])
         .signAndSend(alice, { nonce: nonces.get(alice.address) });
