@@ -1,4 +1,4 @@
-use crate::{
+use polymesh_runtime::{
     asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, multisig, percentage_tm,
     simple_token, statistics, voting,
 };

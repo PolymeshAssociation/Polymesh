@@ -1,16 +1,16 @@
-use crate::{
-    asset,
-    test::{
-        storage::{make_account, make_account_with_balance, Call, TestStorage},
-        ExtBuilder,
-    },
+mod common;
+use common::{
+    storage::{make_account, make_account_with_balance, Call, TestStorage},
+    ExtBuilder,
 };
+
 use pallet_committee as committee;
 use pallet_mips::{
     self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority,
-    PolymeshReferendumInfo, PolymeshVotes, Url,
+    PolymeshReferendum, PolymeshVotes, Url,
 };
 use polymesh_primitives::Ticker;
+use polymesh_runtime::asset;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
 
@@ -21,7 +21,6 @@ use sp_runtime::traits::{BlakeTwo256, Hash};
 use test_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;
-type Asset = asset::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Mips = mips::Module<TestStorage>;
 type Group = group::Module<TestStorage, group::Instance1>;
@@ -188,7 +187,15 @@ fn creating_a_referendum_works_we() {
 
     fast_forward_to(120);
 
-    assert_eq!(Mips::referendums(&hash), Some(proposal));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::Normal,
+            enactment_period: 120,
+            proposal: proposal.clone()
+        })
+    );
 
     assert_eq!(Balances::free_balance(&alice_acc), 218);
     assert_eq!(Balances::free_balance(&bob_acc), 159);
@@ -244,14 +251,22 @@ fn enacting_a_referendum_works_we() {
 
     fast_forward_to(120);
 
-    assert_eq!(Mips::referendums(&hash), Some(proposal));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::Normal,
+            enactment_period: 100,
+            proposal
+        })
+    );
 
     assert_err!(
-        Mips::enact_referendum(bob_signer.clone(), hash),
+        Mips::enact_referendum(bob_signer.clone(), 0),
         Error::<TestStorage>::BadOrigin
     );
 
-    assert_ok!(Mips::enact_referendum(root, hash));
+    assert_ok!(Mips::enact_referendum(root, 0));
 }
 
 #[test]
@@ -309,14 +324,22 @@ fn fast_tracking_a_proposal_works_we() {
 
     fast_forward_to(120);
 
-    assert_eq!(Mips::referendums(&hash), Some(proposal));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::Normal,
+            enactment_period: 100,
+            proposal
+        })
+    );
 
     assert_err!(
-        Mips::enact_referendum(bob_signer.clone(), hash),
+        Mips::enact_referendum(bob_signer.clone(), 0),
         Error::<TestStorage>::BadOrigin
     );
 
-    assert_ok!(Mips::enact_referendum(root, hash));
+    assert_ok!(Mips::enact_referendum(root, 0));
 }
 
 #[test]
@@ -331,7 +354,6 @@ fn submit_referendum_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
     let index = 0;
-    let hash = BlakeTwo256::hash_of(&proposal);
 
     let root = Origin::system(frame_system::RawOrigin::Root);
 
@@ -351,23 +373,32 @@ fn submit_referendum_works_we() {
 
     fast_forward_to(20);
 
-    assert_eq!(Mips::referendums(&hash), Some(proposal));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::Normal,
+            enactment_period: 100,
+            proposal: proposal.clone()
+        })
+    );
 
     assert_eq!(
-        Mips::referendum_meta(),
-        vec![PolymeshReferendumInfo {
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
             index,
             priority: MipsPriority::High,
-            proposal_hash: hash
-        }]
+            enactment_period: 100,
+            proposal
+        })
     );
 
     assert_err!(
-        Mips::enact_referendum(alice_signer.clone(), hash),
+        Mips::enact_referendum(alice_signer.clone(), 0),
         Error::<TestStorage>::BadOrigin
     );
 
-    assert_ok!(Mips::enact_referendum(root, hash));
+    assert_ok!(Mips::enact_referendum(root, 0));
 }
 
 #[test]

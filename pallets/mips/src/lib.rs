@@ -153,13 +153,15 @@ impl Default for MipsPriority {
 /// Properties of a referendum
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PolymeshReferendumInfo<Hash: Parameter> {
+pub struct PolymeshReferendum<BlockNumber: Default, Proposal> {
     /// The proposal's unique index.
     pub index: MipsIndex,
     /// Priority.
     pub priority: MipsPriority,
+    /// Enactment period.
+    pub enactment_period: BlockNumber,
     /// The proposal being voted on.
-    pub proposal_hash: Hash,
+    pub proposal: Proposal,
 }
 
 /// Information about deposit.
@@ -235,12 +237,12 @@ decl_storage! {
         /// proposal hash -> vote count
         pub Voting get(fn voting): map hasher(twox_64_concat) T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
 
-        /// Active referendums.
-        pub ReferendumMetadata get(fn referendum_meta): Vec<PolymeshReferendumInfo<T::Hash>>;
-
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
-        /// proposal hash -> proposal
-        pub Referendums get(fn referendums): map hasher(twox_64_concat) T::Hash => Option<T::Proposal>;
+        /// proposal index -> proposal
+        pub Referendums get(fn referendums): map hasher(twox_64_concat) MipsIndex => Option<PolymeshReferendum<T::BlockNumber, T::Proposal>>;
+
+        /// Default enactment period that will be use after a proposal is accepted by GC.
+        pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
     }
 }
 
@@ -259,10 +261,10 @@ decl_event!(
         ProposalClosed(MipsIndex, Hash),
         /// Proposal referenced by `Hash` has been closed
         ProposalFastTracked(MipsIndex, Hash),
-        /// Referendum created for proposal referenced by `Hash`
-        ReferendumCreated(MipsIndex, MipsPriority, Hash),
+        /// Referendum created for proposal
+        ReferendumCreated(MipsIndex, MipsPriority),
         /// Proposal referenced by `Hash` was dispatched with the result `bool`
-        ReferendumEnacted(Hash, bool),
+        ReferendumEnacted(MipsIndex),
     }
 );
 
@@ -286,6 +288,8 @@ decl_error! {
         ProposalOnCoolOffPeriod,
         /// Proposal is inmutable after cool-off period.
         ProposalIsInmutable,
+        /// Referendum is still on its enactment period.
+        ReferendumOnEnactmentPeriod
     }
 }
 
@@ -329,6 +333,13 @@ decl_module! {
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             <ProposalDuration<T>>::put(duration);
+        }
+
+        /// Change the default enact period.
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        pub fn set_default_enact_period(origin, duration: T::BlockNumber) {
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            <DefaultEnactmentPeriod<T>>::put(duration);
         }
 
         /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which
@@ -617,7 +628,6 @@ decl_module! {
             Self::create_referendum(
                 index,
                 MipsPriority::High,
-                proposal_hash,
                 mip.proposal,
             );
 
@@ -652,17 +662,15 @@ decl_module! {
             Self::create_referendum(
                 index,
                 MipsPriority::High,
-                proposal_hash,
                 *proposal
             );
         }
 
         /// Moves a referendum instance into dispatch queue.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn enact_referendum(origin, proposal_hash: T::Hash) {
+        pub fn enact_referendum(origin, index: MipsIndex) -> DispatchResult {
             T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-
-            Self::prepare_to_dispatch(proposal_hash);
+            Self::execute_referendum(index)
         }
 
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,
@@ -722,12 +730,7 @@ impl<T: Trait> Module<T> {
             // 2. Ayes staked are more than the minimum quorum threshold
             if aye_stake > nay_stake && aye_stake >= Self::quorum_threshold() {
                 if let Some(mip) = <Proposals<T>>::get(&proposal_hash) {
-                    Self::create_referendum(
-                        index,
-                        MipsPriority::Normal,
-                        proposal_hash,
-                        mip.proposal,
-                    );
+                    Self::create_referendum(index, MipsPriority::Normal, mip.proposal);
                 }
             }
         }
@@ -736,27 +739,24 @@ impl<T: Trait> Module<T> {
     /// Create a referendum object from a proposal. If governance committee is composed of less
     /// than 2 members, enact it immediately. Otherwise, committee votes on this referendum and
     /// decides whether it should be enacted.
-    fn create_referendum(
-        index: MipsIndex,
-        priority: MipsPriority,
-        proposal_hash: T::Hash,
-        proposal: T::Proposal,
-    ) {
-        let ri = PolymeshReferendumInfo {
+    fn create_referendum(index: MipsIndex, priority: MipsPriority, proposal: T::Proposal) {
+        let curr_block_number = <system::Module<T>>::block_number();
+        let enactment_period = curr_block_number + Self::default_enactment_period();
+        let referendum = PolymeshReferendum {
             index,
             priority,
-            proposal_hash,
+            proposal,
+            enactment_period,
         };
+        <Referendums<T>>::insert(index, referendum);
 
-        <ReferendumMetadata<T>>::mutate(|metadata| metadata.push(ri));
-        <Referendums<T>>::insert(proposal_hash, proposal);
+        Self::deposit_event(RawEvent::ReferendumCreated(index, priority));
 
-        Self::deposit_event(RawEvent::ReferendumCreated(index, priority, proposal_hash));
-
+        /*
         // If committee size is too small, enact it.
         if T::GovernanceCommittee::member_count() < 2 {
             Self::prepare_to_dispatch(proposal_hash);
-        }
+        }*/
     }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
@@ -784,17 +784,21 @@ impl<T: Trait> Module<T> {
         <Deposits<T>>::remove_prefix(proposal_hash);
     }
 
-    fn prepare_to_dispatch(hash: T::Hash) {
-        if let Some(referendum) = <Referendums<T>>::get(&hash) {
-            let result = match referendum.dispatch(system::RawOrigin::Root.into()) {
-                Ok(_) => true,
-                Err(e) => {
-                    let e: DispatchError = e;
-                    sp_runtime::print(e);
-                    false
-                }
-            };
-            Self::deposit_event(RawEvent::ReferendumEnacted(hash, result));
+    fn execute_referendum(index: MipsIndex) -> DispatchResult {
+        if let Some(referendum) = Self::referendums(index) {
+            let curr_block = <system::Module<T>>::block_number();
+            ensure!(
+                referendum.enactment_period <= curr_block,
+                Error::<T>::ReferendumOnEnactmentPeriod
+            );
+
+            let _ = referendum
+                .proposal
+                .dispatch(system::RawOrigin::Root.into())?;
+            Self::deposit_event(RawEvent::ReferendumEnacted(index));
+            Ok(())
+        } else {
+            Err(Error::<T>::MismatchedProposalIndex.into())
         }
     }
 

@@ -1,12 +1,14 @@
-use crate::{
+mod common;
+use common::{
+    storage::{register_keyring_account, TestStorage},
+    ExtBuilder,
+};
+
+use polymesh_primitives::Ticker;
+use polymesh_runtime::{
     asset::{self, IdentifierType, SecurityToken},
     general_tm, statistics,
-    test::{
-        storage::{register_keyring_account, TestStorage},
-        ExtBuilder,
-    },
 };
-use polymesh_primitives::Ticker;
 
 use frame_support::assert_ok;
 use test_client::AccountKeyring;

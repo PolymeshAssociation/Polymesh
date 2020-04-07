@@ -1,13 +1,14 @@
-use crate::{
-    asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName},
-    general_tm::{self as general_tm, AssetTransferRule, Error as GTMError},
-    test::{
-        storage::{make_account, register_keyring_account, TestStorage},
-        ExtBuilder,
-    },
+mod common;
+use common::{
+    storage::{make_account, register_keyring_account, TestStorage},
+    ExtBuilder,
 };
 
 use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
+use polymesh_runtime::{
+    asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName},
+    general_tm::{self as general_tm, AssetTransferRule, Error as GTMError},
+};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group::{self as group};
 use polymesh_runtime_identity::{self as identity, BatchAddClaimItem};

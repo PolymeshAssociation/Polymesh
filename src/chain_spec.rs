@@ -353,6 +353,7 @@ fn testnet_genesis(
             quorum_threshold: 100_000,
             proposal_duration: 50,
             proposal_cool_off_period: HOURS * 6,
+            default_enact_period: DAYS * 7,
         }),
         pallet_im_online: Some(ImOnlineConfig {
             slashing_params: OfflineSlashingParams {
