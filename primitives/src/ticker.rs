@@ -1,8 +1,8 @@
 //! Ticker symbol
 use codec::{Decode, Encode, Error, Input};
 #[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::cmp::min;
+use serde::{Deserialize, Serialize, Deserializer, de::{self, Visitor}};
+use sp_std::{prelude::*, fmt, cmp::min};
 
 const TICKER_LEN: usize = 12;
 
@@ -12,7 +12,7 @@ const TICKER_LEN: usize = 12;
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
 #[derive(Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(from = "&[u8]"))]
 pub struct Ticker([u8; TICKER_LEN]);
 
 impl Default for Ticker {
@@ -31,6 +31,29 @@ impl From<&[u8]> for Ticker {
         ticker.make_ascii_uppercase();
 
         Ticker(ticker)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'de> Deserialize<'de> for Ticker {
+    fn deserialize<D>(deserializer: D) -> Result<Ticker, D::Error>
+    where
+        D: Deserializer<'de>,
+    {   
+        
+        impl<'de> Visitor<'de> for Ticker {
+            type Value = Ticker;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("A fixed length ticker")
+            }
+
+            fn visit_bytes<E>(self, v: &[u8]) -> Result<Ticker, E> {
+                Ok(Ticker::from(v))
+            }
+
+        }
+        deserializer.deserialize_bytes(s.as_bytes())
     }
 }
 

@@ -2,7 +2,7 @@ use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
 #[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime::traits::Printable;
 use sp_std::prelude::*;
 
@@ -113,6 +113,22 @@ mod tests {
     use super::*;
     use frame_support::assert_err;
     use std::convert::TryFrom;
+
+    #[test]
+    fn serialize_deserialize_identity() {
+        let identity = IdentityId::from(999);
+        println!("Print the un-serialize value: {:?}", identity);
+        // let json_str = r#""#;
+        //println!("Print the serialize verison of Identity: {:#X}", identity);
+        // assert_eq!(serde_json::to_string(&identity).unwrap(), json_str);
+        // assert_eq!(
+        //     serde_json::from_str::IdentityId(json_str).unwrap(),
+        //     info
+        // );
+
+        // // should not panic
+        // serde_json::to_value(&identity).unwrap();
+    }
 
     #[test]
     fn build_test() {
