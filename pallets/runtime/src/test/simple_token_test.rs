@@ -60,7 +60,7 @@ fn create_token_works() {
         assert_eq!(
             SimpleToken::tokens(Ticker::try_from("0123456789AB".as_bytes()).unwrap()),
             SimpleTokenRecord {
-                ticker: Ticker::try_from("01234567890AB".as_bytes()).unwrap(),
+                ticker: Ticker::try_from("0123456789AB".as_bytes()).unwrap(),
                 total_supply,
                 owner_did
             }

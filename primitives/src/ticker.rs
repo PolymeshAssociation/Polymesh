@@ -2,7 +2,7 @@
 use codec::{Decode, Encode, Error, Input};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, vec::Vec};
+use sp_std::convert::TryFrom;
 
 const TICKER_LEN: usize = 12;
 
@@ -42,17 +42,10 @@ impl TryFrom<&[u8]> for Ticker {
     }
 }
 
-// // Test-only implementation. Not to be used in APIs.
-// impl From<&[u8]> for Ticker {
-//     fn from(s: &[u8]) -> Self {
-//         Ticker::try_from(s).expect("Ticker::from failed")
-//     }
-// }
-
 impl Decode for Ticker {
     fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-        let inner = <Vec<u8>>::decode(input)?;
-        Self::try_from(inner.as_slice())
+        let inner = <[u8; TICKER_LEN]>::decode(input)?;
+        Self::try_from(&inner[..])
     }
 }
 
@@ -86,7 +79,7 @@ mod tests {
     #[test]
     fn ticker_test() {
         // 1. Happy path.
-        let s1 = b"abcdabcdabcd";
+        let s1 = b"ABCDABCDABCD";
         let t1 = Ticker::try_from(&s1[..]).unwrap();
         assert_eq!(t1.len(), 12);
         assert_eq!(t1.as_slice(), b"ABCDABCDABCD");
