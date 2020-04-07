@@ -748,7 +748,6 @@ pub fn account_from(id: u64) -> AccountId {
     Pair::from_seed(&enc_id).public()
 }
 
-
 pub fn create_did_and_add_claim(stash: AccountId, expiry: u64) {
     Balances::make_free_balance_be(&account_from(1005), 1_000_000);
     assert_ok!(Identity::cdd_register_did(

@@ -5,6 +5,7 @@ use chrono::prelude::Utc;
 use codec::{Decode, Encode};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mock::*;
+use pallet_staking::RewardDestination;
 use primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::{
     offchain::{testing, OffchainExt, TransactionPoolExt},
@@ -12,9 +13,8 @@ use sp_core::{
     traits::KeystoreExt,
     H256,
 };
-use pallet_staking::{RewardDestination};
-use sp_runtime::RuntimeAppPublic;
 use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::RuntimeAppPublic;
 use test_client::AccountKeyring;
 
 #[test]
@@ -54,10 +54,9 @@ fn should_submit_unsigned_transaction_on_chain() {
     txn.register_extension(KeystoreExt(keystore));
 
     txn.execute_with(|| {
-        
-		System::set_block_number(1); // set block 1
+        System::set_block_number(1); // set block 1
         UintAuthorityId::set_all_keys(vec![0, 1]);
-        // Add nominators in the chain 
+        // Add nominators in the chain
 
         // 2 will nominate for 10, 20
         let nominator_stake = 500;
@@ -72,7 +71,7 @@ fn should_submit_unsigned_transaction_on_chain() {
         let now = (Utc::now()).timestamp() as u64;
         Timestamp::set_timestamp(now * 1000);
         let expiry = now * 1000 + bonding_time * 1000 + 10000_u64; // in MS
-        // Add identity to the stash 1
+                                                                   // Add identity to the stash 1
         create_did_and_add_claim(account_from(1), expiry);
         // nominate after did has the valid claim
         assert_ok!(Staking::nominate(
@@ -81,7 +80,7 @@ fn should_submit_unsigned_transaction_on_chain() {
         ));
 
         System::set_block_number(2); // set block 2
-        // 3 will nominate 30 & 20
+                                     // 3 will nominate 30 & 20
         assert_ok!(Staking::bond(
             Origin::signed(account_from(3)),
             account_from(4),
@@ -104,22 +103,23 @@ fn should_submit_unsigned_transaction_on_chain() {
 
         assert_eq!((Staking::fetch_invalid_cdd_nominators(0)).len(), 2);
         let invalid_nominators = Staking::fetch_invalid_cdd_nominators(0);
-        let block = 4; 
+        let block = 4;
         System::set_block_number(block); // set block 4
-        
+
         CddOffchainWorker::offchain_worker(block);
-        
+
         // Get the transaction
         let tx = pool_state.write().transactions.pop().unwrap();
         assert!(pool_state.read().transactions.is_empty());
-		let ex = Extrinsic::decode(&mut &*tx).unwrap();
-        let target = match ex.call {
-			crate::mock::Call::CddOffchainWorker(crate::Call::take_off_invalidate_nominators(_,t, _)) => t,
-			e => panic!("Unexpected call: {:?}", e),
-		};
-		assert_eq!(ex.signature, None);
+        let ex = Extrinsic::decode(&mut &*tx).unwrap();
+        let target =
+            match ex.call {
+                crate::mock::Call::CddOffchainWorker(
+                    crate::Call::take_off_invalidate_nominators(_, t, _),
+                ) => t,
+                e => panic!("Unexpected call: {:?}", e),
+            };
+        assert_eq!(ex.signature, None);
         assert_eq!(target, invalid_nominators);
     });
 }
-
-
