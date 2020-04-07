@@ -60,7 +60,7 @@ impl Ticker {
         }
         0
     }
-    /// Returns `true` if the ticker is empty, that is, if has no prefix of characters other than
+    /// Returns `true` if the ticker is empty, that is, if it has no prefix of characters other than
     /// `0u8`.
     pub fn is_empty(&self) -> bool {
         self.0[0] == 0
