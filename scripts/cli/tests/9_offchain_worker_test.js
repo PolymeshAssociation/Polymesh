@@ -55,7 +55,7 @@ async function main() {
     await addNominator(api, controller_keys, stash_nominators, testEntities[0], validators_key);
     await reqImports["blockTillPoolEmpty"](api);
 
-    //await subscribeEvents(api);
+    //await subscribeCddOffchainWorker(api);
 
     process.exit();
 }
@@ -133,13 +133,32 @@ async function addNominator(api, controller, stash, from, validator) {
     }
 }
 
-async function subscribeEvents(api) {
+// async function subscribeEvents(api) {
+//     const unsubscribe = await api.rpc.chain.subscribeNewHeads((header) => {
+//         console.log(`Chain is at the block no. ${header.number}`);
+//         console.log(`Print the content of the header ${header}`);
+//     })
+// }
 
-    const unsubscribe = await api.rpc.chain.subscribeNewHeads((header) => {
-        console.log(`Chain is at the block no. ${header.number}`);
-        console.log(`Print the content of the header ${header}`);
-    })
-
-}
+// async function subscribeCddOffchainWorker(api) {
+//     // Subscribe to system events via storage
+//     console.log(api.query);
+//     api.query.cddOffchainWorker.events((events) => {
+//         console.log(`\nReceived ${events.length} events:`);
+//         // Loop through the Vec<EventRecord>
+//         events.forEach((record) => {
+//         // Extract the phase, event and the event types
+//         const { event, phase } = record;
+//         const types = event.typeDef;
+//         // Show what we are busy with
+//         console.log(`\t${event.section}:${event.method}:: (phase=${phase.toString()})`);
+//         console.log(`\t\t${event.meta.documentation.toString()}`);
+//         // Loop through each of the parameters, displaying the type and data
+//         event.data.forEach((data, index) => {
+//             console.log(`\t\t\t${types[index].type}: ${data.toString()}`);
+//         });
+//         });
+//     });
+// }
     
 main().catch(console.error);
