@@ -2,7 +2,7 @@
 use codec::{Decode, Encode, Error, Input};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::cmp::min;
+use sp_std::convert::TryFrom;
 
 const TICKER_LEN: usize = 12;
 
@@ -21,25 +21,31 @@ impl Default for Ticker {
     }
 }
 
-impl From<&[u8]> for Ticker {
-    fn from(s: &[u8]) -> Self {
-        let max_len = min(TICKER_LEN, s.len());
-        let mut ticker = [0u8; TICKER_LEN];
+impl TryFrom<&[u8]> for Ticker {
+    type Error = Error;
 
-        // Copy and force to upper.
-        ticker[..max_len].copy_from_slice(&s[..max_len]);
-        ticker.make_ascii_uppercase();
-
-        Ticker(ticker)
+    fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
+        let len = s.len();
+        if len > TICKER_LEN {
+            return Err("ticker too long".into());
+        }
+        let mut inner = [0u8; TICKER_LEN];
+        inner[..len].copy_from_slice(s);
+        inner.make_ascii_uppercase();
+        // Check whether the given ticker contains no lowercase characters and return an error
+        // otherwise.
+        if &inner[..len] == s {
+            Ok(Ticker(inner))
+        } else {
+            Err("lowercase ticker".into())
+        }
     }
 }
 
-/// It custom decoder enforces to upper case.
 impl Decode for Ticker {
     fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-        let ticker = <[u8; TICKER_LEN]>::decode(input)?;
-
-        Ok(Self::from(&ticker[..]))
+        let inner = <[u8; TICKER_LEN]>::decode(input)?;
+        Self::try_from(&inner[..])
     }
 }
 
@@ -54,13 +60,13 @@ impl Ticker {
         }
         0
     }
-    /// returns ticker as raw array
-    /// It returns true if it is empty. It's an optimice way to do `len() == 0`.
+    /// Returns `true` if the ticker is empty, that is, if it has no prefix of characters other than
+    /// `0u8`.
     pub fn is_empty(&self) -> bool {
         self.0[0] == 0
     }
 
-    /// returns ticker as raw array
+    /// Returns the ticker as a slice.
     pub fn as_slice(&self) -> &[u8] {
         &self.0
     }
@@ -72,29 +78,27 @@ mod tests {
 
     #[test]
     fn ticker_test() {
-        // 0. Simple
-        let s1 = b"abcdabcdabcd";
-        let t1 = Ticker::from(&s1[..]);
+        // 1. Happy path.
+        let s1 = b"ABCDABCDABCD";
+        let t1 = Ticker::try_from(&s1[..]).unwrap();
         assert_eq!(t1.len(), 12);
         assert_eq!(t1.as_slice(), b"ABCDABCDABCD");
 
-        // 1. More characters than expected.
+        // 2. More characters than expected.
         let s2 = b"abcdabcdabcdabcd";
-        let t2 = Ticker::from(&s2[..]);
-        assert_eq!(t2.len(), 12);
-        assert_eq!(t2.as_slice(), b"ABCDABCDABCD");
+        let t2 = Ticker::try_from(&s2[..]);
+        assert_eq!(t2, Err("ticker too long".into()));
 
-        // 2. Less characters than expected.
+        // 3. Lowercase characters.
         let s3 = b"abcd";
-        let t3 = Ticker::from(&s3[..]);
-        assert_eq!(t3.len(), 4);
-        assert_eq!(t3.as_slice(), b"ABCD\0\0\0\0\0\0\0\0");
+        let t3 = Ticker::try_from(&s3[..]);
+        assert_eq!(t3, Err("lowercase ticker".into()));
     }
 
     #[test]
     fn parity_scale_codec() {
-        let s = b"abcd";
-        let t = Ticker::from(&s[..]);
+        let s = b"ACME";
+        let t = Ticker::try_from(&s[..]).unwrap();
 
         let t_encoded = t.encode();
         let t2 = Ticker::decode(&mut &t_encoded[..]).unwrap();
