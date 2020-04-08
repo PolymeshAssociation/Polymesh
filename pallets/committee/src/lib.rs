@@ -131,6 +131,9 @@ decl_storage! {
         /// The member who provides the default vote for any other members that do not vote before
         /// the timeout. If None, then no member has that privilege.
         pub Prime get(fn prime): Option<IdentityId>;
+
+        /// Release coordinator.
+        pub ReleaseCoordinator get(fn release_coordinator): Option<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -351,6 +354,18 @@ decl_module! {
                 Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal);
             }
         }
+
+        /// It changes the release coordinator.
+        ///
+        /// # Errors
+        /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        pub fn set_release_coordinator(origin, id: IdentityId ) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
+
+            <ReleaseCoordinator<I>>::put(id);
+        }
     }
 }
 
@@ -485,6 +500,13 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
                 })
             })
             .for_each(Self::check_proposal_threshold);
+
+        // Double check if any `outgoing` is the Release coordinator.
+        if let Some(curr_rc) = Self::release_coordinator() {
+            if outgoing.contains(&curr_rc) {
+                <ReleaseCoordinator<I>>::kill();
+            }
+        }
 
         // Add/remove Systematic CDD claims for new/removed members.
         let issuer = SystematicIssuers::Committee;
