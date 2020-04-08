@@ -9,12 +9,9 @@ use pallet_mips::{
     self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority,
     PolymeshReferendum, PolymeshVotes, Url,
 };
-use polymesh_primitives::Ticker;
-use polymesh_runtime::asset;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
 
-use codec::Encode;
 use frame_support::{assert_err, assert_ok};
 use frame_system;
 use sp_runtime::traits::{BlakeTwo256, Hash};
@@ -29,8 +26,7 @@ type Committee = committee::Module<TestStorage, committee::Instance1>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 fn make_proposal(value: u64) -> Call {
-    let ticker = Ticker::from(value.encode().as_slice());
-    Call::Asset(asset::Call::register_ticker(ticker))
+    Call::Mips(mips::Call::set_min_proposal_deposit(value.into()))
 }
 
 fn fast_forward_to(n: u64) {
@@ -192,7 +188,7 @@ fn creating_a_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::Normal,
-            enactment_period: 120,
+            enactment_period: 211,
             proposal: proposal.clone()
         })
     );
@@ -256,7 +252,7 @@ fn enacting_a_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::Normal,
-            enactment_period: 100,
+            enactment_period: 211,
             proposal
         })
     );
@@ -266,6 +262,11 @@ fn enacting_a_referendum_works_we() {
         Error::<TestStorage>::BadOrigin
     );
 
+    assert_err!(
+        Mips::enact_referendum(root.clone(), 0),
+        Error::<TestStorage>::ReferendumOnEnactmentPeriod
+    );
+    fast_forward_to(211);
     assert_ok!(Mips::enact_referendum(root, 0));
 }
 
@@ -328,8 +329,8 @@ fn fast_tracking_a_proposal_works_we() {
         Mips::referendums(0),
         Some(PolymeshReferendum {
             index: 0,
-            priority: MipsPriority::Normal,
-            enactment_period: 100,
+            priority: MipsPriority::High,
+            enactment_period: 101,
             proposal
         })
     );
@@ -377,8 +378,8 @@ fn submit_referendum_works_we() {
         Mips::referendums(0),
         Some(PolymeshReferendum {
             index: 0,
-            priority: MipsPriority::Normal,
-            enactment_period: 100,
+            priority: MipsPriority::High,
+            enactment_period: 101,
             proposal: proposal.clone()
         })
     );
@@ -388,7 +389,7 @@ fn submit_referendum_works_we() {
         Some(PolymeshReferendum {
             index,
             priority: MipsPriority::High,
-            enactment_period: 100,
+            enactment_period: 101,
             proposal
         })
     );
@@ -398,6 +399,7 @@ fn submit_referendum_works_we() {
         Error::<TestStorage>::BadOrigin
     );
 
+    fast_forward_to(101);
     assert_ok!(Mips::enact_referendum(root, 0));
 }
 

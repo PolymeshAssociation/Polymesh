@@ -55,6 +55,7 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
+        mips::Mips,
         multisig::MultiSig,
         pallet_contracts::Contracts,
         bridge::Bridge,
@@ -454,6 +455,7 @@ impl mips::Trait for TestStorage {
 
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
+pub type Mips = mips::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
 pub type Asset = asset::Module<TestStorage>;
 pub type MultiSig = multisig::Module<TestStorage>;
