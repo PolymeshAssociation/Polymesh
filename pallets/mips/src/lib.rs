@@ -51,7 +51,7 @@ use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_runtime_common::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::group::GroupTrait,
+    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
     Context,
 };
 use polymesh_runtime_identity as identity;
@@ -59,7 +59,7 @@ use sp_runtime::{
     traits::{CheckedSub, Dispatchable, EnsureOrigin, Hash, Zero},
     DispatchError,
 };
-use sp_std::{convert::TryFrom, prelude::*, vec};
+use sp_std::{cmp, convert::TryFrom, prelude::*, vec};
 
 /// Mesh Improvement Proposal index. Used offchain.
 pub type MipsIndex = u32;
@@ -206,7 +206,7 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
     /// Committee
-    type GovernanceCommittee: GroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
+    type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -306,7 +306,9 @@ decl_error! {
         /// Proposal is inmutable after cool-off period.
         ProposalIsInmutable,
         /// Referendum is still on its enactment period.
-        ReferendumOnEnactmentPeriod
+        ReferendumOnEnactmentPeriod,
+        /// Referendum is inmutable.
+        ReferendumIsInmutable,
     }
 }
 
@@ -688,6 +690,45 @@ decl_module! {
         pub fn enact_referendum(origin, index: MipsIndex) -> DispatchResult {
             T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             Self::execute_referendum(index)
+        }
+
+        /// It updates the enactment period of a specific referendum.
+        /// If `until` is less that the current block number, the target referendum is executed.
+        ///
+        /// # Errors
+        /// * `BadOrigin`, Only the release coordinator can update the enactment period.
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        pub fn set_referendum_enactment_period(origin, index: MipsIndex, until: T::BlockNumber) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let id = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+            // 1. Only release coordinator
+            ensure!(
+                Some(id) == T::GovernanceCommittee::release_coordinator(),
+                Error::<T>::BadOrigin);
+
+            // 2. Valid referendum: check index & state == Scheduled
+            let referendum = Self::referendums(index)
+                .ok_or_else(|| Error::<T>::MismatchedProposalIndex)?;
+            ensure!( referendum.state == MipsState::Scheduled, Error::<T>::ReferendumIsInmutable);
+
+            // 3. Update enactment period.
+            // 3.1 Update referendum.
+            let next_block_number = <system::Module<T>>::block_number() + 1.into();
+            let new_until = cmp::max( next_block_number, until);
+            let old_until = referendum.enactment_period;
+
+            <Referendums<T>>::mutate( index, |referendum| {
+                if let Some(ref mut referendum) = referendum {
+                    referendum.enactment_period = new_until;
+                }
+            });
+
+            // 3.1. Re-schedule it
+            <ScheduledReferendumsAt<T>>::mutate( old_until, |indexes| indexes.retain( |i| *i != index));
+            <ScheduledReferendumsAt<T>>::mutate( new_until, |indexes| indexes.push( index));
+
+            Ok(())
         }
 
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,

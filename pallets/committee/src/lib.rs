@@ -56,6 +56,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_common::{
+    governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
     Context, SystematicIssuers,
@@ -480,6 +481,12 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         _at: Option<T::Moment>,
     ) -> DispatchResult {
         unimplemented!()
+    }
+}
+
+impl<T: Trait<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> {
+    fn release_coordinator() -> Option<IdentityId> {
+        Self::release_coordinator()
     }
 }
 

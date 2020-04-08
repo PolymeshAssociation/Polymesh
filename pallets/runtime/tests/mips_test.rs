@@ -1,6 +1,6 @@
 mod common;
 use common::{
-    storage::{make_account, make_account_with_balance, Call, TestStorage},
+    storage::{get_identity_id, make_account, make_account_with_balance, Call, TestStorage},
     ExtBuilder,
 };
 
@@ -605,5 +605,109 @@ fn cancel_mips_during_cool_off_period_we() {
             url: None,
             description: None
         }]
+    );
+}
+
+#[test]
+fn update_referendum_enactment_period() {
+    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    ExtBuilder::default()
+        .governance_committee(committee)
+        .governance_committee_vote_threshold((2, 3))
+        .build()
+        .execute_with(update_referendum_enactment_period_we);
+}
+
+fn update_referendum_enactment_period_we() {
+    let root = Origin::system(frame_system::RawOrigin::Root);
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+
+    let proposal_a = make_proposal(42);
+    let proposal_b = make_proposal(107);
+
+    // Bob is the release coordinator.
+    let bob_id = get_identity_id(AccountKeyring::Bob).expect("Bob is part of the committee");
+    assert_ok!(Committee::set_release_coordinator(root.clone(), bob_id));
+
+    // Alice submit 2 referendums in different moments.
+    assert_ok!(Mips::submit_referendum(
+        alice.clone(),
+        Box::new(proposal_a.clone())
+    ));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::High,
+            state: MipsState::Scheduled,
+            enactment_period: 101,
+            proposal: proposal_a.clone()
+        })
+    );
+
+    fast_forward_to(50);
+    assert_ok!(Mips::submit_referendum(
+        alice.clone(),
+        Box::new(proposal_b.clone())
+    ));
+    assert_eq!(
+        Mips::referendums(1),
+        Some(PolymeshReferendum {
+            index: 1,
+            priority: MipsPriority::High,
+            state: MipsState::Scheduled,
+            enactment_period: 150,
+            proposal: proposal_b.clone()
+        })
+    );
+
+    // Alice cannot update the enact period.
+    assert_err!(
+        Mips::set_referendum_enactment_period(alice.clone(), 0, 200),
+        Error::<TestStorage>::BadOrigin
+    );
+
+    // Bob updates referendum to execute `b` now(next block), and `a` in the future.
+    assert_ok!(Mips::set_referendum_enactment_period(bob.clone(), 1, 0));
+    fast_forward_to(52);
+    assert_eq!(
+        Mips::referendums(1),
+        Some(PolymeshReferendum {
+            index: 1,
+            priority: MipsPriority::High,
+            state: MipsState::Executed,
+            enactment_period: 51,
+            proposal: proposal_b.clone()
+        })
+    );
+
+    assert_ok!(Mips::set_referendum_enactment_period(bob.clone(), 0, 200));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::High,
+            state: MipsState::Scheduled,
+            enactment_period: 200,
+            proposal: proposal_a.clone()
+        })
+    );
+
+    // Bob cannot update if referendum is already executed.
+    fast_forward_to(201);
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::High,
+            state: MipsState::Executed,
+            enactment_period: 200,
+            proposal: proposal_a.clone()
+        })
+    );
+    assert_err!(
+        Mips::set_referendum_enactment_period(bob.clone(), 0, 300),
+        Error::<TestStorage>::ReferendumIsInmutable
     );
 }
