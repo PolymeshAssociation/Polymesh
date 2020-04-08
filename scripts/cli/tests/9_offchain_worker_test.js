@@ -55,9 +55,7 @@ async function main() {
     await addNominator(api, controller_keys, stash_nominators, testEntities[0], validators_key);
     await reqImports["blockTillPoolEmpty"](api);
 
-    //await subscribeCddOffchainWorker(api);
-
-    process.exit();
+    subscribeCddOffchainWorker(api);
 }
 
 
@@ -133,32 +131,34 @@ async function addNominator(api, controller, stash, from, validator) {
     }
 }
 
-// async function subscribeEvents(api) {
-//     const unsubscribe = await api.rpc.chain.subscribeNewHeads((header) => {
-//         console.log(`Chain is at the block no. ${header.number}`);
-//         console.log(`Print the content of the header ${header}`);
-//     })
-// }
-
-// async function subscribeCddOffchainWorker(api) {
-//     // Subscribe to system events via storage
-//     console.log(api.query);
-//     api.query.cddOffchainWorker.events((events) => {
-//         console.log(`\nReceived ${events.length} events:`);
-//         // Loop through the Vec<EventRecord>
-//         events.forEach((record) => {
-//         // Extract the phase, event and the event types
-//         const { event, phase } = record;
-//         const types = event.typeDef;
-//         // Show what we are busy with
-//         console.log(`\t${event.section}:${event.method}:: (phase=${phase.toString()})`);
-//         console.log(`\t\t${event.meta.documentation.toString()}`);
-//         // Loop through each of the parameters, displaying the type and data
-//         event.data.forEach((data, index) => {
-//             console.log(`\t\t\t${types[index].type}: ${data.toString()}`);
-//         });
-//         });
-//     });
-// }
+async function subscribeCddOffchainWorker(api) {
+    let eventCount = 0;
+    const unsubscribe = await api.rpc.chain.subscribeNewHeads(async (header) => {
+    console.log(`Chain is at block: #${header.number}`);
+    let hash = await api.rpc.chain.getBlockHash(header.number);
+    let events = await api.query.system.events.at(hash.toString());
+    for (let i = 0; i < Object.keys(events).length - 1; i++) {
+        try {
+            if (events[i].event.data["_section"]== "CddOffchainWorker") {
+                let typeList = events[i].event.data["_typeDef"];
+                console.log(`EventName - ${events[i].event.data["_method"]} at block number ${header.number}`);
+                for (let j = 0; j < typeList.length; j++) {
+                    let value = events[i].event.data[j];
+                    if (typeList[j].type == "Bytes")
+                        value = Utils.hexToString(Utils.bytesToHex(events[i].event.data[j]));
+                    console.log(`${typeList[j].type} : ${value}`);
+                    eventCount++; 
+                }
+                console.log("***************************************"); 
+            }
+        } catch(error) {
+            console.log(`Event is not present in this block ${header.number}`);
+        }
+    }
+    if (eventCount >= 5) {
+        process.exit(0);
+    } 
+});
+}
     
 main().catch(console.error);
