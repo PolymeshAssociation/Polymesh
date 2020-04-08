@@ -1,11 +1,10 @@
 const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
-const { cryptoWaitReady } = require("@polkadot/util-crypto");
+const { cryptoWaitReady, blake2AsHex, mnemonicGenerate } = require("@polkadot/util-crypto");
+const { stringToU8a, u8aConcat, u8aFixLength, u8aToHex } = require('@polkadot/util');
 const BN = require("bn.js");
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
-const { blake2AsHex } = require('@polkadot/util-crypto');
-const { stringToU8a, u8aConcat, u8aFixLength } = require('@polkadot/util');
 
 let nonces = new Map();
 let sk_roles = [[0], [1], [2], [1, 2]];
@@ -18,7 +17,7 @@ let synced_block = 0;
 let synced_block_ts = 0;
 
 // Amount to seed each key with
-let transfer_amount = 10 * 10 ** 12;
+let transfer_amount = new BN(10).mul(new BN(10).pow(new BN(12)));
 let prepend = "demo";
 
 // Used for creating a single ticker 
@@ -186,21 +185,23 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
 }
 
 // Sends transfer_amount to accounts[] from alice
-async function distributePoly(api, accounts, transfer_amount, signingEntity) {
+async function distributePoly(api, to, amount, from) {
+    // Perform the transfers
+    let nonceObj = {nonce: nonces.get(from.address)};
+    const transaction = api.tx.balances.transfer(to.address, amount);
+    await sendTransaction(transaction, from, nonceObj); 
+
+    // await api.tx.balances
+    //   .transfer(accounts.address, transfer_amount)
+    //   .signAndSend(signingEntity, { nonce: nonces.get(signingEntity.address) });
+
+    nonces.set(from.address, nonces.get(from.address).addn(1));
+}
+
+async function distributePolyBatch(api, to, amount, from) {
   // Perform the transfers
-  for (let i = 0; i < accounts.length; i++) {
-
-    // let nonceObj = {nonce: nonces.get(signingEntity.address)};
-    // const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
-    // await sendTransaction(transaction, signingEntity, nonceObj); 
-
-    const unsub = await api.tx.balances
-      .transfer(accounts[i].address, transfer_amount)
-      .signAndSend(
-        signingEntity,
-        { nonce: nonces.get(signingEntity.address) });
-
-    nonces.set(signingEntity.address, nonces.get(signingEntity.address).addn(1));
+  for (let i = 0; i < to.length; i++) {
+    await distributePoly(api, to[i], amount, from);
   }
 }
 
@@ -268,7 +269,7 @@ async function issueTokenPerDid(api, accounts) {
 function tickerToDid(ticker) {
     return blake2AsHex(
       u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
-           ));
+        ));
 }
 
 // Creates claim rules for an asset
@@ -289,14 +290,15 @@ async function createClaimRules(api, accounts, dids) {
 }
 
 // Adds claim to did
-async function addClaimsToDids(api, accounts, did, claimType, claimValue) {
+async function addClaimsToDids(api, accounts, did, claimType, claimValue, expiry) {
 
   // Receieving Rules Claim
   let claim = {[claimType]: claimValue};
 
       
     let nonceObj = {nonce: nonces.get(accounts[1].address)};
-    const transaction = api.tx.identity.addClaim(did, claim, null);
+    expiry = expiry == 0 ? null : expiry;
+    const transaction = api.tx.identity.addClaim(did, claim, expiry);
     await sendTransaction(transaction, accounts[1], nonceObj);  
 
     nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
@@ -380,6 +382,24 @@ function sendTransaction(transaction, signer, nonceObj) {
   });
 } 
 
+async function signAndSendTransaction(transaction, signer) {
+  let nonceObj = {nonce: nonces.get(signer.address)};
+  await sendTransaction(transaction, signer, nonceObj);  
+  nonces.set(signer.address, nonces.get(signer.address).addn(1));
+}
+
+async function generateOffchainKeys(api, keyType) {
+  const PHRASE = mnemonicGenerate();
+  await cryptoWaitReady();
+  const newPair = new Keyring({ type: 'sr25519' }).addFromUri(PHRASE);
+  await api.rpc.author.insertKey(keyType, PHRASE, u8aToHex(newPair.publicKey));
+}
+
+async function jumpLightYears() {
+
+  await api.tx.timestamp.set()
+}
+
 // this object holds the required imports for all the scripts
 let reqImports = {
   ApiPromise,
@@ -408,7 +428,11 @@ let reqImports = {
   tickerToDid,
   sendTransaction,
   generateStashKeys,
-  generateEntity
+  generateEntity,
+  signAndSendTransaction,
+  distributePolyBatch,
+  createIdentitiesWithExpiry,
+  generateOffchainKeys
 };
 
 export { reqImports };
