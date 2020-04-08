@@ -258,14 +258,23 @@
             "Normal"
         ]
     },
+    "MipsState": {
+        "_enum": [
+            "Scheduled",
+            "Rejected",
+            "Executed"
+        ]
+    },
     "MIP": {
         "index": "MipsIndex",
         "proposal":"Call"
     },
-    "PolymeshReferendumInfo": {
+    "PolymeshReferendum": {
         "index": "MipsIndex",
         "priority": "MipsPriority",
-        "proposal_hash": "Hash"
+        "state": "MipsState",
+        "enactment_period": "u32",
+        "proposal": "Call"
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",

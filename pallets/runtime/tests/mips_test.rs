@@ -6,7 +6,7 @@ use common::{
 
 use pallet_committee as committee;
 use pallet_mips::{
-    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority,
+    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority, MipsState,
     PolymeshReferendum, PolymeshVotes, Url,
 };
 use polymesh_runtime_balances as balances;
@@ -188,6 +188,7 @@ fn creating_a_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::Normal,
+            state: MipsState::Scheduled,
             enactment_period: 211,
             proposal: proposal.clone()
         })
@@ -252,8 +253,9 @@ fn enacting_a_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::Normal,
+            state: MipsState::Scheduled,
             enactment_period: 211,
-            proposal
+            proposal: proposal.clone()
         })
     );
 
@@ -268,6 +270,17 @@ fn enacting_a_referendum_works_we() {
     );
     fast_forward_to(211);
     assert_ok!(Mips::enact_referendum(root, 0));
+
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::Normal,
+            state: MipsState::Executed,
+            enactment_period: 211,
+            proposal
+        })
+    );
 }
 
 #[test]
@@ -322,25 +335,33 @@ fn fast_tracking_a_proposal_works_we() {
 
     // Alice can fast track because she is a GC member
     assert_ok!(Mips::fast_track_proposal(alice_signer.clone(), index, hash));
-
-    fast_forward_to(120);
-
+    assert_err!(
+        Mips::enact_referendum(bob_signer.clone(), 0),
+        Error::<TestStorage>::BadOrigin
+    );
     assert_eq!(
         Mips::referendums(0),
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::High,
+            state: MipsState::Scheduled,
+            enactment_period: 101,
+            proposal: proposal.clone()
+        })
+    );
+
+    // It executes automatically the referendum at block 101.
+    fast_forward_to(120);
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::High,
+            state: MipsState::Executed,
             enactment_period: 101,
             proposal
         })
     );
-
-    assert_err!(
-        Mips::enact_referendum(bob_signer.clone(), 0),
-        Error::<TestStorage>::BadOrigin
-    );
-
-    assert_ok!(Mips::enact_referendum(root, 0));
 }
 
 #[test]
@@ -354,7 +375,6 @@ fn submit_referendum_works() {
 fn submit_referendum_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
-    let index = 0;
 
     let root = Origin::system(frame_system::RawOrigin::Root);
 
@@ -379,18 +399,9 @@ fn submit_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::High,
+            state: MipsState::Scheduled,
             enactment_period: 101,
             proposal: proposal.clone()
-        })
-    );
-
-    assert_eq!(
-        Mips::referendums(0),
-        Some(PolymeshReferendum {
-            index,
-            priority: MipsPriority::High,
-            enactment_period: 101,
-            proposal
         })
     );
 
@@ -401,6 +412,16 @@ fn submit_referendum_works_we() {
 
     fast_forward_to(101);
     assert_ok!(Mips::enact_referendum(root, 0));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::High,
+            state: MipsState::Executed,
+            enactment_period: 101,
+            proposal: proposal.clone()
+        })
+    );
 }
 
 #[test]

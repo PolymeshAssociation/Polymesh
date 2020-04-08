@@ -144,6 +144,17 @@ pub enum MipsPriority {
     Normal,
 }
 
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum MipsState {
+    /// Execution of this MIP is scheduled, i.e. it needs to wait its enactment period.
+    Scheduled,
+    /// It has been rejected.
+    Rejected,
+    /// It has been successfully executed.
+    Executed,
+}
+
 impl Default for MipsPriority {
     fn default() -> Self {
         MipsPriority::Normal
@@ -158,6 +169,8 @@ pub struct PolymeshReferendum<BlockNumber: Default, Proposal> {
     pub index: MipsIndex,
     /// Priority.
     pub priority: MipsPriority,
+    /// Current state of this MIP.
+    pub state: MipsState,
     /// Enactment period.
     pub enactment_period: BlockNumber,
     /// The proposal being voted on.
@@ -240,6 +253,10 @@ decl_storage! {
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal index -> proposal
         pub Referendums get(fn referendums): map hasher(twox_64_concat) MipsIndex => Option<PolymeshReferendum<T::BlockNumber, T::Proposal>>;
+
+        /// List of Indexes of current scheduled referendums.
+        /// block number -> Mip Index
+        pub ScheduledReferendumsAt get(fn scheduled_referendums_at): map hasher(twox_64_concat) T::BlockNumber => Vec<MipsIndex>;
 
         /// Default enactment period that will be use after a proposal is accepted by GC.
         pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
@@ -700,6 +717,7 @@ impl<T: Trait> Module<T> {
     /// 1. Find all proposals that need to end as of this block and close voting
     /// 2. Tally votes
     /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
+    /// 4. Automatically execute any referendum
     pub fn end_block(block_number: T::BlockNumber) -> DispatchResult {
         // Find all matured proposals...
         for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
@@ -709,6 +727,12 @@ impl<T: Trait> Module<T> {
             // And close proposals
             Self::close_proposal(index, hash);
         }
+
+        // Execute automatically referendums after its enactment period.
+        let referendum_indexes = <ScheduledReferendumsAt<T>>::take(block_number);
+        referendum_indexes.into_iter().for_each(|index| {
+            let _ = Self::execute_referendum(index);
+        });
 
         Ok(())
     }
@@ -747,16 +771,12 @@ impl<T: Trait> Module<T> {
             priority,
             proposal,
             enactment_period,
+            state: MipsState::Scheduled,
         };
         <Referendums<T>>::insert(index, referendum);
+        <ScheduledReferendumsAt<T>>::mutate(enactment_period, |indexes| indexes.push(index));
 
         Self::deposit_event(RawEvent::ReferendumCreated(index, priority));
-
-        /*
-        // If committee size is too small, enact it.
-        if T::GovernanceCommittee::member_count() < 2 {
-            Self::prepare_to_dispatch(proposal_hash);
-        }*/
     }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
@@ -786,16 +806,28 @@ impl<T: Trait> Module<T> {
 
     fn execute_referendum(index: MipsIndex) -> DispatchResult {
         if let Some(referendum) = Self::referendums(index) {
+            // Ensure that it is not in its enactment period.
             let curr_block = <system::Module<T>>::block_number();
             ensure!(
                 referendum.enactment_period <= curr_block,
                 Error::<T>::ReferendumOnEnactmentPeriod
             );
 
-            let _ = referendum
-                .proposal
-                .dispatch(system::RawOrigin::Root.into())?;
-            Self::deposit_event(RawEvent::ReferendumEnacted(index));
+            // Avoid double execution. It could happen if referendum has been initially scheduled
+            // in a specific date, but GC repriorize it.
+            if referendum.state != MipsState::Executed {
+                match referendum.proposal.dispatch(system::RawOrigin::Root.into()) {
+                    Ok(_) => {
+                        Self::update_referendum_state(index, MipsState::Executed);
+                        Self::deposit_event(RawEvent::ReferendumEnacted(index));
+                    }
+                    Err(e) => {
+                        Self::update_referendum_state(index, MipsState::Rejected);
+                        return Err(e);
+                    }
+                }
+            }
+
             Ok(())
         } else {
             Err(Error::<T>::MismatchedProposalIndex.into())
@@ -811,6 +843,14 @@ impl<T: Trait> Module<T> {
             .into_iter()
             .find(|meta| meta.index == index)
             .ok_or(Error::<T>::MismatchedProposalIndex.into())
+    }
+
+    fn update_referendum_state(index: MipsIndex, new_state: MipsState) {
+        <Referendums<T>>::mutate(index, |referendum| {
+            if let Some(ref mut referendum) = referendum {
+                referendum.state = new_state;
+            }
+        });
     }
 }
 
