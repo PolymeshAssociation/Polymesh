@@ -5,6 +5,9 @@ use crate::{
         ExtBuilder,
     },
 };
+use codec::Encode;
+use frame_support::{assert_err, assert_ok};
+use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
     self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority,
@@ -13,11 +16,8 @@ use pallet_mips::{
 use polymesh_primitives::Ticker;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
-
-use codec::Encode;
-use frame_support::{assert_err, assert_ok};
-use frame_system;
 use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;
@@ -30,7 +30,7 @@ type Committee = committee::Module<TestStorage, committee::Instance1>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 fn make_proposal(value: u64) -> Call {
-    let ticker = Ticker::from(value.encode().as_slice());
+    let ticker = Ticker::try_from(value.encode().as_slice()).unwrap();
     Call::Asset(asset::Call::register_ticker(ticker))
 }
 
