@@ -56,7 +56,7 @@ use polymesh_runtime_common::{
 };
 use polymesh_runtime_identity as identity;
 use sp_runtime::{
-    traits::{CheckedSub, Dispatchable, EnsureOrigin, Hash, Zero},
+    traits::{CheckedSub, Dispatchable, EnsureOrigin, Zero},
     DispatchError,
 };
 use sp_std::{cmp, convert::TryFrom, prelude::*, vec};
@@ -105,15 +105,13 @@ impl<T: AsRef<[u8]>> From<T> for MipDescription {
 
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct MipsMetadata<AcccountId: Parameter, BlockNumber: Parameter, Hash: Parameter> {
+pub struct MipsMetadata<AcccountId: Parameter, BlockNumber: Parameter> {
     /// The creator
     pub proposer: AcccountId,
     /// The proposal's unique index.
     pub index: MipsIndex,
     /// When voting will end.
     pub end: BlockNumber,
-    /// The proposal being voted on.
-    pub proposal_hash: Hash,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
@@ -229,26 +227,22 @@ decl_storage! {
         pub ProposalDuration get(fn proposal_duration) config(): T::BlockNumber;
 
         /// Proposals so far. Index can be used to keep track of MIPs off-chain.
-        pub ProposalCount get(fn proposal_count): u32;
+        SequenceIndex: u32;
 
         /// The hashes of the active proposals.
-        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::AccountId, T::BlockNumber, T::Hash>>;
+        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::AccountId, T::BlockNumber>>;
 
         /// Those who have locked a deposit.
-        /// proposal (hash, proposer) -> deposit
-        pub Deposits get(fn deposit_of): double_map hasher(twox_64_concat) T::Hash, hasher(twox_64_concat) T::AccountId => DepositInfo<T::AccountId, BalanceOf<T>>;
+        /// proposal (Index, proposer) -> deposit
+        pub Deposits get(fn deposit_of): double_map hasher(twox_64_concat) MipsIndex, hasher(twox_64_concat) T::AccountId => DepositInfo<T::AccountId, BalanceOf<T>>;
 
-        /// Actual proposal for a given hash, if it's current.
-        /// proposal hash -> proposal
-        pub Proposals get(fn proposals): map hasher(twox_64_concat) T::Hash => Option<MIP<T::Proposal>>;
-
-        /// Lookup proposal hash by a proposal's index
-        /// MIP index -> proposal hash
-        pub ProposalByIndex get(fn proposal_by_index): map hasher(twox_64_concat) MipsIndex => T::Hash;
+        /// Actual proposal for a given index, if it's current.
+        /// proposal Index -> proposal
+        pub Proposals get(fn proposals): map hasher(twox_64_concat) MipsIndex=> Option<MIP<T::Proposal>>;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        /// proposal hash -> vote count
-        pub Voting get(fn voting): map hasher(twox_64_concat) T::Hash => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
+        /// proposal Index -> vote count
+        pub Voting get(fn voting): map hasher(twox_64_concat) MipsIndex => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal index -> proposal
@@ -267,20 +261,19 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = BalanceOf<T>,
-        <T as frame_system::Trait>::Hash,
         <T as frame_system::Trait>::AccountId,
     {
         /// A Mesh Improvement Proposal was made with a `Balance` stake
-        Proposed(AccountId, Balance, MipsIndex, Hash),
-        /// `AccountId` voted `bool` on the proposal referenced by `Hash`
-        Voted(AccountId, MipsIndex, Hash, bool),
-        /// Proposal referenced by `Hash` has been closed
-        ProposalClosed(MipsIndex, Hash),
-        /// Proposal referenced by `Hash` has been closed
-        ProposalFastTracked(MipsIndex, Hash),
+        Proposed(AccountId, Balance, MipsIndex),
+        /// `AccountId` voted `bool` on the proposal referenced by `Index`
+        Voted(AccountId, MipsIndex, bool),
+        /// Proposal has been closed
+        ProposalClosed(MipsIndex),
+        /// Proposal has been closed
+        ProposalFastTracked(MipsIndex),
         /// Referendum created for proposal
         ReferendumCreated(MipsIndex, MipsPriority),
-        /// Proposal referenced by `Hash` was dispatched with the result `bool`
+        /// Proposal was dispatched with the result `bool`
         ReferendumEnacted(MipsIndex),
     }
 );
@@ -379,17 +372,11 @@ decl_module! {
             let proposer = ensure_signed(origin)?;
             let proposer_key = AccountKey::try_from(proposer.encode())?;
             let signer = Signatory::from(proposer_key);
-            let proposal_hash = T::Hashing::hash_of(&proposal);
 
             // Pre conditions: caller must have min balance
             ensure!(
                 deposit >= Self::min_proposal_deposit(),
                 Error::<T>::InsufficientDeposit
-            );
-            // Proposal must be new
-            ensure!(
-                !<Proposals<T>>::contains_key(proposal_hash),
-                Error::<T>::DuplicateProposal
             );
 
             // Reserve the minimum deposit
@@ -398,8 +385,7 @@ decl_module! {
                 &signer,
                 ProtocolOp::MipsPropose
             )?;
-            let index = Self::proposal_count();
-            <ProposalCount>::mutate(|i| *i += 1);
+            let index = Self::next_index();
 
             let curr_block_number = <system::Module<T>>::block_number();
             let cool_off_until = curr_block_number + Self::proposal_cool_off_period();
@@ -409,7 +395,6 @@ decl_module! {
                 index,
                 cool_off_until,
                 end,
-                proposal_hash,
                 url,
                 description,
             };
@@ -419,23 +404,22 @@ decl_module! {
                 owner: proposer.clone(),
                 amount: deposit
             };
-            <Deposits<T>>::insert(&proposal_hash, &proposer, deposit_info);
+            <Deposits<T>>::insert(index, &proposer, deposit_info);
 
             let mip = MIP {
                 index,
                 proposal: *proposal,
             };
-            <Proposals<T>>::insert(proposal_hash, mip);
-            <ProposalByIndex<T>>::insert(index, proposal_hash);
+            <Proposals<T>>::insert(index, mip);
 
             let vote = PolymeshVotes {
                 index,
                 ayes: vec![(proposer.clone(), deposit)],
                 nays: vec![],
             };
-            <Voting<T>>::insert(proposal_hash, vote);
+            <Voting<T>>::insert(index, vote);
 
-            Self::deposit_event(RawEvent::Proposed(proposer, deposit, index, proposal_hash));
+            Self::deposit_event(RawEvent::Proposed(proposer, deposit, index));
             Ok(())
         }
 
@@ -496,7 +480,7 @@ decl_module! {
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
 
             // 3. Close that proposal.
-            Self::close_proposal( index, meta.proposal_hash);
+            Self::close_proposal( index);
             Ok(())
         }
 
@@ -526,7 +510,7 @@ decl_module! {
                 .map_err(|_| Error::<T>::InsufficientDeposit)?;
 
             <Deposits<T>>::mutate(
-                &meta.proposal_hash,
+                index,
                 &proposer,
                 |depo_info| depo_info.amount += additional_deposit);
             Ok(())
@@ -555,7 +539,7 @@ decl_module! {
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
 
             // 3. Double-check that `amount` is valid.
-            let mut depo_info = <Deposits<T>>::get(&meta.proposal_hash, &proposer);
+            let mut depo_info = <Deposits<T>>::get(index, &proposer);
             let new_deposit = depo_info.amount.checked_sub(&amount)
                     .ok_or_else(|| Error::<T>::InsufficientDeposit)?;
             ensure!(
@@ -566,11 +550,11 @@ decl_module! {
 
             // 3.1. Unreserve and update deposit info.
             <T as Trait>::Currency::unreserve(&depo_info.owner, diff_amount);
-            <Deposits<T>>::insert(&meta.proposal_hash, &proposer, depo_info);
+            <Deposits<T>>::insert(index, &proposer, depo_info);
             Ok(())
         }
 
-        /// A network member can vote on any Mesh Improvement Proposal by selecting the hash that
+        /// A network member can vote on any Mesh Improvement Proposal by selecting the index that
         /// corresponds ot the dispatchable action and vote with some balance.
         ///
         /// # Arguments
@@ -579,7 +563,7 @@ decl_module! {
         /// * `aye_or_nay` a bool representing for or against vote
         /// * `deposit` minimum deposit value
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
-        pub fn vote(origin, proposal_hash: T::Hash, index: MipsIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
+        pub fn vote(origin, index: MipsIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_meta_by_index(index)?;
 
@@ -587,7 +571,7 @@ decl_module! {
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
 
-            let mut voting = Self::voting(&proposal_hash).ok_or(Error::<T>::NoSuchProposal)?;
+            let mut voting = Self::voting(index).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(voting.index == index, Error::<T>::MismatchedProposalIndex);
 
             let position_yes = voting.ayes.iter().position(|(a, _)| a == &proposer);
@@ -607,11 +591,11 @@ decl_module! {
                     owner: proposer.clone(),
                     amount: deposit,
                 };
-                <Deposits<T>>::insert(&proposal_hash, &proposer, depo_info);
+                <Deposits<T>>::insert(index, &proposer, depo_info);
 
-                <Voting<T>>::remove(&proposal_hash);
-                <Voting<T>>::insert(&proposal_hash, voting);
-                Self::deposit_event(RawEvent::Voted(proposer, index, proposal_hash, aye_or_nay));
+                <Voting<T>>::remove(index);
+                <Voting<T>>::insert(index, voting);
+                Self::deposit_event(RawEvent::Voted(proposer, index, aye_or_nay));
             } else {
                 return Err(Error::<T>::DuplicateVote.into())
             }
@@ -620,19 +604,17 @@ decl_module! {
         /// An emergency stop measure to kill a proposal. Governance committee can kill
         /// a proposal at any time.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn kill_proposal(origin, index: MipsIndex, proposal_hash: T::Hash) {
+        pub fn kill_proposal(origin, index: MipsIndex) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
 
-            let mip = Self::proposals(&proposal_hash).ok_or(Error::<T>::NoSuchProposal)?;
-            ensure!(mip.index == index, Error::<T>::MismatchedProposalIndex);
-
-            Self::close_proposal(index, proposal_hash);
+            ensure!( <Proposals<T>>::contains_key(index), Error::<T>::NoSuchProposal);
+            Self::close_proposal(index);
         }
 
         /// Any governance committee member can fast track a proposal and turn it into a referendum
         /// that will be voted on by the committee.
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        pub fn fast_track_proposal(origin, index: MipsIndex, proposal_hash: T::Hash) {
+        pub fn fast_track_proposal(origin, index: MipsIndex) {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -641,8 +623,8 @@ decl_module! {
                 Error::<T>::NotACommitteeMember
             );
 
-            let mip = Self::proposals(&proposal_hash).ok_or("proposal does not exist")?;
-            ensure!(mip.index == index, Error::<T>::MismatchedProposalIndex);
+            let mip = Self::proposals(index)
+                .ok_or(Error::<T>::MismatchedProposalIndex)?;
 
             Self::create_referendum(
                 index,
@@ -650,12 +632,8 @@ decl_module! {
                 mip.proposal,
             );
 
-            Self::deposit_event(RawEvent::ProposalFastTracked(
-                index,
-                proposal_hash,
-            ));
-
-            Self::close_proposal(index, proposal_hash);
+            Self::deposit_event(RawEvent::ProposalFastTracked(index));
+            Self::close_proposal(index);
         }
 
         /// Governance committee can make a proposal that automatically becomes a referendum on
@@ -670,14 +648,7 @@ decl_module! {
                 Error::<T>::NotACommitteeMember
             );
 
-            let proposal_hash = T::Hashing::hash_of(&proposal);
-
-            // Proposal must be new
-            ensure!(!<Proposals<T>>::contains_key(proposal_hash), Error::<T>::DuplicateProposal);
-
-            let index = Self::proposal_count();
-            <ProposalCount>::mutate(|i| *i += 1);
-
+            let index = Self::next_index();
             Self::create_referendum(
                 index,
                 MipsPriority::High,
@@ -744,11 +715,11 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Retrieve all proposals that need to be closed as of block `n`.
-    pub fn proposals_maturing_at(n: T::BlockNumber) -> Vec<(MipsIndex, T::Hash)> {
+    pub fn proposals_maturing_at(n: T::BlockNumber) -> Vec<MipsIndex> {
         Self::proposal_meta()
             .into_iter()
             .filter(|meta| meta.end == n)
-            .map(|meta| (meta.index, meta.proposal_hash))
+            .map(|meta| meta.index)
             .collect()
     }
 
@@ -761,13 +732,15 @@ impl<T: Trait> Module<T> {
     /// 4. Automatically execute any referendum
     pub fn end_block(block_number: T::BlockNumber) -> DispatchResult {
         // Find all matured proposals...
-        for (index, hash) in Self::proposals_maturing_at(block_number).into_iter() {
-            // Tally votes and create referendums
-            Self::tally_votes(index, hash);
+        Self::proposals_maturing_at(block_number)
+            .into_iter()
+            .for_each(|index| {
+                // Tally votes and create referendums
+                Self::tally_votes(index);
 
-            // And close proposals
-            Self::close_proposal(index, hash);
-        }
+                // And close proposals
+                Self::close_proposal(index);
+            });
 
         // Execute automatically referendums after its enactment period.
         let referendum_indexes = <ScheduledReferendumsAt<T>>::take(block_number);
@@ -779,8 +752,8 @@ impl<T: Trait> Module<T> {
     }
 
     /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
-    fn tally_votes(index: MipsIndex, proposal_hash: T::Hash) {
-        if let Some(voting) = <Voting<T>>::get(proposal_hash) {
+    fn tally_votes(index: MipsIndex) {
+        if let Some(voting) = <Voting<T>>::get(index) {
             let aye_stake = voting
                 .ayes
                 .iter()
@@ -794,7 +767,7 @@ impl<T: Trait> Module<T> {
             // 1. Ayes staked must be more than nays staked (simple majority)
             // 2. Ayes staked are more than the minimum quorum threshold
             if aye_stake > nay_stake && aye_stake >= Self::quorum_threshold() {
-                if let Some(mip) = <Proposals<T>>::get(&proposal_hash) {
+                if let Some(mip) = <Proposals<T>>::get(index) {
                     Self::create_referendum(index, MipsPriority::Normal, mip.proposal);
                 }
             }
@@ -822,27 +795,25 @@ impl<T: Trait> Module<T> {
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
     /// All deposits are unlocked and returned to respective stakers.
-    fn close_proposal(index: MipsIndex, proposal_hash: T::Hash) {
-        if <Voting<T>>::get(proposal_hash).is_some() {
-            Self::unreserve_deposits(&proposal_hash);
+    fn close_proposal(index: MipsIndex) {
+        if <Voting<T>>::get(index).is_some() {
+            Self::unreserve_deposits(index);
         }
 
-        if <Proposals<T>>::take(&proposal_hash).is_some() {
-            <Voting<T>>::remove(&proposal_hash);
-            let hash = proposal_hash;
-            <ProposalMetadata<T>>::mutate(|metadata| metadata.retain(|m| m.proposal_hash != hash));
-            <ProposalByIndex<T>>::remove(index);
+        if <Proposals<T>>::take(index).is_some() {
+            <Voting<T>>::remove(index);
+            <ProposalMetadata<T>>::mutate(|metadata| metadata.retain(|m| m.index != index));
 
-            Self::deposit_event(RawEvent::ProposalClosed(index, hash));
+            Self::deposit_event(RawEvent::ProposalClosed(index));
         }
     }
 
-    /// It returns back each deposit to their owners for an specific `proposal_hash`.
-    fn unreserve_deposits(proposal_hash: &T::Hash) {
-        <Deposits<T>>::iter_prefix(proposal_hash).for_each(|depo_info| {
+    /// It returns back each deposit to their owners for an specific `index`.
+    fn unreserve_deposits(index: MipsIndex) {
+        <Deposits<T>>::iter_prefix(index).for_each(|depo_info| {
             let _ = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
         });
-        <Deposits<T>>::remove_prefix(proposal_hash);
+        <Deposits<T>>::remove_prefix(index);
     }
 
     fn execute_referendum(index: MipsIndex) -> DispatchResult {
@@ -879,7 +850,7 @@ impl<T: Trait> Module<T> {
     /// a `MismatchedProposalIndex` error.
     fn proposal_meta_by_index(
         index: MipsIndex,
-    ) -> Result<MipsMetadata<T::AccountId, T::BlockNumber, T::Hash>, DispatchError> {
+    ) -> Result<MipsMetadata<T::AccountId, T::BlockNumber>, DispatchError> {
         Self::proposal_meta()
             .into_iter()
             .find(|meta| meta.index == index)
@@ -902,8 +873,7 @@ impl<T: Trait> Module<T> {
         T: Send + Sync,
         BalanceOf<T>: Send + Sync,
     {
-        let proposal_hash: T::Hash = <ProposalByIndex<T>>::get(index);
-        if let Some(voting) = <Voting<T>>::get(&proposal_hash) {
+        if let Some(voting) = <Voting<T>>::get(index) {
             let aye_stake = voting
                 .ayes
                 .iter()
@@ -936,7 +906,7 @@ impl<T: Trait> Module<T> {
     pub fn voted_on(address: T::AccountId) -> Vec<MipsIndex> {
         let mut indices = Vec::new();
         for meta in Self::proposal_meta().into_iter() {
-            if let Some(votes) = Self::voting(&meta.proposal_hash) {
+            if let Some(votes) = Self::voting(&meta.index) {
                 if votes.ayes.iter().any(|(a, _)| a == &address)
                     || votes.nays.iter().any(|(a, _)| a == &address)
                 {
@@ -945,5 +915,12 @@ impl<T: Trait> Module<T> {
             }
         }
         indices
+    }
+
+    fn next_index() -> u32 {
+        let index = <SequenceIndex>::get();
+        <SequenceIndex>::put(index + 1);
+
+        index
     }
 }

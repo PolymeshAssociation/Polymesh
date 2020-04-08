@@ -14,7 +14,6 @@ use polymesh_runtime_group as group;
 
 use frame_support::{assert_err, assert_ok};
 use frame_system;
-use sp_runtime::traits::{BlakeTwo256, Hash};
 use test_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;
@@ -47,7 +46,6 @@ fn starting_a_proposal_works() {
 fn starting_a_proposal_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
-    let hash = BlakeTwo256::hash_of(&proposal);
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: MipDescription = b"Test description".into();
 
@@ -79,7 +77,7 @@ fn starting_a_proposal_works_we() {
 
     assert_eq!(Mips::proposed_by(alice_acc.clone()), vec![0]);
     assert_eq!(
-        Mips::voting(&hash),
+        Mips::voting(0),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![(alice_acc, 60)],
@@ -100,7 +98,6 @@ fn closing_a_proposal_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
     let index = 0;
-    let hash = BlakeTwo256::hash_of(&proposal);
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: MipDescription = b"Test description".into();
 
@@ -121,7 +118,7 @@ fn closing_a_proposal_works_we() {
 
     assert_eq!(Balances::free_balance(&alice_acc), 168);
     assert_eq!(
-        Mips::voting(&hash),
+        Mips::voting(0),
         Some(PolymeshVotes {
             index,
             ayes: vec![(alice_acc.clone(), 50)],
@@ -129,9 +126,9 @@ fn closing_a_proposal_works_we() {
         })
     );
 
-    assert_ok!(Mips::kill_proposal(root, index, hash));
+    assert_ok!(Mips::kill_proposal(root, index));
     assert_eq!(Balances::free_balance(&alice_acc), 218);
-    assert_eq!(Mips::voting(&hash), None);
+    assert_eq!(Mips::voting(0), None);
 }
 
 #[test]
@@ -145,7 +142,6 @@ fn creating_a_referendum_works() {
 fn creating_a_referendum_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
-    let hash = BlakeTwo256::hash_of(&proposal);
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: MipDescription = b"Test description".into();
 
@@ -163,14 +159,14 @@ fn creating_a_referendum_works_we() {
     ));
 
     assert_err!(
-        Mips::vote(bob_signer.clone(), hash, 0, true, 50),
+        Mips::vote(bob_signer.clone(), 0, true, 50),
         Error::<TestStorage>::ProposalOnCoolOffPeriod
     );
     fast_forward_to(101);
-    assert_ok!(Mips::vote(bob_signer.clone(), hash, 0, true, 50));
+    assert_ok!(Mips::vote(bob_signer.clone(), 0, true, 50));
 
     assert_eq!(
-        Mips::voting(&hash),
+        Mips::voting(0),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![(alice_acc.clone(), 50), (bob_acc.clone(), 50)],
@@ -209,7 +205,6 @@ fn enacting_a_referendum_works() {
 fn enacting_a_referendum_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
-    let hash = BlakeTwo256::hash_of(&proposal);
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: MipDescription = b"Test description".into();
 
@@ -230,15 +225,15 @@ fn enacting_a_referendum_works_we() {
     ));
 
     assert_err!(
-        Mips::vote(bob_signer.clone(), hash, 0, true, 50),
+        Mips::vote(bob_signer.clone(), 0, true, 50),
         Error::<TestStorage>::ProposalOnCoolOffPeriod
     );
     fast_forward_to(101);
 
-    assert_ok!(Mips::vote(bob_signer.clone(), hash, 0, true, 50));
+    assert_ok!(Mips::vote(bob_signer.clone(), 0, true, 50));
 
     assert_eq!(
-        Mips::voting(&hash),
+        Mips::voting(0),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![(alice_acc.clone(), 50), (bob_acc.clone(), 50)],
@@ -295,7 +290,6 @@ fn fast_tracking_a_proposal_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
     let index = 0;
-    let hash = BlakeTwo256::hash_of(&proposal);
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: MipDescription = b"Test description".into();
 
@@ -323,18 +317,18 @@ fn fast_tracking_a_proposal_works_we() {
     ));
 
     assert_err!(
-        Mips::vote(bob_signer.clone(), hash, index, true, 50),
+        Mips::vote(bob_signer.clone(), index, true, 50),
         Error::<TestStorage>::ProposalOnCoolOffPeriod
     );
 
     // only a committee member can fast track a proposal
     assert_err!(
-        Mips::fast_track_proposal(charlie_signer.clone(), index, hash),
+        Mips::fast_track_proposal(charlie_signer.clone(), index),
         Error::<TestStorage>::NotACommitteeMember
     );
 
     // Alice can fast track because she is a GC member
-    assert_ok!(Mips::fast_track_proposal(alice_signer.clone(), index, hash));
+    assert_ok!(Mips::fast_track_proposal(alice_signer.clone(), index));
     assert_err!(
         Mips::enact_referendum(bob_signer.clone(), 0),
         Error::<TestStorage>::BadOrigin
@@ -466,7 +460,6 @@ fn amend_mips_details_during_cool_off_period() {
 
 fn amend_mips_details_during_cool_off_period_we() {
     let proposal = make_proposal(42);
-    let hash = BlakeTwo256::hash_of(&proposal);
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: MipDescription = b"Test description".into();
 
@@ -505,7 +498,6 @@ fn amend_mips_details_during_cool_off_period_we() {
             index: 0,
             cool_off_until: 101,
             end: 111,
-            proposal_hash: hash,
             url: Some(new_url),
             description: Some(new_desc)
         }]
@@ -514,7 +506,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     // 3. Bound/Unbound additional POLYX.
     let alice_acc = AccountKeyring::Alice.public();
     assert_eq!(
-        Mips::deposit_of(&hash, &alice_acc),
+        Mips::deposit_of(0, &alice_acc),
         DepositInfo {
             owner: alice_acc.clone(),
             amount: 60
@@ -522,7 +514,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     );
     assert_ok!(Mips::bond_additional_deposit(alice.clone(), 0, 100));
     assert_eq!(
-        Mips::deposit_of(&hash, &alice_acc),
+        Mips::deposit_of(0, &alice_acc),
         DepositInfo {
             owner: alice_acc.clone(),
             amount: 160
@@ -530,7 +522,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     );
     assert_ok!(Mips::unbond_deposit(alice.clone(), 0, 50));
     assert_eq!(
-        Mips::deposit_of(&hash, &alice_acc),
+        Mips::deposit_of(0, &alice_acc),
         DepositInfo {
             owner: alice_acc.clone(),
             amount: 110
@@ -601,7 +593,6 @@ fn cancel_mips_during_cool_off_period_we() {
             index: 1,
             cool_off_until: 101,
             end: 111,
-            proposal_hash: BlakeTwo256::hash_of(&bob_proposal),
             url: None,
             description: None
         }]
