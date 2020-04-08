@@ -23,6 +23,7 @@ use crate::{
 use lazy_static::lazy_static;
 use std::{
     collections::HashMap,
+    convert::TryFrom,
     sync::{Arc, Mutex},
 };
 
@@ -65,10 +66,10 @@ fn correct_dividend_must_work() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from(token.name.as_slice());
+        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // A token used for payout
         let payout_token = SimpleTokenRecord {
-            ticker: Ticker::from(&[b'B'; 12][..]),
+            ticker: Ticker::try_from(&[b'B'; 12][..]).unwrap(),
             owner_did: payout_owner_did,
             total_supply: 200_000_000,
         };

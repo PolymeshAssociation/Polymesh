@@ -16,7 +16,7 @@ use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_ok, traits::Currency};
 use test_client::AccountKeyring;
 
-use sp_std::prelude::*;
+use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -39,7 +39,7 @@ fn make_ticker_env(owner: AccountKeyring, token_name: TokenName) -> Ticker {
         ..Default::default()
     };
 
-    let ticker = Ticker::from(token.name.0.as_slice());
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
     assert_ok!(Asset::create_token(
         Origin::signed(owner.public()),
         token.name.clone(),
@@ -80,7 +80,7 @@ fn should_add_and_verify_asset_rule_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let ticker = Ticker::from(token.name.0.as_slice());
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
@@ -200,7 +200,7 @@ fn should_reset_assetrules_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let ticker = Ticker::from(token.name.0.as_slice());
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
@@ -257,7 +257,7 @@ fn pause_resume_asset_rules_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let ticker = Ticker::from(token.name.0.as_slice());
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // 2. Share issuance is successful
@@ -353,7 +353,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let ticker = Ticker::from(token.name.0.as_slice());
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
     assert_ok!(Asset::create_token(
@@ -476,7 +476,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let ticker = Ticker::from(token.name.0.as_slice());
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
     assert_ok!(Asset::create_token(
@@ -696,7 +696,7 @@ fn jurisdiction_asset_rules_we() {
         divisible: true,
         ..Default::default()
     };
-    let ticker = Ticker::from(token.name.0.as_slice());
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
     assert_ok!(Asset::create_token(
         token_owner_signed.clone(),
         token.name.clone(),
