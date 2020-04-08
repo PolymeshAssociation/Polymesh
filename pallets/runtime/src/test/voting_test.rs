@@ -40,7 +40,7 @@ fn add_ballot() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from(token.name.as_slice());
+        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Share issuance is successful
         assert_ok!(Asset::create_token(
             token_owner_acc.clone(),
@@ -198,7 +198,7 @@ fn cancel_ballot() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from(token.name.as_slice());
+        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Share issuance is successful
         assert_ok!(Asset::create_token(
             token_owner_acc.clone(),
@@ -288,7 +288,7 @@ fn vote() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from(token.name.as_slice());
+        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Share issuance is successful
         assert_ok!(Asset::create_token(
             token_owner_acc.clone(),
