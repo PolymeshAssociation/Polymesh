@@ -1,5 +1,4 @@
 mod common;
-use chrono::{prelude::*, Duration};
 use common::{
     storage::{make_account, TestStorage},
     ExtBuilder,
@@ -9,7 +8,7 @@ use test_client::{self, AccountKeyring};
 
 use polymesh_primitives::Ticker;
 use polymesh_runtime::simple_token::{self, SimpleTokenRecord};
-use polymesh_runtime_common::{constants::currency::MAX_SUPPLY, traits::CommonTrait};
+use polymesh_runtime_common::constants::currency::MAX_SUPPLY;
 
 use std::convert::TryFrom;
 
