@@ -164,7 +164,7 @@ impl Default for MipsPriority {
 /// Properties of a referendum
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PolymeshReferendum<BlockNumber: Default, Proposal> {
+pub struct Referendum<BlockNumber: Default, Proposal> {
     /// The proposal's unique index.
     pub index: MipsIndex,
     /// Priority.
@@ -248,7 +248,7 @@ decl_storage! {
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal index -> proposal
-        pub Referendums get(fn referendums): map hasher(twox_64_concat) MipsIndex => Option<PolymeshReferendum<T::BlockNumber, T::Proposal>>;
+        pub Referendums get(fn referendums): map hasher(twox_64_concat) MipsIndex => Option<Referendum<T::BlockNumber, T::Proposal>>;
 
         /// List of Indexes of current scheduled referendums.
         /// block number -> Mip Index
@@ -804,7 +804,7 @@ impl<T: Trait> Module<T> {
     /// decides whether it should be enacted.
     fn create_referendum(index: MipsIndex, priority: MipsPriority, proposal: T::Proposal) {
         let enactment_period: T::BlockNumber = 0.into();
-        let referendum = PolymeshReferendum {
+        let referendum = Referendum {
             index,
             priority,
             proposal,

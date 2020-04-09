@@ -269,7 +269,7 @@
         "index": "MipsIndex",
         "proposal":"Call"
     },
-    "PolymeshReferendum": {
+    "Referendum": {
         "index": "MipsIndex",
         "priority": "MipsPriority",
         "state": "MipsState",

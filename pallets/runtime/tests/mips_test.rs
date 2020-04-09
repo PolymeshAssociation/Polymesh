@@ -8,7 +8,7 @@ use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
     self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority, MipsState,
-    PolymeshReferendum, PolymeshVotes, Url,
+    PolymeshVotes, Referendum, Url,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
@@ -179,7 +179,7 @@ fn creating_a_referendum_works_we() {
 
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::Normal,
             state: MipsState::Ratified,
@@ -243,7 +243,7 @@ fn enacting_a_referendum_works_we() {
 
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::Normal,
             state: MipsState::Ratified,
@@ -260,7 +260,7 @@ fn enacting_a_referendum_works_we() {
 
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::Normal,
             state: MipsState::Scheduled,
@@ -273,7 +273,7 @@ fn enacting_a_referendum_works_we() {
 
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::Normal,
             state: MipsState::Executed,
@@ -340,7 +340,7 @@ fn fast_tracking_a_proposal_works_we() {
     );
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::High,
             state: MipsState::Ratified,
@@ -352,7 +352,7 @@ fn fast_tracking_a_proposal_works_we() {
     assert_ok!(Mips::enact_referendum(root, 0));
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
@@ -365,7 +365,7 @@ fn fast_tracking_a_proposal_works_we() {
     fast_forward_to(120);
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::High,
             state: MipsState::Executed,
@@ -407,7 +407,7 @@ fn submit_referendum_works_we() {
 
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::High,
             state: MipsState::Ratified,
@@ -425,7 +425,7 @@ fn submit_referendum_works_we() {
     assert_ok!(Mips::enact_referendum(root, 0));
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
@@ -437,7 +437,7 @@ fn submit_referendum_works_we() {
     fast_forward_to(202);
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::High,
             state: MipsState::Executed,
@@ -658,7 +658,7 @@ fn update_referendum_enactment_period_we() {
     assert_ok!(Mips::enact_referendum(root.clone(), 0));
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
@@ -675,7 +675,7 @@ fn update_referendum_enactment_period_we() {
     assert_ok!(Mips::enact_referendum(root.clone(), 1));
     assert_eq!(
         Mips::referendums(1),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 1,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
@@ -695,7 +695,7 @@ fn update_referendum_enactment_period_we() {
     fast_forward_to(52);
     assert_eq!(
         Mips::referendums(1),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 1,
             priority: MipsPriority::High,
             state: MipsState::Executed,
@@ -711,7 +711,7 @@ fn update_referendum_enactment_period_we() {
     ));
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
@@ -724,7 +724,7 @@ fn update_referendum_enactment_period_we() {
     fast_forward_to(201);
     assert_eq!(
         Mips::referendums(0),
-        Some(PolymeshReferendum {
+        Some(Referendum {
             index: 0,
             priority: MipsPriority::High,
             state: MipsState::Executed,
