@@ -1,3 +1,4 @@
+#[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking_cli;
 use sc_cli::RunCmd;
 use structopt::StructOpt;
@@ -19,6 +20,7 @@ pub enum Subcommand {
     #[structopt(flatten)]
     Base(sc_cli::Subcommand),
     /// The custom benchmark subcommmand benchmarking runtime pallets.
+    #[cfg(feature = "runtime-benchmarks")]
     #[structopt(name = "benchmark", about = "Benchmark runtime pallets.")]
     Benchmark(benchmarking_cli::BenchmarkCmd),
 }

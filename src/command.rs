@@ -37,6 +37,7 @@ where
             subcommand.update_config(&mut config, load_spec, &version)?;
             subcommand.run(config, |config: _| Ok(new_full_start!(config).0))
         }
+        #[cfg(feature = "runtime-benchmarks")]
         Some(Subcommand::Benchmark(cmd)) => {
             cmd.init(&version)?;
             cmd.update_config(&mut config, load_spec, &version)?;

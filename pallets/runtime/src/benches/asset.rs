@@ -2,7 +2,7 @@ use crate::asset::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_primitives::Ticker;
-use sp_std::prelude::*;
+use sp_std::{convert::TryFrom, prelude::*};
 
 use Module as Benchmark;
 
@@ -20,6 +20,6 @@ benchmarks! {
         let m in ...;
         let l in 1 .. 12;
         // Generate a ticker of length `l`.
-        let ticker = Ticker::from(vec![b'A'; l as usize].as_slice());
+        let ticker = Ticker::try_from(vec![b'A'; l as usize].as_slice()).unwrap();
     }: _(RawOrigin::Signed(account("member", m + 1, SEED)), ticker)
 }
