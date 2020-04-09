@@ -3,7 +3,8 @@ use common::{
     storage::{get_identity_id, make_account, make_account_with_balance, Call, TestStorage},
     ExtBuilder,
 };
-
+use frame_support::{assert_err, assert_ok};
+use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
     self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority, MipsState,
@@ -11,9 +12,6 @@ use pallet_mips::{
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
-
-use frame_support::{assert_err, assert_ok};
-use frame_system;
 use test_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;

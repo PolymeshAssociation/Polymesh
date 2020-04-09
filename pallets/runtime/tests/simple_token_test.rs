@@ -1,15 +1,17 @@
 mod common;
+use chrono::{prelude::*, Duration};
 use common::{
     storage::{make_account, TestStorage},
     ExtBuilder,
 };
-
 use frame_support::{assert_err, assert_ok};
-use polymesh_runtime_common::constants::currency::MAX_SUPPLY;
 use test_client::{self, AccountKeyring};
 
 use polymesh_primitives::Ticker;
 use polymesh_runtime::simple_token::{self, SimpleTokenRecord};
+use polymesh_runtime_common::{constants::currency::MAX_SUPPLY, traits::CommonTrait};
+
+use std::convert::TryFrom;
 
 type SimpleToken = simple_token::Module<TestStorage>;
 type Error = simple_token::Error<TestStorage>;
@@ -19,7 +21,7 @@ fn create_token_works() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
 
-        let ticker = Ticker::from(&[0x01][..]);
+        let ticker = Ticker::try_from(&[0x01][..]).unwrap();
         let total_supply = 1_000_000;
 
         // Issuance is successful
@@ -45,15 +47,13 @@ fn create_token_works() {
 
         assert_ok!(SimpleToken::create_token(
             owner_signed.clone(),
-            Ticker::from("1234567890123456789012345678901234567890".as_bytes()),
+            Ticker::try_from("0123456789AB".as_bytes()).unwrap(),
             total_supply,
         ));
         assert_eq!(
-            SimpleToken::tokens(Ticker::from(
-                "1234567890123456789012345678901234567890".as_bytes()
-            )),
+            SimpleToken::tokens(Ticker::try_from("0123456789AB".as_bytes()).unwrap()),
             SimpleTokenRecord {
-                ticker: Ticker::from("123456789012".as_bytes()),
+                ticker: Ticker::try_from("0123456789AB".as_bytes()).unwrap(),
                 total_supply,
                 owner_did
             }
@@ -62,7 +62,7 @@ fn create_token_works() {
         assert_err!(
             SimpleToken::create_token(
                 owner_signed.clone(),
-                Ticker::from(&[0x02][..]),
+                Ticker::try_from(&[0x02][..]).unwrap(),
                 MAX_SUPPLY + 1
             ),
             Error::TotalSupplyAboveLimit
@@ -76,7 +76,7 @@ fn transfer_works() {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
         let (spender_signed, spender_did) = make_account(AccountKeyring::Bob.public()).unwrap();
 
-        let ticker = Ticker::from(&[0x01][..]);
+        let ticker = Ticker::try_from(&[0x01][..]).unwrap();
         let total_supply = 1_000_000;
 
         // Issuance is successful
@@ -113,7 +113,7 @@ fn approve_transfer_works() {
         let (spender_signed, spender_did) = make_account(AccountKeyring::Bob.public()).unwrap();
         let (_agent_signed, _) = make_account(AccountKeyring::Dave.public()).unwrap();
 
-        let ticker = Ticker::from(&[0x01][..]);
+        let ticker = Ticker::try_from(&[0x01][..]).unwrap();
         let total_supply = 1_000_000;
 
         // Issuance is successful
