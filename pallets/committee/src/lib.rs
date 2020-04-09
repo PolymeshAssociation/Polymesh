@@ -161,6 +161,8 @@ decl_event!(
         Executed(Hash, bool),
         /// A proposal was closed after its duration was up.
         Closed(Hash, MemberCount, MemberCount),
+        /// Release coordinator has been updated.
+        ReleaseCoordinatorUpdated(Option<IdentityId>),
     }
 );
 
@@ -366,6 +368,7 @@ decl_module! {
             ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
 
             <ReleaseCoordinator<I>>::put(id);
+            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(Some(id)));
         }
     }
 }
@@ -512,6 +515,7 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
         if let Some(curr_rc) = Self::release_coordinator() {
             if outgoing.contains(&curr_rc) {
                 <ReleaseCoordinator<I>>::kill();
+                Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(None));
             }
         }
 

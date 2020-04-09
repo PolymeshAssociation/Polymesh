@@ -38,7 +38,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
+    debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, LockableCurrency, ReservableCurrency},
@@ -59,7 +59,7 @@ use sp_runtime::{
     traits::{CheckedSub, Dispatchable, EnsureOrigin, Zero},
     DispatchError,
 };
-use sp_std::{cmp, convert::TryFrom, prelude::*, vec};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// Mesh Improvement Proposal index. Used offchain.
 pub type MipsIndex = u32;
@@ -231,7 +231,7 @@ decl_storage! {
         /// Proposals so far. Index can be used to keep track of MIPs off-chain.
         SequenceIndex: u32;
 
-        /// The hashes of the active proposals.
+        /// The metadata of the active proposals.
         pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::AccountId, T::BlockNumber>>;
 
         /// Those who have locked a deposit.
@@ -282,6 +282,11 @@ decl_event!(
         ReferendumReScheduled(MipsIndex, BlockNumber, BlockNumber),
         /// Proposal was dispatched.
         ReferendumEnacted(MipsIndex),
+        /// Referendum execution was rejected.
+        ReferendumExecutionRejected(MipsIndex),
+        /// Default enactment period (in blocks) has been changed.
+        /// (new period, old period)
+        DefaultEnactmentPeriodChanged(BlockNumber, BlockNumber),
     }
 );
 
@@ -303,12 +308,14 @@ decl_error! {
         NotACommitteeMember,
         /// After Cool-off period, proposals are not cancelable.
         ProposalOnCoolOffPeriod,
-        /// Proposal is inmutable after cool-off period.
-        ProposalIsInmutable,
+        /// Proposal is immutable after cool-off period.
+        ProposalIsImmutable,
         /// Referendum is still on its enactment period.
         ReferendumOnEnactmentPeriod,
-        /// Referendum is inmutable.
-        ReferendumIsInmutable,
+        /// Referendum is immutable.
+        ReferendumIsImmutable,
+        /// When a block number is less than current block number.
+        InvalidFutureBlockNumber,
     }
 }
 
@@ -358,7 +365,10 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_default_enact_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            let previous_duration = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
+
+            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(duration, previous_duration));
         }
 
         /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which
@@ -434,7 +444,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can amend it.
-        /// * `ProposalIsInmutable`: A proposals is mutable only during its cool off period.
+        /// * `ProposalIsImmutable`: A proposals is mutable only during its cool off period.
         ///
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn amend_proposal(
@@ -452,7 +462,7 @@ decl_module! {
 
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
+            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Update proposal metadata.
             <ProposalMetadata<T>>::mutate( |metas| {
@@ -472,7 +482,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can amend it.
-        /// * `ProposalIsInmutable`: A Proposal is mutable only during its cool off period.
+        /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn cancel_proposal(origin, index: MipsIndex) -> DispatchResult {
             // 0. Initial info.
@@ -484,7 +494,7 @@ decl_module! {
 
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
+            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Close that proposal.
             Self::close_proposal( index);
@@ -496,7 +506,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can bond an additional deposit.
-        /// * `ProposalIsInmutable`: A Proposal is mutable only during its cool off period.
+        /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn bond_additional_deposit(origin,
             index: MipsIndex,
@@ -510,7 +520,7 @@ decl_module! {
 
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
+            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Reserve extra deposit & update deposit info for this proposal
             <T as Trait>::Currency::reserve(&proposer, additional_deposit)
@@ -527,7 +537,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can release part of the deposit.
-        /// * `ProposalIsInmutable`: A Proposal is mutable only during its cool off period.
+        /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
         /// * `InsufficientDeposit`: If the final deposit will be less that the minimum deposit for
         /// a proposal.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
@@ -543,7 +553,7 @@ decl_module! {
 
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsInmutable);
+            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Double-check that `amount` is valid.
             let mut depo_info = <Deposits<T>>::get(index, &proposer);
@@ -671,12 +681,16 @@ decl_module! {
         }
 
         /// It updates the enactment period of a specific referendum.
-        /// If `until` is less that the current block number, the target referendum is executed.
+        ///
+        /// # Arguments
+        /// * `until`, It defines the future block where the enactment period will finished.  A
+        /// `None` value means that enactment period is going to finish in the next block.
         ///
         /// # Errors
         /// * `BadOrigin`, Only the release coordinator can update the enactment period.
+        /// * ``,
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn set_referendum_enactment_period(origin, index: MipsIndex, until: T::BlockNumber) -> DispatchResult {
+        pub fn set_referendum_enactment_period(origin, index: MipsIndex, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let id = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -685,15 +699,18 @@ decl_module! {
                 Some(id) == T::GovernanceCommittee::release_coordinator(),
                 Error::<T>::BadOrigin);
 
+            // 2. New value should be valid block number.
+            let next_block = <system::Module<T>>::block_number() + 1.into();
+            let new_until = until.unwrap_or(next_block);
+            ensure!( new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
+
             // 2. Valid referendum: check index & state == Scheduled
             let referendum = Self::referendums(index)
                 .ok_or_else(|| Error::<T>::MismatchedProposalIndex)?;
-            ensure!( referendum.state == MipsState::Scheduled, Error::<T>::ReferendumIsInmutable);
+            ensure!( referendum.state == MipsState::Scheduled, Error::<T>::ReferendumIsImmutable);
 
             // 3. Update enactment period.
             // 3.1 Update referendum.
-            let next_block_number = <system::Module<T>>::block_number() + 1.into();
-            let new_until = cmp::max( next_block_number, until);
             let old_until = referendum.enactment_period;
 
             <Referendums<T>>::mutate( index, |referendum| {
@@ -752,9 +769,9 @@ impl<T: Trait> Module<T> {
 
         // Execute automatically referendums after its enactment period.
         let referendum_indexes = <ScheduledReferendumsAt<T>>::take(block_number);
-        referendum_indexes.into_iter().for_each(|index| {
-            let _ = Self::execute_referendum(index);
-        });
+        referendum_indexes
+            .into_iter()
+            .for_each(|index| Self::execute_referendum(index));
 
         Ok(())
     }
@@ -844,19 +861,8 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn execute_referendum(index: MipsIndex) -> DispatchResult {
-        let referendum = Self::referendums(index).ok_or(Error::<T>::MismatchedProposalIndex)?;
-
-        // Ensure that it is not in its enactment period.
-        let curr_block = <system::Module<T>>::block_number();
-        ensure!(
-            referendum.enactment_period <= curr_block,
-            Error::<T>::ReferendumOnEnactmentPeriod
-        );
-
-        // Avoid double execution. It could happen if referendum has been initially scheduled
-        // in a specific date, but GC repriorize it.
-        if referendum.state == MipsState::Scheduled {
+    fn execute_referendum(index: MipsIndex) {
+        if let Some(referendum) = Self::referendums(index) {
             match referendum.proposal.dispatch(system::RawOrigin::Root.into()) {
                 Ok(_) => {
                     Self::update_referendum_state(index, MipsState::Executed);
@@ -864,12 +870,11 @@ impl<T: Trait> Module<T> {
                 }
                 Err(e) => {
                     Self::update_referendum_state(index, MipsState::Rejected);
-                    return Err(e);
+                    Self::deposit_event(RawEvent::ReferendumExecutionRejected(index));
+                    debug::error!("Referendum {}, its execution fails: {:?}", index, e);
                 }
             }
         }
-
-        Ok(())
     }
 
     /// It returns the proposal metadata of proposal with index `index` or

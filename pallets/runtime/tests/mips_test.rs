@@ -566,7 +566,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     fast_forward_to(103);
     assert_err!(
         Mips::amend_proposal(alice.clone(), 0, None, None),
-        Error::<TestStorage>::ProposalIsInmutable
+        Error::<TestStorage>::ProposalIsImmutable
     );
 }
 
@@ -611,7 +611,7 @@ fn cancel_mips_during_cool_off_period_we() {
     fast_forward_to(101);
     assert_err!(
         Mips::cancel_proposal(bob.clone(), 1),
-        Error::<TestStorage>::ProposalIsInmutable
+        Error::<TestStorage>::ProposalIsImmutable
     );
 
     // 4. Double check current proposals
@@ -686,12 +686,12 @@ fn update_referendum_enactment_period_we() {
 
     // Alice cannot update the enact period.
     assert_err!(
-        Mips::set_referendum_enactment_period(alice.clone(), 0, 200),
+        Mips::set_referendum_enactment_period(alice.clone(), 0, Some(200)),
         Error::<TestStorage>::BadOrigin
     );
 
     // Bob updates referendum to execute `b` now(next block), and `a` in the future.
-    assert_ok!(Mips::set_referendum_enactment_period(bob.clone(), 1, 0));
+    assert_ok!(Mips::set_referendum_enactment_period(bob.clone(), 1, None));
     fast_forward_to(52);
     assert_eq!(
         Mips::referendums(1),
@@ -704,7 +704,11 @@ fn update_referendum_enactment_period_we() {
         })
     );
 
-    assert_ok!(Mips::set_referendum_enactment_period(bob.clone(), 0, 200));
+    assert_ok!(Mips::set_referendum_enactment_period(
+        bob.clone(),
+        0,
+        Some(200)
+    ));
     assert_eq!(
         Mips::referendums(0),
         Some(PolymeshReferendum {
@@ -729,7 +733,7 @@ fn update_referendum_enactment_period_we() {
         })
     );
     assert_err!(
-        Mips::set_referendum_enactment_period(bob.clone(), 0, 300),
-        Error::<TestStorage>::ReferendumIsInmutable
+        Mips::set_referendum_enactment_period(bob.clone(), 0, Some(300)),
+        Error::<TestStorage>::ReferendumIsImmutable
     );
 }
