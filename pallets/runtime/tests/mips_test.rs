@@ -184,8 +184,8 @@ fn creating_a_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::Normal,
-            state: MipsState::Scheduled,
-            enactment_period: 211,
+            state: MipsState::Ratified,
+            enactment_period: 0,
             proposal: proposal.clone()
         })
     );
@@ -248,8 +248,8 @@ fn enacting_a_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::Normal,
-            state: MipsState::Scheduled,
-            enactment_period: 211,
+            state: MipsState::Ratified,
+            enactment_period: 0,
             proposal: proposal.clone()
         })
     );
@@ -258,12 +258,6 @@ fn enacting_a_referendum_works_we() {
         Mips::enact_referendum(bob_signer.clone(), 0),
         Error::<TestStorage>::BadOrigin
     );
-
-    assert_err!(
-        Mips::enact_referendum(root.clone(), 0),
-        Error::<TestStorage>::ReferendumOnEnactmentPeriod
-    );
-    fast_forward_to(211);
     assert_ok!(Mips::enact_referendum(root, 0));
 
     assert_eq!(
@@ -271,8 +265,21 @@ fn enacting_a_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::Normal,
+            state: MipsState::Scheduled,
+            enactment_period: 220,
+            proposal: proposal.clone()
+        })
+    );
+
+    fast_forward_to(221);
+
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::Normal,
             state: MipsState::Executed,
-            enactment_period: 211,
+            enactment_period: 220,
             proposal
         })
     );
@@ -338,6 +345,18 @@ fn fast_tracking_a_proposal_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::High,
+            state: MipsState::Ratified,
+            enactment_period: 0,
+            proposal: proposal.clone()
+        })
+    );
+
+    assert_ok!(Mips::enact_referendum(root, 0));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 101,
             proposal: proposal.clone()
@@ -393,8 +412,8 @@ fn submit_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::High,
-            state: MipsState::Scheduled,
-            enactment_period: 101,
+            state: MipsState::Ratified,
+            enactment_period: 0,
             proposal: proposal.clone()
         })
     );
@@ -411,9 +430,21 @@ fn submit_referendum_works_we() {
         Some(PolymeshReferendum {
             index: 0,
             priority: MipsPriority::High,
-            state: MipsState::Executed,
-            enactment_period: 101,
+            state: MipsState::Scheduled,
+            enactment_period: 201,
             proposal: proposal.clone()
+        })
+    );
+
+    fast_forward_to(202);
+    assert_eq!(
+        Mips::referendums(0),
+        Some(PolymeshReferendum {
+            index: 0,
+            priority: MipsPriority::High,
+            state: MipsState::Executed,
+            enactment_period: 201,
+            proposal
         })
     );
 }
@@ -626,6 +657,7 @@ fn update_referendum_enactment_period_we() {
         alice.clone(),
         Box::new(proposal_a.clone())
     ));
+    assert_ok!(Mips::enact_referendum(root.clone(), 0));
     assert_eq!(
         Mips::referendums(0),
         Some(PolymeshReferendum {
@@ -642,6 +674,7 @@ fn update_referendum_enactment_period_we() {
         alice.clone(),
         Box::new(proposal_b.clone())
     ));
+    assert_ok!(Mips::enact_referendum(root.clone(), 1));
     assert_eq!(
         Mips::referendums(1),
         Some(PolymeshReferendum {
