@@ -708,7 +708,7 @@ fn register_ticker() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let identifiers = vec![(IdentifierType::Custom(b"check".to_vec()), b"me".into())];
+        let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Issuance is successful
         assert_ok!(Asset::create_token(
