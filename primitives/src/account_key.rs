@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
-use sp_core::sr25519::Public;
 #[cfg(feature = "std")]
-use serde::{Deserialize, Serialize, Deserializer, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sp_core::sr25519::Public;
 use sp_std::{
     cmp::{Ord, PartialOrd},
     convert::TryFrom,
