@@ -16,8 +16,34 @@ const KEY_SIZE: usize = 32;
 /// It stores a simple key.
 /// It uses fixed size to avoid dynamic memory allocation.
 #[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Copy, Clone, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct AccountKey(pub [u8; KEY_SIZE]);
+
+#[cfg(feature = "std")]
+impl Serialize for AccountKey {
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.using_encoded(|bytes| {
+			sp_core::bytes::serialize(bytes, serializer)
+		})
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'de> Deserialize<'de> for AccountKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let r = sp_core::bytes::deserialize(deserializer)?;
+		Decode::decode(&mut &r[..])
+			.map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+    }
+}
 
 impl AccountKey {
     /// It returns this key as a byte slice.

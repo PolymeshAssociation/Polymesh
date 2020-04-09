@@ -25,8 +25,35 @@ const UUID_LEN: usize = 32usize;
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
 #[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct IdentityId([u8; UUID_LEN]);
+
+
+#[cfg(feature = "std")]
+impl Serialize for IdentityId {
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.using_encoded(|bytes| {
+			sp_core::bytes::serialize(bytes, serializer)
+		})
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'de> Deserialize<'de> for IdentityId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let r = sp_core::bytes::deserialize(deserializer)?;
+		Decode::decode(&mut &r[..])
+			.map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+    }
+}
 
 impl Display for IdentityId {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -118,16 +145,13 @@ mod tests {
     fn serialize_deserialize_identity() {
         let identity = IdentityId::from(999);
         println!("Print the un-serialize value: {:?}", identity);
-        // let json_str = r#""#;
-        //println!("Print the serialize verison of Identity: {:#X}", identity);
-        // assert_eq!(serde_json::to_string(&identity).unwrap(), json_str);
-        // assert_eq!(
-        //     serde_json::from_str::IdentityId(json_str).unwrap(),
-        //     info
-        // );
-
-        // // should not panic
-        // serde_json::to_value(&identity).unwrap();
+        let serialize = serde_json::to_string(&identity).unwrap();
+        let serialize_data = "\"0xe703000000000000000000000000000000000000000000000000000000000000\"";
+        println!("Print the serialize data {:?}", serialize);
+        assert_eq!(serialize_data, serialize);
+        let deserialize = serde_json::from_str::<IdentityId>(&serialize).unwrap();
+        println!("Print the deserialize data {:?}", deserialize);
+        assert_eq!(identity, deserialize);
     }
 
     #[test]

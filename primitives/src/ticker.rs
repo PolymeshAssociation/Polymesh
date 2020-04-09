@@ -1,7 +1,7 @@
 //! Ticker symbol
 use codec::{Decode, Encode, Error, Input};
 #[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Deserializer, Serializer};
 use sp_std::convert::TryFrom;
 
 const TICKER_LEN: usize = 12;
@@ -13,7 +13,7 @@ const TICKER_LEN: usize = 12;
 /// representation using [`Ticker::canonize`].
 //#[cfg_attr(feature = "std", serde(from = "&[u8]"))]
 #[derive(Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_ttr(feature = "std"), derive(Serialize, Deserialize)]
+//#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Ticker([u8; TICKER_LEN]);
 
 impl Default for Ticker {
@@ -44,25 +44,29 @@ impl TryFrom<&[u8]> for Ticker {
 }
 
 #[cfg(feature = "std")]
+impl Serialize for Ticker {
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.using_encoded(|bytes| {
+			sp_core::bytes::serialize(bytes, serializer)
+		})
+    }
+}
+
+#[cfg(feature = "std")]
 impl<'de> Deserialize<'de> for Ticker {
-    fn deserialize<D>(deserializer: D) -> Result<Ticker, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
-    {   
-        
-        impl<'de> Visitor<'de> for Ticker {
-            type Value = Ticker;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("A fixed length ticker")
-            }
-
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Ticker, E> {
-                Ok(Ticker::from(v))
-            }
-
-        }
-        deserializer.deserialize_bytes(s.as_bytes())
+    {
+        let r = sp_core::bytes::deserialize(deserializer)?;
+		Decode::decode(&mut &r[..])
+			.map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
     }
 }
 
@@ -100,6 +104,17 @@ impl Ticker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn serialization_deserialization_test() {
+        let ticker_name: Vec<u8> = (vec![0x45,0x32, 0x43]).into();
+        let ticker = Ticker::try_from(ticker_name.as_slice()).unwrap();
+        let serialize = serde_json::to_string(&ticker).unwrap();
+        let serialize_data = "\"0x453243000000000000000000\"";
+        assert_eq!(serialize_data, serialize);
+        let deserialize = serde_json::from_str::<Ticker>(&serialize).unwrap();
+        assert_eq!(ticker, deserialize);
+    }
 
     #[test]
     fn ticker_test() {
