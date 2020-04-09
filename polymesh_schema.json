@@ -259,6 +259,7 @@
     },
     "MipsState": {
         "_enum": [
+            "Ratified",
             "Scheduled",
             "Rejected",
             "Executed"
