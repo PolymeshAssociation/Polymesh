@@ -1,5 +1,5 @@
 {
-    "IdentityId":"H256",
+    "IdentityId":"[u8; 32]",
     "Ticker": "[u8; 12]",
     "PosRatio": "(u32, u32)",
     "DocumentName": "Text",
@@ -403,5 +403,31 @@
             "MipsPropose",
             "VotingAddBallot"
         ]
+    },
+    "RpcResult": {
+        "Ok": "IdentityId",
+        "Err": "Vec<u8>" 
+    },
+    "CddStatus": {
+        "Result": "RpcResult"
+    },
+    "AssetDidResult": {
+        "Result": "RpcResult"
+    },
+    "DidRecordRpcSuccess": {
+        "master_key" : "AccountKey",
+        "signing_items": "Vec<SigningItem>"
+    },
+    "DidRecords": {
+        "Success": "DidRecordRpcSuccess",
+        "IdNotFound": "Vec<u8>"
+    },
+    "VoteCountRpcSuccess": {
+        "ayes": "u64",
+        "nays": "u64"
+    },
+    "CappedVoteCount": {
+        "Success": "VoteCountRpcSuccess",
+        "ProposalNotFound": "Vec<u8>"
     }
 }
