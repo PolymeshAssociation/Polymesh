@@ -27,19 +27,13 @@ const UUID_LEN: usize = 32usize;
 #[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct IdentityId([u8; UUID_LEN]);
 
-
 #[cfg(feature = "std")]
 impl Serialize for IdentityId {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        self.using_encoded(|bytes| {
-			sp_core::bytes::serialize(bytes, serializer)
-		})
+        self.using_encoded(|bytes| sp_core::bytes::serialize(bytes, serializer))
     }
 }
 
@@ -50,8 +44,8 @@ impl<'de> Deserialize<'de> for IdentityId {
         D: Deserializer<'de>,
     {
         let r = sp_core::bytes::deserialize(deserializer)?;
-		Decode::decode(&mut &r[..])
-			.map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+        Decode::decode(&mut &r[..])
+            .map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
     }
 }
 
@@ -146,7 +140,8 @@ mod tests {
         let identity = IdentityId::from(999);
         println!("Print the un-serialize value: {:?}", identity);
         let serialize = serde_json::to_string(&identity).unwrap();
-        let serialize_data = "\"0xe703000000000000000000000000000000000000000000000000000000000000\"";
+        let serialize_data =
+            "\"0xe703000000000000000000000000000000000000000000000000000000000000\"";
         println!("Print the serialize data {:?}", serialize);
         assert_eq!(serialize_data, serialize);
         let deserialize = serde_json::from_str::<IdentityId>(&serialize).unwrap();

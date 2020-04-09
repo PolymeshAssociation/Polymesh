@@ -1,7 +1,7 @@
 //! Ticker symbol
 use codec::{Decode, Encode, Error, Input};
 #[cfg(feature = "std")]
-use serde::{Deserialize, Serialize, Deserializer, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_std::convert::TryFrom;
 
 const TICKER_LEN: usize = 12;
@@ -45,16 +45,11 @@ impl TryFrom<&[u8]> for Ticker {
 
 #[cfg(feature = "std")]
 impl Serialize for Ticker {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        self.using_encoded(|bytes| {
-			sp_core::bytes::serialize(bytes, serializer)
-		})
+        self.using_encoded(|bytes| sp_core::bytes::serialize(bytes, serializer))
     }
 }
 
@@ -65,8 +60,8 @@ impl<'de> Deserialize<'de> for Ticker {
         D: Deserializer<'de>,
     {
         let r = sp_core::bytes::deserialize(deserializer)?;
-		Decode::decode(&mut &r[..])
-			.map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+        Decode::decode(&mut &r[..])
+            .map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
     }
 }
 
@@ -107,7 +102,7 @@ mod tests {
 
     #[test]
     fn serialization_deserialization_test() {
-        let ticker_name: Vec<u8> = (vec![0x45,0x32, 0x43]).into();
+        let ticker_name: Vec<u8> = (vec![0x45, 0x32, 0x43]).into();
         let ticker = Ticker::try_from(ticker_name.as_slice()).unwrap();
         let serialize = serde_json::to_string(&ticker).unwrap();
         let serialize_data = "\"0x453243000000000000000000\"";

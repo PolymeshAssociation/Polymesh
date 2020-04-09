@@ -20,16 +20,11 @@ pub struct AccountKey(pub [u8; KEY_SIZE]);
 
 #[cfg(feature = "std")]
 impl Serialize for AccountKey {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        self.using_encoded(|bytes| {
-			sp_core::bytes::serialize(bytes, serializer)
-		})
+        self.using_encoded(|bytes| sp_core::bytes::serialize(bytes, serializer))
     }
 }
 
@@ -40,8 +35,8 @@ impl<'de> Deserialize<'de> for AccountKey {
         D: Deserializer<'de>,
     {
         let r = sp_core::bytes::deserialize(deserializer)?;
-		Decode::decode(&mut &r[..])
-			.map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+        Decode::decode(&mut &r[..])
+            .map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
     }
 }
 
