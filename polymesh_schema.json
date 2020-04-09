@@ -21,9 +21,9 @@
     },
     "IdentifierType": {
         "_enum": {
-            "Isin": "",
+            "Cins": "",
             "Cusip": "",
-            "Custom": "Vec<u8>"
+            "Isin": ""
         }
     },
     "TokenName": "Text",

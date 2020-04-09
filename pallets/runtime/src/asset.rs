@@ -125,14 +125,14 @@ impl Default for AssetType {
 /// The type of an identifier associated with a token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum IdentifierType {
-    Isin,
+    Cins,
     Cusip,
-    Custom(Vec<u8>),
+    Isin,
 }
 
 impl Default for IdentifierType {
     fn default() -> Self {
-        IdentifierType::Custom(b"undefined".to_vec())
+        IdentifierType::Isin
     }
 }
 
