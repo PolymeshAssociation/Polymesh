@@ -894,8 +894,16 @@ impl_runtime_apis! {
             repeat: u32,
         ) -> Result<Vec<frame_benchmarking::BenchmarkResults>, sp_runtime::RuntimeString> {
             use frame_benchmarking::Benchmarking;
+            use polymesh_runtime_identity::benchmarking::*;
 
             let result = match module.as_slice() {
+                b"pallet-identity" | b"identity" => Identity::run_benchmark(
+                    extrinsic,
+                    lowest_range_values,
+                    highest_range_values,
+                    steps,
+                    repeat,
+                ),
                 b"runtime-asset" | b"asset" => Asset::run_benchmark(
                     extrinsic,
                     lowest_range_values,

@@ -151,6 +151,5 @@ std = [
 
 runtime-benchmarks = [
 #    "frame-benchmarking",
-    "frame-system/runtime-benchmarks",
-    "pallet-timestamp/runtime-benchmarks",
+    "polymesh-runtime-identity/runtime-benchmarks"
 ]

@@ -92,5 +92,5 @@ vergen = "3.1.0"
 [features]
 default = []
 runtime-benchmarks = [
-#    "polymesh-runtime/runtime-benchmarks",
+    "polymesh-runtime/runtime-benchmarks",
 ]

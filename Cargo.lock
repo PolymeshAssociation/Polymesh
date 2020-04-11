@@ -3449,7 +3449,6 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-inherents",
- "sp-io",
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
@@ -4100,6 +4099,7 @@ dependencies = [
 name = "polymesh-runtime-identity"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-timestamp",
@@ -4107,6 +4107,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-protocol-fee",
+ "polymesh-runtime-balances",
  "polymesh-runtime-common",
  "polymesh-runtime-identity-rpc-runtime-api",
  "serde",
