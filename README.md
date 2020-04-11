@@ -117,7 +117,7 @@ This uses pm2 to run a local three node network to demonstrate simple consensus.
 
 # Unit Tests
 
-Unit tests are packaged with the Rust code. To run these, you can execute:  
+Unit tests are packaged with the Rust code. To run these, you can execute:
 
 ```bash
 cargo test --package polymesh-runtime
@@ -138,7 +138,7 @@ cargo test --package pallet-transaction-payment
 
 # Initialise
 
-You can seed the network with some identities, claims, signing keys and assets by running the functional test.  
+You can seed the network with some identities, claims, signing keys and assets by running the functional test.
 
 ```bash
 cd scripts/cli
@@ -149,11 +149,16 @@ See [README](https://github.com/PolymathNetwork/Polymesh/tree/master/scripts/cli
 
 # Benchmark
 
-Polymesh runtime benchmarks can be run with
+Polymesh runtime benchmarks can be run with a command that specifies the pallet and the name of the
+extrinsic to be benchmarked, for example:
 
 ```bash
-cargo run --release --features runtime-benchmarks
+cargo run --release --features runtime-benchmarks -- \
+    benchmark --pallet asset --extrinsic register_asset
 ```
+
+Note that the CLI binary should be built in release mode and that the feature flag
+`runtime-benchmarks` should be set to enable the CLI option `benchmark`.
 
 # License
 

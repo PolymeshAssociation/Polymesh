@@ -37,7 +37,7 @@ members = [
 [dependencies]
 polymesh-primitives = { path = "primitives" }
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets/common", default-features = false }
-polymesh-runtime = { path = "pallets/runtime", default-features = false }
+polymesh-runtime = { path = "pallets/runtime" }
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
 pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
 pallet-mips-rpc = { package = "pallet-mips-rpc", path = "pallets/mips/rpc", default-features = false }
@@ -90,7 +90,7 @@ contracts-rpc = { package = "pallet-contracts-rpc", git = "https://github.com/pa
 vergen = "3.1.0"
 
 [features]
-default = [ "runtime-benchmarks" ]
+default = []
 runtime-benchmarks = [
-    "polymesh-runtime/runtime-benchmarks",
+#    "polymesh-runtime/runtime-benchmarks",
 ]

@@ -3,6 +3,7 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking_cli;
 mod chain_spec;
 #[macro_use]
