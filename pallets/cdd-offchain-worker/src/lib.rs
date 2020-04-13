@@ -152,11 +152,9 @@ impl<T: Trait> Module<T> {
         use frame_system::offchain::SubmitUnsignedTransaction;
         // First we validate whether the transaction proposer is validator or not.
         // if yes then only the transaction get proposed otherwise not.
-        if !sp_io::offchain::is_validator() {
-            return Err("Not a validator")?;
-        }
+        ensure!(sp_io::offchain::is_validator(), "Not a validator");
         // Accessing the first key in the local store to sign the payload
-        if let Some(key) = T::SignerId::all().into_iter().nth(0) {
+        if let Some(key) = T::SignerId::all().into_iter().next() {
             let signature = key
                 .sign(&invalid_nominators.encode())
                 .ok_or("Keys are not present or not able to sign")?;
@@ -172,8 +170,8 @@ impl<T: Trait> Module<T> {
             // by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
             // implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
             // attack vectors. See validation logic docs for more details.
-            T::SubmitUnsignedTransaction::submit_unsigned(call)
-                .map_err(|()| "Unable to submit unsigned transaction.");
+            let _ = T::SubmitUnsignedTransaction::submit_unsigned(call)
+                .map_err(|()| "Unable to submit unsigned transaction.")?;
         }
         Ok(())
     }
@@ -184,10 +182,7 @@ impl<T: Trait> Module<T> {
         // It is not recommended to hook unsigned txn in every block because it is a non-deterministic
         // task we are not sure how much time it will take to process. So cooling period is recommended
         // to provide the gap for the execution of non-deterministic task.
-        if Self::last_extrinsic_submitted_at() + T::CoolingInterval::get() < block_number {
-            return true;
-        }
-        return false;
+        Self::last_extrinsic_submitted_at() + T::CoolingInterval::get() < block_number
     }
 }
 
@@ -204,29 +199,29 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
         if let Call::take_off_invalidate_nominators(block_number, target, signature) = call {
             // Now let's check if the transaction has any chance to succeed.
             let last_unsigned_at = <LastExtSubmittedAt<T>>::get();
-            if last_unsigned_at + T::CoolingInterval::get() > *block_number {
-                return InvalidTransaction::Stale.into();
-            }
+            ensure!(
+                last_unsigned_at + T::CoolingInterval::get() <= *block_number,
+                InvalidTransaction::Stale
+            );
+
             // Let's make sure to reject transactions from the future.
-            let current_block = <system::Module<T>>::block_number();
-            if &current_block < block_number {
-                return InvalidTransaction::Future.into();
-            }
+            ensure!(
+                &<system::Module<T>>::block_number() >= block_number,
+                InvalidTransaction::Future
+            );
 
             // Get the key from the store to verify whether the signed signature is
             // generated from the validator or not.
-            let signer_id = match T::SignerId::all().into_iter().nth(0) {
-                Some(id) => id,
-                None => return InvalidTransaction::BadProof.into(),
-            };
+            let signer_id = T::SignerId::all()
+                .into_iter()
+                .next()
+                .ok_or(InvalidTransaction::BadProof)?;
 
             let signature_valid = target.using_encoded(|encoded_nominators| {
                 signer_id.verify(&encoded_nominators, &signature)
             });
-
-            if !signature_valid {
-                return InvalidTransaction::BadProof.into();
-            }
+            // validating signature
+            ensure!(signature_valid, InvalidTransaction::BadProof);
 
             Ok(ValidTransaction {
                 // We set the priority to the max value - 10000. ~ near to high priority
