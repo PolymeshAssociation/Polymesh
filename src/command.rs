@@ -41,7 +41,7 @@ where
         Some(Subcommand::Benchmark(cmd)) => {
             cmd.init(&version)?;
             cmd.update_config(&mut config, load_spec, &version)?;
-            cmd.run::<_, _, runtime::Block, node_executor::Executor>(config)
+            cmd.run::<_, _, runtime::Block, crate::service::Executor>(config)
         }
         None => {
             opt.run.init(&version)?;
