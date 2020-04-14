@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
-use sp_core::sr25519::Public;
 #[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sp_core::sr25519::Public;
 use sp_std::{
     cmp::{Ord, PartialOrd},
     convert::TryFrom,
@@ -16,8 +16,29 @@ const KEY_SIZE: usize = 32;
 /// It stores a simple key.
 /// It uses fixed size to avoid dynamic memory allocation.
 #[derive(Encode, Decode, Default, PartialOrd, Ord, Eq, Copy, Clone, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct AccountKey(pub [u8; KEY_SIZE]);
+
+#[cfg(feature = "std")]
+impl Serialize for AccountKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.using_encoded(|bytes| sp_core::bytes::serialize(bytes, serializer))
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'de> Deserialize<'de> for AccountKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let r = sp_core::bytes::deserialize(deserializer)?;
+        Decode::decode(&mut &r[..])
+            .map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+    }
+}
 
 impl AccountKey {
     /// It returns this key as a byte slice.
@@ -105,6 +126,18 @@ impl PartialEq<Public> for AccountKey {
 mod tests {
     use super::{AccountKey, KEY_SIZE};
     use std::convert::TryFrom;
+
+    #[test]
+    fn serialize_deserialize_account_key() {
+        let secret_string: [u8; KEY_SIZE] = [1u8; KEY_SIZE];
+        let account_key = AccountKey::try_from(secret_string).unwrap();
+        let serialize = serde_json::to_string(&account_key).unwrap();
+        let serialize_data =
+            "\"0x0101010101010101010101010101010101010101010101010101010101010101\"";
+        assert_eq!(serialize_data, serialize);
+        let deserialize = serde_json::from_str::<AccountKey>(&serialize).unwrap();
+        assert_eq!(account_key, deserialize);
+    }
 
     #[test]
     fn build_test() {

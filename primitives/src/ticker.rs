@@ -1,7 +1,7 @@
 //! Ticker symbol
 use codec::{Decode, Encode, Error, Input};
 #[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_std::convert::TryFrom;
 
 const TICKER_LEN: usize = 12;
@@ -12,7 +12,6 @@ const TICKER_LEN: usize = 12;
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
 #[derive(Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Ticker([u8; TICKER_LEN]);
 
 impl Default for Ticker {
@@ -42,6 +41,29 @@ impl TryFrom<&[u8]> for Ticker {
     }
 }
 
+#[cfg(feature = "std")]
+impl Serialize for Ticker {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.using_encoded(|bytes| sp_core::bytes::serialize(bytes, serializer))
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'de> Deserialize<'de> for Ticker {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let r = sp_core::bytes::deserialize(deserializer)?;
+        Decode::decode(&mut &r[..])
+            .map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+    }
+}
+
+/// It custom decoder enforces to upper case.
 impl Decode for Ticker {
     fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
         let inner = <[u8; TICKER_LEN]>::decode(input)?;
@@ -75,6 +97,17 @@ impl Ticker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn serialization_deserialization_test() {
+        let ticker_name: Vec<u8> = (vec![0x45, 0x32, 0x43]).into();
+        let ticker = Ticker::try_from(ticker_name.as_slice()).unwrap();
+        let serialize = serde_json::to_string(&ticker).unwrap();
+        let serialize_data = "\"0x453243000000000000000000\"";
+        assert_eq!(serialize_data, serialize);
+        let deserialize = serde_json::from_str::<Ticker>(&serialize).unwrap();
+        assert_eq!(ticker, deserialize);
+    }
 
     #[test]
     fn ticker_test() {
