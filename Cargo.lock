@@ -3980,6 +3980,78 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-runtime-asset"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "hex-literal",
+ "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
+ "pallet-session 2.0.0-alpha.3",
+ "pallet-timestamp 2.0.0-alpha.3",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-protocol-fee",
+ "polymesh-runtime-asset-rpc-runtime-api",
+ "polymesh-runtime-common",
+ "polymesh-runtime-identity",
+ "rustc-hex",
+ "serde",
+ "serde_derive",
+ "sp-api 2.0.0-alpha.3",
+ "sp-core 2.0.0-alpha.3",
+ "sp-io 2.0.0-alpha.3",
+ "sp-runtime 2.0.0-alpha.3",
+ "sp-serializer",
+ "sp-std 2.0.0-alpha.3",
+ "sp-version 2.0.0-alpha.3",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "polymesh-runtime-asset-rpc"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-asset-rpc-runtime-api",
+ "polymesh-runtime-balances",
+ "polymesh-runtime-common",
+ "serde",
+ "serde_derive",
+ "sp-api 2.0.0-alpha.3",
+ "sp-blockchain",
+ "sp-core 2.0.0-alpha.3",
+ "sp-rpc",
+ "sp-runtime 2.0.0-alpha.3",
+ "sp-std 2.0.0-alpha.3",
+]
+
+[[package]]
+name = "polymesh-runtime-asset-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-balances",
+ "polymesh-runtime-common",
+ "serde",
+ "serde_json",
+ "sp-api 2.0.0-alpha.3",
+ "sp-std 2.0.0-alpha.3",
+]
+
+[[package]]
 name = "polymesh-runtime-balances"
 version = "0.1.0"
 dependencies = [

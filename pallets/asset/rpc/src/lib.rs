@@ -1,63 +1,88 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use polymesh_runtime_identity_rpc_runtime_api::{
-    AssetDidResult, CddStatus, DidRecords, IdentityApi as IdentityRuntimeApi,
+use polymesh_runtime_asset_rpc_runtime_api::{
+    CanTransferResult
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
+use frame_support::traits::Currency;
+pub trait Trait: frame_system::Trait {
+    type Currency: Currency<Self::AccountId>;
+}
+
+pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+
 #[rpc]
-pub trait CanTransferRpc {
+pub trait AssetApi<Blockhash, IdentityId, Ticker, T> {
     #[rpc(name = "asset_canTransfer")]
     fn can_transfer(
         &self, 
         ticker: Ticker, 
         from_did: IdentityId, 
         to_did: IdentityId, 
-        value: T::Balance, 
-        data: Vec<u8>
-    ) -> Result<u8>;
+        value: T, 
+        data: Vec<u8>,
+        at: Option<BlockHash>,
+    ) -> Result<CanTransferResult>;
 }
 
-pub struct CanTransferStruc;
+/// An implementation of asset specific RPC methods.
+pub struct Asset<T, U> {
+    client: Arc<T>,
+    _marker: std::marker::PhantomData<U>,
+}
 
-impl CanTransferRpc for CanTransferStruc {
+impl<T, U> Asset<T, U> {
+    /// Create new `Asset` with the given reference to the client.
+    pub fn new(client: Arc<T>) -> Self {
+        Self {
+            client,
+            _marker: Default::default(),
+        }
+    }
+}
+
+/// Error type of this RPC api.
+pub enum Error {
+    /// The transaction was not decodable.
+    DecodeError,
+    /// The call to runtime failed.
+    RuntimeError,
+}
+
+impl<C, Block, IdentityId, Tickere>
+    AssetApi<<Block as BlockT>::Hash, IdentityId, Ticker,T>
+    for Asset<C, Block>
+where
+    Block: BlockT,
+    C: Send + Sync + 'static,
+    C: ProvideRuntimeApi<Block>,
+    C: HeaderBackend<Block>,
+    C::Api: AssetRuntimeApi<Block, IdentityId, Ticker, T>,
+    IdentityId: Codec,
+    Ticker: Codec,
+    T: Codec,
+{
     fn can_transfer(
         &self, 
         ticker: Ticker, 
         from_did: IdentityId, 
         to_did: IdentityId, 
-        value: T::Balance, 
+        value: T, 
         data: Vec<u8>
-    ) -> Result<u8> {
+    ) -> Result<CanTransferResult> {
             let api = self.client.runtime_api();
-            let mut current_balance: T::Balance = self::balance(&ticker, &from_did);
-            if current_balance < value {
-                current_balance = 0.into();
-            } else {
-                current_balance -= value;
+            let at = BlockId::hash(at.unwrap_or_else(||
+                // If the block hash is not supplied assume the best block.
+                self.client.info().best_hash));
+            
+                api.can_transfer(ticker, from_did, to_did, value, data, &at).map_err(|e| RpcError { code: ErrorCode::ServerError(Error::RuntimeError as i64), message: "Unable to check trnsfer".into(), data: Some(format!("{:?}", e).into()), })
+            
             }
-            if current_balance < self::total_custody_allowance((ticker, from_did)) {
-                sp_runtime::print("Insufficient balance");
-                api.can_transfer(ticker, from_did, to_did, value, data, ERC1400_INSUFFICIENT_BALANCE as u32);
-            } else {
-                match self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value) {
-                    Ok(code) =>
-                    {
-                        api.can_transfer(ticker, from_did, to_did, value, data, code as u32);
-                    },
-                    Err(msg) => {
-                        // We emit a generic error with the event whenever there's an internal issue - i.e. captured
-                        // in a string error and not using the status codes
-                        sp_runtime::print(msg);
-                        api.can_transfer(ticker, from_did, to_did, value, data, ERC1400_TRANSFER_FAILURE as u32);
-                    }
-                }
-            }
-    }
 }
 
 

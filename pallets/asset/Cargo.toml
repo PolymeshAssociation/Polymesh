@@ -8,11 +8,13 @@ edition = "2018"
 polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
-polymesh-runtime-asset-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
+polymesh-runtime-asset-rpc-runtime-api = { package = "polymesh-runtime-asset-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
+polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+rustc-hex = { version = "2.1.0", default-features = false }
 
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -24,9 +26,15 @@ sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", 
 
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+hex-literal = "0.2.1"
 
 pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
+
+pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", default-features = false  }
@@ -37,6 +45,7 @@ default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [
+	"rustc-hex/std",
 	"serde_derive",
 	"serde/std",
 	"codec/std",
@@ -52,4 +61,6 @@ std = [
 	"polymesh-runtime-common/std",
 	"polymesh-primitives/std",
 	"polymesh-runtime-asset-rpc-runtime-api/std",
+	"pallet-contracts/std",
+	"pallet-contracts-rpc-runtime-api/std",
 ]

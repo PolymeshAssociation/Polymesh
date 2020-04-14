@@ -31,7 +31,10 @@ members = [
     "pallets/balances",
     "pallets/committee",
     "pallets/group",
-    "pallets/protocol-fee"
+    "pallets/protocol-fee",
+    "pallets/asset",
+    "pallets/asset/rpc",
+    "pallets/asset/rpc/runtime-api",
 ]
 
 [dependencies]

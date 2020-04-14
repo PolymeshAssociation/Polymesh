@@ -55,8 +55,7 @@
 //! - `total_supply_at` - Returns the total supply at a given checkpoint
 //! - `custodian_allowance`- Returns the allowance provided to a custodian for a given ticker and token holder
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
-
-use crate::{general_tm, percentage_tm, statistics};
+#![recursion_limit="256"]
 
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
@@ -990,7 +989,7 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        pub fn can_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) {
+        pub fn can_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> Result<u8, &'static str> {
             let sender = ensure_signed(origin)?;
             let mut current_balance: T::Balance = Self::balance(&ticker, &from_did);
             if current_balance < value {
@@ -1000,18 +999,18 @@ decl_module! {
             }
             if current_balance < Self::total_custody_allowance((ticker, from_did)) {
                 sp_runtime::print("Insufficient balance");
-                Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_INSUFFICIENT_BALANCE as u32));
+                Self::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_INSUFFICIENT_BALANCE as u32);
             } else {
                 match Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value) {
                     Ok(code) =>
                     {
-                        Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, code as u32));
+                        Self::CanTransfer(ticker, from_did, to_did, value, data, code as u32);
                     },
                     Err(msg) => {
                         // We emit a generic error with the event whenever there's an internal issue - i.e. captured
                         // in a string error and not using the status codes
                         sp_runtime::print(msg);
-                        Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_TRANSFER_FAILURE as u32));
+                        Self::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_TRANSFER_FAILURE as u32);
                     }
                 }
             }
