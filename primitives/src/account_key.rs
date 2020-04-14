@@ -128,6 +128,18 @@ mod tests {
     use std::convert::TryFrom;
 
     #[test]
+    fn serialize_deserialize_account_key() {
+        let secret_string: [u8; KEY_SIZE] = [1u8; KEY_SIZE];
+        let account_key = AccountKey::try_from(secret_string).unwrap();
+        let serialize = serde_json::to_string(&account_key).unwrap();
+        let serialize_data =
+            "\"0x0101010101010101010101010101010101010101010101010101010101010101\"";
+        assert_eq!(serialize_data, serialize);
+        let deserialize = serde_json::from_str::<AccountKey>(&serialize).unwrap();
+        assert_eq!(account_key, deserialize);
+    }
+
+    #[test]
     fn build_test() {
         let k: [u8; KEY_SIZE] = [1u8; KEY_SIZE];
         let k2 = "ABCDABCD".as_bytes().to_vec();
