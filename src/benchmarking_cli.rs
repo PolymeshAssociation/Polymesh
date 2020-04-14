@@ -18,6 +18,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
+#[cfg(feature = "runtime-benchmarks")]
+use crate::analysis::Analysis;
 use codec::{Decode, Encode};
 use frame_benchmarking::BenchmarkResults;
 use sc_cli::{ExecutionStrategy, VersionInfo, WasmExecutionMethod};
@@ -161,7 +163,12 @@ impl BenchmarkCmd {
                     print!("{:?},{:?}\n", result.1, result.2);
                 });
 
-                eprintln!("Done.");
+                if let Some(analysis) = Analysis::median_slopes(&results) {
+                    println!("Median Slopes Analysis\n========\n{}", analysis);
+                }
+                if let Some(analysis) = Analysis::min_squares_iqr(&results) {
+                    println!("Min Squares Analysis\n========\n{}", analysis);
+                }
             }
             Err(error) => eprintln!("Error: {:?}", error),
         }
