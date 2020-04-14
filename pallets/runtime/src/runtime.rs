@@ -883,7 +883,7 @@ impl_runtime_apis! {
         }
     }
 
-//    #[cfg(feature = "runtime-benchmarks")]
+    #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         fn dispatch_benchmark(
             module: Vec<u8>,
@@ -894,7 +894,6 @@ impl_runtime_apis! {
             repeat: u32,
         ) -> Result<Vec<frame_benchmarking::BenchmarkResults>, sp_runtime::RuntimeString> {
             use frame_benchmarking::Benchmarking;
-            use polymesh_runtime_identity::benchmarking::*;
 
             let result = match module.as_slice() {
                 b"pallet-identity" | b"identity" => Identity::run_benchmark(
