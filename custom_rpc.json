@@ -5,18 +5,19 @@
         "params": [{
             "name": "blockHash",
             "type": "Hash",
-            "isOptional": "true"
+            "isOptional": true
         },
         {
             "name": "did",
-            "type": "H256",
-            "isOptional": "false"
+            "type": "IdentityId",
+            "isOptional": false
         },
         {
             "name": "buffer_time",
             "type": "u64",
-            "isOptional": "true"
-        }]
+            "isOptional": true
+        }],
+        "type": "Result<CddStatus>"
     },
     {
         "name": "getAssetDid",
@@ -24,13 +25,14 @@
         "params": [{
             "name": "blockHash",
             "type": "Hash",
-            "isOptional": "true"
+            "isOptional": true
         },
         {
             "name": "ticker",
-            "type": "[u8; 12]",
-            "isOptional": "false"
-        }]
+            "type": "Ticker",
+            "isOptional": false
+        }],
+        "type": "Result<AssetDidResult>"
     },
     {
         "name": "getDidRecords",
@@ -38,13 +40,14 @@
         "params": [{
             "name": "blockHash",
             "type": "Hash",
-            "isOptional": "true"
+            "isOptional": true
         },
         {
             "name": "did",
-            "type": "H256",
-            "isOptional": "false"
-        }]
+            "type": "IdentityId",
+            "isOptional": false
+        }],
+        "type": "DidRecords"
     }],
     "mips":[{
         "name": "getVotes",
@@ -52,13 +55,14 @@
         "params": [{
             "name": "blockHash",
             "type": "Hash",
-            "isOptional": "true"
+            "isOptional": true
         },
         {
             "name": "index",
             "type": "u32",
-            "isOptional": "false"
-        }]
+            "isOptional": false
+        }],
+        "type": "CappedVoteCount"
     },
     {
         "name": "proposedBy",
@@ -66,13 +70,14 @@
         "params": [{
             "name": "blockHash",
             "type": "Hash",
-            "isOptional": "true"
+            "isOptional": true
         },
         {
             "name": "address",
             "type": "AccountId",
-            "isOptional": "false"
-        }]
+            "isOptional": false
+        }],
+        "type": "Vec<u32>"
     },
     {
         "name": "votedOn",
@@ -80,13 +85,14 @@
         "params": [{
             "name": "blockHash",
             "type": "Hash",
-            "isOptional": "true"
+            "isOptional": true
         },
         {
             "name": "address",
             "type": "AccountId",
-            "isOptional": "false"
-        }]
+            "isOptional": false
+        }],
+        "type": "Vec<u32>"
     }],
     "staking": [{
         "name": "getCurve",
@@ -94,7 +100,8 @@
         "params": [{
             "name": "blockHash",
             "type": "Hash",
-            "isOptional": "true"
-        }]
+            "isOptional": true
+        }],
+        "type": "Vec<(Perbill, Perbill)>"
     }]
 }
