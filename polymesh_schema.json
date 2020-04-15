@@ -237,7 +237,6 @@
         "proposer": "AccountKey",
         "index": "u32",
         "end": "u32",
-        "proposal_hash": "Hash",
         "url": "Option<Url>",
         "description": "Option<MipDescription>",
         "cool_off_until": "u32"
@@ -258,14 +257,24 @@
             "Normal"
         ]
     },
+    "MipsState": {
+        "_enum": [
+            "Ratified",
+            "Scheduled",
+            "Rejected",
+            "Executed"
+        ]
+    },
     "MIP": {
         "index": "MipsIndex",
         "proposal":"Call"
     },
-    "PolymeshReferendumInfo": {
+    "Referendum": {
         "index": "MipsIndex",
         "priority": "MipsPriority",
-        "proposal_hash": "Hash"
+        "state": "MipsState",
+        "enactment_period": "u32",
+        "proposal": "Call"
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",

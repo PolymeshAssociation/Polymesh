@@ -1,13 +1,11 @@
-use crate::{
-    fee_details::CddHandler,
-    multisig,
-    runtime::Call,
-    test::{
-        ext_builder::PROTOCOL_OP_BASE_FEE,
-        storage::{make_account, make_account_without_cdd, TestStorage},
-        ExtBuilder,
-    },
+mod common;
+use common::{
+    ext_builder::PROTOCOL_OP_BASE_FEE,
+    storage::{make_account, make_account_without_cdd, TestStorage},
+    ExtBuilder,
 };
+
+use polymesh_runtime::{fee_details::CddHandler, multisig, runtime::Call};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
@@ -20,7 +18,6 @@ use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type MultiSig = multisig::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Balances = balances::Module<TestStorage>;
 
 #[test]
