@@ -50,6 +50,8 @@ pub mod did {
     pub const GOVERNANCE_COMMITTEE_ID: &[u8; 32] = b"system:governance_committee\0\0\0\0\0";
     /// CDD Providers DID. It is used in systematic CDD claim for CDD Providers.
     pub const CDD_PROVIDERS_ID: &[u8; 32] = b"system:customer_due_diligence\0\0\0";
+    /// Treasury DID.
+    pub const TREASURY_ID: &[u8; 32] = b"system:treasury\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 }
 
 // ERC1400 transfer status codes

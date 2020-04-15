@@ -42,7 +42,9 @@ use polymesh_primitives::{
     PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
-    constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
+    constants::did::{
+        CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, TREASURY_ID, USER,
+    },
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
         asset::AcceptTransfer,
@@ -160,7 +162,8 @@ decl_storage! {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         build(|config: &GenesisConfig<T>| {
             // Add System DID: Governance committee && CDD providers
-            [GOVERNANCE_COMMITTEE_ID, CDD_PROVIDERS_ID].iter()
+            [GOVERNANCE_COMMITTEE_ID, CDD_PROVIDERS_ID, TREASURY_ID]
+                .iter()
                 .for_each(|raw_id| {
                     let id = IdentityId::from(**raw_id);
                     let master_key = AccountKey::from(**raw_id);

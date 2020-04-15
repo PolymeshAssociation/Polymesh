@@ -607,7 +607,7 @@ impl<T: Trait> Module<T> {
     /// On sucess, It will return the applied feed.
     // Transfer some free balance from `transactor` to `dest`.
     // Is a no-op if value to be transferred is zero or the `transactor` is the same as `dest`.
-    fn transfer_core(
+    pub fn transfer_core(
         transactor: &T::AccountId,
         dest: &T::AccountId,
         value: T::Balance,

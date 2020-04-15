@@ -8,7 +8,7 @@ use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
     self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority, MipsState,
-    PolymeshVotes, Referendum, Url,
+    Referendum, Url, Voting,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
@@ -57,7 +57,8 @@ fn starting_a_proposal_works_we() {
             Box::new(proposal.clone()),
             40,
             Some(proposal_url.clone()),
-            Some(proposal_desc.clone())
+            Some(proposal_desc.clone()),
+            vec![],
         ),
         Error::<TestStorage>::InsufficientDeposit
     );
@@ -68,7 +69,8 @@ fn starting_a_proposal_works_we() {
         Box::new(proposal),
         60,
         Some(proposal_url),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![],
     ));
 
     assert_eq!(Balances::free_balance(&alice_acc), 158);
@@ -76,11 +78,12 @@ fn starting_a_proposal_works_we() {
     assert_eq!(Mips::proposed_by(alice_acc.clone()), vec![0]);
     assert_eq!(
         Mips::voting(0),
-        Some(PolymeshVotes {
-            index: 0,
-            ayes: vec![(alice_acc, 60)],
-            nays: vec![],
-        })
+        Voting {
+            ayes_count: 1,
+            ayes_stake: 60,
+            nays_count: 0,
+            nays_stake: 0,
+        }
     );
 }
 
@@ -111,22 +114,23 @@ fn closing_a_proposal_works_we() {
         Box::new(proposal.clone()),
         50,
         Some(proposal_url.clone()),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_eq!(Balances::free_balance(&alice_acc), 168);
     assert_eq!(
         Mips::voting(0),
-        Some(PolymeshVotes {
-            index,
-            ayes: vec![(alice_acc.clone(), 50)],
-            nays: vec![],
-        })
+        Voting {
+            ayes_count: 1,
+            ayes_stake: 50,
+            nays_count: 0,
+            nays_stake: 0,
+        }
     );
 
     assert_ok!(Mips::kill_proposal(root, index));
     assert_eq!(Balances::free_balance(&alice_acc), 218);
-    assert_eq!(Mips::voting(0), None);
 }
 
 #[test]
@@ -153,7 +157,8 @@ fn creating_a_referendum_works_we() {
         Box::new(proposal.clone()),
         50,
         Some(proposal_url),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_err!(
@@ -165,11 +170,12 @@ fn creating_a_referendum_works_we() {
 
     assert_eq!(
         Mips::voting(0),
-        Some(PolymeshVotes {
-            index: 0,
-            ayes: vec![(alice_acc.clone(), 50), (bob_acc.clone(), 50)],
-            nays: vec![]
-        })
+        Voting {
+            ayes_count: 2,
+            ayes_stake: 100,
+            nays_count: 0,
+            nays_stake: 0,
+        }
     );
 
     assert_eq!(Balances::free_balance(&alice_acc), 168);
@@ -180,7 +186,7 @@ fn creating_a_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::Normal,
             state: MipsState::Ratified,
             enactment_period: 0,
@@ -219,7 +225,8 @@ fn enacting_a_referendum_works_we() {
         Box::new(proposal.clone()),
         50,
         Some(proposal_url.clone()),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_err!(
@@ -232,11 +239,12 @@ fn enacting_a_referendum_works_we() {
 
     assert_eq!(
         Mips::voting(0),
-        Some(PolymeshVotes {
-            index: 0,
-            ayes: vec![(alice_acc.clone(), 50), (bob_acc.clone(), 50)],
-            nays: vec![]
-        })
+        Voting {
+            ayes_count: 2,
+            ayes_stake: 100,
+            nays_count: 0,
+            nays_stake: 0,
+        }
     );
 
     fast_forward_to(120);
@@ -244,7 +252,7 @@ fn enacting_a_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::Normal,
             state: MipsState::Ratified,
             enactment_period: 0,
@@ -261,7 +269,7 @@ fn enacting_a_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::Normal,
             state: MipsState::Scheduled,
             enactment_period: 220,
@@ -274,7 +282,7 @@ fn enacting_a_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::Normal,
             state: MipsState::Executed,
             enactment_period: 220,
@@ -318,7 +326,8 @@ fn fast_tracking_a_proposal_works_we() {
         Box::new(proposal.clone()),
         50,
         Some(proposal_url.clone()),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_err!(
@@ -341,7 +350,7 @@ fn fast_tracking_a_proposal_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::High,
             state: MipsState::Ratified,
             enactment_period: 0,
@@ -353,7 +362,7 @@ fn fast_tracking_a_proposal_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 101,
@@ -366,7 +375,7 @@ fn fast_tracking_a_proposal_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::High,
             state: MipsState::Executed,
             enactment_period: 101,
@@ -408,7 +417,7 @@ fn submit_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::High,
             state: MipsState::Ratified,
             enactment_period: 0,
@@ -426,7 +435,7 @@ fn submit_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 201,
@@ -438,7 +447,7 @@ fn submit_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::High,
             state: MipsState::Executed,
             enactment_period: 201,
@@ -501,7 +510,8 @@ fn amend_mips_details_during_cool_off_period_we() {
         Box::new(proposal),
         60,
         Some(proposal_url),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
     fast_forward_to(50);
 
@@ -521,15 +531,16 @@ fn amend_mips_details_during_cool_off_period_we() {
     );
 
     assert_eq!(
-        Mips::proposal_meta(),
-        vec![MipsMetadata {
+        Mips::proposal_meta(0),
+        Some(MipsMetadata {
             proposer: AccountKeyring::Alice.public(),
-            index: 0,
+            id: 0,
             cool_off_until: 101,
             end: 111,
             url: Some(new_url),
-            description: Some(new_desc)
-        }]
+            description: Some(new_desc),
+            beneficiaries: vec![]
+        })
     );
 
     // 3. Bound/Unbound additional POLYX.
@@ -592,7 +603,8 @@ fn cancel_mips_during_cool_off_period_we() {
         Box::new(alice_proposal),
         60,
         Some(proposal_url),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_ok!(Mips::propose(
@@ -600,7 +612,8 @@ fn cancel_mips_during_cool_off_period_we() {
         Box::new(bob_proposal.clone()),
         60,
         None,
-        None
+        None,
+        vec![]
     ));
 
     // 2. Cancel Alice's proposal during cool-off period.
@@ -616,15 +629,16 @@ fn cancel_mips_during_cool_off_period_we() {
 
     // 4. Double check current proposals
     assert_eq!(
-        Mips::proposal_meta(),
-        vec![MipsMetadata {
+        Mips::proposal_meta(1),
+        Some(MipsMetadata {
             proposer: AccountKeyring::Bob.public(),
-            index: 1,
+            id: 1,
             cool_off_until: 101,
             end: 111,
             url: None,
-            description: None
-        }]
+            description: None,
+            beneficiaries: vec![]
+        })
     );
 }
 
@@ -659,7 +673,7 @@ fn update_referendum_enactment_period_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 101,
@@ -676,7 +690,7 @@ fn update_referendum_enactment_period_we() {
     assert_eq!(
         Mips::referendums(1),
         Some(Referendum {
-            index: 1,
+            id: 1,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 150,
@@ -696,7 +710,7 @@ fn update_referendum_enactment_period_we() {
     assert_eq!(
         Mips::referendums(1),
         Some(Referendum {
-            index: 1,
+            id: 1,
             priority: MipsPriority::High,
             state: MipsState::Executed,
             enactment_period: 51,
@@ -712,7 +726,7 @@ fn update_referendum_enactment_period_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 200,
@@ -725,7 +739,7 @@ fn update_referendum_enactment_period_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             priority: MipsPriority::High,
             state: MipsState::Executed,
             enactment_period: 200,
