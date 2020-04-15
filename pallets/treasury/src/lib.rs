@@ -1,27 +1,25 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use polymesh_primitives::{ IdentityId };
-use polymesh_runtime_common::{
-    traits::{ CommonTrait, balances::Trait as BalancesTrait },
-    constants::did::TREASURY_ID,
-};
+use polymesh_primitives::IdentityId;
 use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::{
+    constants::did::TREASURY_ID,
+    traits::{balances::Trait as BalancesTrait, CommonTrait},
+};
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_module, decl_storage, decl_event, ensure, decl_error,
-    traits::{ Currency, ExistenceRequirement, },
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
+    ensure,
+    traits::{Currency, ExistenceRequirement},
 };
-use frame_system::{self as system, ensure_root };
+use frame_system::{self as system, ensure_root};
 use sp_runtime::traits::Hash;
 use sp_std::prelude::*;
 
-pub trait Trait: frame_system::Trait +
-    CommonTrait +
-    BalancesTrait
-{
+pub trait Trait: frame_system::Trait + CommonTrait + BalancesTrait {
     // The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -54,7 +52,6 @@ decl_event!(
         NoneE(Balance),
     }
 );
-
 
 decl_error! {
     /// Error for the treasury module.
@@ -116,6 +113,6 @@ impl<T: Trait> Module<T> {
     }
 
     fn make_treasury_id() -> IdentityId {
-        IdentityId::from( *TREASURY_ID)
+        IdentityId::from(*TREASURY_ID)
     }
 }
