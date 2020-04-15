@@ -82,6 +82,30 @@ impl CddAndFeeDetails<Call> for CddHandler {
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
+            // Call to set fee payer
+            Call::Balances(balances::Call::change_charge_did_flag(charge_did)) => match caller {
+                Signatory::AccountKey(key) => {
+                    if let Some(did) = Identity::get_identity(key) {
+                        if Identity::has_valid_cdd(did) {
+                            Context::set_current_identity::<Identity>(Some(did));
+                            if *charge_did {
+                                return Ok(Some(Signatory::from(did)));
+                            } else {
+                                return Ok(Some(*caller));
+                            }
+                        }
+                        return Err(InvalidTransaction::Custom(
+                            TransactionError::CddRequired as u8,
+                        )
+                        .into());
+                    }
+                    // Return an error if any of the above checks fail
+                    Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
+                }
+                // A did was passed as the caller. The did should be charged the fee.
+                // This will never happen during an external call.
+                Signatory::Identity(did) => check_cdd(did),
+            },
             // All other calls
             _ => match caller {
                 // An external account was passed as the caller. This is the normal use case.
