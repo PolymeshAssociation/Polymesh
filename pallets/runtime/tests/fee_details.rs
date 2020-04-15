@@ -150,5 +150,14 @@ fn cdd_checks() {
                 ),
                 Ok(Some(charlie_key_signatory))
             );
+
+            // tx to set did as fee payer should charge fee to did
+            assert_eq!(
+                CddHandler::get_valid_payer(
+                    &Call::Balances(balances::Call::change_charge_did_flag(true)),
+                    &charlie_key_signatory
+                ),
+                Ok(Some(charlie_did_signatory))
+            );
         });
 }
