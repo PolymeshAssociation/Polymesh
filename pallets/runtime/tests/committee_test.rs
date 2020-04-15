@@ -1,12 +1,15 @@
-use crate::test::{
-    storage::{get_identity_id, make_account, Call, EventTest, TestStorage},
+mod common;
+use common::{
+    storage::{
+        get_identity_id, make_account, register_keyring_account, Call, EventTest, TestStorage,
+    },
     ExtBuilder,
 };
 use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
 use polymesh_runtime_group::{self as group};
 use polymesh_runtime_identity as identity;
 
-use frame_support::{assert_err, assert_noop, assert_ok, Hashable};
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError, Hashable};
 use frame_system::{EventRecord, Phase};
 use test_client::AccountKeyring;
 
@@ -64,7 +67,7 @@ fn propose_works_we() {
         alice_signer.clone(),
         Box::new(proposal.clone())
     ));
-    let blockNumber = System::block_number();
+    let block_number = System::block_number();
     assert_eq!(Committee::proposals(), vec![hash]);
     assert_eq!(Committee::proposal_of(&hash), Some(proposal));
     assert_eq!(
@@ -73,7 +76,7 @@ fn propose_works_we() {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![],
-            end: blockNumber
+            end: block_number
         })
     );
 }
@@ -218,14 +221,14 @@ fn motions_revoting_works_we() {
         alice_signer.clone(),
         Box::new(proposal.clone())
     ));
-    let blockNumber = System::block_number();
+    let block_number = System::block_number();
     assert_eq!(
         Committee::voting(&hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![],
-            end: blockNumber
+            end: block_number
         })
     );
     assert_noop!(
@@ -238,14 +241,14 @@ fn motions_revoting_works_we() {
         0,
         false
     ));
-    let blockNumber = System::block_number();
+    let block_number = System::block_number();
     assert_eq!(
         Committee::voting(&hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![],
             nays: vec![alice_did],
-            end: blockNumber
+            end: block_number
         })
     );
     assert_noop!(
@@ -278,25 +281,25 @@ fn voting_works_we() {
         charlie_signer.clone(),
         Box::new(proposal.clone())
     ));
-    let blockNumber = System::block_number();
+    let block_number = System::block_number();
     assert_eq!(
         Committee::voting(&hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![charlie_did],
             nays: vec![],
-            end: blockNumber
+            end: block_number
         })
     );
     assert_ok!(Committee::vote(bob_signer.clone(), hash.clone(), 0, false));
-    let blockNumber = System::block_number();
+    let block_number = System::block_number();
     assert_eq!(
         Committee::voting(&hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![charlie_did],
             nays: vec![bob_did],
-            end: blockNumber
+            end: block_number
         })
     );
 }
@@ -362,14 +365,14 @@ fn rage_quit_we() {
         0,
         false
     ));
-    let blockNumber = System::block_number();
+    let block_number = System::block_number();
     assert_eq!(
         Committee::voting(&proposal_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did, bob_did],
             nays: vec![charlie_did],
-            end: blockNumber
+            end: block_number
         })
     );
 
@@ -377,14 +380,14 @@ fn rage_quit_we() {
     assert_eq!(Committee::is_member(&bob_did), true);
     assert_ok!(CommitteeGroup::abdicate_membership(bob_signer.clone()));
     assert_eq!(Committee::is_member(&bob_did), false);
-    let blockNumber = System::block_number();
+    let block_number = System::block_number();
     assert_eq!(
         Committee::voting(&proposal_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![charlie_did],
-            end: blockNumber
+            end: block_number
         })
     );
 
@@ -394,14 +397,14 @@ fn rage_quit_we() {
     assert_ok!(CommitteeGroup::abdicate_membership(charlie_signer.clone()));
     assert_eq!(Committee::is_member(&charlie_did), false);
     // TODO: Only one member, voting should be approved.
-    let blockNumber = System::block_number();
+    let block_number = System::block_number();
     assert_eq!(
         Committee::voting(&proposal_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![],
-            end: blockNumber
+            end: block_number
         })
     );
 
@@ -419,4 +422,45 @@ fn rage_quit_we() {
         group::Error::<TestStorage, group::Instance1>::LastMemberCannotQuit
     );
     assert_eq!(Committee::is_member(&alice_did), true);
+}
+
+#[test]
+fn release_coordinator() {
+    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    ExtBuilder::default()
+        .governance_committee(committee)
+        .governance_committee_vote_threshold((2, 3))
+        .build()
+        .execute_with(release_coordinator_we);
+}
+
+fn release_coordinator_we() {
+    let root = Origin::system(frame_system::RawOrigin::Root);
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let alice_id = get_identity_id(AccountKeyring::Alice).expect("Alice is part of the committee");
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let bob_id = get_identity_id(AccountKeyring::Bob).expect("Bob is part of the committee");
+    let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
+    assert_eq!(Committee::release_coordinator(), None);
+
+    assert_err!(
+        Committee::set_release_coordinator(alice.clone(), bob_id),
+        DispatchError::BadOrigin
+    );
+
+    assert_err!(
+        Committee::set_release_coordinator(root.clone(), charlie_id),
+        committee::Error::<TestStorage, committee::Instance1>::MemberNotFound
+    );
+
+    assert_ok!(Committee::set_release_coordinator(root.clone(), bob_id));
+    assert_eq!(Committee::release_coordinator(), Some(bob_id));
+
+    // Bob abdicates
+    assert_ok!(CommitteeGroup::abdicate_membership(bob));
+    assert_eq!(Committee::release_coordinator(), None);
+
+    assert_ok!(Committee::set_release_coordinator(root.clone(), alice_id));
+    assert_eq!(Committee::release_coordinator(), Some(alice_id));
 }

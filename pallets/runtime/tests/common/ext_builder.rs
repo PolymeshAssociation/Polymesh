@@ -1,11 +1,9 @@
-use crate::{
-    asset::{self, TickerRegistrationConfig},
-    test::TestStorage,
-};
+use crate::TestStorage;
 
 use pallet_committee as committee;
 use pallet_mips as mips;
 use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
+use polymesh_runtime::asset::{self, TickerRegistrationConfig};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
 use polymesh_runtime_group as group;
@@ -327,6 +325,7 @@ impl ExtBuilder {
             quorum_threshold: 70,
             proposal_duration: 10,
             proposal_cool_off_period: 100,
+            default_enactment_period: 100,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
