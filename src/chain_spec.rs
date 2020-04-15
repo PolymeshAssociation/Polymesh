@@ -16,7 +16,7 @@ use polymesh_runtime::{
 };
 use polymesh_runtime_common::constants::{
     currency::{MILLICENTS, POLY},
-    time::HOURS,
+    time::{DAYS, HOURS},
 };
 use sc_service::Properties;
 use serde_json::json;
@@ -353,6 +353,7 @@ fn testnet_genesis(
             quorum_threshold: 100_000,
             proposal_duration: 50,
             proposal_cool_off_period: HOURS * 6,
+            default_enactment_period: DAYS * 7,
         }),
         pallet_im_online: Some(ImOnlineConfig {
             slashing_params: OfflineSlashingParams {

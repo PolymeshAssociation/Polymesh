@@ -14,18 +14,18 @@ pub use pallet_staking::{Commission, StakerStatus};
 
 pub use pallet_im_online::OfflineSlashingParams;
 
-mod bridge;
-mod contracts_wrapper;
-mod dividend;
-mod exemption;
-mod general_tm;
-mod multisig;
-mod percentage_tm;
-mod simple_token;
+pub mod bridge;
+pub mod contracts_wrapper;
+pub mod dividend;
+pub mod exemption;
+pub mod general_tm;
+pub mod multisig;
+pub mod percentage_tm;
+pub mod simple_token;
 
 pub mod runtime;
 mod sto_capped;
-mod voting;
+pub mod voting;
 pub use runtime::{
     api, Asset, Authorship, AvailableBlockRatio, Balances, Bridge, Contracts, MaximumBlockWeight,
     NegativeImbalance, ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, TargetBlockFullness,
@@ -67,6 +67,3 @@ pub mod fee_details;
 pub use fee_details::CddHandler;
 
 pub use sp_runtime::{Perbill, Permill};
-
-#[cfg(test)]
-pub mod test;

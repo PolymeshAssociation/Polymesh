@@ -1,4 +1,5 @@
-use crate::test::{
+mod common;
+use common::{
     storage::{get_identity_id, make_account, register_keyring_account, TestStorage},
     ExtBuilder,
 };
