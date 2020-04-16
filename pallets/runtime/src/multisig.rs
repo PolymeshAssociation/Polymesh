@@ -127,6 +127,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// If this is 1 of m multisig, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_identity(
             origin,
             multisig: T::AccountId,
@@ -145,6 +146,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// If this is 1 of m multisig, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_key(
             origin,
             multisig: T::AccountId,
@@ -161,6 +163,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// If this is 1 of m multisig, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn create_proposal_as_identity(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -177,6 +180,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// If this is 1 of m multisig, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn create_proposal_as_key(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
@@ -190,6 +194,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
         /// If quorum is reached, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -204,6 +209,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
         /// If quorum is reached, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
@@ -214,6 +220,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `proposal_id` - Auth id of the authorization.
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -227,6 +234,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `proposal_id` - Auth id of the authorization.
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
@@ -237,6 +245,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `signer` - Signatory to add.
+        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn add_multisig_signer(origin, signer: Signatory) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -249,6 +258,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `signer` - Signatory to remove.
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn remove_multisig_signer(origin, signer: Signatory) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -269,6 +279,19 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - Address of the multi sig
         /// * `signers` - Signatories to add.
+        ///
+        /// # Weight
+        /// `100_000 + 300_000 * signers.len()`
+        #[weight = FunctionOf(
+            |(_, signers): (
+                &T::AccountId,
+                &Vec<Signatory>,
+            )| {
+                100_000 + 300_000 * u32::try_from(signers.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn add_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
@@ -291,6 +314,19 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - Address of the multi sig
         /// * `signers` - Signatories to remove.
+        ///
+        /// # Weight
+        /// `150_000 + 150_000 * signers.len()`
+        #[weight = FunctionOf(
+            |(_, signers): (
+                &T::AccountId,
+                &Vec<Signatory>>,
+            )| {
+                150_000 + 150_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn remove_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
@@ -324,6 +360,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `sigs_required` - New number of sigs required.
+        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn change_sigs_required(origin, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -343,6 +380,19 @@ decl_module! {
         /// # Arguments
         /// * signers - Vector of signers for a given multisig
         /// * sigs_required - Number of signature required for a given multisig
+        ///
+        /// # Weight
+        /// `200_000 + 300_000 * signers.len()`
+        #[weight = FunctionOf(
+            |(signers, _): (
+                &Vec<Signatory>>,
+                &u64
+            )| {
+                200_000 + 300_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn change_all_signers_and_sigs_required(origin, signers: Vec<Signatory>, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
@@ -384,6 +434,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `multi_sig` - multi sig address
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn make_multisig_signer(origin, multi_sig: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multi_sig), Error::<T>::NoSuchMultisig);
@@ -403,6 +454,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `multi_sig` - multi sig address
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn make_multisig_master(origin, multi_sig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multi_sig), Error::<T>::NoSuchMultisig);
