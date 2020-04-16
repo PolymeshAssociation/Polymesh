@@ -44,9 +44,7 @@ use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
