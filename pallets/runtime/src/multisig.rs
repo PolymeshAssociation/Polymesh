@@ -320,7 +320,7 @@ decl_module! {
         #[weight = FunctionOf(
             |(_, signers): (
                 &T::AccountId,
-                &Vec<Signatory>>,
+                &Vec<Signatory>,
             )| {
                 150_000 + 150_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
             },
