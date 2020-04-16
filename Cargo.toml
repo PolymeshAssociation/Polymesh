@@ -55,7 +55,10 @@ hex-literal = "0.2.1"
 jsonrpc-core = "14.0.5"
 serde_json = '1.0.48'
 structopt = "0.3.12"
+linregress = { version = "0.1", optional = true }
 
+codec = { version = "1.2.0", package = "parity-scale-codec" }
+frame-benchmarking = { package = "frame-benchmarking", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-io = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -85,3 +88,10 @@ contracts-rpc = { package = "pallet-contracts-rpc", git = "https://github.com/pa
 
 [build-dependencies]
 vergen = "3.1.0"
+
+[features]
+default = []
+runtime-benchmarks = [
+    "linregress",
+    "polymesh-runtime/runtime-benchmarks",
+]
