@@ -1,19 +1,18 @@
-use crate::{
-    multisig,
-    test::{
-        ext_builder::PROTOCOL_OP_BASE_FEE,
-        storage::{make_account_without_cdd, register_keyring_account, Call, TestStorage},
-        ExtBuilder,
-    },
+mod common;
+use common::{
+    ext_builder::PROTOCOL_OP_BASE_FEE,
+    storage::{register_keyring_account, Call, TestStorage},
+    ExtBuilder,
 };
 
 use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_runtime::multisig;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, StorageDoubleMap, StorageMap};
+use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 

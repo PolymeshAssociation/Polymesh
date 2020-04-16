@@ -1,24 +1,16 @@
-use crate::{
-    simple_token::{self, SimpleTokenRecord},
-    test::{
-        storage::{make_account, TestStorage},
-        ExtBuilder,
-    },
+mod common;
+use common::{
+    storage::{make_account, TestStorage},
+    ExtBuilder,
 };
-use chrono::{prelude::*, Duration};
-use core::result::Result as StdResult;
-use frame_support::traits::Currency;
 use frame_support::{assert_err, assert_ok};
-use frame_system::ensure_signed;
-use lazy_static::lazy_static;
-use polymesh_primitives::Ticker;
-use polymesh_runtime_common::{constants::currency::MAX_SUPPLY, traits::CommonTrait};
-use std::{
-    collections::HashMap,
-    convert::TryFrom,
-    sync::{Arc, Mutex},
-};
 use test_client::{self, AccountKeyring};
+
+use polymesh_primitives::Ticker;
+use polymesh_runtime::simple_token::{self, SimpleTokenRecord};
+use polymesh_runtime_common::constants::currency::MAX_SUPPLY;
+
+use std::convert::TryFrom;
 
 type SimpleToken = simple_token::Module<TestStorage>;
 type Error = simple_token::Error<TestStorage>;
@@ -118,7 +110,7 @@ fn approve_transfer_works() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
         let (spender_signed, spender_did) = make_account(AccountKeyring::Bob.public()).unwrap();
-        let (agent_signed, _) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let (_agent_signed, _) = make_account(AccountKeyring::Dave.public()).unwrap();
 
         let ticker = Ticker::try_from(&[0x01][..]).unwrap();
         let total_supply = 1_000_000;
