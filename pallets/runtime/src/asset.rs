@@ -410,7 +410,7 @@ decl_module! {
                 &Vec<(IdentifierType, AssetIdentifier)>,
                 &Option<FundingRoundName>
             )| {
-                400_000 + 20_000 * u32::try_from(args.5.len()).unwrap_or_default()
+                400_000 + 20_000 * u32::try_from(identifiers.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
