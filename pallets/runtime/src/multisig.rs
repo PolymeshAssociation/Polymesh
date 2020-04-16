@@ -322,7 +322,7 @@ decl_module! {
                 &T::AccountId,
                 &Vec<Signatory>,
             )| {
-                150_000 + 150_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
+                150_000 + 150_000 * u32::try_from(signers.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
@@ -388,7 +388,7 @@ decl_module! {
                 &Vec<Signatory>,
                 &u64
             )| {
-                200_000 + 300_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
+                200_000 + 300_000 * u32::try_from(signers.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
