@@ -385,7 +385,7 @@ decl_module! {
         /// `200_000 + 300_000 * signers.len()`
         #[weight = FunctionOf(
             |(signers, _): (
-                &Vec<Signatory>>,
+                &Vec<Signatory>,
                 &u64
             )| {
                 200_000 + 300_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
