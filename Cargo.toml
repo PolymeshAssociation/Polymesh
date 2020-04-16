@@ -35,6 +35,9 @@ members = [
     "pallets/asset",
     "pallets/asset/rpc",
     "pallets/asset/rpc/runtime-api",
+    "pallets/general-tm",
+    "pallets/statistics",
+    "pallets/percentage-tm",
 ]
 
 [dependencies]

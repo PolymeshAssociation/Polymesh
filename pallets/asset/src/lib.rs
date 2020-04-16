@@ -71,6 +71,8 @@ use polymesh_runtime_common::{
     CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
+use polymesh_runtime_statistics as statistics;
+use polymesh_runtime_general_tm as general_tm;
 
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
@@ -93,7 +95,6 @@ use sp_std::{convert::TryFrom, prelude::*};
 pub trait Trait:
     frame_system::Trait
     + general_tm::Trait
-    + percentage_tm::Trait
     + BalancesTrait
     + IdentityTrait
     + pallet_session::Trait

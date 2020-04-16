@@ -10,6 +10,8 @@ polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../comm
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 polymesh-runtime-asset-rpc-runtime-api = { package = "polymesh-runtime-asset-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
+polymesh-runtime-statistics = { package = "polymesh-runtime-statistics", path = "../statistics", default-features = false  }
+polymesh-runtime-general-tm = { package = "polymesh-runtime-general-tm", path = "../general-tm", default-features = false  }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }

@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.1.2" }
-serde = { version = "1.0.104", features = ["derive"] }
+serde = { version = "1.0.104", optional = true, features = ["derive"] }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 jsonrpc-core = "14.0.5"
 jsonrpc-core-client = "14.0.5"
@@ -24,3 +24,8 @@ polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-support = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
 
+[features]
+default = ["std"]
+std = [
+   
+]
