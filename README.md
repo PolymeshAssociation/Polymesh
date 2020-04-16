@@ -30,13 +30,13 @@ Build Wasm and native code:
 ```bash
 cargo build --release
 ```
-# Debug 
+# Debug
 
 ## Environment
 
 Install GDB for your distribution.
 
-## Build 
+## Build
 
 Binary should be built in *debug mode*, using `cargo build` without `--release` parameter:
 ```
@@ -94,7 +94,7 @@ You can start a development chain with:
 ```
 
 
-Detailed logs may be shown by running the node with the following environment variables set:  
+Detailed logs may be shown by running the node with the following environment variables set:
 `RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node`.
 
 To access the Polymesh Chain using the [Polkadot JS Apps Interface](https://polkadot.js.org/apps/#/explorer) do the following:
@@ -117,7 +117,7 @@ This uses pm2 to run a local three node network to demonstrate simple consensus.
 
 # Unit Tests
 
-Unit tests are packaged with the Rust code. To run these, you can execute:  
+Unit tests are packaged with the Rust code. To run these, you can execute:
 
 ```bash
 cargo test --package polymesh-runtime
@@ -138,7 +138,7 @@ cargo test --package pallet-transaction-payment
 
 # Initialise
 
-You can seed the network with some identities, claims, signing keys and assets by running the functional test.  
+You can seed the network with some identities, claims, signing keys and assets by running the functional test.
 
 ```bash
 cd scripts/cli
@@ -146,6 +146,19 @@ node run test
 ```
 
 See [README](https://github.com/PolymathNetwork/Polymesh/tree/master/scripts/cli) for details.
+
+# Benchmark
+
+Polymesh runtime benchmarks can be run with a command that specifies the pallet and the name of the
+extrinsic to be benchmarked, for example:
+
+```bash
+cargo run --release --features runtime-benchmarks -- \
+    benchmark --pallet asset --extrinsic register_asset
+```
+
+Note that the CLI binary should be built in release mode and that the feature flag
+`runtime-benchmarks` should be set to enable the CLI option `benchmark`.
 
 # License
 
@@ -155,6 +168,6 @@ See [README](https://github.com/PolymathNetwork/Polymesh/tree/master/scripts/cli
 
 Polymesh is built on [Substrate](https://www.parity.io/what-is-substrate/).
 
-# Links    
+# Links
 
 - [Polymath Website](https://polymath.network)

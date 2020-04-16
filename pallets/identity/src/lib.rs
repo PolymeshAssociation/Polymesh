@@ -36,6 +36,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
     ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,

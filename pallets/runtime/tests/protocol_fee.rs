@@ -1,9 +1,10 @@
-use crate::test::{
+mod common;
+use codec::Encode;
+use common::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{register_keyring_account_with_balance, TestStorage},
     ExtBuilder,
 };
-use codec::Encode;
 use frame_support::{assert_err, assert_ok};
 use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_runtime_common::protocol_fee::ProtocolOp;
