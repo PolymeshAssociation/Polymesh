@@ -47,7 +47,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    weights::GetDispatchInfo,
+    weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
     StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
@@ -105,6 +105,7 @@ decl_module! {
         /// # Arguments
         /// * `signers` - Signers of the multisig (They need to accept authorization before they are actually added).
         /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn create_multisig(origin, signers: Vec<Signatory>, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(!signers.is_empty(), Error::<T>::NoSigners);

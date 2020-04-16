@@ -359,7 +359,7 @@ decl_module! {
         /// `50_000 + 200_000 * bridge_txs.len()`
         #[weight = FunctionOf(
             |(bridge_txs,): (
-                &Vec<BridgeTx<T::AccountId, T::Balance>>
+                &Vec<BridgeTx<T::AccountId, T::Balance>>,
             )| {
                 50_000 + 200_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
             },
@@ -389,7 +389,7 @@ decl_module! {
         /// `50_000 + 500_000 * bridge_txs.len()`
         #[weight = FunctionOf(
             |(bridge_txs,): (
-                &Vec<BridgeTx<T::AccountId, T::Balance>>
+                &Vec<BridgeTx<T::AccountId, T::Balance>>,
             )| {
                 50_000 + 500_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
             },
