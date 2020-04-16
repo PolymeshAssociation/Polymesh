@@ -1,6 +1,5 @@
-mod common;
 use codec::Encode;
-use common::{
+use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{register_keyring_account_with_balance, TestStorage},
     ExtBuilder,

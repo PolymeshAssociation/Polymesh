@@ -1,6 +1,5 @@
-mod common;
 use chrono::{prelude::*, Duration};
-use common::{
+use super::{
     storage::{make_account, TestStorage},
     ExtBuilder,
 };

@@ -1,5 +1,4 @@
-mod common;
-use common::{
+use super::{
     storage::{make_account, register_keyring_account, TestStorage},
     ExtBuilder,
 };

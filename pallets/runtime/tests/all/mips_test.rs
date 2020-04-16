@@ -1,5 +1,4 @@
-mod common;
-use common::{
+use super::{
     storage::{get_identity_id, make_account, make_account_with_balance, Call, TestStorage},
     ExtBuilder,
 };
