@@ -37,7 +37,9 @@ use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signatory,
 };
 use polymesh_runtime_common::{
-    identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, Context,
+    identity::{LinkedKeyInfo, Trait as IdentityTrait},
+    multisig::AddSignerMultiSig,
+    Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -530,6 +532,10 @@ impl<T: Trait> Module<T> {
         }
         <MultiSigSignsRequired<T>>::insert(&account_id, &sigs_required);
         <MultiSigCreator<T>>::insert(&account_id, &signer_did);
+        <identity::KeyToIdentityIds>::insert(
+            AccountKey::try_from(account_id.encode())?,
+            LinkedKeyInfo::Unique(signer_did),
+        );
         Ok(account_id)
     }
 
