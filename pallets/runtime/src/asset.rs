@@ -324,7 +324,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `ticker` ticker to register
-        #[weight = SimpleDispatchInfo::FixedNormal(30_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -360,7 +360,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `auth_id` Authorization ID of ticker transfer authorization
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -375,7 +375,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
         /// * `auth_id` Authorization ID of the token ownership transfer authorization
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_token_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -399,9 +399,9 @@ decl_module! {
         /// * `funding_round` - name of the funding round
         ///
         /// # Weight
-        /// `40_000 + 1_000 * identifiers.len()`
+        /// `400_000 + 20_000 * identifiers.len()`
         #[weight = FunctionOf(
-            |args: (
+            |(_, _, _, _, _, identifiers, _): (
                 &TokenName,
                 &Ticker,
                 &T::Balance,
@@ -410,7 +410,7 @@ decl_module! {
                 &Vec<(IdentifierType, AssetIdentifier)>,
                 &Option<FundingRoundName>
             )| {
-                40_000 + 1_000 * u32::try_from(args.5.len()).unwrap_or_default()
+                400_000 + 20_000 * u32::try_from(args.5.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
@@ -508,7 +508,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - the signing key of the sender
         /// * `ticker` - the ticker of the token
-        #[weight = SimpleDispatchInfo::FixedNormal(15_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
@@ -530,7 +530,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - the signing key of the sender
         /// * `ticker` - the ticker of the frozen token
-        #[weight = SimpleDispatchInfo::FixedNormal(15_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
@@ -553,7 +553,7 @@ decl_module! {
         /// * `origin` - the signing key of the sender
         /// * `ticker` - the ticker of the token
         /// * `name` - the new name of the token
-        #[weight = SimpleDispatchInfo::FixedNormal(15_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn rename_token(origin, ticker: Ticker, name: TokenName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
@@ -576,7 +576,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `to_did` DID of the `to` token holder, to whom token needs to transferred
         /// * `value` Value that needs to transferred
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -609,7 +609,7 @@ decl_module! {
         /// * `value` Amount of tokens.
         /// * `data` Some off chain data to validate the restriction.
         /// * `operator_data` It is a string which describes the reason of this control transfer call.
-        #[weight = SimpleDispatchInfo::FixedNormal(45_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn controller_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -636,7 +636,7 @@ decl_module! {
         /// * `_origin` Signing key of the token owner (i.e sender)
         /// * `spender_did` DID of the spender
         /// * `value` Amount of the tokens approved
-        #[weight = SimpleDispatchInfo::FixedNormal(20_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -666,7 +666,7 @@ decl_module! {
         /// * `from_did` DID from whom token is being transferred
         /// * `to_did` DID to whom token is being transferred
         /// * `value` Amount of the token for transfer
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -707,7 +707,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Signing key of the token owner. (Only token owner can call this function).
         /// * `_ticker` Ticker of the token
-        #[weight = SimpleDispatchInfo::FixedNormal(30_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -730,7 +730,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `to_did` DID of the token holder to whom new tokens get issued.
         /// * `value` Amount of tokens that get issued
-        #[weight = SimpleDispatchInfo::FixedNormal(60_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(700_000)]
         pub fn issue(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -756,7 +756,7 @@ decl_module! {
         /// * `values` Array of the Amount of tokens that get issued
         ///
         /// # Weight
-        /// `20_000 + 40_000 * idvestor_dids.len().max(values.len())`
+        /// `300_000 + 400_000 * idvestor_dids.len().max(values.len())`
         #[weight = FunctionOf(
             |(_, investor_dids, values): (
                 &Ticker,
@@ -766,7 +766,7 @@ decl_module! {
                 let n = u32::try_from(investor_dids.len())
                     .unwrap_or_default()
                     .max(u32::try_from(values.len()).unwrap_or_default());
-                20_000 + 40_000 * n
+                300_000 + 400_000 * n
             },
             DispatchClass::Normal,
             true
@@ -838,7 +838,7 @@ decl_module! {
             for i in 0..investor_dids.len() {
                 Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
                 <BalanceOf<T>>::insert(ticker, investor_dids[i], updated_balances[i]);
-                <statistics::Module<T>>::update_transfer_stats( &ticker, None, Some(updated_balances[i]), values[i]);
+                <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(updated_balances[i]), values[i]);
                 Self::deposit_event(RawEvent::Issued(
                     ticker,
                     investor_dids[i],
@@ -859,7 +859,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `value` Amount of the tokens needs to redeem
         /// * `_data` An off chain data blob used to validate the redeem functionality.
-        #[weight = SimpleDispatchInfo::FixedNormal(40_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -912,7 +912,7 @@ decl_module! {
         /// * `from_did` DID from whom balance get reduced
         /// * `value` Amount of the tokens needs to redeem
         /// * `_data` An off chain data blob used to validate the redeem functionality.
-        #[weight = SimpleDispatchInfo::FixedNormal(40_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn redeem_from(origin, ticker: Ticker, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -976,7 +976,7 @@ decl_module! {
         /// * `value` Amount of the tokens needs to redeem
         /// * `data` An off chain data blob used to validate the redeem functionality.
         /// * `operator_data` Any data blob that defines the reason behind the force redeem.
-        #[weight = SimpleDispatchInfo::FixedNormal(35_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn controller_redeem(origin, ticker: Ticker, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -1016,7 +1016,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Signing key of the token owner.
         /// * `ticker` Ticker of the token
-        #[weight = SimpleDispatchInfo::FixedNormal(15_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -1044,7 +1044,7 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        #[weight = SimpleDispatchInfo::FixedNormal(20_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn can_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) {
             let sender = ensure_signed(origin)?;
             let mut current_balance: T::Balance = Self::balance(&ticker, &from_did);
@@ -1082,7 +1082,7 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        #[weight = SimpleDispatchInfo::FixedNormal(60_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(450_000)]
         pub fn transfer_with_data(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
 
             let sender_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
@@ -1105,7 +1105,7 @@ decl_module! {
         /// * `to_did` DID to whom tokens will be transferred
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
-        #[weight = SimpleDispatchInfo::FixedNormal(55_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(550_000)]
         pub fn transfer_from_with_data(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
             Self::transfer_from(origin, ticker, from_did,  to_did, value)?;
 
@@ -1131,10 +1131,10 @@ decl_module! {
         /// * `documents` Documents to be attached to `ticker`
         ///
         /// # Weight
-        /// `15_000 + 2_000 * documents.len()`
+        /// `200_000 + 60_000 * documents.len()`
         #[weight = FunctionOf(
             |(_, documents): (&Ticker, &Vec<Document>)| {
-                15_000 + 2_000 * u32::try_from(documents.len()).unwrap_or_default()
+                200_000 + 60_000 * u32::try_from(documents.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
@@ -1170,10 +1170,10 @@ decl_module! {
         /// * `doc_ids` Documents to be removed from `ticker`
         ///
         /// # Weight
-        /// `15_000 + 2_000 * do_ids.len()`
+        /// `200_000 + 60_000 * do_ids.len()`
         #[weight = FunctionOf(
             |(_, doc_ids): (&Ticker, &Vec<u64>)| {
-                15_000 + 2_000 * u32::try_from(doc_ids.len()).unwrap_or_default()
+                200_000 + 60_000 * u32::try_from(doc_ids.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
@@ -1204,10 +1204,10 @@ decl_module! {
         /// * `docs` Vector of tuples (Document to be updated, Contents of new document)
         ///
         /// # Weight
-        /// `15_000 + 2_000 * docs.len()`
+        /// `200_000 + 60_000 * docs.len()`
         #[weight = FunctionOf(
             |(_, docs): (&Ticker, &Vec<(u64, Document)>)| {
-                15_000 + 2_000 * u32::try_from(docs.len()).unwrap_or_default()
+                200_000 + 60_000 * u32::try_from(docs.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
@@ -1243,7 +1243,7 @@ decl_module! {
         /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance)
         /// * `custodian_did` DID of the custodian (i.e whom allowance provided)
         /// * `value` Allowance amount
-        #[weight = SimpleDispatchInfo::FixedNormal(30_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn increase_custody_allowance(origin, ticker: Ticker, holder_did: IdentityId, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
@@ -1269,7 +1269,7 @@ decl_module! {
         /// * `value` Allowance amount
         /// * `nonce` A u16 number which avoid the replay attack
         /// * `signature` Signature provided by the holder_did
-        #[weight = SimpleDispatchInfo::FixedNormal(40_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(450_000)]
         pub fn increase_custody_allowance_of(
             origin,
             ticker: Ticker,
@@ -1324,7 +1324,7 @@ decl_module! {
         /// * `custodian_did` DID of the custodian (i.e who has the valid approved allowance)
         /// * `receiver_did` DID of the receiver
         /// * `value` Amount of tokens need to transfer
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn transfer_by_custodian(
             origin,
             ticker: Ticker,
@@ -1369,7 +1369,7 @@ decl_module! {
         /// * `origin` - the signing key of the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
-        #[weight = SimpleDispatchInfo::FixedNormal(15_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) ->
             DispatchResult
         {
@@ -1396,10 +1396,10 @@ decl_module! {
         ///    of `IdentifierType` and `AssetIdentifier` value.
         ///
         /// # Weight
-        /// `15_000 + 2_000 * identifiers.len()`
+        /// `150_000 + 20_000 * identifiers.len()`
         #[weight = FunctionOf(
             |(_, identifiers): (&Ticker, &Vec<(IdentifierType, AssetIdentifier)>)| {
-                15_000 + 2_000 * u32::try_from(identifiers.len()).unwrap_or_default()
+                150_000 + 20_000 * u32::try_from(identifiers.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
@@ -1430,7 +1430,7 @@ decl_module! {
         /// * `origin` - Signatory who owns to ticker/asset
         /// * `ticker` - ticker for whom extension get added
         /// * `extension_details` - Details of the smart extension
-        #[weight = SimpleDispatchInfo::FixedNormal(25_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -1454,7 +1454,7 @@ decl_module! {
         /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be archived
-        #[weight = SimpleDispatchInfo::FixedNormal(25_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -1478,7 +1478,7 @@ decl_module! {
         /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be un-archived
-        #[weight = SimpleDispatchInfo::FixedNormal(25_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
