@@ -83,16 +83,16 @@ fn add_claims_batch() {
         let scope = Scope::from(0);
 
         // Check that CDD Issuer now has an did.
-        let cdd_claim_id = get_identity_id(AccountKeyring::Eve).unwrap();
+        let cdd_claim_did = get_identity_id(AccountKeyring::Eve).unwrap();
 
         let claim_records = vec![
             BatchAddClaimItem {
-                target: claim_issuer_did,
+                target: cdd_claim_did,
                 claim: Claim::CustomerDueDiligence,
                 expiry: None,
             },
             BatchAddClaimItem {
-                target: claim_issuer_did,
+                target: cdd_claim_did,
                 claim: Claim::Affiliate(scope),
                 expiry: None,
             },
@@ -103,16 +103,16 @@ fn add_claims_batch() {
         ));
 
         let claim1 = Identity::fetch_claim(
-            claim_issuer_did,
+            cdd_claim_did,
             ClaimType::CustomerDueDiligence,
-            cdd_claim_id,
+            cdd_claim_did,
             Some(scope),
         )
         .unwrap();
         let claim2 = Identity::fetch_claim(
-            claim_issuer_did,
+            cdd_claim_did,
             ClaimType::Affiliate,
-            cdd_claim_id,
+            cdd_claim_did,
             Some(scope),
         )
         .unwrap();
