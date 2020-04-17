@@ -589,25 +589,26 @@ impl statistics::Trait for Runtime {}
 /// A runtime transaction submitter for the cdd_offchain_worker
 type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
 
-parameter_types! {
-    pub const CoolingInterval: BlockNumber = 3;
-    pub const BufferInterval: BlockNumber = 5;
-}
+// Comment it in the favour of Testnet v1 release
+// parameter_types! {
+//     pub const CoolingInterval: BlockNumber = 3;
+//     pub const BufferInterval: BlockNumber = 5;
+// }
 
-impl pallet_cdd_offchain_worker::Trait for Runtime {
-    /// SignerId
-    type SignerId = CddOffchainWorkerId;
-    /// The overarching event type.
-    type Event = Event;
-    /// The overarching dispatch call type
-    type Call = Call;
-    /// No. of blocks delayed to execute the offchain worker
-    type CoolingInterval = CoolingInterval;
-    /// Buffer given to check the validity of the cdd claim. It is in block numbers.
-    type BufferInterval = BufferInterval;
-    /// The type submit transactions.
-    type SubmitUnsignedTransaction = SubmitTransactionCdd;
-}
+// impl pallet_cdd_offchain_worker::Trait for Runtime {
+//     /// SignerId
+//     type SignerId = CddOffchainWorkerId;
+//     /// The overarching event type.
+//     type Event = Event;
+//     /// The overarching dispatch call type
+//     type Call = Call;
+//     /// No. of blocks delayed to execute the offchain worker
+//     type CoolingInterval = CoolingInterval;
+//     /// Buffer given to check the validity of the cdd claim. It is in block numbers.
+//     type BufferInterval = BufferInterval;
+//     /// The type submit transactions.
+//     type SubmitUnsignedTransaction = SubmitTransactionCdd;
+// }
 
 impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtime {
     type Public = <Signature as Verify>::Signer;
