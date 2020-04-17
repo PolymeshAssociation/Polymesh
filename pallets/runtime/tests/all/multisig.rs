@@ -38,6 +38,10 @@ fn create_multisig() {
 
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
         assert_eq!(MultiSig::ms_creator(musig_address), alice_did);
+        assert_eq!(
+            Identity::get_identity(&AccountKey::try_from(musig_address.encode()).unwrap()),
+            Some(alice_did)
+        );
 
         assert_err!(
             MultiSig::create_multisig(alice.clone(), vec![], 10,),
@@ -441,7 +445,12 @@ fn add_multisig_signer() {
 
         let root = Origin::system(frame_system::RawOrigin::Root);
 
-        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
+        assert_ok!(MultiSig::make_multisig_master(
+            alice.clone(),
+            musig_address.clone(),
+            None
+        ));
+
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             charlie.clone(),
             charlie_auth_id
@@ -452,7 +461,7 @@ fn add_multisig_signer() {
             true
         );
 
-        assert!(Identity::_register_did(musig_address.clone(), vec![], None).is_ok());
+        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
 
         assert_err!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),
