@@ -464,10 +464,9 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // PRIVATE MUTABLES
 
+    /// It tops up the identity balance.
     pub fn unsafe_top_up_identity_balance(did: &IdentityId, value: T::Balance) {
-        let new_balance = Self::identity_balance(did)
-            .checked_add(&value)
-            .unwrap_or_else(|| T::Balance::max_value());
+        let new_balance = Self::identity_balance(did).saturating_add(value);
         <IdentityBalance<T>>::insert(did, new_balance);
     }
 
@@ -610,7 +609,7 @@ impl<T: Trait> Module<T> {
     /// On sucess, It will return the applied feed.
     // Transfer some free balance from `transactor` to `dest`.
     // Is a no-op if value to be transferred is zero or the `transactor` is the same as `dest`.
-    pub fn transfer_core(
+    fn transfer_core(
         transactor: &T::AccountId,
         dest: &T::AccountId,
         value: T::Balance,

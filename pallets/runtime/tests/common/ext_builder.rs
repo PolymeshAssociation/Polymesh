@@ -84,6 +84,7 @@ thread_local! {
 }
 
 impl ExtBuilder {
+    /// Initial amount of the treasury.
     pub fn treasury(mut self, amount: u128) -> Self {
         self.treasury_balance = amount;
         self
