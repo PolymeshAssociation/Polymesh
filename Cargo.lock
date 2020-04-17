@@ -3206,6 +3206,7 @@ dependencies = [
  "polymesh-runtime-common",
  "polymesh-runtime-group",
  "polymesh-runtime-identity",
+ "polymesh-runtime-treasury",
  "serde",
  "serde_derive",
  "shrinkwraprs",
@@ -3475,20 +3476,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api 2.0.0-alpha.3",
- "sp-runtime 2.0.0-alpha.3",
- "sp-std 2.0.0-alpha.3",
-]
-
-[[package]]
-name = "pallet-treasury"
-version = "2.0.0-alpha.3"
-source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
-dependencies = [
- "frame-support 2.0.0-alpha.3",
- "frame-system 2.0.0-alpha.3",
- "pallet-balances",
- "parity-scale-codec",
- "serde",
  "sp-runtime 2.0.0-alpha.3",
  "sp-std 2.0.0-alpha.3",
 ]
@@ -3946,7 +3933,6 @@ dependencies = [
  "pallet-timestamp 2.0.0-alpha.3",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-protocol-fee",

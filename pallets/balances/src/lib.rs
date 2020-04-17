@@ -339,22 +339,18 @@ decl_module! {
             origin,
             did: IdentityId,
             #[compact] value: T::Balance
-        ) {
+        ) -> DispatchResult {
             if value.is_zero() { return Ok(()) }
+
             let transactor = ensure_signed(origin)?;
-            match <Self as Currency<_>>::withdraw(
+            let _ = <Self as Currency<_>>::withdraw(
                 &transactor,
                 value,
                 WithdrawReason::TransactionPayment.into(),
                 ExistenceRequirement::KeepAlive,
-            ) {
-                Ok(_) => {
-                    let new_balance = Self::identity_balance(&did) + value;
-                    <IdentityBalance<T>>::insert(did, new_balance);
-                    return Ok(())
-                },
-                Err(err) => return Err(err),
-            };
+            )?;
+            Self::unsafe_top_up_identity_balance(&did, value);
+            Ok(())
         }
 
         // Polymesh specific change
@@ -467,6 +463,13 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     // PRIVATE MUTABLES
+
+    pub fn unsafe_top_up_identity_balance(did: &IdentityId, value: T::Balance) {
+        let new_balance = Self::identity_balance(did)
+            .checked_add(&value)
+            .unwrap_or_else(|| T::Balance::max_value());
+        <IdentityBalance<T>>::insert(did, new_balance);
+    }
 
     /// Get the free balance of an account.
     pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {

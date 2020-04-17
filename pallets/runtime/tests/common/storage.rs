@@ -94,7 +94,7 @@ impl_outer_event! {
 // For testing the module, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
 // configuration traits of modules we want to use.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TestStorage;
 
 type AccountId = <AnySignature as Verify>::Signer;
@@ -456,6 +456,7 @@ impl mips::Trait for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = Committee;
+    type Treasury = treasury::Module<Self>;
     type Event = Event;
 }
 

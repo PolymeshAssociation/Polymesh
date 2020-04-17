@@ -37,14 +37,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use pallet_mips_rpc_runtime_api::VoteCount;
-use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_common::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
-    Context,
+    CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
+use polymesh_runtime_treasury::TreasuryTrait;
 
 // use shrinkwrap::Shrinkwrap;
 use codec::{Decode, Encode};
@@ -57,7 +58,7 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{CheckedSub, Dispatchable, EnsureOrigin};
+use sp_runtime::traits::{CheckedSub, Dispatchable, EnsureOrigin, Saturating};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// Mesh Improvement Proposal id. Used offchain.
@@ -103,29 +104,29 @@ impl<T: AsRef<[u8]>> From<T> for MipDescription {
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct Beneficiary<AccountId, Balance> {
-    pub id: AccountId,
+pub struct Beneficiary<Balance> {
+    pub id: IdentityId,
     pub amount: Balance,
 }
 
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct MipsMetadata<AccountId: Parameter, BlockNumber: Parameter, Balance> {
+pub struct MipsMetadata<T: Trait> {
     /// The creator
-    pub proposer: AccountId,
+    pub proposer: T::AccountId,
     /// The proposal's unique id.
     pub id: MipId,
     /// When voting will end.
-    pub end: BlockNumber,
+    pub end: T::BlockNumber,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
     pub description: Option<MipDescription>,
     /// This proposal allows any changes
     /// During Cool-off period, proposal owner can amend any MIP detail or cancel the entire
-    pub cool_off_until: BlockNumber,
+    pub cool_off_until: T::BlockNumber,
     /// Beneficiaries of this Mips
-    pub beneficiaries: Vec<Beneficiary<AccountId, Balance>>,
+    pub beneficiaries: Vec<Beneficiary<T::Balance>>,
 }
 
 /// For keeping track of proposal being voted on.
@@ -172,6 +173,8 @@ pub enum MipsState {
     Scheduled,
     /// It has been rejected.
     Rejected,
+    /// Insufficient balance at treasury to apply this proposal.
+    InsufficientBalanceAtTreasury,
     /// It has been successfully executed.
     Executed,
 }
@@ -185,7 +188,8 @@ impl Default for MipsPriority {
 /// Properties of a referendum
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Referendum<BlockNumber: Default, Proposal> {
+// pub struct Referendum<BlockNumber: Default, Proposal, Balance:> {
+pub struct Referendum<T: Trait> {
     /// The proposal's unique id.
     pub id: MipId,
     /// Priority.
@@ -193,9 +197,11 @@ pub struct Referendum<BlockNumber: Default, Proposal> {
     /// Current state of this MIP.
     pub state: MipsState,
     /// Enactment period.
-    pub enactment_period: BlockNumber,
+    pub enactment_period: T::BlockNumber,
     /// The proposal being voted on.
-    pub proposal: Proposal,
+    pub proposal: T::Proposal,
+    /// Beneficiaries
+    pub beneficiaries: Vec<Beneficiary<T::Balance>>,
 }
 
 /// Information about deposit.
@@ -215,7 +221,9 @@ where
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
+pub trait Trait:
+    frame_system::Trait + pallet_timestamp::Trait + IdentityTrait + CommonTrait
+{
     /// Currency type for this module.
     type Currency: ReservableCurrency<Self::AccountId>
         + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
@@ -228,6 +236,8 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
 
     /// Committee
     type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
+
+    type Treasury: TreasuryTrait<<Self as CommonTrait>::Balance>;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -253,7 +263,7 @@ decl_storage! {
         MipIdSequence: u32;
 
         /// The metadata of the active proposals.
-        pub ProposalMetadata get(fn proposal_meta): map hasher(twox_64_concat) MipId => Option<MipsMetadata<T::AccountId, T::BlockNumber, BalanceOf<T>>>;
+        pub ProposalMetadata get(fn proposal_meta): map hasher(twox_64_concat) MipId => Option<MipsMetadata<T>>;
         pub ProposalsMaturingAt get(proposals_maturing_at): map hasher(twox_64_concat) T::BlockNumber => Vec<MipId>;
 
         /// Those who have locked a deposit.
@@ -272,7 +282,8 @@ decl_storage! {
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal id -> proposal
-        pub Referendums get(fn referendums): map hasher(twox_64_concat) MipId => Option<Referendum<T::BlockNumber, T::Proposal>>;
+        // pub Referendums get(fn referendums): map hasher(twox_64_concat) MipId => Option<Referendum<T::BlockNumber, T::Proposal, T::Balance>>;
+        pub Referendums get(fn referendums): map hasher(twox_64_concat) MipId => Option<Referendum<T>>;
 
         /// List of id's of current scheduled referendums.
         /// block number -> Mip id
@@ -409,7 +420,7 @@ decl_module! {
             deposit: BalanceOf<T>,
             url: Option<Url>,
             description: Option<MipDescription>,
-            beneficiaries: Vec<Beneficiary<T::AccountId, BalanceOf<T>>>
+            beneficiaries: Vec<Beneficiary<T::Balance>>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let proposer_key = AccountKey::try_from(proposer.encode())?;
@@ -767,7 +778,7 @@ impl<T: Trait> Module<T> {
     /// 4. Automatically execute any referendum
     pub fn end_block(block_number: T::BlockNumber) -> DispatchResult {
         // Find all matured proposals...
-        Self::proposals_maturing_at(block_number)
+        <ProposalsMaturingAt<T>>::take(block_number)
             .into_iter()
             .for_each(|id| {
                 // Tally votes and create referendums
@@ -800,12 +811,19 @@ impl<T: Trait> Module<T> {
     /// decides whether it should be enacted.
     fn create_referendum(id: MipId, priority: MipsPriority, proposal: T::Proposal) {
         let enactment_period: T::BlockNumber = 0.into();
+        let beneficiaries = Self::proposal_meta(id)
+            .iter()
+            .map(|meta| meta.beneficiaries.clone())
+            .next()
+            .unwrap_or_else(|| Vec::new());
+
         let referendum = Referendum {
             id,
             priority,
             proposal,
             enactment_period,
             state: MipsState::Ratified,
+            beneficiaries,
         };
         <Referendums<T>>::insert(id, referendum);
 
@@ -857,9 +875,20 @@ impl<T: Trait> Module<T> {
 
     fn execute_referendum(id: MipId) {
         if let Some(referendum) = Self::referendums(id) {
+            // Double-check that treasury has enought funds.
+            let total_amount = referendum
+                .beneficiaries
+                .iter()
+                .fold(0u128.into(), |acc, b| b.amount.saturating_add(acc));
+            if total_amount > T::Treasury::balance() {
+                Self::update_referendum_state(id, MipsState::InsufficientBalanceAtTreasury);
+                return;
+            }
+
             match referendum.proposal.dispatch(system::RawOrigin::Root.into()) {
                 Ok(_) => {
                     Self::update_referendum_state(id, MipsState::Executed);
+                    Self::pay_to_beneficiaries(&referendum.beneficiaries);
                     Self::deposit_event(RawEvent::ReferendumEnacted(id));
                 }
                 Err(e) => {
@@ -869,6 +898,12 @@ impl<T: Trait> Module<T> {
                 }
             }
         }
+    }
+
+    fn pay_to_beneficiaries(beneficiaries: &[Beneficiary<T::Balance>]) {
+        beneficiaries
+            .iter()
+            .for_each(|b| T::Treasury::disbursement(b.id, b.amount));
     }
 
     fn update_referendum_state(id: MipId, new_state: MipsState) {

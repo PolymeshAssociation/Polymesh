@@ -1,14 +1,17 @@
 mod common;
 use common::{
-    storage::{get_identity_id, make_account, make_account_with_balance, Call, TestStorage},
+    storage::{
+        get_identity_id, make_account, make_account_with_balance,
+        register_keyring_account_with_balance, Call, TestStorage,
+    },
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok};
 use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
-    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority, MipsState,
-    Referendum, Url, Voting,
+    self as mips, Beneficiary, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority,
+    MipsState, Referendum, Url, Voting,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
@@ -190,7 +193,8 @@ fn creating_a_referendum_works_we() {
             priority: MipsPriority::Normal,
             state: MipsState::Ratified,
             enactment_period: 0,
-            proposal: proposal.clone()
+            proposal: proposal.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -256,7 +260,8 @@ fn enacting_a_referendum_works_we() {
             priority: MipsPriority::Normal,
             state: MipsState::Ratified,
             enactment_period: 0,
-            proposal: proposal.clone()
+            proposal: proposal.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -273,7 +278,8 @@ fn enacting_a_referendum_works_we() {
             priority: MipsPriority::Normal,
             state: MipsState::Scheduled,
             enactment_period: 220,
-            proposal: proposal.clone()
+            proposal: proposal.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -286,7 +292,8 @@ fn enacting_a_referendum_works_we() {
             priority: MipsPriority::Normal,
             state: MipsState::Executed,
             enactment_period: 220,
-            proposal
+            proposal,
+            beneficiaries: vec![],
         })
     );
 }
@@ -354,7 +361,8 @@ fn fast_tracking_a_proposal_works_we() {
             priority: MipsPriority::High,
             state: MipsState::Ratified,
             enactment_period: 0,
-            proposal: proposal.clone()
+            proposal: proposal.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -366,7 +374,8 @@ fn fast_tracking_a_proposal_works_we() {
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 101,
-            proposal: proposal.clone()
+            proposal: proposal.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -379,7 +388,8 @@ fn fast_tracking_a_proposal_works_we() {
             priority: MipsPriority::High,
             state: MipsState::Executed,
             enactment_period: 101,
-            proposal
+            proposal,
+            beneficiaries: vec![],
         })
     );
 }
@@ -421,7 +431,8 @@ fn submit_referendum_works_we() {
             priority: MipsPriority::High,
             state: MipsState::Ratified,
             enactment_period: 0,
-            proposal: proposal.clone()
+            proposal: proposal.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -439,7 +450,8 @@ fn submit_referendum_works_we() {
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 201,
-            proposal: proposal.clone()
+            proposal: proposal.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -451,7 +463,8 @@ fn submit_referendum_works_we() {
             priority: MipsPriority::High,
             state: MipsState::Executed,
             enactment_period: 201,
-            proposal
+            proposal,
+            beneficiaries: vec![],
         })
     );
 }
@@ -677,7 +690,8 @@ fn update_referendum_enactment_period_we() {
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 101,
-            proposal: proposal_a.clone()
+            proposal: proposal_a.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -694,7 +708,8 @@ fn update_referendum_enactment_period_we() {
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 150,
-            proposal: proposal_b.clone()
+            proposal: proposal_b.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -714,7 +729,8 @@ fn update_referendum_enactment_period_we() {
             priority: MipsPriority::High,
             state: MipsState::Executed,
             enactment_period: 51,
-            proposal: proposal_b.clone()
+            proposal: proposal_b.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -730,7 +746,8 @@ fn update_referendum_enactment_period_we() {
             priority: MipsPriority::High,
             state: MipsState::Scheduled,
             enactment_period: 200,
-            proposal: proposal_a.clone()
+            proposal: proposal_a.clone(),
+            beneficiaries: vec![],
         })
     );
 
@@ -743,11 +760,93 @@ fn update_referendum_enactment_period_we() {
             priority: MipsPriority::High,
             state: MipsState::Executed,
             enactment_period: 200,
-            proposal: proposal_a.clone()
+            proposal: proposal_a.clone(),
+            beneficiaries: vec![],
         })
     );
     assert_err!(
         Mips::set_referendum_enactment_period(bob.clone(), 0, Some(300)),
         Error::<TestStorage>::ReferendumIsImmutable
     );
+}
+
+#[test]
+fn proposal_with_beneficiares() {
+    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    ExtBuilder::default()
+        .treasury(100_000_000)
+        .governance_committee(committee)
+        .governance_committee_vote_threshold((2, 3))
+        .build()
+        .execute_with(proposal_with_beneficiares_we);
+}
+
+fn proposal_with_beneficiares_we() {
+    // 0. Create accounts
+    System::set_block_number(1);
+    let root = Origin::system(frame_system::RawOrigin::Root);
+    let alice = AccountKeyring::Alice.public();
+    let charlie = AccountKeyring::Charlie.public();
+    let dave = AccountKeyring::Dave.public();
+    let charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 200).unwrap();
+    let dave_id = register_keyring_account_with_balance(AccountKeyring::Dave, 200).unwrap();
+
+    // 2. Charlie creates a new proposal with 2 beneificiares
+    let proposal = make_proposal(42);
+    let proposal_url: Url = b"www.abc.com".into();
+    let proposal_desc: MipDescription = b"Test description".into();
+    let beneficiaries = vec![
+        Beneficiary {
+            id: charlie_id,
+            amount: 10_000,
+        },
+        Beneficiary {
+            id: dave_id,
+            amount: 5_000,
+        },
+    ];
+
+    assert_ok!(Mips::propose(
+        Origin::signed(charlie.clone()),
+        Box::new(proposal.clone()),
+        60,
+        Some(proposal_url),
+        Some(proposal_desc),
+        beneficiaries.clone()
+    ));
+
+    // 2. Alice can fast track because she is a GC member
+    assert_ok!(Mips::fast_track_proposal(Origin::signed(alice), 0));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(Referendum {
+            id: 0,
+            priority: MipsPriority::High,
+            state: MipsState::Ratified,
+            enactment_period: 0,
+            proposal: proposal.clone(),
+            beneficiaries: beneficiaries.clone(),
+        })
+    );
+    assert_ok!(Mips::enact_referendum(root, 0));
+
+    // 3. It executes automatically the referendum at block 101.
+    assert_eq!(Balances::free_balance(&charlie), 118);
+    assert_eq!(Balances::free_balance(&dave), 159);
+
+    fast_forward_to(120);
+    assert_eq!(
+        Mips::referendums(0),
+        Some(Referendum {
+            id: 0,
+            priority: MipsPriority::High,
+            state: MipsState::Executed,
+            enactment_period: 101,
+            proposal,
+            beneficiaries: beneficiaries.clone()
+        })
+    );
+
+    assert_eq!(Balances::identity_balance(charlie_id), 10_000);
+    assert_eq!(Balances::identity_balance(dave_id), 5_000);
 }

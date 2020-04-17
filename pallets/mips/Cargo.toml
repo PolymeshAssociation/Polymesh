@@ -11,6 +11,7 @@ polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol
 polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
+polymesh-runtime-treasury = { package = "polymesh-runtime-treasury", path = "../treasury", default-features = false  }
 pallet-mips-rpc-runtime-api = { default-features = false, path = "./rpc/runtime-api" }
 
 serde = { version = "1.0.104", default-features = false }

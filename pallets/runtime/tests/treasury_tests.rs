@@ -1,8 +1,11 @@
 mod common;
-use common::{storage::TestStorage, ExtBuilder};
+use common::{
+    storage::{register_keyring_account, TestStorage},
+    ExtBuilder,
+};
 
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_treasury::{self as treasury, Error};
+use polymesh_runtime_treasury::{self as treasury};
 
 use frame_support::{assert_err, assert_ok};
 use sp_runtime::DispatchError;
@@ -16,6 +19,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 #[test]
 fn reimbursement_and_disbursement() {
     ExtBuilder::default()
+        .treasury(1_000_000)
         .existential_deposit(10)
         .build()
         .execute_with(reimbursement_and_disbursement_we);
@@ -23,28 +27,27 @@ fn reimbursement_and_disbursement() {
 
 fn reimbursement_and_disbursement_we() {
     let root = Origin::system(frame_system::RawOrigin::Root);
-    let treasury = Treasury::treasury_account();
+    let alice = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice_acc = Origin::signed(AccountKeyring::Alice.public());
 
-    assert_eq!(Balances::free_balance(treasury), 0);
-    assert_eq!(Treasury::balance(), 0);
-
+    // Verify reimburstement from root.
+    assert_eq!(Treasury::balance(), 1_000_000);
     assert_ok!(Treasury::reimbursement(root.clone(), 1_000));
-    assert_eq!(Treasury::balance(), 1_000);
+    assert_eq!(Treasury::balance(), 1_001_000);
 
+    // Nobody can make reimbursments.
     assert_err!(
-        Treasury::reimbursement(Origin::signed(treasury), 5_000),
+        Treasury::reimbursement(alice_acc.clone(), 5_000),
         DispatchError::BadOrigin
     );
 
-    let alice = AccountKeyring::Alice.public();
-    let alice_signed = Origin::signed(alice.clone());
+    assert_ok!(Treasury::disbursement(root.clone(), alice, 100));
+    assert_eq!(Treasury::balance(), 1_000_900);
+    assert_eq!(Balances::identity_balance(alice), 100);
 
-    assert_ok!(Treasury::disbursement(root.clone(), alice.clone(), 100));
-    assert_eq!(Treasury::balance(), 900);
-    assert_eq!(Balances::free_balance(alice.clone()), 100);
-
+    // Alice cannot make a disbursement to herself.
     assert_err!(
-        Treasury::disbursement(alice_signed, alice.clone(), 500),
+        Treasury::disbursement(alice_acc, alice, 500),
         DispatchError::BadOrigin
     );
 }

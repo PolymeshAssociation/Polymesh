@@ -250,7 +250,7 @@
         "ayes": "Vec<(IdentityId, Balance)>",
         "nays": "Vec<(IdentityId, Balance)>"
     },
-    "MipsIndex": "u32",
+    "MipId": "u32",
     "MipsPriority": {
         "_enum": [
             "High",
