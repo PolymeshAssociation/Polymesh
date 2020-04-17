@@ -119,14 +119,6 @@ fn cdd_checks() {
             .next()
             .unwrap()
             .auth_id;
-            // Call to multisig proposal should fail if multisig is not currently attached to an identity
-            assert_err!(
-                CddHandler::get_valid_payer(
-                    &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
-                    &alice_key_signatory
-                ),
-                InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
-            );
 
             assert_ok!(MultiSig::make_multisig_signer(
                 charlie_signed.clone(),
