@@ -1,5 +1,4 @@
-mod common;
-use common::{
+use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
         add_signing_item, get_identity_id, register_keyring_account, GovernanceCommittee,
