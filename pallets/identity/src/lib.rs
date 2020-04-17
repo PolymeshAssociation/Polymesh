@@ -987,15 +987,18 @@ impl<T: Trait> Module<T> {
     /// Joins an identity as signer
     pub fn unsafe_join_identity(identity_to_join: IdentityId, signer: Signatory) -> DispatchResult {
         if let Signatory::AccountKey(key) = signer {
-            ensure!(
-                Self::can_key_be_linked_to_did(&key, SignatoryType::External),
-                Error::<T>::AlreadyLinked
-            );
-            T::ProtocolFee::charge_fee(
-                &Signatory::Identity(identity_to_join),
-                ProtocolOp::IdentityAddSigningItem,
-            )?;
-            Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
+            if !Self::can_key_be_linked_to_did(&key, SignatoryType::External) {
+                ensure!(
+                    Self::get_identity(&key) == Some(identity_to_join),
+                    Error::<T>::AlreadyLinked
+                )
+            } else {
+                T::ProtocolFee::charge_fee(
+                    &Signatory::Identity(identity_to_join),
+                    ProtocolOp::IdentityAddSigningItem,
+                )?;
+                Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
+            }
         } else {
             T::ProtocolFee::charge_fee(
                 &Signatory::Identity(identity_to_join),
