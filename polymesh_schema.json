@@ -239,7 +239,12 @@
         "end": "u32",
         "url": "Option<Url>",
         "description": "Option<MipDescription>",
-        "cool_off_until": "u32"
+        "cool_off_until": "u32",
+        "beneficiaries": "Vec<Beneficiary>"
+    },
+    "Beneficiary": {
+        "id": "IdentityId",
+        "amount": "Balance"
     },
     "DepositInfo": {
         "owner": "AccountKey",
