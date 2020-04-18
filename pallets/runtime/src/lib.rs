@@ -67,3 +67,6 @@ pub mod fee_details;
 pub use fee_details::CddHandler;
 
 pub use sp_runtime::{Perbill, Permill};
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benches;

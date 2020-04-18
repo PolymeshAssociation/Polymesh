@@ -1,2 +1,2 @@
 ./scripts/fmt.sh
-cargo test --package polymesh-runtime
+SKIP_WASM_BUILD=true cargo test --package polymesh-runtime
