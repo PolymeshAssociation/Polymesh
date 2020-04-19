@@ -527,6 +527,7 @@ decl_module! {
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
             Self::update_proposal_state(index, ProposalState::Cancelled);
+            Self::refund_proposal(index);
             // 3. Close that proposal.
             Self::close_proposal(index);
 
@@ -662,7 +663,7 @@ decl_module! {
 
             ensure!( <Proposals<T>>::contains_key(index), Error::<T>::NoSuchProposal);
             Self::update_proposal_state(index, ProposalState::Killed);
-
+            Self::refund_proposal(index);
             Self::close_proposal(index);
         }
 
@@ -687,6 +688,15 @@ decl_module! {
             );
 
             Self::update_proposal_state(index, ProposalState::Referendum);
+
+            // Update proposal metadata so we don't re-execute it later
+            <ProposalMetadata<T>>::mutate( |metas| {
+                let meta = metas.iter_mut().find( |meta| meta.index == index);
+                if let Some(meta) = meta {
+                    meta.end = Zero::zero();
+                }
+            });
+
             Self::refund_proposal(index);
             Ok(())
         }
@@ -842,6 +852,7 @@ impl<T: Trait> Module<T> {
                     Self::update_proposal_state(index, ProposalState::Referendum);
                 } else {
                     Self::update_proposal_state(index, ProposalState::Rejected);
+                    Self::refund_proposal(index);
                     Self::close_proposal(index);
                 }
             });

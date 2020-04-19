@@ -441,6 +441,69 @@ fn emergency_referendum_works_we() {
 }
 
 #[test]
+fn reject_referendum_works() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(reject_referendum_works_we);
+}
+
+fn reject_referendum_works_we() {
+    System::set_block_number(1);
+    let proposal = make_proposal(42);
+    let proposal_url: Url = b"www.abc.com".into();
+    let proposal_desc: MipDescription = b"Test description".into();
+
+    let root = Origin::system(frame_system::RawOrigin::Root);
+
+    // Alice and Bob are committee members
+    let alice_acc = AccountKeyring::Alice.public();
+    let (alice_signer, alice_did) = make_account_with_balance(alice_acc, 60).unwrap();
+
+    Group::reset_members(root.clone(), vec![alice_did]).unwrap();
+
+    assert_eq!(Committee::members(), vec![alice_did]);
+
+    // Alice is a committee member
+    assert_ok!(Mips::emergency_referendum(
+        alice_signer.clone(),
+        Box::new(proposal.clone()),
+        Some(proposal_url.clone()),
+        Some(proposal_desc)
+    ));
+
+    fast_forward_to(20);
+
+    assert_eq!(
+        Mips::referendums(0),
+        Some(Referendum {
+            index: 0,
+            state: ReferendumState::Pending,
+            referendum_type: ReferendumType::Emergency,
+            enactment_period: 0,
+        })
+    );
+
+    assert_err!(
+        Mips::enact_referendum(alice_signer.clone(), 0),
+        Error::<TestStorage>::BadOrigin
+    );
+
+    fast_forward_to(101);
+    assert_ok!(Mips::reject_referendum(root, 0));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(Referendum {
+            index: 0,
+            state: ReferendumState::Rejected,
+            referendum_type: ReferendumType::Emergency,
+            enactment_period: 0,
+        })
+    );
+
+}
+
+#[test]
 fn updating_mips_variables_works() {
     ExtBuilder::default()
         .monied(true)
@@ -649,8 +712,8 @@ fn update_referendum_enactment_period_we() {
     assert_ok!(Mips::emergency_referendum(
         alice.clone(),
         Box::new(proposal_a.clone()),
-        Some(proposal_url),
-        Some(proposal_desc),
+        None,
+        None,
     ));
     assert_ok!(Mips::enact_referendum(root.clone(), 0));
     assert_eq!(
