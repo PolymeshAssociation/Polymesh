@@ -76,7 +76,7 @@ pub struct MIP<Proposal> {
     /// The proposal being voted on.
     proposal: Proposal,
     /// The latest state
-    state: ProposalState
+    state: ProposalState,
 }
 
 /// A wrapper for a proposal url.
@@ -893,13 +893,17 @@ impl<T: Trait> Module<T> {
     /// Create a referendum object from a proposal. If governance committee is composed of less
     /// than 2 members, enact it immediately. Otherwise, committee votes on this referendum and
     /// decides whether it should be enacted.
-    fn create_referendum(index: MipsIndex, state: ReferendumState, referendum_type: ReferendumType) {
+    fn create_referendum(
+        index: MipsIndex,
+        state: ReferendumState,
+        referendum_type: ReferendumType,
+    ) {
         let enactment_period: T::BlockNumber = 0.into();
         let referendum = Referendum {
             index,
             state,
             referendum_type,
-            enactment_period
+            enactment_period,
         };
         <Referendums<T>>::insert(index, referendum);
 
@@ -951,7 +955,11 @@ impl<T: Trait> Module<T> {
         });
         <ScheduledReferendumsAt<T>>::mutate(enactment_period, |indexes| indexes.push(index));
 
-        Self::deposit_event(RawEvent::ReferendumScheduled(index, Zero::zero(), enactment_period));
+        Self::deposit_event(RawEvent::ReferendumScheduled(
+            index,
+            Zero::zero(),
+            enactment_period,
+        ));
         Ok(())
     }
 
@@ -970,7 +978,7 @@ impl<T: Trait> Module<T> {
                     debug::error!("Referendum {}, its execution fails: {:?}", index, e);
                 }
             }
-        }        
+        }
     }
 
     /// It returns the proposal metadata of proposal with index `index` or

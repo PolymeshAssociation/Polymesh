@@ -6,8 +6,8 @@ use frame_support::{assert_err, assert_ok};
 use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
-    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, ProposalState, ReferendumState, ReferendumType,
-    PolymeshVotes, Referendum, Url,
+    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, PolymeshVotes, ProposalState,
+    Referendum, ReferendumState, ReferendumType, Url,
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
@@ -182,7 +182,7 @@ fn creating_a_referendum_works_we() {
             index: 0,
             state: ReferendumState::Pending,
             referendum_type: ReferendumType::Community,
-            enactment_period: 0,            
+            enactment_period: 0,
         })
     );
 
@@ -500,7 +500,6 @@ fn reject_referendum_works_we() {
             enactment_period: 0,
         })
     );
-
 }
 
 #[test]
