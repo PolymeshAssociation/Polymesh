@@ -144,6 +144,21 @@ pub enum MipsPriority {
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
+pub enum ProposalClosedReason {
+    /// A proposal is cancelled by the proposer
+    Cancelled,
+    /// A proposal is killed by the GC
+    Killed,
+    /// A proposal is fast tracked by the GC
+    FastTracked,
+    /// A proposal is passed by the community vote
+    Passed,
+    /// A proposal is rejected by the community vote
+    Failed,
+}
+
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum MipsState {
     /// Token holder vote passes.
     Ratified,
@@ -267,19 +282,20 @@ decl_event!(
         <T as frame_system::Trait>::BlockNumber,
     {
         /// A Mesh Improvement Proposal was made with a `Balance` stake
-        Proposed(AccountId, Balance, MipsIndex),
+        ProposalCreated(AccountId, MipsIndex, Balance),
+        /// A Mesh Improvement Proposal was amended with a possible to the deposit
+        /// bool is +ve when bond is added, -ve when removed
+        ProposalAmended(AccountId, MipsIndex, bool, Balance),
         /// `AccountId` voted `bool` on the proposal referenced by `Index`
-        Voted(AccountId, MipsIndex, bool),
+        Voted(AccountId, MipsIndex, bool, Balance),
         /// Proposal has been closed
-        ProposalClosed(MipsIndex),
-        /// Proposal has been closed
-        ProposalFastTracked(MipsIndex),
+        ProposalClosed(MipsIndex, ProposalClosedReason),
         /// Referendum created for proposal.
         ReferendumCreated(MipsIndex, MipsPriority),
         /// Referendum execution has been scheduled at specific block.
         ReferendumScheduled(MipsIndex, BlockNumber),
         /// Referendum execution has been re-schedule from one block to a new one.
-        ReferendumReScheduled(MipsIndex, BlockNumber, BlockNumber),
+        ReferendumRescheduled(MipsIndex, BlockNumber, BlockNumber),
         /// Proposal was dispatched.
         ReferendumEnacted(MipsIndex),
         /// Referendum execution was rejected.
@@ -287,6 +303,15 @@ decl_event!(
         /// Default enactment period (in blocks) has been changed.
         /// (new period, old period)
         DefaultEnactmentPeriodChanged(BlockNumber, BlockNumber),
+        /// Minimum deposit amount modified
+        /// (old amount, new amount)
+        MinimumProposalDepositChanged(Balance, Balance),
+        /// Quorum threshold changed
+        /// (old value, new value)
+        QuorumThresholdChanged(Balance, Balance),
+        /// Proposal duration changed
+        /// (old value, new value)
+        ProposalDurationChanged(BlockNumber, BlockNumber),
     }
 );
 
@@ -335,6 +360,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -347,6 +373,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(Self::quorum_threshold(), threshold));
             <QuorumThreshold<T>>::put(threshold);
         }
 
@@ -358,6 +385,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            Self::deposit_event(RawEvent::ProposalDurationChanged(Self::proposal_duration(), duration));
             <ProposalDuration<T>>::put(duration);
         }
 
@@ -367,7 +395,6 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             let previous_duration = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
-
             Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(duration, previous_duration));
         }
 
@@ -436,7 +463,7 @@ decl_module! {
             };
             <Voting<T>>::insert(index, vote);
 
-            Self::deposit_event(RawEvent::Proposed(proposer, deposit, index));
+            Self::deposit_event(RawEvent::ProposalCreated(proposer, index, deposit));
             Ok(())
         }
 
@@ -472,6 +499,7 @@ decl_module! {
                     meta.description = description;
                 }
             });
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, index, true, Zero::zero()));
 
             Ok(())
         }
@@ -497,7 +525,8 @@ decl_module! {
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Close that proposal.
-            Self::close_proposal( index);
+            Self::close_proposal( index, ProposalClosedReason::Cancelled);
+
             Ok(())
         }
 
@@ -515,10 +544,10 @@ decl_module! {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_meta_by_index(index)?;
 
-            // 1. Only owner can cancel it.
+            // 1. Only owner can add additional deposit.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
 
-            // 2. Proposal can be cancelled *ONLY* during its cool-off period.
+            // 2. Proposal can be amended *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
@@ -530,6 +559,9 @@ decl_module! {
                 index,
                 &proposer,
                 |depo_info| depo_info.amount += additional_deposit);
+
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, index, true, additional_deposit));
+
             Ok(())
         }
 
@@ -568,6 +600,7 @@ decl_module! {
             // 3.1. Unreserve and update deposit info.
             <T as Trait>::Currency::unreserve(&depo_info.owner, diff_amount);
             <Deposits<T>>::insert(index, &proposer, depo_info);
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, index, false, amount));
             Ok(())
         }
 
@@ -612,7 +645,7 @@ decl_module! {
 
                 <Voting<T>>::remove(index);
                 <Voting<T>>::insert(index, voting);
-                Self::deposit_event(RawEvent::Voted(proposer, index, aye_or_nay));
+                Self::deposit_event(RawEvent::Voted(proposer, index, aye_or_nay, deposit));
             } else {
                 return Err(Error::<T>::DuplicateVote.into())
             }
@@ -625,7 +658,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
 
             ensure!( <Proposals<T>>::contains_key(index), Error::<T>::NoSuchProposal);
-            Self::close_proposal(index);
+            Self::close_proposal(index, ProposalClosedReason::Killed);
         }
 
         /// Any governance committee member can fast track a proposal and turn it into a referendum
@@ -649,8 +682,7 @@ decl_module! {
                 mip.proposal,
             );
 
-            Self::deposit_event(RawEvent::ProposalFastTracked(index));
-            Self::close_proposal(index);
+            Self::close_proposal(index, ProposalClosedReason::FastTracked);
         }
 
         /// Governance committee can make a proposal that automatically becomes a referendum on
@@ -723,7 +755,7 @@ decl_module! {
             <ScheduledReferendumsAt<T>>::mutate( old_until, |indexes| indexes.retain( |i| *i != index));
             <ScheduledReferendumsAt<T>>::mutate( new_until, |indexes| indexes.push( index));
 
-            Self::deposit_event(RawEvent::ReferendumReScheduled(index, old_until, new_until));
+            Self::deposit_event(RawEvent::ReferendumRescheduled(index, old_until, new_until));
             Ok(())
         }
 
@@ -761,10 +793,14 @@ impl<T: Trait> Module<T> {
             .into_iter()
             .for_each(|index| {
                 // Tally votes and create referendums
-                Self::tally_votes(index);
+                let result = Self::tally_votes(index);
 
                 // And close proposals
-                Self::close_proposal(index);
+                if result {
+                    Self::close_proposal(index, ProposalClosedReason::Passed);
+                } else {
+                    Self::close_proposal(index, ProposalClosedReason::Failed);
+                }
             });
 
         // Execute automatically referendums after its enactment period.
@@ -777,7 +813,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
-    fn tally_votes(index: MipsIndex) {
+    fn tally_votes(index: MipsIndex) -> bool {
         if let Some(voting) = <Voting<T>>::get(index) {
             let aye_stake = voting
                 .ayes
@@ -794,9 +830,11 @@ impl<T: Trait> Module<T> {
             if aye_stake > nay_stake && aye_stake >= Self::quorum_threshold() {
                 if let Some(mip) = <Proposals<T>>::get(index) {
                     Self::create_referendum(index, MipsPriority::Normal, mip.proposal);
+                    return true;
                 }
             }
         }
+        false
     }
 
     /// Create a referendum object from a proposal. If governance committee is composed of less
@@ -818,7 +856,7 @@ impl<T: Trait> Module<T> {
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
     /// All deposits are unlocked and returned to respective stakers.
-    fn close_proposal(index: MipsIndex) {
+    fn close_proposal(index: MipsIndex, reason_code: ProposalClosedReason) {
         if <Voting<T>>::get(index).is_some() {
             Self::unreserve_deposits(index);
         }
@@ -827,7 +865,7 @@ impl<T: Trait> Module<T> {
             <Voting<T>>::remove(index);
             <ProposalMetadata<T>>::mutate(|metadata| metadata.retain(|m| m.index != index));
 
-            Self::deposit_event(RawEvent::ProposalClosed(index));
+            Self::deposit_event(RawEvent::ProposalClosed(index, reason_code));
         }
     }
 
