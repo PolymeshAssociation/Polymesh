@@ -251,30 +251,42 @@
         "nays": "Vec<(IdentityId, Balance)>"
     },
     "MipsIndex": "u32",
-    "MipsPriority": {
+    "ProposalState": {
         "_enum": [
-            "High",
-            "Normal"
+            "Proposed",
+            "Cancelled",
+            "Killed",
+            "Referendum",
+            "Rejected"
         ]
     },
-    "MipsState": {
+    "ReferendumState": {
         "_enum": [
-            "Ratified",
+            "Pending",
             "Scheduled",
             "Rejected",
+            "Failed",
             "Executed"
         ]
     },
+    "ReferendumType": {
+        "_enum": [
+            "FastTracked",
+            "Emergency",
+            "Community"
+        ]
+    },
     "MIP": {
-        "index": "MipsIndex",
-        "proposal":"Call"
+        "index": "MipsIndex",        
+        "proposal":"Call",
+        "state":"ProposalState"
     },
     "Referendum": {
         "index": "MipsIndex",
-        "priority": "MipsPriority",
-        "state": "MipsState",
-        "enactment_period": "u32",
-        "proposal": "Call"
+        "state": "ReferendumState",
+        "referendum_type": "ReferendumType",
+        "enactment_period": "u32"
+        
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
