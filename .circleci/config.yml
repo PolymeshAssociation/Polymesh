@@ -54,7 +54,7 @@ jobs:
             cargo test
             --package polymesh-runtime
             --package pallet-staking
-            --package polymesh-runtime-group
+            --package pallet-group
             --package pallet-im-online
             --package polymesh-primitives
             --package pallet-mips-rpc
@@ -62,7 +62,7 @@ jobs:
             cargo test -j 1
             --package polymesh-runtime
             --package pallet-staking
-            --package polymesh-runtime-group
+            --package pallet-group
             --package pallet-im-online
             --package polymesh-primitives
             --package pallet-mips-rpc

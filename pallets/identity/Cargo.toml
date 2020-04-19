@@ -1,14 +1,14 @@
 [package]
-name = "polymesh-runtime-identity"
+name = "pallet-identity"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
+pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee", default-features = false }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
-polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
+pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -49,7 +49,7 @@ std = [
 	"frame-system/std",
 	"frame-support/std",
 	"pallet-timestamp/std",
-	"polymesh-runtime-common/std",
+	"polymesh-common-utilities/std",
 	"polymesh-primitives/std",
-	"polymesh-runtime-identity-rpc-runtime-api/std",
+	"pallet-identity-rpc-runtime-api/std",
 ]

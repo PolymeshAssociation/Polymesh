@@ -12,8 +12,10 @@ path = "src/main.rs"
 [workspace]
 members = [
     "primitives",
+    "pallets/runtime/common",
+    "pallets/runtime/develop",
+    "pallets/runtime/testnet-v1",
     "pallets/common",
-    "pallets/runtime",
     "pallets/transaction-payment",
     "pallets/transaction-payment/rpc",
     "pallets/transaction-payment/rpc/runtime-api",
@@ -31,19 +33,20 @@ members = [
     "pallets/balances",
     "pallets/committee",
     "pallets/group",
-    "pallets/protocol-fee"
+    "pallets/protocol-fee",
+    "pallets/multisig",
 ]
 
 [dependencies]
 polymesh-primitives = { path = "primitives" }
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets/common", default-features = false }
-polymesh-runtime = { path = "pallets/runtime" }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "pallets/common", default-features = false }
+#polymesh-runtime = { path = "pallets/runtime" }
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
 pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
 pallet-mips-rpc = { package = "pallet-mips-rpc", path = "pallets/mips/rpc", default-features = false }
-polymesh-runtime-identity-rpc = { package = "polymesh-runtime-identity-rpc", path = "pallets/identity/rpc", default-features = false }
+pallet-identity-rpc = { package = "pallet-identity-rpc", path = "pallets/identity/rpc", default-features = false }
 im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
-polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "pallets/protocol-fee", default-features = false }
+pallet-protocol-fee = { package = "pallet-protocol-fee", path = "pallets/protocol-fee", default-features = false }
 
 parking_lot = "0.10.0"
 tokio = "0.2.13"

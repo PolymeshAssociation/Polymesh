@@ -1,5 +1,5 @@
 [package]
-name = "polymesh-runtime-common"
+name = "polymesh-common-utilities"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"

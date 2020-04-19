@@ -751,6 +751,85 @@ dependencies = [
 ]
 
 [[package]]
+name = "develop"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "frame-executive",
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "frame-system-rpc-runtime-api",
+ "hex-literal",
+ "ink_primitives",
+ "lazy_static",
+ "log",
+ "pallet-authority-discovery",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-balances 0.1.0",
+ "pallet-committee",
+ "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
+ "pallet-democracy",
+ "pallet-elections",
+ "pallet-elections-phragmen",
+ "pallet-finality-tracker",
+ "pallet-grandpa",
+ "pallet-group",
+ "pallet-identity",
+ "pallet-identity-rpc-runtime-api",
+ "pallet-im-online",
+ "pallet-indices",
+ "pallet-membership",
+ "pallet-mips",
+ "pallet-mips-rpc-runtime-api",
+ "pallet-multisig",
+ "pallet-offences",
+ "pallet-protocol-fee",
+ "pallet-randomness-collective-flip",
+ "pallet-session 2.0.0-alpha.3",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "pallet-staking-rpc-runtime-api",
+ "pallet-sudo",
+ "pallet-timestamp 2.0.0-alpha.3",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "polymesh-runtime-common",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "rand 0.7.3",
+ "rustc-hex",
+ "safe-mix",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sp-api 2.0.0-alpha.3",
+ "sp-arithmetic 2.0.0-alpha.3",
+ "sp-authority-discovery",
+ "sp-block-builder",
+ "sp-consensus-babe",
+ "sp-core 2.0.0-alpha.3",
+ "sp-inherents 2.0.0-alpha.3",
+ "sp-io 2.0.0-alpha.3",
+ "sp-offchain",
+ "sp-phragmen",
+ "sp-runtime 2.0.0-alpha.3",
+ "sp-serializer",
+ "sp-session",
+ "sp-staking 2.0.0-alpha.3",
+ "sp-std 2.0.0-alpha.3",
+ "sp-transaction-pool",
+ "sp-version 2.0.0-alpha.3",
+ "substrate-test-runtime-client",
+ "substrate-wasm-builder-runner",
+ "yaml-rust",
+]
+
+[[package]]
 name = "digest"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2968,6 +3047,28 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "pallet-timestamp 2.0.0-alpha.3",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "sp-api 2.0.0-alpha.3",
+ "sp-core 2.0.0-alpha.3",
+ "sp-io 2.0.0-alpha.3",
+ "sp-runtime 2.0.0-alpha.3",
+ "sp-std 2.0.0-alpha.3",
+ "sp-version 2.0.0-alpha.3",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-balances"
 version = "2.0.0-alpha.3"
 source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
 dependencies = [
@@ -2987,11 +3088,11 @@ version = "0.1.0"
 dependencies = [
  "frame-support 2.0.0-alpha.3",
  "frame-system 2.0.0-alpha.3",
+ "pallet-identity",
  "pallet-timestamp 2.0.0-alpha.3",
  "parity-scale-codec",
+ "polymesh-common-utilities",
  "polymesh-primitives",
- "polymesh-runtime-common",
- "polymesh-runtime-identity",
  "serde",
  "serde_derive",
  "sp-api 2.0.0-alpha.3",
@@ -3142,6 +3243,84 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-group"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "pallet-identity",
+ "pallet-timestamp 2.0.0-alpha.3",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "sp-api 2.0.0-alpha.3",
+ "sp-core 2.0.0-alpha.3",
+ "sp-io 2.0.0-alpha.3",
+ "sp-runtime 2.0.0-alpha.3",
+ "sp-std 2.0.0-alpha.3",
+ "sp-version 2.0.0-alpha.3",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-identity"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "pallet-identity-rpc-runtime-api",
+ "pallet-protocol-fee",
+ "pallet-timestamp 2.0.0-alpha.3",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "sp-api 2.0.0-alpha.3",
+ "sp-core 2.0.0-alpha.3",
+ "sp-io 2.0.0-alpha.3",
+ "sp-runtime 2.0.0-alpha.3",
+ "sp-serializer",
+ "sp-std 2.0.0-alpha.3",
+ "sp-version 2.0.0-alpha.3",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-identity-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-identity-rpc-runtime-api",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "serde",
+ "sp-api 2.0.0-alpha.3",
+ "sp-blockchain",
+ "sp-core 2.0.0-alpha.3",
+ "sp-rpc",
+ "sp-runtime 2.0.0-alpha.3",
+]
+
+[[package]]
+name = "pallet-identity-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.0-alpha.3",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "serde",
+ "serde_json",
+ "sp-api 2.0.0-alpha.3",
+ "sp-std 2.0.0-alpha.3",
+]
+
+[[package]]
 name = "pallet-im-online"
 version = "2.0.0"
 dependencies = [
@@ -3195,17 +3374,17 @@ version = "0.1.0"
 dependencies = [
  "frame-support 2.0.0-alpha.3",
  "frame-system 2.0.0-alpha.3",
+ "pallet-balances 0.1.0",
  "pallet-committee",
+ "pallet-group",
+ "pallet-identity",
  "pallet-mips-rpc-runtime-api",
+ "pallet-protocol-fee",
  "pallet-timestamp 2.0.0-alpha.3",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "polymesh-common-utilities",
  "polymesh-primitives",
- "polymesh-protocol-fee",
- "polymesh-runtime-balances",
- "polymesh-runtime-common",
- "polymesh-runtime-group",
- "polymesh-runtime-identity",
  "serde",
  "serde_derive",
  "sp-api 2.0.0-alpha.3",
@@ -3250,18 +3429,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-multisig"
+version = "1.0.0"
+dependencies = [
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "pallet-identity",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "sp-core 2.0.0-alpha.3",
+ "sp-runtime 2.0.0-alpha.3",
+ "sp-std 2.0.0-alpha.3",
+]
+
+[[package]]
 name = "pallet-offences"
 version = "2.0.0-alpha.3"
 source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
 dependencies = [
  "frame-support 2.0.0-alpha.3",
  "frame-system 2.0.0-alpha.3",
- "pallet-balances",
+ "pallet-balances 2.0.0-alpha.3",
  "parity-scale-codec",
  "serde",
  "sp-runtime 2.0.0-alpha.3",
  "sp-staking 2.0.0-alpha.3",
  "sp-std 2.0.0-alpha.3",
+]
+
+[[package]]
+name = "pallet-protocol-fee"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "sp-core 2.0.0-alpha.3",
+ "sp-io 2.0.0-alpha.3",
+ "sp-runtime 2.0.0-alpha.3",
+ "sp-std 2.0.0-alpha.3",
+ "substrate-test-runtime-client",
 ]
 
 [[package]]
@@ -3323,17 +3536,17 @@ dependencies = [
  "frame-system 2.0.0-alpha.3",
  "pallet-authorship",
  "pallet-babe",
+ "pallet-balances 0.1.0",
+ "pallet-group",
+ "pallet-identity",
+ "pallet-protocol-fee",
  "pallet-session 2.0.0-alpha.3",
  "pallet-staking-reward-curve",
  "pallet-timestamp 2.0.0-alpha.3",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "polymesh-common-utilities",
  "polymesh-primitives",
- "polymesh-protocol-fee",
- "polymesh-runtime-balances",
- "polymesh-runtime-common",
- "polymesh-runtime-group",
- "polymesh-runtime-identity",
  "safe-mix",
  "serde",
  "sp-core 2.0.0-alpha.3",
@@ -3437,11 +3650,11 @@ version = "2.0.0"
 dependencies = [
  "frame-support 2.0.0-alpha.3",
  "frame-system 2.0.0-alpha.3",
+ "pallet-balances 0.1.0",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
+ "polymesh-common-utilities",
  "polymesh-primitives",
- "polymesh-runtime-balances",
- "polymesh-runtime-common",
  "sp-core 2.0.0-alpha.3",
  "sp-io 2.0.0-alpha.3",
  "sp-runtime 2.0.0-alpha.3",
@@ -3485,7 +3698,7 @@ source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b
 dependencies = [
  "frame-support 2.0.0-alpha.3",
  "frame-system 2.0.0-alpha.3",
- "pallet-balances",
+ "pallet-balances 2.0.0-alpha.3",
  "parity-scale-codec",
  "serde",
  "sp-runtime 2.0.0-alpha.3",
@@ -3830,16 +4043,15 @@ dependencies = [
  "log",
  "pallet-contracts",
  "pallet-contracts-rpc",
+ "pallet-identity-rpc",
  "pallet-im-online",
  "pallet-mips-rpc",
+ "pallet-protocol-fee",
  "pallet-staking-rpc",
  "pallet-transaction-payment-rpc",
  "parking_lot 0.10.0",
+ "polymesh-common-utilities",
  "polymesh-primitives",
- "polymesh-protocol-fee",
- "polymesh-runtime",
- "polymesh-runtime-common",
- "polymesh-runtime-identity-rpc",
  "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-cli",
@@ -3871,138 +4083,41 @@ dependencies = [
 ]
 
 [[package]]
-name = "polymesh-primitives"
-version = "2.0.0"
-dependencies = [
- "frame-support 2.0.0-alpha.3",
- "frame-system 2.0.0-alpha.3",
- "hex",
- "parity-scale-codec",
- "serde",
- "sp-core 2.0.0-alpha.3",
- "sp-io 2.0.0-alpha.3",
- "sp-runtime 2.0.0-alpha.3",
- "sp-std 2.0.0-alpha.3",
- "sp-version 2.0.0-alpha.3",
-]
-
-[[package]]
-name = "polymesh-protocol-fee"
-version = "0.1.0"
-dependencies = [
- "frame-support 2.0.0-alpha.3",
- "frame-system 2.0.0-alpha.3",
- "parity-scale-codec",
- "polymesh-primitives",
- "polymesh-runtime-common",
- "serde",
- "sp-core 2.0.0-alpha.3",
- "sp-io 2.0.0-alpha.3",
- "sp-runtime 2.0.0-alpha.3",
- "sp-std 2.0.0-alpha.3",
- "substrate-test-runtime-client",
-]
-
-[[package]]
-name = "polymesh-runtime"
-version = "0.6.0"
+name = "polymesh-runtime-common"
+version = "1.0.0"
 dependencies = [
  "chrono",
- "frame-executive",
  "frame-support 2.0.0-alpha.3",
  "frame-system 2.0.0-alpha.3",
- "frame-system-rpc-runtime-api",
  "hex-literal",
  "ink_primitives",
- "lazy_static",
- "log",
- "pallet-authority-discovery",
  "pallet-authorship",
- "pallet-babe",
+ "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-contracts",
- "pallet-contracts-primitives",
- "pallet-contracts-rpc-runtime-api",
- "pallet-democracy",
- "pallet-elections",
- "pallet-elections-phragmen",
- "pallet-finality-tracker",
- "pallet-grandpa",
- "pallet-im-online",
- "pallet-indices",
- "pallet-membership",
+ "pallet-group",
+ "pallet-identity",
  "pallet-mips",
- "pallet-mips-rpc-runtime-api",
- "pallet-offences",
- "pallet-randomness-collective-flip",
- "pallet-session 2.0.0-alpha.3",
- "pallet-staking",
- "pallet-staking-reward-curve",
- "pallet-staking-rpc-runtime-api",
- "pallet-sudo",
+ "pallet-multisig",
+ "pallet-protocol-fee",
  "pallet-timestamp 2.0.0-alpha.3",
  "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
  "parity-scale-codec",
+ "polymesh-common-utilities",
  "polymesh-primitives",
- "polymesh-protocol-fee",
- "polymesh-runtime-balances",
- "polymesh-runtime-common",
- "polymesh-runtime-group",
- "polymesh-runtime-identity",
- "polymesh-runtime-identity-rpc-runtime-api",
- "rand 0.7.3",
- "rustc-hex",
- "safe-mix",
  "serde",
  "serde_derive",
  "serde_json",
- "sp-api 2.0.0-alpha.3",
- "sp-authority-discovery",
- "sp-block-builder",
- "sp-consensus-babe",
- "sp-core 2.0.0-alpha.3",
- "sp-inherents 2.0.0-alpha.3",
- "sp-io 2.0.0-alpha.3",
- "sp-offchain",
- "sp-phragmen",
- "sp-runtime 2.0.0-alpha.3",
- "sp-serializer",
- "sp-session",
- "sp-staking 2.0.0-alpha.3",
- "sp-std 2.0.0-alpha.3",
- "sp-transaction-pool",
- "sp-version 2.0.0-alpha.3",
- "substrate-test-runtime-client",
- "substrate-wasm-builder-runner",
- "yaml-rust",
-]
-
-[[package]]
-name = "polymesh-runtime-balances"
-version = "0.1.0"
-dependencies = [
- "frame-support 2.0.0-alpha.3",
- "frame-system 2.0.0-alpha.3",
- "pallet-timestamp 2.0.0-alpha.3",
- "pallet-transaction-payment",
- "parity-scale-codec",
- "polymesh-primitives",
- "polymesh-runtime-common",
- "serde",
- "serde_derive",
- "sp-api 2.0.0-alpha.3",
  "sp-core 2.0.0-alpha.3",
  "sp-io 2.0.0-alpha.3",
  "sp-runtime 2.0.0-alpha.3",
  "sp-std 2.0.0-alpha.3",
- "sp-version 2.0.0-alpha.3",
  "substrate-test-runtime-client",
 ]
 
 [[package]]
-name = "polymesh-runtime-common"
+name = "polymesh-common-utilities"
 version = "0.1.0"
 dependencies = [
  "frame-support 2.0.0-alpha.3",
@@ -4025,81 +4140,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "polymesh-runtime-group"
-version = "0.1.0"
+name = "polymesh-primitives"
+version = "2.0.0"
 dependencies = [
  "frame-support 2.0.0-alpha.3",
  "frame-system 2.0.0-alpha.3",
- "pallet-timestamp 2.0.0-alpha.3",
+ "hex",
  "parity-scale-codec",
- "polymesh-primitives",
- "polymesh-runtime-common",
- "polymesh-runtime-identity",
  "serde",
- "serde_derive",
- "sp-api 2.0.0-alpha.3",
  "sp-core 2.0.0-alpha.3",
  "sp-io 2.0.0-alpha.3",
  "sp-runtime 2.0.0-alpha.3",
  "sp-std 2.0.0-alpha.3",
  "sp-version 2.0.0-alpha.3",
- "substrate-test-runtime-client",
-]
-
-[[package]]
-name = "polymesh-runtime-identity"
-version = "0.1.0"
-dependencies = [
- "frame-support 2.0.0-alpha.3",
- "frame-system 2.0.0-alpha.3",
- "pallet-timestamp 2.0.0-alpha.3",
- "pallet-transaction-payment",
- "parity-scale-codec",
- "polymesh-primitives",
- "polymesh-protocol-fee",
- "polymesh-runtime-common",
- "polymesh-runtime-identity-rpc-runtime-api",
- "serde",
- "serde_derive",
- "sp-api 2.0.0-alpha.3",
- "sp-core 2.0.0-alpha.3",
- "sp-io 2.0.0-alpha.3",
- "sp-runtime 2.0.0-alpha.3",
- "sp-serializer",
- "sp-std 2.0.0-alpha.3",
- "sp-version 2.0.0-alpha.3",
- "substrate-test-runtime-client",
-]
-
-[[package]]
-name = "polymesh-runtime-identity-rpc"
-version = "0.1.0"
-dependencies = [
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "parity-scale-codec",
- "polymesh-primitives",
- "polymesh-runtime-identity-rpc-runtime-api",
- "serde",
- "sp-api 2.0.0-alpha.3",
- "sp-blockchain",
- "sp-core 2.0.0-alpha.3",
- "sp-rpc",
- "sp-runtime 2.0.0-alpha.3",
-]
-
-[[package]]
-name = "polymesh-runtime-identity-rpc-runtime-api"
-version = "0.1.0"
-dependencies = [
- "frame-support 2.0.0-alpha.3",
- "parity-scale-codec",
- "polymesh-primitives",
- "serde",
- "serde_json",
- "sp-api 2.0.0-alpha.3",
- "sp-std 2.0.0-alpha.3",
 ]
 
 [[package]]
@@ -6811,6 +6864,85 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb6bfa289a4d7c5766392812c0a1f4c1ba45afa1ad47803c11e1f407d846d75f"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "testnet-v1"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "frame-executive",
+ "frame-support 2.0.0-alpha.3",
+ "frame-system 2.0.0-alpha.3",
+ "frame-system-rpc-runtime-api",
+ "hex-literal",
+ "ink_primitives",
+ "lazy_static",
+ "log",
+ "pallet-authority-discovery",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-balances 0.1.0",
+ "pallet-committee",
+ "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
+ "pallet-democracy",
+ "pallet-elections",
+ "pallet-elections-phragmen",
+ "pallet-finality-tracker",
+ "pallet-grandpa",
+ "pallet-group",
+ "pallet-identity",
+ "pallet-identity-rpc-runtime-api",
+ "pallet-im-online",
+ "pallet-indices",
+ "pallet-membership",
+ "pallet-mips",
+ "pallet-mips-rpc-runtime-api",
+ "pallet-multisig",
+ "pallet-offences",
+ "pallet-protocol-fee",
+ "pallet-randomness-collective-flip",
+ "pallet-session 2.0.0-alpha.3",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "pallet-staking-rpc-runtime-api",
+ "pallet-sudo",
+ "pallet-timestamp 2.0.0-alpha.3",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "polymesh-runtime-common",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "rand 0.7.3",
+ "rustc-hex",
+ "safe-mix",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sp-api 2.0.0-alpha.3",
+ "sp-arithmetic 2.0.0-alpha.3",
+ "sp-authority-discovery",
+ "sp-block-builder",
+ "sp-consensus-babe",
+ "sp-core 2.0.0-alpha.3",
+ "sp-inherents 2.0.0-alpha.3",
+ "sp-io 2.0.0-alpha.3",
+ "sp-offchain",
+ "sp-phragmen",
+ "sp-runtime 2.0.0-alpha.3",
+ "sp-serializer",
+ "sp-session",
+ "sp-staking 2.0.0-alpha.3",
+ "sp-std 2.0.0-alpha.3",
+ "sp-transaction-pool",
+ "sp-version 2.0.0-alpha.3",
+ "substrate-test-runtime-client",
+ "substrate-wasm-builder-runner",
+ "yaml-rust",
 ]
 
 [[package]]

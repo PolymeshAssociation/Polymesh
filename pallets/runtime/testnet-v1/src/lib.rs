@@ -1,0 +1,41 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
+#![recursion_limit = "256"]
+
+pub mod fee_details;
+pub mod runtime;
+pub use fee_details::CddHandler;
+pub mod constants;
+
+pub use runtime::{
+    api, Asset, Authorship, Balances, Bridge, Contracts,
+    ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, TargetBlockFullness,
+    TransactionPayment,
+};
+
+#[cfg(feature = "std")]
+pub mod config {
+
+    use pallet_committee as committee;
+    use pallet_protocol_fee as protocol_fee;
+    use pallet_balances as balances;
+    use pallet_identity as identity;
+
+    pub type AssetConfig = polymesh_runtime_common::asset::GenesisConfig<crate::Runtime>;
+    pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
+    pub type BridgeConfig = polymesh_runtime_common::bridge::GenesisConfig<crate::Runtime>;
+    pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
+    pub type SimpleTokenConfig = polymesh_runtime_common::simple_token::GenesisConfig<crate::Runtime>;
+    pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
+    pub type PolymeshCommitteeConfig =
+        committee::GenesisConfig<crate::Runtime, committee::Instance1>;
+    pub type MipsConfig = pallet_mips::GenesisConfig<crate::Runtime>;
+    pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
+    pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;
+    pub type ImOnlineConfig = pallet_im_online::GenesisConfig<crate::Runtime>;
+    pub type SudoConfig = pallet_sudo::GenesisConfig<crate::Runtime>;
+    pub type SystemConfig = frame_system::GenesisConfig;
+    pub type GenesisConfig = crate::runtime::GenesisConfig;
+    pub type SessionConfig = pallet_session::GenesisConfig<crate::Runtime>;
+    pub type ProtocolFeeConfig = protocol_fee::GenesisConfig<crate::Runtime>;
+}

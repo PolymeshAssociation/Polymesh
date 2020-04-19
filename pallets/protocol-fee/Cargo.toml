@@ -1,5 +1,5 @@
 [package]
-name = "polymesh-protocol-fee"
+name = "pallet-protocol-fee"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-polymesh-runtime-common = { path = "../common", default-features = false }
+polymesh-common-utilities = { path = "../common", default-features = false }
 primitives = { package = "polymesh-primitives", default-features = false, path = "../../primitives" }
 serde = { version = "1.0.104", default-features = false }
 sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -26,7 +26,7 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
-    "polymesh-runtime-common/std",
+    "polymesh-common-utilities/std",
     "primitives/std",
     "serde/std",
     "sp-core/std",

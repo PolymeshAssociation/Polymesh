@@ -31,17 +31,17 @@ use frame_support::{
     StorageDoubleMap, StorageLinkedMap, StorageMap, StorageValue,
 };
 use frame_system::{self as system, EnsureSignedBy};
-use polymesh_protocol_fee as protocol_fee;
-use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::{
+use pallet_balances as balances;
+use pallet_group as group;
+use pallet_identity::{self as identity};
+use pallet_protocol_fee as protocol_fee;
+use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
     multisig::AddSignerMultiSig,
     CommonTrait,
 };
-use polymesh_runtime_group as group;
-use polymesh_runtime_identity::{self as identity};
 use primitives::traits::BlockRewardsReserveCurrency;
 use primitives::{AccountKey, Claim, IdentityId, Signatory};
 use sp_core::{

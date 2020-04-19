@@ -1,5 +1,5 @@
 [package]
-name = "polymesh-runtime-identity-rpc-runtime-api"
+name = "pallet-identity-rpc-runtime-api"
 version = "0.1.0"
 authors = ["Polymath Inc. <satyam@polymath.network>"]
 edition = "2018"

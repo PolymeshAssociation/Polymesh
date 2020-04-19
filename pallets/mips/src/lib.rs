@@ -46,15 +46,15 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_identity as identity;
 use pallet_mips_rpc_runtime_api::VoteCount;
-use polymesh_primitives::{AccountKey, Signatory};
-use polymesh_runtime_common::{
+use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::group::GroupTrait,
     Context,
 };
-use polymesh_runtime_identity as identity;
+use polymesh_primitives::{AccountKey, Signatory};
 use sp_runtime::{
     traits::{CheckedSub, Dispatchable, EnsureOrigin, Hash, Zero},
     DispatchError,
