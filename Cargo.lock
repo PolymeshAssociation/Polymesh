@@ -2896,6 +2896,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-cdd-offchain-worker"
+version = "2.0.0"
+dependencies = [
+ "chrono",
+ "frame-support",
+ "frame-system",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-session",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-protocol-fee",
+ "polymesh-runtime-balances",
+ "polymesh-runtime-common",
+ "polymesh-runtime-group",
+ "polymesh-runtime-identity",
+ "serde",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
 name = "pallet-committee"
 version = "0.1.0"
 dependencies = [
@@ -3769,6 +3800,7 @@ dependencies = [
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
+ "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-contracts",
  "pallet-contracts-primitives",
