@@ -435,7 +435,7 @@ fn emergency_referendum_works_we() {
             index: 0,
             state: ReferendumState::Executed,
             referendum_type: ReferendumType::Emergency,
-            proposal
+            enactment_period: 201,
         })
     );
 }
@@ -649,8 +649,8 @@ fn update_referendum_enactment_period_we() {
     assert_ok!(Mips::emergency_referendum(
         alice.clone(),
         Box::new(proposal_a.clone()),
-        proposal_url,
-        proposal_desc,
+        Some(proposal_url),
+        Some(proposal_desc),
     ));
     assert_ok!(Mips::enact_referendum(root.clone(), 0));
     assert_eq!(
@@ -667,8 +667,8 @@ fn update_referendum_enactment_period_we() {
     assert_ok!(Mips::emergency_referendum(
         alice.clone(),
         Box::new(proposal_b.clone()),
-        proposal_url,
-        proposal_desc,
+        Some(proposal_url),
+        Some(proposal_desc),
     ));
     assert_ok!(Mips::enact_referendum(root.clone(), 1));
     assert_eq!(
@@ -723,7 +723,7 @@ fn update_referendum_enactment_period_we() {
             index: 0,
             state: ReferendumState::Executed,
             referendum_type: ReferendumType::Emergency,
-            proposal: proposal_a.clone()
+            enactment_period: 200,
         })
     );
     assert_err!(
