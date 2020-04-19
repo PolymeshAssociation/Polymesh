@@ -1,6 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use polymesh_primitives::{AccountId, IdentityId, Signature};
+use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signature};
 use polymesh_runtime::{
     asset::TickerRegistrationConfig,
     config::{
@@ -14,9 +14,12 @@ use polymesh_runtime::{
     },
     Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
-use polymesh_runtime_common::constants::{
-    currency::{MILLICENTS, POLY},
-    time::{DAYS, HOURS},
+use polymesh_runtime_common::{
+    constants::{
+        currency::{MILLICENTS, POLY},
+        time::{DAYS, HOURS},
+    },
+    protocol_fee::ProtocolOp,
 };
 use sc_service::Properties;
 use serde_json::json;
@@ -396,7 +399,11 @@ fn testnet_genesis(
             phantom: Default::default(),
         }),
         protocol_fee: Some(ProtocolFeeConfig {
-            ..Default::default()
+            base_fees: vec![
+                (ProtocolOp::AssetCreateToken, 10_000 * 1_000_000),
+                (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
+            ],
+            coefficient: PosRatio(1, 1),
         }),
     }
 }
