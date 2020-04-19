@@ -6,7 +6,7 @@ use frame_support::{assert_err, assert_ok};
 use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
-    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority, MipsState,
+    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, ProposalState, ReferendumState, ReferendumType,
     PolymeshVotes, Referendum, Url,
 };
 use polymesh_runtime_balances as balances;
@@ -180,10 +180,9 @@ fn creating_a_referendum_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::Normal,
-            state: MipsState::Ratified,
-            enactment_period: 0,
-            proposal: proposal.clone()
+            state: ReferendumState::Pending,
+            referendum_type: ReferendumType::Community,
+            enactment_period: 0,            
         })
     );
 
@@ -244,10 +243,9 @@ fn enacting_a_referendum_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::Normal,
-            state: MipsState::Ratified,
+            state: ReferendumState::Pending,
+            referendum_type: ReferendumType::Community,
             enactment_period: 0,
-            proposal: proposal.clone()
         })
     );
 
@@ -261,10 +259,9 @@ fn enacting_a_referendum_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::Normal,
-            state: MipsState::Scheduled,
+            state: ReferendumState::Scheduled,
+            referendum_type: ReferendumType::Community,
             enactment_period: 220,
-            proposal: proposal.clone()
         })
     );
 
@@ -274,10 +271,9 @@ fn enacting_a_referendum_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::Normal,
-            state: MipsState::Executed,
+            state: ReferendumState::Executed,
+            referendum_type: ReferendumType::Community,
             enactment_period: 220,
-            proposal
         })
     );
 }
@@ -341,10 +337,9 @@ fn fast_tracking_a_proposal_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::High,
-            state: MipsState::Ratified,
+            state: ReferendumState::Pending,
+            referendum_type: ReferendumType::FastTracked,
             enactment_period: 0,
-            proposal: proposal.clone()
         })
     );
 
@@ -353,10 +348,9 @@ fn fast_tracking_a_proposal_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::High,
-            state: MipsState::Scheduled,
+            state: ReferendumState::Scheduled,
+            referendum_type: ReferendumType::FastTracked,
             enactment_period: 101,
-            proposal: proposal.clone()
         })
     );
 
@@ -366,25 +360,26 @@ fn fast_tracking_a_proposal_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::High,
-            state: MipsState::Executed,
+            state: ReferendumState::Executed,
+            referendum_type: ReferendumType::FastTracked,
             enactment_period: 101,
-            proposal
         })
     );
 }
 
 #[test]
-fn submit_referendum_works() {
+fn emergency_referendum_works() {
     ExtBuilder::default()
         .monied(true)
         .build()
-        .execute_with(submit_referendum_works_we);
+        .execute_with(emergency_referendum_works_we);
 }
 
-fn submit_referendum_works_we() {
+fn emergency_referendum_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
+    let proposal_url: Url = b"www.abc.com".into();
+    let proposal_desc: MipDescription = b"Test description".into();
 
     let root = Origin::system(frame_system::RawOrigin::Root);
 
@@ -397,9 +392,11 @@ fn submit_referendum_works_we() {
     assert_eq!(Committee::members(), vec![alice_did]);
 
     // Alice is a committee member
-    assert_ok!(Mips::submit_referendum(
+    assert_ok!(Mips::emergency_referendum(
         alice_signer.clone(),
-        Box::new(proposal.clone())
+        Box::new(proposal.clone()),
+        Some(proposal_url.clone()),
+        Some(proposal_desc)
     ));
 
     fast_forward_to(20);
@@ -408,10 +405,9 @@ fn submit_referendum_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::High,
-            state: MipsState::Ratified,
+            state: ReferendumState::Pending,
+            referendum_type: ReferendumType::Emergency,
             enactment_period: 0,
-            proposal: proposal.clone()
         })
     );
 
@@ -426,10 +422,9 @@ fn submit_referendum_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::High,
-            state: MipsState::Scheduled,
+            state: ReferendumState::Scheduled,
+            referendum_type: ReferendumType::Emergency,
             enactment_period: 201,
-            proposal: proposal.clone()
         })
     );
 
@@ -438,9 +433,8 @@ fn submit_referendum_works_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::High,
-            state: MipsState::Executed,
-            enactment_period: 201,
+            state: ReferendumState::Executed,
+            referendum_type: ReferendumType::Emergency,
             proposal
         })
     );
@@ -641,6 +635,8 @@ fn update_referendum_enactment_period_we() {
     let root = Origin::system(frame_system::RawOrigin::Root);
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob = Origin::signed(AccountKeyring::Bob.public());
+    let proposal_url: Url = b"www.abc.com".into();
+    let proposal_desc: MipDescription = b"Test description".into();
 
     let proposal_a = make_proposal(42);
     let proposal_b = make_proposal(107);
@@ -650,36 +646,38 @@ fn update_referendum_enactment_period_we() {
     assert_ok!(Committee::set_release_coordinator(root.clone(), bob_id));
 
     // Alice submit 2 referendums in different moments.
-    assert_ok!(Mips::submit_referendum(
+    assert_ok!(Mips::emergency_referendum(
         alice.clone(),
-        Box::new(proposal_a.clone())
+        Box::new(proposal_a.clone()),
+        proposal_url,
+        proposal_desc,
     ));
     assert_ok!(Mips::enact_referendum(root.clone(), 0));
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::High,
-            state: MipsState::Scheduled,
+            state: ReferendumState::Scheduled,
+            referendum_type: ReferendumType::Emergency,
             enactment_period: 101,
-            proposal: proposal_a.clone()
         })
     );
 
     fast_forward_to(50);
-    assert_ok!(Mips::submit_referendum(
+    assert_ok!(Mips::emergency_referendum(
         alice.clone(),
-        Box::new(proposal_b.clone())
+        Box::new(proposal_b.clone()),
+        proposal_url,
+        proposal_desc,
     ));
     assert_ok!(Mips::enact_referendum(root.clone(), 1));
     assert_eq!(
         Mips::referendums(1),
         Some(Referendum {
             index: 1,
-            priority: MipsPriority::High,
-            state: MipsState::Scheduled,
+            state: ReferendumState::Scheduled,
+            referendum_type: ReferendumType::Emergency,
             enactment_period: 150,
-            proposal: proposal_b.clone()
         })
     );
 
@@ -696,10 +694,9 @@ fn update_referendum_enactment_period_we() {
         Mips::referendums(1),
         Some(Referendum {
             index: 1,
-            priority: MipsPriority::High,
-            state: MipsState::Executed,
+            state: ReferendumState::Executed,
+            referendum_type: ReferendumType::Emergency,
             enactment_period: 51,
-            proposal: proposal_b.clone()
         })
     );
 
@@ -712,10 +709,9 @@ fn update_referendum_enactment_period_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::High,
-            state: MipsState::Scheduled,
+            state: ReferendumState::Scheduled,
+            referendum_type: ReferendumType::Emergency,
             enactment_period: 200,
-            proposal: proposal_a.clone()
         })
     );
 
@@ -725,9 +721,8 @@ fn update_referendum_enactment_period_we() {
         Mips::referendums(0),
         Some(Referendum {
             index: 0,
-            priority: MipsPriority::High,
-            state: MipsState::Executed,
-            enactment_period: 200,
+            state: ReferendumState::Executed,
+            referendum_type: ReferendumType::Emergency,
             proposal: proposal_a.clone()
         })
     );
