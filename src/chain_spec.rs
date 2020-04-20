@@ -186,7 +186,7 @@ impl Alternative {
 }
 
 fn polymath_props() -> Properties {
-    json!({"tokenDecimals": 6, "tokenSymbol": "POLY" })
+    json!({"tokenDecimals": 6, "tokenSymbol": "POLYX" })
         .as_object()
         .unwrap()
         .clone()
