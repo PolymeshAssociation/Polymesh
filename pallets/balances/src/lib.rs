@@ -474,6 +474,7 @@ decl_module! {
             Self::mutate_account(&who, |account| {
                 account.free = account.free.saturating_sub(amount);
             });
+            Self::deposit_event(RawEvent::FreeBalanceBurned(who, amount));
             Ok(())
         }
     }
