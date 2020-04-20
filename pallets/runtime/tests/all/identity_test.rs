@@ -120,6 +120,13 @@ fn add_claims_batch() {
 
     assert_eq!(claim1.claim, Claim::CustomerDueDiligence);
     assert_eq!(claim2.claim, Claim::Affiliate(scope));
+
+        assert_eq!(claim1.expiry, None);
+        assert_eq!(claim2.expiry, None);
+
+        assert_eq!(claim1.claim, Claim::Accredited(scope));
+        assert_eq!(claim2.claim, Claim::Affiliate(scope));
+    });
 }
 
 /// TODO Add `Signatory::Identity(..)` test.

@@ -17,6 +17,7 @@
 use crate::chain_spec::load_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service;
+#[cfg(feature = "runtime-benchmarks")]
 use polymesh_runtime::runtime;
 use sc_cli::VersionInfo;
 
