@@ -420,7 +420,7 @@
     },
     "RpcResult": {
         "Ok": "IdentityId",
-        "Err": "Vec<u8>" 
+        "Err": "Vec<u8>"
     },
     "CddStatus": {
         "Result": "RpcResult"
@@ -443,5 +443,6 @@
     "CappedVoteCount": {
         "Success": "VoteCountRpcSuccess",
         "ProposalNotFound": "Vec<u8>"
-    }
+    },
+    "Weight": "u32"
 }
