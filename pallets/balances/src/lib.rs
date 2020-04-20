@@ -462,6 +462,20 @@ decl_module! {
             let dest = T::Lookup::lookup(dest)?;
             Self::transfer_core(&source, &dest, value, None, ExistenceRequirement::AllowDeath)?;
         }
+
+        /// Burns the given amount of tokens from the caller's free balance.
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        pub fn burn_free_balance(origin, amount: T::Balance) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let amount = cmp::min(amount, Self::account(&who).free);
+            // Burn total issuance.
+            let _ = Self::burn(amount);
+            // Update the caller's free balance.
+            Self::mutate_account(&who, |account| {
+                account.free = account.free.saturating_sub(amount);
+            });
+            Ok(())
+        }
     }
 }
 
