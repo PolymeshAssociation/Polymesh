@@ -31,7 +31,8 @@ members = [
     "pallets/balances",
     "pallets/committee",
     "pallets/group",
-    "pallets/protocol-fee"
+    "pallets/protocol-fee",
+    "pallets/cdd-offchain-worker"
 ]
 
 [dependencies]
