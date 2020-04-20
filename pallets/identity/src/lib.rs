@@ -431,7 +431,7 @@ decl_module! {
                     _ => false,
                 })
                 .count();
-            if cdd_count > 0 { 
+            if cdd_count > 0 {
                 ensure!(cdd_providers.contains(&issuer), Error::<T>::UnAuthorizedCddProvider);
             }
 
