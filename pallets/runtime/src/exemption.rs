@@ -10,6 +10,7 @@ use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use codec::Encode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -50,8 +51,8 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         fn modify_exemption_list(origin, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
-
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
