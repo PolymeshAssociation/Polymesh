@@ -8,7 +8,10 @@ use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::{Currency, Get};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, ensure,
+    weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
+};
 use frame_system::{self as system, ensure_signed};
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
@@ -211,6 +214,7 @@ decl_module! {
         }
 
         /// Change the controller account as admin.
+        #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_controller(origin, controller: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -219,6 +223,7 @@ decl_module! {
         }
 
         /// Change the bridge admin key.
+        #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_admin(origin, admin: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -227,6 +232,7 @@ decl_module! {
         }
 
         /// Change the timelock period.
+        #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -243,6 +249,7 @@ decl_module! {
         /// * `unfreeze`,
         /// * `freeze_bridge_txs`,
         /// * `unfreeze_bridge_txs`.
+        #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn freeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -253,6 +260,7 @@ decl_module! {
         }
 
         /// Unfreezes the operation of the bridge module if it is frozen.
+        #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn unfreeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -265,6 +273,7 @@ decl_module! {
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
         /// bridge transaction if the transaction is new or approving an existing proposal if the
         /// transaction has already been proposed.
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
@@ -282,6 +291,7 @@ decl_module! {
 
         /// Finalizes pending bridge transactions following a receipt of a valid CDD by the
         /// recipient identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn finalize_pending(_origin, did: IdentityId) -> DispatchResult {
             ensure!(!Self::frozen(), Error::<T>::Frozen);
             ensure!(<identity::Module<T>>::has_valid_cdd(did), Error::<T>::NoValidCdd);
@@ -317,6 +327,7 @@ decl_module! {
         }
 
         /// Handles an approved bridge transaction proposal.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
@@ -343,6 +354,18 @@ decl_module! {
         }
 
         /// Freezes given bridge transactions.
+        ///
+        /// # Weight
+        /// `50_000 + 200_000 * bridge_txs.len()`
+        #[weight = FunctionOf(
+            |(bridge_txs,): (
+                &Vec<BridgeTx<T::AccountId, T::Balance>>,
+            )| {
+                50_000 + 200_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
@@ -361,6 +384,18 @@ decl_module! {
         }
 
         /// Unfreezes given bridge transactions.
+        ///
+        /// # Weight
+        /// `50_000 + 700_000 * bridge_txs.len()`
+        #[weight = FunctionOf(
+            |(bridge_txs,): (
+                &Vec<BridgeTx<T::AccountId, T::Balance>>,
+            )| {
+                50_000 + 700_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
