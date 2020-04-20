@@ -738,7 +738,7 @@ decl_module! {
             };
             <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
             // TODO: Improve data structures to avoid unbounded loop
-            
+
             Self::create_referendum(
                 index,
                 ReferendumState::Pending,
