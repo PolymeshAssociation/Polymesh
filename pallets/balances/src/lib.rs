@@ -467,12 +467,13 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn burn_free_balance(origin, amount: T::Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            let amount = cmp::min(amount, Self::account(&who).free);
+            let total_issuance = Self::total_issuance();
+            let amount = cmp::min(total_issuance, cmp::min(amount, Self::account(&who).free));
             // Burn total issuance.
-            let _ = Self::burn(amount);
+            <TotalIssuance<T>>::put(total_issuance - amount);
             // Update the caller's free balance.
             Self::mutate_account(&who, |account| {
-                account.free = account.free.saturating_sub(amount);
+                account.free = account.free - amount;
             });
             Self::deposit_event(RawEvent::FreeBalanceBurned(who, amount));
             Ok(())
@@ -764,7 +765,7 @@ where
     }
 
     fn minimum_balance() -> Self::Balance {
-        0u128.into()
+        Zero::zero()
     }
 
     fn free_balance(who: &T::AccountId) -> Self::Balance {

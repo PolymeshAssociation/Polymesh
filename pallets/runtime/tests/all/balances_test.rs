@@ -218,7 +218,7 @@ fn burn_free_balance_works() {
         let _ = make_account(alice_pub).unwrap();
         let total_issuance0 = Balances::total_issuance();
         let alice_free_balance0 = Balances::free_balance(&alice_pub);
-        let burn_amount = 1_000;
+        let burn_amount = 100_000;
         assert_ok!(Balances::burn_free_balance(
             Origin::signed(alice_pub),
             burn_amount
@@ -227,7 +227,7 @@ fn burn_free_balance_works() {
         assert_eq!(alice_free_balance1, alice_free_balance0 - burn_amount);
         let total_issuance1 = Balances::total_issuance();
         assert_eq!(total_issuance1, total_issuance0 - burn_amount);
-        let fat_finger_burn_amount = u128::MAX;
+        let fat_finger_burn_amount = std::u128::MAX;
         assert_ok!(Balances::burn_free_balance(
             Origin::signed(alice_pub),
             fat_finger_burn_amount
