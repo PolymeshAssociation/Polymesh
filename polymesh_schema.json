@@ -442,5 +442,6 @@
             },
             "ProposalNotFound": "Vec<u8>"
         }
-    }
+    },
+    "Weight": "u32"
 }
