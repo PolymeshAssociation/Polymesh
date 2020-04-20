@@ -690,6 +690,7 @@ decl_module! {
             Self::update_proposal_state(index, ProposalState::Referendum);
 
             // Update proposal metadata so we don't re-execute it later
+            // TODO: Improve data structures to avoid unbounded loop
             <ProposalMetadata<T>>::mutate( |metas| {
                 let meta = metas.iter_mut().find( |meta| meta.index == index);
                 if let Some(meta) = meta {
@@ -736,7 +737,8 @@ decl_module! {
                 cool_off_until: Zero::zero(),
             };
             <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
-
+            // TODO: Improve data structures to avoid unbounded loop
+            
             Self::create_referendum(
                 index,
                 ReferendumState::Pending,
