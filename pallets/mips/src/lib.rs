@@ -37,7 +37,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use pallet_mips_rpc_runtime_api::VoteCount;
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{AccountKey, Beneficiary, Signatory};
 use polymesh_runtime_common::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -101,12 +101,6 @@ impl<T: AsRef<[u8]>> From<T> for MipDescription {
         v.extend_from_slice(s);
         MipDescription(v)
     }
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct Beneficiary<Balance> {
-    pub id: IdentityId,
-    pub amount: Balance,
 }
 
 /// Represents a proposal metadata

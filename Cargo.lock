@@ -3985,6 +3985,7 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime-balances",
  "polymesh-runtime-common",
+ "polymesh-runtime-identity",
  "serde",
  "serde_derive",
  "sp-api",

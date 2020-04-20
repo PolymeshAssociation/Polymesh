@@ -3,6 +3,7 @@ use super::{
     ExtBuilder,
 };
 
+use polymesh_primitives::Beneficiary;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_treasury::{self as treasury};
 
@@ -28,25 +29,39 @@ fn reimbursement_and_disbursement_we() {
     let root = Origin::system(frame_system::RawOrigin::Root);
     let alice = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice_acc = Origin::signed(AccountKeyring::Alice.public());
+    let bob = register_keyring_account(AccountKeyring::Bob).unwrap();
 
-    // Verify reimburstement from root.
+    // Verify reimburstement.
     assert_eq!(Treasury::balance(), 1_000_000);
-    assert_ok!(Treasury::reimbursement(root.clone(), 1_000));
+    assert_ok!(Treasury::reimbursement(alice_acc.clone(), 1_000));
     assert_eq!(Treasury::balance(), 1_001_000);
 
-    // Nobody can make reimbursments.
-    assert_err!(
-        Treasury::reimbursement(alice_acc.clone(), 5_000),
-        DispatchError::BadOrigin
-    );
+    // Disbursement: Only root can do that.
+    let beneficiaries = vec![
+        Beneficiary {
+            id: alice,
+            amount: 100,
+        },
+        Beneficiary {
+            id: bob,
+            amount: 500,
+        },
+    ];
 
-    assert_ok!(Treasury::disbursement(root.clone(), alice, 100));
-    assert_eq!(Treasury::balance(), 1_000_900);
+    assert_ok!(Treasury::disbursement(root.clone(), beneficiaries));
+    assert_eq!(Treasury::balance(), 1_000_400);
     assert_eq!(Balances::identity_balance(alice), 100);
+    assert_eq!(Balances::identity_balance(bob), 500);
 
     // Alice cannot make a disbursement to herself.
     assert_err!(
-        Treasury::disbursement(alice_acc, alice, 500),
+        Treasury::disbursement(
+            alice_acc,
+            vec![Beneficiary {
+                id: alice,
+                amount: 500
+            }]
+        ),
         DispatchError::BadOrigin
     );
 }

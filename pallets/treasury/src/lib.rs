@@ -1,27 +1,34 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{AccountKey, Beneficiary, IdentityId};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::{
-    balances::Trait as BalancesTrait, CommonTrait, NegativeImbalance,
+use polymesh_runtime_common::{
+    traits::{
+        balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait,
+        NegativeImbalance,
+    },
+    Context,
 };
+use polymesh_runtime_identity as identity;
 
+use codec::Encode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
-    traits::{Imbalance, OnUnbalanced},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
 };
-use frame_system::{self as system, ensure_root};
+use frame_system::{self as system, ensure_root, ensure_signed};
 use sp_runtime::traits::Saturating;
-use sp_std::prelude::*;
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub type ProposalIndex = u32;
 
 type BalanceOf<T> = <T as CommonTrait>::Balance;
+type Identity<T> = identity::Module<T>;
 
-pub trait Trait: frame_system::Trait + CommonTrait + BalancesTrait {
+pub trait Trait: frame_system::Trait + CommonTrait + BalancesTrait + IdentityTrait {
     // The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -64,23 +71,43 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        pub fn disbursement(origin, target: IdentityId, amount: T::Balance
-            ) -> DispatchResult
+        /// It transfers balances from treasury to each of beneficiaries and the specific amount
+        /// for each of them.
+        ///
+        /// # Error
+        /// * `BadOrigin`: Only root can execute transaction.
+        /// * `InsufficientBalance`: If treasury balances is not enough to cover all beneficiaries.
+        pub fn disbursement(origin, beneficiaries: Vec< Beneficiary<T::Balance>>) -> DispatchResult
         {
             ensure_root(origin)?;
 
             // Ensure treasury has enough balance.
+            let total_amount = beneficiaries.iter().fold( 0.into(), |acc,b| b.amount.saturating_add(acc));
             ensure!(
-                Self::balance() >= amount,
+                Self::balance() >= total_amount,
                 Error::<T>::InsufficientBalance);
 
-            Self::unsafe_disbursement(target, amount);
-            Self::deposit_event(RawEvent::TreasuryDisbursement(target, amount));
+            beneficiaries.into_iter().for_each( |b| {
+                Self::unsafe_disbursement(b.id, b.amount);
+                Self::deposit_event(RawEvent::TreasuryDisbursement(b.id, b.amount));
+            });
             Ok(())
         }
 
+        /// It transfers the specific `amount` from `origin` account into treasury.
+        ///
+        /// Only accounts which are associated to an identity can make a donation to treasury.
         pub fn reimbursement(origin, amount: T::Balance) -> DispatchResult {
-            ensure_root(origin)?;
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let _did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
+            let _ = balances::Module::<T>::withdraw(
+                &sender,
+                amount,
+                WithdrawReason::Transfer.into(),
+                ExistenceRequirement::AllowDeath,
+            )?;
 
             Self::unsafe_reimbursement(amount);
             Self::deposit_event(RawEvent::TreasuryReimbursement(amount));

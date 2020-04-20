@@ -9,9 +9,10 @@ use frame_support::{assert_err, assert_ok};
 use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
-    self as mips, Beneficiary, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority,
-    MipsState, Referendum, Url, Voting,
+    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, MipsPriority, MipsState,
+    Referendum, Url, Voting,
 };
+use polymesh_primitives::Beneficiary;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
 use test_client::AccountKeyring;
