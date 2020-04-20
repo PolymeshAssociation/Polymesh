@@ -60,7 +60,10 @@ use polymesh_runtime_identity as identity;
 use codec::Encode;
 use core::result::Result as StdResult;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::{
@@ -168,6 +171,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
         /// * asset_rule_id - Rule id which is need to be removed
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn remove_active_rule(origin, ticker: Ticker, asset_rule_id: u32) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -188,6 +192,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
+        #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         pub fn reset_active_rules(origin, ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -205,6 +210,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
+        #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         pub fn pause_asset_rules(origin, ticker: Ticker) -> DispatchResult {
             Self::pause_resume_rules(origin, ticker, true)?;
 
@@ -217,6 +223,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
+        #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         pub fn resume_asset_rules(origin, ticker: Ticker) -> DispatchResult {
             Self::pause_resume_rules(origin, ticker, false)?;
 
@@ -231,6 +238,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuer - IdentityId of the trusted claim issuer.
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, true)
         }
@@ -242,6 +250,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuer - IdentityId of the trusted claim issuer.
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, false)
         }
@@ -253,6 +262,19 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
+        ///
+        /// # Weight
+        /// `50_000 + 250_000 * trusted_issuers.len().max(values.len())`
+        #[weight = FunctionOf(
+            |(_, trusted_issuers): (
+                &Ticker,
+                &Vec<IdentityId>,
+            )| {
+                50_000 + 250_000 * u32::try_from(trusted_issuers.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn add_default_trusted_claim_issuers_batch(origin, ticker: Ticker, trusted_issuers: Vec<IdentityId>) -> DispatchResult {
             Self::modify_default_trusted_claim_issuers_batch(origin, ticker, trusted_issuers, true)
         }
@@ -264,6 +286,19 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
+        ///
+        /// # Weight
+        /// `50_000 + 250_000 * trusted_issuers.len().max(values.len())`
+        #[weight = FunctionOf(
+            |(_, trusted_issuers): (
+                &Ticker,
+                &Vec<IdentityId>,
+            )| {
+                50_000 + 250_000 * u32::try_from(trusted_issuers.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn remove_default_trusted_claim_issuers_batch(origin, ticker: Ticker, trusted_issuers: Vec<IdentityId>) -> DispatchResult {
             Self::modify_default_trusted_claim_issuers_batch(origin, ticker, trusted_issuers, false)
         }
@@ -274,6 +309,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * asset_rule - Asset rule.
+        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn change_asset_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -290,6 +326,19 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * asset_rules - Vector of asset rule.
+        ///
+        /// # Weight
+        /// `100_000 + 100_000 * asset_rules.len().max(values.len())`
+        #[weight = FunctionOf(
+            |(_, asset_rules): (
+                &Ticker,
+                &Vec<AssetTransferRule>,
+            )| {
+                100_000 + 100_000 * u32::try_from(asset_rules.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn change_asset_rule_batch(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;

@@ -45,6 +45,7 @@ use polymesh_runtime_identity as identity;
 use codec::Encode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero};
@@ -103,6 +104,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
+        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn new(origin,
             amount: T::Balance,
             ticker: Ticker,
@@ -192,6 +194,7 @@ decl_module! {
         }
 
         /// Lets the owner cancel a dividend before start/maturity date
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn cancel(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -234,6 +237,7 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn claim(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -307,6 +311,7 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn claim_unclaimed(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
