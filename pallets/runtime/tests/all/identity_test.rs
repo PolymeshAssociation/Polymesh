@@ -98,6 +98,7 @@ fn add_claims_batch() {
         claim_records.clone(),
     ));
 
+    // Using Bob as the singer who is not a CDD Provider to check if the transaction fails 
     assert_err!(
         Identity::add_claims_batch(Origin::signed(bob_issuer), claim_records.clone(),),
         Error::<TestStorage>::UnAuthorizedCddProvider
