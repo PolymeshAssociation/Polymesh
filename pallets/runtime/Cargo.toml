@@ -9,6 +9,7 @@ build = "build.rs"
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
+polymesh-protocol-fee-rpc-runtime-api = { package = "polymesh-protocol-fee-rpc-runtime-api", path = "../protocol-fee/rpc/runtime-api", default-features = false }
 polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
@@ -121,6 +122,7 @@ std = [
     "pallet-finality-tracker/std",
     "pallet-contracts-rpc-runtime-api/std",
     "pallet-transaction-payment-rpc-runtime-api/std",
+    "polymesh-protocol-fee-rpc-runtime-api/std",
     "polymesh-runtime-identity-rpc-runtime-api/std",
     "pallet-staking-rpc-runtime-api/std",
     "pallet-grandpa/std",

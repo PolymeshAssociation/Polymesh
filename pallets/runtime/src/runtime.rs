@@ -12,7 +12,7 @@ use crate::{
 use pallet_committee as committee;
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
-    Signature, SigningItem, Ticker,
+    ProtocolOp, Signature, SigningItem, Ticker,
 };
 use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
@@ -925,6 +925,16 @@ impl_runtime_apis! {
         /// Proposals `address` voted on
         fn voted_on(address: AccountId) -> Vec<u32> {
             Mips::voted_on(address)
+        }
+    }
+
+    impl polymesh_protocol_fee_rpc_runtime_api::ProtocolFeeApi<
+        Block,
+        Balance,
+        ProtocolOp
+    > for Runtime {
+        fn get_fee(op: ProtocolOp) -> Balance {
+            ProtocolFee::get_fee(op)
         }
     }
 
