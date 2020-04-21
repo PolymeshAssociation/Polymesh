@@ -10,8 +10,8 @@ use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
-type Error = polymesh_protocol_fee::Error<TestStorage>;
-type ProtocolFee = polymesh_protocol_fee::Module<TestStorage>;
+type Error = pallet_protocol_fee::Error<TestStorage>;
+type ProtocolFee = pallet_protocol_fee::Module<TestStorage>;
 
 #[test]
 fn can_compute_fee() {

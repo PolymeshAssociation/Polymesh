@@ -8,7 +8,6 @@ use codec::{Decode, Encode};
 use core::convert::TryFrom;
 use frame_support::StorageMap;
 
-//#[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
 pub struct CddChecker<R>(sp_std::marker::PhantomData<R>);
 
 impl<R> CheckCdd for CddChecker<R>

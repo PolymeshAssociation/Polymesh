@@ -18,6 +18,8 @@ pallet-multisig = { package = "pallet-multisig", path = "../../multisig", defaul
 
 chrono = { version = "0.4.11", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
+rand = { version = "0.7.3", default-features = false }
+lazy_static = { version = "1.4.0", default-features = false }
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true }
 serde_json = { version = "1.0.48", default-features = false }
@@ -31,6 +33,8 @@ pallet-contracts = { package = "pallet-contracts", git = "https://github.com/par
 pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-treasury = { package = "pallet-treasury", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-authorship = { package = "pallet-authorship", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
 frame-benchmarking = { package = "frame-benchmarking", default-features = false, git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", optional = true }
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -59,11 +63,13 @@ std = [
 	"pallet-treasury/std",
 	"pallet-group/std",
 	"pallet-mips/std",
+	"pallet-session/std",
 	"pallet-committee/std",
 	"pallet-balances/std",
 	"pallet-identity/std",
 	"pallet-multisig/std",
 	"pallet-transaction-payment/std",
+	"pallet-randomness-collective-flip/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",

@@ -313,7 +313,7 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        polymesh_protocol_fee::GenesisConfig::<TestStorage> {
+        pallet_protocol_fee::GenesisConfig::<TestStorage> {
             base_fees: self.protocol_base_fees.0,
             coefficient: self.protocol_coefficient,
         }

@@ -19,9 +19,6 @@ pub mod voting;
 pub use cdd_check::CddChecker;
 pub use sp_runtime::{Perbill, Permill};
 
-#[cfg(test)]
-pub mod test;
-
 use pallet_balances as balances;
 use polymesh_primitives::BlockNumber;
 use frame_support::{

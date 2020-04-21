@@ -7,7 +7,7 @@ use polymesh_primitives::{
     AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
 };
-use polymesh_common_utilities::{
+use polymesh_runtime_common::{
     asset::{self, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData},
     general_tm,
 };

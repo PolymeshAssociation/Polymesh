@@ -1,4 +1,4 @@
-use polymesh_runtime::{
+use polymesh_runtime_common::{
     asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, percentage_tm,
     simple_token, statistics, voting,
 };
@@ -12,7 +12,7 @@ use frame_system::{self as system};
 use pallet_committee as committee;
 use pallet_mips as mips;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
-use polymesh_protocol_fee as protocol_fee;
+use pallet_protocol_fee as protocol_fee;
 use pallet_balances as balances;
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait, multisig::AddSignerMultiSig,

@@ -12,7 +12,7 @@ use test_client::{self, AccountKeyring};
 use polymesh_primitives::Ticker;
 use pallet_balances as balances;
 
-use polymesh_runtime::{
+use polymesh_runtime_common::{
     asset::{self, AssetType, SecurityToken},
     dividend::{self, Dividend},
     general_tm,
