@@ -425,31 +425,35 @@
             "VotingAddBallot"
         ]
     },
-    "RpcResult": {
-        "Ok": "IdentityId",
-        "Err": "Vec<u8>"
-    },
     "CddStatus": {
-        "Result": "RpcResult"
+        "_enum": {
+            "Ok": "IdentityId",
+            "Err": "Vec<u8>"
+        }
     },
     "AssetDidResult": {
-        "Result": "RpcResult"
-    },
-    "DidRecordRpcSuccess": {
-        "master_key" : "AccountKey",
-        "signing_items": "Vec<SigningItem>"
+        "_enum": {
+            "Ok": "IdentityId",
+            "Err": "Vec<u8>"
+        }
     },
     "DidRecords": {
-        "Success": "DidRecordRpcSuccess",
-        "IdNotFound": "Vec<u8>"
-    },
-    "VoteCountRpcSuccess": {
-        "ayes": "u64",
-        "nays": "u64"
+        "_enum": {
+            "Success": {
+                "master_key" : "AccountKey",
+                "signing_items": "Vec<SigningItem>"
+            },
+            "IdNotFound": "Vec<u8>"
+        }
     },
     "CappedVoteCount": {
-        "Success": "VoteCountRpcSuccess",
-        "ProposalNotFound": "Vec<u8>"
+        "_enum": {
+            "Success": {
+                "ayes": "u64",
+                "nays": "u64"
+            },
+            "ProposalNotFound": "Vec<u8>"
+        }
     },
     "Weight": "u32"
 }
