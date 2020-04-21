@@ -212,14 +212,14 @@ fn issue_must_work() {
 }
 
 #[test]
-fn burn_free_balance_works() {
+fn burn_account_balance_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_pub = AccountKeyring::Alice.public();
         let _ = make_account(alice_pub).unwrap();
         let total_issuance0 = Balances::total_issuance();
         let alice_free_balance0 = Balances::free_balance(&alice_pub);
         let burn_amount = 100_000;
-        assert_ok!(Balances::burn_free_balance(
+        assert_ok!(Balances::burn_account_balance(
             Origin::signed(alice_pub),
             burn_amount
         ));
@@ -228,16 +228,16 @@ fn burn_free_balance_works() {
         let total_issuance1 = Balances::total_issuance();
         assert_eq!(total_issuance1, total_issuance0 - burn_amount);
         let fat_finger_burn_amount = std::u128::MAX;
-        assert_ok!(Balances::burn_free_balance(
-            Origin::signed(alice_pub),
-            fat_finger_burn_amount
-        ));
+        assert_err!(
+            Balances::burn_account_balance(Origin::signed(alice_pub), fat_finger_burn_amount),
+            Error::InsufficientBalance
+        );
         let alice_free_balance2 = Balances::free_balance(&alice_pub);
-        // The entire Alice's free balance is burned.
-        assert_eq!(alice_free_balance2, 0);
+        // None of Alice's free balance is burned.
+        assert_eq!(alice_free_balance2, alice_free_balance1);
         let total_issuance2 = Balances::total_issuance();
-        // Only the available Alice's free balance is burned.
-        assert_eq!(total_issuance2, total_issuance0 - alice_free_balance0);
+        // The total issuance is unchanged either.
+        assert_eq!(total_issuance2, total_issuance1);
     });
 }
 

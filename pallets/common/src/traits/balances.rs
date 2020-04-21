@@ -113,8 +113,8 @@ decl_event!(
         BalanceSet(AccountId, Balance, Balance),
         /// Transfer succeded with a memo.
         TransferWithMemo(AccountId, AccountId, Balance, Memo),
-        /// The account and the amount of free balance of that account that was burned.
-        FreeBalanceBurned(AccountId, Balance),
+        /// The account and the amount of unlocked balance of that account that was burned.
+        AccountBalanceBurned(AccountId, Balance),
     }
 );
 

@@ -463,19 +463,21 @@ decl_module! {
             Self::transfer_core(&source, &dest, value, None, ExistenceRequirement::AllowDeath)?;
         }
 
-        /// Burns the given amount of tokens from the caller's free balance.
+        /// Burns the given amount of tokens from the caller's free, unlocked balance.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
-        pub fn burn_free_balance(origin, amount: T::Balance) -> DispatchResult {
+        pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            let total_issuance = Self::total_issuance();
-            let amount = cmp::min(total_issuance, cmp::min(amount, Self::account(&who).free));
-            // Burn total issuance.
-            <TotalIssuance<T>>::put(total_issuance - amount);
-            // Update the caller's free balance.
-            Self::mutate_account(&who, |account| {
-                account.free = account.free - amount;
-            });
-            Self::deposit_event(RawEvent::FreeBalanceBurned(who, amount));
+            let imbalance = <Self as Currency<T::AccountId>>::withdraw(
+                &who,
+                amount,
+                // There is no specific "burn" reason in Substrate. However, if the caller is
+                // allowed to transfer then they should also be allowed to burn.
+                WithdrawReason::Transfer.into(),
+                ExistenceRequirement::AllowDeath,
+            )?;
+            // Burn the withdrawn balance.
+            drop(imbalance);
+            Self::deposit_event(RawEvent::AccountBalanceBurned(who, amount));
             Ok(())
         }
     }
