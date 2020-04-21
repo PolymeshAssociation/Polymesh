@@ -1,16 +1,16 @@
-use crate::{
-    asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName},
-    general_tm::{self as general_tm, AssetTransferRule, Error as GTMError},
-    test::{
-        storage::{make_account, register_keyring_account, TestStorage},
-        ExtBuilder,
-    },
+use super::{
+    storage::{make_account, register_keyring_account, TestStorage},
+    ExtBuilder,
 };
 
+use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
+use polymesh_runtime_common::{
+    asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName},
+    general_tm::{self as general_tm, AssetTransferRule, Error as GTMError},
+};
 use pallet_balances as balances;
 use pallet_group::{self as group};
 use pallet_identity::{self as identity, BatchAddClaimItem};
-use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
 
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_ok, traits::Currency};

@@ -40,3 +40,6 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benches;

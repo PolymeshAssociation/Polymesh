@@ -1,25 +1,25 @@
-use crate::{
-    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, multisig, percentage_tm,
+use polymesh_runtime::{
+    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, percentage_tm,
     simple_token, statistics, voting,
 };
-
+use pallet_multisig as multisig;
 use codec::Encode;
 use frame_support::{
     assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
     parameter_types, traits::Currency, weights::DispatchInfo,
 };
 use frame_system::{self as system};
-use pallet_balances as balances;
 use pallet_committee as committee;
-use pallet_group as group;
-use pallet_identity as identity;
 use pallet_mips as mips;
-use pallet_protocol_fee as protocol_fee;
+use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
+use polymesh_protocol_fee as protocol_fee;
+use pallet_balances as balances;
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait, multisig::AddSignerMultiSig,
     CommonTrait,
 };
-use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
+use pallet_group as group;
+use pallet_identity as identity;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
@@ -55,6 +55,7 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
+        mips::Mips,
         multisig::MultiSig,
         pallet_contracts::Contracts,
         bridge::Bridge,
@@ -454,6 +455,7 @@ impl mips::Trait for TestStorage {
 
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
+pub type Mips = mips::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
 pub type Asset = asset::Module<TestStorage>;
 pub type MultiSig = multisig::Module<TestStorage>;

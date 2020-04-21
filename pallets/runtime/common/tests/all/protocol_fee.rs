@@ -1,17 +1,17 @@
-use crate::test::{
+use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{register_keyring_account_with_balance, TestStorage},
     ExtBuilder,
 };
 use codec::Encode;
 use frame_support::{assert_err, assert_ok};
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
-type Error = pallet_protocol_fee::Error<TestStorage>;
-type ProtocolFee = pallet_protocol_fee::Module<TestStorage>;
+type Error = polymesh_protocol_fee::Error<TestStorage>;
+type ProtocolFee = polymesh_protocol_fee::Module<TestStorage>;
 
 #[test]
 fn can_compute_fee() {

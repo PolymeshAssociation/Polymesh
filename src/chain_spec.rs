@@ -1,12 +1,15 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use polymesh_common_utilities::constants::{
-    currency::{MILLICENTS, POLY}
+use polymesh_common_utilities::{
+    constants:: {
+        currency::{MILLICENTS, POLY}
+    },
+    protocol_fee::ProtocolOp,
 };
-use polymesh_primitives::{AccountId, IdentityId, Signature};
-use polymesh_runtime_common::asset::TickerRegistrationConfig;
-use polymesh_runtime_develop::{self as general, config as GeneralConfig, constants::time::HOURS as DevelopHours};
-use polymesh_runtime_testnet_v1::{self as v1, config as v1Config, constants::time::HOURS as v1Hours};
+use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signature};
+use polymesh_common_utilities::asset::TickerRegistrationConfig;
+use polymesh_runtime_develop::{self as general, config as GeneralConfig, constants::time as GeneralTime};
+use polymesh_runtime_testnet_v1::{self as v1, config as V1Config, constants::time as V1Time};
 use sc_service::Properties;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -91,7 +94,7 @@ pub fn get_authority_keys_from_seed(
 }
 
 fn polymath_props() -> Properties {
-    json!({"tokenDecimals": 6, "tokenSymbol": "POLY" })
+    json!({"tokenDecimals": 6, "tokenSymbol": "POLYX" })
         .as_object()
         .unwrap()
         .clone()
@@ -247,7 +250,8 @@ fn general_testnet_genesis(
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
-            proposal_cool_off_period: DevelopHours * 6,
+            proposal_cool_off_period: GeneralTime::HOURS * 6,
+            default_enactment_period: GeneralTime::DAYS * 7,
         }),
         pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
             slashing_params: general::OfflineSlashingParams {
@@ -290,7 +294,11 @@ fn general_testnet_genesis(
             phantom: Default::default(),
         }),
         protocol_fee: Some(GeneralConfig::ProtocolFeeConfig {
-            ..Default::default()
+            base_fees: vec![
+                (ProtocolOp::AssetCreateToken, 10_000 * 1_000_000),
+                (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
+            ],
+            coefficient: PosRatio(1, 1),
         }),
     }
 }
@@ -397,7 +405,7 @@ pub fn general_live_testnet_config() -> GeneralChainSpec {
 	)
 }
 
-fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
+fn v1_live_testnet_genesis() -> V1Config::GenesisConfig {
 
     // Need to provide authorities
     let initial_authorities: Vec<(
@@ -415,12 +423,12 @@ fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
     const STASH: u128 = 300 * POLY; //300 Poly
     const ENDOWMENT: u128 = 1_00_000 * POLY;
 
-    v1Config::GenesisConfig {
-        frame_system: Some(v1Config::SystemConfig {
+    V1Config::GenesisConfig {
+        frame_system: Some(V1Config::SystemConfig {
             code: v1::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(v1Config::AssetConfig {
+        asset: Some(V1Config::AssetConfig {
             asset_creation_fee: 250,
             ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
@@ -429,14 +437,14 @@ fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
             },
             fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
-        bridge: Some(v1Config::BridgeConfig {
+        bridge: Some(V1Config::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
             creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
             signatures_required: 0,
             signers: vec![],
             timelock: 10,
         }),
-        identity: Some(v1Config::IdentityConfig {
+        identity: Some(V1Config::IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -512,8 +520,8 @@ fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
             ],
             ..Default::default()
         }),
-        simple_token: Some(v1Config::SimpleTokenConfig { creation_fee: 1000 }),
-        balances: Some(v1Config::BalancesConfig {
+        simple_token: Some(V1Config::SimpleTokenConfig { creation_fee: 1000 }),
+        balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
                 .cloned()
@@ -521,9 +529,9 @@ fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
                 .collect(),
         }),
         pallet_treasury: Some(Default::default()),
-        pallet_indices: Some(v1Config::IndicesConfig { indices: vec![] }),
-        pallet_sudo: Some(v1Config::SudoConfig { key: root_key }),
-        pallet_session: Some(v1Config::SessionConfig {
+        pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
+        pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
+        pallet_session: Some(V1Config::SessionConfig {
             keys: initial_authorities
                 .iter()
                 .map(|x| {
@@ -535,7 +543,7 @@ fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking: Some(v1Config::StakingConfig {
+        pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
             stakers: initial_authorities
@@ -550,13 +558,14 @@ fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_mips: Some(v1Config::MipsConfig {
+        pallet_mips: Some(V1Config::MipsConfig {
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
-            proposal_cool_off_period: v1Hours * 6,
+            proposal_cool_off_period: V1Time::HOURS * 6,
+            default_enactment_period: V1Time::DAYS * 7,
         }),
-        pallet_im_online: Some(v1Config::ImOnlineConfig {
+        pallet_im_online: Some(V1Config::ImOnlineConfig {
             slashing_params: v1::OfflineSlashingParams {
                 max_offline_percent: 10u32,
                 constant: 3u32,
@@ -567,7 +576,7 @@ fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(Default::default()),
-        pallet_contracts: Some(v1Config::ContractsConfig {
+        pallet_contracts: Some(V1Config::ContractsConfig {
             current_schedule: contracts::Schedule {
                 ..Default::default()
             },
@@ -577,7 +586,7 @@ fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
             active_members: vec![],
             phantom: Default::default(),
         }),
-        committee_Instance1: Some(v1Config::PolymeshCommitteeConfig {
+        committee_Instance1: Some(V1Config::PolymeshCommitteeConfig {
             vote_threshold: (1, 2),
             members: vec![
                 IdentityId::from(3),
@@ -595,8 +604,12 @@ fn v1_live_testnet_genesis() -> v1Config::GenesisConfig {
             ],
             phantom: Default::default(),
         }),
-        protocol_fee: Some(v1Config::ProtocolFeeConfig {
-            ..Default::default()
+        protocol_fee: Some(V1Config::ProtocolFeeConfig {
+            base_fees: vec![
+                (ProtocolOp::AssetCreateToken, 10_000 * 1_000_000),
+                (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
+            ],
+            coefficient: PosRatio(1, 1),
         }),
     }
 }
@@ -617,7 +630,7 @@ fn v1_live_testnet_config() -> V1ChainSpec {
 	)
 }
 
-fn v1_develop_testnet_genesis() -> v1Config::GenesisConfig {
+fn v1_develop_testnet_genesis() -> V1Config::GenesisConfig {
     v1_testnet_genesis(
         vec![get_authority_keys_from_seed("Alice")],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -646,7 +659,7 @@ pub fn v1_develop_testnet_config() -> V1ChainSpec {
 	)
 }
 
-fn v1_local_testnet_genesis() -> v1Config::GenesisConfig {
+fn v1_local_testnet_genesis() -> V1Config::GenesisConfig {
     v1_testnet_genesis(
         vec![
             get_authority_keys_from_seed("Alice"),
@@ -695,17 +708,17 @@ fn v1_testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
-) -> v1Config::GenesisConfig {
+) -> V1Config::GenesisConfig {
 
     const STASH: u128 = 300 * POLY; //300 Poly
     const ENDOWMENT: u128 = 1_00_000 * POLY;
 
-    v1Config::GenesisConfig {
-        frame_system: Some(v1Config::SystemConfig {
+    V1Config::GenesisConfig {
+        frame_system: Some(V1Config::SystemConfig {
             code: v1::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(v1Config::AssetConfig {
+        asset: Some(V1Config::AssetConfig {
             asset_creation_fee: 250,
             ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
@@ -714,14 +727,14 @@ fn v1_testnet_genesis(
             },
             fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
-        bridge: Some(v1Config::BridgeConfig {
+        bridge: Some(V1Config::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
             creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
             signatures_required: 0,
             signers: vec![],
             timelock: 10,
         }),
-        identity: Some(v1Config::IdentityConfig {
+        identity: Some(V1Config::IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -797,8 +810,8 @@ fn v1_testnet_genesis(
             ],
             ..Default::default()
         }),
-        simple_token: Some(v1Config::SimpleTokenConfig { creation_fee: 1000 }),
-        balances: Some(v1Config::BalancesConfig {
+        simple_token: Some(V1Config::SimpleTokenConfig { creation_fee: 1000 }),
+        balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
                 .cloned()
@@ -806,9 +819,9 @@ fn v1_testnet_genesis(
                 .collect(),
         }),
         pallet_treasury: Some(Default::default()),
-        pallet_indices: Some(v1Config::IndicesConfig { indices: vec![] }),
-        pallet_sudo: Some(v1Config::SudoConfig { key: root_key }),
-        pallet_session: Some(v1Config::SessionConfig {
+        pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
+        pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
+        pallet_session: Some(V1Config::SessionConfig {
             keys: initial_authorities
                 .iter()
                 .map(|x| {
@@ -820,7 +833,7 @@ fn v1_testnet_genesis(
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking: Some(v1Config::StakingConfig {
+        pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
             stakers: initial_authorities
@@ -835,13 +848,14 @@ fn v1_testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_mips: Some(v1Config::MipsConfig {
+        pallet_mips: Some(V1Config::MipsConfig {
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
-            proposal_cool_off_period: v1Hours * 6,
+            proposal_cool_off_period: V1Time::HOURS * 6,
+            default_enactment_period: V1Time::DAYS * 7,
         }),
-        pallet_im_online: Some(v1Config::ImOnlineConfig {
+        pallet_im_online: Some(V1Config::ImOnlineConfig {
             slashing_params: v1::OfflineSlashingParams {
                 max_offline_percent: 10u32,
                 constant: 3u32,
@@ -852,7 +866,7 @@ fn v1_testnet_genesis(
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(Default::default()),
-        pallet_contracts: Some(v1Config::ContractsConfig {
+        pallet_contracts: Some(V1Config::ContractsConfig {
             current_schedule: contracts::Schedule {
                 enable_println, // this should only be enabled on development chains
                 ..Default::default()
@@ -881,8 +895,12 @@ fn v1_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        protocol_fee: Some(v1Config::ProtocolFeeConfig {
-            ..Default::default()
+        protocol_fee: Some(V1Config::ProtocolFeeConfig {
+            base_fees: vec![
+                (ProtocolOp::AssetCreateToken, 10_000 * 1_000_000),
+                (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
+            ],
+            coefficient: PosRatio(1, 1),
         }),
     }
 }

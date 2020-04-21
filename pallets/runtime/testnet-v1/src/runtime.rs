@@ -3,7 +3,7 @@ use crate::{
     fee_details::CddHandler,
     constants::{fee::*, time::*},
 };
-use polymesh_runtime_common::{
+use polymesh_common_utilities::{
     asset, bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
@@ -31,7 +31,7 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 
 use frame_support::{
-    construct_runtime, parameter_types,
+    construct_runtime, debug, parameter_types,
     traits::{Currency, Randomness, SplitTwoWays},
     weights::Weight,
 };
@@ -43,13 +43,17 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
 };
 use sp_runtime::{
-    traits::{BlakeTwo256, Block as BlockT, OpaqueKeys, StaticLookup, Verify},
+    traits::{
+        BlakeTwo256, Block as BlockT, Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup,
+        Verify,
+    },
     MultiSignature,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 use frame_system::offchain::TransactionSubmitter;
+use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -880,6 +884,39 @@ impl_runtime_apis! {
         /// Retrieve master key and signing keys for a given IdentityId
         fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
             Identity::get_did_records(did)
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    impl frame_benchmarking::Benchmark<Block> for Runtime {
+        fn dispatch_benchmark(
+            module: Vec<u8>,
+            extrinsic: Vec<u8>,
+            lowest_range_values: Vec<u32>,
+            highest_range_values: Vec<u32>,
+            steps: Vec<u32>,
+            repeat: u32,
+        ) -> Result<Vec<frame_benchmarking::BenchmarkResults>, sp_runtime::RuntimeString> {
+            use frame_benchmarking::Benchmarking;
+
+            let result = match module.as_slice() {
+                b"pallet-identity" | b"identity" => Identity::run_benchmark(
+                    extrinsic,
+                    lowest_range_values,
+                    highest_range_values,
+                    steps,
+                    repeat,
+                ),
+                b"runtime-asset" | b"asset" => Asset::run_benchmark(
+                    extrinsic,
+                    lowest_range_values,
+                    highest_range_values,
+                    steps,
+                    repeat,
+                ),
+                _ => Err("Benchmark not found for this pallet."),
+            };
+            result.map_err(|e| e.into())
         }
     }
 }

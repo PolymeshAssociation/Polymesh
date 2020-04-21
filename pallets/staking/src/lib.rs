@@ -1080,7 +1080,7 @@ decl_module! {
         /// the `origin` falls below _existential deposit_ and gets removed as dust.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
-        fn bond(origin,
+        pub fn bond(origin,
             controller: <T::Lookup as StaticLookup>::Source,
             #[compact] value: BalanceOf<T>,
             payee: RewardDestination
@@ -1135,7 +1135,7 @@ decl_module! {
         /// - One DB entry.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
-        fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
+        pub fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
             let stash = ensure_signed(origin)?;
 
             let controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
@@ -1175,7 +1175,7 @@ decl_module! {
         /// - One DB entry.
         /// </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
-        fn unbond(origin, #[compact] value: BalanceOf<T>) {
+        pub fn unbond(origin, #[compact] value: BalanceOf<T>) {
             let controller = ensure_signed(origin)?;
             let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             ensure!(
@@ -1202,7 +1202,7 @@ decl_module! {
         /// - Writes are limited to the `origin` account key.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
-        fn withdraw_unbonded(origin) {
+        pub fn withdraw_unbonded(origin) {
             let controller = ensure_signed(origin)?;
             let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             if let Some(current_era) = Self::current_era() {
@@ -1236,7 +1236,7 @@ decl_module! {
         /// - Writes are limited to the `origin` account key.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
-        fn validate(origin, prefs: ValidatorPrefs) {
+        pub fn validate(origin, prefs: ValidatorPrefs) {
             //Self::ensure_storage_upgraded();
 
             let controller = ensure_signed(origin)?;
@@ -1266,7 +1266,7 @@ decl_module! {
         /// - Both the reads and writes follow a similar pattern.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(950_000)]
-        fn nominate(origin, targets: Vec<<T::Lookup as StaticLookup>::Source>) {
+        pub fn nominate(origin, targets: Vec<<T::Lookup as StaticLookup>::Source>) {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
@@ -1311,7 +1311,7 @@ decl_module! {
         /// - Writes are limited to the `origin` account key.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
-        fn chill(origin) {
+        pub fn chill(origin) {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             Self::chill_stash(&ledger.stash);
@@ -1329,7 +1329,7 @@ decl_module! {
         /// - Writes are limited to the `origin` account key.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
-        fn set_payee(origin, payee: RewardDestination) {
+        pub fn set_payee(origin, payee: RewardDestination) {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
@@ -1348,7 +1348,7 @@ decl_module! {
         /// - Writes are limited to the `origin` account key.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
-        fn set_controller(origin, controller: <T::Lookup as StaticLookup>::Source) {
+        pub fn set_controller(origin, controller: <T::Lookup as StaticLookup>::Source) {
             let stash = ensure_signed(origin)?;
             let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
             let controller = T::Lookup::lookup(controller)?;
@@ -1365,7 +1365,7 @@ decl_module! {
 
         /// The ideal number of validators.
         #[weight = SimpleDispatchInfo::FixedOperational(20000)]
-        fn set_validator_count(origin, #[compact] new: u32) {
+        pub fn set_validator_count(origin, #[compact] new: u32) {
             ensure_root(origin)?;
             ValidatorCount::put(new);
         }
@@ -1374,7 +1374,7 @@ decl_module! {
         /// to the pool of validators. Staking module uses `PermissionedValidators` to ensure
         /// validators have completed KYB compliance and considers them for validation.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn add_potential_validator(origin, validator: T::AccountId) {
+        pub fn add_potential_validator(origin, validator: T::AccountId) {
             T::RequiredAddOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
@@ -1391,7 +1391,7 @@ decl_module! {
         /// Staking module checks `PermissionedValidators` to ensure validators have
         /// completed KYB compliance
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn remove_validator(origin, validator: T::AccountId) {
+        pub fn remove_validator(origin, validator: T::AccountId) {
             T::RequiredRemoveOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
@@ -1405,7 +1405,7 @@ decl_module! {
         /// Governance committee on 2/3 rds majority can update the compliance status of a validator
         /// as `Pending`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn compliance_failed(origin, validator: T::AccountId) {
+        pub fn compliance_failed(origin, validator: T::AccountId) {
             T::RequiredComplianceOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
@@ -1422,7 +1422,7 @@ decl_module! {
         /// Governance committee on 2/3 rds majority can update the compliance status of a validator
         /// as `Active`.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        fn compliance_passed(origin, validator: T::AccountId) {
+        pub fn compliance_passed(origin, validator: T::AccountId) {
             T::RequiredComplianceOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
@@ -1447,7 +1447,7 @@ decl_module! {
         /// - Depends on the no. of claim issuers an accountId has for the CDD expiry
         /// #</weight>
         #[weight = SimpleDispatchInfo::FixedNormal(950_000)]
-        fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
+        pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -1490,7 +1490,7 @@ decl_module! {
         /// rates are enabled, there's no going back.  Only Governance committee is allowed to
         /// change this value.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn enable_individual_commissions(origin) {
+        pub fn enable_individual_commissions(origin) {
             T::RequiredCommissionOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
@@ -1509,7 +1509,7 @@ decl_module! {
         /// # Arguments
         /// * `new_value` the new commission to be used for reward calculations
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn set_global_commission(origin, new_value: Perbill) {
+        pub fn set_global_commission(origin, new_value: Perbill) {
             T::RequiredCommissionOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
@@ -1530,7 +1530,7 @@ decl_module! {
         /// # Arguments
         /// * `new_value` the new minimum
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
+        pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
@@ -1546,7 +1546,7 @@ decl_module! {
         /// - No arguments.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(5_000)]
-        fn force_no_eras(origin) {
+        pub fn force_no_eras(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceNone);
         }
@@ -1558,21 +1558,21 @@ decl_module! {
         /// - No arguments.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(5_000)]
-        fn force_new_era(origin) {
+        pub fn force_new_era(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceNew);
         }
 
         /// Set the validators who cannot be slashed (if any).
         #[weight = SimpleDispatchInfo::FixedNormal(5_000)]
-        fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
+        pub fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
             ensure_root(origin)?;
             <Invulnerables<T>>::put(validators);
         }
 
         /// Force a current staker to become completely unstaked, immediately.
         #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
-        fn force_unstake(origin, stash: T::AccountId) {
+        pub fn force_unstake(origin, stash: T::AccountId) {
             ensure_root(origin)?;
 
             // remove all staking-related information.
@@ -1588,7 +1588,7 @@ decl_module! {
         /// - One storage write
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(5_000)]
-        fn force_new_era_always(origin) {
+        pub fn force_new_era_always(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceAlways);
         }
@@ -1601,7 +1601,7 @@ decl_module! {
         /// - One storage write.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
-        fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
+        pub fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
             T::SlashCancelOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
@@ -1650,7 +1650,7 @@ decl_module! {
         ///   bounded only economically (all nominators are required to place a minimum stake).
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
-        fn payout_nominator(origin, era: EraIndex, validators: Vec<(T::AccountId, u32)>)
+        pub fn payout_nominator(origin, era: EraIndex, validators: Vec<(T::AccountId, u32)>)
             -> DispatchResult
         {
             let who = ensure_signed(origin)?;
@@ -1673,7 +1673,7 @@ decl_module! {
         /// - Contains a limited number of reads and writes.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
-        fn payout_validator(origin, era: EraIndex) -> DispatchResult {
+        pub fn payout_validator(origin, era: EraIndex) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::do_payout_validator(who, era)
         }
@@ -1685,7 +1685,7 @@ decl_module! {
         /// - Storage changes: Can't increase storage, only decrease it.
         /// # </weight>
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
-        fn rebond(origin, #[compact] value: BalanceOf<T>) {
+        pub fn rebond(origin, #[compact] value: BalanceOf<T>) {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             ensure!(
@@ -1701,7 +1701,7 @@ decl_module! {
         ///
         /// Origin must be root.
         #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
-        fn set_history_depth(origin, #[compact] new_history_depth: EraIndex) {
+        pub fn set_history_depth(origin, #[compact] new_history_depth: EraIndex) {
             T::RequiredChangeHistoryDepthOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
             if let Some(current_era) = Self::current_era() {
@@ -1723,7 +1723,7 @@ decl_module! {
         /// This can be called from any origin.
         ///
         /// - `stash`: The stash account to reap. Its balance must be zero.
-        fn reap_stash(_origin, stash: T::AccountId) {
+        pub fn reap_stash(_origin, stash: T::AccountId) {
             ensure!(T::Currency::total_balance(&stash).is_zero(), Error::<T>::FundedTarget);
             Self::kill_stash(&stash)?;
             T::Currency::remove_lock(STAKING_ID, &stash);
@@ -1733,6 +1733,54 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     // PUBLIC IMMUTABLES
+
+    /// POLYMESH-NOTE: This change is polymesh specific to query the list of all invalidate nominators
+    /// It is recommended to not call this function onchain. It is a non-deterministic function that is
+    /// suitable for offchain workers only.
+    pub fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
+        let invalid_nominators = <Nominators<T>>::enumerate()
+            .into_iter()
+            .filter_map(|(nominator_stash_key, _nominations)| {
+                if let Ok(key_id) = AccountKey::try_from(nominator_stash_key.encode()) {
+                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(key_id))
+                    {
+                        if !(<identity::Module<T>>::fetch_cdd(
+                            nominate_identity,
+                            buffer.saturated_into::<T::Moment>(),
+                        ))
+                        .is_some()
+                        {
+                            return Some(nominator_stash_key);
+                        }
+                    }
+                }
+                return None;
+            })
+            .collect::<Vec<T::AccountId>>();
+        return invalid_nominators;
+    }
+
+    /// POLYMESH-NOTE: This is Polymesh specific change
+    /// Here we are assuming that passed targets are always be a those nominators whose cdd
+    /// claim get expired or going to expire after the `buffer_time`.
+    pub fn unsafe_validate_cdd_expiry_nominators(targets: Vec<T::AccountId>) -> DispatchResult {
+        // Iterate provided list of accountIds (These accountIds should be stash type account)
+        for target in targets.iter() {
+            // Unbonding the balance that bonded with the controller account of a Stash account
+            // This unbonded amount only be accessible after completion of the BondingDuration
+            // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
+
+            let controller = Self::bonded(target).ok_or("not a stash")?;
+            let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
+            let active_balance = ledger.active;
+            if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
+                Self::unbond_balance(controller, &mut ledger, active_balance);
+                // Free the nominator from the valid nominator list
+                <Nominators<T>>::remove(target);
+            }
+        }
+        Ok(())
+    }
 
     /// The total balance that can be slashed from a stash account as of right now.
     pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
@@ -2345,7 +2393,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn get_bonding_duration_period() -> u64 {
+    pub fn get_bonding_duration_period() -> u64 {
         let total_session = (T::SessionsPerEra::get() as u32) * (T::BondingDuration::get() as u32);
         let session_length = <T as pallet_babe::Trait>::EpochDuration::get();
         total_session as u64 * session_length

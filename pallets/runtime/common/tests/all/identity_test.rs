@@ -1,4 +1,4 @@
-use crate::test::{
+use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
         add_signing_item, get_identity_id, register_keyring_account, GovernanceCommittee,
@@ -7,16 +7,16 @@ use crate::test::{
     ExtBuilder,
 };
 
+use polymesh_primitives::{
+    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, IdentityClaim, IdentityId,
+    LinkData, Permission, Scope, Signatory, SigningItem, Ticker,
+};
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
         identity::{SigningItemWithAuth, TargetIdAuthorization},
     },
     SystematicIssuers,
-};
-use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, IdentityClaim, IdentityId,
-    LinkData, Permission, Scope, Signatory, SigningItem, Ticker,
 };
 
 use pallet_balances as balances;

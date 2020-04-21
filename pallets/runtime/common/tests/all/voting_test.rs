@@ -1,22 +1,18 @@
-use crate::{
+use super::{
+    storage::{make_account, TestStorage},
+    ExtBuilder,
+};
+
+use polymesh_primitives::Ticker;
+use polymesh_runtime_common::{
     asset::{self, AssetType, SecurityToken},
     general_tm,
-    test::{
-        storage::{make_account, TestStorage},
-        ExtBuilder,
-    },
-    voting::{self, Ballot, Motion, MotionInfoLink, MotionTitle},
+    voting::{self, Ballot, Motion},
 };
-
-use pallet_balances as balances;
-use pallet_identity as identity;
-use polymesh_primitives::Ticker;
 
 use chrono::prelude::Utc;
-use frame_support::{
-    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
-};
-use std::convert::{TryFrom, TryInto};
+use frame_support::{assert_err, assert_ok};
+use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Asset = asset::Module<TestStorage>;

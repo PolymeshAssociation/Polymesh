@@ -1,18 +1,18 @@
-use crate::{
-    asset::{self, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData},
-    general_tm,
-    test::{
-        storage::{make_account, TestStorage},
-        ExtBuilder,
-    },
+use super::{
+    storage::{make_account, TestStorage},
+    ExtBuilder,
 };
 
-use pallet_balances as balances;
-use pallet_identity as identity;
 use polymesh_primitives::{
     AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
 };
+use polymesh_common_utilities::{
+    asset::{self, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData},
+    general_tm,
+};
+use pallet_balances as balances;
+use pallet_identity as identity;
 
 use chrono::prelude::Utc;
 use codec::Encode;
@@ -80,7 +80,7 @@ fn issuers_can_create_and_rename_tokens() {
                 true,
                 token.asset_type.clone(),
                 identifiers.clone(),
-                Some(funding_round_name.clone())
+                Some(funding_round_name.clone()),
             ),
             AssetError::TotalSupplyAboveLimit
         );

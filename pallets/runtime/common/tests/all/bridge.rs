@@ -1,15 +1,16 @@
-use crate::test::storage::{
-    register_keyring_account, register_keyring_account_with_balance, Call, TestStorage,
+use super::{
+    storage::{register_keyring_account, register_keyring_account_with_balance, Call, TestStorage},
+    ExtBuilder,
 };
-use crate::test::ExtBuilder;
-use crate::{
-    bridge::{self, BridgeTx, IssueRecipient},
-    multisig,
-};
+
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use polymesh_primitives::{IdentityId, Signatory};
+use polymesh_runtime_common::{
+    bridge::{self, BridgeTx, IssueRecipient},
+};
+use pallet_multisig as multisig;
 use pallet_balances as balances;
 use pallet_identity as identity;
-use polymesh_primitives::{IdentityId, Signatory};
 use sp_runtime::traits::OnInitialize;
 use test_client::AccountKeyring;
 

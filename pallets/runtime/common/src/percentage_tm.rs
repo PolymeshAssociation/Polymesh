@@ -33,6 +33,7 @@ use codec::Encode;
 use core::result::Result as StdResult;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
@@ -85,6 +86,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Set a maximum percentage that can be owned by a single investor
+        #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         fn toggle_maximum_percentage_restriction(origin, ticker: Ticker, max_percentage: u16) -> DispatchResult  {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;

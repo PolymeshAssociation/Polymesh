@@ -1,15 +1,13 @@
-use crate::{
-    asset::{self, TickerRegistrationConfig},
-    test::TestStorage,
-};
+use crate::TestStorage;
 
-use pallet_balances as balances;
 use pallet_committee as committee;
+use pallet_mips as mips;
+use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
+use polymesh_runtime_common::asset::{self, TickerRegistrationConfig};
+use pallet_balances as balances;
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_mips as mips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
-use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
@@ -315,7 +313,7 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        pallet_protocol_fee::GenesisConfig::<TestStorage> {
+        polymesh_protocol_fee::GenesisConfig::<TestStorage> {
             base_fees: self.protocol_base_fees.0,
             coefficient: self.protocol_coefficient,
         }
@@ -327,6 +325,7 @@ impl ExtBuilder {
             quorum_threshold: 70,
             proposal_duration: 10,
             proposal_cool_off_period: 100,
+            default_enactment_period: 100,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

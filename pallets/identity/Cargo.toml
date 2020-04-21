@@ -9,6 +9,7 @@ pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee
 polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
+pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false, optional = true }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -22,6 +23,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 sp-version = { package = "sp-version", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
+frame-benchmarking = { package = "frame-benchmarking", default-features = false, git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", optional = true }
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
@@ -46,10 +48,16 @@ std = [
 	"sp-runtime/std",
 	"sp-version/std",
 	"sp-api/std",
+    "frame-benchmarking/std",
 	"frame-system/std",
 	"frame-support/std",
 	"pallet-timestamp/std",
+    "pallet-balances/std",
 	"polymesh-common-utilities/std",
 	"polymesh-primitives/std",
 	"pallet-identity-rpc-runtime-api/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "pallet-balances",
 ]

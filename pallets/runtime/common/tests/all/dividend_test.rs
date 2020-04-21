@@ -1,23 +1,22 @@
+use super::{
+    storage::{make_account, TestStorage},
+    ExtBuilder,
+};
 use chrono::{prelude::*, Duration};
-use core::result::Result as StdResult;
 use frame_support::assert_ok;
 use frame_support::traits::Currency;
 use frame_system::ensure_signed;
 use polymesh_common_utilities::traits::CommonTrait;
 use test_client::{self, AccountKeyring};
 
-use pallet_balances as balances;
 use polymesh_primitives::Ticker;
+use pallet_balances as balances;
 
-use crate::{
+use polymesh_runtime::{
     asset::{self, AssetType, SecurityToken},
     dividend::{self, Dividend},
     general_tm,
     simple_token::{self, SimpleTokenRecord},
-    test::{
-        storage::{make_account, TestStorage},
-        ExtBuilder,
-    },
 };
 
 use lazy_static::lazy_static;
@@ -98,8 +97,8 @@ fn correct_dividend_must_work() {
 
         // Prepare a whitelisted investor
         let (investor_acc, investor_did) = make_account(AccountKeyring::Charlie.public()).unwrap();
-        let investor_accountId = ensure_signed(investor_acc.clone()).ok().unwrap();
-        Balances::make_free_balance_be(&investor_accountId, 1_000_000);
+        let investor_account_id = ensure_signed(investor_acc.clone()).ok().unwrap();
+        Balances::make_free_balance_be(&investor_account_id, 1_000_000);
 
         let amount_invested = 50_000;
 

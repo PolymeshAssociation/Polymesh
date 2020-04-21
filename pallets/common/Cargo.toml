@@ -25,7 +25,7 @@ frame-system = { package = "frame-system", git = "https://github.com/paritytech/
 
 pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
-pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "93569d0d1af7aa5eb67b9de8b58d7fffde63b421" }
+pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }

@@ -676,7 +676,7 @@ where
 impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for Module<T> {
     fn drop_positive_imbalance(mut amount: T::Balance) {
         let brr = <BlockRewardsReserve<T>>::get();
-        Self::try_mutate_account(&brr, |account| -> DispatchResult {
+        let _ = Self::try_mutate_account(&brr, |account| -> DispatchResult {
             if account.free > Zero::zero() {
                 let old_brr_free_balance = account.free;
                 let new_brr_free_balance = old_brr_free_balance.saturating_sub(amount);
