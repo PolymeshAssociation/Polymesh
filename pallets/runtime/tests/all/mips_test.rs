@@ -6,10 +6,8 @@ use frame_support::{assert_err, assert_ok};
 use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
-
     self as mips, DepositInfo, Error, MipDescription, MipsMetadata, PolymeshVotes, ProposalState,
     Referendum, ReferendumState, ReferendumType, Url,
-
 };
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
@@ -384,7 +382,6 @@ fn emergency_referendum_works_we() {
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: MipDescription = b"Test description".into();
 
-
     let root = Origin::system(frame_system::RawOrigin::Root);
 
     // Alice and Bob are committee members
@@ -430,7 +427,6 @@ fn emergency_referendum_works_we() {
             state: ReferendumState::Scheduled,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 201,
-
         })
     );
 
@@ -706,7 +702,6 @@ fn update_referendum_enactment_period_we() {
 
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: MipDescription = b"Test description".into();
-
 
     let proposal_a = make_proposal(42);
     let proposal_b = make_proposal(107);
