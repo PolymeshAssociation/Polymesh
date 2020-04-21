@@ -7,6 +7,13 @@ pub mod runtime;
 pub use fee_details::CddHandler;
 pub mod constants;
 
+#[cfg(feature = "std")]
+pub use pallet_staking::{Commission, StakerStatus};
+
+pub use pallet_im_online::OfflineSlashingParams;
+#[cfg(feature = "std")]
+pub use runtime::{native_version, WASM_BINARY};
+
 pub use runtime::{
     api, Asset, Authorship, Balances, Bridge, Contracts,
     ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, TargetBlockFullness,
@@ -39,3 +46,5 @@ pub mod config {
     pub type SessionConfig = pallet_session::GenesisConfig<crate::Runtime>;
     pub type ProtocolFeeConfig = protocol_fee::GenesisConfig<crate::Runtime>;
 }
+
+pub use sp_runtime::{Perbill, Permill};

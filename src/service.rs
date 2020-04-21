@@ -4,7 +4,7 @@ use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
 use polymesh_primitives::Block;
-use polymesh_runtime::{self, config::GenesisConfig, RuntimeApi};
+use polymesh_runtime_develop::{self, config::GenesisConfig, RuntimeApi};
 use sc_client::{self, LongestChain};
 use sc_consensus_babe;
 use sc_executor::native_executor_instance;
@@ -76,7 +76,7 @@ macro_rules! new_full_start {
             use pallet_mips_rpc::{Mips, MipsApi};
             use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-            use polymesh_runtime_identity_rpc::{Identity, IdentityApi};
+            use pallet_identity_rpc::{Identity, IdentityApi};
             // register contracts RPC extension
             let mut io = jsonrpc_core::IoHandler::default();
             io.extend_with(ContractsApi::to_delegate(Contracts::new(

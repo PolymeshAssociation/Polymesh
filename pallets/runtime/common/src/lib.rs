@@ -30,33 +30,6 @@ use frame_support::{
 };
 use frame_system::{self as system};
 
-// #[cfg(feature = "std")]
-// pub mod config {
-
-//     use pallet_committee as committee;
-//     use pallet_protocol_fee as protocol_fee;
-//     use pallet_balances as balances;
-//     use pallet_identity as identity;
-
-//     pub type AssetConfig = crate::asset::GenesisConfig<crate::Runtime>;
-//     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
-//     pub type BridgeConfig = crate::bridge::GenesisConfig<crate::Runtime>;
-//     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
-//     pub type SimpleTokenConfig = crate::simple_token::GenesisConfig<crate::Runtime>;
-//     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
-//     pub type PolymeshCommitteeConfig =
-//         committee::GenesisConfig<crate::Runtime, committee::Instance1>;
-//     pub type MipsConfig = pallet_mips::GenesisConfig<crate::Runtime>;
-//     pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
-//     pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;
-//     pub type ImOnlineConfig = pallet_im_online::GenesisConfig<crate::Runtime>;
-//     pub type SudoConfig = pallet_sudo::GenesisConfig<crate::Runtime>;
-//     pub type SystemConfig = frame_system::GenesisConfig;
-//     pub type GenesisConfig = crate::runtime::GenesisConfig;
-//     pub type SessionConfig = pallet_session::GenesisConfig<crate::Runtime>;
-//     pub type ProtocolFeeConfig = protocol_fee::GenesisConfig<crate::Runtime>;
-// }
-
 pub use impls::{CurrencyToVoteHandler, TargetedFeeAdjustment, Author};
 
 pub type NegativeImbalance<T> = <balances::Module<T> as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;

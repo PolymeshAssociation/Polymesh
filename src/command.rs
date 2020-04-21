@@ -17,26 +17,69 @@
 use crate::chain_spec;
 use crate::cli::Cli;
 use crate::service;
-use sc_cli::VersionInfo;
+use sc_cli::SubstrateCli;
+
+impl SubstrateCli for Cli {
+	fn impl_name() -> &'static str {
+		"Polymesh Node"
+	}
+
+	fn impl_version() -> &'static str {
+		env!("SUBSTRATE_CLI_IMPL_VERSION")
+	}
+
+	fn description() -> &'static str {
+		env!("CARGO_PKG_DESCRIPTION")
+	}
+
+	fn author() -> &'static str {
+		env!("CARGO_PKG_AUTHORS")
+	}
+
+	fn support_url() -> &'static str {
+		"https://github.com/PolymathNetwork/polymesh/issues/new"
+	}
+
+	fn copyright_start_year() -> i32 {
+		2020 // TODO: Can be decided by the business dev
+	}
+
+	fn executable_name() -> &'static str {
+		env!("CARGO_PKG_NAME")
+	}
+
+	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+		Ok(match id {
+			"v1-dev" => Box::new(service::chain_spec::v1_develop_testnet_config()),
+			"v1-local" => Box::new(service::chain_spec::v1_local_testnet_config()),
+			"v1-live" => Box::new(service::chain_spec::v1_live_testnet_config()),
+			"dev" | "general-dev" => Box::new(service::chain_spec::general_development_testnet_config()),
+			"general-local" => Box::new(service::chain_spec::general_local_testnet_config()),
+			"general-live" => Box::new(service::chain_spec::general_live_testnet_config()),
+			path if self.run.force_kusama => {
+				Box::new(service::V1ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
+			},
+			path => Box::new(service::GeneralChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+		})
+	}
+}
 
 /// Parse and run command line arguments
-pub fn run(version: VersionInfo) -> sc_cli::Result<()> {
-    let opt = sc_cli::from_args::<Cli>(&version);
+pub fn run() -> sc_cli::Result<()> {
+	let cli = Cli::from_args();
 
-    let mut config = sc_service::Configuration::from_version(&version);
-
-    match opt.subcommand {
-        Some(subcommand) => {
-            subcommand.init(&version)?;
-            subcommand.update_config(&mut config, chain_spec::load_spec, &version)?;
-            subcommand.run(config, |config: _| Ok(new_full_start!(config).0))
-        }
-        None => {
-            opt.run.init(&version)?;
-            opt.run
-                .update_config(&mut config, chain_spec::load_spec, &version)?;
-            opt.run
-                .run(config, service::new_light, service::new_full, &version)
-        }
-    }
+	match &cli.subcommand {
+		Some(subcommand) => {
+			let runner = cli.create_runner(subcommand)?;
+			runner.run_subcommand(subcommand, |config| Ok(new_full_start!(config).0))
+		}
+		None => {
+			let runner = cli.create_runner(&cli.run)?;
+			runner.run_node(
+				service::new_light,
+				service::new_full,
+				node_template_runtime::VERSION
+			)
+		}
+	}
 }
