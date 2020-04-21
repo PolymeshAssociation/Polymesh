@@ -58,7 +58,7 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{CheckedSub, Dispatchable, EnsureOrigin, Saturating, Zero};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Saturating, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// Mesh Improvement Proposal id. Used offchain.
@@ -274,6 +274,7 @@ decl_storage! {
 
         /// The metadata of the active proposals.
         pub ProposalMetadata get(fn proposal_meta): map hasher(twox_64_concat) MipId => Option<MipsMetadata<T>>;
+        /// It maps the block number where a list of proposal are considered as matured.
         pub ProposalsMaturingAt get(proposals_maturing_at): map hasher(twox_64_concat) T::BlockNumber => Vec<MipId>;
 
         /// Those who have locked a deposit.
@@ -374,6 +375,10 @@ decl_error! {
         ReferendumIsImmutable,
         /// When a block number is less than current block number.
         InvalidFutureBlockNumber,
+        /// When number of votes overflows.
+        NumberOfVotesExceeded,
+        /// When stake amount of a vote overflows.
+        StakeAmountOfVotesExceeded,
     }
 }
 
@@ -494,7 +499,12 @@ decl_module! {
             <Proposals<T>>::insert(id, mip);
 
             // Add vote and update voting counter.
-            Self::unsafe_vote( id, proposer.clone(), Vote::Yes(deposit));
+            // INTERNAL: It is impossible to overflow counters in the first vote.
+            Self::unsafe_vote( id, proposer.clone(), Vote::Yes(deposit))
+                .map_err(|vote_error| {
+                    debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
+                    vote_error
+                })?;
             Self::deposit_event(RawEvent::ProposalCreated(proposer, id, deposit));
             Ok(())
         }
@@ -556,8 +566,7 @@ decl_module! {
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
-            Self::update_proposal_state(id, ProposalState::Cancelled);
-            Self::refund_proposal(id);
+
             // 3. Close that proposal.
             Self::close_proposal(id, ProposalState::Cancelled);
 
@@ -587,15 +596,17 @@ decl_module! {
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Reserve extra deposit & update deposit info for this proposal
-            <T as Trait>::Currency::reserve(&proposer, additional_deposit)
+            let curr_deposit = Self::deposit_of(id, &proposer).amount;
+            let max_additional_deposit = curr_deposit.saturating_add( additional_deposit) - curr_deposit;
+            <T as Trait>::Currency::reserve(&proposer, max_additional_deposit)
                 .map_err(|_| Error::<T>::InsufficientDeposit)?;
 
             <Deposits<T>>::mutate(
                 id,
                 &proposer,
-                |depo_info| depo_info.amount += additional_deposit);
+                |depo_info| depo_info.amount += max_additional_deposit);
 
-            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, true, additional_deposit));
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, true, max_additional_deposit));
 
             Ok(())
         }
@@ -624,7 +635,7 @@ decl_module! {
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Double-check that `amount` is valid.
-            let mut depo_info = <Deposits<T>>::get(id, &proposer);
+            let mut depo_info = Self::deposit_of(id, &proposer);
             let new_deposit = depo_info.amount.checked_sub(&amount)
                     .ok_or_else(|| Error::<T>::InsufficientDeposit)?;
             ensure!(
@@ -666,11 +677,6 @@ decl_module! {
 
             // Reserve the deposit
             <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
-            let depo_info = DepositInfo {
-                owner: proposer.clone(),
-                amount: deposit,
-            };
-            <Deposits<T>>::insert(id, &proposer, depo_info);
 
             // Save your vote.
             let vote = if aye_or_nay {
@@ -678,7 +684,18 @@ decl_module! {
             } else {
                 Vote::No(deposit)
             };
-            Self::unsafe_vote( id, proposer.clone(), vote);
+            Self::unsafe_vote( id, proposer.clone(), vote)
+                .map_err( |vote_error| {
+                    debug::warn!("The counters of voting (id={}) have an overflow, transaction is roll-back", id);
+                    let _ = <T as Trait>::Currency::unreserve(&proposer, deposit);
+                    vote_error
+                })?;
+
+            let depo_info = DepositInfo {
+                owner: proposer.clone(),
+                amount: deposit,
+            };
+            <Deposits<T>>::insert(id, &proposer, depo_info);
 
             Self::deposit_event(RawEvent::Voted(proposer, id, aye_or_nay, deposit));
         }
@@ -690,8 +707,6 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
 
             ensure!( <Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
-            Self::update_proposal_state(id, ProposalState::Killed);
-            Self::refund_proposal(id);
             Self::close_proposal(id, ProposalState::Killed);
         }
 
@@ -715,16 +730,6 @@ decl_module! {
                 ReferendumType::FastTracked,
             );
 
-            Self::update_proposal_state(id, ProposalState::Referendum);
-
-            // Update proposal metadata so we don't re-execute it later
-            <ProposalMetadata<T>>::mutate(id, |meta| {
-                if let Some(meta) = meta {
-                    meta.end = Zero::zero();
-                }
-            });
-
-            Self::refund_proposal(id);
             Ok(())
         }
 
@@ -785,10 +790,10 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn reject_referendum(origin, id: MipId) -> DispatchResult {
             T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            // Update state of Referendum
-            Self::update_referendum_state(id, ReferendumState::Rejected);
+
             // Close proposal
             Self::close_proposal(id, ProposalState::Rejected);
+            Self::update_referendum_state(id, ReferendumState::Rejected);
             Self::deposit_event(RawEvent::ReferendumRejected(id));
             Ok(())
         }
@@ -870,16 +875,12 @@ impl<T: Trait> Module<T> {
                 if voting.ayes_stake > voting.nays_stake
                     && voting.ayes_stake >= Self::quorum_threshold()
                 {
-                    Self::update_proposal_state(id, ProposalState::Referendum);
                     Self::create_referendum(
                         id,
                         ReferendumState::Pending,
                         ReferendumType::Community,
                     );
-                    Self::refund_proposal(id);
                 } else {
-                    Self::update_proposal_state(id, ProposalState::Rejected);
-                    Self::refund_proposal(id);
                     Self::close_proposal(id, ProposalState::Rejected);
                 }
             });
@@ -905,6 +906,7 @@ impl<T: Trait> Module<T> {
             enactment_period,
         };
         <Referendums<T>>::insert(id, referendum);
+        Self::close_proposal(id, ProposalState::Referendum);
 
         Self::deposit_event(RawEvent::ReferendumCreated(id, referendum_type));
     }
@@ -920,14 +922,30 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::ProposalRefund(id, total_refund));
     }
 
-    /// Close a proposal. Voting ceases and proposal is removed from storage.
+    /// Close a proposal.
+    ///
+    /// Voting ceases and proposal is removed from storage.
+    /// It also refunds all deposits.
+    ///
+    /// # Internal
+    /// * `ProposalsMaturingat` does not need to be deleted here.
+    ///
+    /// # TODO
+    /// * Should we remove the proposal when it is Cancelled?, killed?, rejected?
     fn close_proposal(id: MipId, state: ProposalState) {
         Self::refund_proposal(id);
+        Self::update_proposal_state(id, state);
 
-        <Proposals<T>>::remove(id);
         <ProposalVoting<T>>::remove(id);
         <ProposalVotes<T>>::remove_prefix(id);
-        <ProposalMetadata<T>>::remove(id);
+
+        // Due to Beneficiaries' payment, we have to keep metadata until its execution.
+        match state {
+            ProposalState::Cancelled | ProposalState::Killed | ProposalState::Rejected => {
+                <ProposalMetadata<T>>::remove(id)
+            }
+            _ => {}
+        }
 
         Self::deposit_event(RawEvent::ProposalClosed(id, state));
     }
@@ -960,20 +978,24 @@ impl<T: Trait> Module<T> {
 
     fn execute_referendum(id: MipId) {
         if let Some(proposal) = Self::proposals(id) {
-            match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
-                Ok(_) => {
-                    Self::update_referendum_state(id, ReferendumState::Executed);
-                    Self::pay_to_beneficiaries(id);
-                    Self::deposit_event(RawEvent::ReferendumExecuted(id, true));
-                }
-                Err(e) => {
-                    Self::update_referendum_state(id, ReferendumState::Failed);
-                    Self::deposit_event(RawEvent::ReferendumExecuted(id, false));
-                    debug::error!("Referendum {}, its execution fails: {:?}", id, e);
-                }
-            };
-            Self::close_proposal(id, ProposalState::Executed);
+            if proposal.state == ProposalState::Referendum {
+                match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
+                    Ok(_) => {
+                        Self::update_referendum_state(id, ReferendumState::Executed);
+                        Self::pay_to_beneficiaries(id);
+                        Self::deposit_event(RawEvent::ReferendumExecuted(id, true));
+                    }
+                    Err(e) => {
+                        Self::update_referendum_state(id, ReferendumState::Failed);
+                        Self::deposit_event(RawEvent::ReferendumExecuted(id, false));
+                        debug::error!("Referendum {}, its execution fails: {:?}", id, e);
+                    }
+                };
+                Self::close_proposal(id, ProposalState::Executed);
+            }
         }
+
+        <ProposalMetadata<T>>::remove(id);
     }
 
     fn pay_to_beneficiaries(id: MipId) {
@@ -1048,18 +1070,35 @@ impl<T: Trait> Module<T> {
     }
 
     /// It inserts the vote and updates the accountability of target proposal.
-    fn unsafe_vote(id: MipId, proposer: T::AccountId, vote: Vote<BalanceOf<T>>) {
-        <ProposalVoting<T>>::mutate(id, |stats| match vote {
+    fn unsafe_vote(id: MipId, proposer: T::AccountId, vote: Vote<BalanceOf<T>>) -> DispatchResult {
+        let mut stats = Self::voting(id);
+
+        match vote {
             Vote::Yes(deposit) => {
-                stats.ayes_count += 1;
-                stats.ayes_stake += deposit;
+                stats.ayes_count = stats
+                    .ayes_count
+                    .checked_add(1)
+                    .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
+                stats.ayes_stake = stats
+                    .ayes_stake
+                    .checked_add(&deposit)
+                    .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
             }
             Vote::No(deposit) => {
-                stats.nays_count += 1;
-                stats.nays_stake += deposit;
+                stats.nays_count += stats
+                    .nays_count
+                    .checked_add(1)
+                    .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
+                stats.nays_stake += stats
+                    .nays_stake
+                    .checked_add(&deposit)
+                    .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
             }
             Vote::None => unreachable!(),
-        });
+        };
+
+        <ProposalVoting<T>>::insert(id, stats);
         <ProposalVotes<T>>::insert(id, proposer, vote);
+        Ok(())
     }
 }
