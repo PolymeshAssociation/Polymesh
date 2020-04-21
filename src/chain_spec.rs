@@ -21,11 +21,10 @@ use sp_runtime::{
     PerThing,
 };
 
-/// Specialized `ChainSpec` for develop chain
-pub type GeneralChainSpec = sc_service::ChainSpec<general::runtime::GenesisConfig>;
+V1Config::GenesisConfig as GenesisConfig;
 
-/// Specialized `ChainSpec` for testnet-v1 chain
-pub type V1ChainSpec = sc_service::ChainSpec<v1::runtime::GenesisConfig>;
+// TODO: Different chainspec can be used once we have new version of susbtrate
+pub type ChainSpec = sc_service::ChainSpec<GenesisConfig>;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -112,11 +111,11 @@ fn general_testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
-) -> GeneralConfig::GenesisConfig {
+) -> GenesisConfig {
 
     const STASH: u128 = 30_000_000_000 * POLY; //30G Poly
 
-    GeneralConfig::GenesisConfig {
+    GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
             code: general::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
@@ -303,7 +302,7 @@ fn general_testnet_genesis(
     }
 }
 
-fn general_development_genesis() -> GeneralConfig::GenesisConfig {
+fn general_development_genesis() -> GenesisConfig {
     general_testnet_genesis(
         vec![get_authority_keys_from_seed("Alice")],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -317,8 +316,8 @@ fn general_development_genesis() -> GeneralConfig::GenesisConfig {
 }
 
 
-pub fn general_development_testnet_config() -> GeneralChainSpec {
-    GeneralChainSpec::from_genesis(
+pub fn general_development_testnet_config() -> ChainSpec {
+    ChainSpec::from_genesis(
 		"Development",
 		"dev",
 		ChainType::Development,
@@ -331,7 +330,7 @@ pub fn general_development_testnet_config() -> GeneralChainSpec {
 	)
 }
 
-fn general_local_genesis() -> GeneralConfig::GenesisConfig {
+fn general_local_genesis() -> GenesisConfig {
     general_testnet_genesis(
         vec![
             get_authority_keys_from_seed("Alice"),
@@ -351,8 +350,8 @@ fn general_local_genesis() -> GeneralConfig::GenesisConfig {
     )
 }
 
-pub fn general_local_testnet_config() -> GeneralChainSpec {
-    GeneralChainSpec::from_genesis(
+pub fn general_local_testnet_config() -> ChainSpec {
+    ChainSpec::from_genesis(
 		"Local Testnet",
         "local_testnet",
 		ChainType::Local,
@@ -365,7 +364,7 @@ pub fn general_local_testnet_config() -> GeneralChainSpec {
 	)
 }
 
-fn general_live_genesis() -> GeneralConfig::GenesisConfig {
+fn general_live_genesis() -> GenesisConfig {
     general_testnet_genesis(
         vec![
             get_authority_keys_from_seed("Alice"),
@@ -391,8 +390,8 @@ fn general_live_genesis() -> GeneralConfig::GenesisConfig {
     )
 }
 
-pub fn general_live_testnet_config() -> GeneralChainSpec {
-    GeneralChainSpec::from_genesis(
+pub fn general_live_testnet_config() -> ChainSpec {
+    ChainSpec::from_genesis(
 		"Live Testnet",
         "live-testnet",
 		ChainType::Live,
@@ -405,7 +404,7 @@ pub fn general_live_testnet_config() -> GeneralChainSpec {
 	)
 }
 
-fn v1_live_testnet_genesis() -> V1Config::GenesisConfig {
+fn v1_live_testnet_genesis() -> GenesisConfig {
 
     // Need to provide authorities
     let initial_authorities: Vec<(
@@ -423,7 +422,7 @@ fn v1_live_testnet_genesis() -> V1Config::GenesisConfig {
     const STASH: u128 = 300 * POLY; //300 Poly
     const ENDOWMENT: u128 = 1_00_000 * POLY;
 
-    V1Config::GenesisConfig {
+    GenesisConfig {
         frame_system: Some(V1Config::SystemConfig {
             code: v1::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
@@ -614,10 +613,10 @@ fn v1_live_testnet_genesis() -> V1Config::GenesisConfig {
     }
 }
 
-fn v1_live_testnet_config() -> V1ChainSpec {
+fn v1_live_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
-    V1ChainSpec::from_genesis(
+    ChainSpec::from_genesis(
 		"Polymesh Live V1 Testnet",
         "live-testnet",
 		ChainType::Live,
@@ -630,7 +629,7 @@ fn v1_live_testnet_config() -> V1ChainSpec {
 	)
 }
 
-fn v1_develop_testnet_genesis() -> V1Config::GenesisConfig {
+fn v1_develop_testnet_genesis() -> GenesisConfig {
     v1_testnet_genesis(
         vec![get_authority_keys_from_seed("Alice")],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -643,10 +642,10 @@ fn v1_develop_testnet_genesis() -> V1Config::GenesisConfig {
     )
 }
 
-pub fn v1_develop_testnet_config() -> V1ChainSpec {
+pub fn v1_develop_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
-    V1ChainSpec::from_genesis(
+    ChainSpec::from_genesis(
 		"Polymesh Develop V1 Testnet",
         "development-testnet",
 		ChainType::Development,
@@ -659,7 +658,7 @@ pub fn v1_develop_testnet_config() -> V1ChainSpec {
 	)
 }
 
-fn v1_local_testnet_genesis() -> V1Config::GenesisConfig {
+fn v1_local_testnet_genesis() -> GenesisConfig {
     v1_testnet_genesis(
         vec![
             get_authority_keys_from_seed("Alice"),
@@ -679,10 +678,10 @@ fn v1_local_testnet_genesis() -> V1Config::GenesisConfig {
     )
 }
 
-pub fn v1_local_testnet_config() -> V1ChainSpec {
+pub fn v1_local_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
-    V1ChainSpec::from_genesis(
+    ChainSpec::from_genesis(
 		"Polymesh Local V1 Testnet",
         "local-testnet",
 		ChainType::Local,
@@ -708,12 +707,12 @@ fn v1_testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
-) -> V1Config::GenesisConfig {
+) -> GenesisConfig {
 
     const STASH: u128 = 300 * POLY; //300 Poly
     const ENDOWMENT: u128 = 1_00_000 * POLY;
 
-    V1Config::GenesisConfig {
+    GenesisConfig {
         frame_system: Some(V1Config::SystemConfig {
             code: v1::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
