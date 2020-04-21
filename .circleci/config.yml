@@ -157,7 +157,7 @@ jobs:
       - persist_to_workspace:
           root: "./target"
           paths: doc
-       - save_cache:
+      - save_cache:
           key: v7-docs-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
