@@ -133,6 +133,52 @@ jobs:
           paths:
             - "~/.cargo"
             - "./target"
+  docs-build:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v7-docs-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Build release
+          command: cargo build --release || cargo build -j 1 --release
+          no_output_timeout: 4h
+      - run:
+          name: Build docs
+          command: cargo doc --release
+          no_output_timeout: 45m
+      - persist_to_workspace:
+          root: "./target"
+          paths: doc
+       - save_cache:
+          key: v7-docs-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
+  docs-deploy:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Install and configure dependencies
+          command: |
+            npm install -g --silent gh-pages@2.0.1
+            git config user.email ""
+            git config user.name ""
+      - run:
+          name: Deploy docs to gh-pages branch
+          command: gh-pages --dist ./target/doc
+     
 workflows:
   version: 2
   commit:
@@ -140,6 +186,11 @@ workflows:
       - lint
       - cli
       - test
+      - docs-build
+      - docs-deploy:
+          requires:
+            - test
+            - docs-build
   daily-builds:
     triggers:
       - schedule:
