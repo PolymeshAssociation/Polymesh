@@ -58,7 +58,7 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{CheckedSub, Dispatchable, EnsureOrigin, Saturating};
+use sp_runtime::traits::{CheckedSub, Dispatchable, EnsureOrigin, Saturating, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// Mesh Improvement Proposal id. Used offchain.
@@ -75,6 +75,8 @@ pub struct MIP<Proposal> {
     id: MipId,
     /// The proposal being voted on.
     proposal: Proposal,
+    /// The latest state
+    state: ProposalState,
 }
 
 /// A wrapper for a proposal url.
@@ -151,49 +153,65 @@ impl<Balance> Default for Vote<Balance> {
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub enum MipsPriority {
-    /// A proposal made by the committee for e.g.,
-    High,
-    /// By default all proposals have a normal priority
-    Normal,
+pub enum ProposalState {
+    /// Proposal is created and either in the cool-down period or open to voting
+    Proposed,
+    /// Proposal is cancelled by its owner
+    Cancelled,
+    /// Proposal was killed by the GC
+    Killed,
+    /// Proposal has moved to referendum stage
+    Referendum,
+    /// Proposal failed to pass by a community vote
+    Rejected,
 }
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub enum MipsState {
-    /// Token holder vote passes.
-    Ratified,
+pub enum ReferendumState {
+    /// Pending GC ratification
+    Pending,
     /// Execution of this MIP is scheduled, i.e. it needs to wait its enactment period.
     Scheduled,
-    /// It has been rejected.
+    /// Rejected by the GC
     Rejected,
     /// Insufficient balance at treasury to apply this proposal.
-    InsufficientBalanceAtTreasury,
+    FailedDisbursement,
+    /// It has been executed, but execution failed.
+    FailedExecution,
     /// It has been successfully executed.
     Executed,
 }
 
-impl Default for MipsPriority {
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum ReferendumType {
+    /// Referendum pushed by GC (fast-tracked)
+    FastTracked,
+    /// Referendum created by GC
+    Emergency,
+    /// Created through a community vote
+    Community,
+}
+
+impl Default for ProposalState {
     fn default() -> Self {
-        MipsPriority::Normal
+        ProposalState::Proposed
     }
 }
 
 /// Properties of a referendum
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-// pub struct Referendum<BlockNumber: Default, Proposal, Balance:> {
 pub struct Referendum<T: Trait> {
-    /// The proposal's unique id.
+    /// The proposal's unique index.
     pub id: MipId,
-    /// Priority.
-    pub priority: MipsPriority,
-    /// Current state of this MIP.
-    pub state: MipsState,
+    /// Current state of this Referendum.
+    pub state: ReferendumState,
+    /// The type of the referendum
+    pub referendum_type: ReferendumType,
     /// Enactment period.
     pub enactment_period: T::BlockNumber,
-    /// The proposal being voted on.
-    pub proposal: T::Proposal,
     /// Beneficiaries
     pub beneficiaries: Vec<Beneficiary<T::Balance>>,
 }
@@ -296,26 +314,34 @@ decl_event!(
         <T as frame_system::Trait>::BlockNumber,
     {
         /// A Mesh Improvement Proposal was made with a `Balance` stake
-        Proposed(AccountId, Balance, MipId),
-        /// `AccountId` voted `bool` on the proposal referenced by `id`
-        Voted(AccountId, MipId, bool),
+        ProposalCreated(AccountId, MipId, Balance),
+        /// A Mesh Improvement Proposal was amended with a possible to the deposit
+        /// bool is +ve when bond is added, -ve when removed
+        ProposalAmended(AccountId, MipId, bool, Balance),
+        /// `AccountId` voted `bool` on the proposal referenced by `Index`
+        Voted(AccountId, MipId, bool, Balance),
         /// Proposal has been closed
-        ProposalClosed(MipId),
-        /// Proposal has been closed
-        ProposalFastTracked(MipId),
+        ProposalClosed(MipId, ProposalState),
         /// Referendum created for proposal.
-        ReferendumCreated(MipId, MipsPriority),
+        ReferendumCreated(MipId, ReferendumType),
         /// Referendum execution has been scheduled at specific block.
-        ReferendumScheduled(MipId, BlockNumber),
-        /// Referendum execution has been re-schedule from one block to a new one.
-        ReferendumReScheduled(MipId, BlockNumber, BlockNumber),
-        /// Proposal was dispatched.
-        ReferendumEnacted(MipId),
-        /// Referendum execution was rejected.
-        ReferendumExecutionRejected(MipId),
+        ReferendumScheduled(MipId, BlockNumber, BlockNumber),
+        /// Proposal was dispatched, bool indicates success or failure
+        ReferendumExecuted(MipId, bool),
+        /// Proposal was rejected by the GC
+        ReferendumRejected(MipId),
         /// Default enactment period (in blocks) has been changed.
         /// (new period, old period)
         DefaultEnactmentPeriodChanged(BlockNumber, BlockNumber),
+        /// Minimum deposit amount modified
+        /// (old amount, new amount)
+        MinimumProposalDepositChanged(Balance, Balance),
+        /// Quorum threshold changed
+        /// (old value, new value)
+        QuorumThresholdChanged(Balance, Balance),
+        /// Proposal duration changed
+        /// (old value, new value)
+        ProposalDurationChanged(BlockNumber, BlockNumber),
     }
 );
 
@@ -364,6 +390,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -376,6 +403,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(Self::quorum_threshold(), threshold));
             <QuorumThreshold<T>>::put(threshold);
         }
 
@@ -387,6 +415,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            Self::deposit_event(RawEvent::ProposalDurationChanged(Self::proposal_duration(), duration));
             <ProposalDuration<T>>::put(duration);
         }
 
@@ -396,7 +425,6 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             let previous_duration = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
-
             Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(duration, previous_duration));
         }
 
@@ -440,10 +468,10 @@ decl_module! {
             let proposal_meta = MipsMetadata {
                 proposer: proposer.clone(),
                 id,
-                cool_off_until,
                 end,
                 url,
                 description,
+                cool_off_until,
                 beneficiaries,
             };
             let _ = <ProposalsMaturingAt<T>>::append(end, [id].iter())?;
@@ -458,12 +486,13 @@ decl_module! {
             let mip = MIP {
                 id,
                 proposal: *proposal,
+                state: ProposalState::Proposed,
             };
             <Proposals<T>>::insert(id, mip);
 
             // Add vote and update voting counter.
             Self::unsafe_vote( id, proposer.clone(), Vote::Yes(deposit));
-            Self::deposit_event(RawEvent::Proposed(proposer, deposit, id));
+            Self::deposit_event(RawEvent::ProposalCreated(proposer, id, deposit));
             Ok(())
         }
 
@@ -499,6 +528,7 @@ decl_module! {
                     meta.description = description;
                 }
             });
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, true, Zero::zero()));
 
             Ok(())
         }
@@ -523,7 +553,8 @@ decl_module! {
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
-
+            Self::update_proposal_state(id, ProposalState::Cancelled);
+            Self::unreserve_deposits(id);
             // 3. Close that proposal.
             Self::close_proposal( id);
             Ok(())
@@ -544,10 +575,10 @@ decl_module! {
             let meta = Self::proposal_meta(id)
                 .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
 
-            // 1. Only owner can cancel it.
+            // 1. Only owner can add additional deposit.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
 
-            // 2. Proposal can be cancelled *ONLY* during its cool-off period.
+            // 2. Proposal can be amended *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
@@ -559,6 +590,9 @@ decl_module! {
                 id,
                 &proposer,
                 |depo_info| depo_info.amount += additional_deposit);
+
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, true, additional_deposit));
+
             Ok(())
         }
 
@@ -598,6 +632,7 @@ decl_module! {
             // 3.1. Unreserve and update deposit info.
             <T as Trait>::Currency::unreserve(&depo_info.owner, diff_amount);
             <Deposits<T>>::insert(id, &proposer, depo_info);
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, false, amount));
             Ok(())
         }
 
@@ -639,9 +674,9 @@ decl_module! {
             } else {
                 Vote::No(deposit)
             };
-            Self::unsafe_vote( id, proposer.clone(), vote);
+            Self::unsafe_vote(id, proposer.clone(), vote);
 
-            Self::deposit_event(RawEvent::Voted(proposer, id, aye_or_nay));
+            Self::deposit_event(RawEvent::Voted(proposer, id, aye_or_nay, deposit));
         }
 
         /// An emergency stop measure to kill a proposal. Governance committee can kill
@@ -651,6 +686,8 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
 
             ensure!( <Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
+            Self::update_proposal_state(id, ProposalState::Killed);
+            Self::unreserve_deposits(id);
             Self::close_proposal(id);
         }
 
@@ -666,25 +703,40 @@ decl_module! {
                 Error::<T>::NotACommitteeMember
             );
 
-            let mip = Self::proposals(id)
-                .ok_or(Error::<T>::MismatchedProposalId)?;
+            ensure!(Self::proposals(id).is_some(), Error::<T>::MismatchedProposalId);
 
             Self::create_referendum(
                 id,
-                MipsPriority::High,
-                mip.proposal,
+                ReferendumState::Pending,
+                ReferendumType::FastTracked,
             );
 
-            Self::deposit_event(RawEvent::ProposalFastTracked(id));
-            Self::close_proposal(id);
+            Self::update_proposal_state(id, ProposalState::Referendum);
+
+            // Update proposal metadata so we don't re-execute it later
+            <ProposalMetadata<T>>::mutate( id, |meta| {
+                if let Some(meta) = meta {
+                    meta.end = Zero::zero();
+                }
+            });
+
+            Self::unreserve_deposits(id);
+
         }
 
         /// Governance committee can make a proposal that automatically becomes a referendum on
         /// which the committee can vote on.
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        pub fn submit_referendum(origin, proposal: Box<T::Proposal>) {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        pub fn emergency_referendum(
+            origin,
+            proposal: Box<T::Proposal>,
+            url: Option<Url>,
+            description: Option<MipDescription>,
+            beneficiaries: Vec<Beneficiary<T::Balance>>
+        ) -> DispatchResult {
+            let proposer = ensure_signed(origin)?;
+            let proposer_key = AccountKey::try_from(proposer.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&proposer_key)?;
 
             ensure!(
                 T::GovernanceCommittee::is_member(&did),
@@ -692,11 +744,30 @@ decl_module! {
             );
 
             let id = Self::next_mip_id();
+            let mip = MIP {
+                id,
+                proposal: *proposal,
+                state: ProposalState::Referendum,
+            };
+            <Proposals<T>>::insert(id, mip);
+
+            let proposal_meta = MipsMetadata {
+                proposer: proposer.clone(),
+                id,
+                end: Zero::zero(),
+                url,
+                description,
+                cool_off_until: Zero::zero(),
+                beneficiaries
+            };
+            <ProposalMetadata<T>>::insert(id, proposal_meta);
+
             Self::create_referendum(
                 id,
-                MipsPriority::High,
-                *proposal
+                ReferendumState::Pending,
+                ReferendumType::Emergency,
             );
+            Ok(())
         }
 
         /// Moves a referendum instance into dispatch queue.
@@ -704,6 +775,18 @@ decl_module! {
         pub fn enact_referendum(origin, id: MipId) -> DispatchResult {
             T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             Self::prepare_to_dispatch(id)
+        }
+
+        /// Moves a referendum instance into rejected state.
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        pub fn reject_referendum(origin, id: MipId) -> DispatchResult {
+            T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            // Update state of Referendum
+            Self::update_referendum_state(id, ReferendumState::Rejected);
+            // Close proposal
+            Self::close_proposal(id);
+            Self::deposit_event(RawEvent::ReferendumRejected(id));
+            Ok(())
         }
 
         /// It updates the enactment period of a specific referendum.
@@ -716,13 +799,13 @@ decl_module! {
         /// * `BadOrigin`, Only the release coordinator can update the enactment period.
         /// * ``,
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn set_referendum_enactment_period(origin, mid: MipId, until: Option<T::BlockNumber>) -> DispatchResult {
+        pub fn set_referendum_enactment_period(origin, id: MipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let id = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             // 1. Only release coordinator
             ensure!(
-                Some(id) == T::GovernanceCommittee::release_coordinator(),
+                Some(did) == T::GovernanceCommittee::release_coordinator(),
                 Error::<T>::BadOrigin);
 
             // 2. New value should be valid block number.
@@ -730,26 +813,26 @@ decl_module! {
             let new_until = until.unwrap_or(next_block);
             ensure!( new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 2. Valid referendum: check mid & state == Scheduled
-            let referendum = Self::referendums(mid)
+            // 2. Valid referendum: check index & state == Scheduled
+            let referendum = Self::referendums(id)
                 .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
-            ensure!( referendum.state == MipsState::Scheduled, Error::<T>::ReferendumIsImmutable);
+            ensure!( referendum.state == ReferendumState::Scheduled, Error::<T>::ReferendumIsImmutable);
 
             // 3. Update enactment period.
             // 3.1 Update referendum.
             let old_until = referendum.enactment_period;
 
-            <Referendums<T>>::mutate( mid, |referendum| {
+            <Referendums<T>>::mutate( id, |referendum| {
                 if let Some(ref mut referendum) = referendum {
                     referendum.enactment_period = new_until;
                 }
             });
 
             // 3.1. Re-schedule it
-            <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != mid));
-            <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(mid));
+            <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != id));
+            <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(id));
 
-            Self::deposit_event(RawEvent::ReferendumReScheduled(mid, old_until, new_until));
+            Self::deposit_event(RawEvent::ReferendumScheduled(id, old_until, new_until));
             Ok(())
         }
 
@@ -779,16 +862,18 @@ impl<T: Trait> Module<T> {
                 let voting = Self::voting(id);
                 // 1. Ayes staked must be more than nays staked (simple majority)
                 // 2. Ayes staked are more than the minimum quorum threshold
-                if voting.ayes_stake > voting.nays_stake
-                    && voting.ayes_stake >= Self::quorum_threshold()
-                {
-                    if let Some(mip) = <Proposals<T>>::get(id) {
-                        Self::create_referendum(id, MipsPriority::Normal, mip.proposal);
+                if let Some(mip) = <Proposals<T>>::get(id) {
+                    Self::unreserve_deposits(id);
+                    if voting.ayes_stake > voting.nays_stake
+                        && voting.ayes_stake >= Self::quorum_threshold()
+                    {
+                        Self::update_proposal_state(id, ProposalState::Referendum);
+                        Self::create_referendum(id, ReferendumState::Pending, ReferendumType::Community);
+                    } else {
+                        Self::update_proposal_state(id, ProposalState::Rejected);
+                        Self::close_proposal(id);
                     }
                 }
-
-                // And close proposals
-                Self::close_proposal(id);
             });
 
         // Execute automatically referendums after its enactment period.
@@ -803,7 +888,11 @@ impl<T: Trait> Module<T> {
     /// Create a referendum object from a proposal. If governance committee is composed of less
     /// than 2 members, enact it immediately. Otherwise, committee votes on this referendum and
     /// decides whether it should be enacted.
-    fn create_referendum(id: MipId, priority: MipsPriority, proposal: T::Proposal) {
+    fn create_referendum(
+        id: MipId,
+        state: ReferendumState,
+        referendum_type: ReferendumType,
+    ) {
         let enactment_period: T::BlockNumber = 0.into();
         let beneficiaries = Self::proposal_meta(id)
             .iter()
@@ -813,29 +902,28 @@ impl<T: Trait> Module<T> {
 
         let referendum = Referendum {
             id,
-            priority,
-            proposal,
+            state,
+            referendum_type,
             enactment_period,
-            state: MipsState::Ratified,
             beneficiaries,
         };
         <Referendums<T>>::insert(id, referendum);
 
-        Self::deposit_event(RawEvent::ReferendumCreated(id, priority));
+        Self::deposit_event(RawEvent::ReferendumCreated(id, referendum_type));
     }
 
     /// Close a proposal. Voting ceases and proposal is removed from storage.
-    /// All deposits are unlocked and returned to respective stakers.
     fn close_proposal(id: MipId) {
-        Self::unreserve_deposits(id);
-
-        <Proposals<T>>::remove(id);
-        <ProposalVoting<T>>::remove(id);
-        <ProposalVotes<T>>::remove_prefix(id);
-        <ProposalMetadata<T>>::remove(id);
-
-        Self::deposit_event(RawEvent::ProposalClosed(id));
+        let proposal = Self::proposals(id);
+        if let Some(ref proposal) = proposal {
+            Self::deposit_event(RawEvent::ProposalClosed(id, proposal.state));
+            <Proposals<T>>::remove(id);
+            <ProposalVoting<T>>::remove(id);
+            <ProposalVotes<T>>::remove_prefix(id);
+            <ProposalMetadata<T>>::remove(id);
+        }
     }
+
 
     /// It returns back each deposit to their owners for an specific `id`.
     fn unreserve_deposits(id: MipId) {
@@ -858,12 +946,16 @@ impl<T: Trait> Module<T> {
         <Referendums<T>>::mutate(id, |referendum| {
             if let Some(ref mut referendum) = referendum {
                 referendum.enactment_period = enactment_period;
-                referendum.state = MipsState::Scheduled;
+                referendum.state = ReferendumState::Scheduled;
             }
         });
         <ScheduledReferendumsAt<T>>::mutate(enactment_period, |ids| ids.push(id));
 
-        Self::deposit_event(RawEvent::ReferendumScheduled(id, enactment_period));
+        Self::deposit_event(RawEvent::ReferendumScheduled(
+            id,
+            Zero::zero(),
+            enactment_period,
+        ));
         Ok(())
     }
 
@@ -875,20 +967,26 @@ impl<T: Trait> Module<T> {
                 .iter()
                 .fold(0u128.into(), |acc, b| b.amount.saturating_add(acc));
             if total_amount > T::Treasury::balance() {
-                Self::update_referendum_state(id, MipsState::InsufficientBalanceAtTreasury);
+                Self::update_referendum_state(id, ReferendumState::FailedDisbursement);
+                Self::close_proposal(id);
+                Self::deposit_event(RawEvent::ReferendumExecuted(id, false));
                 return;
             }
-
-            match referendum.proposal.dispatch(system::RawOrigin::Root.into()) {
-                Ok(_) => {
-                    Self::update_referendum_state(id, MipsState::Executed);
-                    Self::pay_to_beneficiaries(&referendum.beneficiaries);
-                    Self::deposit_event(RawEvent::ReferendumEnacted(id));
-                }
-                Err(e) => {
-                    Self::update_referendum_state(id, MipsState::Rejected);
-                    Self::deposit_event(RawEvent::ReferendumExecutionRejected(id));
-                    debug::error!("Referendum {}, its execution fails: {:?}", id, e);
+            
+            if let Some(proposal) = Self::proposals(id) {
+                match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
+                    Ok(_) => {
+                        Self::update_referendum_state(id, ReferendumState::Executed);
+                        Self::pay_to_beneficiaries(&referendum.beneficiaries);
+                        Self::close_proposal(id);
+                        Self::deposit_event(RawEvent::ReferendumExecuted(id, true));
+                    }
+                    Err(e) => {
+                        Self::update_referendum_state(id, ReferendumState::FailedExecution);
+                        Self::close_proposal(id);
+                        Self::deposit_event(RawEvent::ReferendumExecuted(id, false));
+                        debug::error!("Referendum {}, its execution fails: {:?}", id, e);
+                    }
                 }
             }
         }
@@ -900,7 +998,15 @@ impl<T: Trait> Module<T> {
             .for_each(|b| T::Treasury::disbursement(b.id, b.amount));
     }
 
-    fn update_referendum_state(id: MipId, new_state: MipsState) {
+    fn update_proposal_state(id: MipId, new_state: ProposalState) {
+        <Proposals<T>>::mutate(id, |proposal| {
+            if let Some(ref mut proposal) = proposal {
+                proposal.state = new_state;
+            }
+        });
+    }
+
+    fn update_referendum_state(id: MipId, new_state: ReferendumState) {
         <Referendums<T>>::mutate(id, |referendum| {
             if let Some(ref mut referendum) = referendum {
                 referendum.state = new_state;
