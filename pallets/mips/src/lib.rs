@@ -864,6 +864,7 @@ impl<T: Trait> Module<T> {
             .for_each(|id| {
                 // Tally votes and create referendums
                 let voting = Self::voting(id);
+
                 // 1. Ayes staked must be more than nays staked (simple majority)
                 // 2. Ayes staked are more than the minimum quorum threshold
                 if voting.ayes_stake > voting.nays_stake
@@ -977,7 +978,7 @@ impl<T: Trait> Module<T> {
 
     fn pay_to_beneficiaries(id: MipId) {
         if let Some(meta) = Self::proposal_meta(id) {
-            let total_amount = meta.beneficiaries.into_iter().fold(0.into(), |acc, b| {
+            let _total_amount = meta.beneficiaries.into_iter().fold(0.into(), |acc, b| {
                 T::Treasury::disbursement(b.id, b.amount);
                 b.amount.saturating_add(acc)
             });
