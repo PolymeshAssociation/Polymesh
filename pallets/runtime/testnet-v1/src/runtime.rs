@@ -3,7 +3,7 @@ use crate::{
     fee_details::CddHandler,
     constants::{fee::*, time::*},
 };
-use polymesh_common_utilities::{
+use polymesh_runtime_common::{
     asset, bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
@@ -31,9 +31,8 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 
 use frame_support::{
-    construct_runtime, debug, parameter_types,
-    traits::{Currency, Randomness, SplitTwoWays},
-    weights::Weight,
+    construct_runtime, parameter_types,
+    traits::{Randomness, SplitTwoWays},
 };
 use sp_api::impl_runtime_apis;
 use sp_core::u32_trait::{_1, _2, _4};
@@ -44,7 +43,7 @@ use sp_runtime::{
 };
 use sp_runtime::{
     traits::{
-        BlakeTwo256, Block as BlockT, Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup,
+        BlakeTwo256, Block as BlockT, OpaqueKeys, StaticLookup,
         Verify,
     },
     MultiSignature,
@@ -53,7 +52,6 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 use frame_system::offchain::TransactionSubmitter;
-use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;

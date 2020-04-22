@@ -3956,6 +3956,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
+ "polymesh-runtime-develop",
  "rand 0.7.3",
  "serde",
  "serde_derive",

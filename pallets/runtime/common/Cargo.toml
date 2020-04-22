@@ -44,6 +44,7 @@ hex-literal = "0.2.1"
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+polymesh-runtime-develop = { package = "polymesh-runtime-develop", path = "../develop"}
 
 [features]
 equalize = []

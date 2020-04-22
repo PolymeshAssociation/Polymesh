@@ -4,39 +4,60 @@ use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
 use polymesh_primitives::Block;
-use polymesh_runtime_develop::{self, config::GenesisConfig, RuntimeApi};
+use polymesh_runtime_develop;
+use polymesh_runtime_testnet_v1;
 use sc_client::{self, LongestChain};
 use sc_consensus_babe;
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
-use sc_service::{error::Error as ServiceError, AbstractService, Configuration, ServiceBuilder};
+pub use sc_service::{
+    error::Error as ServiceError, AbstractService, ServiceBuilder
+    config::{DatabaseConfig, PrometheusConfig, full_version_from_strs},
+};
 use sp_inherents::InherentDataProviders;
 use std::sync::Arc;
 
+pub type Configuration = sc_service::Configuration<polymesh_runtime_testnet_v1::config::GenesisConfig>;
+
 // Our native executor instance.
 native_executor_instance!(
-    pub Executor,
-    polymesh_runtime::api::dispatch,
-    polymesh_runtime::native_version,
+    pub V1Executor,
+    polymesh_runtime_testnet_v1::api::dispatch,
+    polymesh_runtime_testnet_v1::native_version,
     frame_benchmarking::benchmarking::HostFunctions,
 );
+
+// Our native executor instance.
+native_executor_instance!(
+    pub GeneralExecutor,
+    polymesh_runtime_develop::api::dispatch,
+    polymesh_runtime_develop::native_version,
+    frame_benchmarking::benchmarking::HostFunctions,
+);
+
+// Using prometheus, use a registry with a prefix of `polymesh`.
+fn set_prometheus_registry(config: &mut Configuration) -> Result<(), ServiceError> {
+	if let Some(PrometheusConfig { registry, .. }) = config.prometheus_config.as_mut() {
+		*registry = Registry::new_custom(Some("polymesh".into()), None)?;
+	}
+
+	Ok(())
+}
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
 macro_rules! new_full_start {
-    ($config:expr) => {{
+    ($config:expr, $runtime:ty, $executor:ty) => {{
+        set_prometheus_registry(&mut $config)?;
         use std::sync::Arc;
         type RpcExtension = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
         let mut import_setup = None;
         let inherent_data_providers = sp_inherents::InherentDataProviders::new();
 
         let builder = sc_service::ServiceBuilder::new_full::<
-            polymesh_primitives::Block,
-            polymesh_runtime::RuntimeApi,
-            crate::service::Executor,
-        >($config)?
+            polymesh_primitives::Block, $runtime, $executor>($config)?
         .with_select_chain(|_config, backend| Ok(sc_client::LongestChain::new(backend.clone())))?
         .with_transaction_pool(|config, client, _fetcher| {
             let pool_api = sc_transaction_pool::FullChainApi::new(client.clone());

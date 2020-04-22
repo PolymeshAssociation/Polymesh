@@ -4,7 +4,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::traits::balances::CheckCdd;
 use polymesh_primitives::AccountKey;
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use core::convert::TryFrom;
 use frame_support::StorageMap;
 

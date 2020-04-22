@@ -28,11 +28,11 @@ pub mod config {
     use pallet_balances as balances;
     use pallet_identity as identity;
 
-    pub type AssetConfig = polymesh_common_utilities::asset::GenesisConfig<crate::Runtime>;
+    pub type AssetConfig = polymesh_runtime_common::asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
-    pub type BridgeConfig = polymesh_common_utilities::bridge::GenesisConfig<crate::Runtime>;
+    pub type BridgeConfig = polymesh_runtime_common::bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
-    pub type SimpleTokenConfig = polymesh_common_utilities::simple_token::GenesisConfig<crate::Runtime>;
+    pub type SimpleTokenConfig = polymesh_runtime_common::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type PolymeshCommitteeConfig =
         committee::GenesisConfig<crate::Runtime, committee::Instance1>;

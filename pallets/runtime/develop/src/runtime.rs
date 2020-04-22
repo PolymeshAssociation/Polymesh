@@ -3,7 +3,7 @@ use crate::{
     fee_details::CddHandler,
     constants::{fee::*, time::*},
 };
-use polymesh_common_utilities::{
+use polymesh_runtime_common::{
     asset, bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
@@ -31,9 +31,8 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 
 use frame_support::{
-    construct_runtime, parameter_types,
-    traits::{Currency, Randomness, SplitTwoWays},
-    weights::Weight,
+    construct_runtime, parameter_types, debug,
+    traits::{Randomness, SplitTwoWays},
 };
 use sp_api::impl_runtime_apis;
 use sp_core::u32_trait::{_1, _2, _4};
@@ -43,12 +42,14 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
 };
 use sp_runtime::{
-    traits::{BlakeTwo256, Block as BlockT, OpaqueKeys, StaticLookup, Verify},
+    traits::{BlakeTwo256, Block as BlockT, OpaqueKeys, StaticLookup, Verify, SaturatedConversion, Extrinsic},
     MultiSignature,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
+// Comment in the favour of not using the Offchain worker
+//use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
@@ -583,7 +584,8 @@ impl group::Trait<group::Instance2> for Runtime {
 impl statistics::Trait for Runtime {}
 
 /// A runtime transaction submitter for the cdd_offchain_worker
-type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
+// Comment it in the favour of Testnet v1 release
+//type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
 
 // Comment it in the favour of Testnet v1 release
 // parameter_types! {

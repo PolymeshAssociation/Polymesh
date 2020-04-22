@@ -19,7 +19,7 @@
 
 use crate::{MaximumBlockWeight, NegativeImbalance};
 use frame_support::{
-    traits::{Currency, Get, OnUnbalanced, Imbalance},
+    traits::{Currency, Get, OnUnbalanced},
     weights::Weight,
 };
 use polymesh_primitives::Balance;
@@ -148,14 +148,13 @@ impl<T: Get<Perbill>, R: system::Trait> Convert<Fixed64, Fixed64> for TargetedFe
 }
 
 #[cfg(test)]
+// #[ignore]
 mod tests {
     use super::*;
-
+    use polymesh_runtime_develop::{runtime::{TargetBlockFullness, TransactionPayment, System}, Runtime};
     use crate::{
-        runtime::{TargetBlockFullness, TransactionPayment},
-        AvailableBlockRatio, MaximumBlockWeight, Runtime,
+        AvailableBlockRatio, MaximumBlockWeight
     };
-
     use polymesh_common_utilities::constants::currency::{CENTS, DOLLARS, MILLICENTS};
 
     use frame_support::weights::Weight;
@@ -218,7 +217,7 @@ mod tests {
             run_with_system_weight(w, || {
                 assert_eq_error_rate!(
                     fee_multiplier_update(w, fm).into_inner(),
-                    TargetedFeeAdjustment::<TargetBlockFullness>::convert(fm).into_inner(),
+                    TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(fm).into_inner(),
                     5,
                 );
             })
@@ -233,7 +232,7 @@ mod tests {
             let mut fm = Fixed64::default();
             let mut iterations: u64 = 0;
             loop {
-                let next = TargetedFeeAdjustment::<TargetBlockFullness>::convert(fm);
+                let next = TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(fm);
                 fm = next;
                 if fm == Fixed64::from_rational(-1, 1) {
                     break;
@@ -275,7 +274,7 @@ mod tests {
 
             let mut iterations: u64 = 0;
             loop {
-                let next = TargetedFeeAdjustment::<TargetBlockFullness>::convert(fm);
+                let next = TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(fm);
                 // if no change, panic. This should never happen in this case.
                 if fm == next {
                     panic!("The fee should ever increase");
@@ -304,28 +303,28 @@ mod tests {
         run_with_system_weight(target() / 4, || {
             // Light block. Fee is reduced a little.
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(Fixed64::default()),
                 feemul(-7500),
             );
         });
         run_with_system_weight(target() / 2, || {
             // a bit more. Fee is decreased less, meaning that the fee increases as the block grows.
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(Fixed64::default()),
                 feemul(-5000),
             );
         });
         run_with_system_weight(target(), || {
             // ideal. Original fee. No changes.
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(Fixed64::default()),
                 feemul(0),
             );
         });
         run_with_system_weight(target() * 2, || {
             // // More than ideal. Fee is increased.
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(Fixed64::default()),
                 feemul(10000),
             );
         });
@@ -335,20 +334,20 @@ mod tests {
     fn stateful_weight_mul_grow_to_infinity() {
         run_with_system_weight(target() * 2, || {
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(Fixed64::default()),
                 feemul(10000)
             );
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(10000)),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(10000)),
                 feemul(20000)
             );
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(20000)),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(20000)),
                 feemul(30000)
             );
             // ...
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(1_000_000_000)),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(1_000_000_000)),
                 feemul(1_000_000_000 + 10000)
             );
         });
@@ -358,20 +357,20 @@ mod tests {
     fn stateful_weight_mil_collapse_to_minus_one() {
         run_with_system_weight(0, || {
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default()),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(Fixed64::default()),
                 feemul(-10000)
             );
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(-10000)),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(-10000)),
                 feemul(-20000)
             );
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(-20000)),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(-20000)),
                 feemul(-30000)
             );
             // ...
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness>::convert(feemul(1_000_000_000 * -1)),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(1_000_000_000 * -1)),
                 feemul(-1_000_000_000)
             );
         })
@@ -401,7 +400,7 @@ mod tests {
         .for_each(|i| {
             run_with_system_weight(i, || {
                 let next =
-                    TargetedFeeAdjustment::<TargetBlockFullness>::convert(Fixed64::default());
+                    TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(Fixed64::default());
                 let truth = fee_multiplier_update(i, Fixed64::default());
                 assert_eq_error_rate!(truth.into_inner(), next.into_inner(), 5);
             });
@@ -411,7 +410,7 @@ mod tests {
         let t = target();
         vec![t + 100, t * 2, t * 4].into_iter().for_each(|i| {
             run_with_system_weight(i, || {
-                let fm = TargetedFeeAdjustment::<TargetBlockFullness>::convert(max_fm);
+                let fm = TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(max_fm);
                 // won't grow. The convert saturates everything.
                 assert_eq!(fm, max_fm);
             })
