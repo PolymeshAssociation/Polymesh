@@ -3807,6 +3807,7 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "polymesh-runtime-common",
+ "serde",
  "serde_json",
  "sp-api",
  "sp-runtime",

@@ -53,6 +53,7 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
+use polymesh_protocol_fee_rpc_runtime_api::CappedFee;
 use polymesh_runtime_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::OpaqueMetadata;
@@ -931,10 +932,9 @@ impl_runtime_apis! {
 
     impl polymesh_protocol_fee_rpc_runtime_api::ProtocolFeeApi<
         Block,
-        Balance,
     > for Runtime {
-        fn compute_fee(op: ProtocolOp) -> Balance {
-            ProtocolFee::compute_fee(op)
+        fn compute_fee(op: ProtocolOp) -> CappedFee {
+            ProtocolFee::compute_fee(op).into()
         }
     }
 

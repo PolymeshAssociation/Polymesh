@@ -1,18 +1,17 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use polymesh_protocol_fee_rpc_runtime_api::ProtocolFeeApi as ProtocolFeeRuntimeApi;
+use polymesh_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
 use polymesh_runtime_common::protocol_fee::ProtocolOp;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
 #[rpc]
-pub trait ProtocolFeeApi<BlockHash, Balance> {
+pub trait ProtocolFeeApi<BlockHash> {
     #[rpc(name = "protocolFee_computeFee")]
-    fn compute_fee(&self, op: ProtocolOp, at: Option<BlockHash>) -> Result<Balance>;
+    fn compute_fee(&self, op: ProtocolOp, at: Option<BlockHash>) -> Result<CappedFee>;
 }
 
 /// A struct that implements the [`ProtocolFeeApi`].
@@ -45,16 +44,19 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, Balance> ProtocolFeeApi<<Block as BlockT>::Hash, Balance> for ProtocolFee<C, Block>
+impl<C, Block> ProtocolFeeApi<<Block as BlockT>::Hash> for ProtocolFee<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: ProtocolFeeRuntimeApi<Block, Balance>,
-    Balance: Codec + MaybeDisplay + MaybeFromStr,
+    C::Api: ProtocolFeeRuntimeApi<Block>,
 {
-    fn compute_fee(&self, op: ProtocolOp, at: Option<<Block as BlockT>::Hash>) -> Result<Balance> {
+    fn compute_fee(
+        &self,
+        op: ProtocolOp,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<CappedFee> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
