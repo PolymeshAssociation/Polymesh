@@ -54,7 +54,7 @@ impl Default for BridgeTxStatus {
 
 /// A unique lock-and-mint bridge transaction
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct BridgeTx<Balance, Account> {
+pub struct BridgeTx<Account, Balance> {
     /// A single tx hash can have multiple locks. This nonce differentiates between them.
     pub nonce: u16,
     /// Recipient of POLYX on Polymesh: the deposit address or identity.
@@ -161,7 +161,7 @@ decl_storage! {
         /// The list of timelocked transactions with the block numbers in which those transactions
         /// become unlocked. Pending transactions are also included here if they will be tried automatically.
         TimelockedTxs get(fn timelocked_txs):
-            map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::Balance, T::AccountId>>;
+            map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
     }
     add_extra_genesis {
         // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
@@ -185,15 +185,15 @@ decl_event! {
         ControllerChanged(AccountId),
         /// Confirmation of minting POLYX on Polymesh in return for the locked ERC20 tokens on
         /// Ethereum.
-        Bridged(BridgeTx<Balance, AccountId>),
+        Bridged(BridgeTx<AccountId, Balance>),
         /// Notification of freezing the bridge.
         Frozen,
         /// Notification of unfreezing the bridge.
         Unfrozen,
         /// Notification of freezing a transaction.
-        FrozenTx(BridgeTx<Balance, AccountId>),
+        FrozenTx(BridgeTx<AccountId, Balance>),
         /// Notification of unfreezing a transaction.
-        UnfrozenTx(BridgeTx<Balance, AccountId>),
+        UnfrozenTx(BridgeTx<AccountId, Balance>),
         /// A vector of timelocked balances of a recipient, each with the number of the block in
         /// which the balance gets unlocked.
         TimelockedBalancesOfRecipient(Vec<(BlockNumber, Balance)>),
@@ -274,7 +274,7 @@ decl_module! {
         /// bridge transaction if the transaction is new or approving an existing proposal if the
         /// transaction has already been proposed.
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
-        pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::Balance, T::AccountId>) ->
+        pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
             ensure!(!Self::frozen(), Error::<T>::Frozen);
@@ -291,7 +291,7 @@ decl_module! {
 
         /// Handles an approved bridge transaction proposal.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
-        pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::Balance, T::AccountId>) ->
+        pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
@@ -329,14 +329,14 @@ decl_module! {
         /// `50_000 + 200_000 * bridge_txs.len()`
         #[weight = FunctionOf(
             |(bridge_txs,): (
-                &Vec<BridgeTx<T::Balance, T::AccountId>>,
+                &Vec<BridgeTx<T::AccountId, T::Balance>>,
             )| {
                 50_000 + 200_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::Balance, T::AccountId>>) ->
+        pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
@@ -360,14 +360,14 @@ decl_module! {
         /// `50_000 + 700_000 * bridge_txs.len()`
         #[weight = FunctionOf(
             |(bridge_txs,): (
-                &Vec<BridgeTx<T::Balance, T::AccountId>>,
+                &Vec<BridgeTx<T::AccountId, T::Balance>>,
             )| {
                 50_000 + 700_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::Balance, T::AccountId>>) ->
+        pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             // NB: An admin can call Freeze + Unfreeze on a transaction to bypass the timelock
@@ -406,7 +406,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Handles a bridge transaction proposal immediately.
-    fn handle_bridge_tx_now(bridge_tx: BridgeTx<T::Balance, T::AccountId>) -> DispatchResult {
+    fn handle_bridge_tx_now(bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
         let bridge_tx_identifier = BridgeTxIdentifier {
             nonce: bridge_tx.nonce.clone(),
             tx_hash: bridge_tx.tx_hash.clone(),
@@ -439,7 +439,7 @@ impl<T: Trait> Module<T> {
 
     /// Handles a bridge transaction proposal after `timelock` blocks.
     fn handle_bridge_tx_later(
-        bridge_tx: &BridgeTx<T::Balance, T::AccountId>,
+        bridge_tx: &BridgeTx<T::AccountId, T::Balance>,
         timelock: T::BlockNumber,
     ) -> DispatchResult {
         let mut already_tried = 0;
