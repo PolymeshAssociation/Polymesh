@@ -329,6 +329,7 @@ impl ExtBuilder {
         .unwrap();
 
         mips::GenesisConfig::<TestStorage> {
+            prune_historical_mips: false,
             min_proposal_deposit: 50,
             quorum_threshold: 70,
             proposal_duration: 10,

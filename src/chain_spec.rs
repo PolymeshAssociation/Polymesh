@@ -352,6 +352,7 @@ fn testnet_genesis(
             ..Default::default()
         }),
         pallet_mips: Some(MipsConfig {
+            prune_historical_mips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
