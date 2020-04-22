@@ -467,7 +467,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            let imbalance = <Self as Currency<T::AccountId>>::withdraw(
+            // Withdraw the account balance and burn the resulting imbalance by dropping it.
+            let _ = <Self as Currency<T::AccountId>>::withdraw(
                 &who,
                 amount,
                 // There is no specific "burn" reason in Substrate. However, if the caller is
@@ -475,8 +476,6 @@ decl_module! {
                 WithdrawReason::Transfer.into(),
                 ExistenceRequirement::AllowDeath,
             )?;
-            // Burn the withdrawn balance.
-            drop(imbalance);
             Self::deposit_event(RawEvent::AccountBalanceBurned(who, amount));
             Ok(())
         }
