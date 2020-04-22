@@ -10,7 +10,7 @@ use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
     self as mips, DepositInfo, Error, MipDescription, MipsMetadata, Referendum, ReferendumState,
-    ReferendumType, Url, Voting,
+    ReferendumType, Url, VotingResult,
 };
 use polymesh_primitives::Beneficiary;
 use polymesh_runtime_balances as balances;
@@ -80,8 +80,8 @@ fn starting_a_proposal_works_we() {
 
     assert_eq!(Mips::proposed_by(alice_acc.clone()), vec![0]);
     assert_eq!(
-        Mips::voting(0),
-        Voting {
+        Mips::proposal_result(0),
+        VotingResult {
             ayes_count: 1,
             ayes_stake: 60,
             nays_count: 0,
@@ -123,8 +123,8 @@ fn closing_a_proposal_works_we() {
 
     assert_eq!(Balances::free_balance(&alice_acc), 168);
     assert_eq!(
-        Mips::voting(0),
-        Voting {
+        Mips::proposal_result(0),
+        VotingResult {
             ayes_count: 1,
             ayes_stake: 50,
             nays_count: 0,
@@ -172,8 +172,8 @@ fn creating_a_referendum_works_we() {
     assert_ok!(Mips::vote(bob_signer.clone(), 0, true, 50));
 
     assert_eq!(
-        Mips::voting(0),
-        Voting {
+        Mips::proposal_result(0),
+        VotingResult {
             ayes_count: 2,
             ayes_stake: 100,
             nays_count: 0,
@@ -240,8 +240,8 @@ fn enacting_a_referendum_works_we() {
     assert_ok!(Mips::vote(bob_signer.clone(), 0, true, 50));
 
     assert_eq!(
-        Mips::voting(0),
-        Voting {
+        Mips::proposal_result(0),
+        VotingResult {
             ayes_count: 2,
             ayes_stake: 100,
             nays_count: 0,
@@ -592,7 +592,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     );
 
     assert_eq!(
-        Mips::proposal_meta(0),
+        Mips::proposal_metadata(0),
         Some(MipsMetadata {
             proposer: AccountKeyring::Alice.public(),
             id: 0,
@@ -607,7 +607,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     // 3. Bound/Unbound additional POLYX.
     let alice_acc = AccountKeyring::Alice.public();
     assert_eq!(
-        Mips::deposit_of(0, &alice_acc),
+        Mips::deposits(0, &alice_acc),
         DepositInfo {
             owner: alice_acc.clone(),
             amount: 60
@@ -615,7 +615,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     );
     assert_ok!(Mips::bond_additional_deposit(alice.clone(), 0, 100));
     assert_eq!(
-        Mips::deposit_of(0, &alice_acc),
+        Mips::deposits(0, &alice_acc),
         DepositInfo {
             owner: alice_acc.clone(),
             amount: 160
@@ -623,7 +623,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     );
     assert_ok!(Mips::unbond_deposit(alice.clone(), 0, 50));
     assert_eq!(
-        Mips::deposit_of(0, &alice_acc),
+        Mips::deposits(0, &alice_acc),
         DepositInfo {
             owner: alice_acc.clone(),
             amount: 110
@@ -690,7 +690,7 @@ fn cancel_mips_during_cool_off_period_we() {
 
     // 4. Double check current proposals
     assert_eq!(
-        Mips::proposal_meta(1),
+        Mips::proposal_metadata(1),
         Some(MipsMetadata {
             proposer: AccountKeyring::Bob.public(),
             id: 1,

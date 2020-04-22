@@ -128,7 +128,7 @@ pub struct MipsMetadata<T: Trait> {
 /// For keeping track of proposal being voted on.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Voting<Balance: Parameter> {
+pub struct VotingResult<Balance: Parameter> {
     /// The current set of voters that approved with their stake.
     pub ayes_count: u32,
     pub ayes_stake: Balance,
@@ -288,8 +288,8 @@ decl_storage! {
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal id -> vote count
-        pub ProposalResult get(fn proposal_result): map hasher(twox_64_concat) MipId => Voting<BalanceOf<T>>;
-        
+        pub ProposalResult get(fn proposal_result): map hasher(twox_64_concat) MipId => VotingResult<BalanceOf<T>>;
+
         /// Votes per Proposal and account. Used to avoid double vote issue.
         /// (proposal id, account) -> Vote
         pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) MipId, hasher(twox_64_concat) T::AccountId => Vote<BalanceOf<T>>;

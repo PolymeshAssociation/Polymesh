@@ -258,12 +258,11 @@
     "MipId": "u32",
     "ProposalState": {
         "_enum": [
-            "Proposed",
+            "Pending",
             "Cancelled",
             "Killed",
-            "Referendum",
             "Rejected",
-            "Executed"
+            "Referendum"
         ]
     },
     "ReferendumState": {
