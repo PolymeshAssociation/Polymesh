@@ -1,15 +1,18 @@
+use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi as ProtocolFeeRuntimeApi;
+use polymesh_protocol_fee_rpc_runtime_api::ProtocolFeeApi as ProtocolFeeRuntimeApi;
+use polymesh_runtime_common::protocol_fee::ProtocolOp;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
+use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
 #[rpc]
-pub trait ProtocolFeeApi<BlockHash, Balance, ProtocolOp> {
-    #[rpc(name = "protocolFee_getFee")]
-    fn get_fee(&self, op: ProtocolOp, at: Option<BlockHash>) -> Result<Balance>;
+pub trait ProtocolFeeApi<BlockHash, Balance> {
+    #[rpc(name = "protocolFee_computeFee")]
+    fn compute_fee(&self, op: ProtocolOp, at: Option<BlockHash>) -> Result<Balance>;
 }
 
 /// A struct that implements the [`ProtocolFeeApi`].
@@ -42,24 +45,22 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, Balance, ProtocolOp> ProtocolFeeApi<<Block as BlockT>::Hash>
-    for ProtocolFee<C, Block, Balance, ProtocolOp>
+impl<C, Block, Balance> ProtocolFeeApi<<Block as BlockT>::Hash, Balance> for ProtocolFee<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
     C::Api: ProtocolFeeRuntimeApi<Block, Balance>,
-    Balance: Codec,
-    ProtocolOp: Codec,
+    Balance: Codec + MaybeDisplay + MaybeFromStr,
 {
-    fn get_fee(&self, op: ProtocolOp, at: Option<<Block as BlockT>::Hash>) -> Result<Balance> {
+    fn compute_fee(&self, op: ProtocolOp, at: Option<<Block as BlockT>::Hash>) -> Result<Balance> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
 
-        api.get_fee(&at, op).map_err(|e| RpcError {
+        api.compute_fee(&at, op).map_err(|e| RpcError {
             code: ErrorCode::ServerError(Error::RuntimeError.into()),
             message: "Unable to query dispatch info.".into(),
             data: Some(format!("{:?}", e).into()),

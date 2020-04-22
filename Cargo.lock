@@ -3792,6 +3792,7 @@ dependencies = [
  "jsonrpc-derive",
  "parity-scale-codec",
  "polymesh-protocol-fee-rpc-runtime-api",
+ "polymesh-runtime-common",
  "serde",
  "sp-api",
  "sp-blockchain",
@@ -3804,6 +3805,7 @@ name = "polymesh-protocol-fee-rpc-runtime-api"
 version = "0.1.0"
 dependencies = [
  "frame-support",
+ "parity-scale-codec",
  "polymesh-runtime-common",
  "serde_json",
  "sp-api",

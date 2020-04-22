@@ -12,12 +12,13 @@ use crate::{
 use pallet_committee as committee;
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
-    ProtocolOp, Signature, SigningItem, Ticker,
+    Signature, SigningItem, Ticker,
 };
 use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
+    protocol_fee::ProtocolOp,
     traits::balances::AccountData,
     CommonTrait,
 };
@@ -931,10 +932,9 @@ impl_runtime_apis! {
     impl polymesh_protocol_fee_rpc_runtime_api::ProtocolFeeApi<
         Block,
         Balance,
-        ProtocolOp
     > for Runtime {
-        fn get_fee(op: ProtocolOp) -> Balance {
-            ProtocolFee::get_fee(op)
+        fn compute_fee(op: ProtocolOp) -> Balance {
+            ProtocolFee::compute_fee(op)
         }
     }
 
