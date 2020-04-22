@@ -1095,7 +1095,10 @@ impl<T: Trait> Module<T> {
                     .checked_add(&deposit)
                     .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
             }
-            Vote::None => unreachable!(),
+            Vote::None => {
+                // It should be unreachable because public API only allows binary options.
+                debug::warn!( "Unexpected none vote");
+            }
         };
 
         <ProposalVoting<T>>::insert(id, stats);
