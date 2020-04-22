@@ -467,9 +467,9 @@ impl<T: Trait> Module<T> {
             }
         }
 
-        if already_tried > 16 {
-            // Limits the exponential backoff
-            already_tried = 16;
+        if already_tried > 24 {
+            // Limits the exponential backoff to *almost infinity* (~180 years)
+            already_tried = 24;
         }
 
         let current_block_number = <system::Module<T>>::block_number();
