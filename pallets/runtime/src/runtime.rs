@@ -510,14 +510,12 @@ impl multisig::Trait for Runtime {
 
 parameter_types! {
     pub const MaxTimelockedTxsPerBlock: u32 = 10;
-    pub const BlockRangeForTimelock: BlockNumber = 1000;
 }
 
 impl bridge::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
-    type BlockRangeForTimelock = BlockRangeForTimelock;
 }
 
 impl asset::Trait for Runtime {

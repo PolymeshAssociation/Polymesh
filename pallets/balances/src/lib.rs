@@ -1020,17 +1020,6 @@ where
             Err(Error::<T>::Overflow)?
         }
     }
-
-    fn resolve_into_existing_identity(
-        who: &IdentityId,
-        value: Self::NegativeImbalance,
-    ) -> result::Result<(), Self::NegativeImbalance> {
-        let v = value.peek();
-        match Self::deposit_into_existing_identity(who, v) {
-            Ok(opposite) => Ok(drop(value.offset(opposite))),
-            _ => Err(value),
-        }
-    }
 }
 
 impl<T: Trait> ReservableCurrency<T::AccountId> for Module<T>
