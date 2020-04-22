@@ -413,6 +413,12 @@
         "deactivated_at": "Moment",
         "expiry": "Option<Moment>"
     },
+    "VotingResult" : {
+        "ayes_count": "u32",
+        "ayes_stake": "Balance",
+        "nays_count": "u32",
+        "nays_stake": "Balance"
+    },    
     "ProtocolOp": {
         "_enum": [
             "AssetRegisterTicker",
