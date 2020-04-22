@@ -277,7 +277,7 @@
         ]
     },
     "MIP": {
-        "index": "MipsIndex",        
+        "index": "MipsIndex",
         "proposal":"Call",
         "state":"ProposalState"
     },
@@ -286,7 +286,7 @@
         "state": "ReferendumState",
         "referendum_type": "ReferendumType",
         "enactment_period": "u32"
-        
+
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
@@ -368,9 +368,9 @@
         }
     },
     "BridgeTx": {
-        "nonce": "u64",
-        "recipient": "IssueRecipient",
-        "value": "u128",
+        "nonce": "u16",
+        "recipient": "AccountId",
+        "value": "Balance",
         "tx_hash": "H256"
     },
     "PendingTx": {
@@ -455,5 +455,23 @@
             "ProposalNotFound": "Vec<u8>"
         }
     },
-    "Weight": "u32"
+    "Weight": "u32",
+    "BridgeTxIdentifier": {
+        "nonce": "u16",
+        "tx_hash": "H256"
+    },
+    "BridgeTxDetail": {
+        "amount": "Balance",
+        "status": "BridgeTxStatus",
+        "execution_block": "BlockNumber"
+    },
+    "BridgeTxStatus": {
+        "_enum": {
+            "Absent": "",
+            "Pending": "u8",
+            "Frozen": "",
+            "Timelocked": "",
+            "Handled": ""
+        }
+    }
 }
