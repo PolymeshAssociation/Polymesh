@@ -462,6 +462,23 @@ decl_module! {
             let dest = T::Lookup::lookup(dest)?;
             Self::transfer_core(&source, &dest, value, None, ExistenceRequirement::AllowDeath)?;
         }
+
+        /// Burns the given amount of tokens from the caller's free, unlocked balance.
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            // Withdraw the account balance and burn the resulting imbalance by dropping it.
+            let _ = <Self as Currency<T::AccountId>>::withdraw(
+                &who,
+                amount,
+                // There is no specific "burn" reason in Substrate. However, if the caller is
+                // allowed to transfer then they should also be allowed to burn.
+                WithdrawReason::Transfer.into(),
+                ExistenceRequirement::AllowDeath,
+            )?;
+            Self::deposit_event(RawEvent::AccountBalanceBurned(who, amount));
+            Ok(())
+        }
     }
 }
 
@@ -749,7 +766,7 @@ where
     }
 
     fn minimum_balance() -> Self::Balance {
-        0u128.into()
+        Zero::zero()
     }
 
     fn free_balance(who: &T::AccountId) -> Self::Balance {
