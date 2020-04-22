@@ -575,7 +575,7 @@ decl_module! {
         pub fn cancel_proposal(origin, id: MipId) -> DispatchResult {
             // 0. Initial info.
             let proposer = ensure_signed(origin)?;
-            // 1. Only owner can cancel it. 
+            // 1. Only owner can cancel it.
             let meta = Self::proposal_metadata(id)
                 .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
@@ -590,7 +590,7 @@ decl_module! {
 
             // 4. Close that proposal.
             Self::update_proposal_state(id, ProposalState::Cancelled);
-            Self::prune_data(id);
+            Self::prune_data(id, Self::prune_historical_mips());
 
             Ok(())
         }
@@ -687,7 +687,7 @@ decl_module! {
                 |stats| stats.ayes_stake = new_deposit
             );
             <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(new_deposit));
-            
+
 
             Self::deposit_event(RawEvent::ProposalAmended(proposer, id, false, amount));
             Ok(())
@@ -755,7 +755,7 @@ decl_module! {
             Self::is_proposal_pending(id)?;
             Self::refund_proposal(id);
             Self::update_proposal_state(id, ProposalState::Killed);
-            Self::prune_data(id);            
+            Self::prune_data(id, Self::prune_historical_mips());
         }
 
         /// Any governance committee member can fast track a proposal and turn it into a referendum
@@ -778,7 +778,7 @@ decl_module! {
                 ReferendumState::Pending,
                 ReferendumType::FastTracked,
             );
-            Self::refund_proposal(id);            
+            Self::refund_proposal(id);
 
             Ok(())
         }
@@ -847,7 +847,7 @@ decl_module! {
 
             // Close proposal
             Self::update_referendum_state(id, ReferendumState::Rejected);
-            Self::prune_data(id);
+            Self::prune_data(id, Self::prune_historical_mips());
             Ok(())
         }
 
@@ -940,7 +940,7 @@ impl<T: Trait> Module<T> {
                         } else {
                             Self::update_proposal_state(id, ProposalState::Rejected);
                             Self::refund_proposal(id);
-                            Self::prune_data(id);
+                            Self::prune_data(id, Self::prune_historical_mips());
                         }
                     }
                 }
@@ -992,8 +992,8 @@ impl<T: Trait> Module<T> {
     ///
     /// # TODO
     /// * Should we remove the proposal when it is Cancelled?, killed?, rejected?
-    fn prune_data(id: MipId) {
-        if Self::prune_historical_mips() {
+    fn prune_data(id: MipId, prune: bool) {
+        if prune {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
             <ProposalMetadata<T>>::remove(id);
@@ -1044,10 +1044,9 @@ impl<T: Trait> Module<T> {
                         debug::error!("Referendum {}, its execution fails: {:?}", id, e);
                     }
                 };
-                Self::prune_data(id);
+                Self::prune_data(id, Self::prune_historical_mips());
             }
         }
-
     }
 
     fn pay_to_beneficiaries(id: MipId) {
@@ -1079,19 +1078,22 @@ impl<T: Trait> Module<T> {
     }
 
     fn is_proposal_pending(id: MipId) -> DispatchResult {
-        let proposal = Self::proposals(id)
-            .ok_or_else(|| Error::<T>::MismatchedProposalId)?;            
-        ensure!(proposal.state == ProposalState::Pending, Error::<T>::ProposalIsImmutable);
+        let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+        ensure!(
+            proposal.state == ProposalState::Pending,
+            Error::<T>::ProposalIsImmutable
+        );
         Ok(())
     }
 
     fn is_referendum_pending(id: MipId) -> DispatchResult {
-        let referundum = Self::referendums(id)
-            .ok_or_else(|| Error::<T>::MismatchedProposalId)?;            
-        ensure!(referundum.state == ReferendumState::Pending, Error::<T>::ReferendumIsImmutable);
+        let referundum = Self::referendums(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+        ensure!(
+            referundum.state == ReferendumState::Pending,
+            Error::<T>::ReferendumIsImmutable
+        );
         Ok(())
     }
-
 }
 
 impl<T: Trait> Module<T> {
@@ -1164,7 +1166,7 @@ impl<T: Trait> Module<T> {
             }
             Vote::None => {
                 // It should be unreachable because public API only allows binary options.
-                debug::warn!( "Unexpected none vote");
+                debug::warn!("Unexpected none vote");
             }
         };
 
