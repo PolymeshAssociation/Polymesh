@@ -288,7 +288,8 @@ decl_storage! {
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal id -> vote count
         pub ProposalVoting get(fn voting): map hasher(twox_64_concat) MipId => Voting<BalanceOf<T>>;
-        ///
+        /// Votes per Proposal and account. Used to avoid double vote issue.
+        /// (proposal id, account) -> Vote
         pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) MipId, hasher(twox_64_concat) T::AccountId => Vote<BalanceOf<T>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
