@@ -22,6 +22,7 @@ pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-cu
 pallet-mips-rpc-runtime-api = { package = "pallet-mips-rpc-runtime-api", path = "../mips/rpc/runtime-api", default-features = false  }
 pallet-mips = { package = "pallet-mips", path = "../mips", default-features = false  }
 pallet-committee = { package = "pallet-committee", path = "../committee", default-features = false }
+pallet-cdd-offchain-worker = { package = "pallet-cdd-offchain-worker", version = "2.0.0", path = "../cdd-offchain-worker", default-features = false}
 
 chrono = { version = "0.4.11", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
@@ -137,6 +138,7 @@ std = [
     "pallet-mips/std",
     "pallet-committee/std",
     "pallet-mips-rpc-runtime-api/std",
+    "pallet-cdd-offchain-worker/std",
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
