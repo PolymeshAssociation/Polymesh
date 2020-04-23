@@ -152,8 +152,8 @@ jobs:
           no_output_timeout: 4h
       - run:
           name: Build docs
-          command: cargo doc --release
-          no_output_timeout: 45m
+          command: cargo doc -j 1 --release
+          no_output_timeout: 60m
       - persist_to_workspace:
           root: "./target"
           paths: doc
