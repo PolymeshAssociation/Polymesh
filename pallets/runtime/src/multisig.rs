@@ -23,19 +23,30 @@
 //! ### Dispatchable Functions
 //!
 //! - `create_multisig` - Creates a new multisig.
-//! - `create_or_approve_proposal_as_identity` - Creates or approves a multisig proposal from an
-//! identity origin.
-//! - `create_or_approve_proposal_as_key` - Creates or approves a multisig proposal from an account
-//! key origin.
-//! - `create_proposal_as_identity` - Creates a multisig proposal from an identity origin.
-//! - `create_proposal_as_key` - Creates a multisig proposal from an account origin.
-//! - `approve_as_identity` - Approves a multisig proposal from an identity origin.
-//! - `approve_as_key` - Approves a multisig proposal from an account origin.
-//! - `accept_multisig_signer_as_identity` - Accept being added as a signer of a multisig.
-//! - `accept_multisig_signer_as_key` - Accept being added as a signer of a multisig.
+//! - `create_or_approve_proposal_as_identity` - Creates or approves a multisig proposal given the
+//! signer's identity.
+//! - `create_or_approve_proposal_as_key` - Creates or approves a multisig proposal given the
+//! signer's account key.
+//! - `create_proposal_as_identity` - Creates a multisig proposal given the signer's identity.
+//! - `create_proposal_as_key` - Creates a multisig proposal given the signer's account key.
+//! - `approve_as_identity` - Approves a multisig proposal given the signer's identity.
+//! - `approve_as_key` - Approves a multisig proposal given the signer's account key.
+//! - `accept_multisig_signer_as_identity` - Accepts a multisig signer authorization given the
+//! signer's identity.
+//! - `accept_multisig_signer_as_key` - Accepts a multisig signer authorization given the signer's
+//! account key.
 //! - `add_multisig_signer` - Adds a signer to the multisig.
 //! - `remove_multisig_signer` - Removes a signer from the multisig.
+//! - `add_multisig_signers_via_creator` - Adds a signer to the multisig with the signed being the
+//! creator of the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
+//! - `change_all_signers_and_sigs_required` - Replaces all existing signers of the given multisig
+//! and changes the number of required signatures.
+//! `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
+//! the creator of the multisig.
+//! `make_multisig_master` - Adds a multisig as the master key of the current DID if the current did
+//! is the creator of the multisig.
+
 //!
 //! ### Other Public Functions
 //!
@@ -45,7 +56,7 @@
 //! - `create_or_approve_proposal` - Creates or approves a multisig proposal.
 //! - `approve_for` - Approves a multisig proposal and executes it if enough signatures have been
 //! received.
-//! - `_accept_multisig_signer` - Accept and process an addition of a signer to a multisig.
+//! - `_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
 //! - `get_next_multisig_address` - Gets the next available multisig account ID.
 //! - `get_multisig_address` - Constructs a multisig account given a nonce.
 //! - `ms_signers` - Helper function that checks if someone is an authorized signer of a multisig or
@@ -99,9 +110,9 @@ decl_storage! {
         pub MultiSigSigners: double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) Signatory => Signatory;
         /// Number of approved/accepted signers of a multisig.
         pub NumberOfSigners get(fn number_of_signers): map hasher(twox_64_concat) T::AccountId => u64;
-        /// Confirmations required before processing a multisig tx
+        /// Confirmations required before processing a multisig tx.
         pub MultiSigSignsRequired get(fn ms_signs_required): map hasher(twox_64_concat) T::AccountId => u64;
-        /// Number of transactions proposed in a multisig. Used as tx id. starts from 0
+        /// Number of transactions proposed in a multisig. Used as tx id; starts from 0.
         pub MultiSigTxDone get(fn ms_tx_done): map hasher(twox_64_concat) T::AccountId => u64;
         /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<proposal>.
         pub Proposals get(fn proposals): map hasher(twox_64_concat) (T::AccountId, u64) => Option<T::Proposal>;
@@ -110,16 +121,17 @@ decl_storage! {
             double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_256) T::Proposal => Option<u64>;
         /// Number of votes in favor of a tx. Mapping from (multisig, tx id) => no. of approvals.
         pub TxApprovals get(fn tx_approvals): map hasher(twox_64_concat) (T::AccountId, u64) => u64;
-        /// Individual multisig signer votes. (multi sig, signer, proposal) => vote
+        /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
         pub Votes get(fn votes): map hasher(blake2_128_concat) (T::AccountId, Signatory, u64) => bool;
-        /// Maps a multisig to its creator's identity
+        /// Maps a multisig to its creator's identity.
         pub MultiSigCreator get(fn ms_creator): map hasher(twox_64_concat) T::AccountId => IdentityId;
-        /// Maps a key to a multisig address
+        /// Maps a key to a multisig address.
         pub KeyToMultiSig get(fn key_to_ms): map hasher(blake2_128_concat) AccountKey => T::AccountId;
     }
 }
 
 decl_module! {
+    /// A multisig module.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
@@ -151,7 +163,7 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
-        /// If this is 1 of m multisig, the proposal will be immediately executed.
+        /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_identity(
             origin,
@@ -170,7 +182,7 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
-        /// If this is 1 of m multisig, the proposal will be immediately executed.
+        /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_key(
             origin,
@@ -187,7 +199,7 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
-        /// If this is 1 of m multisig, the proposal will be immediately executed.
+        /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn create_proposal_as_identity(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -204,7 +216,7 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
-        /// If this is 1 of m multisig, the proposal will be immediately executed.
+        /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn create_proposal_as_key(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -298,8 +310,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds a signer to the multisig.
-        /// This must be called by the creator identity of the multisig.
+        /// Adds a signer to the multisig. This must be called by the creator identity of the
+        /// multisig.
         ///
         /// # Arguments
         /// * `multisig` - Address of the multi sig
@@ -337,7 +349,7 @@ decl_module! {
         /// This must be called by the creator identity of the multisig.
         ///
         /// # Arguments
-        /// * `multisig` - Address of the multi sig
+        /// * `multisig` - Address of the multisig.
         /// * `signers` - Signatories to remove.
         ///
         /// # Weight
@@ -385,7 +397,7 @@ decl_module! {
         /// multisig itself.
         ///
         /// # Arguments
-        /// * `sigs_required` - New number of sigs required.
+        /// * `sigs_required` - New number of required signatures.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn change_sigs_required(origin, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -399,16 +411,16 @@ decl_module! {
             Ok(())
         }
 
-        /// This function allows to replace all existing signers of the given multisig & also change
-        /// the number of required signatures.
+        /// Replaces all existing signers of the given multisig and changes the number of required
+        /// signatures.
         ///
         /// NOTE: Once this function get executed no other function of the multisig is allowed to
         /// execute until unless enough potential signers accept the authorization whose count is
         /// greater than or equal to the number of required signatures.
         ///
         /// # Arguments
-        /// * signers - Vector of signers for a given multisig
-        /// * sigs_required - Number of signature required for a given multisig
+        /// * signers - Vector of signers for a given multisig.
+        /// * sigs_required - Number of signature required for a given multisig.
         ///
         /// # Weight
         /// `200_000 + 300_000 * signers.len()`
@@ -459,7 +471,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds a multisig as a signer of current did if the current did is the creator of the multisig
+        /// Adds a multisig as a signer of current did if the current did is the creator of the
+        /// multisig.
         ///
         /// # Arguments
         /// * `multi_sig` - multi sig address
@@ -479,7 +492,8 @@ decl_module! {
             )
         }
 
-        /// Adds a multisig as the master key of the current did if the current did is the creator of the multisig
+        /// Adds a multisig as the master key of the current did if the current did is the creator
+        /// of the multisig.
         ///
         /// # Arguments
         /// * `multi_sig` - multi sig address
@@ -507,30 +521,34 @@ decl_event!(
     where
         AccountId = <T as frame_system::Trait>::AccountId,
     {
-        /// Event for multi sig creation. (MultiSig address, Creator address, Signers(pending approval), Sigs required)
+        /// Event emitted after creation of a multisig. Arguments: multisig address, creator
+        /// address, signers (pending approval), signatures required.
         MultiSigCreated(AccountId, AccountId, Vec<Signatory>, u64),
-        /// Event for adding a proposal (MultiSig, proposalid)
+        /// Event emitted after adding a proposal. Argments: multisig, proposal ID.
         ProposalAdded(AccountId, u64),
-        /// Emitted when a proposal is executed. (MultiSig, proposalid, result)
+        /// Event emitted when a proposal is executed. Arguments: multisig, proposal ID, result.
         ProposalExecuted(AccountId, u64, bool),
-        /// Signatory added (Authorization accepted) (MultiSig, signer_added)
+        /// Event emitted when a signatory is added. Arguments: multisig, added signer.
         MultiSigSignerAdded(AccountId, Signatory),
-        /// Multi Sig Signatory Authorized to be added (MultiSig, signer_authorized)
+        /// Event emitted when a multisig signatory is authorized to be added. Arguments: multisig,
+        /// authorized signer.
         MultiSigSignerAuthorized(AccountId, Signatory),
-        /// Multi Sig Signatory removed (MultiSig, signer_removed)
+        /// Event emitted when a multisig signatory is removed. Arguments: multisig, removed signer.
         MultiSigSignerRemoved(AccountId, Signatory),
-        /// Change in signatures required by a multisig (MultiSig, new_sigs_required)
+        /// Event emitted when the number of required signatures is changed. Arguments: multisig,
+        /// new required signatures.
         MultiSigSignaturesRequiredChanged(AccountId, u64),
     }
 );
 
 decl_error! {
+    /// Multisig module errors.
     pub enum Error for Module<T: Trait> {
-        /// The multisig is not attached to a CDD'd identity
+        /// The multisig is not attached to a CDD'd identity.
         CddMissing,
-        /// The proposal does not exist
+        /// The proposal does not exist.
         ProposalMissing,
-        /// MultiSig address
+        /// Multisig address.
         DecodingError,
         /// No signers.
         NoSigners,
@@ -550,27 +568,25 @@ decl_error! {
         AlreadyApproved,
         /// Already a signer.
         AlreadyASigner,
-        /// Couldn't charge fee for the transaction
+        /// Couldn't charge fee for the transaction.
         FailedToChargeFee,
-        /// Identity provided is not the multisig's creator
+        /// Identity provided is not the multisig's creator.
         IdentityNotCreator,
-        /// Changing multisig parameters not allowed since multisig is a master key
+        /// Changing multisig parameters not allowed since multisig is a master key.
         ChangeNotAllowed,
-        /// Signer is an account key that is already associated with a multisig
+        /// Signer is an account key that is already associated with a multisig.
         SignerAlreadyLinked
     }
 }
 
 impl<T: Trait> Module<T> {
-    /// Private immutables
-
-    /// Add authorization for the accountKey to become a signer of multisig
+    /// Adds an authorization for the accountKey to become a signer of multisig.
     fn unsafe_add_auth_for_signers(from: Signatory, target: Signatory, authorizer: T::AccountId) {
         <identity::Module<T>>::add_auth(from, target, AuthorizationData::AddMultiSigSigner, None);
         Self::deposit_event(RawEvent::MultiSigSignerAuthorized(authorizer, target));
     }
 
-    /// Remove signer from the valid signer list for a given multisig
+    /// Removes a signer from the valid signer list for a given multisig.
     fn unsafe_signer_removal(multisig: T::AccountId, signer: &Signatory) {
         if let Signatory::AccountKey(key) = signer {
             <KeyToMultiSig<T>>::remove(key);
@@ -579,7 +595,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(multisig, *signer));
     }
 
-    /// Change the required signature count for a given multisig
+    /// Changes the required signature count for a given multisig.
     fn unsafe_change_sigs_required(multisig: T::AccountId, sigs_required: u64) {
         <MultiSigSignsRequired<T>>::insert(&multisig, &sigs_required);
         Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(
@@ -722,7 +738,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Accept and process an addition of a signer to a multisig
+    /// Accepts and processed an addition of a signer to a multisig.
     pub fn _accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
         ensure!(
             <identity::Authorizations<T>>::contains_key(signer, auth_id),
