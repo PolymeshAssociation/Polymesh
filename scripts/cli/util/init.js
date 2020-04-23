@@ -64,12 +64,12 @@ async function initMain(api) {
 const createApi = async function() {
   // Schema path
   const filePath = reqImports.path.join(__dirname + "/../../../polymesh_schema.json");
-  const customTypes = JSON.parse(reqImports.fs.readFileSync(filePath, "utf8"));
+  const { types } = JSON.parse(reqImports.fs.readFileSync(filePath, "utf8"));
 
   // Start node instance
   const ws_provider = new reqImports.WsProvider("ws://127.0.0.1:9944/");
   const api = await reqImports.ApiPromise.create({
-    types: customTypes,
+    types,
     provider: ws_provider
   });
   return api;
@@ -82,7 +82,7 @@ let generateEntity = async function (api, name) {
   let entityRawNonce = (await api.query.system.account(entity.address)).nonce;
   let entity_nonce = new BN(entityRawNonce.toString());
   nonces.set(entity.address, entity_nonce);
-
+p
   return entity;
 };
 
