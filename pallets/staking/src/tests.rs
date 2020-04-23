@@ -4258,7 +4258,6 @@ fn new_era_respects_block_rewards_reserve() {
     });
 }
 
-
 #[test]
 fn check_whether_nominator_selected_or_not_when_its_cdd_claim_expired() {
     ExtBuilder::default()
@@ -4266,62 +4265,120 @@ fn check_whether_nominator_selected_or_not_when_its_cdd_claim_expired() {
         .nominate(true)
         .build()
         .execute_with(|| {
+            use pallet_session::SessionManager;
+            let bonding_duration: u64 = 90;
 
-        use pallet_session::SessionManager;
-        let bonding_duration: u64 = 90;
+            start_era(1);
 
-        start_era(1);
+            let now = Timestamp::now();
 
-        let now = Timestamp::now();
+            // 1. Add multiple nominators with some expiry
+            // controller - 186, val - 2000, expiry - now + bonding_duration + 1000_u64, target - vec![11, 31]
+            bond_nominator_with_expiry(
+                186,
+                2000,
+                now + bonding_duration + 1000_u64,
+                vec![account_from(11), account_from(31)],
+            );
 
-        // 1. Add multiple nominators with some expiry 
-        // controller - 186, val - 2000, expiry - now + bonding_duration + 1000_u64, target - vec![11, 31]
-        bond_nominator_with_expiry(186, 2000, now + bonding_duration + 1000_u64, vec![account_from(11), account_from(31)]);
+            // verify nominator is added or not
+            assert!(Staking::nominators(account_from(187)).is_some());
 
-        // verify nominator is added or not
-        assert!(Staking::nominators(account_from(187)).is_some());
+            // controller - 196, val - 2000, expiry - now + bonding_duration + 4000_u64, target - vec![11, 31, 21]
+            bond_nominator_with_expiry(
+                196,
+                2000,
+                now + bonding_duration + 4000_u64,
+                vec![account_from(11), account_from(31), account_from(21)],
+            );
 
-        // controller - 196, val - 2000, expiry - now + bonding_duration + 4000_u64, target - vec![11, 31, 21]
-        bond_nominator_with_expiry(196, 2000, now + bonding_duration + 4000_u64, vec![account_from(11), account_from(31), account_from(21)]);
+            // verify nominator is added or not
+            assert!(Staking::nominators(account_from(197)).is_some());
 
-        // verify nominator is added or not
-        assert!(Staking::nominators(account_from(197)).is_some());
+            // controller - 206, val - 2000, expiry - now + bonding_duration + 4000_u64, target - vec![11, 31, 21]
+            bond_nominator_with_expiry(
+                206,
+                2000,
+                now + bonding_duration + 4000_u64,
+                vec![account_from(11), account_from(31), account_from(21)],
+            );
 
-        // controller - 206, val - 2000, expiry - now + bonding_duration + 4000_u64, target - vec![11, 31, 21]
-        bond_nominator_with_expiry(206, 2000, now + bonding_duration + 4000_u64, vec![account_from(11), account_from(31), account_from(21)]);
+            // verify nominator is added or not
+            assert!(Staking::nominators(account_from(207)).is_some());
 
-        // verify nominator is added or not
-        assert!(Staking::nominators(account_from(207)).is_some());
+            // controller - 216, val - 2000, expiry - now + bonding_duration + 1500_u64, target - vec![11, 21]
+            bond_nominator_with_expiry(
+                216,
+                2000,
+                now + bonding_duration + 1500_u64,
+                vec![account_from(11), account_from(21)],
+            );
 
-        // controller - 216, val - 2000, expiry - now + bonding_duration + 1500_u64, target - vec![11, 21]
-        bond_nominator_with_expiry(216, 2000, now + bonding_duration + 1500_u64, vec![account_from(11), account_from(21)]);
+            // verify nominator is added or not
+            assert!(Staking::nominators(account_from(217)).is_some());
 
-        // verify nominator is added or not
-        assert!(Staking::nominators(account_from(217)).is_some());
+            // 3. change the era
+            start_era(2);
 
-        // 3. change the era
-        start_era(2);
-        
-        // validators of the new era
-        assert!(Session::validators().contains(&account_from(11)));
-        assert!(Session::validators().contains(&account_from(21)));
-        assert!(Session::validators().contains(&account_from(31)));
+            // validators of the new era
+            assert!(Session::validators().contains(&account_from(11)));
+            assert!(Session::validators().contains(&account_from(21)));
+            assert!(Session::validators().contains(&account_from(31)));
 
-        // 4. validate whether the expired nominators are the part of the individual exposure or not.
-        let init_active_era = Staking::active_era().unwrap().index;
+            // 4. validate whether the expired nominators are the part of the individual exposure or not.
+            let init_active_era = Staking::active_era().unwrap().index;
 
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(11)).others.len(), 3);
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(11)).others[0].who, account_from(207));
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(11)).others[1].who, account_from(197));
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(11)).others[2].who, account_from(101));
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(11))
+                    .others
+                    .len(),
+                3
+            );
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(11)).others[0].who,
+                account_from(207)
+            );
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(11)).others[1].who,
+                account_from(197)
+            );
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(11)).others[2].who,
+                account_from(101)
+            );
 
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(21)).others.len(), 3);
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(21)).others[0].who, account_from(207));
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(21)).others[1].who, account_from(197));
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(21)).others[2].who, account_from(101));
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(21))
+                    .others
+                    .len(),
+                3
+            );
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(21)).others[0].who,
+                account_from(207)
+            );
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(21)).others[1].who,
+                account_from(197)
+            );
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(21)).others[2].who,
+                account_from(101)
+            );
 
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(31)).others.len(), 2);
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(31)).others[0].who, account_from(207));
-        assert_eq!(Staking::eras_stakers(init_active_era, account_from(31)).others[1].who, account_from(197));
-    });
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(31))
+                    .others
+                    .len(),
+                2
+            );
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(31)).others[0].who,
+                account_from(207)
+            );
+            assert_eq!(
+                Staking::eras_stakers(init_active_era, account_from(31)).others[1].who,
+                account_from(197)
+            );
+        });
 }

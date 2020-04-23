@@ -2164,7 +2164,7 @@ impl<T: Trait> Module<T> {
                 });
 
                 (nominator, targets)
-        });
+            });
         all_nominators.extend(nominator_votes);
 
         let maybe_phragmen_result = sp_phragmen::elect::<_, _, _, T::CurrencyToVote, Perbill>(

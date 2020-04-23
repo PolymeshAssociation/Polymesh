@@ -1118,4 +1118,3 @@ pub fn add_claim_for_nominator(
         service_provider_account,
     );
 }
-
