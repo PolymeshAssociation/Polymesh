@@ -458,7 +458,6 @@ decl_module! {
                 |batch_claim_item| <DidRecords>::contains_key(batch_claim_item.target)),
                 Error::<T>::DidMustAlreadyExist);
 
-            let cdd_providers = T::CddServiceProviders::get_members();
             let cdd_count: usize = claims
                 .iter()
                 .filter(|batch_claim_item| match batch_claim_item.claim {
@@ -467,6 +466,7 @@ decl_module! {
                 })
                 .count();
             if cdd_count > 0 {
+                let cdd_providers = T::CddServiceProviders::get_members();
                 ensure!(cdd_providers.contains(&issuer), Error::<T>::UnAuthorizedCddProvider);
             }
 
