@@ -321,7 +321,7 @@ fn testnet_genesis(
                 .map(|k| (k, 1 << 55))
                 .collect(),
         }),
-        treasury: Some(TreasuryConfig { balance: 100_000 }),
+        treasury: Some(TreasuryConfig { balance: 0 }),
         pallet_indices: Some(IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(SudoConfig { key: root_key }),
         pallet_session: Some(SessionConfig {

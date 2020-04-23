@@ -6,7 +6,7 @@ use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     traits::{
         balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait,
-        NegativeImbalance,
+        NegativeImbalance, PositiveImbalance,
     },
     Context,
 };
@@ -14,7 +14,7 @@ use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
+    debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
@@ -25,7 +25,6 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 pub type ProposalIndex = u32;
 
-type BalanceOf<T> = <T as CommonTrait>::Balance;
 type Identity<T> = identity::Module<T>;
 
 pub trait Trait: frame_system::Trait + CommonTrait + BalancesTrait + IdentityTrait {
@@ -40,7 +39,7 @@ pub trait TreasuryTrait<Balance> {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Treasury {
-        pub Balance get(fn balance) config(): BalanceOf<T>;
+        pub Balance get(fn balance) config(): T::Balance;
     }
 }
 
@@ -118,15 +117,27 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     pub fn unsafe_disbursement(target: IdentityId, amount: T::Balance) {
+        // Update treasury and total issuance.
         let new_treasury_balance = Self::balance() - amount;
         <Balance<T>>::put(new_treasury_balance);
 
+        // Top up target identity balance.
         balances::Module::<T>::unsafe_top_up_identity_balance(&target, amount);
     }
 
     fn unsafe_reimbursement(amount: T::Balance) {
-        let new_balance = Self::balance().saturating_add(amount);
+        // Update treasury balance.
+        let old_balance = Self::balance();
+        let new_balance = old_balance.saturating_add(amount);
+        debug::info!(
+            "Treasury reimbursement from {:?} to {:?}",
+            old_balance,
+            new_balance
+        );
         <Balance<T>>::put(new_balance);
+
+        // Update total issuance when that positive imbalance is dropped.
+        let _ = PositiveImbalance::<T>::new(amount);
     }
 }
 
@@ -143,6 +154,7 @@ impl<T: Trait> TreasuryTrait<T::Balance> for Module<T> {
 }
 
 impl<T: Trait> OnUnbalanced<NegativeImbalance<T>> for Module<T> {
+    /// It is called when fees are sent to treasury.
     fn on_nonzero_unbalanced(amount: NegativeImbalance<T>) {
         let abs_amount = amount.peek();
         Self::unsafe_reimbursement(abs_amount);

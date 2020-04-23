@@ -31,10 +31,13 @@ fn reimbursement_and_disbursement_we() {
     let alice_acc = Origin::signed(AccountKeyring::Alice.public());
     let bob = register_keyring_account(AccountKeyring::Bob).unwrap();
 
+    let total_issuance = Balances::total_issuance();
+
     // Verify reimburstement.
     assert_eq!(Treasury::balance(), 1_000_000);
     assert_ok!(Treasury::reimbursement(alice_acc.clone(), 1_000));
     assert_eq!(Treasury::balance(), 1_001_000);
+    assert_eq!(total_issuance, Balances::total_issuance());
 
     // Disbursement: Only root can do that.
     let beneficiaries = vec![
@@ -52,6 +55,7 @@ fn reimbursement_and_disbursement_we() {
     assert_eq!(Treasury::balance(), 1_000_400);
     assert_eq!(Balances::identity_balance(alice), 100);
     assert_eq!(Balances::identity_balance(bob), 500);
+    assert_eq!(total_issuance, Balances::total_issuance());
 
     // Alice cannot make a disbursement to herself.
     assert_err!(
@@ -64,4 +68,5 @@ fn reimbursement_and_disbursement_we() {
         ),
         DispatchError::BadOrigin
     );
+    assert_eq!(total_issuance, Balances::total_issuance());
 }
