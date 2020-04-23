@@ -1,4 +1,3 @@
-use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use polymesh_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
@@ -38,12 +37,6 @@ pub enum Error {
     RuntimeError = 2,
 }
 
-impl From<Error> for i64 {
-    fn from(e: Error) -> i64 {
-        e as i64
-    }
-}
-
 impl<C, Block> ProtocolFeeApi<<Block as BlockT>::Hash> for ProtocolFee<C, Block>
 where
     Block: BlockT,
@@ -63,7 +56,7 @@ where
             self.client.info().best_hash));
 
         api.compute_fee(&at, op).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            code: ErrorCode::ServerError(Error::RuntimeError as i64),
             message: "Unable to query dispatch info.".into(),
             data: Some(format!("{:?}", e).into()),
         })

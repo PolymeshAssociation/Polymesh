@@ -277,7 +277,7 @@
         ]
     },
     "MIP": {
-        "index": "MipsIndex",        
+        "index": "MipsIndex",
         "proposal":"Call",
         "state":"ProposalState"
     },
@@ -286,7 +286,7 @@
         "state": "ReferendumState",
         "referendum_type": "ReferendumType",
         "enactment_period": "u32"
-        
+
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
@@ -455,5 +455,6 @@
             "ProposalNotFound": "Vec<u8>"
         }
     },
-    "Weight": "u32"
+    "Weight": "u32",
+    "CappedFee": "u64"
 }
