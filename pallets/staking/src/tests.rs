@@ -4257,3 +4257,15 @@ fn new_era_respects_block_rewards_reserve() {
         assert_eq!(Balances::total_balance(&account_from(10)), 1);
     });
 }
+
+
+// #[test]
+// fn performace_nominator_test() {
+//     ExtBuilder::default()
+
+//         .nominate(true)
+//         .build()
+//         .execute_with(|| {
+
+//         })
+// }
