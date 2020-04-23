@@ -17,7 +17,7 @@
             "type": "u64",
             "isOptional": true
         }],
-        "type": "Result<CddStatus>"
+        "type": "CddStatus"
     },
     {
         "name": "getAssetDid",
@@ -32,7 +32,7 @@
             "type": "Ticker",
             "isOptional": false
         }],
-        "type": "Result<AssetDidResult>"
+        "type": "AssetDidResult"
     },
     {
         "name": "getDidRecords",
