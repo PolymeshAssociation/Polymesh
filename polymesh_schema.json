@@ -251,30 +251,42 @@
         "nays": "Vec<(IdentityId, Balance)>"
     },
     "MipsIndex": "u32",
-    "MipsPriority": {
+    "ProposalState": {
         "_enum": [
-            "High",
-            "Normal"
+            "Proposed",
+            "Cancelled",
+            "Killed",
+            "Referendum",
+            "Rejected"
         ]
     },
-    "MipsState": {
+    "ReferendumState": {
         "_enum": [
-            "Ratified",
+            "Pending",
             "Scheduled",
             "Rejected",
+            "Failed",
             "Executed"
         ]
     },
+    "ReferendumType": {
+        "_enum": [
+            "FastTracked",
+            "Emergency",
+            "Community"
+        ]
+    },
     "MIP": {
-        "index": "MipsIndex",
-        "proposal":"Call"
+        "index": "MipsIndex",        
+        "proposal":"Call",
+        "state":"ProposalState"
     },
     "Referendum": {
         "index": "MipsIndex",
-        "priority": "MipsPriority",
-        "state": "MipsState",
-        "enactment_period": "u32",
-        "proposal": "Call"
+        "state": "ReferendumState",
+        "referendum_type": "ReferendumType",
+        "enactment_period": "u32"
+        
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
@@ -413,30 +425,155 @@
             "VotingAddBallot"
         ]
     },
-    "RpcResult": {
-        "Ok": "IdentityId",
-        "Err": "Vec<u8>" 
-    },
     "CddStatus": {
-        "Result": "RpcResult"
+        "_enum": {
+            "Ok": "IdentityId",
+            "Err": "Vec<u8>"
+        }
     },
     "AssetDidResult": {
-        "Result": "RpcResult"
-    },
-    "DidRecordRpcSuccess": {
-        "master_key" : "AccountKey",
-        "signing_items": "Vec<SigningItem>"
+        "_enum": {
+            "Ok": "IdentityId",
+            "Err": "Vec<u8>"
+        }
     },
     "DidRecords": {
-        "Success": "DidRecordRpcSuccess",
-        "IdNotFound": "Vec<u8>"
-    },
-    "VoteCountRpcSuccess": {
-        "ayes": "u64",
-        "nays": "u64"
+        "_enum": {
+            "Success": {
+                "master_key" : "AccountKey",
+                "signing_items": "Vec<SigningItem>"
+            },
+            "IdNotFound": "Vec<u8>"
+        }
     },
     "CappedVoteCount": {
-        "Success": "VoteCountRpcSuccess",
-        "ProposalNotFound": "Vec<u8>"
+        "_enum": {
+            "Success": {
+                "ayes": "u64",
+                "nays": "u64"
+            },
+            "ProposalNotFound": "Vec<u8>"
+        }
+    },
+    "Weight": "u32",
+    "rpc": {
+        "identity": {
+            "isIdentityHasValidCdd" : {
+                "description": "use to tell whether the given did has valid cdd claim or not",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "did",
+                        "type": "IdentityId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "buffer_time",
+                        "type": "u64",
+                        "isOptional": true
+                    }
+                ],
+                "type": "CddStatus"
+            },
+            "getAssetDid": {
+                "description": "function is used to query the given ticker DID",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "ticker",
+                        "type": "Ticker",
+                        "isOptional": false
+                    }
+                ],
+                "type": "AssetDidResult"
+            },
+            "getDidRecords": {
+                "description": "Used to get the did record values for a given DID",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "did",
+                        "type": "IdentityId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "DidRecords"
+            }
+        },
+        "mips":{
+            "getVotes": {
+                "description": "Summary of votes of a proposal given by index",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "index",
+                        "type": "u32",
+                        "isOptional": false
+                    }
+                ],
+                "type": "CappedVoteCount"
+            },
+            "proposedBy": {
+                "description": "Retrieves proposal indices started by address",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "address",
+                        "type": "AccountId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "Vec<u32>"
+            },
+            "votedOn": {
+                "description": "Retrieves proposal address indices voted on",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "address",
+                        "type": "AccountId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "Vec<u32>"
+            }
+        },
+        "staking": {
+            "getCurve": {
+                "description": "Retrieves curves parameters",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+            "type": "Vec<(Perbill, Perbill)>"
+            }
+        }
     }
 }
