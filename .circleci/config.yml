@@ -157,7 +157,7 @@ jobs:
           command: cargo doc -j 1 --release
           no_output_timeout: 60m
       - persist_to_workspace:
-          root: "./target"
+          root: target
           paths: doc
       - save_cache:
           key: v7-docs-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
@@ -171,15 +171,20 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - attach_workspace:
+          at: target
       - run:
           name: Install and configure dependencies
           command: |
             npm install -g --silent gh-pages@2.0.1
             git config user.email " ci-build@polymath.network"
             git config user.name "ci-build"
+      - add_ssh_keys:
+          fingerprints:
+            - "48:01:ee:ad:7d:12:0f:33:10:8b:b5:29:b3:04:7b:56"
       - run:
           name: Deploy docs to gh-pages branch
-          command: gh-pages --dist ./target/doc
+          command: gh-pages --message "[skip ci] Updates" --dist target/doc
      
 workflows:
   version: 2
