@@ -368,6 +368,7 @@ fn fast_tracking_a_proposal_works_we() {
 }
 
 #[test]
+
 fn emergency_referendum_works() {
     ExtBuilder::default()
         .monied(true)
@@ -392,6 +393,7 @@ fn emergency_referendum_works_we() {
     assert_eq!(Committee::members(), vec![alice_did]);
 
     // Alice is a committee member
+
     assert_ok!(Mips::emergency_referendum(
         alice_signer.clone(),
         Box::new(proposal.clone()),
@@ -697,6 +699,7 @@ fn update_referendum_enactment_period_we() {
     let root = Origin::system(frame_system::RawOrigin::Root);
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob = Origin::signed(AccountKeyring::Bob.public());
+
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: MipDescription = b"Test description".into();
 
@@ -708,6 +711,7 @@ fn update_referendum_enactment_period_we() {
     assert_ok!(Committee::set_release_coordinator(root.clone(), bob_id));
 
     // Alice submit 2 referendums in different moments.
+
     assert_ok!(Mips::emergency_referendum(
         alice.clone(),
         Box::new(proposal_a.clone()),
@@ -726,6 +730,7 @@ fn update_referendum_enactment_period_we() {
     );
 
     fast_forward_to(50);
+
     assert_ok!(Mips::emergency_referendum(
         alice.clone(),
         Box::new(proposal_b.clone()),
