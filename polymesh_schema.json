@@ -239,7 +239,12 @@
         "end": "u32",
         "url": "Option<Url>",
         "description": "Option<MipDescription>",
-        "cool_off_until": "u32"
+        "cool_off_until": "u32",
+        "beneficiaries": "Vec<Beneficiary>"
+    },
+    "Beneficiary": {
+        "id": "IdentityId",
+        "amount": "Balance"
     },
     "DepositInfo": {
         "owner": "AccountKey",
@@ -250,14 +255,14 @@
         "ayes": "Vec<(IdentityId, Balance)>",
         "nays": "Vec<(IdentityId, Balance)>"
     },
-    "MipsIndex": "u32",
+    "MipId": "u32",
     "ProposalState": {
         "_enum": [
-            "Proposed",
+            "Pending",
             "Cancelled",
             "Killed",
-            "Referendum",
-            "Rejected"
+            "Rejected",
+            "Referendum"
         ]
     },
     "ReferendumState": {
@@ -408,6 +413,12 @@
         "deactivated_at": "Moment",
         "expiry": "Option<Moment>"
     },
+    "VotingResult" : {
+        "ayes_count": "u32",
+        "ayes_stake": "Balance",
+        "nays_count": "u32",
+        "nays_stake": "Balance"
+    },    
     "ProtocolOp": {
         "_enum": [
             "AssetRegisterTicker",

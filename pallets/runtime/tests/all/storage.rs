@@ -1,7 +1,10 @@
-use polymesh_runtime::{
-    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, multisig, percentage_tm,
-    simple_token, statistics, voting,
-};
+use pallet_committee as committee;
+use pallet_mips as mips;
+use polymesh_protocol_fee as protocol_fee;
+use polymesh_runtime_balances as balances;
+use polymesh_runtime_group as group;
+use polymesh_runtime_identity as identity;
+use polymesh_runtime_treasury as treasury;
 
 use codec::Encode;
 use frame_support::{
@@ -9,17 +12,15 @@ use frame_support::{
     parameter_types, traits::Currency, weights::DispatchInfo,
 };
 use frame_system::{self as system};
-use pallet_committee as committee;
-use pallet_mips as mips;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
-use polymesh_protocol_fee as protocol_fee;
-use polymesh_runtime_balances as balances;
+use polymesh_runtime::{
+    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, multisig, percentage_tm,
+    simple_token, statistics, voting,
+};
 use polymesh_runtime_common::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait, multisig::AddSignerMultiSig,
     CommonTrait,
 };
-use polymesh_runtime_group as group;
-use polymesh_runtime_identity as identity;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
@@ -32,8 +33,8 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
-use std::cell::RefCell;
-use std::convert::TryFrom;
+
+use std::{cell::RefCell, convert::TryFrom};
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {
@@ -86,13 +87,14 @@ impl_outer_event! {
         simple_token<T>,
         frame_system<T>,
         protocol_fee<T>,
+        treasury<T>,
     }
 }
 
 // For testing the module, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
 // configuration traits of modules we want to use.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TestStorage;
 
 type AccountId = <AnySignature as Verify>::Signer;
@@ -382,6 +384,10 @@ impl voting::Trait for TestStorage {
     type Asset = asset::Module<TestStorage>;
 }
 
+impl treasury::Trait for TestStorage {
+    type Event = Event;
+}
+
 thread_local! {
     pub static FORCE_SESSION_END: RefCell<bool> = RefCell::new(false);
     pub static SESSION_LENGTH: RefCell<u64> = RefCell::new(2);
@@ -450,6 +456,7 @@ impl mips::Trait for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = Committee;
+    type Treasury = treasury::Module<Self>;
     type Event = Event;
 }
 

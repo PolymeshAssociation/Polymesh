@@ -36,6 +36,18 @@
 //! - `end_block` - Returns details of the token
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use pallet_mips_rpc_runtime_api::VoteCount;
+use polymesh_primitives::{AccountKey, Beneficiary, Signatory};
+use polymesh_runtime_common::{
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
+    CommonTrait, Context,
+};
+use polymesh_runtime_identity as identity;
+use polymesh_runtime_treasury::TreasuryTrait;
+
+// use shrinkwrap::Shrinkwrap;
 use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
@@ -46,38 +58,15 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
-use pallet_mips_rpc_runtime_api::VoteCount;
-use polymesh_primitives::{AccountKey, Signatory};
-use polymesh_runtime_common::{
-    identity::Trait as IdentityTrait,
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
-    Context,
-};
-use polymesh_runtime_identity as identity;
-use sp_runtime::{
-    traits::{CheckedSub, Dispatchable, EnsureOrigin, Zero},
-    DispatchError,
-};
-use sp_std::{convert::TryFrom, prelude::*, vec};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Saturating, Zero};
+use sp_std::{convert::TryFrom, prelude::*};
 
-/// Mesh Improvement Proposal index. Used offchain.
-pub type MipsIndex = u32;
+/// Mesh Improvement Proposal id. Used offchain.
+pub type MipId = u32;
 
 /// Balance
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
-
-/// Represents a proposal
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct MIP<Proposal> {
-    /// The proposal's unique index.
-    index: MipsIndex,
-    /// The proposal being voted on.
-    proposal: Proposal,
-    /// The latest state
-    state: ProposalState,
-}
 
 /// A wrapper for a proposal url.
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -105,49 +94,82 @@ impl<T: AsRef<[u8]>> From<T> for MipDescription {
     }
 }
 
+/// Represents a proposal
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+pub struct MIP<Proposal> {
+    /// The proposal's unique id.
+    id: MipId,
+    /// The proposal being voted on.
+    proposal: Proposal,
+    /// The latest state
+    state: ProposalState,
+}
+
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct MipsMetadata<AcccountId: Parameter, BlockNumber: Parameter> {
+pub struct MipsMetadata<T: Trait> {
     /// The creator
-    pub proposer: AcccountId,
-    /// The proposal's unique index.
-    pub index: MipsIndex,
+    pub proposer: T::AccountId,
+    /// The proposal's unique id.
+    pub id: MipId,
     /// When voting will end.
-    pub end: BlockNumber,
+    pub end: T::BlockNumber,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
     pub description: Option<MipDescription>,
     /// This proposal allows any changes
     /// During Cool-off period, proposal owner can amend any MIP detail or cancel the entire
-    pub cool_off_until: BlockNumber,
+    pub cool_off_until: T::BlockNumber,
+    /// Beneficiaries of this Mips
+    pub beneficiaries: Vec<Beneficiary<T::Balance>>,
 }
 
 /// For keeping track of proposal being voted on.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct VotingResult<Balance: Parameter> {
+    /// The current set of voters that approved with their stake.
+    pub ayes_count: u32,
+    pub ayes_stake: Balance,
+    /// The current set of voters that rejected with their stake.
+    pub nays_count: u32,
+    pub nays_stake: Balance,
+}
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PolymeshVotes<AccountId, Balance> {
-    /// The proposal's unique index.
-    pub index: MipsIndex,
-    /// The current set of voters that approved with their stake.
-    pub ayes: Vec<(AccountId, Balance)>,
-    /// The current set of voters that rejected with their stake.
-    pub nays: Vec<(AccountId, Balance)>,
+pub enum Vote<Balance> {
+    None,
+    Yes(Balance),
+    No(Balance),
+}
+
+impl<Balance> Default for Vote<Balance> {
+    fn default() -> Self {
+        Vote::None
+    }
 }
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum ProposalState {
     /// Proposal is created and either in the cool-down period or open to voting
-    Proposed,
+    Pending,
     /// Proposal is cancelled by its owner
     Cancelled,
     /// Proposal was killed by the GC
     Killed,
-    /// Proposal has moved to referendum stage
-    Referendum,
     /// Proposal failed to pass by a community vote
     Rejected,
+    /// Proposal has moved to referendum stage
+    Referendum,
+}
+
+impl Default for ProposalState {
+    fn default() -> Self {
+        ProposalState::Pending
+    }
 }
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
@@ -176,24 +198,18 @@ pub enum ReferendumType {
     Community,
 }
 
-impl Default for ProposalState {
-    fn default() -> Self {
-        ProposalState::Proposed
-    }
-}
-
 /// Properties of a referendum
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Referendum<BlockNumber: Default> {
-    /// The proposal's unique index.
-    pub index: MipsIndex,
+pub struct Referendum<T: Trait> {
+    /// The proposal's unique id.
+    pub id: MipId,
     /// Current state of this Referendum.
     pub state: ReferendumState,
     /// The type of the referendum
     pub referendum_type: ReferendumType,
     /// Enactment period.
-    pub enactment_period: BlockNumber,
+    pub enactment_period: T::BlockNumber,
 }
 
 /// Information about deposit.
@@ -213,7 +229,9 @@ where
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
+pub trait Trait:
+    frame_system::Trait + pallet_timestamp::Trait + IdentityTrait + CommonTrait
+{
     /// Currency type for this module.
     type Currency: ReservableCurrency<Self::AccountId>
         + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
@@ -227,6 +245,8 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
     /// Committee
     type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
 
+    type Treasury: TreasuryTrait<<Self as CommonTrait>::Balance>;
+
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -234,6 +254,9 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Mips {
+        /// Determines whether historical MIP data is persisted or removed
+        pub PruneHistoricalMips get(fn prune_historical_mips) config(): bool;
+
         /// The minimum amount to be used as a deposit for a public referendum proposal.
         pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): BalanceOf<T>;
 
@@ -247,31 +270,37 @@ decl_storage! {
         /// How long (in blocks) a ballot runs
         pub ProposalDuration get(fn proposal_duration) config(): T::BlockNumber;
 
-        /// Proposals so far. Index can be used to keep track of MIPs off-chain.
-        SequenceIndex: u32;
+        /// Proposals so far. id can be used to keep track of MIPs off-chain.
+        MipIdSequence: u32;
 
         /// The metadata of the active proposals.
-        pub ProposalMetadata get(fn proposal_meta): Vec<MipsMetadata<T::AccountId, T::BlockNumber>>;
+        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) MipId => Option<MipsMetadata<T>>;
+        /// It maps the block number where a list of proposal are considered as matured.
+        pub ProposalsMaturingAt get(proposals_maturing_at): map hasher(twox_64_concat) T::BlockNumber => Vec<MipId>;
 
         /// Those who have locked a deposit.
-        /// proposal (Index, proposer) -> deposit
-        pub Deposits get(fn deposit_of): double_map hasher(twox_64_concat) MipsIndex, hasher(twox_64_concat) T::AccountId => DepositInfo<T::AccountId, BalanceOf<T>>;
+        /// proposal (id, proposer) -> deposit
+        pub Deposits get(fn deposits): double_map hasher(twox_64_concat) MipId, hasher(twox_64_concat) T::AccountId => DepositInfo<T::AccountId, BalanceOf<T>>;
 
-        /// Actual proposal for a given index, if it's current.
-        /// proposal Index -> proposal
-        pub Proposals get(fn proposals): map hasher(twox_64_concat) MipsIndex=> Option<MIP<T::Proposal>>;
+        /// Actual proposal for a given id, if it's current.
+        /// proposal id -> proposal
+        pub Proposals get(fn proposals): map hasher(twox_64_concat) MipId => Option<MIP<T::Proposal>>;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        /// proposal Index -> vote count
-        pub Voting get(fn voting): map hasher(twox_64_concat) MipsIndex => Option<PolymeshVotes<T::AccountId, BalanceOf<T>>>;
+        /// proposal id -> vote count
+        pub ProposalResult get(fn proposal_result): map hasher(twox_64_concat) MipId => VotingResult<BalanceOf<T>>;
+
+        /// Votes per Proposal and account. Used to avoid double vote issue.
+        /// (proposal id, account) -> Vote
+        pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) MipId, hasher(twox_64_concat) T::AccountId => Vote<BalanceOf<T>>;
 
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
-        /// proposal index -> proposal
-        pub Referendums get(fn referendums): map hasher(twox_64_concat) MipsIndex => Option<Referendum<T::BlockNumber>>;
+        /// proposal id -> proposal
+        pub Referendums get(fn referendums): map hasher(twox_64_concat) MipId => Option<Referendum<T>>;
 
-        /// List of Indexes of current scheduled referendums.
-        /// block number -> Mip Index
-        pub ScheduledReferendumsAt get(fn scheduled_referendums_at): map hasher(twox_64_concat) T::BlockNumber => Vec<MipsIndex>;
+        /// List of id's of current scheduled referendums.
+        /// block number -> Mip id
+        pub ScheduledReferendumsAt get(fn scheduled_referendums_at): map hasher(twox_64_concat) T::BlockNumber => Vec<MipId>;
 
         /// Default enactment period that will be use after a proposal is accepted by GC.
         pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
@@ -285,25 +314,27 @@ decl_event!(
         <T as frame_system::Trait>::AccountId,
         <T as frame_system::Trait>::BlockNumber,
     {
+        /// Pruning Historical MIPs is enabled or disabled (old value, new value)
+        PruningHistoricalMips(bool, bool),
         /// A Mesh Improvement Proposal was made with a `Balance` stake
-        ProposalCreated(AccountId, MipsIndex, Balance),
-        /// A Mesh Improvement Proposal was amended with a possible to the deposit
+        ProposalCreated(AccountId, MipId, Balance, Option<Url>, Option<MipDescription>, BlockNumber, BlockNumber),
+        /// A Mesh Improvement Proposal was amended with a possible change to the bond
         /// bool is +ve when bond is added, -ve when removed
-        ProposalAmended(AccountId, MipsIndex, bool, Balance),
-        /// `AccountId` voted `bool` on the proposal referenced by `Index`
-        Voted(AccountId, MipsIndex, bool, Balance),
-        /// Proposal has been closed
-        ProposalClosed(MipsIndex, ProposalState),
+        ProposalAmended(AccountId, MipId, bool, Balance),
+        /// Triggered each time the state of a proposal is amended
+        ProposalStateUpdated(MipId, ProposalState),
+        /// `AccountId` voted `bool` on the proposal referenced by `MipId`
+        Voted(AccountId, MipId, bool, Balance),
+        /// Mip has been closed, bool indicates whether data is pruned
+        MipClosed(MipId, bool),
         /// Referendum created for proposal.
-        ReferendumCreated(MipsIndex, ReferendumType),
+        ReferendumCreated(MipId, ReferendumType),
         /// Referendum execution has been scheduled at specific block.
-        ReferendumScheduled(MipsIndex, BlockNumber, BlockNumber),
-        /// Proposal was dispatched, bool indicates success or failure
-        ReferendumExecuted(MipsIndex, bool),
-        /// Proposal was rejected by the GC
-        ReferendumRejected(MipsIndex),
+        ReferendumScheduled(MipId, BlockNumber, BlockNumber),
+        /// Triggered each time the state of a referendum is amended
+        ReferendumStateUpdated(MipId, ReferendumState),
         /// Default enactment period (in blocks) has been changed.
-        /// (new period, old period)
+        /// (old period, new period)
         DefaultEnactmentPeriodChanged(BlockNumber, BlockNumber),
         /// Minimum deposit amount modified
         /// (old amount, new amount)
@@ -314,6 +345,12 @@ decl_event!(
         /// Proposal duration changed
         /// (old value, new value)
         ProposalDurationChanged(BlockNumber, BlockNumber),
+        /// Refund proposal
+        /// (id, total amount)
+        ProposalRefund(MipId, Balance),
+        /// Proposal has beneficiaries.
+        /// (id, total amount)
+        ProposalPayment(MipId, Balance),
     }
 );
 
@@ -329,8 +366,8 @@ decl_error! {
         DuplicateProposal,
         /// The proposal does not exist.
         NoSuchProposal,
-        /// Mismatched proposal index.
-        MismatchedProposalIndex,
+        /// Mismatched proposal id.
+        MismatchedProposalId,
         /// Not part of governance committee.
         NotACommitteeMember,
         /// After Cool-off period, proposals are not cancelable.
@@ -343,6 +380,10 @@ decl_error! {
         ReferendumIsImmutable,
         /// When a block number is less than current block number.
         InvalidFutureBlockNumber,
+        /// When number of votes overflows.
+        NumberOfVotesExceeded,
+        /// When stake amount of a vote overflows.
+        StakeAmountOfVotesExceeded,
     }
 }
 
@@ -353,6 +394,17 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        /// Change whether completed MIPs are pruned. Can only be called by governance council
+        ///
+        /// # Arguments
+        /// * `deposit` the new min deposit required to start a proposal
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        pub fn set_prune_historical_mips(origin, new_value: bool) {
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            Self::deposit_event(RawEvent::PruningHistoricalMips(Self::prune_historical_mips(), new_value));
+            <PruneHistoricalMips>::put(new_value);
+        }
 
         /// Change the minimum proposal deposit amount required to start a proposal. Only Governance
         /// committee is allowed to change this value.
@@ -414,6 +466,7 @@ decl_module! {
             deposit: BalanceOf<T>,
             url: Option<Url>,
             description: Option<MipDescription>,
+            beneficiaries: Vec<Beneficiary<T::Balance>>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let proposer_key = AccountKey::try_from(proposer.encode())?;
@@ -431,46 +484,48 @@ decl_module! {
                 &signer,
                 ProtocolOp::MipsPropose
             )?;
-            let index = Self::next_index();
 
+            let id = Self::next_mip_id();
             let curr_block_number = <system::Module<T>>::block_number();
             let cool_off_until = curr_block_number + Self::proposal_cool_off_period();
             let end = cool_off_until + Self::proposal_duration();
-            let proposal_meta = MipsMetadata {
+            let proposal_metadata = MipsMetadata {
                 proposer: proposer.clone(),
-                index,
-                end,
-                url,
-                description,
-                cool_off_until,
+                id,
+                end: end.clone(),
+                url: url.clone(),
+                description: description.clone(),
+                cool_off_until: cool_off_until.clone(),
+                beneficiaries,
             };
-            <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
+            let _ = <ProposalsMaturingAt<T>>::append(end, [id].iter())?;
+            <ProposalMetadata<T>>::insert(id, proposal_metadata);
 
             let deposit_info = DepositInfo {
                 owner: proposer.clone(),
                 amount: deposit
             };
-            <Deposits<T>>::insert(index, &proposer, deposit_info);
+            <Deposits<T>>::insert(id, &proposer, deposit_info);
 
             let mip = MIP {
-                index,
+                id,
                 proposal: *proposal,
-                state: ProposalState::Proposed,
+                state: ProposalState::Pending,
             };
-            <Proposals<T>>::insert(index, mip);
+            <Proposals<T>>::insert(id, mip);
 
-            let vote = PolymeshVotes {
-                index,
-                ayes: vec![(proposer.clone(), deposit)],
-                nays: vec![],
-            };
-            <Voting<T>>::insert(index, vote);
-
-            Self::deposit_event(RawEvent::ProposalCreated(proposer, index, deposit));
+            // Add vote and update voting counter.
+            // INTERNAL: It is impossible to overflow counters in the first vote.
+            Self::unsafe_vote( id, proposer.clone(), Vote::Yes(deposit))
+                .map_err(|vote_error| {
+                    debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
+                    vote_error
+                })?;
+            Self::deposit_event(RawEvent::ProposalCreated(proposer, id, deposit, url, description, cool_off_until, end));
             Ok(())
         }
 
-        /// It amends the `url` and the `description` of the proposal with index `index`.
+        /// It amends the `url` and the `description` of the proposal with id `id`.
         ///
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can amend it.
@@ -479,35 +534,37 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn amend_proposal(
                 origin,
-                index: MipsIndex,
+                id: MipId,
                 url: Option<Url>,
                 description: Option<MipDescription>
                 ) -> DispatchResult {
             // 0. Initial info.
             let proposer = ensure_signed(origin)?;
-            let meta = Self::proposal_meta_by_index(index)?;
+            let meta = Self::proposal_metadata(id)
+                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
 
             // 1. Only owner can cancel it.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
+            // Check that the proposal is pending
+            Self::is_proposal_pending(id)?;
 
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Update proposal metadata.
-            <ProposalMetadata<T>>::mutate( |metas| {
-                let meta = metas.iter_mut().find( |meta| meta.index == index);
+            <ProposalMetadata<T>>::mutate( id, |meta| {
                 if let Some(meta) = meta {
                     meta.url = url;
                     meta.description = description;
                 }
             });
-            Self::deposit_event(RawEvent::ProposalAmended(proposer, index, true, Zero::zero()));
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, true, Zero::zero()));
 
             Ok(())
         }
 
-        /// It cancels the proposal of the index `index`.
+        /// It cancels the proposal of the id `id`.
         ///
         /// Proposals can be cancelled only during its _cool-off period.
         ///
@@ -515,26 +572,30 @@ decl_module! {
         /// * `BadOrigin`: Only the owner of the proposal can amend it.
         /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
-        pub fn cancel_proposal(origin, index: MipsIndex) -> DispatchResult {
+        pub fn cancel_proposal(origin, id: MipId) -> DispatchResult {
             // 0. Initial info.
             let proposer = ensure_signed(origin)?;
-            let meta = Self::proposal_meta_by_index(index)?;
-
             // 1. Only owner can cancel it.
+            let meta = Self::proposal_metadata(id)
+                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
-
+            // Check that the proposal is pending
+            Self::is_proposal_pending(id)?;
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
-            Self::update_proposal_state(index, ProposalState::Cancelled);
-            Self::refund_proposal(index);
-            // 3. Close that proposal.
-            Self::close_proposal(index);
+
+            // 3. Refund the bond for the proposal
+            Self::refund_proposal(id);
+
+            // 4. Close that proposal.
+            Self::update_proposal_state(id, ProposalState::Cancelled);
+            Self::prune_data(id, Self::prune_historical_mips());
 
             Ok(())
         }
 
-        /// Id bonds an additional deposit to proposal with index `index`.
+        /// Id bonds an additional deposit to proposal with id `id`.
         /// That amount is added to the current deposit.
         ///
         /// # Errors
@@ -542,34 +603,46 @@ decl_module! {
         /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn bond_additional_deposit(origin,
-            index: MipsIndex,
+            id: MipId,
             additional_deposit: BalanceOf<T>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
-            let meta = Self::proposal_meta_by_index(index)?;
+            let meta = Self::proposal_metadata(id)
+                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
 
             // 1. Only owner can add additional deposit.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
+            // Check that the proposal is pending
+            Self::is_proposal_pending(id)?;
 
             // 2. Proposal can be amended *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Reserve extra deposit & update deposit info for this proposal
-            <T as Trait>::Currency::reserve(&proposer, additional_deposit)
+            let curr_deposit = Self::deposits(id, &proposer).amount;
+            let max_additional_deposit = curr_deposit.saturating_add( additional_deposit) - curr_deposit;
+            <T as Trait>::Currency::reserve(&proposer, max_additional_deposit)
                 .map_err(|_| Error::<T>::InsufficientDeposit)?;
 
             <Deposits<T>>::mutate(
-                index,
+                id,
                 &proposer,
-                |depo_info| depo_info.amount += additional_deposit);
+                |depo_info| depo_info.amount += max_additional_deposit);
 
-            Self::deposit_event(RawEvent::ProposalAmended(proposer, index, true, additional_deposit));
+            // 4. Update vote details to record additional vote
+            <ProposalResult<T>>::mutate(
+                id,
+                |stats| stats.ayes_stake += max_additional_deposit
+            );
+            <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(curr_deposit + max_additional_deposit));
+
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, true, max_additional_deposit));
 
             Ok(())
         }
 
-        /// It unbonds any amount from the deposit of the proposal with index `index`.
+        /// It unbonds any amount from the deposit of the proposal with id `id`.
         ///
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can release part of the deposit.
@@ -578,21 +651,24 @@ decl_module! {
         /// a proposal.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn unbond_deposit(origin,
-            index: MipsIndex,
+            id: MipId,
             amount: BalanceOf<T>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
-            let meta = Self::proposal_meta_by_index(index)?;
+            let meta = Self::proposal_metadata(id)
+                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
 
             // 1. Only owner can cancel it.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
+            // Check that the proposal is pending
+            Self::is_proposal_pending(id)?;
 
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
 
             // 3. Double-check that `amount` is valid.
-            let mut depo_info = <Deposits<T>>::get(index, &proposer);
+            let mut depo_info = Self::deposits(id, &proposer);
             let new_deposit = depo_info.amount.checked_sub(&amount)
                     .ok_or_else(|| Error::<T>::InsufficientDeposit)?;
             ensure!(
@@ -603,74 +679,89 @@ decl_module! {
 
             // 3.1. Unreserve and update deposit info.
             <T as Trait>::Currency::unreserve(&depo_info.owner, diff_amount);
-            <Deposits<T>>::insert(index, &proposer, depo_info);
-            Self::deposit_event(RawEvent::ProposalAmended(proposer, index, false, amount));
+            <Deposits<T>>::insert(id, &proposer, depo_info);
+
+            // 4. Update vote details to record reduced vote
+            <ProposalResult<T>>::mutate(
+                id,
+                |stats| stats.ayes_stake = new_deposit
+            );
+            <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(new_deposit));
+
+
+            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, false, amount));
             Ok(())
         }
 
-        /// A network member can vote on any Mesh Improvement Proposal by selecting the index that
+        /// A network member can vote on any Mesh Improvement Proposal by selecting the id that
         /// corresponds ot the dispatchable action and vote with some balance.
         ///
         /// # Arguments
         /// * `proposal` a dispatchable call
-        /// * `index` proposal index
+        /// * `id` proposal id
         /// * `aye_or_nay` a bool representing for or against vote
         /// * `deposit` minimum deposit value
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
-        pub fn vote(origin, index: MipsIndex, aye_or_nay: bool, deposit: BalanceOf<T>) {
+        pub fn vote(origin, id: MipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
-            let meta = Self::proposal_meta_by_index(index)?;
+            let meta = Self::proposal_metadata(id)
+                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
 
             // No one should be able to vote during the proposal cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
 
-            let mut voting = Self::voting(index).ok_or(Error::<T>::NoSuchProposal)?;
-            ensure!(voting.index == index, Error::<T>::MismatchedProposalIndex);
+            // Check that the proposal is pending
+            Self::is_proposal_pending(id)?;
 
-            let position_yes = voting.ayes.iter().position(|(a, _)| a == &proposer);
-            let position_no = voting.nays.iter().position(|(a, _)| a == &proposer);
+            // Valid MipId
+            ensure!(<ProposalResult<T>>::contains_key(id), Error::<T>::NoSuchProposal);
 
-            if position_yes.is_none() && position_no.is_none()  {
-                if aye_or_nay {
-                    voting.ayes.push((proposer.clone(), deposit));
-                } else {
-                    voting.nays.push((proposer.clone(), deposit));
-                }
+            // Double-check vote duplication.
+            ensure!( Self::proposal_vote(id, &proposer) == Vote::None, Error::<T>::DuplicateVote);
 
-                // Reserve the deposit
-                <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+            // Reserve the deposit
+            <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
-                let depo_info = DepositInfo {
-                    owner: proposer.clone(),
-                    amount: deposit,
-                };
-                <Deposits<T>>::insert(index, &proposer, depo_info);
-
-                <Voting<T>>::remove(index);
-                <Voting<T>>::insert(index, voting);
-                Self::deposit_event(RawEvent::Voted(proposer, index, aye_or_nay, deposit));
+            // Save your vote.
+            let vote = if aye_or_nay {
+                Vote::Yes(deposit)
             } else {
-                return Err(Error::<T>::DuplicateVote.into())
-            }
+                Vote::No(deposit)
+            };
+            Self::unsafe_vote( id, proposer.clone(), vote)
+                .map_err( |vote_error| {
+                    debug::warn!("The counters of voting (id={}) have an overflow, transaction is roll-back", id);
+                    let _ = <T as Trait>::Currency::unreserve(&proposer, deposit);
+                    vote_error
+                })?;
+
+            let depo_info = DepositInfo {
+                owner: proposer.clone(),
+                amount: deposit,
+            };
+            <Deposits<T>>::insert(id, &proposer, depo_info);
+
+            Self::deposit_event(RawEvent::Voted(proposer, id, aye_or_nay, deposit));
         }
 
         /// An emergency stop measure to kill a proposal. Governance committee can kill
         /// a proposal at any time.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn kill_proposal(origin, index: MipsIndex) {
+        pub fn kill_proposal(origin, id: MipId) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-
-            ensure!( <Proposals<T>>::contains_key(index), Error::<T>::NoSuchProposal);
-            Self::update_proposal_state(index, ProposalState::Killed);
-            Self::refund_proposal(index);
-            Self::close_proposal(index);
+            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
+            // Check that the proposal is pending
+            Self::is_proposal_pending(id)?;
+            Self::refund_proposal(id);
+            Self::update_proposal_state(id, ProposalState::Killed);
+            Self::prune_data(id, Self::prune_historical_mips());
         }
 
         /// Any governance committee member can fast track a proposal and turn it into a referendum
         /// that will be voted on by the committee.
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
-        pub fn fast_track_proposal(origin, index: MipsIndex) -> DispatchResult {
+        pub fn fast_track_proposal(origin, id: MipId) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -679,26 +770,16 @@ decl_module! {
                 Error::<T>::NotACommitteeMember
             );
 
-            ensure!(Self::proposals(index).is_some(), Error::<T>::MismatchedProposalIndex);
-
+            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::MismatchedProposalId);
+            // Check that the proposal is pending
+            Self::is_proposal_pending(id)?;
             Self::create_referendum(
-                index,
+                id,
                 ReferendumState::Pending,
                 ReferendumType::FastTracked,
             );
+            Self::refund_proposal(id);
 
-            Self::update_proposal_state(index, ProposalState::Referendum);
-
-            // Update proposal metadata so we don't re-execute it later
-            // TODO: Improve data structures to avoid unbounded loop
-            <ProposalMetadata<T>>::mutate( |metas| {
-                let meta = metas.iter_mut().find( |meta| meta.index == index);
-                if let Some(meta) = meta {
-                    meta.end = Zero::zero();
-                }
-            });
-
-            Self::refund_proposal(index);
             Ok(())
         }
 
@@ -710,6 +791,7 @@ decl_module! {
             proposal: Box<T::Proposal>,
             url: Option<Url>,
             description: Option<MipDescription>,
+            beneficiaries: Vec<Beneficiary<T::Balance>>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let proposer_key = AccountKey::try_from(proposer.encode())?;
@@ -720,27 +802,27 @@ decl_module! {
                 Error::<T>::NotACommitteeMember
             );
 
-            let index = Self::next_index();
+            let id = Self::next_mip_id();
             let mip = MIP {
-                index,
+                id,
                 proposal: *proposal,
-                state: ProposalState::Referendum,
+                state: ProposalState::Pending,
             };
-            <Proposals<T>>::insert(index, mip);
+            <Proposals<T>>::insert(id, mip);
 
-            let proposal_meta = MipsMetadata {
+            let proposal_metadata = MipsMetadata {
                 proposer: proposer.clone(),
-                index,
+                id,
                 end: Zero::zero(),
-                url,
-                description,
+                url: url.clone(),
+                description: description.clone(),
                 cool_off_until: Zero::zero(),
+                beneficiaries
             };
-            <ProposalMetadata<T>>::mutate(|metadata| metadata.push(proposal_meta));
-            // TODO: Improve data structures to avoid unbounded loop
-
+            <ProposalMetadata<T>>::insert(id, proposal_metadata);
+            Self::deposit_event(RawEvent::ProposalCreated(proposer, id, Zero::zero(), url, description, Zero::zero(), Zero::zero()));
             Self::create_referendum(
-                index,
+                id,
                 ReferendumState::Pending,
                 ReferendumType::Emergency,
             );
@@ -749,20 +831,23 @@ decl_module! {
 
         /// Moves a referendum instance into dispatch queue.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn enact_referendum(origin, index: MipsIndex) -> DispatchResult {
+        pub fn enact_referendum(origin, id: MipId) -> DispatchResult {
             T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            Self::prepare_to_dispatch(index)
+            // Check that referendum is Pending
+            Self::is_referendum_pending(id)?;
+            Self::prepare_to_dispatch(id)
         }
 
         /// Moves a referendum instance into rejected state.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn reject_referendum(origin, index: MipsIndex) -> DispatchResult {
+        pub fn reject_referendum(origin, id: MipId) -> DispatchResult {
             T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            // Update state of Referendum
-            Self::update_referendum_state(index, ReferendumState::Rejected);
+            // Check that referendum is Pending
+            Self::is_referendum_pending(id)?;
+
             // Close proposal
-            Self::close_proposal(index);
-            Self::deposit_event(RawEvent::ReferendumRejected(index));
+            Self::update_referendum_state(id, ReferendumState::Rejected);
+            Self::prune_data(id, Self::prune_historical_mips());
             Ok(())
         }
 
@@ -776,7 +861,7 @@ decl_module! {
         /// * `BadOrigin`, Only the release coordinator can update the enactment period.
         /// * ``,
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn set_referendum_enactment_period(origin, index: MipsIndex, until: Option<T::BlockNumber>) -> DispatchResult {
+        pub fn set_referendum_enactment_period(origin, mid: MipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let id = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -790,26 +875,26 @@ decl_module! {
             let new_until = until.unwrap_or(next_block);
             ensure!( new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 2. Valid referendum: check index & state == Scheduled
-            let referendum = Self::referendums(index)
-                .ok_or_else(|| Error::<T>::MismatchedProposalIndex)?;
+            // 2. Valid referendum: check mid & state == Scheduled
+            let referendum = Self::referendums(mid)
+                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
             ensure!( referendum.state == ReferendumState::Scheduled, Error::<T>::ReferendumIsImmutable);
 
             // 3. Update enactment period.
             // 3.1 Update referendum.
             let old_until = referendum.enactment_period;
 
-            <Referendums<T>>::mutate( index, |referendum| {
+            <Referendums<T>>::mutate( mid, |referendum| {
                 if let Some(ref mut referendum) = referendum {
                     referendum.enactment_period = new_until;
                 }
             });
 
             // 3.1. Re-schedule it
-            <ScheduledReferendumsAt<T>>::mutate( old_until, |indexes| indexes.retain( |i| *i != index));
-            <ScheduledReferendumsAt<T>>::mutate( new_until, |indexes| indexes.push( index));
+            <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != mid));
+            <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(mid));
 
-            Self::deposit_event(RawEvent::ReferendumScheduled(index, old_until, new_until));
+            Self::deposit_event(RawEvent::ReferendumScheduled(mid, old_until, new_until));
             Ok(())
         }
 
@@ -825,17 +910,6 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Retrieve all proposals that need to be closed as of block `n`.
-    pub fn proposals_maturing_at(n: T::BlockNumber) -> Vec<MipsIndex> {
-        Self::proposal_meta()
-            .into_iter()
-            .filter(|meta| meta.end == n)
-            .map(|meta| meta.index)
-            .collect()
-    }
-
-    // Private functions
-
     /// Runs the following procedure:
     /// 1. Find all proposals that need to end as of this block and close voting
     /// 2. Tally votes
@@ -843,230 +917,261 @@ impl<T: Trait> Module<T> {
     /// 4. Automatically execute any referendum
     pub fn end_block(block_number: T::BlockNumber) -> DispatchResult {
         // Find all matured proposals...
-        Self::proposals_maturing_at(block_number)
+        <ProposalsMaturingAt<T>>::take(block_number)
             .into_iter()
-            .for_each(|index| {
-                // Tally votes and create referendums
-                let result = Self::tally_votes(index);
+            .for_each(|id| {
+                // It is possible the proposal has been killed, cancelled or fast tracked
+                if let Some(proposal) = Self::proposals(id) {
+                    if proposal.state == ProposalState::Pending {
+                        // Tally votes and create referendums
+                        let voting = Self::proposal_result(id);
 
-                // And update and / or close proposals
-                if result {
-                    Self::update_proposal_state(index, ProposalState::Referendum);
-                } else {
-                    Self::update_proposal_state(index, ProposalState::Rejected);
-                    Self::refund_proposal(index);
-                    Self::close_proposal(index);
+                        // 1. Ayes staked must be more than nays staked (simple majority)
+                        // 2. Ayes staked are more than the minimum quorum threshold
+                        if voting.ayes_stake > voting.nays_stake
+                            && voting.ayes_stake >= Self::quorum_threshold()
+                        {
+                            Self::refund_proposal(id);
+                            Self::create_referendum(
+                                id,
+                                ReferendumState::Pending,
+                                ReferendumType::Community,
+                            );
+                        } else {
+                            Self::update_proposal_state(id, ProposalState::Rejected);
+                            Self::refund_proposal(id);
+                            Self::prune_data(id, Self::prune_historical_mips());
+                        }
+                    }
                 }
             });
-
+        <ProposalsMaturingAt<T>>::remove(block_number);
         // Execute automatically referendums after its enactment period.
-        let referendum_indexes = <ScheduledReferendumsAt<T>>::take(block_number);
-        referendum_indexes
+        let referendum_ids = <ScheduledReferendumsAt<T>>::take(block_number);
+        referendum_ids
             .into_iter()
-            .for_each(|index| Self::execute_referendum(index));
-
+            .for_each(|id| Self::execute_referendum(id));
+        <ScheduledReferendumsAt<T>>::remove(block_number);
         Ok(())
-    }
-
-    /// Summarize voting and create referendums if proposals meet or exceed quorum threshold
-    fn tally_votes(index: MipsIndex) -> bool {
-        if let Some(voting) = <Voting<T>>::get(index) {
-            let aye_stake = voting
-                .ayes
-                .iter()
-                .fold(<BalanceOf<T>>::zero(), |acc, ayes| acc + ayes.1);
-
-            let nay_stake = voting
-                .nays
-                .iter()
-                .fold(<BalanceOf<T>>::zero(), |acc, nays| acc + nays.1);
-
-            // 1. Ayes staked must be more than nays staked (simple majority)
-            // 2. Ayes staked are more than the minimum quorum threshold
-            if aye_stake > nay_stake && aye_stake >= Self::quorum_threshold() {
-                Self::create_referendum(index, ReferendumState::Pending, ReferendumType::Community);
-                Self::refund_proposal(index);
-                return true;
-            }
-        }
-        false
     }
 
     /// Create a referendum object from a proposal. If governance committee is composed of less
     /// than 2 members, enact it immediately. Otherwise, committee votes on this referendum and
     /// decides whether it should be enacted.
-    fn create_referendum(
-        index: MipsIndex,
-        state: ReferendumState,
-        referendum_type: ReferendumType,
-    ) {
+    fn create_referendum(id: MipId, state: ReferendumState, referendum_type: ReferendumType) {
         let enactment_period: T::BlockNumber = 0.into();
         let referendum = Referendum {
-            index,
+            id,
             state,
             referendum_type,
             enactment_period,
         };
-        <Referendums<T>>::insert(index, referendum);
-
-        Self::deposit_event(RawEvent::ReferendumCreated(index, referendum_type));
+        <Referendums<T>>::insert(id, referendum);
+        Self::update_proposal_state(id, ProposalState::Referendum);
+        Self::deposit_event(RawEvent::ReferendumCreated(id, referendum_type));
     }
 
     /// Refunds any tokens used to vote or bond a proposal
-    fn refund_proposal(index: MipsIndex) {
-        if <Voting<T>>::get(index).is_some() {
-            Self::unreserve_deposits(index);
-        }
-    }
-
-    /// Close a proposal. Voting ceases and proposal is removed from storage.
-    fn close_proposal(index: MipsIndex) {
-        let proposal = Self::proposals(index);
-
-        if let Some(proposal) = proposal {
-            <Voting<T>>::remove(index);
-            <ProposalMetadata<T>>::mutate(|metadata| metadata.retain(|m| m.index != index));
-
-            Self::deposit_event(RawEvent::ProposalClosed(index, proposal.state));
-        }
-    }
-
-    /// It returns back each deposit to their owners for an specific `index`.
-    fn unreserve_deposits(index: MipsIndex) {
-        <Deposits<T>>::iter_prefix(index).for_each(|depo_info| {
-            let _ = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
+    fn refund_proposal(id: MipId) {
+        let total_refund = <Deposits<T>>::iter_prefix(id).fold(0.into(), |acc, depo_info| {
+            let amount = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
+            amount.saturating_add(acc)
         });
-        <Deposits<T>>::remove_prefix(index);
+        <Deposits<T>>::remove_prefix(id);
+
+        Self::deposit_event(RawEvent::ProposalRefund(id, total_refund));
     }
 
-    fn prepare_to_dispatch(index: MipsIndex) -> DispatchResult {
+    /// Close a proposal.
+    ///
+    /// Voting ceases and proposal is removed from storage.
+    /// It also refunds all deposits.
+    ///
+    /// # Internal
+    /// * `ProposalsMaturingat` does not need to be deleted here.
+    ///
+    /// # TODO
+    /// * Should we remove the proposal when it is Cancelled?, killed?, rejected?
+    fn prune_data(id: MipId, prune: bool) {
+        if prune {
+            <ProposalResult<T>>::remove(id);
+            <ProposalVotes<T>>::remove_prefix(id);
+            <ProposalMetadata<T>>::remove(id);
+            <Proposals<T>>::remove(id);
+            <Referendums<T>>::remove(id);
+            Self::deposit_event(RawEvent::MipClosed(id, true));
+        } else {
+            Self::deposit_event(RawEvent::MipClosed(id, false));
+        }
+    }
+
+    fn prepare_to_dispatch(id: MipId) -> DispatchResult {
         ensure!(
-            <Referendums<T>>::contains_key(index),
-            Error::<T>::MismatchedProposalIndex
+            <Referendums<T>>::contains_key(id),
+            Error::<T>::MismatchedProposalId
         );
 
         // Set the default enactment period and move it to `Scheduled`
         let curr_block_number = <system::Module<T>>::block_number();
         let enactment_period = curr_block_number + Self::default_enactment_period();
 
-        <Referendums<T>>::mutate(index, |referendum| {
+        <Referendums<T>>::mutate(id, |referendum| {
             if let Some(ref mut referendum) = referendum {
                 referendum.enactment_period = enactment_period;
                 referendum.state = ReferendumState::Scheduled;
             }
         });
-        <ScheduledReferendumsAt<T>>::mutate(enactment_period, |indexes| indexes.push(index));
+        <ScheduledReferendumsAt<T>>::mutate(enactment_period, |ids| ids.push(id));
 
         Self::deposit_event(RawEvent::ReferendumScheduled(
-            index,
+            id,
             Zero::zero(),
             enactment_period,
         ));
         Ok(())
     }
 
-    fn execute_referendum(index: MipsIndex) {
-        if let Some(proposal) = Self::proposals(index) {
-            match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
-                Ok(_) => {
-                    Self::update_referendum_state(index, ReferendumState::Executed);
-                    Self::close_proposal(index);
-                    Self::deposit_event(RawEvent::ReferendumExecuted(index, true));
-                }
-                Err(e) => {
-                    Self::update_referendum_state(index, ReferendumState::Failed);
-                    Self::close_proposal(index);
-                    Self::deposit_event(RawEvent::ReferendumExecuted(index, false));
-                    debug::error!("Referendum {}, its execution fails: {:?}", index, e);
-                }
+    fn execute_referendum(id: MipId) {
+        if let Some(proposal) = Self::proposals(id) {
+            if proposal.state == ProposalState::Referendum {
+                match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
+                    Ok(_) => {
+                        Self::update_referendum_state(id, ReferendumState::Executed);
+                        Self::pay_to_beneficiaries(id);
+                    }
+                    Err(e) => {
+                        Self::update_referendum_state(id, ReferendumState::Failed);
+                        debug::error!("Referendum {}, its execution fails: {:?}", id, e);
+                    }
+                };
+                Self::prune_data(id, Self::prune_historical_mips());
             }
         }
     }
 
-    /// It returns the proposal metadata of proposal with index `index` or
-    /// a `MismatchedProposalIndex` error.
-    fn proposal_meta_by_index(
-        index: MipsIndex,
-    ) -> Result<MipsMetadata<T::AccountId, T::BlockNumber>, DispatchError> {
-        Self::proposal_meta()
-            .into_iter()
-            .find(|meta| meta.index == index)
-            .ok_or(Error::<T>::MismatchedProposalIndex.into())
+    fn pay_to_beneficiaries(id: MipId) {
+        if let Some(meta) = Self::proposal_metadata(id) {
+            let _total_amount = meta.beneficiaries.into_iter().fold(0.into(), |acc, b| {
+                T::Treasury::disbursement(b.id, b.amount);
+                b.amount.saturating_add(acc)
+            });
+            // Self::deposit_event(RawEvent::ProposalPayment(id, total_amount));
+        }
     }
 
-    fn update_proposal_state(index: MipsIndex, new_state: ProposalState) {
-        <Proposals<T>>::mutate(index, |proposal| {
+    fn update_proposal_state(id: MipId, new_state: ProposalState) {
+        <Proposals<T>>::mutate(id, |proposal| {
             if let Some(ref mut proposal) = proposal {
                 proposal.state = new_state;
             }
         });
+        Self::deposit_event(RawEvent::ProposalStateUpdated(id, new_state));
     }
 
-    fn update_referendum_state(index: MipsIndex, new_state: ReferendumState) {
-        <Referendums<T>>::mutate(index, |referendum| {
+    fn update_referendum_state(id: MipId, new_state: ReferendumState) {
+        <Referendums<T>>::mutate(id, |referendum| {
             if let Some(ref mut referendum) = referendum {
                 referendum.state = new_state;
             }
         });
+        Self::deposit_event(RawEvent::ReferendumStateUpdated(id, new_state));
+    }
+
+    fn is_proposal_pending(id: MipId) -> DispatchResult {
+        let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+        ensure!(
+            proposal.state == ProposalState::Pending,
+            Error::<T>::ProposalIsImmutable
+        );
+        Ok(())
+    }
+
+    fn is_referendum_pending(id: MipId) -> DispatchResult {
+        let referundum = Self::referendums(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+        ensure!(
+            referundum.state == ReferendumState::Pending,
+            Error::<T>::ReferendumIsImmutable
+        );
+        Ok(())
     }
 }
 
 impl<T: Trait> Module<T> {
-    /// Retrieve votes for a proposal represented by MipsIndex `index`.
-    pub fn get_votes(index: MipsIndex) -> VoteCount<BalanceOf<T>>
+    /// Retrieve votes for a proposal represented by MipId `id`.
+    pub fn get_votes(id: MipId) -> VoteCount<BalanceOf<T>>
     where
         T: Send + Sync,
         BalanceOf<T>: Send + Sync,
     {
-        if let Some(voting) = <Voting<T>>::get(index) {
-            let aye_stake = voting
-                .ayes
-                .iter()
-                .fold(<BalanceOf<T>>::zero(), |acc, ayes| acc + ayes.1);
+        if !<ProposalResult<T>>::contains_key(id) {
+            return VoteCount::ProposalNotFound;
+        }
 
-            let nay_stake = voting
-                .nays
-                .iter()
-                .fold(<BalanceOf<T>>::zero(), |acc, nays| acc + nays.1);
-
-            VoteCount::Success {
-                ayes: aye_stake,
-                nays: nay_stake,
-            }
-        } else {
-            VoteCount::ProposalNotFound
+        let voting = Self::proposal_result(id);
+        VoteCount::Success {
+            ayes: voting.ayes_stake,
+            nays: voting.nays_stake,
         }
     }
 
     /// Retrieve proposals made by `address`.
-    pub fn proposed_by(address: T::AccountId) -> Vec<MipsIndex> {
-        Self::proposal_meta()
-            .into_iter()
+    pub fn proposed_by(address: T::AccountId) -> Vec<MipId> {
+        <ProposalMetadata<T>>::iter()
             .filter(|meta| meta.proposer == address)
-            .map(|meta| meta.index)
+            .map(|meta| meta.id)
             .collect()
     }
 
     /// Retrieve proposals `address` voted on
-    pub fn voted_on(address: T::AccountId) -> Vec<MipsIndex> {
-        let mut indices = Vec::new();
-        for meta in Self::proposal_meta().into_iter() {
-            if let Some(votes) = Self::voting(&meta.index) {
-                if votes.ayes.iter().any(|(a, _)| a == &address)
-                    || votes.nays.iter().any(|(a, _)| a == &address)
-                {
-                    indices.push(votes.index);
-                }
-            }
-        }
-        indices
+    pub fn voted_on(address: T::AccountId) -> Vec<MipId> {
+        <ProposalMetadata<T>>::iter()
+            .filter_map(|meta| match Self::proposal_vote(meta.id, &address) {
+                Vote::None => None,
+                _ => Some(meta.id),
+            })
+            .collect::<Vec<_>>()
     }
 
-    /// It generates the next index for proposals and referendums.
-    fn next_index() -> u32 {
-        let index = <SequenceIndex>::get();
-        <SequenceIndex>::put(index + 1);
+    /// It generates the next id for proposals and referendums.
+    fn next_mip_id() -> u32 {
+        let id = <MipIdSequence>::get();
+        <MipIdSequence>::put(id + 1);
 
-        index
+        id
+    }
+
+    /// It inserts the vote and updates the accountability of target proposal.
+    fn unsafe_vote(id: MipId, proposer: T::AccountId, vote: Vote<BalanceOf<T>>) -> DispatchResult {
+        let mut stats = Self::proposal_result(id);
+        match vote {
+            Vote::Yes(deposit) => {
+                stats.ayes_count = stats
+                    .ayes_count
+                    .checked_add(1)
+                    .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
+                stats.ayes_stake = stats
+                    .ayes_stake
+                    .checked_add(&deposit)
+                    .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
+            }
+            Vote::No(deposit) => {
+                stats.nays_count += stats
+                    .nays_count
+                    .checked_add(1)
+                    .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
+                stats.nays_stake += stats
+                    .nays_stake
+                    .checked_add(&deposit)
+                    .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
+            }
+            Vote::None => {
+                // It should be unreachable because public API only allows binary options.
+                debug::warn!("Unexpected none vote");
+            }
+        };
+
+        <ProposalResult<T>>::insert(id, stats);
+        <ProposalVotes<T>>::insert(id, proposer, vote);
+        Ok(())
     }
 }
