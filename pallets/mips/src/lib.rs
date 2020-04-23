@@ -317,7 +317,7 @@ decl_event!(
         /// Pruning Historical MIPs is enabled or disabled (old value, new value)
         PruningHistoricalMips(bool, bool),
         /// A Mesh Improvement Proposal was made with a `Balance` stake
-        ProposalCreated(AccountId, MipId, Balance),
+        ProposalCreated(AccountId, MipId, Balance, Option<Url>, Option<MipDescription>, BlockNumber, BlockNumber),
         /// A Mesh Improvement Proposal was amended with a possible change to the bond
         /// bool is +ve when bond is added, -ve when removed
         ProposalAmended(AccountId, MipId, bool, Balance),
@@ -492,10 +492,10 @@ decl_module! {
             let proposal_metadata = MipsMetadata {
                 proposer: proposer.clone(),
                 id,
-                end,
-                url,
-                description,
-                cool_off_until,
+                end: end.clone(),
+                url: url.clone(),
+                description: description.clone(),
+                cool_off_until: cool_off_until.clone(),
                 beneficiaries,
             };
             let _ = <ProposalsMaturingAt<T>>::append(end, [id].iter())?;
@@ -521,7 +521,7 @@ decl_module! {
                     debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
                     vote_error
                 })?;
-            Self::deposit_event(RawEvent::ProposalCreated(proposer, id, deposit));
+            Self::deposit_event(RawEvent::ProposalCreated(proposer, id, deposit, url, description, cool_off_until, end));
             Ok(())
         }
 
@@ -814,13 +814,13 @@ decl_module! {
                 proposer: proposer.clone(),
                 id,
                 end: Zero::zero(),
-                url,
-                description,
+                url: url.clone(),
+                description: description.clone(),
                 cool_off_until: Zero::zero(),
                 beneficiaries
             };
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
-            Self::deposit_event(RawEvent::ProposalCreated(proposer, id, Zero::zero()));
+            Self::deposit_event(RawEvent::ProposalCreated(proposer, id, Zero::zero(), url, description, Zero::zero(), Zero::zero()));
             Self::create_referendum(
                 id,
                 ReferendumState::Pending,
