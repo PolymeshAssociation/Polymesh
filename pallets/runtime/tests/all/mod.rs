@@ -24,4 +24,5 @@ mod multisig;
 mod protocol_fee;
 mod simple_token_test;
 mod statistics_test;
+mod treasury_test;
 mod voting_test;
