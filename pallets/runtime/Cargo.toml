@@ -6,22 +6,28 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
+# Common 
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+
+# Our pallets
 polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
 polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
-polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", path = "../identity/rpc/runtime-api", default-features = false }
+polymesh-runtime-asset = { package = "polymesh-runtime-asset", path = "../asset", default-features = false  }
 
-pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../transaction-payment/rpc/runtime-api", default-features = false  }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
-pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../staking/rpc/runtime-api", default-features = false  }
 pallet-staking = { package = "pallet-staking", path = "../staking", default-features = false  }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve", default-features = false  }
-pallet-mips-rpc-runtime-api = { package = "pallet-mips-rpc-runtime-api", path = "../mips/rpc/runtime-api", default-features = false  }
 pallet-mips = { package = "pallet-mips", path = "../mips", default-features = false  }
 pallet-committee = { package = "pallet-committee", path = "../committee", default-features = false }
+
+# RPC
+polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", path = "../identity/rpc/runtime-api", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../transaction-payment/rpc/runtime-api", default-features = false  }
+pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../staking/rpc/runtime-api", default-features = false  }
+pallet-mips-rpc-runtime-api = { package = "pallet-mips-rpc-runtime-api", path = "../mips/rpc/runtime-api", default-features = false  }
 
 chrono = { version = "0.4.11", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }

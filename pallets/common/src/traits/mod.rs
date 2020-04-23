@@ -42,6 +42,7 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 
 pub mod asset;
 pub mod balances;
+pub mod general_tm;
 pub mod group;
 pub mod identity;
 pub mod multisig;

@@ -5,10 +5,6 @@
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 
-pub mod statistics;
-
-pub mod asset;
-
 #[cfg(feature = "std")]
 pub use pallet_staking::{Commission, StakerStatus};
 
@@ -18,7 +14,6 @@ mod bridge;
 mod contracts_wrapper;
 mod dividend;
 mod exemption;
-mod general_tm;
 mod multisig;
 mod percentage_tm;
 mod simple_token;
