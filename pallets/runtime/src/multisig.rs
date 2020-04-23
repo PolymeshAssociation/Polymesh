@@ -1,35 +1,57 @@
-//! # MultiSig Module
+//! # Multisig Module
 //!
-//! The MultiSig module provides functionality for n of m multisigs.
+//! The multisig module provides functionality for `n` out of `m` multisigs.
 //!
 //! ## Overview
 //!
 //! The multisig module provides functions for:
 //!
-//! - Creating a new multisig
-//! - Proposing a multisig transaction
-//! - Approving a multisig transaction
-//! - Adding new signers to the multisig
-//! - Removing existing signers from multisig
+//! - creating a new multisig,
+//! - proposing a multisig transaction,
+//! - approving a multisig transaction,
+//! - adding new signers to the multisig,
+//! - removing existing signers from multisig.
 //!
 //! ### Terminology
 //!
-//! - **MultiSig:** It is a special type of account that can do tranaction only if at least n of its m signers approve.
-//! - **Proposal:** It is a general transaction that the multisig can do,
+//! - **multisig**: a special type of account that can do tranaction only if at least `n` of its `m`
+//! signers approve.
+//! - **proposal**: a general transaction that the multisig can vote on and accept.
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
 //! - `create_multisig` - Creates a new multisig.
-//! - `create_proposal` - Creates a proposal for a multisig transaction.
-//! - `approve_as_identity` - Approves a proposal as an Identity.
-//! - `approve_as_key` - Approves a proposal as a Signing key.
+//! - `create_or_approve_proposal_as_identity` - Creates or approves a multisig proposal from an
+//! identity origin.
+//! - `create_or_approve_proposal_as_key` - Creates or approves a multisig proposal from an account
+//! key origin.
+//! - `create_proposal_as_identity` - Creates a multisig proposal from an identity origin.
+//! - `create_proposal_as_key` - Creates a multisig proposal from an account origin.
+//! - `approve_as_identity` - Approves a multisig proposal from an identity origin.
+//! - `approve_as_key` - Approves a multisig proposal from an account origin.
 //! - `accept_multisig_signer_as_identity` - Accept being added as a signer of a multisig.
 //! - `accept_multisig_signer_as_key` - Accept being added as a signer of a multisig.
 //! - `add_multisig_signer` - Adds a signer to the multisig.
 //! - `remove_multisig_signer` - Removes a signer from the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
+//!
+//! ### Other Public Functions
+//!
+//! - `create_multisig_account` - Creates a multisig account without precondition checks or emitting
+//! an event.
+//! - `create_proposal` - Creates a proposal for a multisig transaction.
+//! - `create_or_approve_proposal` - Creates or approves a multisig proposal.
+//! - `approve_for` - Approves a multisig proposal and executes it if enough signatures have been
+//! received.
+//! - `_accept_multisig_signer` - Accept and process an addition of a signer to a multisig.
+//! - `get_next_multisig_address` - Gets the next available multisig account ID.
+//! - `get_multisig_address` - Constructs a multisig account given a nonce.
+//! - `ms_signers` - Helper function that checks if someone is an authorized signer of a multisig or
+//! not.
+//! - `is_changing_signers_allowed` - Checks whether changing the list of signers is allowed in a
+//! multisig.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -63,6 +85,7 @@ pub type CreateMultisigAccountResult<T> =
 /// Either the ID of a successfully created proposal or an error.
 pub type CreateProposalResult = sp_std::result::Result<u64, DispatchError>;
 
+/// The multisig trait.
 pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -70,9 +93,9 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
 
 decl_storage! {
     trait Store for Module<T: Trait> as MultiSig {
-        /// Nonce to ensure unique MultiSig addresses are generated. starts from 1.
+        /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
         pub MultiSigNonce get(fn ms_nonce) build(|_| 1u64): u64;
-        /// Signers of a multisig. (mulisig, signer) => signer.
+        /// Signers of a multisig. (multisig, signer) => signer.
         pub MultiSigSigners: double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) Signatory => Signatory;
         /// Number of approved/accepted signers of a multisig.
         pub NumberOfSigners get(fn number_of_signers): map hasher(twox_64_concat) T::AccountId => u64;
@@ -190,7 +213,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Approves a multisig proposal using caller's identity
+        /// Approves a multisig proposal using the caller's identity.
         ///
         /// # Arguments
         /// * `multisig` - MultiSig address.
@@ -205,7 +228,7 @@ decl_module! {
             Self::approve_for(multisig, signer, proposal_id)
         }
 
-        /// Approves a multisig proposal using caller's signing key (AccountId)
+        /// Approves a multisig proposal using the caller's signing key (`AccountId`).
         ///
         /// # Arguments
         /// * `multisig` - MultiSig address.
@@ -218,7 +241,7 @@ decl_module! {
             Self::approve_for(multisig, signer, proposal_id)
         }
 
-        /// Accept a multisig signer authorization given to signer's identity
+        /// Accepts a multisig signer authorization given to signer's identity.
         ///
         /// # Arguments
         /// * `proposal_id` - Auth id of the authorization.
@@ -232,7 +255,7 @@ decl_module! {
             Self::_accept_multisig_signer(signer, auth_id)
         }
 
-        /// Accept a multisig signer authorization given to signer's key (AccountId)
+        /// Accepts a multisig signer authorization given to signer's key (AccountId).
         ///
         /// # Arguments
         /// * `proposal_id` - Auth id of the authorization.
@@ -243,7 +266,7 @@ decl_module! {
             Self::_accept_multisig_signer(signer, auth_id)
         }
 
-        /// Add a signer to the multisig. This must be called by the multisig itself.
+        /// Adds a signer to the multisig. This must be called by the multisig itself.
         ///
         /// # Arguments
         /// * `signer` - Signatory to add.
@@ -256,7 +279,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Remove a signer from the multisig. This must be called by the multisig itself.
+        /// Removes a signer from the multisig. This must be called by the multisig itself.
         ///
         /// # Arguments
         /// * `signer` - Signatory to remove.
@@ -275,7 +298,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Add a signer to the multisig.
+        /// Adds a signer to the multisig.
         /// This must be called by the creator identity of the multisig.
         ///
         /// # Arguments
@@ -310,7 +333,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Remove a signer from the multisig.
+        /// Removes a signer from the multisig.
         /// This must be called by the creator identity of the multisig.
         ///
         /// # Arguments
@@ -358,7 +381,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Change number of sigs required by a multisig. This must be called by the multisig itself.
+        /// Changes the number of signatures required by a multisig. This must be called by the
+        /// multisig itself.
         ///
         /// # Arguments
         /// * `sigs_required` - New number of sigs required.
@@ -375,9 +399,12 @@ decl_module! {
             Ok(())
         }
 
-        /// This function allows to replace all existing signers of the given multisig & also change no. of signature required
-        /// NOTE - Once this function get executed no other function of the multisig is allowed to execute until unless
-        /// potential signers accept the authorization and there count should be greater than or equal to the signature required
+        /// This function allows to replace all existing signers of the given multisig & also change
+        /// the number of required signatures.
+        ///
+        /// NOTE: Once this function get executed no other function of the multisig is allowed to
+        /// execute until unless enough potential signers accept the authorization whose count is
+        /// greater than or equal to the number of required signatures.
         ///
         /// # Arguments
         /// * signers - Vector of signers for a given multisig
@@ -592,7 +619,7 @@ impl<T: Trait> Module<T> {
         Ok(account_id)
     }
 
-    /// Creates a new proposal
+    /// Creates a new proposal.
     pub fn create_proposal(
         multisig: T::AccountId,
         sender_signer: Signatory,
@@ -613,7 +640,7 @@ impl<T: Trait> Module<T> {
         Ok(proposal_id)
     }
 
-    /// Creates or approves a multisig proposal
+    /// Creates or approves a multisig proposal.
     pub fn create_or_approve_proposal(
         multisig: T::AccountId,
         sender_signer: Signatory,
@@ -629,7 +656,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Approves a multisig transaction and executes the proposal if enough sigs have been received
+    /// Approves a multisig proposal and executes it if enough signatures have been received.
     pub fn approve_for(
         multisig: T::AccountId,
         signer: Signatory,
@@ -695,7 +722,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Accept and process addition of a signer to a multisig
+    /// Accept and process an addition of a signer to a multisig
     pub fn _accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
         ensure!(
             <identity::Authorizations<T>>::contains_key(signer, auth_id),
@@ -750,6 +777,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Gets the next available multisig account ID.
     pub fn get_next_multisig_address(sender: T::AccountId) -> T::AccountId {
         // Nonce is always only incremented by small numbers and hence can never overflow 64 bits.
         // Also, this is just a helper function that does not modify state.
@@ -757,6 +785,7 @@ impl<T: Trait> Module<T> {
         Self::get_multisig_address(sender, new_nonce).unwrap_or_default()
     }
 
+    /// Constructs a multisig account given a nonce.
     pub fn get_multisig_address(
         sender: T::AccountId,
         nonce: u64,
@@ -765,11 +794,12 @@ impl<T: Trait> Module<T> {
         T::AccountId::decode(&mut &h.encode()[..])
     }
 
-    /// Helper function that checks if someone is an authorized signer of a multisig or not
+    /// Helper function that checks if someone is an authorized signer of a multisig or not.
     pub fn ms_signers(multi_sig: T::AccountId, signer: Signatory) -> bool {
         <MultiSigSigners<T>>::contains_key(multi_sig, signer)
     }
 
+    /// Checks whether changing the list of signers is allowed in a multisig.
     pub fn is_changing_signers_allowed(multi_sig: &T::AccountId) -> bool {
         if <identity::Module<T>>::cdd_auth_for_master_key_rotation() {
             if let Ok(ms_key) = AccountKey::try_from(multi_sig.clone().encode()) {
