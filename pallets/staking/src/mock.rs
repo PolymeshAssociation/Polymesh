@@ -837,7 +837,7 @@ pub fn bond_nominator(acc: u64, val: u128, target: Vec<AccountId>) {
     let stash = account_from(acc + 1);
     let _ = Balances::make_free_balance_be(&(stash), val);
     assert_ok!(Staking::bond(
-        Origin::signed(stash),
+        Origin::signed(controller),
         controller,
         val,
         RewardDestination::Controller
