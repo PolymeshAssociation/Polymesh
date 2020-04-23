@@ -23,6 +23,7 @@ use polymesh_runtime_common::{
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
+use polymesh_runtime_treasury as treasury;
 
 use frame_support::{
     construct_runtime, debug, parameter_types,
@@ -355,6 +356,7 @@ impl pallet_mips::Trait for Runtime {
     type VotingMajorityOrigin =
         committee::EnsureProportionAtLeast<_1, _2, AccountId, GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
+    type Treasury = Treasury;
     type Event = Event;
 }
 
@@ -415,21 +417,8 @@ parameter_types! {
     pub const TipReportDepositPerByte: Balance = 1 * CENTS;
 }
 
-impl pallet_treasury::Trait for Runtime {
-    type Currency = Balances;
-    type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
-    type RejectOrigin = frame_system::EnsureRoot<AccountId>;
-    type Tippers = Elections;
-    type TipCountdown = TipCountdown;
-    type TipFindersFee = TipFindersFee;
-    type TipReportDepositBase = TipReportDepositBase;
-    type TipReportDepositPerByte = TipReportDepositPerByte;
+impl treasury::Trait for Runtime {
     type Event = Event;
-    type ProposalRejection = ();
-    type ProposalBond = ProposalBond;
-    type ProposalBondMinimum = ProposalBondMinimum;
-    type SpendPeriod = SpendPeriod;
-    type Burn = Burn;
 }
 
 impl pallet_offences::Trait for Runtime {
@@ -691,7 +680,7 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
+        Treasury: treasury::{Module, Call, Storage, Config<T>, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Mips: pallet_mips::{Module, Call, Storage, Event<T>, Config<T>},

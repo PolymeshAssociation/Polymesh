@@ -1,14 +1,18 @@
 use super::{
-    storage::{get_identity_id, make_account, make_account_with_balance, Call, TestStorage},
+    storage::{
+        get_identity_id, make_account, make_account_with_balance,
+        register_keyring_account_with_balance, Call, TestStorage,
+    },
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok};
 use frame_system;
 use pallet_committee as committee;
 use pallet_mips::{
-    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, PolymeshVotes, ProposalState,
-    Referendum, ReferendumState, ReferendumType, Url,
+    self as mips, DepositInfo, Error, MipDescription, MipsMetadata, Referendum, ReferendumState,
+    ReferendumType, Url, VotingResult,
 };
+use polymesh_primitives::Beneficiary;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
 use test_client::AccountKeyring;
@@ -56,7 +60,8 @@ fn starting_a_proposal_works_we() {
             Box::new(proposal.clone()),
             40,
             Some(proposal_url.clone()),
-            Some(proposal_desc.clone())
+            Some(proposal_desc.clone()),
+            vec![],
         ),
         Error::<TestStorage>::InsufficientDeposit
     );
@@ -67,19 +72,21 @@ fn starting_a_proposal_works_we() {
         Box::new(proposal),
         60,
         Some(proposal_url),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![],
     ));
 
     assert_eq!(Balances::free_balance(&alice_acc), 158);
 
     assert_eq!(Mips::proposed_by(alice_acc.clone()), vec![0]);
     assert_eq!(
-        Mips::voting(0),
-        Some(PolymeshVotes {
-            index: 0,
-            ayes: vec![(alice_acc, 60)],
-            nays: vec![],
-        })
+        Mips::proposal_result(0),
+        VotingResult {
+            ayes_count: 1,
+            ayes_stake: 60,
+            nays_count: 0,
+            nays_stake: 0,
+        }
     );
 }
 
@@ -110,22 +117,23 @@ fn closing_a_proposal_works_we() {
         Box::new(proposal.clone()),
         50,
         Some(proposal_url.clone()),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_eq!(Balances::free_balance(&alice_acc), 168);
     assert_eq!(
-        Mips::voting(0),
-        Some(PolymeshVotes {
-            index,
-            ayes: vec![(alice_acc.clone(), 50)],
-            nays: vec![],
-        })
+        Mips::proposal_result(0),
+        VotingResult {
+            ayes_count: 1,
+            ayes_stake: 50,
+            nays_count: 0,
+            nays_stake: 0,
+        }
     );
 
     assert_ok!(Mips::kill_proposal(root, index));
     assert_eq!(Balances::free_balance(&alice_acc), 218);
-    assert_eq!(Mips::voting(0), None);
 }
 
 #[test]
@@ -152,7 +160,8 @@ fn creating_a_referendum_works_we() {
         Box::new(proposal.clone()),
         50,
         Some(proposal_url),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_err!(
@@ -163,12 +172,13 @@ fn creating_a_referendum_works_we() {
     assert_ok!(Mips::vote(bob_signer.clone(), 0, true, 50));
 
     assert_eq!(
-        Mips::voting(0),
-        Some(PolymeshVotes {
-            index: 0,
-            ayes: vec![(alice_acc.clone(), 50), (bob_acc.clone(), 50)],
-            nays: vec![]
-        })
+        Mips::proposal_result(0),
+        VotingResult {
+            ayes_count: 2,
+            ayes_stake: 100,
+            nays_count: 0,
+            nays_stake: 0,
+        }
     );
 
     assert_eq!(Balances::free_balance(&alice_acc), 168);
@@ -179,7 +189,7 @@ fn creating_a_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Pending,
             referendum_type: ReferendumType::Community,
             enactment_period: 0,
@@ -217,7 +227,8 @@ fn enacting_a_referendum_works_we() {
         Box::new(proposal.clone()),
         50,
         Some(proposal_url.clone()),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_err!(
@@ -229,12 +240,13 @@ fn enacting_a_referendum_works_we() {
     assert_ok!(Mips::vote(bob_signer.clone(), 0, true, 50));
 
     assert_eq!(
-        Mips::voting(0),
-        Some(PolymeshVotes {
-            index: 0,
-            ayes: vec![(alice_acc.clone(), 50), (bob_acc.clone(), 50)],
-            nays: vec![]
-        })
+        Mips::proposal_result(0),
+        VotingResult {
+            ayes_count: 2,
+            ayes_stake: 100,
+            nays_count: 0,
+            nays_stake: 0,
+        }
     );
 
     fast_forward_to(120);
@@ -242,7 +254,7 @@ fn enacting_a_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Pending,
             referendum_type: ReferendumType::Community,
             enactment_period: 0,
@@ -258,7 +270,7 @@ fn enacting_a_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Scheduled,
             referendum_type: ReferendumType::Community,
             enactment_period: 220,
@@ -270,7 +282,7 @@ fn enacting_a_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Executed,
             referendum_type: ReferendumType::Community,
             enactment_period: 220,
@@ -313,7 +325,8 @@ fn fast_tracking_a_proposal_works_we() {
         Box::new(proposal.clone()),
         50,
         Some(proposal_url.clone()),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_err!(
@@ -336,7 +349,7 @@ fn fast_tracking_a_proposal_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Pending,
             referendum_type: ReferendumType::FastTracked,
             enactment_period: 0,
@@ -347,7 +360,7 @@ fn fast_tracking_a_proposal_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Scheduled,
             referendum_type: ReferendumType::FastTracked,
             enactment_period: 101,
@@ -359,7 +372,7 @@ fn fast_tracking_a_proposal_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Executed,
             referendum_type: ReferendumType::FastTracked,
             enactment_period: 101,
@@ -398,7 +411,8 @@ fn emergency_referendum_works_we() {
         alice_signer.clone(),
         Box::new(proposal.clone()),
         Some(proposal_url.clone()),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![],
     ));
 
     fast_forward_to(20);
@@ -406,7 +420,7 @@ fn emergency_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Pending,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 0,
@@ -423,7 +437,7 @@ fn emergency_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Scheduled,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 201,
@@ -434,7 +448,7 @@ fn emergency_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Executed,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 201,
@@ -471,7 +485,8 @@ fn reject_referendum_works_we() {
         alice_signer.clone(),
         Box::new(proposal.clone()),
         Some(proposal_url.clone()),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![],
     ));
 
     fast_forward_to(20);
@@ -479,7 +494,7 @@ fn reject_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Pending,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 0,
@@ -496,7 +511,7 @@ fn reject_referendum_works_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Rejected,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 0,
@@ -558,7 +573,8 @@ fn amend_mips_details_during_cool_off_period_we() {
         Box::new(proposal),
         60,
         Some(proposal_url),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
     fast_forward_to(50);
 
@@ -578,21 +594,22 @@ fn amend_mips_details_during_cool_off_period_we() {
     );
 
     assert_eq!(
-        Mips::proposal_meta(),
-        vec![MipsMetadata {
+        Mips::proposal_metadata(0),
+        Some(MipsMetadata {
             proposer: AccountKeyring::Alice.public(),
-            index: 0,
+            id: 0,
             cool_off_until: 101,
             end: 111,
             url: Some(new_url),
-            description: Some(new_desc)
-        }]
+            description: Some(new_desc),
+            beneficiaries: vec![],
+        })
     );
 
     // 3. Bound/Unbound additional POLYX.
     let alice_acc = AccountKeyring::Alice.public();
     assert_eq!(
-        Mips::deposit_of(0, &alice_acc),
+        Mips::deposits(0, &alice_acc),
         DepositInfo {
             owner: alice_acc.clone(),
             amount: 60
@@ -600,7 +617,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     );
     assert_ok!(Mips::bond_additional_deposit(alice.clone(), 0, 100));
     assert_eq!(
-        Mips::deposit_of(0, &alice_acc),
+        Mips::deposits(0, &alice_acc),
         DepositInfo {
             owner: alice_acc.clone(),
             amount: 160
@@ -608,7 +625,7 @@ fn amend_mips_details_during_cool_off_period_we() {
     );
     assert_ok!(Mips::unbond_deposit(alice.clone(), 0, 50));
     assert_eq!(
-        Mips::deposit_of(0, &alice_acc),
+        Mips::deposits(0, &alice_acc),
         DepositInfo {
             owner: alice_acc.clone(),
             amount: 110
@@ -649,7 +666,8 @@ fn cancel_mips_during_cool_off_period_we() {
         Box::new(alice_proposal),
         60,
         Some(proposal_url),
-        Some(proposal_desc)
+        Some(proposal_desc),
+        vec![]
     ));
 
     assert_ok!(Mips::propose(
@@ -657,7 +675,8 @@ fn cancel_mips_during_cool_off_period_we() {
         Box::new(bob_proposal.clone()),
         60,
         None,
-        None
+        None,
+        vec![]
     ));
 
     // 2. Cancel Alice's proposal during cool-off period.
@@ -673,15 +692,16 @@ fn cancel_mips_during_cool_off_period_we() {
 
     // 4. Double check current proposals
     assert_eq!(
-        Mips::proposal_meta(),
-        vec![MipsMetadata {
+        Mips::proposal_metadata(1),
+        Some(MipsMetadata {
             proposer: AccountKeyring::Bob.public(),
-            index: 1,
+            id: 1,
             cool_off_until: 101,
             end: 111,
             url: None,
-            description: None
-        }]
+            description: None,
+            beneficiaries: vec![],
+        })
     );
 }
 
@@ -717,12 +737,13 @@ fn update_referendum_enactment_period_we() {
         Box::new(proposal_a.clone()),
         None,
         None,
+        vec![],
     ));
     assert_ok!(Mips::enact_referendum(root.clone(), 0));
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Scheduled,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 101,
@@ -736,12 +757,13 @@ fn update_referendum_enactment_period_we() {
         Box::new(proposal_b.clone()),
         Some(proposal_url),
         Some(proposal_desc),
+        vec![],
     ));
     assert_ok!(Mips::enact_referendum(root.clone(), 1));
     assert_eq!(
         Mips::referendums(1),
         Some(Referendum {
-            index: 1,
+            id: 1,
             state: ReferendumState::Scheduled,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 150,
@@ -760,7 +782,7 @@ fn update_referendum_enactment_period_we() {
     assert_eq!(
         Mips::referendums(1),
         Some(Referendum {
-            index: 1,
+            id: 1,
             state: ReferendumState::Executed,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 51,
@@ -775,7 +797,7 @@ fn update_referendum_enactment_period_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Scheduled,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 200,
@@ -787,7 +809,7 @@ fn update_referendum_enactment_period_we() {
     assert_eq!(
         Mips::referendums(0),
         Some(Referendum {
-            index: 0,
+            id: 0,
             state: ReferendumState::Executed,
             referendum_type: ReferendumType::Emergency,
             enactment_period: 200,
@@ -797,4 +819,81 @@ fn update_referendum_enactment_period_we() {
         Mips::set_referendum_enactment_period(bob.clone(), 0, Some(300)),
         Error::<TestStorage>::ReferendumIsImmutable
     );
+}
+
+#[test]
+fn proposal_with_beneficiares() {
+    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    ExtBuilder::default()
+        .treasury(100_000_000)
+        .governance_committee(committee)
+        .governance_committee_vote_threshold((2, 3))
+        .build()
+        .execute_with(proposal_with_beneficiares_we);
+}
+
+fn proposal_with_beneficiares_we() {
+    // 0. Create accounts
+    System::set_block_number(1);
+    let root = Origin::system(frame_system::RawOrigin::Root);
+    let alice = AccountKeyring::Alice.public();
+    let charlie = AccountKeyring::Charlie.public();
+    let dave = AccountKeyring::Dave.public();
+    let charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 200).unwrap();
+    let dave_id = register_keyring_account_with_balance(AccountKeyring::Dave, 200).unwrap();
+
+    // 2. Charlie creates a new proposal with 2 beneificiares
+    let proposal = make_proposal(42);
+    let proposal_url: Url = b"www.abc.com".into();
+    let proposal_desc: MipDescription = b"Test description".into();
+    let beneficiaries = vec![
+        Beneficiary {
+            id: charlie_id,
+            amount: 10_000,
+        },
+        Beneficiary {
+            id: dave_id,
+            amount: 5_000,
+        },
+    ];
+
+    assert_ok!(Mips::propose(
+        Origin::signed(charlie.clone()),
+        Box::new(proposal),
+        60,
+        Some(proposal_url),
+        Some(proposal_desc),
+        beneficiaries,
+    ));
+
+    // 2. Alice can fast track because she is a GC member
+    assert_ok!(Mips::fast_track_proposal(Origin::signed(alice), 0));
+    assert_eq!(
+        Mips::referendums(0),
+        Some(Referendum {
+            id: 0,
+            referendum_type: ReferendumType::FastTracked,
+            state: ReferendumState::Pending,
+            enactment_period: 0,
+        })
+    );
+    assert_ok!(Mips::enact_referendum(root, 0));
+
+    // 3. It executes automatically the referendum at block 101.
+    assert_eq!(Balances::free_balance(&charlie), 118);
+    assert_eq!(Balances::free_balance(&dave), 159);
+
+    fast_forward_to(120);
+    assert_eq!(
+        Mips::referendums(0),
+        Some(Referendum {
+            id: 0,
+            referendum_type: ReferendumType::FastTracked,
+            state: ReferendumState::Executed,
+            enactment_period: 101,
+        })
+    );
+
+    assert_eq!(Balances::identity_balance(charlie_id), 10_000);
+    assert_eq!(Balances::identity_balance(dave_id), 5_000);
 }

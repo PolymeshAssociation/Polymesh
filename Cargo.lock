@@ -3151,8 +3151,10 @@ dependencies = [
  "polymesh-runtime-common",
  "polymesh-runtime-group",
  "polymesh-runtime-identity",
+ "polymesh-runtime-treasury",
  "serde",
  "serde_derive",
+ "shrinkwraprs",
  "sp-api",
  "sp-core",
  "sp-io",
@@ -3384,20 +3386,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-treasury"
-version = "2.0.0-alpha.3"
-source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-balances",
- "parity-scale-codec",
- "serde",
  "sp-runtime",
  "sp-std",
 ]
@@ -3719,6 +3707,7 @@ dependencies = [
  "polymesh-runtime",
  "polymesh-runtime-common",
  "polymesh-runtime-identity-rpc",
+ "polymesh-runtime-treasury",
  "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-cli",
@@ -3825,7 +3814,6 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-protocol-fee",
@@ -3834,6 +3822,7 @@ dependencies = [
  "polymesh-runtime-group",
  "polymesh-runtime-identity",
  "polymesh-runtime-identity-rpc-runtime-api",
+ "polymesh-runtime-treasury",
  "rand 0.7.3",
  "rustc-hex",
  "safe-mix",
@@ -3984,6 +3973,29 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-std",
+]
+
+[[package]]
+name = "polymesh-runtime-treasury"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-balances",
+ "polymesh-runtime-common",
+ "polymesh-runtime-identity",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+ "substrate-test-runtime-client",
 ]
 
 [[package]]
@@ -5497,6 +5509,19 @@ name = "shlex"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
+
+[[package]]
+name = "shrinkwraprs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e63e6744142336dfb606fe2b068afa2e1cca1ee6a5d8377277a92945d81fa331"
+dependencies = [
+ "bitflags",
+ "itertools",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "signal-hook-registry"
