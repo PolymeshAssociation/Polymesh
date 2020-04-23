@@ -232,13 +232,13 @@
         "motions": "Vec<Motion>"
     },
     "Url": "Text",
-    "MipDescription": "Text",
-    "MipsMetadata": {
+    "PipDescription": "Text",
+    "PipsMetadata": {
         "proposer": "AccountKey",
         "index": "u32",
         "end": "u32",
         "url": "Option<Url>",
-        "description": "Option<MipDescription>",
+        "description": "Option<PipDescription>",
         "cool_off_until": "u32"
     },
     "DepositInfo": {
@@ -250,7 +250,7 @@
         "ayes": "Vec<(IdentityId, Balance)>",
         "nays": "Vec<(IdentityId, Balance)>"
     },
-    "MipsIndex": "u32",
+    "PipsIndex": "u32",
     "ProposalState": {
         "_enum": [
             "Proposed",
@@ -276,13 +276,13 @@
             "Community"
         ]
     },
-    "MIP": {
-        "index": "MipsIndex",        
+    "PIP": {
+        "index": "PipsIndex",        
         "proposal":"Call",
         "state":"ProposalState"
     },
     "Referendum": {
-        "index": "MipsIndex",
+        "index": "PipsIndex",
         "state": "ReferendumState",
         "referendum_type": "ReferendumType",
         "enactment_period": "u32"
@@ -421,7 +421,7 @@
             "IdentityAddClaim",
             "IdentitySetMasterKey",
             "IdentityAddSigningItem",
-            "MipsPropose",
+            "PipsPropose",
             "VotingAddBallot"
         ]
     },

@@ -19,7 +19,7 @@ mod fee_details;
 mod general_tm_test;
 mod group_test;
 mod identity_test;
-mod mips_test;
+mod pips_test;
 mod multisig;
 mod protocol_fee;
 mod simple_token_test;
