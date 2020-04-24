@@ -325,7 +325,11 @@ fn do_freeze_and_unfreeze_bridge() {
     assert_ok!(Bridge::change_controller(admin.clone(), controller));
     assert_eq!(Bridge::controller(), controller);
     let amount = 1_000_000_000_000_000_000_000;
-    assert_ok!(Bridge::change_bridge_limit(admin.clone(), 1_000_000_000, 1));
+    assert_ok!(Bridge::change_bridge_limit(
+        admin.clone(),
+        1_000_000_000_000_000_000_000_000,
+        1
+    ));
     let bridge_tx = BridgeTx {
         nonce: 1,
         recipient: AccountKeyring::Bob.public(),
@@ -606,11 +610,6 @@ fn do_rate_limit() {
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(bobs_balance(), starting_bobs_balance + amount);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier)
-            .execution_block,
-        unlock_block_number
-    );
-    assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
         BridgeTxStatus::Handled
     );
@@ -708,7 +707,7 @@ fn do_whitelist() {
     assert_eq!(bobs_balance(), starting_bobs_balance);
     assert_ok!(Bridge::change_bridge_whitelist(
         admin.clone(),
-        [(bob_did, true)]
+        vec![(bob_did, true)]
     ));
     next_block();
     next_block();
@@ -719,11 +718,6 @@ fn do_whitelist() {
     // Mint successful after whitelisting
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(bobs_balance(), starting_bobs_balance + amount);
-    assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier)
-            .execution_block,
-        unlock_block_number
-    );
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
         BridgeTxStatus::Handled
