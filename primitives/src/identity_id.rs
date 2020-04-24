@@ -27,6 +27,20 @@ const UUID_LEN: usize = 32usize;
 #[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct IdentityId([u8; UUID_LEN]);
 
+impl IdentityId {
+    /// Returns a byte slice of this IdentityId's contents
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0[..]
+    }
+
+    /// Extracts a reference to the byte array containing the entire fixed id.
+    #[inline]
+    pub fn as_fixed_bytes(&self) -> &[u8; UUID_LEN] {
+        &self.0
+    }
+}
+
 #[cfg(feature = "std")]
 impl Serialize for IdentityId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -119,6 +133,13 @@ impl TryFrom<&[u8]> for IdentityId {
 impl From<[u8; UUID_LEN]> for IdentityId {
     fn from(s: [u8; UUID_LEN]) -> Self {
         IdentityId(s)
+    }
+}
+
+impl AsRef<[u8]> for IdentityId {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        self.as_bytes()
     }
 }
 

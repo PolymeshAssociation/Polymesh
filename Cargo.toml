@@ -32,6 +32,7 @@ members = [
     "pallets/committee",
     "pallets/group",
     "pallets/protocol-fee",
+    "pallets/treasury",
     "pallets/cdd-offchain-worker"
 ]
 
@@ -45,6 +46,7 @@ pallet-mips-rpc = { package = "pallet-mips-rpc", path = "pallets/mips/rpc", defa
 polymesh-runtime-identity-rpc = { package = "polymesh-runtime-identity-rpc", path = "pallets/identity/rpc", default-features = false }
 im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
 polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "pallets/protocol-fee", default-features = false }
+polymesh-runtime-treasury = { package = "polymesh-runtime-treasury", path = "pallets/treasury", default-features = false }
 
 parking_lot = "0.10.0"
 tokio = "0.2.13"
