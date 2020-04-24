@@ -485,6 +485,7 @@
             "Handled": ""
         }
     },
+    "CappedFee": "u64",
     "rpc": {
         "identity": {
             "isIdentityHasValidCdd" : {
@@ -591,6 +592,24 @@
                 "type": "Vec<u32>"
             }
         },
+        "protocolFee": {
+            "computeFee": {
+                "description": "Gets the fee of a chargeable extrinsic operation",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "op",
+                        "type": "ProtocolOp",
+                        "isOptional": false
+                    }
+                ],
+                "type": "CappedFee"
+            }
+        },
         "staking": {
             "getCurve": {
                 "description": "Retrieves curves parameters",
@@ -601,7 +620,7 @@
                         "isOptional": true
                     }
                 ],
-            "type": "Vec<(Perbill, Perbill)>"
+                "type": "Vec<(Perbill, Perbill)>"
             }
         }
     }

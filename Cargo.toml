@@ -32,6 +32,8 @@ members = [
     "pallets/committee",
     "pallets/group",
     "pallets/protocol-fee",
+    "pallets/protocol-fee/rpc",
+    "pallets/protocol-fee/rpc/runtime-api",
     "pallets/treasury",
     "pallets/cdd-offchain-worker"
 ]
@@ -45,6 +47,7 @@ pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/r
 pallet-mips-rpc = { package = "pallet-mips-rpc", path = "pallets/mips/rpc", default-features = false }
 polymesh-runtime-identity-rpc = { package = "polymesh-runtime-identity-rpc", path = "pallets/identity/rpc", default-features = false }
 im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
+polymesh-protocol-fee-rpc = { package = "polymesh-protocol-fee-rpc", path = "pallets/protocol-fee/rpc", default-features = false }
 polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "pallets/protocol-fee", default-features = false }
 polymesh-runtime-treasury = { package = "polymesh-runtime-treasury", path = "pallets/treasury", default-features = false }
 
