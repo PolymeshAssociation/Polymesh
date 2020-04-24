@@ -39,6 +39,7 @@
 use pallet_pips_rpc_runtime_api::VoteCount;
 use polymesh_primitives::{AccountKey, Beneficiary, Signatory};
 use polymesh_runtime_common::{
+    constants::PIP_MAX_REPORTING_SIZE,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
@@ -59,7 +60,9 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Saturating, Zero};
+use sp_runtime::traits::{
+    BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
+};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// Mesh Improvement Proposal id. Used offchain.
@@ -106,13 +109,14 @@ pub struct Pip<Proposal> {
     state: ProposalState,
 }
 
-/// Either the entire proposal or its hash. The latter represents large proposals.
+/// Either the entire proposal encoded as a byte vector or its hash. The latter represents large
+/// proposals.
 #[derive(Encode, Decode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ProposalData<Proposal> {
+pub enum ProposalData {
     /// The hash of the proposal.
     Hash(H256),
     /// The entire proposal.
-    Proposal(Proposal),
+    Proposal(Vec<u8>),
 }
 
 /// Represents a proposal metadata
@@ -335,7 +339,7 @@ decl_event!(
             Option<PipDescription>,
             BlockNumber,
             BlockNumber,
-            ProposalData<<T as Trait>::Proposal>
+            ProposalData,
         ),
         /// A Mesh Improvement Proposal was amended with a possible change to the bond
         /// bool is +ve when bond is added, -ve when removed
@@ -528,7 +532,7 @@ decl_module! {
 
             let pip = Pip {
                 id,
-                proposal: *proposal,
+                proposal: *proposal.clone(),
                 state: ProposalState::Pending,
             };
             <Proposals<T>>::insert(id, pip);
@@ -548,7 +552,7 @@ decl_module! {
                 description,
                 cool_off_until,
                 end,
-                ProposalData::Proposal(proposal),
+                Self::reportable_proposal_data(*proposal),
             ));
             Ok(())
         }
@@ -833,7 +837,7 @@ decl_module! {
             let id = Self::next_pip_id();
             let pip = Pip {
                 id,
-                proposal: *proposal,
+                proposal: *proposal.clone(),
                 state: ProposalState::Pending,
             };
             <Proposals<T>>::insert(id, pip);
@@ -856,7 +860,7 @@ decl_module! {
                 description,
                 Zero::zero(),
                 Zero::zero(),
-                ProposalData::Proposal(proposal),
+                Self::reportable_proposal_data(*proposal),
             ));
             Self::create_referendum(
                 id,
@@ -1210,5 +1214,17 @@ impl<T: Trait> Module<T> {
         <ProposalResult<T>>::insert(id, stats);
         <ProposalVotes<T>>::insert(id, proposer, vote);
         Ok(())
+    }
+
+    /// Returns a reportable representation of a proposal taking care that the reported data are not
+    /// too large.
+    fn reportable_proposal_data(proposal: T::Proposal) -> ProposalData {
+        let encoded_proposal = proposal.encode();
+        let proposal_data = if encoded_proposal.len() > PIP_MAX_REPORTING_SIZE {
+            ProposalData::Hash(BlakeTwo256::hash(encoded_proposal.as_slice()))
+        } else {
+            ProposalData::Proposal(encoded_proposal)
+        };
+        proposal_data
     }
 }
