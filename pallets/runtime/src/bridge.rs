@@ -81,7 +81,7 @@ pub struct BridgeTxDetail<Balance, BlockNumber> {
     pub amount: Balance,
     /// Status of the bridge tx.
     pub status: BridgeTxStatus,
-    /// Blockat which this tx was executed or is planned to be executed
+    /// Block number at which this tx was executed or is planned to be executed.
     pub execution_block: BlockNumber,
 }
 
@@ -89,8 +89,6 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// The bridge controller address is not set.
         ControllerNotSet,
-        /// Failed to decode account key to accound id
-        DecodingError,
         /// The signer does not have an identity.
         IdentityMissing,
         /// Failure to credit the recipient account or identity.
@@ -183,6 +181,10 @@ decl_event! {
     {
         /// Confirmation of a signer set change.
         ControllerChanged(AccountId),
+        /// Confirmation of Admin change.
+        AdminChanged(AccountId),
+        /// Confirmation of default timelock change.
+        TimelockChanged(BlockNumber),
         /// Confirmation of minting POLYX on Polymesh in return for the locked ERC20 tokens on
         /// Ethereum.
         Bridged(BridgeTx<AccountId, Balance>),
@@ -218,7 +220,8 @@ decl_module! {
         pub fn change_controller(origin, controller: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            <Controller<T>>::put(controller);
+            <Controller<T>>::put(controller.clone());
+            Self::deposit_event(RawEvent::ControllerChanged(controller));
             Ok(())
         }
 
@@ -227,7 +230,8 @@ decl_module! {
         pub fn change_admin(origin, admin: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            <Admin<T>>::put(admin);
+            <Admin<T>>::put(admin.clone());
+            Self::deposit_event(RawEvent::AdminChanged(admin));
             Ok(())
         }
 
@@ -236,7 +240,8 @@ decl_module! {
         pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            <Timelock<T>>::put(timelock);
+            <Timelock<T>>::put(timelock.clone());
+            Self::deposit_event(RawEvent::TimelockChanged(timelock));
             Ok(())
         }
 
@@ -277,7 +282,6 @@ decl_module! {
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
-            ensure!(!Self::frozen(), Error::<T>::Frozen);
             let controller = Self::controller();
             ensure!(controller != Default::default(), Error::<T>::ControllerNotSet);
             let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
@@ -299,7 +303,7 @@ decl_module! {
                 nonce: bridge_tx.nonce.clone(),
                 tx_hash: bridge_tx.tx_hash.clone()
             };
-            let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx_identifier);
+            let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx_identifier);
             match tx_details.status {
                 // New bridge tx
                 BridgeTxStatus::Absent => {
@@ -307,16 +311,24 @@ decl_module! {
                     ensure!(sender == Self::controller() || sender == Self::admin(), Error::<T>::BadCaller);
                     let timelock = Self::timelock();
                     if timelock.is_zero() {
-                        return Self::handle_bridge_tx_now(bridge_tx);
+                        return Self::handle_bridge_tx_now(bridge_tx, false);
                     } else {
                         return Self::handle_bridge_tx_later(&bridge_tx, timelock);
                     }
                 }
                 // Pending cdd bridge tx
                 BridgeTxStatus::Pending(_) => {
-                    return Self::handle_bridge_tx_now(bridge_tx);
+                    return Self::handle_bridge_tx_now(bridge_tx, true);
                 }
-                // Already handled/frozen/timelocked tx
+                // Pre frozen tx. We just set the correct amount.
+                BridgeTxStatus::Frozen => {
+                    //TODO: Review admin permissions to handle bridge txs before mainnet
+                    ensure!(sender == Self::controller() || sender == Self::admin(), Error::<T>::BadCaller);
+                    tx_details.amount = bridge_tx.amount;
+                    <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx_identifier, tx_details);
+                    Ok(())
+                }
+                // Already handled/timelocked tx
                 _ => {
                     return Err(Error::<T>::ProposalAlreadyHandled.into());
                 }
@@ -382,7 +394,7 @@ decl_module! {
                 ensure!(tx_details.status == BridgeTxStatus::Frozen, Error::<T>::NoSuchFrozenTx);
                 <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx_identifier, |tx_detail| tx_detail.status = BridgeTxStatus::Absent);
                 Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
-                if let Err(e) = Self::handle_bridge_tx_now(bridge_tx) {
+                if let Err(e) = Self::handle_bridge_tx_now(bridge_tx, false) {
                     sp_runtime::print(e);
                 }
             }
@@ -406,13 +418,17 @@ impl<T: Trait> Module<T> {
     }
 
     /// Handles a bridge transaction proposal immediately.
-    fn handle_bridge_tx_now(bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
+    fn handle_bridge_tx_now(
+        bridge_tx: BridgeTx<T::AccountId, T::Balance>,
+        untrusted_manual_retry: bool,
+    ) -> DispatchResult {
         let bridge_tx_identifier = BridgeTxIdentifier {
             nonce: bridge_tx.nonce.clone(),
             tx_hash: bridge_tx.tx_hash.clone(),
         };
         let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx_identifier);
-
+        // NB: This function does not care if a transaction is timelocked. Therefore, this should only be called
+        // after timelock has expired or timelock is to be bypassed by an admin.
         ensure!(
             tx_details.status != BridgeTxStatus::Frozen
                 && tx_details.status != BridgeTxStatus::Handled,
@@ -420,18 +436,20 @@ impl<T: Trait> Module<T> {
         );
 
         if Self::frozen() {
+            // Untruested manual retries not allowed during frozen state.
+            ensure!(!untrusted_manual_retry, Error::<T>::Frozen);
             // Bridge module frozen. Retry this tx again later.
             return Self::handle_bridge_tx_later(&bridge_tx, Self::timelock());
         }
-
-        if Self::issue(&bridge_tx.recipient, &bridge_tx.amount).is_ok() {
+        // NB: The amount should be fetched from storage since the amount in `bridge_tx` may not be altered.
+        if Self::issue(&bridge_tx.recipient, &tx_details.amount).is_ok() {
             tx_details.status = BridgeTxStatus::Handled;
             tx_details.execution_block = <system::Module<T>>::block_number();
-            tx_details.amount = bridge_tx.amount.clone();
             <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx_identifier, tx_details);
             Self::deposit_event(RawEvent::Bridged(bridge_tx));
-        } else {
-            // Recipient missing CDD. Retry this tx again later.
+        } else if !untrusted_manual_retry {
+            // NB: If this was a manual retry, tx's automated retry schedule is not updated.
+            // Recipient missing CDD or limit reached. Retry this tx again later.
             return Self::handle_bridge_tx_later(&bridge_tx, Self::timelock());
         }
         Ok(())
@@ -492,7 +510,7 @@ impl<T: Trait> Module<T> {
     fn handle_timelocked_txs(block_number: T::BlockNumber) {
         let txs = <TimelockedTxs<T>>::take(block_number);
         for tx in txs {
-            if let Err(e) = Self::handle_bridge_tx_now(tx) {
+            if let Err(e) = Self::handle_bridge_tx_now(tx, false) {
                 sp_runtime::print(e);
             }
         }
