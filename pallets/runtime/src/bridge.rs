@@ -12,7 +12,7 @@ use frame_support::{
     weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_signed};
-use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{balances::CheckCdd, CommonTrait};
 use polymesh_runtime_identity as identity;
@@ -162,6 +162,15 @@ decl_storage! {
         /// become unlocked. Pending transactions are also included here if they will be tried automatically.
         TimelockedTxs get(fn timelocked_txs):
             map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
+
+        /// limit on bridged POLYX per identity for the testnet. (POLYX, LIMIT_REST_BLOCK)
+        BridgeLimit get(fn brigde_limit) config(): (T::Balance, T::BlockNumber);
+
+        /// Amount of POLYX bridged by the identity in last limit bucket (AMOUNT_BRIDGED, BUCKET_START)
+        PolyxBridged get(fn polyx_bridged): map hasher(twox_64_concat) IdentityId => (T::Balance, T::BlockNumber);
+
+        /// Identity whitelist that are not limited by the bridge limit
+        BridgeLimitWhitelist get(fn bridge_whitelist): map hasher(twox_64_concat) IdentityId => bool;
     }
     add_extra_genesis {
         // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
@@ -267,6 +276,26 @@ decl_module! {
             ensure!(Self::frozen(), Error::<T>::NotFrozen);
             <Frozen>::put(false);
             Self::deposit_event(RawEvent::Unfrozen);
+            Ok(())
+        }
+
+        /// Change the bridge limits.
+        #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
+        pub fn change_bridge_limit(origin, amount: T::Balance, duration: T::BlockNumber) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+            <BridgeLimit<T>>::put((amount, duration));
+            Ok(())
+        }
+
+        /// Change the bridge limits.
+        #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
+        pub fn change_bridge_whitelist(origin, whitelist: Vec<(IdentityId, bool)>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+            for (did, exempt) in whitelist {
+                <BridgeLimitWhitelist>::insert(did, exempt);
+            }
             Ok(())
         }
 
