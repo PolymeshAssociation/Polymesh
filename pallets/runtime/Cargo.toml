@@ -17,6 +17,7 @@ polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../
 polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false}
 pallet-asset = { package = "pallet-asset", path = "../asset", default-features = false }
 pallet-statistics = { package = "pallet-statistics", path = "../statistics", default-features = false }
+polymesh-runtime-treasury = { package = "polymesh-runtime-treasury", path = "../treasury", default-features = false  }
 pallet-general-tm = { package = "pallet-general-tm", path = "../general-tm", default-features = false }
 pallet-percentage-tm = { package = "pallet-percentage-tm", path = "../percentage-tm", default-features = false }
 
@@ -76,7 +77,6 @@ pallet-offences = { package = "pallet-offences", git = "https://github.com/parit
 pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-sudo = { package = "pallet-sudo", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-pallet-treasury = { package = "pallet-treasury", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-babe = { package = "pallet-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-authority-discovery = { package = "pallet-authority-discovery", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -141,7 +141,6 @@ std = [
     "pallet-staking/std",
     "pallet-sudo/std",
     "pallet-timestamp/std",
-    "pallet-treasury/std",
     "pallet-authority-discovery/std",
     "pallet-babe/std",
     "pallet-mips/std",
@@ -156,6 +155,7 @@ std = [
     "polymesh-runtime-balances/std",
     "polymesh-runtime-group/std",
     "polymesh-runtime-identity/std",
+	"polymesh-runtime-treasury/std",
     "polymesh-protocol-fee/std",
     "pallet-asset/std",
     "pallet-general-tm/std",

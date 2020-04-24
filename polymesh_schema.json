@@ -239,7 +239,12 @@
         "end": "u32",
         "url": "Option<Url>",
         "description": "Option<MipDescription>",
-        "cool_off_until": "u32"
+        "cool_off_until": "u32",
+        "beneficiaries": "Vec<Beneficiary>"
+    },
+    "Beneficiary": {
+        "id": "IdentityId",
+        "amount": "Balance"
     },
     "DepositInfo": {
         "owner": "AccountKey",
@@ -250,14 +255,14 @@
         "ayes": "Vec<(IdentityId, Balance)>",
         "nays": "Vec<(IdentityId, Balance)>"
     },
-    "MipsIndex": "u32",
+    "MipId": "u32",
     "ProposalState": {
         "_enum": [
-            "Proposed",
+            "Pending",
             "Cancelled",
             "Killed",
-            "Referendum",
-            "Rejected"
+            "Rejected",
+            "Referendum"
         ]
     },
     "ReferendumState": {
@@ -408,6 +413,12 @@
         "deactivated_at": "Moment",
         "expiry": "Option<Moment>"
     },
+    "VotingResult" : {
+        "ayes_count": "u32",
+        "ayes_stake": "Balance",
+        "nays_count": "u32",
+        "nays_stake": "Balance"
+    },    
     "ProtocolOp": {
         "_enum": [
             "AssetRegisterTicker",
@@ -455,5 +466,125 @@
             "ProposalNotFound": "Vec<u8>"
         }
     },
-    "Weight": "u32"
+    "Weight": "u32",
+    "rpc": {
+        "identity": {
+            "isIdentityHasValidCdd" : {
+                "description": "use to tell whether the given did has valid cdd claim or not",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "did",
+                        "type": "IdentityId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "buffer_time",
+                        "type": "u64",
+                        "isOptional": true
+                    }
+                ],
+                "type": "CddStatus"
+            },
+            "getAssetDid": {
+                "description": "function is used to query the given ticker DID",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "ticker",
+                        "type": "Ticker",
+                        "isOptional": false
+                    }
+                ],
+                "type": "AssetDidResult"
+            },
+            "getDidRecords": {
+                "description": "Used to get the did record values for a given DID",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "did",
+                        "type": "IdentityId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "DidRecords"
+            }
+        },
+        "mips":{
+            "getVotes": {
+                "description": "Summary of votes of a proposal given by index",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "index",
+                        "type": "u32",
+                        "isOptional": false
+                    }
+                ],
+                "type": "CappedVoteCount"
+            },
+            "proposedBy": {
+                "description": "Retrieves proposal indices started by address",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "address",
+                        "type": "AccountId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "Vec<u32>"
+            },
+            "votedOn": {
+                "description": "Retrieves proposal address indices voted on",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "address",
+                        "type": "AccountId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "Vec<u32>"
+            }
+        },
+        "staking": {
+            "getCurve": {
+                "description": "Retrieves curves parameters",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+            "type": "Vec<(Perbill, Perbill)>"
+            }
+        }
+    }
 }
