@@ -17,7 +17,7 @@ use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{balances::CheckCdd, CommonTrait};
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
-use sp_runtime::traits::{One, Zero};
+use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 pub trait Trait: multisig::Trait {
@@ -117,6 +117,12 @@ decl_error! {
         NoSuchProposal,
         /// All the blocks in the timelock block range are full.
         TimelockBlockRangeFull,
+        /// The did reached the bridge limit
+        BridgeLimitReached,
+        /// Something Overflowed
+        Overflow,
+        /// Need I say more?
+        DivisionByZero
     }
 }
 
@@ -166,7 +172,7 @@ decl_storage! {
         /// limit on bridged POLYX per identity for the testnet. (POLYX, LIMIT_REST_BLOCK)
         BridgeLimit get(fn brigde_limit) config(): (T::Balance, T::BlockNumber);
 
-        /// Amount of POLYX bridged by the identity in last limit bucket (AMOUNT_BRIDGED, BUCKET_START)
+        /// Amount of POLYX bridged by the identity in last limit bucket (AMOUNT_BRIDGED, LAST_BUCKET)
         PolyxBridged get(fn polyx_bridged): map hasher(twox_64_concat) IdentityId => (T::Balance, T::BlockNumber);
 
         /// Identity whitelist that are not limited by the bridge limit
@@ -299,6 +305,28 @@ decl_module! {
             Ok(())
         }
 
+        /// Force handle a tx (bypasses bridge limit)
+        #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
+        pub fn force_handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
+            // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+            if let Some(did) = T::CddChecker::get_key_cdd_did(&AccountKey::try_from(bridge_tx.recipient.clone().encode())?) {
+                if !Self::bridge_whitelist(did) {
+                    // Whitelist the did temporarily
+                    <BridgeLimitWhitelist>::insert(did, true);
+                    Self::handle_bridge_tx_now(bridge_tx)?;
+                    <BridgeLimitWhitelist>::insert(did, false);
+                } else {
+                    // Already whitelisted
+                    return Self::handle_bridge_tx_now(bridge_tx);
+                }
+            } else {
+                return Err(Error::<T>::NoValidCdd.into());
+            }
+            Ok(())
+        }
+
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
         /// bridge transaction if the transaction is new or approving an existing proposal if the
         /// transaction has already been proposed.
@@ -424,10 +452,27 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Issues the transacted amount to the recipient or returns a pending transaction.
     fn issue(recipient: &T::AccountId, amount: &T::Balance) -> DispatchResult {
-        ensure!(
-            T::CddChecker::check_key_cdd(&AccountKey::try_from(recipient.encode())?),
-            Error::<T>::NoValidCdd
-        );
+        if let Some(did) =
+            T::CddChecker::get_key_cdd_did(&AccountKey::try_from(recipient.encode())?)
+        {
+            if !Self::bridge_whitelist(did) {
+                let current_block_number = <system::Module<T>>::block_number();
+                let (limit, block_duration) = Self::brigde_limit();
+                ensure!(!block_duration.is_zero(), Error::<T>::DivisionByZero);
+                let current_bucket = current_block_number / block_duration;
+                let (bridged, last_bucket) = Self::polyx_bridged(did);
+                let mut total_mint = *amount;
+                if last_bucket == current_bucket {
+                    total_mint = total_mint
+                        .checked_add(&bridged)
+                        .ok_or(Error::<T>::Overflow)?;
+                }
+                ensure!(total_mint <= limit, Error::<T>::BridgeLimitReached);
+                <PolyxBridged<T>>::insert(did, (total_mint, current_bucket))
+            }
+        } else {
+            return Err(Error::<T>::NoValidCdd.into());
+        }
 
         let _pos_imbalance = <balances::Module<T>>::deposit_creating(&recipient, *amount);
 
@@ -526,27 +571,4 @@ impl<T: Trait> Module<T> {
             }
         }
     }
-
-    // /// Emits an event containing the timelocked balances of a given `IssueRecipient`.
-    // ///
-    // /// TODO: Convert this method to an RPC call.
-    // pub fn get_timelocked_balances_of_recipient(
-    //     issue_recipient: IssueRecipient<T::AccountId>,
-    // ) -> DispatchResult {
-    //     ensure!(!Self::frozen(), Error::<T>::Frozen);
-    //     let mut timelocked_balances = Vec::new();
-    //     for (n, txs) in <TimelockedTxs<T>>::enumerate() {
-    //         let sum_balance = |accum, tx: &BridgeTx<_, _>| {
-    //             if tx.recipient == issue_recipient {
-    //                 accum + tx.amount
-    //             } else {
-    //                 accum
-    //             }
-    //         };
-    //         let recipients_balance: T::Balance = txs.iter().fold(Zero::zero(), sum_balance);
-    //         timelocked_balances.push((n, recipients_balance));
-    //     }
-    //     Self::deposit_event(RawEvent::TimelockedBalancesOfRecipient(timelocked_balances));
-    //     Ok(())
-    // }
 }
