@@ -282,7 +282,7 @@
                 "Community"
             ]
         },
-        "PIP": {
+        "Pip": {
             "id": "PipId",
             "proposal":"Call",
             "state":"ProposalState"
