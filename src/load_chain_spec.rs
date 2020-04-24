@@ -1,5 +1,5 @@
-use crate chain_spec;
-
+use crate::chain_spec;
+use polymesh_runtime_testnet_v1::config::GenesisConfig;
 /// The chain specification (this should eventually be replaced by a more general JSON-based chain
 /// specification).
 #[derive(Clone, Debug)]
@@ -26,9 +26,9 @@ impl Default for ChainType {
 
 /// Get a chain config from a spec setting.
 impl ChainType {
-	pub(crate) fn load(self) -> Result<chain_spec::ChainSpec, String> {
+	pub(crate) fn load(self) -> Result<sc_service::ChainSpec<GenesisConfig>, String> {
 		match self {
-			ChainType::Development => Ok(chain_spec::general_develop_testnet_config()),
+			ChainType::Development => Ok(chain_spec::general_development_testnet_config()),
 			ChainType::Local => Ok(chain_spec::general_local_testnet_config()),
 			ChainType::Live => Ok(chain_spec::general_live_testnet_config()),
 			ChainType::V1Development => Ok(chain_spec::v1_develop_testnet_config()),
@@ -44,7 +44,7 @@ impl ChainType {
 			"live" => Some(ChainType::Live),
 			"v1-dev" => Some(ChainType::V1Development),
 			"v1-local" => Some(ChainType::V1Local),
-            "v1-live" => Some(ChainType::V1Live)
+            "v1-live" => Some(ChainType::V1Live),
 			"" => Some(ChainType::default()),
 			_ => None,
 		}
@@ -52,7 +52,7 @@ impl ChainType {
 }
 
 /// Load the `ChainType` for the given `id`.
-pub fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
+pub fn load_spec(id: &str) -> Result<Option<sc_service::ChainSpec<GenesisConfig>>, String> {
 	Ok(match ChainType::from(id) {
 		Some(spec) => Some(spec.load()?),
 		None => None,

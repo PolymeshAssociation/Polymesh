@@ -7,13 +7,12 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
 };
 use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signature};
-use polymesh_common_utilities::asset::TickerRegistrationConfig;
+use polymesh_runtime_common::asset::TickerRegistrationConfig;
 use polymesh_runtime_develop::{self as general, config as GeneralConfig, constants::time as GeneralTime};
-use polymesh_runtime_testnet_v1::{self as v1, config as V1Config, constants::time as V1Time};
+use polymesh_runtime_testnet_v1::{self as v1, config::{ self as V1Config, GenesisConfig}, constants::time as V1Time};
 use sc_service::Properties;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sc_chain_spec::ChainType;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
@@ -21,10 +20,9 @@ use sp_runtime::{
     PerThing,
 };
 
-V1Config::GenesisConfig as GenesisConfig;
-
-// TODO: Different chainspec can be used once we have new version of susbtrate
+// TODO: Different chainspec can be used once we have new version of substrate
 pub type ChainSpec = sc_service::ChainSpec<GenesisConfig>;
+//pub type GeneralChainSpec = sc_service::ChainSpec<V1Config::GenesisConfig>;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -34,7 +32,7 @@ fn v1_session_keys(
     im_online: ImOnlineId,
     authority_discovery: AuthorityDiscoveryId,
 ) -> v1::SessionKeys {
-    general::SessionKeys {
+    v1::SessionKeys {
         babe,
         grandpa,
         im_online,
@@ -116,11 +114,11 @@ fn general_testnet_genesis(
     const STASH: u128 = 30_000_000_000 * POLY; //30G Poly
 
     GenesisConfig {
-        frame_system: Some(GeneralConfig::SystemConfig {
+        frame_system: Some(V1Config::SystemConfig {
             code: general::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(GeneralConfig::AssetConfig {
+        asset: Some(V1Config::AssetConfig {
             asset_creation_fee: 250,
             ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
@@ -129,14 +127,14 @@ fn general_testnet_genesis(
             },
             fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
-        bridge: Some(GeneralConfig::BridgeConfig {
+        bridge: Some(V1Config::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
             creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
             signatures_required: 0,
             signers: vec![],
             timelock: 10,
         }),
-        identity: Some(GeneralConfig::IdentityConfig {
+        identity: Some(V1Config::IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -207,8 +205,8 @@ fn general_testnet_genesis(
             ],
             ..Default::default()
         }),
-        simple_token: Some(GeneralConfig::SimpleTokenConfig { creation_fee: 1000 }),
-        balances: Some(GeneralConfig::BalancesConfig {
+        simple_token: Some(V1Config::SimpleTokenConfig { creation_fee: 1000 }),
+        balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
                 .cloned()
@@ -216,21 +214,21 @@ fn general_testnet_genesis(
                 .collect(),
         }),
         pallet_treasury: Some(Default::default()),
-        pallet_indices: Some(GeneralConfig::IndicesConfig { indices: vec![] }),
-        pallet_sudo: Some(GeneralConfig::SudoConfig { key: root_key }),
-        pallet_session: Some(GeneralConfig::SessionConfig {
+        pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
+        pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
+        pallet_session: Some(V1Config::SessionConfig {
             keys: initial_authorities
                 .iter()
                 .map(|x| {
                     (
                         x.0.clone(),
                         x.0.clone(),
-                        general_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+                        v1_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
                     )
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking: Some(GeneralConfig::StakingConfig {
+        pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
             stakers: initial_authorities
@@ -245,14 +243,14 @@ fn general_testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_mips: Some(GeneralConfig::MipsConfig {
+        pallet_mips: Some(V1Config::MipsConfig {
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
             proposal_cool_off_period: GeneralTime::HOURS * 6,
             default_enactment_period: GeneralTime::DAYS * 7,
         }),
-        pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
+        pallet_im_online: Some(V1Config::ImOnlineConfig {
             slashing_params: general::OfflineSlashingParams {
                 max_offline_percent: 10u32,
                 constant: 3u32,
@@ -263,18 +261,18 @@ fn general_testnet_genesis(
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(Default::default()),
-        pallet_contracts: Some(GeneralConfig::ContractsConfig {
+        pallet_contracts: Some(V1Config::ContractsConfig {
             current_schedule: contracts::Schedule {
                 enable_println, // this should only be enabled on development chains
                 ..Default::default()
             },
             gas_price: 1 * MILLICENTS,
         }),
-        group_Instance1: Some(general::runtime::CommitteeMembershipConfig {
+        group_Instance1: Some(v1::runtime::CommitteeMembershipConfig {
             active_members: vec![],
             phantom: Default::default(),
         }),
-        committee_Instance1: Some(GeneralConfig::PolymeshCommitteeConfig {
+        committee_Instance1: Some(V1Config::PolymeshCommitteeConfig {
             vote_threshold: (1, 2),
             members: vec![
                 IdentityId::from(3),
@@ -283,7 +281,7 @@ fn general_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        group_Instance2: Some(general::runtime::CddServiceProvidersConfig {
+        group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
             // sp1, sp2, alice
             active_members: vec![
                 IdentityId::from(1),
@@ -292,7 +290,7 @@ fn general_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        protocol_fee: Some(GeneralConfig::ProtocolFeeConfig {
+        protocol_fee: Some(V1Config::ProtocolFeeConfig {
             base_fees: vec![
                 (ProtocolOp::AssetCreateToken, 10_000 * 1_000_000),
                 (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
@@ -320,7 +318,6 @@ pub fn general_development_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
 		"Development",
 		"dev",
-		ChainType::Development,
 		general_development_genesis,
 		vec![],
 		None,
@@ -354,7 +351,6 @@ pub fn general_local_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
 		"Local Testnet",
         "local_testnet",
-		ChainType::Local,
 		general_local_genesis,
 		vec![],
 		None,
@@ -394,7 +390,6 @@ pub fn general_live_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
 		"Live Testnet",
         "live-testnet",
-		ChainType::Live,
 		general_live_genesis,
 		vec![],
 		None,
@@ -414,7 +409,13 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         BabeId,
         ImOnlineId,
         AuthorityDiscoveryId,
-    )> = vec![()];
+    )> = vec![
+            get_authority_keys_from_seed("operator_1"),
+            get_authority_keys_from_seed("operator_2"),
+            get_authority_keys_from_seed("operator_3"),
+            get_authority_keys_from_seed("operator_4"),
+            get_authority_keys_from_seed("operator_5"),
+        ];
     let root_key: AccountId;
     // Need endowed accounts address
     let endowed_accounts: Vec<AccountId> = vec![];
@@ -521,11 +522,10 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         }),
         simple_token: Some(V1Config::SimpleTokenConfig { creation_fee: 1000 }),
         balances: Some(V1Config::BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .cloned()
-                .map(|k| (k, 1 << 55))
-                .collect(),
+            balances: endowed_accounts.iter()
+				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
+				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
+				.collect(),
         }),
         pallet_treasury: Some(Default::default()),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
@@ -613,13 +613,12 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
     }
 }
 
-fn v1_live_testnet_config() -> ChainSpec {
+pub fn v1_live_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
 		"Polymesh Live V1 Testnet",
         "live-testnet",
-		ChainType::Live,
 		v1_live_testnet_genesis,
 		boot_nodes,
 		None, // TODO: Need to provide telemetry URL where every validator telemetry can be seen
@@ -648,7 +647,6 @@ pub fn v1_develop_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
 		"Polymesh Develop V1 Testnet",
         "development-testnet",
-		ChainType::Development,
 		v1_develop_testnet_genesis,
 		boot_nodes,
 		None,
@@ -684,7 +682,6 @@ pub fn v1_local_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
 		"Polymesh Local V1 Testnet",
         "local-testnet",
-		ChainType::Local,
 		v1_local_testnet_genesis,
 		boot_nodes,
 		None,
