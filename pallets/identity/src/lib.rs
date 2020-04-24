@@ -39,11 +39,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use polymesh_primitives::{
-    AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,
-    PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
-};
 use polymesh_common_utilities::{
     constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -56,6 +51,11 @@ use polymesh_common_utilities::{
         multisig::AddSignerMultiSig,
     },
     Context, SystematicIssuers,
+};
+use polymesh_primitives::{
+    AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,
+    PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 
 use codec::{Decode, Encode};

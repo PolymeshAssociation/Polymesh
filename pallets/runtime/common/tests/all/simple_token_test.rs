@@ -5,9 +5,9 @@ use super::{
 use frame_support::{assert_err, assert_ok};
 use test_client::{self, AccountKeyring};
 
+use polymesh_common_utilities::constants::currency::MAX_SUPPLY;
 use polymesh_primitives::Ticker;
 use polymesh_runtime_common::simple_token::{self, SimpleTokenRecord};
-use polymesh_common_utilities::constants::currency::MAX_SUPPLY;
 
 use std::convert::TryFrom;
 

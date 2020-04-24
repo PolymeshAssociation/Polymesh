@@ -2,10 +2,10 @@ use super::{
     storage::{make_account, make_account_with_balance, EventTest, TestStorage},
     ExtBuilder,
 };
-use polymesh_runtime_develop::{runtime, Runtime};
 use pallet_balances as balances;
-use polymesh_common_utilities::traits::balances::{Memo, RawEvent as BalancesRawEvent};
 use pallet_identity as identity;
+use polymesh_common_utilities::traits::balances::{Memo, RawEvent as BalancesRawEvent};
+use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{
     assert_err, assert_ok,

@@ -22,29 +22,29 @@ use frame_support::{
     traits::{Currency, Get, OnUnbalanced},
     weights::Weight,
 };
+use frame_system as system;
+use pallet_authorship as authorship;
+use pallet_balances as balances;
 use polymesh_primitives::Balance;
 use sp_runtime::{
     traits::{Convert, Saturating},
     Fixed64, Perbill,
 };
-use pallet_authorship as authorship;
-use pallet_balances as balances;
-use frame_system as system;
 
 pub struct Author<R>(sp_std::marker::PhantomData<R>);
 
 impl<R> OnUnbalanced<NegativeImbalance<R>> for Author<R>
 where
-	R: balances::Trait + authorship::Trait,
-	<R as system::Trait>::AccountId: From<polymesh_primitives::AccountId>,
-	<R as system::Trait>::AccountId: Into<polymesh_primitives::AccountId>,
+    R: balances::Trait + authorship::Trait,
+    <R as system::Trait>::AccountId: From<polymesh_primitives::AccountId>,
+    <R as system::Trait>::AccountId: Into<polymesh_primitives::AccountId>,
 {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
-		// let numeric_amount = amount.peek();
-		// let author = <authorship::Module<R>>::author();
-		<balances::Module<R>>::resolve_creating(&<authorship::Module<R>>::author(), amount);
-		//<system::Module<R>>::deposit_event(balances::RawEvent::Deposit(author, numeric_amount));
-	}
+    fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+        // let numeric_amount = amount.peek();
+        // let author = <authorship::Module<R>>::author();
+        <balances::Module<R>>::resolve_creating(&<authorship::Module<R>>::author(), amount);
+        //<system::Module<R>>::deposit_event(balances::RawEvent::Deposit(author, numeric_amount));
+    }
 }
 
 /// Struct that handles the conversion of Balance -> `u128`. This is used for staking's election
@@ -53,19 +53,19 @@ pub struct CurrencyToVoteHandler<R>(sp_std::marker::PhantomData<R>);
 
 impl<R> CurrencyToVoteHandler<R>
 where
-	R: balances::Trait,
-	R::Balance: Into<Balance>,
+    R: balances::Trait,
+    R::Balance: Into<Balance>,
 {
-	fn factor() -> Balance {
-		let issuance: Balance = <balances::Module<R>>::total_issuance().into();
-		(issuance / u64::max_value() as Balance).max(1)
-	}
+    fn factor() -> Balance {
+        let issuance: Balance = <balances::Module<R>>::total_issuance().into();
+        (issuance / u64::max_value() as Balance).max(1)
+    }
 }
 
 impl<R> Convert<Balance, u64> for CurrencyToVoteHandler<R>
 where
-	R: balances::Trait,
-	R::Balance: Into<Balance>,
+    R: balances::Trait,
+    R::Balance: Into<Balance>,
 {
     fn convert(x: Balance) -> u64 {
         (x / Self::factor()) as u64
@@ -74,8 +74,8 @@ where
 
 impl<R> Convert<u128, Balance> for CurrencyToVoteHandler<R>
 where
-	R: balances::Trait,
-	R::Balance: Into<Balance>,
+    R: balances::Trait,
+    R::Balance: Into<Balance>,
 {
     fn convert(x: u128) -> Balance {
         x * Self::factor()
@@ -151,11 +151,12 @@ impl<T: Get<Perbill>, R: system::Trait> Convert<Fixed64, Fixed64> for TargetedFe
 // #[ignore]
 mod tests {
     use super::*;
-    use polymesh_runtime_develop::{runtime::{TargetBlockFullness, TransactionPayment, System}, Runtime};
-    use crate::{
-        AvailableBlockRatio, MaximumBlockWeight
-    };
+    use crate::{AvailableBlockRatio, MaximumBlockWeight};
     use polymesh_common_utilities::constants::currency::{CENTS, DOLLARS, MILLICENTS};
+    use polymesh_runtime_develop::{
+        runtime::{System, TargetBlockFullness, TransactionPayment},
+        Runtime,
+    };
 
     use frame_support::weights::Weight;
     use sp_runtime::assert_eq_error_rate;
@@ -347,7 +348,9 @@ mod tests {
             );
             // ...
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(1_000_000_000)),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(
+                    1_000_000_000
+                )),
                 feemul(1_000_000_000 + 10000)
             );
         });
@@ -370,7 +373,9 @@ mod tests {
             );
             // ...
             assert_eq!(
-                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(1_000_000_000 * -1)),
+                TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(feemul(
+                    1_000_000_000 * -1
+                )),
                 feemul(-1_000_000_000)
             );
         })
@@ -399,8 +404,9 @@ mod tests {
         .into_iter()
         .for_each(|i| {
             run_with_system_weight(i, || {
-                let next =
-                    TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(Fixed64::default());
+                let next = TargetedFeeAdjustment::<TargetBlockFullness, Runtime>::convert(
+                    Fixed64::default(),
+                );
                 let truth = fee_multiplier_update(i, Fixed64::default());
                 assert_eq_error_rate!(truth.into_inner(), next.into_inner(), 5);
             });

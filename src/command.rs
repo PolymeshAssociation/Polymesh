@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::load_chain_spec::load_spec;
 use crate::cli::{Cli, Subcommand};
+use crate::load_chain_spec::load_spec;
 use crate::service;
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_runtime::runtime;
@@ -36,7 +36,7 @@ where
         Some(Subcommand::Base(subcommand)) => {
             subcommand.init(&version)?;
             subcommand.update_config(&mut config, load_spec, &version)?;
-            
+
             subcommand.run(config, |config: _| Ok(new_full_start!(config).0))
         }
         #[cfg(feature = "runtime-benchmarks")]

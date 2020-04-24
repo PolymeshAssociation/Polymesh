@@ -1,34 +1,30 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{
-    fee_details::CddHandler,
     constants::{fee::*, time::*},
+    fee_details::CddHandler,
 };
 use polymesh_runtime_common::{
     asset, bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption,
-    general_tm,
+    contracts_wrapper, dividend, exemption, general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    percentage_tm, simple_token, statistics, sto_capped, voting,
-    NegativeImbalance, BlockHashCount, MaximumBlockWeight, AvailableBlockRatio,
-	MaximumBlockLength,
+    percentage_tm, simple_token, statistics, sto_capped, voting, AvailableBlockRatio,
+    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
+use pallet_balances as balances;
 use pallet_committee as committee;
+use pallet_group as group;
+use pallet_identity as identity;
+use pallet_multisig as multisig;
+use pallet_protocol_fee as protocol_fee;
+use polymesh_common_utilities::{
+    constants::currency::*, traits::balances::AccountData, CommonTrait,
+};
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
     Signature, SigningItem, Ticker,
 };
-use pallet_protocol_fee as protocol_fee;
-use pallet_balances as balances;
-use polymesh_common_utilities::{
-    constants::currency::*,
-    traits::balances::AccountData,
-    CommonTrait,
-};
-use pallet_group as group;
-use pallet_identity as identity;
-use pallet_multisig as multisig;
 
 use frame_support::{
     construct_runtime, parameter_types,
@@ -42,10 +38,7 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
 };
 use sp_runtime::{
-    traits::{
-        BlakeTwo256, Block as BlockT, OpaqueKeys, StaticLookup,
-        Verify,
-    },
+    traits::{BlakeTwo256, Block as BlockT, OpaqueKeys, StaticLookup, Verify},
     MultiSignature,
 };
 use sp_std::prelude::*;
@@ -54,9 +47,9 @@ use sp_version::RuntimeVersion;
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
+use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};

@@ -9,8 +9,8 @@ use frame_system::ensure_signed;
 use polymesh_common_utilities::traits::CommonTrait;
 use test_client::{self, AccountKeyring};
 
-use polymesh_primitives::Ticker;
 use pallet_balances as balances;
+use polymesh_primitives::Ticker;
 
 use polymesh_runtime_common::{
     asset::{self, AssetType, SecurityToken},

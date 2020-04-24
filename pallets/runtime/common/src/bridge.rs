@@ -12,9 +12,9 @@ use frame_support::{
     weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_signed};
-use pallet_multisig as multisig;
 use pallet_balances as balances;
 use pallet_identity as identity;
+use pallet_multisig as multisig;
 use polymesh_common_utilities::traits::CommonTrait;
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
 use sp_core::H256;

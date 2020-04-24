@@ -16,24 +16,24 @@ pub use pallet_im_online::OfflineSlashingParams;
 pub use runtime::{native_version, WASM_BINARY};
 
 pub use runtime::{
-    api, Asset, Authorship, Balances, Bridge, Contracts,
-    ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, TargetBlockFullness,
-    TransactionPayment,
+    api, Asset, Authorship, Balances, Bridge, Contracts, ProtocolFee, Runtime, RuntimeApi,
+    SessionKeys, System, TargetBlockFullness, TransactionPayment,
 };
 
 #[cfg(feature = "std")]
 pub mod config {
 
-    use pallet_committee as committee;
-    use pallet_protocol_fee as protocol_fee;
     use pallet_balances as balances;
+    use pallet_committee as committee;
     use pallet_identity as identity;
+    use pallet_protocol_fee as protocol_fee;
 
     pub type AssetConfig = polymesh_runtime_common::asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
     pub type BridgeConfig = polymesh_runtime_common::bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
-    pub type SimpleTokenConfig = polymesh_runtime_common::simple_token::GenesisConfig<crate::Runtime>;
+    pub type SimpleTokenConfig =
+        polymesh_runtime_common::simple_token::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type PolymeshCommitteeConfig =
         committee::GenesisConfig<crate::Runtime, committee::Instance1>;

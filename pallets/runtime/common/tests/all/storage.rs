@@ -1,25 +1,25 @@
-use polymesh_runtime_common::{
-    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, percentage_tm,
-    simple_token, statistics, voting,
-};
-use pallet_multisig as multisig;
 use codec::Encode;
 use frame_support::{
     assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
     parameter_types, traits::Currency, weights::DispatchInfo,
 };
 use frame_system::{self as system};
-use pallet_committee as committee;
-use pallet_mips as mips;
-use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
-use pallet_protocol_fee as protocol_fee;
 use pallet_balances as balances;
+use pallet_committee as committee;
+use pallet_group as group;
+use pallet_identity as identity;
+use pallet_mips as mips;
+use pallet_multisig as multisig;
+use pallet_protocol_fee as protocol_fee;
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait, multisig::AddSignerMultiSig,
     CommonTrait,
 };
-use pallet_group as group;
-use pallet_identity as identity;
+use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
+use polymesh_runtime_common::{
+    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, percentage_tm,
+    simple_token, statistics, voting,
+};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},

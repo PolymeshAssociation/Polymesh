@@ -1,13 +1,13 @@
 use crate::TestStorage;
 
-use pallet_committee as committee;
-use pallet_mips as mips;
-use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
-use polymesh_runtime_common::asset::{self, TickerRegistrationConfig};
 use pallet_balances as balances;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
+use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
+use pallet_mips as mips;
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
+use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
+use polymesh_runtime_common::asset::{self, TickerRegistrationConfig};
 
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;

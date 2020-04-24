@@ -1,6 +1,5 @@
-
-use pallet_multisig as multisig;
 use pallet_identity as identity;
+use pallet_multisig as multisig;
 use polymesh_common_utilities::traits::balances::CheckCdd;
 use polymesh_primitives::AccountKey;
 

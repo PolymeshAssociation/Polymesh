@@ -33,13 +33,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use pallet_identity as identity;
-use polymesh_common_utilities::{
-    identity::{LinkedKeyInfo, Trait as IdentityTrait}, multisig::AddSignerMultiSig, Context,
-};
-use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signatory,
-};
 use codec::{Decode, Encode, Error as CodecError};
 use core::convert::{From, TryInto};
 use frame_support::{
@@ -50,7 +43,16 @@ use frame_support::{
     StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_identity as identity;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
+use polymesh_common_utilities::{
+    identity::{LinkedKeyInfo, Trait as IdentityTrait},
+    multisig::AddSignerMultiSig,
+    Context,
+};
+use polymesh_primitives::{
+    AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signatory,
+};
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, prelude::*};
 

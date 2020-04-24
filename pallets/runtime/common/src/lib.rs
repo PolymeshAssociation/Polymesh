@@ -19,23 +19,21 @@ pub mod voting;
 pub use cdd_check::CddChecker;
 pub use sp_runtime::{Perbill, Permill};
 
+use frame_support::{parameter_types, traits::Currency, weights::Weight};
+use frame_system::{self as system};
 use pallet_balances as balances;
 use polymesh_primitives::BlockNumber;
-use frame_support::{
-	parameter_types, traits::Currency,
-	weights::Weight,
-};
-use frame_system::{self as system};
 
-pub use impls::{CurrencyToVoteHandler, TargetedFeeAdjustment, Author};
+pub use impls::{Author, CurrencyToVoteHandler, TargetedFeeAdjustment};
 
-pub type NegativeImbalance<T> = <balances::Module<T> as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+pub type NegativeImbalance<T> =
+    <balances::Module<T> as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 parameter_types! {
-	pub const BlockHashCount: BlockNumber = 250;
-	pub const MaximumBlockWeight: Weight = 1_000_000_000;
-	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
+    pub const BlockHashCount: BlockNumber = 250;
+    pub const MaximumBlockWeight: Weight = 1_000_000_000;
+    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

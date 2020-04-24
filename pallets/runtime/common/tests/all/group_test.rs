@@ -2,9 +2,9 @@ use super::{
     storage::{get_identity_id, make_account, register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use polymesh_primitives::IdentityId;
-use polymesh_common_utilities::traits::group::GroupTrait;
 use pallet_group::{self as group};
+use polymesh_common_utilities::traits::group::GroupTrait;
+use polymesh_primitives::IdentityId;
 
 use frame_support::{assert_err, assert_noop, assert_ok};
 use test_client::AccountKeyring;

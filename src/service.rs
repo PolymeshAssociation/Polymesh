@@ -3,32 +3,37 @@
 use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
-use polymesh_primitives::{ Block, Balance, Index as Nonce, AccountId, Hash, BlockNumber, IdentityId, Ticker, AccountKey, SigningItem};
+use polymesh_primitives::{
+    AccountId, AccountKey, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce,
+    SigningItem, Ticker,
+};
 use polymesh_runtime_develop;
 use polymesh_runtime_testnet_v1;
-use sc_client::{self, LongestChain, Client};
+use prometheus_endpoint::Registry;
+pub use sc_client::CallExecutor;
+use sc_client::{self, Client, LongestChain};
+pub use sc_client_api::backend::Backend;
 use sc_consensus_babe;
 use sc_executor::native_executor_instance;
+pub use sc_executor::NativeExecutionDispatch;
 pub use sc_executor::NativeExecutor;
 pub use sc_service::{
-    error::Error as ServiceError, AbstractService, ServiceBuilder,
-    Roles, PruningMode, TransactionPoolOptions, Error, RuntimeGenesis, ServiceBuilderCommand,
-	TFullClient, TLightClient, TFullBackend, TLightBackend, TFullCallExecutor, TLightCallExecutor,
-    config::{DatabaseConfig, PrometheusConfig, full_version_from_strs},
+    config::{full_version_from_strs, DatabaseConfig, PrometheusConfig},
+    error::Error as ServiceError,
+    AbstractService, Error, PruningMode, Roles, RuntimeGenesis, ServiceBuilder,
+    ServiceBuilderCommand, TFullBackend, TFullCallExecutor, TFullClient, TLightBackend,
+    TLightCallExecutor, TLightClient, TransactionPoolOptions,
 };
-pub use sp_api::{Core as CoreApi, ConstructRuntimeApi, ProvideRuntimeApi, StateBackend};
-pub use sc_executor::NativeExecutionDispatch;
-pub use sc_client::CallExecutor;
-pub use sc_client_api::backend::Backend;
+pub use sp_api::{ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi, StateBackend};
 pub use sp_consensus::SelectChain;
 use sp_inherents::InherentDataProviders;
-use std::sync::Arc;
-use prometheus_endpoint::Registry;
 pub use sp_runtime::traits::BlakeTwo256;
+use std::sync::Arc;
 //pub use chain_spec::ChainSpec;
 pub use codec::Codec;
 
-pub type Configuration = sc_service::Configuration<polymesh_runtime_testnet_v1::config::GenesisConfig>;
+pub type Configuration =
+    sc_service::Configuration<polymesh_runtime_testnet_v1::config::GenesisConfig>;
 
 // Our native executor instance.
 native_executor_instance!(
@@ -46,68 +51,66 @@ native_executor_instance!(
     frame_benchmarking::benchmarking::HostFunctions,
 );
 
-
 /// A set of APIs that polkadot-like runtimes must implement.
-pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static> :
-	sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-	+ sp_api::ApiExt<Block, Error = sp_blockchain::Error>
-	+ sp_consensus_babe::BabeApi<Block>
-	+ sp_block_builder::BlockBuilder<Block>
-	+ frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
-	+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance, Extrinsic>
-	+ sp_api::Metadata<Block>
+pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
+    sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
+    + sp_api::ApiExt<Block, Error = sp_blockchain::Error>
+    + sp_consensus_babe::BabeApi<Block>
+    + sp_block_builder::BlockBuilder<Block>
+    + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
+    + pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance, Extrinsic>
+    + sp_api::Metadata<Block>
     + sp_offchain::OffchainWorkerApi<Block>
-	+ sp_session::SessionKeys<Block>
-	+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
+    + sp_session::SessionKeys<Block>
+    + sp_authority_discovery::AuthorityDiscoveryApi<Block>
     + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
     + pallet_staking_rpc_runtime_api::StakingApi<Block>
     + pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance>
-    + pallet_identity_rpc_runtime_api::IdentityApi<
+    + pallet_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker, AccountKey, SigningItem>
+where
+    Extrinsic: RuntimeExtrinsic,
+    <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
+{
+}
+
+impl<Api, Extrinsic> RuntimeApiCollection<Extrinsic> for Api
+where
+    Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
+        + sp_api::ApiExt<Block, Error = sp_blockchain::Error>
+        + sp_consensus_babe::BabeApi<Block>
+        + sp_block_builder::BlockBuilder<Block>
+        + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
+        + pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance, Extrinsic>
+        + sp_api::Metadata<Block>
+        + sp_offchain::OffchainWorkerApi<Block>
+        + sp_session::SessionKeys<Block>
+        + sp_authority_discovery::AuthorityDiscoveryApi<Block>
+        + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
+        + pallet_staking_rpc_runtime_api::StakingApi<Block>
+        + pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance>
+        + pallet_identity_rpc_runtime_api::IdentityApi<
             Block,
             IdentityId,
             Ticker,
             AccountKey,
             SigningItem,
-        > 
-where
-	Extrinsic: RuntimeExtrinsic,
-	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
-{}
+        >,
+    Extrinsic: RuntimeExtrinsic,
+    <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
+{
+}
 
-impl<Api, Extrinsic> RuntimeApiCollection<Extrinsic> for Api
-where
-	Api:
-	sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-	+ sp_api::ApiExt<Block, Error = sp_blockchain::Error>
-	+ sp_consensus_babe::BabeApi<Block>
-	+ sp_block_builder::BlockBuilder<Block>
-	+ frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
-	+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance, Extrinsic>
-	+ sp_api::Metadata<Block>
-    + sp_offchain::OffchainWorkerApi<Block>
-	+ sp_session::SessionKeys<Block>
-	+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
-    + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
-    + pallet_staking_rpc_runtime_api::StakingApi<Block>
-    + pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance>
-    + pallet_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker, AccountKey, SigningItem>, 
-	Extrinsic: RuntimeExtrinsic,
-	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
-{}
+pub trait RuntimeExtrinsic: codec::Codec + Send + Sync + 'static {}
 
-pub trait RuntimeExtrinsic: codec::Codec + Send + Sync + 'static
-{}
-
-impl<E> RuntimeExtrinsic for E where E: codec::Codec + Send + Sync + 'static
-{}
+impl<E> RuntimeExtrinsic for E where E: codec::Codec + Send + Sync + 'static {}
 
 // Using prometheus, use a registry with a prefix of `polymesh`.
 fn set_prometheus_registry(config: &mut Configuration) -> Result<(), ServiceError> {
-	if let Some(PrometheusConfig { registry, .. }) = config.prometheus_config.as_mut() {
-		*registry = Registry::new_custom(Some("polymesh".into()), None)?;
-	}
+    if let Some(PrometheusConfig { registry, .. }) = config.prometheus_config.as_mut() {
+        *registry = Registry::new_custom(Some("polymesh".into()), None)?;
+    }
 
-	Ok(())
+    Ok(())
 }
 
 /// Starts a `ServiceBuilder` for a full service.
@@ -124,7 +127,11 @@ macro_rules! new_full_start {
         let mut import_setup = None;
         let inherent_data_providers = sp_inherents::InherentDataProviders::new();
 
-        let builder = sc_service::ServiceBuilder::new_full::<polymesh_primitives::Block, $runtime, $executor,>($config)?
+        let builder = sc_service::ServiceBuilder::new_full::<
+            polymesh_primitives::Block,
+            $runtime,
+            $executor,
+        >($config)?
         .with_select_chain(|_config, backend| Ok(sc_client::LongestChain::new(backend.clone())))?
         .with_transaction_pool(|config, client, _fetcher| {
             let pool_api = sc_transaction_pool::FullChainApi::new(client.clone());
@@ -162,10 +169,10 @@ macro_rules! new_full_start {
         })?
         .with_rpc_extensions(|builder| -> Result<RpcExtension, _> {
             use contracts_rpc::{Contracts, ContractsApi};
+            use pallet_identity_rpc::{Identity, IdentityApi};
             use pallet_mips_rpc::{Mips, MipsApi};
             use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-            use pallet_identity_rpc::{Identity, IdentityApi};
             // register contracts RPC extension
             let mut io = jsonrpc_core::IoHandler::default();
             io.extend_with(ContractsApi::to_delegate(Contracts::new(
@@ -191,22 +198,27 @@ macro_rules! new_full_start {
 /// Builds a new service for a full client.
 pub fn new_full<Runtime, Dispatch, Extrinsic>(
     config: Configuration,
-) -> Result<impl AbstractService<
-    Block = Block,
-    RuntimeApi = Runtime,
-    Backend = TFullBackend<Block>,
-    SelectChain = LongestChain<TFullBackend<Block>, Block>,
-    CallExecutor = TFullCallExecutor<Block, Dispatch>,
->, ServiceError> 
+) -> Result<
+    impl AbstractService<
+        Block = Block,
+        RuntimeApi = Runtime,
+        Backend = TFullBackend<Block>,
+        SelectChain = LongestChain<TFullBackend<Block>, Block>,
+        CallExecutor = TFullCallExecutor<Block, Dispatch>,
+    >,
+    ServiceError,
+>
 where
-		Runtime: ConstructRuntimeApi<Block, TFullClient<Block, Runtime, Dispatch>> + Send + Sync + 'static,
-		Runtime::RuntimeApi:
-			RuntimeApiCollection<Extrinsic, StateBackend = sc_client_api::StateBackendFor<TFullBackend<Block>, Block>>,
-		Dispatch: NativeExecutionDispatch + 'static,
-		Extrinsic: RuntimeExtrinsic,
-		// Rust bug: https://github.com/rust-lang/rust/issues/24159
-		<Runtime::RuntimeApi as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
-
+    Runtime:
+        ConstructRuntimeApi<Block, TFullClient<Block, Runtime, Dispatch>> + Send + Sync + 'static,
+    Runtime::RuntimeApi: RuntimeApiCollection<
+        Extrinsic,
+        StateBackend = sc_client_api::StateBackendFor<TFullBackend<Block>, Block>,
+    >,
+    Dispatch: NativeExecutionDispatch + 'static,
+    Extrinsic: RuntimeExtrinsic,
+    // Rust bug: https://github.com/rust-lang/rust/issues/24159
+    <Runtime::RuntimeApi as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
     use futures::prelude::*;
     use sc_client_api::ExecutorProvider;
@@ -223,7 +235,8 @@ where
     // never actively participate in any consensus process.
     let participates_in_consensus = is_authority && !config.sentry_mode;
 
-    let (builder, mut import_setup, inherent_data_providers) = new_full_start!(config, Runtime, Dispatch);
+    let (builder, mut import_setup, inherent_data_providers) =
+        new_full_start!(config, Runtime, Dispatch);
 
     let service = builder
         .with_finality_proof_provider(|client, backend| {
@@ -335,47 +348,44 @@ where
     Ok(service)
 }
 
-
-pub type TLocalLightClient<Runtime, Dispatch> =  Client<
-	sc_client::light::backend::Backend<sc_client_db::light::LightStorage<Block>, BlakeTwo256>,
-	sc_client::light::call_executor::GenesisCallExecutor<
-		sc_client::light::backend::Backend<sc_client_db::light::LightStorage<Block>, BlakeTwo256>,
-		sc_client::LocalCallExecutor<
-			sc_client::light::backend::Backend<
-				sc_client_db::light::LightStorage<Block>,
-				BlakeTwo256
-			>,
-			sc_executor::NativeExecutor<Dispatch>
-		>
-	>,
-	Block,
-	Runtime
+pub type TLocalLightClient<Runtime, Dispatch> = Client<
+    sc_client::light::backend::Backend<sc_client_db::light::LightStorage<Block>, BlakeTwo256>,
+    sc_client::light::call_executor::GenesisCallExecutor<
+        sc_client::light::backend::Backend<sc_client_db::light::LightStorage<Block>, BlakeTwo256>,
+        sc_client::LocalCallExecutor<
+            sc_client::light::backend::Backend<
+                sc_client_db::light::LightStorage<Block>,
+                BlakeTwo256,
+            >,
+            sc_executor::NativeExecutor<Dispatch>,
+        >,
+    >,
+    Block,
+    Runtime,
 >;
-
 
 /// Builds a new service for a light client.
 pub fn new_light<Runtime, Dispatch, Extrinsic>(
     config: Configuration,
-) -> Result<impl AbstractService<
-    Block = Block,
-    RuntimeApi = Runtime,
-    Backend = TLightBackend<Block>,
-    SelectChain = LongestChain<TLightBackend<Block>, Block>,
-    CallExecutor = TLightCallExecutor<Block, Dispatch>,
->, ServiceError> 
+) -> Result<
+    impl AbstractService<
+        Block = Block,
+        RuntimeApi = Runtime,
+        Backend = TLightBackend<Block>,
+        SelectChain = LongestChain<TLightBackend<Block>, Block>,
+        CallExecutor = TLightCallExecutor<Block, Dispatch>,
+    >,
+    ServiceError,
+>
 where
-	Runtime: Send + Sync + 'static,
-	Runtime::RuntimeApi: RuntimeApiCollection<
-		Extrinsic,
-		StateBackend = sc_client_api::StateBackendFor<TLightBackend<Block>, Block>
-	>,
-	Dispatch: NativeExecutionDispatch + 'static,
-	Extrinsic: RuntimeExtrinsic,
-	Runtime: sp_api::ConstructRuntimeApi<
-		Block,
-		TLocalLightClient<Runtime, Dispatch>,
-	>,
-
+    Runtime: Send + Sync + 'static,
+    Runtime::RuntimeApi: RuntimeApiCollection<
+        Extrinsic,
+        StateBackend = sc_client_api::StateBackendFor<TLightBackend<Block>, Block>,
+    >,
+    Dispatch: NativeExecutionDispatch + 'static,
+    Extrinsic: RuntimeExtrinsic,
+    Runtime: sp_api::ConstructRuntimeApi<Block, TLocalLightClient<Runtime, Dispatch>>,
 {
     set_prometheus_registry(&mut config)?;
 

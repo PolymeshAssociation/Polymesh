@@ -4,11 +4,11 @@ use super::{
     ExtBuilder,
 };
 
-use polymesh_primitives::{AccountKey, Signatory};
-use pallet_multisig as multisig;
 use pallet_balances as balances;
-use polymesh_common_utilities::Context;
 use pallet_identity as identity;
+use pallet_multisig as multisig;
+use polymesh_common_utilities::Context;
+use polymesh_primitives::{AccountKey, Signatory};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};

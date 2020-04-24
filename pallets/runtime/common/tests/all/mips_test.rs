@@ -4,13 +4,13 @@ use super::{
 };
 use frame_support::{assert_err, assert_ok};
 use frame_system;
+use pallet_balances as balances;
 use pallet_committee as committee;
+use pallet_group as group;
 use pallet_mips::{
     self as mips, DepositInfo, Error, MipDescription, MipsMetadata, PolymeshVotes, ProposalState,
     Referendum, ReferendumState, ReferendumType, Url,
 };
-use pallet_balances as balances;
-use pallet_group as group;
 use test_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;

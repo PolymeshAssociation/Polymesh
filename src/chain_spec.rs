@@ -1,15 +1,19 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_common_utilities::{
-    constants:: {
-        currency::{MILLICENTS, POLY}
-    },
+    constants::currency::{MILLICENTS, POLY},
     protocol_fee::ProtocolOp,
 };
 use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signature};
 use polymesh_runtime_common::asset::TickerRegistrationConfig;
-use polymesh_runtime_develop::{self as general, config as GeneralConfig, constants::time as GeneralTime};
-use polymesh_runtime_testnet_v1::{self as v1, config::{ self as V1Config, GenesisConfig}, constants::time as V1Time};
+use polymesh_runtime_develop::{
+    self as general, config as GeneralConfig, constants::time as GeneralTime,
+};
+use polymesh_runtime_testnet_v1::{
+    self as v1,
+    config::{self as V1Config, GenesisConfig},
+    constants::time as V1Time,
+};
 use sc_service::Properties;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -110,7 +114,6 @@ fn general_testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GenesisConfig {
-
     const STASH: u128 = 30_000_000_000 * POLY; //30G Poly
 
     GenesisConfig {
@@ -233,13 +236,20 @@ fn general_testnet_genesis(
             validator_count: 2,
             stakers: initial_authorities
                 .iter()
-                .map(|x| (x.0.clone(), x.1.clone(), STASH, general::StakerStatus::Validator))
+                .map(|x| {
+                    (
+                        x.0.clone(),
+                        x.1.clone(),
+                        STASH,
+                        general::StakerStatus::Validator,
+                    )
+                })
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: general::Perbill::from_percent(10),
-            validator_commission: general::Commission::Global(PerThing::from_rational_approximation(
-                1u64, 4u64,
-            )),
+            validator_commission: general::Commission::Global(
+                PerThing::from_rational_approximation(1u64, 4u64),
+            ),
             min_bond_threshold: 0,
             ..Default::default()
         }),
@@ -313,18 +323,17 @@ fn general_development_genesis() -> GenesisConfig {
     )
 }
 
-
 pub fn general_development_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-		"Development",
-		"dev",
-		general_development_genesis,
-		vec![],
-		None,
+        "Development",
+        "dev",
+        general_development_genesis,
+        vec![],
         None,
-		Some(polymath_props()),
         None,
-	)
+        Some(polymath_props()),
+        None,
+    )
 }
 
 fn general_local_genesis() -> GenesisConfig {
@@ -349,15 +358,15 @@ fn general_local_genesis() -> GenesisConfig {
 
 pub fn general_local_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-		"Local Testnet",
+        "Local Testnet",
         "local_testnet",
-		general_local_genesis,
-		vec![],
-		None,
+        general_local_genesis,
+        vec![],
         None,
-		Some(polymath_props()),
         None,
-	)
+        Some(polymath_props()),
+        None,
+    )
 }
 
 fn general_live_genesis() -> GenesisConfig {
@@ -388,19 +397,18 @@ fn general_live_genesis() -> GenesisConfig {
 
 pub fn general_live_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-		"Live Testnet",
+        "Live Testnet",
         "live-testnet",
-		general_live_genesis,
-		vec![],
-		None,
+        general_live_genesis,
+        vec![],
         None,
-		Some(polymath_props()),
         None,
-	)
+        Some(polymath_props()),
+        None,
+    )
 }
 
 fn v1_live_testnet_genesis() -> GenesisConfig {
-
     // Need to provide authorities
     let initial_authorities: Vec<(
         AccountId,
@@ -410,12 +418,12 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         ImOnlineId,
         AuthorityDiscoveryId,
     )> = vec![
-            get_authority_keys_from_seed("operator_1"),
-            get_authority_keys_from_seed("operator_2"),
-            get_authority_keys_from_seed("operator_3"),
-            get_authority_keys_from_seed("operator_4"),
-            get_authority_keys_from_seed("operator_5"),
-        ];
+        get_authority_keys_from_seed("operator_1"),
+        get_authority_keys_from_seed("operator_2"),
+        get_authority_keys_from_seed("operator_3"),
+        get_authority_keys_from_seed("operator_4"),
+        get_authority_keys_from_seed("operator_5"),
+    ];
     let root_key: AccountId;
     // Need endowed accounts address
     let endowed_accounts: Vec<AccountId> = vec![];
@@ -516,16 +524,17 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
                     IdentityId::from(1),
                     IdentityId::from(10),
                     None,
-                )
+                ),
             ],
             ..Default::default()
         }),
         simple_token: Some(V1Config::SimpleTokenConfig { creation_fee: 1000 }),
         balances: Some(V1Config::BalancesConfig {
-            balances: endowed_accounts.iter()
-				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
-				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-				.collect(),
+            balances: endowed_accounts
+                .iter()
+                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
+                .collect(),
         }),
         pallet_treasury: Some(Default::default()),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
@@ -617,15 +626,15 @@ pub fn v1_live_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-		"Polymesh Live V1 Testnet",
+        "Polymesh Live V1 Testnet",
         "live-testnet",
-		v1_live_testnet_genesis,
-		boot_nodes,
-		None, // TODO: Need to provide telemetry URL where every validator telemetry can be seen
+        v1_live_testnet_genesis,
+        boot_nodes,
+        None, // TODO: Need to provide telemetry URL where every validator telemetry can be seen
         None,
-		Some(polymath_props()),
+        Some(polymath_props()),
         Default::default(),
-	)
+    )
 }
 
 fn v1_develop_testnet_genesis() -> GenesisConfig {
@@ -645,15 +654,15 @@ pub fn v1_develop_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-		"Polymesh Develop V1 Testnet",
+        "Polymesh Develop V1 Testnet",
         "development-testnet",
-		v1_develop_testnet_genesis,
-		boot_nodes,
-		None,
+        v1_develop_testnet_genesis,
+        boot_nodes,
         None,
-		Some(polymath_props()),
+        None,
+        Some(polymath_props()),
         Default::default(),
-	)
+    )
 }
 
 fn v1_local_testnet_genesis() -> GenesisConfig {
@@ -680,17 +689,16 @@ pub fn v1_local_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-		"Polymesh Local V1 Testnet",
+        "Polymesh Local V1 Testnet",
         "local-testnet",
-		v1_local_testnet_genesis,
-		boot_nodes,
-		None,
+        v1_local_testnet_genesis,
+        boot_nodes,
         None,
-		Some(polymath_props()),
+        None,
+        Some(polymath_props()),
         Default::default(),
-	)
+    )
 }
-
 
 fn v1_testnet_genesis(
     initial_authorities: Vec<(
@@ -705,7 +713,6 @@ fn v1_testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GenesisConfig {
-
     const STASH: u128 = 300 * POLY; //300 Poly
     const ENDOWMENT: u128 = 1_00_000 * POLY;
 
@@ -802,7 +809,7 @@ fn v1_testnet_genesis(
                     IdentityId::from(1),
                     IdentityId::from(10),
                     None,
-                )
+                ),
             ],
             ..Default::default()
         }),

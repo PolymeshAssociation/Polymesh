@@ -5,8 +5,8 @@ use super::{
 };
 use codec::Encode;
 use frame_support::{assert_err, assert_ok};
-use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_primitives::{AccountKey, Signatory};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 

@@ -4,13 +4,11 @@ use super::{
 };
 
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
-use polymesh_primitives::{IdentityId, Signatory};
-use polymesh_runtime_common::{
-    bridge::{self, BridgeTx, IssueRecipient},
-};
-use pallet_multisig as multisig;
 use pallet_balances as balances;
 use pallet_identity as identity;
+use pallet_multisig as multisig;
+use polymesh_primitives::{IdentityId, Signatory};
+use polymesh_runtime_common::bridge::{self, BridgeTx, IssueRecipient};
 use sp_runtime::traits::OnInitialize;
 use test_client::AccountKeyring;
 
