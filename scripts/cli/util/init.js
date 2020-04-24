@@ -82,7 +82,7 @@ let generateEntity = async function (api, name) {
   let entityRawNonce = (await api.query.system.account(entity.address)).nonce;
   let entity_nonce = new BN(entityRawNonce.toString());
   nonces.set(entity.address, entity_nonce);
-p
+
   return entity;
 };
 
