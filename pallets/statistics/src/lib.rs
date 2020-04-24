@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use polymesh_primitives::Ticker;
 use polymesh_runtime_common::balances::Trait as BalancesTrait;
 

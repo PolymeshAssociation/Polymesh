@@ -1,5 +1,5 @@
 {
-    "IdentityId":"H256",
+    "IdentityId":"[u8; 32]",
     "Ticker": "[u8; 12]",
     "PosRatio": "(u32, u32)",
     "DocumentName": "Text",
@@ -21,9 +21,9 @@
     },
     "IdentifierType": {
         "_enum": {
-            "Isin": "",
+            "Cins": "",
             "Cusip": "",
-            "Custom": "Vec<u8>"
+            "Isin": ""
         }
     },
     "TokenName": "Text",
@@ -237,7 +237,6 @@
         "proposer": "AccountKey",
         "index": "u32",
         "end": "u32",
-        "proposal_hash": "Hash",
         "url": "Option<Url>",
         "description": "Option<MipDescription>",
         "cool_off_until": "u32"
@@ -252,20 +251,42 @@
         "nays": "Vec<(IdentityId, Balance)>"
     },
     "MipsIndex": "u32",
-    "MipsPriority": {
+    "ProposalState": {
         "_enum": [
-            "High",
-            "Normal"
+            "Proposed",
+            "Cancelled",
+            "Killed",
+            "Referendum",
+            "Rejected"
+        ]
+    },
+    "ReferendumState": {
+        "_enum": [
+            "Pending",
+            "Scheduled",
+            "Rejected",
+            "Failed",
+            "Executed"
+        ]
+    },
+    "ReferendumType": {
+        "_enum": [
+            "FastTracked",
+            "Emergency",
+            "Community"
         ]
     },
     "MIP": {
-        "index": "MipsIndex",
-        "proposal":"Call"
+        "index": "MipsIndex",        
+        "proposal":"Call",
+        "state":"ProposalState"
     },
-    "PolymeshReferendumInfo": {
+    "Referendum": {
         "index": "MipsIndex",
-        "priority": "MipsPriority",
-        "proposal_hash": "Hash"
+        "state": "ReferendumState",
+        "referendum_type": "ReferendumType",
+        "enactment_period": "u32"
+        
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
@@ -403,5 +424,36 @@
             "MipsPropose",
             "VotingAddBallot"
         ]
-    }
+    },
+    "CddStatus": {
+        "_enum": {
+            "Ok": "IdentityId",
+            "Err": "Vec<u8>"
+        }
+    },
+    "AssetDidResult": {
+        "_enum": {
+            "Ok": "IdentityId",
+            "Err": "Vec<u8>"
+        }
+    },
+    "DidRecords": {
+        "_enum": {
+            "Success": {
+                "master_key" : "AccountKey",
+                "signing_items": "Vec<SigningItem>"
+            },
+            "IdNotFound": "Vec<u8>"
+        }
+    },
+    "CappedVoteCount": {
+        "_enum": {
+            "Success": {
+                "ayes": "u64",
+                "nays": "u64"
+            },
+            "ProposalNotFound": "Vec<u8>"
+        }
+    },
+    "Weight": "u32"
 }

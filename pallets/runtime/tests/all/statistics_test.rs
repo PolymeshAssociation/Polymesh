@@ -1,14 +1,14 @@
-use crate::{
-    asset::{self, IdentifierType, SecurityToken},
-    general_tm, statistics,
-    test::{
-        storage::{register_keyring_account, TestStorage},
-        ExtBuilder,
-    },
+use super::{
+    storage::{register_keyring_account, TestStorage},
+    ExtBuilder,
 };
+use pallet_asset::{self as asset, IdentifierType, SecurityToken};
+use pallet_general_tm as general_tm;
+use pallet_statistics as statistics;
 use polymesh_primitives::Ticker;
 
 use frame_support::assert_ok;
+use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
@@ -40,7 +40,7 @@ fn investor_count_per_asset_with_ext() {
     };
 
     let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
-    let ticker = Ticker::from(token.name.as_slice());
+    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
     assert_ok!(Asset::create_token(
         alice_signed.clone(),
         token.name.clone(),
@@ -52,7 +52,7 @@ fn investor_count_per_asset_with_ext() {
         None,
     ));
 
-    let ticker = Ticker::from(token.name.as_slice());
+    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
     assert_ok!(GeneralTM::add_active_rule(
         alice_signed.clone(),
         ticker,

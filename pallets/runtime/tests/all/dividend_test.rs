@@ -1,28 +1,29 @@
-use chrono::{prelude::*, Duration};
-use core::result::Result as StdResult;
-use frame_support::assert_ok;
-use frame_support::traits::Currency;
-use frame_system::ensure_signed;
-use polymesh_runtime_common::traits::CommonTrait;
-use test_client::{self, AccountKeyring};
-
-use polymesh_primitives::Ticker;
-use polymesh_runtime_balances as balances;
-
-use crate::{
-    asset::{self, AssetType, SecurityToken},
-    dividend::{self, Dividend},
-    general_tm,
-    simple_token::{self, SimpleTokenRecord},
-    test::{
-        storage::{make_account, TestStorage},
-        ExtBuilder,
-    },
+use super::{
+    storage::{make_account, TestStorage},
+    ExtBuilder,
 };
 
+use polymesh_runtime::{
+    dividend::{self, Dividend},
+    simple_token::{self, SimpleTokenRecord},
+};
+
+use pallet_asset::{self as asset, AssetType, SecurityToken};
+use pallet_general_tm as general_tm;
+use polymesh_primitives::Ticker;
+use polymesh_runtime_balances as balances;
+use polymesh_runtime_common::traits::CommonTrait;
+
+use frame_support::{assert_ok, traits::Currency};
+use frame_system::ensure_signed;
+
+use chrono::{prelude::*, Duration};
 use lazy_static::lazy_static;
+use test_client::{self, AccountKeyring};
+
 use std::{
     collections::HashMap,
+    convert::TryFrom,
     sync::{Arc, Mutex},
 };
 
@@ -65,10 +66,10 @@ fn correct_dividend_must_work() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from(token.name.as_slice());
+        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // A token used for payout
         let payout_token = SimpleTokenRecord {
-            ticker: Ticker::from(&[b'B'; 12][..]),
+            ticker: Ticker::try_from(&[b'B'; 12][..]).unwrap(),
             owner_did: payout_owner_did,
             total_supply: 200_000_000,
         };
@@ -97,8 +98,8 @@ fn correct_dividend_must_work() {
 
         // Prepare a whitelisted investor
         let (investor_acc, investor_did) = make_account(AccountKeyring::Charlie.public()).unwrap();
-        let investor_accountId = ensure_signed(investor_acc.clone()).ok().unwrap();
-        Balances::make_free_balance_be(&investor_accountId, 1_000_000);
+        let investor_account_id = ensure_signed(investor_acc.clone()).ok().unwrap();
+        Balances::make_free_balance_be(&investor_account_id, 1_000_000);
 
         let amount_invested = 50_000;
 

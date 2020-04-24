@@ -2,8 +2,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 
 pub type Error = Vec<u8>;

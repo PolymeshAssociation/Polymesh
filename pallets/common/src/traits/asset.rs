@@ -17,7 +17,7 @@ pub trait AcceptTransfer {
     fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
 }
 
-pub trait AssetTrait<V, U> {
+pub trait Trait<V, U> {
     fn total_supply(ticker: &Ticker) -> V;
     fn balance(ticker: &Ticker, did: IdentityId) -> V;
     fn _mint_from_sto(

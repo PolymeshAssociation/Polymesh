@@ -37,7 +37,9 @@ use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signatory,
 };
 use polymesh_runtime_common::{
-    identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, Context,
+    identity::{LinkedKeyInfo, Trait as IdentityTrait},
+    multisig::AddSignerMultiSig,
+    Context,
 };
 use polymesh_runtime_identity as identity;
 
@@ -47,7 +49,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    weights::GetDispatchInfo,
+    weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
     StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
@@ -105,6 +107,7 @@ decl_module! {
         /// # Arguments
         /// * `signers` - Signers of the multisig (They need to accept authorization before they are actually added).
         /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn create_multisig(origin, signers: Vec<Signatory>, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(!signers.is_empty(), Error::<T>::NoSigners);
@@ -126,6 +129,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// If this is 1 of m multisig, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_identity(
             origin,
             multisig: T::AccountId,
@@ -133,8 +137,8 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
-            let sender_signer = Signatory::from(signer_did);
+            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let sender_signer = Signatory::from(sender_did);
             Self::create_or_approve_proposal(multisig, sender_signer, proposal)
         }
 
@@ -144,6 +148,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// If this is 1 of m multisig, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_key(
             origin,
             multisig: T::AccountId,
@@ -160,12 +165,13 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// If this is 1 of m multisig, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn create_proposal_as_identity(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
-            let sender_signer = Signatory::from(signer_did);
+            let sender_signer = Signatory::from(sender_did);
             Self::create_proposal(multisig, sender_signer, proposal)?;
             Ok(())
         }
@@ -176,6 +182,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// If this is 1 of m multisig, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn create_proposal_as_key(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
@@ -189,11 +196,12 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
         /// If quorum is reached, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
-            let signer = Signatory::from(signer_did);
+            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let signer = Signatory::from(sender_did);
             Self::approve_for(multisig, signer, proposal_id)
         }
 
@@ -203,6 +211,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
         /// If quorum is reached, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
@@ -213,12 +222,13 @@ decl_module! {
         ///
         /// # Arguments
         /// * `proposal_id` - Auth id of the authorization.
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
 
-            let signer = Signatory::from(signer_did);
+            let signer = Signatory::from(sender_did);
             Self::_accept_multisig_signer(signer, auth_id)
         }
 
@@ -226,6 +236,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `proposal_id` - Auth id of the authorization.
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
@@ -236,6 +247,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `signer` - Signatory to add.
+        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn add_multisig_signer(origin, signer: Signatory) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -248,6 +260,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `signer` - Signatory to remove.
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn remove_multisig_signer(origin, signer: Signatory) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -268,13 +281,26 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - Address of the multi sig
         /// * `signers` - Signatories to add.
+        ///
+        /// # Weight
+        /// `100_000 + 300_000 * signers.len()`
+        #[weight = FunctionOf(
+            |(_, signers): (
+                &T::AccountId,
+                &Vec<Signatory>,
+            )| {
+                100_000 + 300_000 * u32::try_from(signers.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn add_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
             ensure!(
-                <MultiSigCreator<T>>::get(&multisig) == signer_did,
+                <MultiSigCreator<T>>::get(&multisig) == sender_did,
                 Error::<T>::IdentityNotCreator
             );
             let multisig_signer = Signatory::from(AccountKey::try_from(multisig.encode())?);
@@ -290,13 +316,26 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - Address of the multi sig
         /// * `signers` - Signatories to remove.
+        ///
+        /// # Weight
+        /// `150_000 + 150_000 * signers.len()`
+        #[weight = FunctionOf(
+            |(_, signers): (
+                &T::AccountId,
+                &Vec<Signatory>,
+            )| {
+                150_000 + 150_000 * u32::try_from(signers.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn remove_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
             ensure!(
-                <MultiSigCreator<T>>::get(&multisig) == signer_did,
+                <MultiSigCreator<T>>::get(&multisig) == sender_did,
                 Error::<T>::IdentityNotCreator
             );
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
@@ -323,6 +362,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `sigs_required` - New number of sigs required.
+        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn change_sigs_required(origin, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -342,6 +382,19 @@ decl_module! {
         /// # Arguments
         /// * signers - Vector of signers for a given multisig
         /// * sigs_required - Number of signature required for a given multisig
+        ///
+        /// # Weight
+        /// `200_000 + 300_000 * signers.len()`
+        #[weight = FunctionOf(
+            |(signers, _): (
+                &Vec<Signatory>,
+                &u64
+            )| {
+                200_000 + 300_000 * u32::try_from(signers.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn change_all_signers_and_sigs_required(origin, signers: Vec<Signatory>, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
@@ -383,17 +436,18 @@ decl_module! {
         ///
         /// # Arguments
         /// * `multi_sig` - multi sig address
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn make_multisig_signer(origin, multi_sig: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multi_sig), Error::<T>::NoSuchMultisig);
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
             ensure!(
-                <MultiSigCreator<T>>::get(&multi_sig) == signer_did,
+                <MultiSigCreator<T>>::get(&multi_sig) == sender_did,
                 Error::<T>::IdentityNotCreator
             );
             <identity::Module<T>>::unsafe_join_identity(
-                signer_did,
+                sender_did,
                 Signatory::from(AccountKey::try_from(multi_sig.encode())?)
             )
         }
@@ -402,18 +456,19 @@ decl_module! {
         ///
         /// # Arguments
         /// * `multi_sig` - multi sig address
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn make_multisig_master(origin, multi_sig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multi_sig), Error::<T>::NoSuchMultisig);
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
             ensure!(
-                <MultiSigCreator<T>>::get(&multi_sig) == signer_did,
+                <MultiSigCreator<T>>::get(&multi_sig) == sender_did,
                 Error::<T>::IdentityNotCreator
             );
             <identity::Module<T>>::unsafe_master_key_rotation(
                 AccountKey::try_from(multi_sig.encode())?,
-                signer_did,
+                sender_did,
                 optional_cdd_auth_id
             )
         }
@@ -513,7 +568,7 @@ impl<T: Trait> Module<T> {
         sigs_required: u64,
     ) -> CreateMultisigAccountResult<T> {
         let sender_key = AccountKey::try_from(sender.encode())?;
-        let signer_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+        let sender_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
         let new_nonce = Self::ms_nonce()
             .checked_add(1)
             .ok_or(Error::<T>::NonceOverflow)?;
@@ -529,7 +584,11 @@ impl<T: Trait> Module<T> {
             );
         }
         <MultiSigSignsRequired<T>>::insert(&account_id, &sigs_required);
-        <MultiSigCreator<T>>::insert(&account_id, &signer_did);
+        <MultiSigCreator<T>>::insert(&account_id, &sender_did);
+        <identity::KeyToIdentityIds>::insert(
+            AccountKey::try_from(account_id.encode())?,
+            LinkedKeyInfo::Unique(sender_did),
+        );
         Ok(account_id)
     }
 

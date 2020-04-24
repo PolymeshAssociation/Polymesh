@@ -1,22 +1,17 @@
-use crate::{
-    asset::{self, AssetType, SecurityToken},
-    general_tm,
-    test::{
-        storage::{make_account, TestStorage},
-        ExtBuilder,
-    },
-    voting::{self, Ballot, Motion, MotionInfoLink, MotionTitle},
+use super::{
+    storage::{make_account, TestStorage},
+    ExtBuilder,
 };
 
+use pallet_asset::{self as asset, AssetType, SecurityToken};
+use pallet_general_tm as general_tm;
 use polymesh_primitives::Ticker;
-use polymesh_runtime_balances as balances;
-use polymesh_runtime_identity as identity;
+
+use polymesh_runtime::voting::{self, Ballot, Motion};
 
 use chrono::prelude::Utc;
-use frame_support::{
-    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
-};
-use std::convert::{TryFrom, TryInto};
+use frame_support::{assert_err, assert_ok};
+use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Asset = asset::Module<TestStorage>;
@@ -40,7 +35,7 @@ fn add_ballot() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from(token.name.as_slice());
+        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Share issuance is successful
         assert_ok!(Asset::create_token(
             token_owner_acc.clone(),
@@ -198,7 +193,7 @@ fn cancel_ballot() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from(token.name.as_slice());
+        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Share issuance is successful
         assert_ok!(Asset::create_token(
             token_owner_acc.clone(),
@@ -288,7 +283,7 @@ fn vote() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::from(token.name.as_slice());
+        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Share issuance is successful
         assert_ok!(Asset::create_token(
             token_owner_acc.clone(),

@@ -22,26 +22,33 @@
 //! ### Public Functions
 //!
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
-
-use crate::{asset::AssetTrait, exemption};
+#![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit = "256"]
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{constants::*, CommonTrait, Context};
+use polymesh_runtime_common::{
+    asset::Trait as AssetTrait, constants::*, exemption::Trait as ExemptionTrait,
+    identity::Trait as IdentityTrait, CommonTrait, Context,
+};
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
 use core::result::Result as StdResult;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + exemption::Trait {
+pub trait Trait: frame_system::Trait + CommonTrait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    type Exemption: ExemptionTrait;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 decl_event!(
@@ -85,6 +92,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Set a maximum percentage that can be owned by a single investor
+        #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         fn toggle_maximum_percentage_restriction(origin, ticker: Ticker, max_percentage: u16) -> DispatchResult  {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -133,7 +141,7 @@ impl<T: Trait> Module<T> {
         // 2 refers to percentageTM
         // TODO: Mould the integer into the module identity
         if let Some(to_did) = to_did_opt {
-            let is_exempted = <exemption::Module<T>>::is_exempted(&ticker, 2, to_did);
+            let is_exempted = T::Exemption::is_exempted(&ticker, 2, to_did);
             if max_percentage != 0 && !is_exempted {
                 let new_balance = (T::Asset::balance(&ticker, to_did))
                     .checked_add(&value)

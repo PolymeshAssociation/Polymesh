@@ -7,21 +7,25 @@ build = "build.rs"
 
 [dependencies]
 # Common 
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 
 # Our pallets
 polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
 polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
-polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
-polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
-polymesh-runtime-asset = { package = "polymesh-runtime-asset", path = "../asset", default-features = false  }
+polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false}
+polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false}
+pallet-asset = { package = "pallet-asset", path = "../asset", default-features = false }
+pallet-statistics = { package = "pallet-statistics", path = "../statistics", default-features = false }
+pallet-general-tm = { package = "pallet-general-tm", path = "../general-tm", default-features = false }
+pallet-percentage-tm = { package = "pallet-percentage-tm", path = "../percentage-tm", default-features = false }
 
-pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
+pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false }
 pallet-staking = { package = "pallet-staking", path = "../staking", default-features = false  }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve", default-features = false  }
 pallet-mips = { package = "pallet-mips", path = "../mips", default-features = false  }
 pallet-committee = { package = "pallet-committee", path = "../committee", default-features = false }
+pallet-cdd-offchain-worker = { package = "pallet-cdd-offchain-worker", version = "2.0.0", path = "../cdd-offchain-worker", default-features = false}
 
 # RPC
 polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identity-rpc-runtime-api", path = "../identity/rpc/runtime-api", default-features = false }
@@ -40,7 +44,6 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true }
 serde_json = { version = "1.0.48", default-features = false }
 yaml-rust = { version = "0.4.3", default-features = false }
-
 
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -81,6 +84,7 @@ pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substr
 pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
+frame-benchmarking = { package = "frame-benchmarking", default-features = false, git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", optional = true }
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -95,61 +99,72 @@ wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https:
 
 [features]
 equalize = []
-default = ["std", "equalize"]
+default = [ "std", "equalize", "runtime-benchmarks" ]
 no_std = []
 only-staking = []
 std = [
-	"rustc-hex/std",
-	"serde_derive",
-	"rand/std",
-	"serde/std",
-	"codec/std",
-	"sp-std/std",
-	"sp-io/std",
-	"sp-core/std",
-	"sp-inherents/std",
-	"sp-offchain/std",
-	"sp-version/std",
-	"sp-consensus-babe/std",
-	"sp-session/std",
-	"sp-authority-discovery/std",
-	"sp-phragmen/std",
-	"sp-runtime/std",
-	"sp-staking/std",
-	"sp-block-builder/std",
-	"sp-transaction-pool/std",
-	"pallet-authorship/std",
-	"pallet-contracts/std",
-	"pallet-elections/std",
-	"pallet-democracy/std",
-	"pallet-executive/std",
-	"pallet-finality-tracker/std",
-	"pallet-contracts-rpc-runtime-api/std",
-	"pallet-transaction-payment-rpc-runtime-api/std",
-	"polymesh-runtime-identity-rpc-runtime-api/std",
-	"pallet-staking-rpc-runtime-api/std",
-	"pallet-grandpa/std",
-	"pallet-im-online/std",
-	"pallet-indices/std",
-	"pallet-membership/std",
-	"pallet-offences/std",
-	"pallet-session/std",
-	"pallet-staking/std",
-	"pallet-sudo/std",
-	"pallet-timestamp/std",
-	"pallet-treasury/std",
-	"pallet-authority-discovery/std",
-	"pallet-babe/std",
-	"pallet-mips/std",
-	"pallet-committee/std",
-	"pallet-mips-rpc-runtime-api/std",
-	"frame-support/std",
-	"frame-system/std",
-	"frame-system-rpc-runtime-api/std",
-	"polymesh-runtime-common/std",
-	"polymesh-runtime-balances/std",
-	"polymesh-runtime-group/std",
-	"polymesh-runtime-identity/std",
-	"polymesh-protocol-fee/std",
-	"ink_primitives/std"
+    "rustc-hex/std",
+    "serde_derive",
+    "rand/std",
+    "serde/std",
+    "codec/std",
+    "sp-std/std",
+    "sp-io/std",
+    "sp-core/std",
+    "sp-inherents/std",
+    "sp-offchain/std",
+    "sp-version/std",
+    "sp-consensus-babe/std",
+    "sp-session/std",
+    "sp-authority-discovery/std",
+    "sp-phragmen/std",
+    "sp-runtime/std",
+    "sp-staking/std",
+    "sp-block-builder/std",
+    "sp-transaction-pool/std",
+    "pallet-authorship/std",
+    "pallet-contracts/std",
+    "pallet-elections/std",
+    "pallet-democracy/std",
+    "pallet-executive/std",
+    "pallet-finality-tracker/std",
+    "pallet-contracts-rpc-runtime-api/std",
+    "pallet-transaction-payment-rpc-runtime-api/std",
+    "polymesh-runtime-identity-rpc-runtime-api/std",
+    "pallet-staking-rpc-runtime-api/std",
+    "pallet-grandpa/std",
+    "pallet-im-online/std",
+    "pallet-indices/std",
+    "pallet-membership/std",
+    "pallet-offences/std",
+    "pallet-session/std",
+    "pallet-staking/std",
+    "pallet-sudo/std",
+    "pallet-timestamp/std",
+    "pallet-treasury/std",
+    "pallet-authority-discovery/std",
+    "pallet-babe/std",
+    "pallet-mips/std",
+    "pallet-committee/std",
+    "pallet-mips-rpc-runtime-api/std",
+    "pallet-cdd-offchain-worker/std",
+    "frame-benchmarking/std",
+    "frame-support/std",
+    "frame-system/std",
+    "frame-system-rpc-runtime-api/std",
+    "polymesh-runtime-common/std",
+    "polymesh-runtime-balances/std",
+    "polymesh-runtime-group/std",
+    "polymesh-runtime-identity/std",
+    "polymesh-protocol-fee/std",
+    "pallet-asset/std",
+    "pallet-general-tm/std",
+    "pallet-percentage-tm/std",
+    "pallet-statistics/std",
+    "ink_primitives/std"
+]
+
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "polymesh-runtime-identity/runtime-benchmarks"
 ]

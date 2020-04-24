@@ -1,4 +1,4 @@
-use crate::test::{
+use super::{
     storage::{get_identity_id, make_account, register_keyring_account, TestStorage},
     ExtBuilder,
 };

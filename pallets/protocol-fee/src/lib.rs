@@ -7,6 +7,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
+    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_root};
 use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, ProtocolOp};
@@ -73,6 +74,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Changes the fee coefficient for the root origin.
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
             <Coefficient>::put(coefficient);
@@ -80,6 +82,7 @@ decl_module! {
         }
 
         /// Changes the a base fee for the root origin.
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000)]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
             DispatchResult
         {
@@ -89,6 +92,7 @@ decl_module! {
         }
 
         /// Emits an event with the fee of the operation.
+        #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         pub fn get_fee(_origin, op: ProtocolOp) -> DispatchResult {
             let fee = Self::compute_fee(op);
             Self::deposit_event(RawEvent::Fee(fee));
@@ -96,6 +100,7 @@ decl_module! {
         }
 
         /// Emits an event with the fee coefficient.
+        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn get_coefficient(_origin) -> DispatchResult {
             Self::deposit_event(RawEvent::Coefficient(Self::coefficient()));
             Ok(())

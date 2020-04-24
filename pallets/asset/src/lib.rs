@@ -58,13 +58,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+use pallet_statistics as statistics;
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
     DocumentUri, IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionName,
     SmartExtensionType, Ticker,
 };
 use polymesh_runtime_common::{
-    asset::{AcceptTransfer, AssetTrait},
+    asset::{AcceptTransfer, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
     constants::*,
     general_tm::Trait as GeneralTmTrait,
@@ -73,7 +74,6 @@ use polymesh_runtime_common::{
     CommonTrait, Context,
 };
 use polymesh_runtime_identity as identity;
-use polymesh_runtime_statistics as statistics;
 
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
@@ -2361,3 +2361,6 @@ impl<T: Trait> Module<T> {
         }
     }
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benches;

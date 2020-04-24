@@ -1,15 +1,18 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{
-    asset, bridge,
+    bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     fee_details::CddHandler,
-    general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    multisig, percentage_tm, simple_token, statistics, sto_capped, voting,
+    multisig, simple_token, sto_capped, voting,
 };
 
+use pallet_asset as asset;
 use pallet_committee as committee;
+use pallet_general_tm as general_tm;
+use pallet_percentage_tm as percentage_tm;
+use pallet_statistics as statistics;
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
     Signature, SigningItem, Ticker,
@@ -25,7 +28,7 @@ use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
 
 use frame_support::{
-    construct_runtime, parameter_types,
+    construct_runtime, debug, parameter_types,
     traits::{Currency, Randomness, SplitTwoWays},
     weights::Weight,
 };
@@ -37,13 +40,17 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
 };
 use sp_runtime::{
-    traits::{BlakeTwo256, Block as BlockT, OpaqueKeys, StaticLookup, Verify},
+    traits::{
+        BlakeTwo256, Block as BlockT, Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup,
+        Verify,
+    },
     MultiSignature,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 use frame_system::offchain::TransactionSubmitter;
+use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -520,6 +527,7 @@ impl bridge::Trait for Runtime {
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type GeneralTm = general_tm::Module<Runtime>;
 }
 
 impl simple_token::Trait for Runtime {
@@ -543,6 +551,8 @@ impl sto_capped::Trait for Runtime {
 
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
+    type Asset = asset::Module<Runtime>;
+    type Exemption = exemption::Module<Runtime>;
 }
 
 impl identity::Trait for Runtime {
@@ -582,6 +592,74 @@ impl group::Trait<group::Instance2> for Runtime {
 }
 
 impl statistics::Trait for Runtime {}
+
+/// A runtime transaction submitter for the cdd_offchain_worker
+type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
+
+// Comment it in the favour of Testnet v1 release
+// parameter_types! {
+//     pub const CoolingInterval: BlockNumber = 3;
+//     pub const BufferInterval: BlockNumber = 5;
+// }
+
+// impl pallet_cdd_offchain_worker::Trait for Runtime {
+//     /// SignerId
+//     type SignerId = CddOffchainWorkerId;
+//     /// The overarching event type.
+//     type Event = Event;
+//     /// The overarching dispatch call type
+//     type Call = Call;
+//     /// No. of blocks delayed to execute the offchain worker
+//     type CoolingInterval = CoolingInterval;
+//     /// Buffer given to check the validity of the cdd claim. It is in block numbers.
+//     type BufferInterval = BufferInterval;
+//     /// The type submit transactions.
+//     type SubmitUnsignedTransaction = SubmitTransactionCdd;
+// }
+
+impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+
+    fn create_transaction<
+        TSigner: frame_system::offchain::Signer<Self::Public, Self::Signature>,
+    >(
+        call: Call,
+        public: Self::Public,
+        account: AccountId,
+        index: Index,
+    ) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
+        // take the biggest period possible.
+        let period = BlockHashCount::get()
+            .checked_next_power_of_two()
+            .map(|c| c / 2)
+            .unwrap_or(2) as u64;
+        let current_block = System::block_number()
+            .saturated_into::<u64>()
+            // The `System::block_number` is initialized with `n+1`,
+            // so the actual block number is `n`.
+            .saturating_sub(1);
+        let tip = 0;
+        let extra: SignedExtra = (
+            frame_system::CheckVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
+            frame_system::CheckNonce::<Runtime>::from(index),
+            frame_system::CheckWeight::<Runtime>::new(),
+            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+            Default::default(),
+        );
+        let raw_payload = SignedPayload::new(call, extra)
+            .map_err(|e| {
+                debug::warn!("Unable to create signed payload: {:?}", e);
+            })
+            .ok()?;
+        let signature = TSigner::sign(public, &raw_payload)?;
+        let address = Indices::unlookup(account);
+        let (call, extra, _) = raw_payload.deconstruct();
+        Some((call, (address, signature, extra)))
+    }
+}
 
 construct_runtime!(
     pub enum Runtime where
@@ -639,6 +717,8 @@ construct_runtime!(
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
+        // Comment it in the favour of Testnet v1 release
+        // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
     }
 );
 
@@ -881,6 +961,39 @@ impl_runtime_apis! {
         /// Retrieve master key and signing keys for a given IdentityId
         fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
             Identity::get_did_records(did)
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    impl frame_benchmarking::Benchmark<Block> for Runtime {
+        fn dispatch_benchmark(
+            module: Vec<u8>,
+            extrinsic: Vec<u8>,
+            lowest_range_values: Vec<u32>,
+            highest_range_values: Vec<u32>,
+            steps: Vec<u32>,
+            repeat: u32,
+        ) -> Result<Vec<frame_benchmarking::BenchmarkResults>, sp_runtime::RuntimeString> {
+            use frame_benchmarking::Benchmarking;
+
+            let result = match module.as_slice() {
+                b"pallet-identity" | b"identity" => Identity::run_benchmark(
+                    extrinsic,
+                    lowest_range_values,
+                    highest_range_values,
+                    steps,
+                    repeat,
+                ),
+                /*b"runtime-asset" | b"asset" => Asset::run_benchmark(
+                    extrinsic,
+                    lowest_range_values,
+                    highest_range_values,
+                    steps,
+                    repeat,
+                ),*/
+                _ => Err("Benchmark not found for this pallet."),
+            };
+            result.map_err(|e| e.into())
         }
     }
 }

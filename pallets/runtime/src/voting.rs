@@ -29,11 +29,10 @@
 //! - `add_ballot` - Creates a ballot.
 //! - `vote` - Casts a vote.
 //! - `cancel_ballot` - Cancels an existing ballot.
-
-use crate::asset::{self, AssetTrait};
-
+use pallet_asset as asset;
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
+    asset::Trait as AssetTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
@@ -43,6 +42,7 @@ use polymesh_runtime_identity as identity;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*, vec};
@@ -50,7 +50,7 @@ use sp_std::{convert::TryFrom, prelude::*, vec};
 /// The module's configuration trait.
 pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 /// A wrapper for a motion title.
@@ -148,6 +148,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which ballot is to be created
         /// * `ballot_name` - Name of the ballot
         /// * `ballot_details` - Other details of the ballot
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn add_ballot(origin, ticker: Ticker, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -204,6 +205,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which vote is to be cast
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn vote(origin, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -274,6 +276,7 @@ decl_module! {
         /// # Arguments
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn cancel_ballot(origin, ticker: Ticker, ballot_name: Vec<u8>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;

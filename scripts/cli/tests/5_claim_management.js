@@ -23,7 +23,7 @@ async function main() {
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
 
-  await reqImports.distributePoly( api, master_keys.concat(signing_keys).concat(claim_keys), reqImports.transfer_amount, testEntities[0] );
+  await reqImports.distributePolyBatch( api, master_keys.concat(claim_keys), reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.blockTillPoolEmpty(api);
 

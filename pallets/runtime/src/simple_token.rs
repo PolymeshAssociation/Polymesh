@@ -43,6 +43,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedSub};
@@ -108,6 +109,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Create a new token and mint a balance to the issuing identity
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn create_token(origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -145,6 +147,7 @@ decl_module! {
         }
 
         /// Approve another identity to transfer tokens on behalf of the caller
+        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -170,6 +173,7 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -185,6 +189,7 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity using the approval mechanic
+        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;

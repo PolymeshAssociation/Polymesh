@@ -1,5 +1,5 @@
 [package]
-name = "polymesh-runtime-general-tm"
+name = "pallet-general-tm"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"

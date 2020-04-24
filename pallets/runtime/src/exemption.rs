@@ -1,15 +1,14 @@
-use crate::asset::{self, AssetTrait};
-
+use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use polymesh_runtime_common::{
-    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, Context,
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait,
+    exemption::Trait as ExemptionTrait, identity::Trait as IdentityTrait, Context,
 };
 use polymesh_runtime_identity as identity;
-
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -18,7 +17,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 // This module's storage items.
@@ -50,8 +49,8 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         fn modify_exemption_list(origin, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
-
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);
@@ -85,8 +84,10 @@ impl<T: Trait> Module<T> {
     pub fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
         T::Asset::is_owner(ticker, sender_did)
     }
+}
 
-    pub fn is_exempted(ticker: &Ticker, tm: u16, did: IdentityId) -> bool {
+impl<T: Trait> ExemptionTrait for Module<T> {
+    fn is_exempted(ticker: &Ticker, tm: u16, did: IdentityId) -> bool {
         Self::exemption_list((*ticker, tm, did))
     }
 }

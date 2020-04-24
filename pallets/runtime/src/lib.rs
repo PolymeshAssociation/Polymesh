@@ -10,17 +10,16 @@ pub use pallet_staking::{Commission, StakerStatus};
 
 pub use pallet_im_online::OfflineSlashingParams;
 
-mod bridge;
-mod contracts_wrapper;
-mod dividend;
-mod exemption;
-mod multisig;
-mod percentage_tm;
-mod simple_token;
+pub mod bridge;
+pub mod contracts_wrapper;
+pub mod dividend;
+pub mod exemption;
+pub mod multisig;
+pub mod simple_token;
 
 pub mod runtime;
 mod sto_capped;
-mod voting;
+pub mod voting;
 pub use runtime::{
     api, Asset, Authorship, AvailableBlockRatio, Balances, Bridge, Contracts, MaximumBlockWeight,
     NegativeImbalance, ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, TargetBlockFullness,
@@ -32,12 +31,13 @@ pub use runtime::{native_version, WASM_BINARY};
 #[cfg(feature = "std")]
 pub mod config {
 
+    use pallet_asset as asset;
     use pallet_committee as committee;
     use polymesh_protocol_fee as protocol_fee;
     use polymesh_runtime_balances as balances;
     use polymesh_runtime_identity as identity;
 
-    pub type AssetConfig = crate::asset::GenesisConfig<crate::Runtime>;
+    pub type AssetConfig = asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
     pub type BridgeConfig = crate::bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
@@ -62,6 +62,3 @@ pub mod fee_details;
 pub use fee_details::CddHandler;
 
 pub use sp_runtime::{Perbill, Permill};
-
-#[cfg(test)]
-pub mod test;

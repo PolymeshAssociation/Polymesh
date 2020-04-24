@@ -1,5 +1,5 @@
 [package]
-name = "polymesh-runtime-asset"
+name = "pallet-asset"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
@@ -12,10 +12,10 @@ polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../comm
 # Our Pallets
 polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
 polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
-polymesh-runtime-statistics = { package = "polymesh-runtime-statistics", path = "../statistics", default-features = false  }
+pallet-statistics = { package = "pallet-statistics", path = "../statistics", default-features = false  }
 
 # RPC
-polymesh-runtime-asset-rpc-runtime-api = { package = "polymesh-runtime-asset-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
+pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -64,5 +64,5 @@ std = [
 	"pallet-session/std",
 	"polymesh-runtime-common/std",
 	"polymesh-primitives/std",
-	"polymesh-runtime-asset-rpc-runtime-api/std",
+	"pallet-asset-rpc-runtime-api/std",
 ]

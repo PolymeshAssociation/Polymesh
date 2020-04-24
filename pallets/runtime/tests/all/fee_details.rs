@@ -1,13 +1,10 @@
-use crate::{
-    fee_details::CddHandler,
-    multisig,
-    runtime::Call,
-    test::{
-        ext_builder::PROTOCOL_OP_BASE_FEE,
-        storage::{make_account, make_account_without_cdd, TestStorage},
-        ExtBuilder,
-    },
+use super::{
+    ext_builder::PROTOCOL_OP_BASE_FEE,
+    storage::{make_account, make_account_without_cdd, TestStorage},
+    ExtBuilder,
 };
+
+use polymesh_runtime::{fee_details::CddHandler, multisig, runtime::Call};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
@@ -20,7 +17,6 @@ use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type MultiSig = multisig::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Balances = balances::Module<TestStorage>;
 
 #[test]
@@ -123,14 +119,6 @@ fn cdd_checks() {
             .next()
             .unwrap()
             .auth_id;
-            // Call to multisig proposal should fail if multisig is not currently attached to an identity
-            assert_err!(
-                CddHandler::get_valid_payer(
-                    &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
-                    &alice_key_signatory
-                ),
-                InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
-            );
 
             assert_ok!(MultiSig::make_multisig_signer(
                 charlie_signed.clone(),
@@ -152,6 +140,15 @@ fn cdd_checks() {
                     &charlie_key_signatory
                 ),
                 Ok(Some(charlie_key_signatory))
+            );
+
+            // tx to set did as fee payer should charge fee to did
+            assert_eq!(
+                CddHandler::get_valid_payer(
+                    &Call::Balances(balances::Call::change_charge_did_flag(true)),
+                    &charlie_key_signatory
+                ),
+                Ok(Some(charlie_did_signatory))
             );
         });
 }

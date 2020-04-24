@@ -1,6 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use polymesh_primitives::{AccountId, IdentityId, Signature};
+use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signature};
 use polymesh_runtime::{
     asset::TickerRegistrationConfig,
     config::{
@@ -14,9 +14,12 @@ use polymesh_runtime::{
     },
     Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
-use polymesh_runtime_common::constants::{
-    currency::{MILLICENTS, POLY},
-    time::HOURS,
+use polymesh_runtime_common::{
+    constants::{
+        currency::{MILLICENTS, POLY},
+        time::{DAYS, HOURS},
+    },
+    protocol_fee::ProtocolOp,
 };
 use sc_service::Properties;
 use serde_json::json;
@@ -183,7 +186,7 @@ impl Alternative {
 }
 
 fn polymath_props() -> Properties {
-    json!({"tokenDecimals": 6, "tokenSymbol": "POLY" })
+    json!({"tokenDecimals": 6, "tokenSymbol": "POLYX" })
         .as_object()
         .unwrap()
         .clone()
@@ -237,7 +240,7 @@ fn testnet_genesis(
             creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
             signatures_required: 0,
             signers: vec![],
-            timelock: 100,
+            timelock: 10,
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
@@ -353,6 +356,7 @@ fn testnet_genesis(
             quorum_threshold: 100_000,
             proposal_duration: 50,
             proposal_cool_off_period: HOURS * 6,
+            default_enactment_period: DAYS * 7,
         }),
         pallet_im_online: Some(ImOnlineConfig {
             slashing_params: OfflineSlashingParams {
@@ -395,7 +399,11 @@ fn testnet_genesis(
             phantom: Default::default(),
         }),
         protocol_fee: Some(ProtocolFeeConfig {
-            ..Default::default()
+            base_fees: vec![
+                (ProtocolOp::AssetCreateToken, 10_000 * 1_000_000),
+                (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
+            ],
+            coefficient: PosRatio(1, 1),
         }),
     }
 }

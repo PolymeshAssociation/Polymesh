@@ -1,19 +1,17 @@
-use crate::{
-    multisig,
-    test::{
-        ext_builder::PROTOCOL_OP_BASE_FEE,
-        storage::{make_account_without_cdd, register_keyring_account, Call, TestStorage},
-        ExtBuilder,
-    },
+use super::{
+    ext_builder::PROTOCOL_OP_BASE_FEE,
+    storage::{register_keyring_account, Call, TestStorage},
+    ExtBuilder,
 };
 
 use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_runtime::multisig;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::Context;
 use polymesh_runtime_identity as identity;
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, StorageDoubleMap, StorageMap};
+use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -40,6 +38,10 @@ fn create_multisig() {
 
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
         assert_eq!(MultiSig::ms_creator(musig_address), alice_did);
+        assert_eq!(
+            Identity::get_identity(&AccountKey::try_from(musig_address.encode()).unwrap()),
+            Some(alice_did)
+        );
 
         assert_err!(
             MultiSig::create_multisig(alice.clone(), vec![], 10,),
@@ -443,7 +445,12 @@ fn add_multisig_signer() {
 
         let root = Origin::system(frame_system::RawOrigin::Root);
 
-        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
+        assert_ok!(MultiSig::make_multisig_master(
+            alice.clone(),
+            musig_address.clone(),
+            None
+        ));
+
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             charlie.clone(),
             charlie_auth_id
@@ -454,7 +461,7 @@ fn add_multisig_signer() {
             true
         );
 
-        assert!(Identity::_register_did(musig_address.clone(), vec![], None).is_ok());
+        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
 
         assert_err!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),

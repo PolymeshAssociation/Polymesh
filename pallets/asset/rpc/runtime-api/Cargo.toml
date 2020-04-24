@@ -1,5 +1,5 @@
 [package]
-name = "polymesh-runtime-asset-rpc-runtime-api"
+name = "pallet-asset-rpc-runtime-api"
 version = "0.1.0"
 authors = ["Polymath Inc. <satyam@polymath.network>"]
 edition = "2018"

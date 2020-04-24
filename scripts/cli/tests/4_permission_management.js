@@ -17,7 +17,7 @@ async function main() {
 
   let signing_keys = await reqImports.generateKeys(api, 5, "signing");
   
-  await reqImports.distributePoly( api, master_keys.concat(signing_keys), reqImports.transfer_amount, testEntities[0] );
+  await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.blockTillPoolEmpty(api);
 

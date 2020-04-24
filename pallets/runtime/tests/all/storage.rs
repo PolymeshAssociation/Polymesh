@@ -1,16 +1,13 @@
-use crate::{
-    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, multisig, percentage_tm,
-    simple_token, statistics, voting,
+use polymesh_runtime::{
+    bridge, cdd_check::CddChecker, dividend, exemption, multisig, simple_token, voting,
 };
 
-use codec::Encode;
-use frame_support::{
-    assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
-    parameter_types, traits::Currency, weights::DispatchInfo,
-};
-use frame_system::{self as system};
+use pallet_asset as asset;
 use pallet_committee as committee;
+use pallet_general_tm as general_tm;
 use pallet_mips as mips;
+use pallet_percentage_tm as percentage_tm;
+use pallet_statistics as statistics;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
 use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
@@ -20,6 +17,13 @@ use polymesh_runtime_common::traits::{
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
+
+use codec::Encode;
+use frame_support::{
+    assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
+    parameter_types, traits::Currency, weights::DispatchInfo,
+};
+use frame_system::{self as system};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
@@ -32,8 +36,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
-use std::cell::RefCell;
-use std::convert::TryFrom;
+use std::{cell::RefCell, convert::TryFrom};
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {
@@ -55,6 +58,7 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
+        mips::Mips,
         multisig::MultiSig,
         pallet_contracts::Contracts,
         bridge::Bridge,
@@ -341,6 +345,8 @@ impl statistics::Trait for TestStorage {}
 
 impl percentage_tm::Trait for TestStorage {
     type Event = Event;
+    type Asset = asset::Module<TestStorage>;
+    type Exemption = exemption::Module<TestStorage>;
 }
 
 impl general_tm::Trait for TestStorage {
@@ -357,6 +363,7 @@ impl protocol_fee::Trait for TestStorage {
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
+    type GeneralTm = general_tm::Module<TestStorage>;
 }
 
 parameter_types! {
@@ -454,6 +461,7 @@ impl mips::Trait for TestStorage {
 
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
+pub type Mips = mips::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
 pub type Asset = asset::Module<TestStorage>;
 pub type MultiSig = multisig::Module<TestStorage>;
