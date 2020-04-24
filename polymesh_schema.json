@@ -418,7 +418,7 @@
         "ayes_stake": "Balance",
         "nays_count": "u32",
         "nays_stake": "Balance"
-    },    
+    },
     "ProtocolOp": {
         "_enum": [
             "AssetRegisterTicker",
@@ -579,12 +579,17 @@
                 "description": "Gets the fee of a chargeable extrinsic operation",
                 "params": [
                     {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
                         "name": "op",
                         "type": "ProtocolOp",
                         "isOptional": false
                     }
                 ],
-            "type": "CappedFee"
+                "type": "CappedFee"
             }
         },
         "staking": {
@@ -597,7 +602,7 @@
                         "isOptional": true
                     }
                 ],
-            "type": "Vec<(Perbill, Perbill)>"
+                "type": "Vec<(Perbill, Perbill)>"
             }
         }
     }
