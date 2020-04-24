@@ -18,6 +18,7 @@ use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
+    protocol_fee::ProtocolOp,
     traits::balances::AccountData,
     CommonTrait,
 };
@@ -53,6 +54,7 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
+use polymesh_protocol_fee_rpc_runtime_api::CappedFee;
 use polymesh_runtime_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::OpaqueMetadata;
@@ -914,6 +916,14 @@ impl_runtime_apis! {
         /// Proposals `address` voted on
         fn voted_on(address: AccountId) -> Vec<u32> {
             Mips::voted_on(address)
+        }
+    }
+
+    impl polymesh_protocol_fee_rpc_runtime_api::ProtocolFeeApi<
+        Block,
+    > for Runtime {
+        fn compute_fee(op: ProtocolOp) -> CappedFee {
+            ProtocolFee::compute_fee(op).into()
         }
     }
 

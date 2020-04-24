@@ -3703,7 +3703,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "polymesh-primitives",
- "polymesh-protocol-fee",
+ "polymesh-protocol-fee-rpc",
  "polymesh-runtime",
  "polymesh-runtime-common",
  "polymesh-runtime-identity-rpc",
@@ -3773,6 +3773,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-protocol-fee-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "polymesh-protocol-fee-rpc-runtime-api",
+ "polymesh-runtime-common",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "polymesh-protocol-fee-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "polymesh-runtime-common",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-runtime",
+]
+
+[[package]]
 name = "polymesh-runtime"
 version = "0.6.0"
 dependencies = [
@@ -3817,6 +3847,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-protocol-fee",
+ "polymesh-protocol-fee-rpc-runtime-api",
  "polymesh-runtime-balances",
  "polymesh-runtime-common",
  "polymesh-runtime-group",
