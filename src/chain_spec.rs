@@ -1,8 +1,8 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_asset::TickerRegistrationConfig;
 use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signature};
 use polymesh_runtime::{
-    asset::TickerRegistrationConfig,
     config::{
         AssetConfig, BalancesConfig, BridgeConfig, ContractsConfig, GenesisConfig, IdentityConfig,
         ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,

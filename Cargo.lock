@@ -3848,6 +3848,7 @@ dependencies = [
  "lazy_static",
  "linregress",
  "log",
+ "pallet-asset",
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-im-online",
