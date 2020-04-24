@@ -235,7 +235,7 @@
     "PipDescription": "Text",
     "PipsMetadata": {
         "proposer": "AccountKey",
-        "index": "u32",
+        "id": "PipId",
         "end": "u32",
         "url": "Option<Url>",
         "description": "Option<PipDescription>",
@@ -282,12 +282,12 @@
         ]
     },
     "PIP": {
-        "index": "PipsIndex",
+        "id": "PipId",
         "proposal":"Call",
         "state":"ProposalState"
     },
     "Referendum": {
-        "index": "PipsIndex",
+        "id": "PipId",
         "state": "ReferendumState",
         "referendum_type": "ReferendumType",
         "enactment_period": "u32"
