@@ -239,7 +239,12 @@
         "end": "u32",
         "url": "Option<Url>",
         "description": "Option<MipDescription>",
-        "cool_off_until": "u32"
+        "cool_off_until": "u32",
+        "beneficiaries": "Vec<Beneficiary>"
+    },
+    "Beneficiary": {
+        "id": "IdentityId",
+        "amount": "Balance"
     },
     "DepositInfo": {
         "owner": "AccountKey",
@@ -250,14 +255,14 @@
         "ayes": "Vec<(IdentityId, Balance)>",
         "nays": "Vec<(IdentityId, Balance)>"
     },
-    "MipsIndex": "u32",
+    "MipId": "u32",
     "ProposalState": {
         "_enum": [
-            "Proposed",
+            "Pending",
             "Cancelled",
             "Killed",
-            "Referendum",
-            "Rejected"
+            "Rejected",
+            "Referendum"
         ]
     },
     "ReferendumState": {
@@ -277,7 +282,7 @@
         ]
     },
     "MIP": {
-        "index": "MipsIndex",        
+        "index": "MipsIndex",
         "proposal":"Call",
         "state":"ProposalState"
     },
@@ -286,7 +291,7 @@
         "state": "ReferendumState",
         "referendum_type": "ReferendumType",
         "enactment_period": "u32"
-        
+
     },
     "TickerTransferApproval": {
         "authorized_by": "IdentityId",
@@ -408,6 +413,12 @@
         "deactivated_at": "Moment",
         "expiry": "Option<Moment>"
     },
+    "VotingResult" : {
+        "ayes_count": "u32",
+        "ayes_stake": "Balance",
+        "nays_count": "u32",
+        "nays_stake": "Balance"
+    },
     "ProtocolOp": {
         "_enum": [
             "AssetRegisterTicker",
@@ -456,6 +467,7 @@
         }
     },
     "Weight": "u32",
+    "CappedFee": "u64",
     "rpc": {
         "identity": {
             "isIdentityHasValidCdd" : {
@@ -562,6 +574,24 @@
                 "type": "Vec<u32>"
             }
         },
+        "protocolFee": {
+            "computeFee": {
+                "description": "Gets the fee of a chargeable extrinsic operation",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "op",
+                        "type": "ProtocolOp",
+                        "isOptional": false
+                    }
+                ],
+                "type": "CappedFee"
+            }
+        },
         "staking": {
             "getCurve": {
                 "description": "Retrieves curves parameters",
@@ -572,7 +602,7 @@
                         "isOptional": true
                     }
                 ],
-            "type": "Vec<(Perbill, Perbill)>"
+                "type": "Vec<(Perbill, Perbill)>"
             }
         }
     }

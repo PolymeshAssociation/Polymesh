@@ -150,3 +150,12 @@ pub enum TransactionError {
     /// Invalid auth id
     InvalidAuthorization = 3,
 }
+
+/// Represents the target identity and the amount requested by a beneficiary.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub struct Beneficiary<Balance> {
+    /// Beneficiary identity.
+    pub id: IdentityId,
+    /// Amount requested to this beneficiary.
+    pub amount: Balance,
+}
