@@ -214,6 +214,10 @@ decl_event! {
         /// A vector of timelocked balances of a recipient, each with the number of the block in
         /// which the balance gets unlocked.
         TimelockedBalancesOfRecipient(Vec<(BlockNumber, Balance)>),
+        /// Whitelist status of an identity has been updated.
+        WhiteListUpdated(IdentityId, bool),
+        /// Bridge limit has been updated
+        BridgeLimitUpdated(Balance, BlockNumber),
     }
 }
 
@@ -295,7 +299,8 @@ decl_module! {
         pub fn change_bridge_limit(origin, amount: T::Balance, duration: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            <BridgeLimit<T>>::put((amount, duration));
+            <BridgeLimit<T>>::put((amount.clone(), duration.clone()));
+            Self::deposit_event(RawEvent::BridgeLimitUpdated(amount, duration));
             Ok(())
         }
 
@@ -306,11 +311,12 @@ decl_module! {
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for (did, exempt) in whitelist {
                 <BridgeLimitWhitelist>::insert(did, exempt);
+                Self::deposit_event(RawEvent::WhiteListUpdated(did, exempt));
             }
             Ok(())
         }
 
-        /// Force handle a tx (bypasses bridge limit)
+        /// Force handle a tx (bypasses bridge limit and timelock)
         #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn force_handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
             // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
@@ -320,11 +326,11 @@ decl_module! {
                 if !Self::bridge_whitelist(did) {
                     // Whitelist the did temporarily
                     <BridgeLimitWhitelist>::insert(did, true);
-                    Self::handle_bridge_tx_now(bridge_tx)?;
+                    Self::handle_bridge_tx_now(bridge_tx, false)?;
                     <BridgeLimitWhitelist>::insert(did, false);
                 } else {
                     // Already whitelisted
-                    return Self::handle_bridge_tx_now(bridge_tx);
+                    return Self::handle_bridge_tx_now(bridge_tx, false);
                 }
             } else {
                 return Err(Error::<T>::NoValidCdd.into());
