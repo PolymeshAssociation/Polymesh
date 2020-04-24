@@ -3135,13 +3135,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-mips"
+name = "pallet-offences"
+version = "2.0.0-alpha.3"
+source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-pips"
 version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
  "pallet-committee",
- "pallet-mips-rpc-runtime-api",
+ "pallet-pips-rpc-runtime-api",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -3166,13 +3181,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-mips-rpc"
+name = "pallet-pips-rpc"
 version = "2.0.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
- "pallet-mips-rpc-runtime-api",
+ "pallet-pips-rpc-runtime-api",
  "parity-scale-codec",
  "serde",
  "sp-api",
@@ -3184,7 +3199,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-mips-rpc-runtime-api"
+name = "pallet-pips-rpc-runtime-api"
 version = "2.0.0"
 dependencies = [
  "frame-support",
@@ -3193,21 +3208,6 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-offences"
-version = "2.0.0-alpha.3"
-source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-balances",
- "parity-scale-codec",
- "serde",
- "sp-runtime",
- "sp-staking",
  "sp-std",
 ]
 
@@ -3697,12 +3697,13 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-im-online",
- "pallet-mips-rpc",
+ "pallet-pips-rpc",
  "pallet-staking-rpc",
  "pallet-transaction-payment-rpc",
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "polymesh-primitives",
+ "polymesh-protocol-fee",
  "polymesh-protocol-fee-rpc",
  "polymesh-runtime",
  "polymesh-runtime-common",
@@ -3832,9 +3833,9 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-membership",
- "pallet-mips",
- "pallet-mips-rpc-runtime-api",
  "pallet-offences",
+ "pallet-pips",
+ "pallet-pips-rpc-runtime-api",
  "pallet-randomness-collective-flip",
  "pallet-session",
  "pallet-staking",

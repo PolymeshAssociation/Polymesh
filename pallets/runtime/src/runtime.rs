@@ -352,7 +352,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type MembershipChanged = PolymeshCommittee;
 }
 
-impl pallet_mips::Trait for Runtime {
+impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin =
@@ -685,7 +685,7 @@ construct_runtime!(
         Treasury: treasury::{Module, Call, Storage, Config<T>, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-        Mips: pallet_mips::{Module, Call, Storage, Event<T>, Config<T>},
+        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
@@ -902,20 +902,20 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance> for Runtime {
+    impl pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance> for Runtime {
         /// Get vote count for a given proposal index
-        fn get_votes(index: u32) -> pallet_mips_rpc_runtime_api::VoteCount<Balance> {
-            Mips::get_votes(index)
+        fn get_votes(index: u32) -> pallet_pips_rpc_runtime_api::VoteCount<Balance> {
+            Pips::get_votes(index)
         }
 
         /// Proposals voted by `address`
         fn proposed_by(address: AccountId) -> Vec<u32> {
-            Mips::proposed_by(address)
+            Pips::proposed_by(address)
         }
 
         /// Proposals `address` voted on
         fn voted_on(address: AccountId) -> Vec<u32> {
-            Mips::voted_on(address)
+            Pips::voted_on(address)
         }
     }
 
