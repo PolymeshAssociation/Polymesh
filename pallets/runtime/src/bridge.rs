@@ -394,7 +394,7 @@ decl_module! {
                 ensure!(tx_details.status == BridgeTxStatus::Frozen, Error::<T>::NoSuchFrozenTx);
                 <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx_identifier, |tx_detail| tx_detail.status = BridgeTxStatus::Absent);
                 Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
-                if let Err(e) = Self::handle_bridge_tx_now(bridge_tx, false) {
+                if let Err(e) = Self::handle_bridge_tx_now(bridge_tx, true) {
                     sp_runtime::print(e);
                 }
             }
@@ -441,8 +441,15 @@ impl<T: Trait> Module<T> {
             // Bridge module frozen. Retry this tx again later.
             return Self::handle_bridge_tx_later(&bridge_tx, Self::timelock());
         }
-        // NB: The amount should be fetched from storage since the amount in `bridge_tx` may not be altered.
-        if Self::issue(&bridge_tx.recipient, &tx_details.amount).is_ok() {
+
+        let amount = if untrusted_manual_retry {
+            // NB: The amount should be fetched from storage since the amount in `bridge_tx`
+            // may be altered in a manual retry
+            tx_details.amount
+        } else {
+            bridge_tx.amount
+        };
+        if Self::issue(&bridge_tx.recipient, &amount).is_ok() {
             tx_details.status = BridgeTxStatus::Handled;
             tx_details.execution_block = <system::Module<T>>::block_number();
             <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx_identifier, tx_details);
