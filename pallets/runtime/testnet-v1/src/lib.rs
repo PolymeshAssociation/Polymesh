@@ -17,7 +17,7 @@ pub use runtime::{native_version, WASM_BINARY};
 
 pub use runtime::{
     api, Asset, Authorship, Balances, Bridge, Contracts, ProtocolFee, Runtime, RuntimeApi,
-    SessionKeys, System, TargetBlockFullness, TransactionPayment,
+    SessionKeys, System, TargetBlockFullness, TransactionPayment, UncheckedExtrinsic
 };
 
 #[cfg(feature = "std")]

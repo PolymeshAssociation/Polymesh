@@ -1,4 +1,5 @@
 use crate::chain_spec;
+pub use chain_spec::IsV1Network;
 use polymesh_runtime_testnet_v1::config::GenesisConfig;
 /// The chain specification (this should eventually be replaced by a more general JSON-based chain
 /// specification).

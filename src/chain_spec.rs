@@ -30,6 +30,16 @@ pub type ChainSpec = sc_service::ChainSpec<GenesisConfig>;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
+pub trait IsV1Network {
+    fn is_v1_network(&self) -> bool;
+}
+
+impl IsV1Network for ChainSpec {
+    fn is_v1_network(&self) -> bool {
+        self.name().starts_with("Polymesh V1")
+    }
+}
+
 fn v1_session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
@@ -424,9 +434,12 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         get_authority_keys_from_seed("operator_4"),
         get_authority_keys_from_seed("operator_5"),
     ];
-    let root_key: AccountId;
+    let root_key: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
     // Need endowed accounts address
-    let endowed_accounts: Vec<AccountId> = vec![];
+    let endowed_accounts: Vec<AccountId> = vec![
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        get_account_id_from_seed::<sr25519::Public>("Bob")
+    ];
 
     const STASH: u128 = 300 * POLY; //300 Poly
     const ENDOWMENT: u128 = 1_00_000 * POLY;
@@ -626,7 +639,7 @@ pub fn v1_live_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-        "Polymesh Live V1 Testnet",
+        "Polymesh V1 Live Testnet",
         "live-testnet",
         v1_live_testnet_genesis,
         boot_nodes,
@@ -654,7 +667,7 @@ pub fn v1_develop_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-        "Polymesh Develop V1 Testnet",
+        "Polymesh V1 Develop Testnet",
         "development-testnet",
         v1_develop_testnet_genesis,
         boot_nodes,
@@ -689,7 +702,7 @@ pub fn v1_local_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-        "Polymesh Local V1 Testnet",
+        "Polymesh V1 Local Testnet",
         "local-testnet",
         v1_local_testnet_genesis,
         boot_nodes,

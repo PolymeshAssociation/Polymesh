@@ -3,12 +3,12 @@
 use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
-use polymesh_primitives::{
+pub use polymesh_primitives::{
     AccountId, AccountKey, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce,
     SigningItem, Ticker,
 };
-use polymesh_runtime_develop;
-use polymesh_runtime_testnet_v1;
+pub use polymesh_runtime_develop;
+pub use polymesh_runtime_testnet_v1;
 use prometheus_endpoint::Registry;
 pub use sc_client::CallExecutor;
 use sc_client::{self, Client, LongestChain};
@@ -29,7 +29,6 @@ pub use sp_consensus::SelectChain;
 use sp_inherents::InherentDataProviders;
 pub use sp_runtime::traits::BlakeTwo256;
 use std::sync::Arc;
-//pub use chain_spec::ChainSpec;
 pub use codec::Codec;
 
 pub type Configuration =
@@ -197,7 +196,7 @@ macro_rules! new_full_start {
 
 /// Builds a new service for a full client.
 pub fn new_full<Runtime, Dispatch, Extrinsic>(
-    config: Configuration,
+    mut config: Configuration,
 ) -> Result<
     impl AbstractService<
         Block = Block,
@@ -348,6 +347,23 @@ where
     Ok(service)
 }
 
+
+/// Builds a new object suitable for chain operations.
+pub fn chain_ops<Runtime, Dispatch, Extrinsic>(mut config: Configuration)
+	-> Result<impl ServiceBuilderCommand<Block=Block>, ServiceError>
+where
+	Runtime: ConstructRuntimeApi<Block, TFullClient<Block, Runtime, Dispatch>> + Send + Sync + 'static,
+	Runtime::RuntimeApi:
+	RuntimeApiCollection<Extrinsic, StateBackend = sc_client_api::StateBackendFor<TFullBackend<Block>, Block>>,
+	Dispatch: NativeExecutionDispatch + 'static,
+	Extrinsic: RuntimeExtrinsic,
+	<Runtime::RuntimeApi as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
+{
+	config.keystore = sc_service::config::KeystoreConfig::InMemory;
+	Ok(new_full_start!(config, Runtime, Dispatch).0)
+}
+
+
 pub type TLocalLightClient<Runtime, Dispatch> = Client<
     sc_client::light::backend::Backend<sc_client_db::light::LightStorage<Block>, BlakeTwo256>,
     sc_client::light::call_executor::GenesisCallExecutor<
@@ -366,7 +382,7 @@ pub type TLocalLightClient<Runtime, Dispatch> = Client<
 
 /// Builds a new service for a light client.
 pub fn new_light<Runtime, Dispatch, Extrinsic>(
-    config: Configuration,
+    mut config: Configuration,
 ) -> Result<
     impl AbstractService<
         Block = Block,
