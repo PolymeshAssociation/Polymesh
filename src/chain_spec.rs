@@ -1,5 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_treasury as treasury;
 use polymesh_common_utilities::{
     constants::currency::{MILLICENTS, POLY},
     protocol_fee::ProtocolOp,
@@ -226,7 +227,7 @@ fn general_testnet_genesis(
                 .map(|k| (k, 1 << 55))
                 .collect(),
         }),
-        pallet_treasury: Some(Default::default()),
+        treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
         pallet_session: Some(V1Config::SessionConfig {
@@ -264,6 +265,7 @@ fn general_testnet_genesis(
             ..Default::default()
         }),
         pallet_mips: Some(V1Config::MipsConfig {
+            prune_historical_mips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
@@ -438,7 +440,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
     // Need endowed accounts address
     let endowed_accounts: Vec<AccountId> = vec![
         get_account_id_from_seed::<sr25519::Public>("Alice"),
-        get_account_id_from_seed::<sr25519::Public>("Bob")
+        get_account_id_from_seed::<sr25519::Public>("Bob"),
     ];
 
     const STASH: u128 = 300 * POLY; //300 Poly
@@ -549,7 +551,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
-        pallet_treasury: Some(Default::default()),
+        treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
         pallet_session: Some(V1Config::SessionConfig {
@@ -580,6 +582,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             ..Default::default()
         }),
         pallet_mips: Some(V1Config::MipsConfig {
+            prune_historical_mips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
@@ -834,7 +837,7 @@ fn v1_testnet_genesis(
                 .map(|k| (k, 1 << 55))
                 .collect(),
         }),
-        pallet_treasury: Some(Default::default()),
+        treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
         pallet_session: Some(V1Config::SessionConfig {
@@ -865,6 +868,7 @@ fn v1_testnet_genesis(
             ..Default::default()
         }),
         pallet_mips: Some(V1Config::MipsConfig {
+            prune_historical_mips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,

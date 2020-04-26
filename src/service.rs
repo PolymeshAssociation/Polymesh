@@ -1,5 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+pub use codec::Codec;
 use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
@@ -29,7 +30,6 @@ pub use sp_consensus::SelectChain;
 use sp_inherents::InherentDataProviders;
 pub use sp_runtime::traits::BlakeTwo256;
 use std::sync::Arc;
-pub use codec::Codec;
 
 pub type Configuration =
     sc_service::Configuration<polymesh_runtime_testnet_v1::config::GenesisConfig>;
@@ -66,6 +66,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + pallet_staking_rpc_runtime_api::StakingApi<Block>
     + pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance>
     + pallet_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker, AccountKey, SigningItem>
+    + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
 where
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
@@ -93,7 +94,7 @@ where
             Ticker,
             AccountKey,
             SigningItem,
-        >,
+        > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>,
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -170,6 +171,7 @@ macro_rules! new_full_start {
             use contracts_rpc::{Contracts, ContractsApi};
             use pallet_identity_rpc::{Identity, IdentityApi};
             use pallet_mips_rpc::{Mips, MipsApi};
+            use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
             use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
             // register contracts RPC extension
@@ -185,6 +187,9 @@ macro_rules! new_full_start {
             )));
             io.extend_with(MipsApi::to_delegate(Mips::new(builder.client().clone())));
             io.extend_with(IdentityApi::to_delegate(Identity::new(
+                builder.client().clone(),
+            )));
+            io.extend_with(ProtocolFeeApi::to_delegate(ProtocolFee::new(
                 builder.client().clone(),
             )));
             Ok(io)
@@ -347,22 +352,24 @@ where
     Ok(service)
 }
 
-
 /// Builds a new object suitable for chain operations.
-pub fn chain_ops<Runtime, Dispatch, Extrinsic>(mut config: Configuration)
-	-> Result<impl ServiceBuilderCommand<Block=Block>, ServiceError>
+pub fn chain_ops<Runtime, Dispatch, Extrinsic>(
+    mut config: Configuration,
+) -> Result<impl ServiceBuilderCommand<Block = Block>, ServiceError>
 where
-	Runtime: ConstructRuntimeApi<Block, TFullClient<Block, Runtime, Dispatch>> + Send + Sync + 'static,
-	Runtime::RuntimeApi:
-	RuntimeApiCollection<Extrinsic, StateBackend = sc_client_api::StateBackendFor<TFullBackend<Block>, Block>>,
-	Dispatch: NativeExecutionDispatch + 'static,
-	Extrinsic: RuntimeExtrinsic,
-	<Runtime::RuntimeApi as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
+    Runtime:
+        ConstructRuntimeApi<Block, TFullClient<Block, Runtime, Dispatch>> + Send + Sync + 'static,
+    Runtime::RuntimeApi: RuntimeApiCollection<
+        Extrinsic,
+        StateBackend = sc_client_api::StateBackendFor<TFullBackend<Block>, Block>,
+    >,
+    Dispatch: NativeExecutionDispatch + 'static,
+    Extrinsic: RuntimeExtrinsic,
+    <Runtime::RuntimeApi as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
-	config.keystore = sc_service::config::KeystoreConfig::InMemory;
-	Ok(new_full_start!(config, Runtime, Dispatch).0)
+    config.keystore = sc_service::config::KeystoreConfig::InMemory;
+    Ok(new_full_start!(config, Runtime, Dispatch).0)
 }
-
 
 pub type TLocalLightClient<Runtime, Dispatch> = Client<
     sc_client::light::backend::Backend<sc_client_db::light::LightStorage<Block>, BlakeTwo256>,

@@ -52,7 +52,7 @@ jobs:
           name: Tests
           command: >-
             cargo test
-            --package polymesh-runtime_common
+            --package polymesh-runtime-common
             --package pallet-staking
             --package pallet-group
             --package pallet-im-online
@@ -61,7 +61,7 @@ jobs:
             --package pallet-transaction-payment 
             --package pallet-cdd-offchain-worker ||
             cargo test -j 1
-            --package polymesh-runtime_common
+            --package polymesh-runtime-common
             --package pallet-staking
             --package pallet-group
             --package pallet-im-online

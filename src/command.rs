@@ -38,28 +38,40 @@ where
         Some(Subcommand::Base(subcommand)) => {
             subcommand.init(&version)?;
             subcommand.update_config(&mut config, load_spec, &version)?;
-            
-            let is_v1_network = config.chain_spec.as_ref().map_or(false, |s| s.is_v1_network());
-            
+
+            let is_v1_network = config
+                .chain_spec
+                .as_ref()
+                .map_or(false, |s| s.is_v1_network());
+
             if is_v1_network {
-                subcommand.run(config, service::chain_ops::<
-                    service::polymesh_runtime_testnet_v1::RuntimeApi,
-                    service::V1Executor,
-                    service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
-                >)
+                subcommand.run(
+                    config,
+                    service::chain_ops::<
+                        service::polymesh_runtime_testnet_v1::RuntimeApi,
+                        service::V1Executor,
+                        service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
+                    >,
+                )
             } else {
-                subcommand.run(config, service::chain_ops::<
-                    service::polymesh_runtime_develop::RuntimeApi,
-                    service::GeneralExecutor,
-                    service::polymesh_runtime_develop::UncheckedExtrinsic,
-                >)
-            } 
+                subcommand.run(
+                    config,
+                    service::chain_ops::<
+                        service::polymesh_runtime_develop::RuntimeApi,
+                        service::GeneralExecutor,
+                        service::polymesh_runtime_develop::UncheckedExtrinsic,
+                    >,
+                )
+            }
         }
         #[cfg(feature = "runtime-benchmarks")]
         Some(Subcommand::Benchmark(cmd)) => {
             cmd.init(&version)?;
             cmd.update_config(&mut config, load_spec, &version)?;
-            let is_v1_network = config.chain_spec.as_ref().map_or(false, |s| s.is_v1_network());
+            let is_v1_network = config
+                .chain_spec
+                .as_ref()
+                .map_or(false, |s| s.is_v1_network());
             if is_v1_network {
                 cmd.run::<_, _, service::Block, service::V1Executor>(config)
             } else {
@@ -72,53 +84,53 @@ where
 
             info!("{}", version.name);
             info!("  version {}", config.full_version());
-            info!("  by {}, {}-{}", version.author, version.copyright_start_year, Local::today().year());
+            info!(
+                "  by {}, {}-{}",
+                version.author,
+                version.copyright_start_year,
+                Local::today().year()
+            );
             info!("Chain specification: {}", config.expect_chain_spec().name());
             info!("Node name: {}", config.name);
             info!("Roles: {}", config.display_role());
 
-            let is_v1_network = config.chain_spec.as_ref().map_or(false, |s| s.is_v1_network());
+            let is_v1_network = config
+                .chain_spec
+                .as_ref()
+                .map_or(false, |s| s.is_v1_network());
             if is_v1_network {
                 match config.roles {
-                    service::Roles::LIGHT =>
-                        sc_cli::run_service_until_exit(
-                            config,
-                            |config| service::new_light::<
-                                service::polymesh_runtime_testnet_v1::RuntimeApi,
-                                service::V1Executor,
-                                service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
-                            >(config)
-                        ),
-                    _ =>
-                        sc_cli::run_service_until_exit(
-                            config,
-                            |config| service::new_full::<
-                                service::polymesh_runtime_testnet_v1::RuntimeApi,
-                                service::V1Executor,
-                                service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
-                            >(config)
-                        ),
+                    service::Roles::LIGHT => sc_cli::run_service_until_exit(config, |config| {
+                        service::new_light::<
+                            service::polymesh_runtime_testnet_v1::RuntimeApi,
+                            service::V1Executor,
+                            service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
+                        >(config)
+                    }),
+                    _ => sc_cli::run_service_until_exit(config, |config| {
+                        service::new_full::<
+                            service::polymesh_runtime_testnet_v1::RuntimeApi,
+                            service::V1Executor,
+                            service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
+                        >(config)
+                    }),
                 }
             } else {
                 match config.roles {
-                    service::Roles::LIGHT =>
-                        sc_cli::run_service_until_exit(
-                            config,
-                            |config| service::new_light::<
-                                service::polymesh_runtime_develop::RuntimeApi,
-                                service::GeneralExecutor,
-                                service::polymesh_runtime_develop::UncheckedExtrinsic,
-                            >(config)
-                        ),
-                    _ =>
-                        sc_cli::run_service_until_exit(
-                            config,
-                            |config| service::new_full::<
-                                service::polymesh_runtime_develop::RuntimeApi,
-                                service::GeneralExecutor,
-                                service::polymesh_runtime_develop::UncheckedExtrinsic,
-                            >(config)
-                        ),
+                    service::Roles::LIGHT => sc_cli::run_service_until_exit(config, |config| {
+                        service::new_light::<
+                            service::polymesh_runtime_develop::RuntimeApi,
+                            service::GeneralExecutor,
+                            service::polymesh_runtime_develop::UncheckedExtrinsic,
+                        >(config)
+                    }),
+                    _ => sc_cli::run_service_until_exit(config, |config| {
+                        service::new_full::<
+                            service::polymesh_runtime_develop::RuntimeApi,
+                            service::GeneralExecutor,
+                            service::polymesh_runtime_develop::UncheckedExtrinsic,
+                        >(config)
+                    }),
                 }
             }
         }

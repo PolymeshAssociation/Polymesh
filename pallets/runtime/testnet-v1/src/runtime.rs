@@ -18,8 +18,9 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_protocol_fee as protocol_fee;
+use pallet_treasury as treasury;
 use polymesh_common_utilities::{
-    constants::currency::*, traits::balances::AccountData, CommonTrait,
+    constants::currency::*, protocol_fee::ProtocolOp, traits::balances::AccountData, CommonTrait,
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
@@ -49,6 +50,7 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::OpaqueMetadata;
@@ -346,6 +348,7 @@ impl pallet_mips::Trait for Runtime {
     type VotingMajorityOrigin =
         committee::EnsureProportionAtLeast<_1, _2, AccountId, GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
+    type Treasury = Treasury;
     type Event = Event;
 }
 
@@ -406,21 +409,8 @@ parameter_types! {
     pub const TipReportDepositPerByte: Balance = 1 * CENTS;
 }
 
-impl pallet_treasury::Trait for Runtime {
-    type Currency = Balances;
-    type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
-    type RejectOrigin = frame_system::EnsureRoot<AccountId>;
-    type Tippers = Elections;
-    type TipCountdown = TipCountdown;
-    type TipFindersFee = TipFindersFee;
-    type TipReportDepositBase = TipReportDepositBase;
-    type TipReportDepositPerByte = TipReportDepositPerByte;
+impl treasury::Trait for Runtime {
     type Event = Event;
-    type ProposalRejection = ();
-    type ProposalBond = ProposalBond;
-    type ProposalBondMinimum = ProposalBondMinimum;
-    type SpendPeriod = SpendPeriod;
-    type Burn = Burn;
 }
 
 impl pallet_offences::Trait for Runtime {
@@ -614,7 +604,7 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
+        Treasury: treasury::{Module, Call, Storage, Config<T>, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Mips: pallet_mips::{Module, Call, Storage, Event<T>, Config<T>},
@@ -846,6 +836,14 @@ impl_runtime_apis! {
         /// Proposals `address` voted on
         fn voted_on(address: AccountId) -> Vec<u32> {
             Mips::voted_on(address)
+        }
+    }
+
+    impl pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<
+        Block,
+    > for Runtime {
+        fn compute_fee(op: ProtocolOp) -> CappedFee {
+            ProtocolFee::compute_fee(op).into()
         }
     }
 

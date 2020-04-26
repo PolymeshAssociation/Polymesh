@@ -59,52 +59,67 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
 // =======================================
 
 #[test]
+fn add_claims_batch_test() {
+    ExtBuilder::default()
+        .existential_deposit(1_000)
+        .monied(true)
+        .cdd_providers(vec![
+            AccountKeyring::Eve.public(),
+            AccountKeyring::Ferdie.public(),
+        ])
+        .build()
+        .execute_with(|| add_claims_batch());
+}
+
 fn add_claims_batch() {
-    ExtBuilder::default().build().execute_with(|| {
-        let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let claim_issuer = AccountKeyring::Charlie.public();
-        let scope = Scope::from(0);
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_issuer = AccountKeyring::Bob.public();
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let cdd_claim_issuer = AccountKeyring::Eve.public();
+    let cdd_claim_did = get_identity_id(AccountKeyring::Eve).unwrap();
 
-        let claim_records = vec![
-            BatchAddClaimItem {
-                target: claim_issuer_did,
-                claim: Claim::Accredited(scope),
-                expiry: None,
-            },
-            BatchAddClaimItem {
-                target: claim_issuer_did,
-                claim: Claim::Affiliate(scope),
-                expiry: None,
-            },
-        ];
-        assert_ok!(Identity::add_claims_batch(
-            Origin::signed(claim_issuer.clone()),
-            claim_records,
-        ));
+    let scope = Scope::from(0);
 
-        let claim1 = Identity::fetch_claim(
-            claim_issuer_did,
-            ClaimType::Accredited,
-            claim_issuer_did,
-            Some(scope),
-        )
-        .unwrap();
-        let claim2 = Identity::fetch_claim(
-            claim_issuer_did,
-            ClaimType::Affiliate,
-            claim_issuer_did,
-            Some(scope),
-        )
-        .unwrap();
+    let claim_records = vec![
+        BatchAddClaimItem {
+            target: alice_did,
+            claim: Claim::CustomerDueDiligence,
+            expiry: None,
+        },
+        BatchAddClaimItem {
+            target: alice_did,
+            claim: Claim::Affiliate(scope),
+            expiry: None,
+        },
+    ];
 
-        assert_eq!(claim1.expiry, None);
-        assert_eq!(claim2.expiry, None);
+    assert_ok!(Identity::add_claims_batch(
+        Origin::signed(cdd_claim_issuer),
+        claim_records.clone(),
+    ));
 
-        assert_eq!(claim1.claim, Claim::Accredited(scope));
-        assert_eq!(claim2.claim, Claim::Affiliate(scope));
-    });
+    // Using Bob as the singer who is not a CDD Provider to check if the transaction fails
+    assert_err!(
+        Identity::add_claims_batch(Origin::signed(bob_issuer), claim_records.clone(),),
+        Error::<TestStorage>::UnAuthorizedCddProvider
+    );
+
+    let claim1 = Identity::fetch_claim(
+        alice_did,
+        ClaimType::CustomerDueDiligence,
+        cdd_claim_did,
+        None,
+    )
+    .unwrap();
+
+    let claim2 =
+        Identity::fetch_claim(alice_did, ClaimType::Affiliate, cdd_claim_did, Some(scope)).unwrap();
+
+    assert_eq!(claim1.expiry, None);
+    assert_eq!(claim2.expiry, None);
+
+    assert_eq!(claim1.claim, Claim::CustomerDueDiligence);
+    assert_eq!(claim2.claim, Claim::Affiliate(scope));
 }
 
 /// TODO Add `Signatory::Identity(..)` test.

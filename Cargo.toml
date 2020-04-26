@@ -36,6 +36,9 @@ members = [
     "pallets/protocol-fee",
     "pallets/multisig",
     "pallets/cdd-offchain-worker",
+    "pallets/protocol-fee/rpc",
+    "pallets/protocol-fee/rpc/runtime-api",
+    "pallets/treasury",
 ]
 
 [dependencies]
@@ -46,6 +49,7 @@ polymesh-runtime-develop = { package = "polymesh-runtime-develop", path = "palle
 polymesh-runtime-testnet-v1 = { package = "polymesh-runtime-testnet-v1", path = "pallets/runtime/testnet-v1" }
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "pallets/transaction-payment/rpc/runtime-api", default-features = false }
+pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
 pallet-contracts-rpc-runtime-api = { package = "pallet-contracts-rpc-runtime-api", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", default-features = false }
 pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "pallets/staking/rpc/runtime-api", default-features = false }
@@ -55,6 +59,8 @@ pallet-identity-rpc = { package = "pallet-identity-rpc", path = "pallets/identit
 pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", path = "pallets/identity/rpc/runtime-api", default-features = false }
 im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
 pallet-protocol-fee = { package = "pallet-protocol-fee", path = "pallets/protocol-fee", default-features = false }
+pallet-protocol-fee-rpc = { package = "pallet-protocol-fee-rpc", path = "pallets/protocol-fee/rpc", default-features = false }
+pallet-treasury = { package = "pallet-treasury", path = "pallets/treasury", default-features = false }
 
 parking_lot = "0.10.0"
 tokio = "0.2.13"

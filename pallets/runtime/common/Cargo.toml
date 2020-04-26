@@ -15,6 +15,7 @@ pallet-committee = { package = "pallet-committee", path = "../../committee", def
 pallet-mips = { package = "pallet-mips", path = "../../mips", default-features = false }
 pallet-group = { package = "pallet-group", path = "../../group", default-features = false}
 pallet-multisig = { package = "pallet-multisig", path = "../../multisig", default-features = false}
+pallet-treasury = { package = "pallet-treasury", path = "../../treasury", default-features = false }
 
 chrono = { version = "0.4.11", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
@@ -31,7 +32,6 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 
 pallet-contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-pallet-treasury = { package = "pallet-treasury", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-authorship = { package = "pallet-authorship", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -69,6 +69,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-identity/std",
 	"pallet-multisig/std",
+	"pallet-treasury/std",
 	"pallet-transaction-payment/std",
 	"pallet-randomness-collective-flip/std",
 	"frame-benchmarking/std",

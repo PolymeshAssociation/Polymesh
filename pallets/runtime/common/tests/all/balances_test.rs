@@ -212,6 +212,36 @@ fn issue_must_work() {
 }
 
 #[test]
+fn burn_account_balance_works() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        let alice_pub = AccountKeyring::Alice.public();
+        let _ = make_account(alice_pub).unwrap();
+        let total_issuance0 = Balances::total_issuance();
+        let alice_free_balance0 = Balances::free_balance(&alice_pub);
+        let burn_amount = 100_000;
+        assert_ok!(Balances::burn_account_balance(
+            Origin::signed(alice_pub),
+            burn_amount
+        ));
+        let alice_free_balance1 = Balances::free_balance(&alice_pub);
+        assert_eq!(alice_free_balance1, alice_free_balance0 - burn_amount);
+        let total_issuance1 = Balances::total_issuance();
+        assert_eq!(total_issuance1, total_issuance0 - burn_amount);
+        let fat_finger_burn_amount = std::u128::MAX;
+        assert_err!(
+            Balances::burn_account_balance(Origin::signed(alice_pub), fat_finger_burn_amount),
+            Error::InsufficientBalance
+        );
+        let alice_free_balance2 = Balances::free_balance(&alice_pub);
+        // None of Alice's free balance is burned.
+        assert_eq!(alice_free_balance2, alice_free_balance1);
+        let total_issuance2 = Balances::total_issuance();
+        // The total issuance is unchanged either.
+        assert_eq!(total_issuance2, total_issuance1);
+    });
+}
+
+#[test]
 #[ignore]
 fn should_charge_identity() {
     ExtBuilder::default()
