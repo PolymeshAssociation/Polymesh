@@ -115,7 +115,7 @@ decl_error! {
         /// Something Overflowed
         Overflow,
         /// Need I say more?
-        DivisionByZero
+        DivisionByZero,
         /// The transaction is time locked
         TimelockedTx,
     }
