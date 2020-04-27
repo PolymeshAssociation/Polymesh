@@ -14,7 +14,7 @@ use pallet_group as group;
 use pallet_identity::{self as identity};
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{EraIndex, Exposure, ExposureOf, StakerStatus, StashOf};
-use polymesh_common_utilites::traits::{
+use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
