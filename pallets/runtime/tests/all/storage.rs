@@ -1,5 +1,5 @@
 use pallet_committee as committee;
-use pallet_mips as mips;
+use pallet_pips as pips;
 use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_group as group;
@@ -56,7 +56,7 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
-        mips::Mips,
+        pips::Pips,
         multisig::MultiSig,
         pallet_contracts::Contracts,
         bridge::Bridge,
@@ -72,7 +72,7 @@ impl_outer_event! {
         percentage_tm<T>,
         bridge<T>,
         asset<T>,
-        mips<T>,
+        pips<T>,
         pallet_contracts<T>,
         pallet_session,
         general_tm,
@@ -451,7 +451,7 @@ impl dividend::Trait for TestStorage {
     type Event = Event;
 }
 
-impl mips::Trait for TestStorage {
+impl pips::Trait for TestStorage {
     type Currency = balances::Module<Self>;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
@@ -462,7 +462,7 @@ impl mips::Trait for TestStorage {
 
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
-pub type Mips = mips::Module<TestStorage>;
+pub type Pips = pips::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
 pub type Asset = asset::Module<TestStorage>;
 pub type MultiSig = multisig::Module<TestStorage>;
