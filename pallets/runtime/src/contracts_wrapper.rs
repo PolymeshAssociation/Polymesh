@@ -11,7 +11,7 @@
 //! ## Possible Tokenomics
 //!
 //!   - Initially restrict list of accounts that can put_code
-//!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
+//!   - When code is instantiated enforce a POLYX fee to the DID owning the code (i.e. that executed put_code)
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_common::{identity::Trait as IdentityTrait, Context};
