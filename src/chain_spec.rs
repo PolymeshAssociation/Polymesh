@@ -5,12 +5,12 @@ use polymesh_runtime::{
     asset::TickerRegistrationConfig,
     config::{
         AssetConfig, BalancesConfig, BridgeConfig, ContractsConfig, GenesisConfig, IdentityConfig,
-        ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
+        ImOnlineConfig, IndicesConfig, PipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
         SudoConfig, SystemConfig,
     },
     runtime::{
         CddServiceProvidersConfig, CommitteeMembershipConfig, PolymeshCommitteeConfig,
-        ProtocolFeeConfig,
+        ProtocolFeeConfig, TreasuryConfig,
     },
     Commission, OfflineSlashingParams, Perbill, SessionKeys, StakerStatus, WASM_BINARY,
 };
@@ -321,7 +321,7 @@ fn testnet_genesis(
                 .map(|k| (k, 1 << 55))
                 .collect(),
         }),
-        pallet_treasury: Some(Default::default()),
+        treasury: Some(TreasuryConfig { balance: 0 }),
         pallet_indices: Some(IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(SudoConfig { key: root_key }),
         pallet_session: Some(SessionConfig {
@@ -351,7 +351,8 @@ fn testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_mips: Some(MipsConfig {
+        pallet_pips: Some(PipsConfig {
+            prune_historical_pips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,

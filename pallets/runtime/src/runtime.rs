@@ -18,11 +18,13 @@ use polymesh_protocol_fee as protocol_fee;
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{
     constants::{currency::*, fee::*, time::*},
+    protocol_fee::ProtocolOp,
     traits::balances::AccountData,
     CommonTrait,
 };
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
+use polymesh_runtime_treasury as treasury;
 
 use frame_support::{
     construct_runtime, debug, parameter_types,
@@ -52,6 +54,7 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
+use polymesh_protocol_fee_rpc_runtime_api::CappedFee;
 use polymesh_runtime_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::OpaqueMetadata;
@@ -349,12 +352,13 @@ impl group::Trait<group::Instance1> for Runtime {
     type MembershipChanged = PolymeshCommittee;
 }
 
-impl pallet_mips::Trait for Runtime {
+impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin =
         committee::EnsureProportionAtLeast<_1, _2, AccountId, GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
+    type Treasury = Treasury;
     type Event = Event;
 }
 
@@ -415,21 +419,8 @@ parameter_types! {
     pub const TipReportDepositPerByte: Balance = 1 * CENTS;
 }
 
-impl pallet_treasury::Trait for Runtime {
-    type Currency = Balances;
-    type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
-    type RejectOrigin = frame_system::EnsureRoot<AccountId>;
-    type Tippers = Elections;
-    type TipCountdown = TipCountdown;
-    type TipFindersFee = TipFindersFee;
-    type TipReportDepositBase = TipReportDepositBase;
-    type TipReportDepositPerByte = TipReportDepositPerByte;
+impl treasury::Trait for Runtime {
     type Event = Event;
-    type ProposalRejection = ();
-    type ProposalBond = ProposalBond;
-    type ProposalBondMinimum = ProposalBondMinimum;
-    type SpendPeriod = SpendPeriod;
-    type Burn = Burn;
 }
 
 impl pallet_offences::Trait for Runtime {
@@ -691,10 +682,10 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
+        Treasury: treasury::{Module, Call, Storage, Config<T>, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-        Mips: pallet_mips::{Module, Call, Storage, Event<T>, Config<T>},
+        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
@@ -911,20 +902,28 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance> for Runtime {
+    impl pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance> for Runtime {
         /// Get vote count for a given proposal index
-        fn get_votes(index: u32) -> pallet_mips_rpc_runtime_api::VoteCount<Balance> {
-            Mips::get_votes(index)
+        fn get_votes(index: u32) -> pallet_pips_rpc_runtime_api::VoteCount<Balance> {
+            Pips::get_votes(index)
         }
 
         /// Proposals voted by `address`
         fn proposed_by(address: AccountId) -> Vec<u32> {
-            Mips::proposed_by(address)
+            Pips::proposed_by(address)
         }
 
         /// Proposals `address` voted on
         fn voted_on(address: AccountId) -> Vec<u32> {
-            Mips::voted_on(address)
+            Pips::voted_on(address)
+        }
+    }
+
+    impl polymesh_protocol_fee_rpc_runtime_api::ProtocolFeeApi<
+        Block,
+    > for Runtime {
+        fn compute_fee(op: ProtocolOp) -> CappedFee {
+            ProtocolFee::compute_fee(op).into()
         }
     }
 

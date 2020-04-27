@@ -125,14 +125,14 @@ cargo test --package pallet-staking
 cargo test --package polymesh-runtime-group
 cargo test --package pallet-im-online
 cargo test --package polymesh-primitives
-cargo test --package pallet-mips-rpc
+cargo test --package pallet-pips-rpc
 cargo test --package pallet-transaction-payment
 cargo test --package polymesh-runtime
 cargo test --package pallet-staking
 cargo test --package polymesh-runtime-group
 cargo test --package pallet-im-online
 cargo test --package polymesh-primitives
-cargo test --package pallet-mips-rpc
+cargo test --package pallet-pips-rpc
 cargo test --package pallet-transaction-payment
 ```
 

@@ -1,13 +1,14 @@
 use crate::TestStorage;
 
 use pallet_committee as committee;
-use pallet_mips as mips;
+use pallet_pips as pips;
 use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 use polymesh_runtime::asset::{self, TickerRegistrationConfig};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
 use polymesh_runtime_group as group;
 use polymesh_runtime_identity as identity;
+use polymesh_runtime_treasury as treasury;
 
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
@@ -48,7 +49,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::IdentityAddClaim,
             ProtocolOp::IdentitySetMasterKey,
             ProtocolOp::IdentityAddSigningItem,
-            ProtocolOp::MipsPropose,
+            ProtocolOp::PipsPropose,
             ProtocolOp::VotingAddBallot,
         ];
         let fees = ops
@@ -72,6 +73,7 @@ pub struct ExtBuilder {
     governance_committee_vote_threshold: BuilderVoteThreshold,
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
+    treasury_balance: u128,
 }
 
 thread_local! {
@@ -82,6 +84,12 @@ thread_local! {
 }
 
 impl ExtBuilder {
+    /// Initial amount of the treasury.
+    pub fn treasury(mut self, amount: u128) -> Self {
+        self.treasury_balance = amount;
+        self
+    }
+
     pub fn transaction_fees(mut self, base_fee: u128, byte_fee: u128, weight_fee: u128) -> Self {
         self.transaction_base_fee = base_fee;
         self.transaction_byte_fee = byte_fee;
@@ -320,12 +328,19 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        mips::GenesisConfig::<TestStorage> {
+        pips::GenesisConfig::<TestStorage> {
+            prune_historical_pips: false,
             min_proposal_deposit: 50,
             quorum_threshold: 70,
             proposal_duration: 10,
             proposal_cool_off_period: 100,
             default_enactment_period: 100,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        treasury::GenesisConfig::<TestStorage> {
+            balance: self.treasury_balance,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
