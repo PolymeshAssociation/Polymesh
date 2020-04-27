@@ -444,10 +444,6 @@ fn do_timelock_txs() {
         amount,
         tx_hash: Default::default(),
     };
-    let bridge_tx_identifier = BridgeTxIdentifier {
-        nonce: 1,
-        tx_hash: Default::default(),
-    };
     let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
         bridge_tx.clone(),
     )));
@@ -460,7 +456,7 @@ fn do_timelock_txs() {
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
@@ -468,12 +464,11 @@ fn do_timelock_txs() {
         vec![bridge_tx.clone()]
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier)
-            .execution_block,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
         unlock_block_number
     );
     next_block();
@@ -487,12 +482,11 @@ fn do_timelock_txs() {
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(bobs_balance(), starting_bobs_balance + amount);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier)
-            .execution_block,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
         unlock_block_number
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
         BridgeTxStatus::Handled
     );
 }
@@ -545,10 +539,6 @@ fn do_rate_limit() {
         amount,
         tx_hash: Default::default(),
     };
-    let bridge_tx_identifier = BridgeTxIdentifier {
-        nonce: 1,
-        tx_hash: Default::default(),
-    };
     let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
         bridge_tx.clone(),
     )));
@@ -561,7 +551,7 @@ fn do_rate_limit() {
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
@@ -569,12 +559,11 @@ fn do_rate_limit() {
         vec![bridge_tx.clone()]
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier)
-            .execution_block,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
         unlock_block_number
     );
     next_block();
@@ -602,7 +591,7 @@ fn do_rate_limit() {
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(bobs_balance(), starting_bobs_balance + amount);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
         BridgeTxStatus::Handled
     );
 }
@@ -655,10 +644,6 @@ fn do_whitelist() {
         amount,
         tx_hash: Default::default(),
     };
-    let bridge_tx_identifier = BridgeTxIdentifier {
-        nonce: 1,
-        tx_hash: Default::default(),
-    };
     let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
         bridge_tx.clone(),
     )));
@@ -671,7 +656,7 @@ fn do_whitelist() {
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
@@ -679,12 +664,11 @@ fn do_whitelist() {
         vec![bridge_tx.clone()]
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier)
-            .execution_block,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
         unlock_block_number
     );
     next_block();
@@ -711,7 +695,7 @@ fn do_whitelist() {
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(bobs_balance(), starting_bobs_balance + amount);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &bridge_tx_identifier).status,
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
         BridgeTxStatus::Handled
     );
 }
