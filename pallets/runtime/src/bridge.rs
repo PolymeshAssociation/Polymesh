@@ -165,7 +165,7 @@ decl_storage! {
             map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
 
         /// limit on bridged POLYX per identity for the testnet. (POLYX, LIMIT_REST_BLOCK)
-        BridgeLimit get(fn brigde_limit) config(): (T::Balance, T::BlockNumber);
+        BridgeLimit get(fn bridge_limit) config(): (T::Balance, T::BlockNumber);
 
         /// Amount of POLYX bridged by the identity in last limit bucket (AMOUNT_BRIDGED, LAST_BUCKET)
         PolyxBridged get(fn polyx_bridged): map hasher(twox_64_concat) IdentityId => (T::Balance, T::BlockNumber);
@@ -462,7 +462,7 @@ impl<T: Trait> Module<T> {
         {
             if !Self::bridge_whitelist(did) {
                 let current_block_number = <system::Module<T>>::block_number();
-                let (limit, block_duration) = Self::brigde_limit();
+                let (limit, block_duration) = Self::bridge_limit();
                 ensure!(!block_duration.is_zero(), Error::<T>::DivisionByZero);
                 let current_bucket = current_block_number / block_duration;
                 let (bridged, last_bucket) = Self::polyx_bridged(did);
